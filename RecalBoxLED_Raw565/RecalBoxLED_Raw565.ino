@@ -1,28 +1,32 @@
 /*
-RecalBoxLED firmware - résumé perf (hot-path rendu)
+RetroBoxLED firmware - résumé perf (hot-path rendu)
 -----------------------------------------------------
+BUILD: v3.3.1_gifraw_4MB_fastraw565pack
+Flash/Partition: ESP32 flash 4MB (Auto-detected). Binaire testé avec merged.bin offset 0x10000.
+Feature focus: gifraw + raw565pack/meta (FPS/latence)
+
 Changements majeurs (focus: drawPng/drawRaw565 + SD probes):
 1) drawRaw565() optimisé
-   - Avant: lecture SD “ligne par ligne” (32 reads) -> jitter + latence.
-   - Maintenant: lecture SD en 1 seul gros bloc (RAW565_W*RAW565_H*2 bytes) + blit ligne par ligne depuis RAM.
-   - Mesures sur système lent:
-     * raw565 présent (sans fallback): ~1.93–1.94 s
-     * raw565 manquant (fallback raw default): ~326 ms
-2) Fallback default.raw565 en cache RAM
-   - Cache: /systems/_defaults/default.raw565 chargé une fois en RAM.
-   - drawPng() sur systèmes lents (slowFlag 'L'): fallback direct depuis RAM (skip PNG decode).
-3) drawPng(): décodage PNGle réactivé uniquement sur systèmes rapides
-   - slowFlag 'L': pas de PNGle, fallback direct.
-   - slowFlag 'N': tente SD.open PNG puis pngle; sinon fallback default.raw565.
-4) openGif() optimisé (suppression pattern “probe SD.exists()+SD.open()”)
-   - Pour les masks _defaults (.raw565pack + .meta): ouverture directe des fichiers.
-5) Cache playlist hot-path optimisé
-   - haveCache: suppression des SD.exists(playlistCachePath/playlistIdxPath)
-     remplacé par SD.open(..., FILE_READ) pour déterminer existence.
+   - lecture SD en 1 gros bloc -> jitter réduit
+   - blit depuis RAM
 
-Validation (via logs série):
-- openGif(): le log “skip SD.exists” est observé sur le chemin mask.
-- drawPng(): deltas cohérents avec les objectifs (latence fallback SD fortement réduite).
+2) Fallback /systems/_defaults/default.raw565 en cache RAM
+   - drawPng() sur systèmes slowFlag 'L' : fallback direct depuis RAM (skip PNG decode)
+
+3) openGif() optimisé
+   - pour masks _defaults (.raw565pack + .meta): ouverture directe (pas de pattern probe SD.exists()+SD.open())
+
+4) GIF raw565 pack:
+   - drawGifRaw565Frame(): lecture via File persistants + seek sur frameOffset
+   - meta lue via seek(frameIndex*2) + read()
+
+Validation (logs série + ressenti utilisateur):
+- GIF raw565pack: FPS nettement plus élevés (~x2 attendu/observé)
+- Fluidité: encore un peu de saccades (≈5–10 FPS à évaluer selon système)
+- Latence: un peu élevée sur les systèmes flag 'L' (slowFlag 'L')
+- Exemples logs:
+  [GIF] open OK raw565pack ...
+  [PNG-RAW] slow system -> fallback default raw drawRaw565 ...
 */
 
 #ifndef BitOrder
@@ -75,7 +79,7 @@ bool loadSysDefaultCache()
     String line = f.readStringUntil('\n'); line.trim();
     if (line.length() < 3) continue;
     char val = line.charAt(0);
-    if (val != 'g' && val != 'p') continue;
+    if (val != 'g' && val != 'p' && val != 'B') continue;
 
     // Format attendu:
     //   <val> <sysName> <slowFlag>
@@ -179,12 +183,17 @@ void buildSysDefaultCache()
       if (sysName == "_defaults") { entry.close(); entry = root.openNextFile(); continue; }
       String base = "/systems/_defaults/" + sysName;
       char val = '?';
-      // GIF raw : .raw565pack + .meta
-      if (SD.exists((base + ".raw565pack").c_str()) && SD.exists((base + ".meta").c_str()))
-        val = 'g';
-      // PNG raw : .raw565
-      else if (SD.exists((base + ".raw565").c_str()))
-        val = 'p';
+
+      bool hasPack = SD.exists((base + ".raw565pack").c_str()) && SD.exists((base + ".meta").c_str());
+      bool hasRaw  = SD.exists((base + ".raw565").c_str());
+
+      // Règle:
+      // - uniquement .raw565 => 'p'
+      // - uniquement .raw565pack + .meta => 'g'
+      // - les deux => 'B'
+      if (hasPack && hasRaw) val = 'B';
+      else if (hasPack)      val = 'g';
+      else if (hasRaw)       val = 'p';
       strncpy(sysCacheKeys[sysCacheCount], sysName.c_str(), 31);
       sysCacheKeys[sysCacheCount][31] = '\0';
       sysCacheVals[sysCacheCount] = val;
@@ -1208,6 +1217,8 @@ static uint32_t gifRawFrameCount = 0;
 static String gifRawPackPathCur = "";
 static String gifRawMetaPathCur = "";
 
+static File gifRawPackFile;
+static File gifRawMetaFile;
 static const uint32_t RAW565_GIF_W = PANEL_RES_X * PANEL_CHAIN; // 128
 static const uint32_t RAW565_GIF_H = PANEL_RES_Y;              // 32
 static const uint32_t RAW565_GIF_FRAME_BYTES = RAW565_GIF_W * RAW565_GIF_H * 2;
@@ -1228,54 +1239,47 @@ static String gifToRaw565MetaPath(const String &gifPath)
 
 static void closeGifRawPackIfAny()
 {
+  if (gifRawPackFile) { gifRawPackFile.close(); }
+  if (gifRawMetaFile) { gifRawMetaFile.close(); }
+  gifRawPackFile = File();
+  gifRawMetaFile = File();
+
   gifRawPackPathCur = "";
   gifRawMetaPathCur = "";
   gifRawFrameIndex = 0;
   gifRawFrameCount = 0;
   gifRawPackMode = false;
 }
-
 static uint16_t gifRawReadDelayMs(uint32_t frameIndex)
 {
-  if (gifRawMetaPathCur.length() == 0) return 33;
-
-  File f = SD.open(gifRawMetaPathCur.c_str(), FILE_READ);
-  if (!f) return 33;
+  if (!gifRawMetaFile) return 33;
 
   uint32_t metaPos = frameIndex * 2UL;
-  f.seek(metaPos);
+  gifRawMetaFile.seek(metaPos);
 
   uint16_t ms = 33;
-  size_t got = f.read((uint8_t*)&ms, 2);
-  f.close();
+  size_t got = gifRawMetaFile.read((uint8_t*)&ms, 2);
 
   if (got != 2) ms = 33;
   if (ms == 0) ms = 10;
   return ms;
 }
-
 static void drawGifRaw565Frame(uint32_t frameIndex)
 {
-  if (gifRawPackPathCur.length() == 0) return;
-
-  File f = SD.open(gifRawPackPathCur.c_str(), FILE_READ);
-  if (!f) return;
+  if (!gifRawPackFile) return;
 
   uint32_t baseOff = frameIndex * RAW565_GIF_FRAME_BYTES;
-  f.seek(baseOff);
+  gifRawPackFile.seek(baseOff);
 
   uint16_t row[RAW565_GIF_W];
   for (uint32_t y = 0; y < RAW565_GIF_H; y++)
   {
     size_t need = RAW565_GIF_W * 2UL;
-    size_t got = f.read((uint8_t*)row, need);
+    size_t got = gifRawPackFile.read((uint8_t*)row, need);
     if (got != need) break;
     display->drawRGBBitmap(0, (int)y, row, RAW565_GIF_W, 1);
   }
-
-  f.close();
 }
-
 static bool gifPlayFrameCompat(bool first, int *pDelayMs)
 {
   if (gifRawPackMode)
@@ -1320,33 +1324,34 @@ bool openGif(const String &path, bool clearBefore=true, bool skipProbe=false)
   gifOpened = false;
 
   // RULE:
-  // - Playlist: on doit ouvrir le GIF standard (.gif)
-  // - _defaults/masks: raw-only (.raw565pack + .meta)
+  // - Si raw565pack + meta existent => on ouvre en raw565pack
+  // - Sinon => fallback sur GIF standard (.gif)
+  // - Cas spécifique masks _defaults: raw-only strict (pas de fallback GIF standard)
   bool isDefaults = (path.indexOf("/systems/_defaults/") >= 0);
 
-  // -------- _defaults/masks => raw-only --------
-  if (isDefaults)
+  // -------- Raw565pack (si disponible) --------
+  String rawPack = gifToRaw565PackPath(path);
+  String metaPath = gifToRaw565MetaPath(path);
+
   {
-    String rawPack = gifToRaw565PackPath(path);
-    String metaPath = gifToRaw565MetaPath(path);
+    // Evite un pattern "probe" SD.exists()+SD.open() : on ouvre directement.
+    if (clearBefore) display->clearScreen();
 
-    {
-      // Evite un pattern "probe" SD.exists()+SD.open() : on ouvre directement.
-      if (clearBefore) display->clearScreen();
+      gifRawPackFile = SD.open(rawPack.c_str(), FILE_READ);
+      gifRawMetaFile = SD.open(metaPath.c_str(), FILE_READ);
 
-      File packF = SD.open(rawPack.c_str(), FILE_READ);
-      File metaF = SD.open(metaPath.c_str(), FILE_READ);
-
-      if (packF && metaF)
+      if (gifRawPackFile && gifRawMetaFile)
       {
-        size_t packSize = packF.size();
-        packF.close();
-        metaF.close();
+        size_t packSize = gifRawPackFile.size();
 
         gif.close();
         gifOpened = true;
         gifRawPackMode = true;
         gifRawFrameIndex = 0;
+
+        Serial.println("[GIF] open OK raw565pack req=" + path
+                     + " rawPack=" + rawPack
+                     + " meta=" + metaPath);
 
         gifRawPackPathCur = rawPack;
         gifRawMetaPathCur = metaPath;
@@ -1360,12 +1365,12 @@ bool openGif(const String &path, bool clearBefore=true, bool skipProbe=false)
         return gifOpened;
       }
 
-      if (packF) packF.close();
-      if (metaF) metaF.close();
       closeGifRawPackIfAny();
-    }
+  }
 
-    // raw-only strict: si pack+meta n'existe pas, on refuse
+  // raw-only strict: si ce sont des masks _defaults, on refuse sans fallback
+  if (isDefaults)
+  {
     gifRawPackMode = false;
     gif.close();
     gifOpened = false;
@@ -1436,22 +1441,57 @@ DisplayMode openBestMedia(const String &basePath, const String &systemPath="")
   {
     String sysName=getSysName(basePath); char t=sysDefaultType(sysName);
 
-    // GIF d'abord si autorisé par le cache
-    if(t!='p'&&openDG(sysName)){pngDrawn=false;currentPngPath="";return MODE_GIF;}
-
-    // Puis tenter PNG si autorisé; si PNG échoue on force un fallback GIF.
-    bool pngOk=false;
-    if(t!='g') pngOk=openDP(sysName);
-    if(pngOk) return MODE_PNG;
-
+    // Ordre explicite selon le type cache:
+    // p => PNG (raw565) d'abord
+    // g => GIF d'abord
+    // B => PNG d'abord puis GIF si échec
+    if(t=='g')
+    {
       if(openDG(sysName)){pngDrawn=false;currentPngPath="";return MODE_GIF;}
+      if(openDP(sysName)) return MODE_PNG;
+    }
+    else if(t=='p')
+    {
+      if(openDP(sysName)) return MODE_PNG;
+      if(openDG(sysName)){pngDrawn=false;currentPngPath="";return MODE_GIF;}
+    }
+    else // B ou autre
+    {
+      // B : on force raw565pack d'abord (openDG), même si raw565 existe
+      if(openDG(sysName)){pngDrawn=false;currentPngPath="";return MODE_GIF;}
+      if(openDP(sysName)) return MODE_PNG;
+    }
   }
 
   if(systemPath.length()>0)
   {
     String sysName=getSysName(systemPath); char t=sysDefaultType(sysName);
-    if(t!='p'&&openDG(sysName)){pngDrawn=false;currentPngPath="";return MODE_GIF;}
-    if(t!='g'){
+
+    // Ordre explicite selon le type cache:
+    // p => PNG (raw565) d'abord
+    // g => GIF d'abord
+    // B => PNG d'abord puis GIF si échec
+    if(t=='g')
+    {
+      if(openDG(sysName)){pngDrawn=false;currentPngPath="";return MODE_GIF;}
+      String path=getDP(sysName)+".png";
+      if(path==currentPngPath&&pngDrawn) return MODE_PNG;
+      display->clearScreen();
+      if(drawPng(path)){currentPngPath=path;pngDrawn=true;return MODE_PNG;}
+    }
+    else if(t=='p')
+    {
+      String path=getDP(sysName)+".png";
+      if(path==currentPngPath&&pngDrawn) return MODE_PNG;
+      display->clearScreen();
+      if(drawPng(path)){currentPngPath=path;pngDrawn=true;return MODE_PNG;}
+      if(openDG(sysName)){pngDrawn=false;currentPngPath="";return MODE_GIF;}
+    }
+    else // B ou autre
+    {
+      // B : on force raw565pack d'abord (openDG), même si raw565 existe
+      if(openDG(sysName)){pngDrawn=false;currentPngPath="";return MODE_GIF;}
+
       String path=getDP(sysName)+".png";
       if(path==currentPngPath&&pngDrawn) return MODE_PNG;
       display->clearScreen();
@@ -1459,6 +1499,14 @@ DisplayMode openBestMedia(const String &basePath, const String &systemPath="")
     }
   }
 
+  // Fallback final: forcer RAM default.raw565 (évite tout redécodage PNG en loop())
+  gif.close(); gifOpened = false;
+  pngDrawn = true;
+  currentPngPath = "";
+  display->clearScreen();
+  if(drawDefaultRaw565Cached()) return MODE_PNG;
+
+  // Si (exceptionnel) la RAM default.raw565 n'est pas disponible, rebasculer sur l'ancien fallback
   char defType=sysDefaultType("default");
   if(defType!='p'&&openDG("default")){pngDrawn=false;currentPngPath="";return MODE_GIF;}
   if(defType!='g'){
@@ -1588,9 +1636,23 @@ void processPendingMqttCommand()
     {
       String gamePng = gameBase + ".png";
       String gameGif = gameBase + ".gif";
+      char sysT = sysDefaultType(sysName);
 
       display->clearScreen();
 
+      // Pour B : raw565pack d'abord (openGif sur .gif => .raw565pack+.meta)
+      if(sysT == 'B')
+      {
+        if(openGif(gameGif, false, true))
+        {
+          pngDrawn = false;
+          currentPngPath = "";
+          currentMode = MODE_GIF;
+          break;
+        }
+      }
+
+      // Ordre standard : PNG d'abord
       if(drawPng(gamePng))
       {
         pngDrawn = true;
@@ -1599,6 +1661,7 @@ void processPendingMqttCommand()
         break;
       }
 
+      // Puis GIF
       if(openGif(gameGif, false, true))
       {
         pngDrawn = false;
@@ -1663,13 +1726,11 @@ void processPendingMqttCommand()
         }
         else
         {
-          String maskGif=maskBase+".gif";
-          // On affiche au moins la 1ere frame pour que le mask soit visible pendant le chargement du jeu
-          if(openGif(maskGif,true,true))
+          // Mask obligatoire en raw565 (jamais raw565pack)
+          String maskRaw565 = maskBase + ".raw565";
+          if(drawRaw565(maskRaw565))
           {
-            int fd=0;
-            gif.playFrame(true,&fd);
-            currentMode=MODE_GIF;
+            currentMode=MODE_BLACK; // on garde juste le contenu affiché du mask
             pngDrawn=false;
             currentPngPath="";
           }
@@ -1695,6 +1756,18 @@ void processPendingMqttCommand()
                    + " slowFlag=" + String(slowFlag));
 
       // NE PAS clearScreen ici: le mask doit rester visible pendant le chargement.
+      // En mode lent, on force le type d'affichage selon le flag système:
+      // - sysType 'g'/'B' => raw565pack via openGif(...) (pas drawPng/raw565)
+      // - sysType 'p'     => drawPng/raw565
+      {
+        char sysT = sysDefaultType(sysName);
+        char cachedBefore = cached;
+        if(sysT=='g' || sysT=='B') cached = 'g';
+        else if(sysT=='p') cached = 'p';
+        Serial.println("[CMD_GAME] slow cached force sysType=" + String(sysT)
+                       + " cachedBefore=" + String(cachedBefore)
+                       + " cachedAfter=" + String(cached));
+      }
       if(cached=='p')
       {
         String path=gameBase+".png";
@@ -2368,7 +2441,7 @@ int buildOffsetIndex()
 // --------------------------------------------------
 // Splash screen — version au démarrage (info=1 uniquement)
 // --------------------------------------------------
-#define RETRO_VERSION "raw565"
+#define RETRO_VERSION "RecalBoxLED Raw565"
 
 void showSplashScreen()
 {
@@ -2388,7 +2461,7 @@ void showSplashScreen()
 
   // Ligne 1 : RetroBoxLED centré, un seul setCursor puis print enchaînés
   display->setCursor(31, 8);
-  display->setTextColor(red);   display->print("Recal");
+  display->setTextColor(red);   display->print("Retro");
   display->setTextColor(blue);  display->print("Box");
   display->setTextColor(green); display->print("LED");
 
