@@ -1,6 +1,9 @@
 # RecalBoxDMD
 interface en MQTT entre recalbox et un DMD 128*32 esp32
 
+BUILD: v3.3.1_gifraw_4MB_fastraw565pack
+Flash/Partition: ESP32 flash 4MB (Auto-detected). Binaire testé avec merged.bin offset 0x10000.
+Feature focus: gifraw + raw565pack/meta (FPS/latence)
 
 
 RecalBoxLED firmware - résumé perf (hot-path rendu)
