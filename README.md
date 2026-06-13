@@ -15,8 +15,7 @@
 - **Networking**:
   - WiFi (static or DHCP)
   - MQTT (real-time game/system display)
-  - Telnet (debugging & manual control)
-- **Audio**: Bluetooth Serial support
+- **Bluetooth**: in case of conflict 
 - **Configuration**: `config.ini` driven setup
 - **Fallback Logic**: automatic fallback to default images if game images missing
 
@@ -207,28 +206,6 @@ random=1
 - `marquee/cmd/game <system>/<game>` — Display game image
 - `marquee/event` — Subscribe to Recalbox events (handled automatically)
 
-### Telnet Commands (Port 23)
-```
-help               — List all commands
-ip                 — Show IP address
-wifi               — Show WiFi status
-wifiinfo           — Detailed WiFi info
-next               — Play next GIF
-count              — Show loaded GIF count
-playlist           — Show current playlist
-random on|off      — Toggle random playback
-reboot             — Restart ESP32
-show <path>        — Display file (e.g., /systems/ps2/game.png)
-showsys <system>   — Display system logo
-showgame <sys/rom> — Display game image
-default            — Show default image
-black              — Clear screen
-mode               — Show current display mode
-syscache           — List system cache
-rebuildcache       — Rebuild system cache
-heap               — Show free memory
-```
-
 ---
 
 ## Data Processing Pipeline
@@ -281,7 +258,7 @@ See `tools/README.md` for detailed instructions.
 - **GIF Playback**: 10–50 FPS (limited by panel refresh and SPI speed)
 - **raw565 Blitting**: ~50ms per full-screen refresh (optimized with single bulk read)
 - **MQTT Latency**: ~100–500ms from message to display update
-
+- **ARCADE FULLSET**: MAME/FBNEO have more than 20000 images , so it may need seconds to print ...
 ---
 
 ## License
