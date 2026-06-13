@@ -2,14 +2,14 @@
 
 ## Overview
 
-**RecalBox_DMD** is a complete ESP32 firmware for driving a **HUB75 LED panel (128×32 px)** displaying game marquee images from a Recalbox system. The firmware supports PNG and GIF playback, system playlists, MQTT integration for real-time game updates, Telnet debugging, and Bluetooth control.
+**RecalBox_DMD** is a complete ESP32 firmware for driving a **HUB75 LED panel (128×32 px)** displaying game marquee images from a Recalbox system. The firmware supports PNG (raw565) and GIF (raw565pack + meta) playback, system playlists, MQTT integration for real-time game updates, and Bluetooth control.
 
 ---
 
 ## Features
 
-- **Image Support**: PNG and GIF with intelligent caching
-- **Performance Optimization**: raw565 / raw565pack formats for fast rendering
+- **Image Support**: PNG/raw565 and GIF/raw565pack with intelligent caching
+- **Performance Optimization**: raw565 / raw565pack formats for fast rendering ( necessary for huge fullset systeme : mame/amiga/msdos/atari ... )
 - **Game Cache**: Bigram-indexed game image cache for rapid lookup
 - **System Cache**: System type detection and slow-system fallback handling
 - **Networking**:
@@ -17,7 +17,7 @@
   - MQTT (real-time game/system display)
 - **Bluetooth**: in case of conflict 
 - **Configuration**: `config.ini` driven setup
-- **Fallback Logic**: automatic fallback to default images if game images missing
+- **Fallback Logic**: automatic fallback to default images if game images missing ( put your own default )
 
 ---
 
