@@ -1,0 +1,28 @@
+{
+    "name": "RetroBoxLED",
+    "version": "1.0.6",
+    "new_install_prompt_erase": true,
+    "builds": [
+        {
+            "chipFamily": "ESP32",
+            "parts": [
+                {
+                    "path": "RetroBoxLED_1.0.6.ino.bootloader.bin",
+                    "offset": 4096
+                },
+                {
+                    "path": "RetroBoxLED_1.0.6.ino.partitions.bin",
+                    "offset": 32768
+                },
+                {
+                    "path": "boot_app0.bin",
+                    "offset": 57344
+                },
+                {
+                    "path": "RetroBoxLED_1.0.6.ino.bin",
+                    "offset": 65536
+                }
+            ]
+        }
+    ]
+}
