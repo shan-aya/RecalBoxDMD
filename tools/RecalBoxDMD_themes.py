@@ -106,8 +106,10 @@ def _default_theme_dict() -> dict:
     }
 
 
-def _walk_and_apply(widget, theme: dict, path: str = ""):
-    """Applique récursivement les couleurs du thème aux widgets."""
+def _walk_and_apply(widget, theme: dict, path: str = "", has_bg: bool = False):
+    """Applique récursivement les couleurs du thème aux widgets.
+    Si has_bg=True, les Frames gardent leur bg transparent pour laisser voir l'image de fond slicee.
+    """
     colors = theme.get("colors", {})
     try:
         bg = widget.cget("bg")
@@ -119,7 +121,9 @@ def _walk_and_apply(widget, theme: dict, path: str = ""):
 
     try:
         if widget_type == "Frame":
-            if bg and bg != "#F3F3F3" and bg != "#FFFFFF":
+            if has_bg:
+                pass  # Laisser transparent pour que slice bg s'affiche
+            elif bg and bg != "#F3F3F3" and bg != "#FFFFFF":
                 pass  # Garder sa couleur si déjà custom
             else:
                 widget.configure(bg=colors.get("bg_main", "#F3F3F3"))
@@ -160,6 +164,7 @@ def _walk_and_apply(widget, theme: dict, path: str = ""):
                 bg=colors.get("bg_main", "#F3F3F3"),
                 fg=colors.get("fg_text", "#000000"),
                 activebackground=colors.get("bg_frame", "#E7E7E7"),
+                selectcolor=colors.get("fg_heading", "#FF6600"),
             )
         elif widget_type in ("Checkbutton",):
             widget.configure(
@@ -287,9 +292,16 @@ def apply(name: str, gui) -> None:
     except Exception:
         pass
 
-    _walk_and_apply(gui.root, theme, "root")
+    _walk_and_apply(gui.root, theme, "root", has_bg=(theme.get("bg_path") is not None))
 
-    # Appliquer l'image de fond (Label derriere tout)
+    # Restaurer les couleurs du widget d'aide (ne pas laisser le thème les écraser)
+    if getattr(gui, "help_text", None) is not None:
+        try:
+            gui.help_text.configure(bg="white", fg="black")
+        except Exception:
+            pass
+
+    # Appliquer l'image de fond (Label sous les widgets + slices sur les Frames)
     bg_path = theme.get("bg_path")
     if bg_path:
         try:
@@ -298,33 +310,35 @@ def apply(name: str, gui) -> None:
             img = Image.open(bg_path)
             gui._bg_pil_img = img
 
-            # Label racine avec l'image en fond
-            if not hasattr(gui, "_bg_root_label"):
+            # Redimensionner pour remplir la fenêtre (~1100x750)
+            w = max(gui.root.winfo_width(), 1100)
+            h = max(gui.root.winfo_height(), 750)
+            if w < 2:
+                w = 1100
+            if h < 2:
+                h = 750
+            resized = img.copy().resize((w, h), Image.LANCZOS)
+
+            if not hasattr(gui, "_bg_root_label") or gui._bg_root_label is None:
                 gui._bg_root_label = tk.Label(gui.root)
                 gui._bg_root_label.place(relx=0, rely=0, relwidth=1, relheight=1)
                 gui._bg_root_label.lower()
-            gui._bg_photo = ImageTk.PhotoImage(img)
+            gui._bg_photo = ImageTk.PhotoImage(resized)
             gui._bg_root_label.configure(image=gui._bg_photo)
 
-            # Redimensionner l'image lors du resize de la fenêtre
-            def _on_resize(event=None):
-                try:
-                    w = gui.root.winfo_width()
-                    h = gui.root.winfo_height()
-                    if w > 1 and h > 1 and gui._bg_pil_img is not None:
-                        resized = gui._bg_pil_img.copy().resize((w, h), Image.LANCZOS)
-                        gui._bg_photo = ImageTk.PhotoImage(resized)
-                        gui._bg_root_label.configure(image=gui._bg_photo)
-                except Exception:
-                    pass
-
-            gui.root.bind("<Configure>", _on_resize)
-            gui.root.after(200, _on_resize)
+            # Slicer UNE SEULE FOIS apres affichage (pas de binding resize)
+            gui.root.after(400, _slice_widgets_later, gui)
         except Exception:
             pass
     else:
         gui._bg_pil_img = None
-        if hasattr(gui, "_bg_root_label"):
+        for lbl in getattr(gui, "_slice_labels", []):
+            try:
+                lbl.destroy()
+            except Exception:
+                pass
+        gui._slice_labels = []
+        if hasattr(gui, "_bg_root_label") and gui._bg_root_label is not None:
             try:
                 gui._bg_root_label.destroy()
             except Exception:
@@ -344,10 +358,13 @@ def random_theme(exclude: list[str] = None) -> str:
 
 
 def load_preference() -> str | None:
-    """Charge la préférence utilisateur depuis theme_pref.txt."""
+    """Charge la préférence utilisateur depuis theme_pref.txt.
+    Retourne le nom du theme, ou 'random' si le mode aleatoire, ou None."""
     try:
         if PREF_FILE.exists():
-            name = PREF_FILE.read_text(encoding="utf-8").strip()
+            name = PREF_FILE.read_text(encoding="utf-8").strip().lower()
+            if name == "random":
+                return "random"
             if name in list_themes():
                 return name
     except Exception:
@@ -356,7 +373,8 @@ def load_preference() -> str | None:
 
 
 def save_preference(name: str) -> None:
-    """Sauvegarde la préférence utilisateur dans theme_pref.txt."""
+    """Sauvegarde la préférence utilisateur dans theme_pref.txt.
+    Le mot-cle 'random' enregistre le mode aleatoire."""
     try:
         PREF_FILE.write_text(name.strip(), encoding="utf-8")
     except Exception:
@@ -370,3 +388,14 @@ def clear_preference() -> None:
             PREF_FILE.unlink()
     except Exception:
         pass
+
+
+def pref_is_random() -> bool:
+    """Retourne True si la preference est le mode aleatoire."""
+    try:
+        if PREF_FILE.exists():
+            name = PREF_FILE.read_text(encoding="utf-8").strip()
+            return name.lower() == "random"
+    except Exception:
+        pass
+    return False
