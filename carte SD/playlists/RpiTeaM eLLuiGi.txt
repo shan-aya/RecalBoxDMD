@@ -595,6 +595,4 @@
 /gifs/XMAS/XMAS_LOGO_RPI2DMD_Christmas01_RattenJager.gif
 /gifs/XMAS/XMAS_SNES_Anthrox_ChristmasDemo02.gif
 /gifs/XMAS/XMAS_SNES_SMW2Hack_AXmasWalk01.gif
-/gifs/XXX_Mature/XXX_ARCADE_Fantasia01.gif
-/gifs/XXX_Mature/XXX_ARCADE_GalsPanic_RattenJager.gif
-/gifs/XXX_Mature/XXX_WII_StripPoker_Misaki_RattenJager.gif
+
