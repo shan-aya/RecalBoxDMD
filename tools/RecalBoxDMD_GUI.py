@@ -232,13 +232,23 @@ class RetroBoxLEDGui:
         self._mode6_flash_thread: Optional[threading.Thread] = None
 
         self._theme_var = tk.StringVar(value="")
-        pref = themes.load_preference()
-        if pref:
-            chosen = pref
+        # Label "Aléatoire" localisé
+        lang = self.lang_var.get()
+        if lang == "en":
+            random_lbl = "Random"
+        elif lang == "es":
+            random_lbl = "Aleatorio"
         else:
-            chosen = "random"
-        self._theme_var.set(chosen)
-        themes.apply(chosen if chosen != "random" else themes.random_theme(), self)
+            random_lbl = "Aléatoire"
+
+        pref = themes.load_preference()
+        if pref and pref != "random":
+            self._chosen_theme_at_start = pref
+            self._theme_var.set(pref)
+        else:
+            # Mode aleatoire
+            self._chosen_theme_at_start = themes.random_theme()
+            self._theme_var.set(random_lbl)
 
         self._build_top_tabs()
         self._build_mode_area(self.tab_main)  # Mode 1 seulement
@@ -246,6 +256,14 @@ class RetroBoxLEDGui:
         self._build_progress_frame(self.root)
 
         self._poll_logs()
+
+        # Appliquer le thème APRÈS la construction de tous les widgets
+        # Un premier appel maintenant, un second apres idle pour les onglets pas encore realises
+        _th = self._chosen_theme_at_start
+        themes.apply(_th, self)
+        self.root.update_idletasks()
+        self.root.after(200, lambda t=_th: themes.apply(t, self))
+        del self._chosen_theme_at_start
 
         # Sérigraphie (bas à droite)
         self.silk_label = tk.Label(
@@ -257,7 +275,20 @@ class RetroBoxLEDGui:
         )
         self.silk_label.place(relx=1.0, rely=1.0, anchor="se", x=-102, y=-10)
 
+        # Reslice l'image de fond quand l'utilisateur change d'onglet
+        # (les onglets non-visibles n'ont pas encore leurs vraies dimensions)
+        self.nb_top.bind("<<NotebookTabChanged>>", self._on_tab_changed)
+
         self.root.protocol("WM_DELETE_WINDOW", self._on_close_attempt)
+
+        # Bug 2 : taille minimale fixe pour que le changement de langue
+        # ne redimensionne pas la fenêtre.
+        self.root.minsize(1100, 750)
+        self.root.geometry("1100x750")
+        # On réserve assez d'espace pour les textes les plus longs (EN).
+        # La fenêtre peut s'agrandir si besoin, jamais se rétrécir.
+        self.root.grid_propagate(True)
+        self.root.pack_propagate(True)
 
     # ──────────────────────────────────────────────────────────────────────────
     # TOP TABS (compact logs + parameters)
@@ -474,6 +505,8 @@ class RetroBoxLEDGui:
         )
         self.help_text.pack(side="left", fill="both", expand=True)
         scroll_y.configure(command=self.help_text.yview)
+        # Bloquer la saisie clavier sans désactiver le widget (pour garder tag_bind des liens)
+        self.help_text.bind("<Key>", lambda e: "break")
 
         self._refresh_help_tab_content()
 
@@ -512,10 +545,79 @@ class RetroBoxLEDGui:
         )
 
     def _help_scroll_to_anchor(self, anchor: str) -> None:
+        """Scroll vers l'ancre donnee.
+        Le widget est en state=disabled (pour bloquer la saisie).
+        On passe en normal le temps de see(), puis on restaure disabled.
+        """
+        import unicodedata as _ud
+
+        def _norm(s):
+            """Normalise : minuscules, enleve accents, garde [a-z0-9 espaces]."""
+            n = _ud.normalize("NFKD", s.lower().replace("-", " ").replace("_", " "))
+            n = "".join(c for c in n if not _ud.combining(c))
+            n = "".join(c if c.isalnum() or c == " " else " " for c in n)
+            return " ".join(n.split())
+
+        def _scroll_to(pos):
+            """Scroll to position, handling disabled state.
+            see() doit etre suivi d'un cycle event loop pour prendre effet,
+            donc on repasse en disabled via after_idle()."""
+            tw = self.help_text
+            was_disabled = tw.cget("state") == "disabled"
+            if was_disabled:
+                tw.configure(state="normal")
+            tw.see(pos)
+            if was_disabled:
+                tw.after_idle(lambda t=tw: t.configure(state="disabled"))
+                # Deja repasser en normal ici pour que le clic suivant
+                # sur le tag_bind puisse re-entrer dans cette fonction
+                # sans ambiguité
+
         try:
-            self.help_text.configure(state="normal")
-            self.help_text.see("anchor_" + anchor)
-            self.help_text.configure(state="disabled")
+            tw = self.help_text
+            anchor_norm = _norm(anchor)
+
+            # 1) Mark exact
+            if ("anchor_" + anchor) in tw.mark_names():
+                _scroll_to("anchor_" + anchor)
+                return
+
+            # 2) Mark normalise
+            for mn in tw.mark_names():
+                if mn.startswith("anchor_"):
+                    mid = mn[7:]
+                    if _norm(mid) == anchor_norm:
+                        _scroll_to(mn)
+                        return
+
+            # 3) search()
+            for q in (anchor, anchor.replace("-", " ").replace("_", " ")):
+                pos = tw.search(q, "1.0", stopindex="end", nocase=True)
+                if pos:
+                    _scroll_to(pos)
+                    return
+
+            # 4) Ligne par ligne
+            content = tw.get("1.0", "end")
+            lines = content.split("\n")
+            for i, line in enumerate(lines):
+                line_norm = _norm(line)
+                if anchor_norm and anchor_norm in line_norm:
+                    _scroll_to(f"{i + 1}.0")
+                    return
+
+            # 5) Fallback partiel
+            for i, line in enumerate(lines):
+                line_norm = _norm(line)
+                if line_norm and (
+                    line_norm.startswith(anchor_norm)
+                    or anchor_norm.startswith(line_norm)
+                ):
+                    _scroll_to(f"{i + 1}.0")
+                    return
+
+            # 6) Debut
+            _scroll_to("1.0")
         except Exception:
             pass
 
@@ -563,16 +665,16 @@ class RetroBoxLEDGui:
 
         self._detail_templates = {
             "fr": {
-                "1": "Mode 1 : extrait les images depuis vos gamelists, convertit PNG en 128x32 (et génère raw565) + convertit GIF en raw565pack/meta, construit le cache, télécharge _defaults, puis génère systems_cache.dat.",
-                "2": "Mode 2 : télécharge les images “systems/_defaults” depuis GitHub uniquement (aucune extraction ni conversion).",
-                "3": "Mode 3 : récupère uniquement les images depuis votre dossier ROMS via gamelist.xml.",
-                "4": "Mode 4 : convertit PNG → raw565 et GIF → raw565pack + meta (conversion “raw-only”).",
-                "5": "Mode 5 : convertit les images PNG et raw565 en 128x32.",
-                "6": "Mode 6 : génère uniquement games_cache.bin (cache jeux).",
-                "7": "Mode 7 : génère uniquement systems_cache.dat (index systèmes).",
+                "1": "Le mode AUTO extrait les images à partir de vos gamelists, convertit les fichiers PNG en 128x32 pixels (et génère des fichiers raw565), puis transforme les GIF en raw565pack avec méta-données. Ensuite, il construit le cache, télécharge les images par défaut depuis _defaults, puis génère le fichier systems_cache.dat.",
+                "2": "Le mode 2 télécharge uniquement les images situées dans “systems/_defaults” depuis GitHub. Il ne réalise aucune extraction ni conversion d’images.",
+                "3": "Le mode 3 récupère exclusivement les images présentes dans votre dossier ROMS, en se basant sur le fichier gamelist.xml.",
+                "4": "Le mode 4 convertit les images PNG en raw565 et les GIF en raw565pack accompagnés de méta-données. Cette conversion concerne uniquement les formats raw.",
+                "5": "Le mode 5 convertit les images PNG et raw565 pour les redimensionner en 128x32 pixels.",
+                "6": "Le mode 6 génère uniquement le fichier games_cache.bin, qui correspond au cache des jeux.",
+                "7": "Le mode 7 génère uniquement le fichier systems_cache.dat, qui représente l’index des systèmes.",
             },
             "en": {
-                "1": "Mode 1: extracts images from your gamelists, converts PNG to 128x32 (and generates raw565) + converts GIF to raw565pack/meta, builds the cache, downloads _defaults, then generates systems_cache.dat.",
+                "1": "Auto Mode : extracts images from your gamelists, converts PNG to 128x32 (and generates raw565) + converts GIF to raw565pack/meta, builds the cache, downloads _defaults, then generates systems_cache.dat.",
                 "2": "Mode 2: downloads “systems/_defaults” from GitHub only (no extraction or conversion).",
                 "3": "Mode 3: pulls images only from your ROM folder via gamelist.xml.",
                 "4": "Mode 4: converts PNG → raw565 and GIF → raw565pack + meta (raw-only conversion).",
@@ -606,7 +708,7 @@ class RetroBoxLEDGui:
                 fg="black",
                 activebackground="#E7E7E7",
                 font=("TkDefaultFont", 10, "bold"),
-                wraplength=240,
+                wraplength=350,
                 justify="left",
                 command=self._on_mode_changed,
             )
@@ -621,7 +723,7 @@ class RetroBoxLEDGui:
         path_box = tk.Frame(left, bg="#F3F3F3", bd=2, relief="solid", padx=8, pady=8)
         path_box.pack(fill="x", pady=(12, 0))
 
-        self.roms_path_var = tk.StringVar(value="")
+        self.roms_path_var = tk.StringVar(value=str(self.sd_dir / "systems"))
 
         self.btn_pick_roms = tk.Button(
             path_box,
@@ -643,7 +745,7 @@ class RetroBoxLEDGui:
             bg="#F3F3F3",
             fg="black",
             font=("TkDefaultFont", 9),
-            wraplength=260,
+            wraplength=350,
             justify="left",
         ).pack(anchor="w", pady=(8, 0))
 
@@ -905,6 +1007,17 @@ class RetroBoxLEDGui:
             font=("TkDefaultFont", 12, "bold"),
         )
         self.mode_title_lbl_adv.pack(anchor="w")
+        # Label pour messages info/erreur (modes 2, 6, 7)
+        self._adv_msg_label = tk.Label(
+            left,
+            text="",
+            bg="#F3F3F3",
+            fg="#666666",
+            font=("TkDefaultFont", 9),
+            wraplength=320,
+            justify="left",
+        )
+        # Ne pas pack par défaut - packé par _on_mode_changed
         self._mode_radios_adv: dict[str, tk.Radiobutton] = {}
         modes = [
             ("2", self.tkmod.tr("mode2_title")),
@@ -924,7 +1037,7 @@ class RetroBoxLEDGui:
                 fg="black",
                 activebackground="#E7E7E7",
                 font=("TkDefaultFont", 10, "bold"),
-                wraplength=240,
+                wraplength=350,
                 justify="left",
                 command=self._on_mode_changed,
             )
@@ -935,7 +1048,7 @@ class RetroBoxLEDGui:
         spacer.pack(fill="both", expand=True)
         path_box = tk.Frame(left, bg="#F3F3F3", bd=2, relief="solid", padx=8, pady=8)
         path_box.pack(fill="x", pady=(12, 0))
-        self.roms_path_var_adv = tk.StringVar(value="")
+        self.roms_path_var_adv = tk.StringVar(value=str(self.sd_dir / "systems"))
         self.btn_pick_roms_adv = tk.Button(
             path_box,
             text=ui["roms_pick_btn"],
@@ -955,7 +1068,7 @@ class RetroBoxLEDGui:
             bg="#F3F3F3",
             fg="black",
             font=("TkDefaultFont", 9),
-            wraplength=260,
+            wraplength=350,
             justify="left",
         ).pack(anchor="w", pady=(8, 0))
         self.btn_start_adv = tk.Button(
@@ -1167,8 +1280,29 @@ class RetroBoxLEDGui:
         if getattr(self, "mode_detail_title_lbl", None):
             self.mode_detail_title_lbl.config(text=ui["mode_detail_title"])
 
+        # Mettre a jour la combobox theme avec le label localisé
+        current_theme = self._theme_var.get()
+        themes_list = themes.list_themes()
+        if lang == "en":
+            random_lbl = "Random"
+        elif lang == "es":
+            random_lbl = "Aleatorio"
+        else:
+            random_lbl = "Aléatoire"
+        if current_theme not in themes_list:
+            self._theme_var.set(random_lbl)
+        self._theme_combobox.configure(values=[random_lbl] + themes_list)
+
         # update description + mode6 texts
         self._update_mode_desc()
+
+        # Re-découper l'image de fond pour les modes qui masquent/affichent des widgets
+        try:
+            from RecalBoxDMD_themes import _slice_widgets_later
+
+            _slice_widgets_later(self)
+        except Exception:
+            pass
         self._sync_mode6_texts()
 
         # refresh help tab (README language + links)
@@ -1188,7 +1322,7 @@ class RetroBoxLEDGui:
         mode = self.mode_var.get()
         ui = UI_TRANSLATIONS.get(self.lang_var.get(), UI_TRANSLATIONS["fr"])
 
-        # Libellés spécifiques
+        # Libellés spécifiques bouton pick (onglet Main)
         if getattr(self, "btn_pick_roms", None):
             self.btn_pick_roms.config(
                 text=(
@@ -1211,13 +1345,104 @@ class RetroBoxLEDGui:
                 )
             )
 
-        if mode in ("1", "3", "4", "5"):
-            self.middle.grid()
-            self.btn_detect_systems.config(state="normal")
-            # auto-detect if possible
-            self._maybe_autodetect_systems()
+        # Gestion du bouton choisir dossier dans l'onglet Avancé
+        # Mode 2 : masqué (téléchargement GitHub) + message dans le path_box label
+        # Mode 6 : masqué + popup (doit exécuter mode 3 d'abord)
+        # Mode 7 : masqué + popup (doit exécuter mode 2 d'abord)
+        # Mode 4/5 : visible, label "Choisir dossier IMAGES"
+        # Mode 3 : visible, label normal
+        # Mode 1 : visible, label normal
+        if hasattr(self, "btn_pick_roms_adv"):
+            # Modes 2/6/7 : bouton désactivé (mais gardé visible pour la stabilité du fond)
+            if mode in ("2", "6", "7"):
+                try:
+                    self.btn_pick_roms_adv.config(state="disabled")
+                except Exception:
+                    pass
+                # Chemin temporaire pour les besoins internes
+                temp_path = str(self.sd_dir / "systems")
+                if hasattr(self, "roms_path_var_adv"):
+                    self.roms_path_var_adv.set(temp_path)
+                if hasattr(self, "roms_path_var"):
+                    self.roms_path_var.set(temp_path)
+                # Désactiver aussi le bouton de l'onglet Main
+                try:
+                    if (
+                        hasattr(self, "btn_pick_roms")
+                        and self.btn_pick_roms.winfo_exists()
+                    ):
+                        self.btn_pick_roms.config(state="disabled")
+                except Exception:
+                    pass
+            else:
+                # Modes 1, 3, 4, 5 : afficher le bouton
+                try:
+                    self.btn_pick_roms_adv.config(state="normal")
+                except Exception:
+                    pass
+                try:
+                    if (
+                        hasattr(self, "btn_pick_roms")
+                        and self.btn_pick_roms.winfo_exists()
+                    ):
+                        self.btn_pick_roms.config(state="normal")
+                except Exception:
+                    pass
+                # Restaurer le chemin normal dans le label
+                normal_path = str(self.sd_dir / "systems")
+                if hasattr(self, "roms_path_var_adv"):
+                    if (
+                        self.roms_path_var_adv.get() != normal_path
+                        and not self.roms_path_var_adv.get().startswith("Mode")
+                    ):
+                        pass  # keep user-chosen path
+                    else:
+                        self.roms_path_var_adv.set(normal_path)
+                if hasattr(self, "roms_path_var"):
+                    if (
+                        self.roms_path_var.get() != normal_path
+                        and not self.roms_path_var.get().startswith("Mode")
+                    ):
+                        pass  # keep user-chosen path
+                    else:
+                        self.roms_path_var.set(normal_path)
+                # Label selon le mode
+                if mode in ("4", "5"):
+                    try:
+                        self.btn_pick_roms_adv.config(
+                            text=ui.get("images_pick_btn", "Choisir dossier IMAGES")
+                        )
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        self.btn_pick_roms_adv.config(text=ui["roms_pick_btn"])
+                    except Exception:
+                        pass
+
+        # Colonne systèmes visible seulement pour modes qui en ont besoin.
+        show_sys_col = mode in ("1", "3", "4", "5")
+        if show_sys_col:
+            try:
+                self.middle.grid()
+                self.btn_detect_systems.config(state="normal")
+            except Exception:
+                pass
+            try:
+                if hasattr(self, "middle_adv") and self.middle_adv.winfo_exists():
+                    self.middle_adv.grid()
+                if hasattr(self, "btn_detect_systems_adv"):
+                    self.btn_detect_systems_adv.config(state="normal")
+            except Exception:
+                pass
+            # auto-detect silencieuse en différé pour ne pas bloquer l'UI
+            try:
+                self.root.after_idle(self._maybe_autodetect_systems)
+            except Exception:
+                pass
         else:
-            self.middle.grid_remove()
+            # middle et middle_adv toujours visibles
+            pass
 
         self._update_mode_desc()
 
@@ -1232,8 +1457,14 @@ class RetroBoxLEDGui:
         ui = UI_TRANSLATIONS.get(self.lang_var.get(), UI_TRANSLATIONS["fr"])
         is_unc = str(roms_root).startswith("\\\\")
 
+        mode = self.mode_var.get()
+        # Modes 4/5 : pas d'auto-détection — l'utilisateur clique manuellement sur "Détecter systèmes"
+        # car _find_systems_images fait des glob() bloquants sur des dossiers potentiellement énormes.
+        if mode in ("4", "5"):
+            return
+
         try:
-            if self.mode_var.get() in ("1", "3"):
+            if mode in ("1", "3"):
                 systems = self._find_systems(roms_root)
             else:
                 # En mode 4/5, roms_root pointe le dossier "images" libre choisi par l'utilisateur.
@@ -1249,23 +1480,28 @@ class RetroBoxLEDGui:
                 return
             raise
 
-        self.sys_list.delete(0, "end")
+        # Bug 6 : peupler les DEUX listboxes (Main ET Avancé)
+        for listbox_attr in ("sys_list", "sys_list_adv"):
+            lb = getattr(self, listbox_attr, None)
+            if lb is None:
+                continue
+            if not lb.winfo_exists():
+                continue
+            lb.delete(0, "end")
 
-        # 0="Tout sélectionner", 1="Ne rien sélectionner", 2="" separator
-        # Note: tk.Listbox ne supporte pas itemconfig(font=...), donc on ne force pas l'italique ici.
-        self.sys_list.insert("end", ui["sys_sel_opt_all"])
-        self.sys_list.insert("end", ui["sys_sel_opt_none"])
-        # Ne pas insérer "" : certains thèmes/implémentations peuvent rendre la hauteur peu fiable.
-        self.sys_list.insert("end", " ")
+            # 0="Tout sélectionner", 1="Ne rien sélectionner", 2="" separator
+            lb.insert("end", ui["sys_sel_opt_all"])
+            lb.insert("end", ui["sys_sel_opt_none"])
+            lb.insert("end", " ")
 
-        for sys_path in systems:
-            self.sys_list.insert("end", sys_path.name)
+            for sys_path in systems:
+                lb.insert("end", sys_path.name)
 
-        # Garantir l'affichage depuis le haut (sinon on peut “ne voir” qu'un seul item).
-        try:
-            self.sys_list.yview_moveto(0.0)
-        except Exception:
-            pass
+            # Garantir l'affichage depuis le haut
+            try:
+                lb.yview_moveto(0.0)
+            except Exception:
+                pass
 
     def _find_systems(self, roms_root: Path) -> list[Path]:
         systems: list[Path] = []
@@ -1310,13 +1546,45 @@ class RetroBoxLEDGui:
         systems.sort(key=lambda p: p.name.lower())
         return systems
 
+    def _get_event_listbox(self, event: object) -> object:
+        """Determine which listbox triggered the event, default to sys_list."""
+        lb = self.sys_list
+        if event is not None:
+            try:
+                widget = getattr(event, "widget", None)
+                if widget is not None and widget.winfo_exists():
+                    if hasattr(self, "sys_list_adv") and widget is self.sys_list_adv:
+                        lb = self.sys_list_adv
+            except Exception:
+                pass
+        return lb
+
+    def _sync_listbox_selections(self, src_list) -> None:
+        """Copy selections from src_list to the other listbox."""
+        other = self.sys_list_adv if src_list is self.sys_list else self.sys_list
+        if not other or not other.winfo_exists():
+            return
+        try:
+            if other.size() != src_list.size():
+                return
+            old_flag = self._sys_list_adjusting
+            self._sys_list_adjusting = True
+            other.selection_clear(0, "end")
+            for i in src_list.curselection():
+                other.selection_set(i)
+            self._sys_list_adjusting = old_flag
+        except Exception:
+            self._sys_list_adjusting = False
+
     def _on_sys_list_button1_clicked(self, _event: object = None) -> None:
+        # Déterminer quelle listbox a reçu l'événement
+        lb = self._get_event_listbox(_event)
         # capture l'intention (index cliqué: 0/1/2) et la sélection "réelle" (indices >= 3 : systèmes)
         self._last_sys_click_index = None
         self._last_sys_clicked_index_any = None
         try:
             if _event is not None and hasattr(_event, "y"):
-                click_index = self.sys_list.nearest(getattr(_event, "y"))
+                click_index = lb.nearest(getattr(_event, "y"))
                 if isinstance(click_index, int):
                     self._last_sys_clicked_index_any = click_index
                     if click_index in (0, 1, 2):
@@ -1326,7 +1594,7 @@ class RetroBoxLEDGui:
             self._last_sys_clicked_index_any = None
 
         try:
-            selected = list(self.sys_list.curselection())
+            selected = list(lb.curselection())
             self._last_real_system_indices = {i for i in selected if i >= 3}
         except Exception:
             self._last_real_system_indices = set()
@@ -1335,7 +1603,10 @@ class RetroBoxLEDGui:
         if self._sys_list_adjusting:
             return
 
-        total_items = self.sys_list.size()
+        # Déterminer quelle listbox a reçu l'événement
+        lb = self._get_event_listbox(_event)
+
+        total_items = lb.size()
         # Pas de place pour sentinelles + séparateur + systèmes
         if total_items <= 3:
             return
@@ -1343,7 +1614,7 @@ class RetroBoxLEDGui:
         try:
             self._sys_list_adjusting = True
 
-            selected = list(self.sys_list.curselection())
+            selected = list(lb.curselection())
             selected_set = set(selected)
 
             total_systems = total_items - 3
@@ -1357,9 +1628,9 @@ class RetroBoxLEDGui:
                 self._last_sys_clicked_index_any is not None
                 and self._last_sys_clicked_index_any >= systems_start
             ):
-                self.sys_list.selection_clear(0)
-                self.sys_list.selection_clear(1)
-                self.sys_list.selection_clear(2)
+                lb.selection_clear(0)
+                lb.selection_clear(1)
+                lb.selection_clear(2)
                 self._last_sys_click_index = None
                 self._last_sys_clicked_index_any = None
                 return
@@ -1370,63 +1641,63 @@ class RetroBoxLEDGui:
                 intent = self._last_sys_click_index
                 if intent == 0:
                     # "Tout sélectionner"
-                    self.sys_list.selection_clear(0, "end")
-                    self.sys_list.selection_set(0)
-                    self.sys_list.selection_clear(1)
-                    self.sys_list.selection_clear(2)
+                    lb.selection_clear(0, "end")
+                    lb.selection_set(0)
+                    lb.selection_clear(1)
+                    lb.selection_clear(2)
                     for i in range(systems_start, systems_end_exclusive):
-                        self.sys_list.selection_set(i)
+                        lb.selection_set(i)
                     self._last_sys_click_index = None
                     self._last_sys_clicked_index_any = None
                     return
 
                 if intent == 1:
                     # "Ne rien sélectionner"
-                    self.sys_list.selection_clear(0, "end")
-                    self.sys_list.selection_set(1)
-                    self.sys_list.selection_clear(0)
-                    self.sys_list.selection_clear(2)
+                    lb.selection_clear(0, "end")
+                    lb.selection_set(1)
+                    lb.selection_clear(0)
+                    lb.selection_clear(2)
                     self._last_sys_click_index = None
                     self._last_sys_clicked_index_any = None
                     return
 
                 # Sinon (intention None ou clic sur une ligne système) => mode manuel :
-                self.sys_list.selection_clear(0)
-                self.sys_list.selection_clear(1)
-                self.sys_list.selection_clear(2)
+                lb.selection_clear(0)
+                lb.selection_clear(1)
+                lb.selection_clear(2)
                 self._last_sys_click_index = None
                 self._last_sys_clicked_index_any = None
                 return
 
             if 1 in selected_set:
                 # "Ne rien sélectionner"
-                self.sys_list.selection_clear(0, "end")
-                self.sys_list.selection_set(1)
-                self.sys_list.selection_clear(0)
-                self.sys_list.selection_clear(2)
+                lb.selection_clear(0, "end")
+                lb.selection_set(1)
+                lb.selection_clear(0)
+                lb.selection_clear(2)
                 self._last_sys_click_index = None
                 return
 
             if 0 in selected_set:
                 # "Tout sélectionner"
-                self.sys_list.selection_clear(0, "end")
-                self.sys_list.selection_set(0)
-                self.sys_list.selection_clear(1)
-                self.sys_list.selection_clear(2)
+                lb.selection_clear(0, "end")
+                lb.selection_set(0)
+                lb.selection_clear(1)
+                lb.selection_clear(2)
                 for i in range(systems_start, systems_end_exclusive):
-                    self.sys_list.selection_set(i)
+                    lb.selection_set(i)
                 self._last_sys_click_index = None
                 return
 
             # Sélection manuelle : on retire sentinelles 0/1 (et on s'assure que la ligne vide n'est pas sélectionnée)
-            self.sys_list.selection_clear(0)
-            self.sys_list.selection_clear(1)
-            self.sys_list.selection_clear(2)
+            lb.selection_clear(0)
+            lb.selection_clear(1)
+            lb.selection_clear(2)
 
             # Si l'utilisateur a sélectionné tous les systèmes individuellement => on met "Tout sélectionner"
             real_selected = [i for i in selected if i >= systems_start]
             if len(real_selected) == total_systems and total_systems > 0:
-                self.sys_list.selection_set(0)
+                lb.selection_set(0)
 
         finally:
             self._sys_list_adjusting = False
@@ -1445,14 +1716,20 @@ class RetroBoxLEDGui:
         p = filedialog.askdirectory(title=title)
         if not p:
             return
+        # Bug 6 : mettre à jour les DEUX variables de chemin (main ET avancé)
         self.roms_path_var.set(p)
+        if hasattr(self, "roms_path_var_adv"):
+            self.roms_path_var_adv.set(p)
 
         is_unc = str(p).startswith("\\\\")
 
-        # On essaie de peupler la liste des systèmes directement.
-        # Si l'accès réseau échoue (gamelist.xml), on affichera user/mdp plus tard.
-        if self.mode_var.get() in ("1", "2", "3", "4", "5"):
-            self._on_mode_changed()
+        # Bug 6 : différer _on_mode_changed() pour éviter le blocage UI
+        # (le scan rglob dans _maybe_autodetect_systems peut être lent)
+        if self.mode_var.get() in ("1", "3", "4", "5"):
+            self.root.after_idle(self._on_mode_changed)
+        else:
+            # Pour les modes 2/6/7, juste mettre à jour les textes du bouton
+            self._update_mode_desc()
 
     def _get_roms_root_or_warn(self) -> Optional[Path]:
         path_str = self.roms_path_var.get().strip()
@@ -1488,23 +1765,26 @@ class RetroBoxLEDGui:
                 return
             raise
 
-        self.sys_list.delete(0, "end")
+        # Bug 6 : peupler les DEUX listboxes (Main ET Avancé)
+        for listbox_attr in ("sys_list", "sys_list_adv"):
+            lb = getattr(self, listbox_attr, None)
+            if lb is None:
+                continue
+            if not lb.winfo_exists():
+                continue
+            lb.delete(0, "end")
 
-        # 0="Tout sélectionner", 1="Ne rien sélectionner", 2="" separator
-        # Note: tk.Listbox ne supporte pas itemconfig(font=...), donc on ne force pas l'italique ici.
-        self.sys_list.insert("end", ui["sys_sel_opt_all"])
-        self.sys_list.insert("end", ui["sys_sel_opt_none"])
-        # Ne pas insérer "" : certains thèmes/implémentations peuvent rendre la hauteur peu fiable.
-        self.sys_list.insert("end", " ")
+            lb.insert("end", ui["sys_sel_opt_all"])
+            lb.insert("end", ui["sys_sel_opt_none"])
+            lb.insert("end", " ")
 
-        for sys_path in systems:
-            self.sys_list.insert("end", sys_path.name)
+            for sys_path in systems:
+                lb.insert("end", sys_path.name)
 
-        # Garantir l'affichage depuis le haut (sinon on peut “ne voir” qu'un seul item).
-        try:
-            self.sys_list.yview_moveto(0.0)
-        except Exception:
-            pass
+            try:
+                lb.yview_moveto(0.0)
+            except Exception:
+                pass
 
     # ──────────────────────────────────────────────────────────────────────────
     # NAS credentials (only if UNC at start)
@@ -1821,8 +2101,8 @@ class RetroBoxLEDGui:
 
         mode = self.mode_var.get()
 
-        # Mode 7 : n'a pas besoin de roms_root (index systems/_defaults uniquement)
-        if mode == "7":
+        # Mode 2 et 7 : pas de gestion UNC/NAS (téléchargement GitHub / pure index)
+        if mode in ("2",):
             roms_root = self._get_roms_root_or_warn()
             if roms_root is None:
                 return
@@ -1891,7 +2171,15 @@ class RetroBoxLEDGui:
                 )
                 return
 
-            selected_indices = list(self.sys_list.curselection())
+            # Bug 6 : lire la sélection depuis la listbox active (celle qui est visible)
+            active_list = self.sys_list
+            if hasattr(self, "sys_list_adv") and self.sys_list_adv.winfo_exists():
+                try:
+                    if self.tab_advanced.winfo_ismapped():
+                        active_list = self.sys_list_adv
+                except Exception:
+                    pass
+            selected_indices = list(active_list.curselection())
 
             # Sentinel mapping:
             # 0="Tout sélectionner" (italique)
@@ -1990,7 +2278,7 @@ class RetroBoxLEDGui:
                 self._pipeline_mode_5(toolkit, cfg)
             elif mode == "6":
                 self._pipeline_mode_6(toolkit, cfg)
-            elif mode == "7":
+            elif mode in ("2", "7"):
                 self._pipeline_mode_7(toolkit, cfg)
             else:
                 print(f"Mode inconnu: {mode}")
@@ -2324,7 +2612,6 @@ class RetroBoxLEDGui:
 
     def _on_theme_selected(self, event=None) -> None:
         choice = self._theme_var.get()
-        # Déterminer le label "Aléatoire" selon la langue
         lang = self.lang_var.get()
         if lang == "en":
             random_lbl = "Random"
@@ -2332,10 +2619,11 @@ class RetroBoxLEDGui:
             random_lbl = "Aleatorio"
         else:
             random_lbl = "Aléatoire"
-        if choice in (random_lbl, "random"):
-            choice = themes.random_theme()
-            self._theme_var.set(choice)
-        if choice:
+        if choice == random_lbl:
+            # Mode aleatoire : sauvegarder "random" en pref
+            themes.save_preference("random")
+            themes.apply(themes.random_theme(), self)
+        else:
             themes.save_preference(choice)
             themes.apply(choice, self)
 
@@ -2817,6 +3105,31 @@ class RetroBoxLEDGui:
             return
 
         self.root.destroy()
+
+    def _on_tab_changed(self, event=None) -> None:
+        """Reslice l'image de fond quand l'onglet change,
+        car les onglets non-visibles n'avaient pas leurs vraies dimensions."""
+        from RecalBoxDMD_themes import _slice_widgets_later
+
+        # Forcer la mise a jour des dimensions des widgets de l'onglet
+        self.root.update_idletasks()
+        _slice_widgets_later(self)
+
+        # Bug 6 : quand on change d'onglet, pré-sélectionner le mode approprié
+        try:
+            sel = self.nb_top.select()
+            tab_idx = self.nb_top.index(sel) if sel else 0
+            if tab_idx == 0:
+                # Onglet Main → passer en mode 1
+                if self.mode_var.get() != "1":
+                    self.mode_var.set("1")
+            elif tab_idx == 1:
+                # Onglet Avancé → passer en mode 2
+                if self.mode_var.get() != "2":
+                    self.mode_var.set("2")
+            self.root.after_idle(self._on_mode_changed)
+        except Exception:
+            pass
 
     def run(self) -> None:
         self.root.mainloop()
