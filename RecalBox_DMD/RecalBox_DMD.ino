@@ -1,3 +1,18 @@
+// ============================================
+// safe-modify — Historique des modifications
+// ============================================
+// Version actuelle : v7
+//
+// v7 - 2026-07-01 - Integration retro_clock: 9 themes pixel-art (Mario, Tetris, Pac-Man, Invaders, Pong, Neon, Matrix, Fire, Rainbow). CLOCK_STYLE -> CLOCK_THEME. Suppression anciens drawDigit*.
+// v6 - 2026-06-29 - Ajout horloge multi-style + brightness configurable
+// v5 - 2026-06-29 - Correction freeze playlist: skipRawPack dans openGif()
+// v4 — 2026-06-26 — Correction flag B: verifie currentPngPath AVANT d'appeler openDG(), sinon a chaque loop() le firmware tente d'ouvrir le pack manquant et clignote. Flag 'g' aussi corrige (meme probleme).
+// v3 — 2026-06-24 — Ajout sous-dossiers alphabetiques A..Z/# pour resoudre ralentissement FAT32 sur 800+ fichiers (flag L). alphaSubdirPath() insere un sous-dossier dans le chemin. drawRaw565() et openGif() tentent le sous-dossier en priorite avec fallback plat.
+// v2 — 2026-06-11 — safe-modify — Optimisations affichage raw565/raw565pack
+// v1 — 2026-06-10 — Creation initiale
+// ============================================
+
+
 
 #ifndef BitOrder
 typedef uint8_t BitOrder; // Workaround: Adafruit_BusIO attend BitOrder (AVR) mais ESP32 le n'a pas
@@ -13,39 +28,14 @@ typedef uint8_t BitOrder; // Workaround: Adafruit_BusIO attend BitOrder (AVR) ma
 #include "esp_bt.h"
 #include "esp_heap_caps.h"
 #include "pngle.h"
-
-// ==================================================
-// CONSTANTES DE CONFIGURATION & LIMITES
-// ==================================================
-
-// Cache systèmes
-#define SYS_CACHE_MAX 300
-#define SYS_CACHE_FILE "/systems_cache.dat"
-
-// Cache jeux (bigramme index)
-#define GAMES_IDX_MAX 300
-#define NB_IDX 703   // 1 + 26*27 entrees bigramme
-#define GAMES_CACHE_FILE "/games_cache.bin"
-
-// Limites et seuils de performance
-#define SPRITE_LIMIT 800  // Max fichiers par système avant flag slowFlag='L'
-#define BIGRAM_SLICE_MAX 8192  // Max allocation heap pour tranche bigramme
-#define BIGRAM_FALLBACK_SIZE 2048  // Fallback si offset final non trouvé
-
-// Timings (millisecondes)
-#define MQTT_SEMAPHORE_WAIT_MS 100  // Mutex timeout pour commandes MQTT
-#define REBOOT_DELAY_MS 1500  // Délai avant redémarrage
-#define REBOOT_DISCONNECT_DELAY_MS 50  // Délai après déconnexion
-#define SLEEP_DELAY_MS 100  // Délai lors d'attente ou arrêt
-
-// Tailles et formats
-#define RAW565_FRAME_WIDTH 128
-#define RAW565_FRAME_HEIGHT 32
-#define RAW565_FRAME_BYTES (RAW565_FRAME_WIDTH * RAW565_FRAME_HEIGHT * 2)  // 8192
+#include <time.h>
+#include "clock_themes.h"
+#include "web_config.h"
 
 // --------------------------------------------------
 // Cache des _defaults par systeme
 // --------------------------------------------------
+#define SYS_CACHE_MAX 300
 static char (*sysCacheKeys)[32] = nullptr; // SYS_CACHE_MAX x 32 (heap)
 static char *sysCacheVals = nullptr;       // SYS_CACHE_MAX (heap)
 static char *sysCacheSlowVals = nullptr;   // SYS_CACHE_MAX (heap)
@@ -65,6 +55,8 @@ char sysDefaultSlowFlag(const String &sysName)
   return 'N';
 }
 
+#define SYS_CACHE_FILE "/systems_cache.dat"
+
 bool loadSysDefaultCache()
 {
   File f = SD.open(SYS_CACHE_FILE, FILE_READ);
@@ -79,7 +71,7 @@ bool loadSysDefaultCache()
 
     // Format attendu:
     //   <val> <sysName> <slowFlag>
-    // Avec compatibilité:
+    // Avec compatibilitÃ©:
     //   <val> <sysName>              (slowFlag implicitement 'N')
     String rest = line.substring(2);
     rest.trim();
@@ -183,7 +175,7 @@ void buildSysDefaultCache()
       bool hasPack = SD.exists((base + ".raw565pack").c_str()) && SD.exists((base + ".meta").c_str());
       bool hasRaw  = SD.exists((base + ".raw565").c_str());
 
-      // Règle:
+      // RÃ¨gle:
       // - uniquement .raw565 => 'p'
       // - uniquement .raw565pack + .meta => 'g'
       // - les deux => 'B'
@@ -199,7 +191,7 @@ void buildSysDefaultCache()
       bool pngOver = false;
       bool gifOver = false;
 
-      countPngGifOverRec("/systems/" + sysName, SPRITE_LIMIT, pngCount, gifCount, pngOver, gifOver);
+      countPngGifOverRec("/systems/" + sysName, 800, pngCount, gifCount, pngOver, gifOver);
       sysCacheSlowVals[sysCacheCount] = (pngOver || gifOver) ? 'L' : 'N';
       sysCacheCount++;
     }
@@ -212,7 +204,7 @@ void buildSysDefaultCache()
 }
 
 // --------------------------------------------------
-// Cache des jeux — index bigramme 703 entrees
+// Cache des jeux â€” index bigramme 703 entrees
 //
 // Index 0       = '#'  (chiffres, tirets, etc.)
 // Index 1       = 'A'  (jeux "a" + car. non-lettre)
@@ -225,14 +217,16 @@ void buildSysDefaultCache()
 //
 // bigramTable est alloue dynamiquement en heap
 // et libere avant drawPng pour liberer la RAM a pngle
-// ==================================================
+// --------------------------------------------------
+#define GAMES_IDX_MAX 300
+#define NB_IDX        703   // 1 + 26*27
 
 struct GamesSysIdx { char sysName[32]; uint32_t offset; };
 static GamesSysIdx *gamesIdx = nullptr; // GAMES_IDX_MAX en heap
 static int         gamesIdxCount  = 0;
-static String      gamesCacheFile = GAMES_CACHE_FILE;
+static String      gamesCacheFile = "/games_cache.bin";
 
-// Table bigramme — allouee dynamiquement, liberee avant affichage
+// Table bigramme â€” allouee dynamiquement, liberee avant affichage
 static uint32_t *bigramTable      = nullptr; // NB_IDX x 4 bytes en heap
 static String    bigramTableSys   = "";
 static bool      bigramTableLoaded = false;
@@ -398,7 +392,7 @@ bool preloadBigram(const String &sysName, const String &gameName)
   return true;
 }
 
-// Si le système est flag 'L' (lent), le cache bigram est inutile :
+// Si le systÃ¨me est flag 'L' (lent), le cache bigram est inutile :
 // les fichiers individuels existent mais on les cherche directement
 // via SD.open() dans drawRaw565() / openGif().
 // Retourner 'B' force la tentative des deux types.
@@ -452,7 +446,7 @@ char findInGamesCache(const String &sysName, const String &gameName)
     return bestType;
   }
 
-  // Fallback SD — lit une tranche en bloc puis parse en RAM
+  // Fallback SD â€” lit une tranche en bloc puis parse en RAM
   if (!bigramTableLoaded || bigramTableSys != sysName)
     if (!loadBigramTable(sysName)) return '?';
 
@@ -467,17 +461,17 @@ char findInGamesCache(const String &sysName, const String &gameName)
   if (nextOffset == 0 || nextOffset <= bigramOffset)
   {
     if (gamesIdxCount > 0) { nextOffset = gamesIdx[gamesIdxCount-1].offset; }
-    else { nextOffset = bigramOffset + BIGRAM_FALLBACK_SIZE; } // fallback
+    else { nextOffset = bigramOffset + 2048; } // fallback 2KB
   }
 
-  uint32_t sliceSize = (nextOffset > bigramOffset) ? nextOffset - bigramOffset : BIGRAM_FALLBACK_SIZE;
-  if (sliceSize > BIGRAM_SLICE_MAX) sliceSize = BIGRAM_SLICE_MAX; // sécurité heap
+  uint32_t sliceSize = (nextOffset > bigramOffset) ? nextOffset - bigramOffset : 2048;
+  if (sliceSize > 8192) sliceSize = 8192; // sÃ©curitÃ© heap
 
   File f = SD.open(gamesCacheFile.c_str(), FILE_READ);
   if (!f) return '?';
   f.seek(bigramOffset);
 
-  // Lecture en bloc (évite des centaines de petits reads SPI)
+  // Lecture en bloc (Ã©vite des centaines de petits reads SPI)
   uint8_t *buf = (uint8_t*)malloc(sliceSize);
   if (!buf) { f.close(); return '?'; }
   size_t got = f.read(buf, sliceSize);
@@ -549,6 +543,7 @@ char findInGamesCache(const String &sysName, const String &gameName)
 #define VSPI_MOSI 23
 #define VSPI_SCLK 18
 
+#define TELNET_PORT         23
 #define MQTT_PORT         1883
 #define MQTT_CLIENT  "esp32-marquee"
 #define MQTT_RETRY_MS    15000
@@ -574,7 +569,7 @@ String currentPngPath = "";
 // ------------------------------
 // PNG async (pour systemes "L")
 // ------------------------------
-static uint16_t *pngAsyncFb = nullptr; // 16-bit RGB565 plein écran (largeur = PANEL_RES_X*PANEL_CHAIN, hauteur = PANEL_RES_Y)
+static uint16_t *pngAsyncFb = nullptr; // 16-bit RGB565 plein Ã©cran (largeur = PANEL_RES_X*PANEL_CHAIN, hauteur = PANEL_RES_Y)
 static size_t    pngAsyncFbPixels = 0;
 
 static TaskHandle_t asyncPngTaskHandle = nullptr;
@@ -619,7 +614,26 @@ unsigned long lastWifiReconnectAttempt = 0;
 bool   bluetoothEnabled = false;
 String bluetoothName    = "ESP32-GIF";
 bool   showInfo         = true;
+int    screenBrightness = 120;  // 0..255 (map depuis 0-100% dans config.ini: brightness=)
 
+// --------------------------------------------------
+// Horloge (Clock) - variables
+// --------------------------------------------------
+bool   clockEnabled       = false;   // CLOCK_ENABLED dans [CLOCK]
+int    clockTheme         = -1;      // -1=random, 0..RETRO_THEME_COUNT-1=theme retro
+int    clockIntervalGifs  = 10;      // CLOCK_INTERVAL - nb GIFs entre chaque horloge
+int    clockIntervalMin   = 0;       // CLOCK_INTERVAL_MIN (0=desactive, utilise GIFs)
+int    clockDuration      = 8;       // CLOCK_DURATION - secondes d'affichage
+unsigned long lastClockMs   = 0;      // millis() de la derniere apparition
+int    clockGifCounter     = 0;      // compteur de GIFs depuis derniere horloge
+bool   clockVisible        = false;  // true pendant l'affichage de l'horloge
+unsigned long clockStartMs = 0;      // millis() du debut de l'horloge actuelle
+int    currentTheme        = 0;      // theme retro actif
+int    lastThemePick       = -1;     // anti-repetition random
+unsigned long themeStartMs  = 0;     // millis() du dernier changement de theme
+bool   clockNtpSynced      = false;  // true si NTP a deja synchronise
+unsigned long clockNtpLastTry = 0;   // millis() du dernier essai NTP
+String clockTimeZone       = "CET-1CEST,M3.5.0,M10.5.0/3"; // timezone
 String recalboxIP     = "";
 String mqttEventTopic = "marquee/event";
 const unsigned long MQTT_OFFLINE_FALLBACK_MS = 60000;
@@ -642,6 +656,13 @@ struct MqttCommand
 SemaphoreHandle_t mqttCmdMutex   = nullptr;
 MqttCommand       pendingCmd;
 TaskHandle_t      mqttTaskHandle = nullptr;
+
+WiFiServer telnetServer(TELNET_PORT);
+WiFiClient telnetClient;
+bool   telnetServerStarted = false;
+bool   telnetClientActive  = false;
+String telnetLine          = "";
+bool   telnetLastWasCR     = false;
 
 #define MQTT_LOG_SIZE 10
 struct MqttLogEntry { String topic; String msg; unsigned long ts; };
@@ -807,7 +828,7 @@ void setupBluetoothFromConfig()
 }
 
 // --------------------------------------------------
-// PNG — libere le cache bigramme avant de decoder
+// PNG â€” libere le cache bigramme avant de decoder
 // pour donner la RAM a pngle
 // --------------------------------------------------
 void pngleDrawCallback(pngle_t *pngle, uint32_t x, uint32_t y,
@@ -838,11 +859,58 @@ static void logHeapCaps(const char *where)
 static const int RAW565_W = PANEL_RES_X * PANEL_CHAIN; // 128
 static const int RAW565_H = PANEL_RES_Y;               // 32
 
+// ============================================
+// safe-modify â€” Historique des modifications
+// ============================================
+// Version actuelle : v3
+//
+// v3 - 2026-06-29 - Correction freeze playlist: skipRawPack dans openGif()
+// v2 â€” 2026-06-24 â€” Ajout sous-dossiers alphabÃ©tiques pour rÃ©soudre le ralentissement FAT32 sur 800+ fichiers (flag L). alphaSubdirPath() insÃ¨re un sous-dossier A..Z/# dans le chemin. drawRaw565() et openGif() tentent le sous-dossier en prioritÃ©.
+// v1 â€” 2026-06-10 â€” CrÃ©ation initiale
+// ============================================
+
 static String pngToRaw565Path(const String &pngPath)
 {
   if (pngPath.length() >= 4 && pngPath.endsWith(".png"))
     return pngPath.substring(0, pngPath.length() - 4) + ".raw565";
   return pngPath + ".raw565";
+}
+
+// --------------------------------------------------
+// Sous-dossiers alphabÃ©tiques A..Z et #
+// InsÃ¨re un sous-dossier dans le chemin pour diviser
+// les gros rÃ©pertoires (800+ fichiers) en 27 petits.
+//
+// Exemples:
+//   "/systems/nes/zeld.raw565"  -> "/systems/nes/Z/zeld.raw565"
+//   "/systems/nes/alex.raw565"  -> "/systems/nes/A/alex.raw565"
+//   "/systems/nes/123.raw565"   -> "/systems/nes/#/123.raw565"
+//   "/systems/_defaults/nes.raw565" -> inchangÃ© (pas de sous-dossier pour _defaults)
+//
+// La fonction garde le chemin plat si le sous-dossier
+// n'existe pas (compatibilitÃ© ascendante).
+// --------------------------------------------------
+static String alphaSubdirPath(const String &path)
+{
+  // Ne pas toucher Ã  _defaults/
+  if (path.indexOf("/_defaults/") >= 0) return path;
+
+  int lastSlash = path.lastIndexOf('/');
+  if (lastSlash < 0) return path;
+
+  String dir   = path.substring(0, lastSlash);
+  String fname = path.substring(lastSlash + 1);
+  if (fname.length() == 0) return path;
+
+  char first = (char)toupper((unsigned char)fname.charAt(0));
+  String subdir;
+  if (isAlpha(first)) {
+    subdir = String(first);
+  } else {
+    subdir = "#";
+  }
+
+  return dir + "/" + subdir + "/" + fname;
 }
 
 static uint16_t *raw565FullBuf = nullptr;
@@ -887,13 +955,20 @@ static bool drawDefaultRaw565Cached()
 
 static bool drawRaw565(const String &rawPath)
 {
-  File f = SD.open(rawPath.c_str(), FILE_READ);
+  // Essayer d'abord le chemin avec sous-dossier alphabÃ©tique
+  String subPath = alphaSubdirPath(rawPath);
+  File f = SD.open(subPath.c_str(), FILE_READ);
+
+  // Si le sous-dossier n'existe pas, essayer le chemin plat (compatibilitÃ© ascendante)
+  if (!f) {
+    f = SD.open(rawPath.c_str(), FILE_READ);
+  }
   if (!f) return false;
 
   const size_t rowBytes   = (size_t)RAW565_W * sizeof(uint16_t);
   const size_t totalBytes = rowBytes * (size_t)RAW565_H;
 
-  // 1 seul gros read au lieu de 32 reads: évite le jitter SD.
+  // 1 seul gros read au lieu de 32 reads: Ã©vite le jitter SD.
   if (!raw565FullBuf)
   {
     raw565FullBuf = (uint16_t*)malloc(totalBytes);
@@ -935,7 +1010,7 @@ bool drawPng(const String &path)
   if (nextGifFile)   { nextGifFile.close();   nextGifFile   = File(); }
   if (idxFileHandle) { idxFileHandle.close();  idxFileHandle = File(); }
 
-  // 1) Tentative rapide: afficher *.raw565 si présent
+  // 1) Tentative rapide: afficher *.raw565 si prÃ©sent
   String raw565Path = pngToRaw565Path(path);
   Serial.println("[PNG-RAW] drawRaw565 try raw565=" + raw565Path + " t=" + String(millis()));
   bool rawDrawn = drawRaw565(raw565Path);
@@ -949,7 +1024,7 @@ bool drawPng(const String &path)
 
   Serial.println("[PNG-RAW] MISSING raw565 path=" + path + " raw565=" + raw565Path);
 
-  // 2) Déterminer si le système est "L" (lenteur) ou "N" (rapide)
+  // 2) DÃ©terminer si le systÃ¨me est "L" (lenteur) ou "N" (rapide)
   auto extractSysNameFromSystemsPath=[&](const String &p)->String{
     if(!p.startsWith("/systems/")) return "";
     if(p.startsWith("/systems/_defaults/")) return "";
@@ -965,7 +1040,7 @@ bool drawPng(const String &path)
 
   Serial.println("[PNG-RAW] missing raw -> sysName=" + sysName + " slowFlag=" + String(slowFlag) + " isSlow=" + String(isSlow));
 
-  // 3) fallback "toujours réactif" si système lent: on n'essaie pas de décoder PNG
+  // 3) fallback "toujours rÃ©actif" si systÃ¨me lent: on n'essaie pas de dÃ©coder PNG
   String defPng = "/systems/_defaults/default.png";
   String defRaw565Path = pngToRaw565Path(defPng);
 
@@ -981,7 +1056,7 @@ bool drawPng(const String &path)
     return false;
   }
 
-  // 4) Système rapide: on tente de décoder le PNG (si SD.open échoue -> fallback default raw)
+  // 4) SystÃ¨me rapide: on tente de dÃ©coder le PNG (si SD.open Ã©choue -> fallback default raw)
   freeBigramAll();
 
   if (nextGifFile)   { nextGifFile.close();   nextGifFile   = File(); }
@@ -1046,7 +1121,7 @@ bool drawPng(const String &path)
 }
 
 // --------------------------------------------------
-// PNG async (systemes "L") -> decode en tâche vers buffer RGB565
+// PNG async (systemes "L") -> decode en tÃ¢che vers buffer RGB565
 // puis blit depuis loop()
 // --------------------------------------------------
 static const int PNG_ASYNC_FB_W = 64 * 2; // PANEL_RES_X * PANEL_CHAIN = 128
@@ -1068,7 +1143,7 @@ static inline void pngleAsyncDrawCallback(pngle_t *p, uint32_t x, uint32_t y,
 static void blitPngAsyncFbToDisplay()
 {
   if (!pngAsyncFb) return;
-  // blit ligne par ligne (évite grosse allocation temporaire)
+  // blit ligne par ligne (Ã©vite grosse allocation temporaire)
   for (int y = 0; y < PNG_ASYNC_FB_H; y++)
   {
     display->drawRGBBitmap(0, y, pngAsyncFb + (size_t)y * PNG_ASYNC_FB_W, PNG_ASYNC_FB_W, 1);
@@ -1107,7 +1182,7 @@ static void pngAsyncDecodeTask(void *param)
     return;
   }
 
-  // Décodage
+  // DÃ©codage
   File f = SD.open(pathLocal);
   if (!f)
   {
@@ -1118,7 +1193,7 @@ static void pngAsyncDecodeTask(void *param)
     return;
   }
 
-  // IMPORTANT: libérer la RAM AVANT de créer pngle (comme drawPng)
+  // IMPORTANT: libÃ©rer la RAM AVANT de crÃ©er pngle (comme drawPng)
   // drawPng ferme aussi les fichiers pour maximiser le heap.
   freeBigramAll();
 
@@ -1170,11 +1245,11 @@ static void pngAsyncDecodeTask(void *param)
 
 static void startAsyncPngDecodeIfNeeded(const String &path)
 {
-  // si on veut un PNG asynchrone mais déjà lancé pour le même path, on ne relance pas
+  // si on veut un PNG asynchrone mais dÃ©jÃ  lancÃ© pour le mÃªme path, on ne relance pas
   // (on utilise requestId pour simple tracking)
   if (asyncPngInProgress && asyncPngPath == path && asyncPngReady == false) return;
 
-  // Annule l’éventuelle tâche précédente
+  // Annule lâ€™Ã©ventuelle tÃ¢che prÃ©cÃ©dente
   asyncPngCancel = true;
   delay(1);
   asyncPngCancel = false;
@@ -1184,15 +1259,15 @@ static void startAsyncPngDecodeIfNeeded(const String &path)
   asyncPngPath = path;
   asyncPngStartMs = millis();
 
-  // IMPORTANT: éviter la fenêtre où loop() relance des tâches avant que la FreeRTOS task
-  // ne passe à son premier instruction. On marque "in progress" dès maintenant.
+  // IMPORTANT: Ã©viter la fenÃªtre oÃ¹ loop() relance des tÃ¢ches avant que la FreeRTOS task
+  // ne passe Ã  son premier instruction. On marque "in progress" dÃ¨s maintenant.
   asyncPngReady = false;
   asyncPngInProgress = true;
 
   Serial.println("[PNG-ASYNC] scheduled reqId=" + String(asyncPngActiveRequestId)
                  + " inProgress=1 path=" + path);
 
-  if (asyncPngTaskHandle) { asyncPngTaskHandle = nullptr; } // tâche gérée par vTaskDelete
+  if (asyncPngTaskHandle) { asyncPngTaskHandle = nullptr; } // tÃ¢che gÃ©rÃ©e par vTaskDelete
 
   xTaskCreatePinnedToCore(pngAsyncDecodeTask, "pngAsyncDecode", 16384, nullptr, 1, &asyncPngTaskHandle, 1);
 }
@@ -1344,7 +1419,7 @@ static uint16_t gifRawReadDelayMs(uint32_t frameIndex)
   return ms;
 }
 // Buffer reusable pour la lecture bulk d'une frame raw565pack (8192 bytes)
-// Partagé avec drawRaw565() via raw565FullBuf
+// PartagÃ© avec drawRaw565() via raw565FullBuf
 static uint16_t *gifRawFrameBuf = nullptr;
 
 static void drawGifRaw565Frame(uint32_t frameIndex)
@@ -1356,10 +1431,10 @@ static void drawGifRaw565Frame(uint32_t frameIndex)
   uint32_t baseOff = frameIndex * frameBytes;
   gifRawPackFile.seek(baseOff);
 
-  // Utiliser raw565FullBuf s'il est déjà alloué (drawRaw565 l'alloue si besoin)
+  // Utiliser raw565FullBuf s'il est dÃ©jÃ  allouÃ© (drawRaw565 l'alloue si besoin)
   if (!gifRawFrameBuf)
   {
-    // Essayer raw565FullBuf d'abord (partagé avec drawRaw565)
+    // Essayer raw565FullBuf d'abord (partagÃ© avec drawRaw565)
     if (raw565FullBuf)
     {
       gifRawFrameBuf = raw565FullBuf;
@@ -1420,16 +1495,21 @@ static void gifResetCompat()
   }
 }
 
-bool openGif(const String &path, bool clearBefore=true, bool skipProbe=false)
+bool openGif(const String &path, bool clearBefore=true, bool skipProbe=false, bool skipRawPack=false)
 {
   if (!skipProbe)
   {
-    File p = SD.open(path.c_str(), FILE_READ);
+    // Essayer sous-dossier d'abord, puis plat
+    String subPath = alphaSubdirPath(path);
+    File p = SD.open(subPath.c_str(), FILE_READ);
+    if (!p) {
+      p = SD.open(path.c_str(), FILE_READ);
+    }
     if (!p) return false;
     p.close();
   }
 
-  // On ferme l'état raw si on en avait un.
+  // On ferme l'Ã©tat raw si on en avait un.
   closeGifRawPackIfAny();
   gifRawPackMode = false;
   gifOpened = false;
@@ -1437,19 +1517,42 @@ bool openGif(const String &path, bool clearBefore=true, bool skipProbe=false)
   // RULE:
   // - Si raw565pack + meta existent => on ouvre en raw565pack
   // - Sinon => fallback sur GIF standard (.gif)
-  // - Cas spécifique masks _defaults: raw-only strict (pas de fallback GIF standard)
+  // - Cas spÃ©cifique masks _defaults: raw-only strict (pas de fallback GIF standard)
   bool isDefaults = (path.indexOf("/systems/_defaults/") >= 0);
 
   // -------- Raw565pack (si disponible) --------
+  if (!skipRawPack)
+  // skipRawPack=true : utilisÃ© par openNextGif() pour les GIFs de playlist (/gifs/...)
+  // qui n'ont jamais de raw565pack. Ã‰vite 4 SD.open() Ã©chouant Ã  1-2s chacun -> 4-8s de freeze.
+  if (!skipRawPack)
+  // skipRawPack=true : utilisé par openNextGif() pour les GIFs de playlist (/gifs/...)
+  // qui n'ont jamais de raw565pack. Évite 4 SD.open() échouant à 1-2s chacun -> 4-8s de freeze.
+  if (!skipRawPack)
+  // skipRawPack=true : utilisÃ© par openNextGif() pour les GIFs de playlist (/gifs/...)
+  // qui n'ont jamais de raw565pack. Ã‰vite 4 SD.open() Ã©chouant Ã  1-2s chacun â†’ 4-8s de freeze.
+  if (!skipRawPack)
+  {
   String rawPack = gifToRaw565PackPath(path);
   String metaPath = gifToRaw565MetaPath(path);
+
+  // Essayer d'abord le chemin avec sous-dossier alphabÃ©tique pour raw565pack+meta
+  String subRawPack = alphaSubdirPath(rawPack);
+  String subMetaPath = alphaSubdirPath(metaPath);
 
   {
     // Evite un pattern "probe" SD.exists()+SD.open() : on ouvre directement.
     if (clearBefore) display->clearScreen();
 
+    // Tenter sous-dossier d'abord, puis plat (compatibilitÃ© ascendante)
+    gifRawPackFile = SD.open(subRawPack.c_str(), FILE_READ);
+    if (!gifRawPackFile) {
       gifRawPackFile = SD.open(rawPack.c_str(), FILE_READ);
+    }
+
+    gifRawMetaFile = SD.open(subMetaPath.c_str(), FILE_READ);
+    if (!gifRawMetaFile) {
       gifRawMetaFile = SD.open(metaPath.c_str(), FILE_READ);
+    }
 
       if (gifRawPackFile && gifRawMetaFile)
       {
@@ -1482,6 +1585,7 @@ bool openGif(const String &path, bool clearBefore=true, bool skipProbe=false)
 
       closeGifRawPackIfAny();
   }
+  } // fin skipRawPack
 
   // raw-only strict: si ce sont des masks _defaults, on refuse sans fallback
   if (isDefaults)
@@ -1507,8 +1611,8 @@ bool openGif(const String &path, bool clearBefore=true, bool skipProbe=false)
   gif.begin(LITTLE_ENDIAN_PIXELS);
   int rc = gif.open(path.c_str(), GIFOpenFile, GIFCloseFile, GIFReadFile, GIFSeekFile, GIFDraw);
   // AnimatedGIF::open / GIFInit() renvoie:
-  //   1 = succès (GIFInit OK)
-  //   0 = échec
+  //   1 = succÃ¨s (GIFInit OK)
+  //   0 = Ã©chec
   if (rc == 1)
   {
     gifRawPackMode = false;
@@ -1568,12 +1672,14 @@ DisplayMode openBestMedia(const String &basePath, const String &systemPath="")
     // Ordre explicite selon le type cache:
     // p => PNG (raw565) d'abord
     // g => GIF d'abord
-    // B => PNG d'abord puis GIF si échec
+    // B => PNG d'abord puis GIF si Ã©chec
     if(t=='g')
     {
-      if(openDG(sysName)){pngDrawn=false;currentPngPath="";return MODE_GIF;}
+      // D'abord vÃ©rifier si le PNG est dÃ©jÃ  affichÃ© et Ã  jour (Ã©vite openDG Ã  chaque loop)
       String path=getDP(sysName)+".png";
       if(path==currentPngPath&&pngDrawn) return MODE_PNG;
+
+      if(openDG(sysName)){pngDrawn=false;currentPngPath="";return MODE_GIF;}
       display->clearScreen();
       if(drawPng(path)){currentPngPath=path;pngDrawn=true;return MODE_PNG;}
     }
@@ -1587,17 +1693,18 @@ DisplayMode openBestMedia(const String &basePath, const String &systemPath="")
     }
     else // B ou autre
     {
-      // B : on force raw565pack d'abord (openDG), même si raw565 existe
+      // B : on force raw565pack d'abord (openDG), mÃªme si raw565 existe
+      String path=getDP(sysName)+".png";
+      if(path==currentPngPath&&pngDrawn) return MODE_PNG;  // Ã‰vite openDG() si le PNG est dÃ©jÃ  affichÃ©
+
       if(openDG(sysName)){pngDrawn=false;currentPngPath="";return MODE_GIF;}
 
-      String path=getDP(sysName)+".png";
-      if(path==currentPngPath&&pngDrawn) return MODE_PNG;
       display->clearScreen();
       if(drawPng(path)){currentPngPath=path;pngDrawn=true;return MODE_PNG;}
     }
   }
 
-  // Fallback final: forcer RAM default.raw565 (évite tout redécodage PNG en loop())
+  // Fallback final: forcer RAM default.raw565 (Ã©vite tout redÃ©codage PNG en loop())
   gif.close(); gifOpened = false;
   pngDrawn = true;
   currentPngPath = "";
@@ -1653,7 +1760,7 @@ String getNextGif(){if(gifCount<=0)return "";return playlistRandom?getNextGifRan
 void openNextGif()
 {
   String next=(nextGifPath.length()>0)?nextGifPath:getNextGif(); nextGifPath="";
-  if(next.length()==0||!openGif(next,false,true))
+  if(next.length()==0||!openGif(next,false,true,true))
   {gifOpened=false;currentMode=MODE_BLACK;display->clearScreen();return;}
   currentMode=MODE_PLAYLIST; nextGifPath=getNextGif();
 }
@@ -1723,14 +1830,14 @@ void processPendingMqttCommand()
     bool needDrawMask = false;
     bool maskDrawn = false;
 
-    // Debug général (doit s'afficher pour PS2 aussi)
+    // Debug gÃ©nÃ©ral (doit s'afficher pour PS2 aussi)
     Serial.println("[CMD_GAME] enter sys=" + sysName
                    + " rom=" + romName
                    + " slowFlag=" + String(slowFlag)
                    + " isSlow=" + String(isSlow)
                    + " gameBase=" + gameBase);
 
-    // FAST path (isSlow=0) : tenter directement le jeu en raw (drawPng gère *.raw via fallback)
+    // FAST path (isSlow=0) : tenter directement le jeu en raw (drawPng gÃ¨re *.raw via fallback)
     // Si le jeu n'existe pas (sur ta SD ps2 sans /systems/ps2), tomber sur default.png/default.raw des _defaults.
     if(!isSlow)
     {
@@ -1810,7 +1917,7 @@ void processPendingMqttCommand()
           }
           else
           {
-            // PNG indisponible -> fallback GIF (au moins 1ère frame)
+            // PNG indisponible -> fallback GIF (au moins 1Ã¨re frame)
             String maskGif=maskBase+".gif";
             int fd=0;
             if(openGif(maskGif,true,true))
@@ -1833,7 +1940,7 @@ void processPendingMqttCommand()
           String maskRaw565 = maskBase + ".raw565";
           if(drawRaw565(maskRaw565))
           {
-            currentMode=MODE_BLACK; // on garde juste le contenu affiché du mask
+            currentMode=MODE_BLACK; // on garde juste le contenu affichÃ© du mask
             pngDrawn=false;
             currentPngPath="";
             maskDrawn=true;
@@ -1858,7 +1965,7 @@ void processPendingMqttCommand()
       preloadBigram(sysName, romName);
       char cached=findInGamesCache(sysName, romName);
 
-      // DEBUG pour comprendre pourquoi le jeu n'est pas affiché (vs mask)
+      // DEBUG pour comprendre pourquoi le jeu n'est pas affichÃ© (vs mask)
       Serial.println("[CMD_GAME] debug sys=" + sysName
                    + " rom=" + romName
                    + " cached=" + String(cached)
@@ -1867,7 +1974,7 @@ void processPendingMqttCommand()
                    + " slowFlag=" + String(slowFlag));
 
       // NE PAS clearScreen ici: le mask doit rester visible pendant le chargement.
-      // En mode lent, on force le type d'affichage selon le flag système:
+      // En mode lent, on force le type d'affichage selon le flag systÃ¨me:
       // - sysType 'g'/'B' => raw565pack via openGif(...) (pas drawPng/raw565)
       // - sysType 'p'     => drawPng/raw565
       {
@@ -1898,7 +2005,7 @@ void processPendingMqttCommand()
       if(cached=='p')
       {
         String path=gameBase+".png";
-        // Async pngle_new() échoue systématiquement en tâche => fallback synchrone
+        // Async pngle_new() Ã©choue systÃ©matiquement en tÃ¢che => fallback synchrone
         Serial.println("[CMD_GAME] slow PNG fallback sync sys=" + sysName + " path=" + path);
 
         currentPngPath = path;
@@ -1968,10 +2075,22 @@ void processPendingMqttCommand()
         }
         loadBigramTable(sysName);
 
-        // raw565pack échoué → fallback immédiat: drawDefaultRaw565Cached() depuis RAM
-        // (Évite probe3/ drawPng / drawRaw565 qui ferait un SD.open() sur 800+ fichiers
-        //  dans un dossier FAT lent, prenant 5+ secondes.)
-        Serial.println("[CMD_GAME] slow cached=g raw565pack fail -> fallback default.raw565 t=" + String(millis()));
+        // raw565pack Ã©chouÃ© â†’ tenter le raw565 spÃ©cifique du jeu (drawRaw565 direct)
+        Serial.println("[CMD_GAME] slow cached=g raw565pack fail -> try game raw565 t=" + String(millis()));
+        {
+          String rawPath=gameBase+".raw565";
+          if(drawRaw565(rawPath))
+          {
+            pngDrawn=true;
+            currentPngPath=rawPath;
+            // Garder displayedMaskSysName inchangÃ© pour que loop() ne clearScreen pas.
+            // MODE_PNG avec pngDrawn=true â†’ loop() ne touche pas Ã  l'affichage.
+            currentMode=MODE_PNG;
+            Serial.println("[CMD_GAME] slow cached=g game raw565 OK t=" + String(millis()));
+            break;
+          }
+        }
+        Serial.println("[CMD_GAME] slow cached=g game raw565 fail -> fallback default.raw565 t=" + String(millis()));
         if(drawDefaultRaw565Cached())
         {
           pngDrawn=true;
@@ -2110,7 +2229,7 @@ void mqttTask(void *param)
         mqttClient.subscribe("marquee/cmd/system");
         mqttClient.subscribe("marquee/cmd/game");
         mqttClient.subscribe(mqttEventTopic.c_str());
-        if (mqttCmdMutex != nullptr && xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(MQTT_SEMAPHORE_WAIT_MS)) == pdTRUE)
+        if(mqttCmdMutex!=nullptr&&xSemaphoreTake(mqttCmdMutex,pdMS_TO_TICKS(100))==pdTRUE)
         {
           if(currentMode!=MODE_PLAYLIST&&gifCount>0)
             pendingCmd=MqttCommand(MqttCommand::CMD_DEFAULT,"");
@@ -2126,7 +2245,7 @@ void mqttTask(void *param)
           if(currentMode!=MODE_PLAYLIST&&gifCount>0)
           {
             Serial.println("[MQTT] injoignable -> reprise playlist");
-            if (mqttCmdMutex != nullptr && xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(MQTT_SEMAPHORE_WAIT_MS)) == pdTRUE)
+            if(mqttCmdMutex!=nullptr&&xSemaphoreTake(mqttCmdMutex,pdMS_TO_TICKS(100))==pdTRUE)
             {pendingCmd=MqttCommand(MqttCommand::CMD_DEFAULT,"");xSemaphoreGive(mqttCmdMutex);}
             lastMqttConnectedMs=now;
           }
@@ -2138,6 +2257,259 @@ void mqttTask(void *param)
 
     mqttClient.loop();
     vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+
+// --------------------------------------------------
+// Telnet
+// --------------------------------------------------
+void telnetWrite(const String &s)
+{if(telnetClientActive&&telnetClient&&telnetClient.connected())telnetClient.print(s);}
+void telnetWriteln(const String &s="")
+{if(telnetClientActive&&telnetClient&&telnetClient.connected()){telnetClient.print(s);telnetClient.print("\r\n");}}
+void telnetPrompt(){telnetWrite("> ");}
+void stopTelnetClient(){if(telnetClient)telnetClient.stop();telnetClientActive=false;telnetLine="";telnetLastWasCR=false;}
+void startTelnetServer(){if(telnetServerStarted)return;telnetServer.begin();telnetServer.setNoDelay(true);telnetServerStarted=true;Serial.println("[TELNET] listening on port 23");}
+void stopTelnetServer(){stopTelnetClient();telnetServer.end();telnetServerStarted=false;}
+
+void printTelnetWifiInfo()
+{
+  telnetWriteln("STATUS="+String(WiFi.status()==WL_CONNECTED?"CONNECTED":"DISCONNECTED"));
+  telnetWriteln("IP="+WiFi.localIP().toString());
+  telnetWriteln("MASK="+WiFi.subnetMask().toString());
+  telnetWriteln("GW="+WiFi.gatewayIP().toString());
+  telnetWriteln("DNS1="+WiFi.dnsIP(0).toString());
+  telnetWriteln("DNS2="+WiFi.dnsIP(1).toString());
+  telnetWriteln("RSSI="+String(WiFi.RSSI()));
+  telnetWriteln("STATIC="+String(wifiStaticEnabled?"YES":"NO"));
+  telnetWriteln("MQTT="+String(mqttClient.connected()?"CONNECTED":"DISCONNECTED"));
+  telnetWriteln("BT="+String(bluetoothEnabled?"ON":"OFF"));
+  telnetWriteln("RANDOM="+String(playlistRandom?"ON":"OFF"));
+  telnetWriteln("LASTSYS="+lastSysName);
+  telnetWriteln("EVTOPIC="+mqttEventTopic);
+  telnetWriteln("CACHE="+gamesCacheFile);
+}
+
+void handleTelnetCommand(String cmd)
+{
+  cmd.trim(); cmd.replace("\r",""); cmd.replace("\n","");
+  while(cmd.length()>0&&!isAlphaNumeric(cmd[0])&&cmd[0]!='/'&&cmd[0]!='-') cmd.remove(0,1);
+  while(cmd.length()>0&&(cmd[cmd.length()-1]<32||cmd[cmd.length()-1]>126)) cmd.remove(cmd.length()-1);
+  if(cmd.length()==0){telnetPrompt();return;}
+
+  String dbg="[TELNET] cmd(len="+String(cmd.length())+"): ";
+  for(int i=0;i<(int)cmd.length();i++) dbg+=String((uint8_t)cmd[i])+" ";
+  Serial.println(dbg); telnetWriteln(dbg);
+
+  String cmdLower=cmd; cmdLower.toLowerCase();
+
+  if(cmdLower=="help")
+  {
+    telnetWriteln("help ip wifi wifiinfo next count playlist random reboot");
+    telnetWriteln("exists <path>  -- teste si un fichier existe sur la SD");
+    telnetWriteln("ls <path>      -- liste le contenu d un dossier");
+    telnetWriteln("show <path>    -- affiche un gif ou png (chemin complet)");
+    telnetWriteln("showsys <sys>  -- affiche le logo du systeme");
+    telnetWriteln("showgame <s/r> -- affiche le logo du jeu");
+    telnetWriteln("default        -- affiche /systems/_defaults/default");
+    telnetWriteln("black          -- ecran noir");
+    telnetWriteln("mode           -- affiche le mode courant");
+    telnetWriteln("mqttlog        -- affiche les derniers messages MQTT");
+    telnetWriteln("syscache       -- affiche le cache des systemes");
+    telnetWriteln("rebuildcache   -- reconstruit le cache des systemes");
+    telnetWriteln("lastsys        -- affiche le dernier systeme memorise");
+    telnetWriteln("resumesys      -- reaffiche le dernier systeme memorise");
+    telnetWriteln("heap           -- affiche la RAM libre");
+  }
+  else if(cmdLower=="ip")         telnetWriteln(WiFi.localIP().toString());
+  else if(cmdLower=="wifi")       telnetWriteln(WiFi.status()==WL_CONNECTED?"CONNECTED":"DISCONNECTED");
+  else if(cmdLower=="wifiinfo")   printTelnetWifiInfo();
+  else if(cmdLower=="next")       {requestNextGif=true;telnetWriteln("OK");}
+  else if(cmdLower=="count")      telnetWriteln(String(gifCount));
+  else if(cmdLower=="playlist")   telnetWriteln(playlistName.length()?playlistName:"NONE");
+  else if(cmdLower=="random")     telnetWriteln(String(playlistRandom?"ON":"OFF"));
+  else if(cmdLower=="random on")  {playlistRandom=true; telnetWriteln("RANDOM=ON");}
+  else if(cmdLower=="random off") {playlistRandom=false;telnetWriteln("RANDOM=OFF");}
+  else if(cmdLower=="reboot")     {telnetWriteln("REBOOT");requestReboot=true;}
+  else if(cmdLower=="lastsys")    telnetWriteln("LASTSYS="+(lastSysName.length()?lastSysName:"NONE"));
+  else if(cmdLower=="heap")
+  {
+    telnetWriteln("FreeHeap="    +String(ESP.getFreeHeap()));
+    telnetWriteln("MinFreeHeap=" +String(ESP.getMinFreeHeap()));
+    telnetWriteln("MaxAllocHeap="+String(ESP.getMaxAllocHeap()));
+    telnetWriteln("BigramTable=" +(bigramTableLoaded&&bigramTable?bigramTableSys+" ("+String(NB_IDX*4)+" bytes)":"none"));
+    telnetWriteln("BigramBuf="   +(bigramBufKey.length()?bigramBufKey+" ("+String(bigramBufSize)+" bytes)":"none"));
+    telnetWriteln("CacheFile="   +gamesCacheFile);
+  }
+  else if(cmdLower=="resumesys")
+  {
+    if(lastSysName.length()>0)
+    {
+      telnetWriteln("Reaffichage: "+lastSysName);
+      gif.close();gifOpened=false;pngDrawn=false;currentPngPath="";
+      if(nextGifFile){nextGifFile.close();nextGifFile=File();nextGifPath="";}
+      freeBigramAll();
+      currentMode=openBestMedia("/systems/"+lastSysName+"/_default");
+      telnetWriteln("MODE="+String(currentMode==MODE_GIF?"GIF":currentMode==MODE_PNG?"PNG":"BLACK"));
+    }
+    else telnetWriteln("ERREUR - aucun systeme memorise");
+  }
+  else if(cmdLower=="black")
+  {
+    gif.close();gifOpened=false;currentPngPath="";
+    currentMode=MODE_BLACK;display->clearScreen();telnetWriteln("OK");
+  }
+  else if(cmdLower=="mode")
+  {
+    String m="UNKNOWN";
+    switch(currentMode){case MODE_PLAYLIST:m="PLAYLIST";break;case MODE_GIF:m="GIF";break;case MODE_PNG:m="PNG";break;case MODE_BLACK:m="BLACK";break;}
+    telnetWriteln("MODE="+m);
+    telnetWriteln("pngPath="+currentPngPath);
+    telnetWriteln("gifOpened="+String(gifOpened?"YES":"NO"));
+    telnetWriteln("lastSysName="+lastSysName);
+    telnetWriteln("bigramTable="+(bigramTableLoaded&&bigramTable?bigramTableSys:"none"));
+    telnetWriteln("bigramBuf="  +(bigramBufKey.length()?bigramBufKey:"none"));
+    telnetWriteln("cacheFile="  +gamesCacheFile);
+  }
+  else if(cmdLower=="mqttlog")
+  {
+    if(mqttLogCount==0) telnetWriteln("Aucun message MQTT recu.");
+    else
+    {
+      telnetWriteln("--- Derniers messages MQTT ("+String(mqttLogCount)+") ---");
+      int start=(mqttLogHead-mqttLogCount+MQTT_LOG_SIZE)%MQTT_LOG_SIZE;
+      for(int i=0;i<mqttLogCount;i++)
+      {
+        int idx=(start+i)%MQTT_LOG_SIZE;
+        telnetWriteln("[+"+String(mqttLog[idx].ts/1000)+"s] "+mqttLog[idx].topic+" -> "+mqttLog[idx].msg);
+      }
+      telnetWriteln("---");
+    }
+  }
+  else if(cmdLower=="syscache")
+  {
+    telnetWriteln("--- Cache systemes ("+String(sysCacheCount)+") ---");
+    for(int i=0;i<sysCacheCount;i++)
+    {
+      String val=sysCacheVals[i]=='g'?"gif":sysCacheVals[i]=='p'?"png":"?";
+      String slow=(sysCacheSlowVals[i]=='L'||sysCacheSlowVals[i]=='l')?" (LENT)":"";
+      telnetWriteln(String(sysCacheKeys[i])+" -> "+val+slow);
+    }
+    telnetWriteln("---");
+  }
+  else if(cmdLower=="rebuildcache")
+  {
+    telnetWriteln("Reconstruction...");
+    buildSysDefaultCache();
+    telnetWriteln("Cache: "+String(sysCacheCount)+" systemes");
+  }
+  else if(cmdLower=="default")
+  {
+    String defPath="/systems/_defaults/default";
+    bool ok=openGif(defPath+".gif");
+    if(ok){currentMode=MODE_GIF;telnetWriteln("OK - GIF");}
+    else{
+      display->clearScreen();
+      bool okp=drawPng(defPath+".png");
+      if(okp){currentPngPath=defPath+".png";pngDrawn=true;currentMode=MODE_PNG;telnetWriteln("OK - PNG");}
+      else{telnetWriteln("ERREUR");currentMode=MODE_BLACK;}
+    }
+  }
+  else if(cmd.startsWith("exists ")||cmdLower.startsWith("exists "))
+  {
+    String path=cmd.substring(7);path.trim();
+    telnetWriteln("exists("+path+") = "+(SD.exists(path.c_str())?"YES":"NO"));
+  }
+  else if(cmdLower.startsWith("ls"))
+  {
+    String path="/"; if(cmd.length()>3){path=cmd.substring(3);path.trim();}
+    File root=SD.open(path.c_str());
+    if(!root) telnetWriteln("ERREUR: "+path);
+    else if(!root.isDirectory()){telnetWriteln("Pas un dossier: "+path);root.close();}
+    else
+    {
+      telnetWriteln("Listing: "+path);
+      File f=root.openNextFile(); int count=0;
+      while(f)
+      {
+        String name=String(f.name());
+        if(f.isDirectory()) telnetWriteln("DIR  "+name);
+        else                telnetWriteln("FILE "+name+" ("+String(f.size())+" bytes)");
+        f.close(); f=root.openNextFile();
+        if(++count>50){telnetWriteln("... (trop de fichiers)");break;}
+      }
+      root.close(); telnetWriteln("Total: "+String(count)+" entrees");
+    }
+  }
+  else if(cmd.startsWith("show ")||cmdLower.startsWith("show "))
+  {
+    String path=cmd.substring(5);path.trim();
+    gif.close();gifOpened=false;
+    String pl=path;pl.toLowerCase();
+    if(pl.endsWith(".gif")){
+      if(openGif(path)){currentMode=MODE_GIF;telnetWriteln("OK - GIF");}
+      else telnetWriteln("ERREUR GIF");
+    } else if(pl.endsWith(".png")){
+      display->clearScreen();
+      if(drawPng(path)){currentPngPath=path;pngDrawn=true;currentMode=MODE_PNG;telnetWriteln("OK - PNG");}
+      else telnetWriteln("ERREUR PNG");
+    } else telnetWriteln("ERREUR extension");
+  }
+  else if(cmdLower.startsWith("showsys "))
+  {
+    String sys=cmd.substring(8);sys.trim();
+    gif.close();gifOpened=false;
+    currentMode=openBestMedia("/systems/"+sys+"/_default");
+    telnetWriteln("MODE="+String(currentMode==MODE_GIF?"GIF":currentMode==MODE_PNG?"PNG":"BLACK"));
+  }
+  else if(cmdLower.startsWith("showgame "))
+  {
+    String arg=cmd.substring(9);arg.trim();
+    int slash=arg.indexOf('/');
+    String sysName=(slash>=0)?arg.substring(0,slash):arg;
+    String romName=(slash>=0)?arg.substring(slash+1):arg;
+    String gameBase;
+    if(slash>=0)
+      gameBase="/systems/"+sysName+(imageFolder.length()?"/"+imageFolder+"/"+romName:"/"+romName);
+    else
+      gameBase="/systems/"+arg;
+    gif.close();gifOpened=false;
+    if(slash>=0){
+      preloadBigram(sysName,romName);
+      char cached=findInGamesCache(sysName,romName);
+      telnetWriteln("bigram="+bigramBufKey+" cache="+String(cached));
+    }
+    currentMode=openBestMedia(gameBase,"/systems/"+sysName+"/_default");
+    telnetWriteln("MODE="+String(currentMode==MODE_GIF?"GIF":currentMode==MODE_PNG?"PNG":"BLACK"));
+  }
+  else telnetWriteln("ERR - commande inconnue (tape help)");
+
+  telnetPrompt();
+}
+
+void handleTelnetLineSubmit(){String cmd=telnetLine;telnetLine="";handleTelnetCommand(cmd);}
+
+void handleTelnet()
+{
+  if(!wifiEnabled||WiFi.status()!=WL_CONNECTED){if(telnetServerStarted)stopTelnetServer();return;}
+  if(!telnetServerStarted) startTelnetServer();
+  if(!telnetClientActive)
+  {
+    WiFiClient incoming=telnetServer.available(); if(!incoming) return;
+    telnetClient=incoming; telnetClient.setNoDelay(true);
+    telnetClientActive=true; telnetLine=""; telnetLastWasCR=false;
+    Serial.println("[TELNET] client connected");
+    telnetWriteln("READY"); telnetPrompt(); return;
+  }
+  if(!telnetClient.connected()){Serial.println("[TELNET] disconnected");stopTelnetClient();return;}
+  while(telnetClient.available())
+  {
+    uint8_t c=(uint8_t)telnetClient.read();
+    if(c=='\r'){handleTelnetLineSubmit();telnetLastWasCR=true;}
+    else if(c=='\n'||c==0){if(telnetLastWasCR)telnetLastWasCR=false;else handleTelnetLineSubmit();}
+    else if(c==8||c==127){telnetLastWasCR=false;if(telnetLine.length()>0){telnetLine.remove(telnetLine.length()-1);telnetWrite("\x08 \x08");}}
+    else if(c>=32&&c<=126){telnetLastWasCR=false;if(telnetLine.length()<64)telnetLine+=(char)c;}
+    else telnetLastWasCR=false;
   }
 }
 
@@ -2181,7 +2553,7 @@ void setupWiFiFromConfig()
     String ip=WiFi.localIP().toString();
     if(showInfo)showWifiStatusScreen("WIFI OK",fitLabel(ip,14),display->color565(0,255,0));
     Serial.println("[WIFI] connected: "+ip);
-    delay(1200);
+    delay(1200); startTelnetServer();
     if(recalboxIP.length()>0){
       mqttClient.setServer(recalboxIP.c_str(),MQTT_PORT);
       mqttClient.setCallback(onMqttMessage);
@@ -2204,9 +2576,8 @@ void maintainWiFi()
   lastWifiReconnectAttempt=now;
   Serial.println("[WIFI] reconnect");
   showWifiStatusScreen("NO WIFI","RECONNECT",display->color565(255,128,0));
-  delay(REBOOT_DELAY_MS); WiFi.disconnect(); delay(REBOOT_DISCONNECT_DELAY_MS);
+  delay(1500);stopTelnetServer();WiFi.disconnect();delay(50);
   WiFi.begin(wifiSSID.c_str(),wifiPassword.c_str());
-
 }
 
 // --------------------------------------------------
@@ -2241,6 +2612,7 @@ void loadConfig()
     else if(key=="recalbox_ip"        &&value.length())  recalboxIP       =value;
     else if(key=="random")                               playlistRandom   =(value!="0");
     else if(key=="info")                                 showInfo         =(value!="0");
+    else if(key=="brightness")                            screenBrightness =map(constrain(value.toInt(),0,100),0,100,0,255);
     else if(key=="mqtt_event_topic"   &&value.length())  mqttEventTopic   =value;
   }
   cfg.close();
@@ -2332,7 +2704,7 @@ int buildOffsetIndex()
 
 
 // --------------------------------------------------
-// Splash screen — version au démarrage (info=1 uniquement)
+// Splash screen â€” version au dÃ©marrage (info=1 uniquement)
 // --------------------------------------------------
 #define RETRO_VERSION "Raw565 Ed."
 
@@ -2349,16 +2721,16 @@ void showSplashScreen()
 
   // Panel = 2 x 64px = 128px de large, 32px de haut
   // Taille 1 = 6px par caractere
-  // "RetroBoxLED" = 11 x 6 = 66px  → x = (128-66)/2 = 31
-  // "v1.0.7"      =  6 x 6 = 36px  → x = (128-36)/2 = 46 (confirme)
+  // "RetroBoxLED" = 11 x 6 = 66px  â†’ x = (128-66)/2 = 31
+  // "v1.0.7"      =  6 x 6 = 36px  â†’ x = (128-36)/2 = 46 (confirme)
 
-  // Ligne 1 : RetroBoxLED centré, un seul setCursor puis print enchaînés
+  // Ligne 1 : RetroBoxLED centrÃ©, un seul setCursor puis print enchaÃ®nÃ©s
   display->setCursor(31, 8);
   display->setTextColor(red);   display->print("Recal");
   display->setTextColor(blue);  display->print("Box");
   display->setTextColor(green); display->print("DMD");
 
-  // Ligne 2 : version centrée
+  // Ligne 2 : version centrÃ©e
   display->setCursor(33, 21);
   display->setTextColor(white);
   display->print(RETRO_VERSION);
@@ -2370,9 +2742,212 @@ void showSplashScreen()
 // --------------------------------------------------
 // Setup
 // --------------------------------------------------
+// --------------------------------------------------
+// Horloge -- 3 styles de police proceduraux (fillRect segments epais)
+// Dimensions: 128x32, chaque digit ~20x30px avec segments de 4px
+// --------------------------------------------------
+// Dimensions digit: 20 largeur x 30 hauteur, espacement 2px
+// ":" = 8x30, espacement 2px
+// Total: 4*20 + 8 + 3*2 = 94px -> baseX=(128-94)/2=17, baseY=(32-30)/2=1
+// Chaque segment utilise fillRect pour effet epais
+
+// Segments 7-segments pour un digit 20x30 (epaisseur 4px)
+// Segment A: haut  (x+1..x+18, y..y+3)
+// Segment B: droite-haut  (x+16..x+19, y+4..y+13)
+// Segment C: droite-bas   (x+16..x+19, y+17..y+26)
+// Segment D: bas   (x+1..x+18, y+27..y+30)
+// Segment E: gauche-bas   (x+0..x+3, y+17..y+26)
+// Segment F: gauche-haut  (x+0..x+3, y+4..y+13)
+// Segment G: milieu (x+1..x+18, y+14..y+17)
+
+// Segments sans gap: B/C/E/F etendus d'1px pour toucher G et D
+// Ainsi les chiffres avec segment G (2,3,5,6,8,9,0) ont la meme
+// hauteur visuelle que ceux sans (1,4,7)
+
+static void initNTP()
+{
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.println("[CLOCK] NTP skip: WiFi not connected");
+    return;
+  }
+
+  display->clearScreen();
+  display->setTextWrap(false); display->setTextSize(1);
+  display->setTextColor(display->color565(255, 200, 0));
+  display->setCursor(1, 8);  display->print("SYNC NTP...");
+  display->setCursor(1, 20); display->print(clockTimeZone);
+
+  configTzTime(clockTimeZone.c_str(), "pool.ntp.org", "time.google.com");
+
+  // Attente active synchrone jusqu'à 10 secondes
+  unsigned long timeout = millis() + 10000UL;
+  bool ok = false;
+  while ((long)(millis() - timeout) < 0)
+  {
+    time_t now;
+    struct tm ti;
+    time(&now);
+    localtime_r(&now, &ti);
+    if (ti.tm_year > 100)
+    {
+      ok = true;
+      break;
+    }
+    delay(200);
+    yield();
+  }
+
+  clockNtpSynced = ok;
+
+  display->clearScreen();
+  if (ok)
+  {
+    display->setTextColor(display->color565(0, 255, 0));
+    display->setCursor(1, 8);  display->print("NTP OK ");
+    // Afficher l'heure synchronisée
+    time_t now;
+    struct tm ti;
+    time(&now);
+    localtime_r(&now, &ti);
+    char buf[6];
+    sprintf(buf, "%02d:%02d", ti.tm_hour, ti.tm_min);
+    display->setCursor(1, 20); display->print(buf);
+    Serial.println("[CLOCK] NTP sync OK");
+  }
+  else
+  {
+    display->setTextColor(display->color565(255, 0, 0));
+    display->setCursor(1, 12); display->print("NTP FAIL");
+    Serial.println("[CLOCK] NTP sync FAILED (timeout 10s)");
+  }
+  delay(1200);
+  display->clearScreen();
+}
+
+static bool getClockTime(int &h, int &m, int &s)
+{
+  time_t now;
+  struct tm ti;
+  time(&now);
+  localtime_r(&now, &ti);
+  if (ti.tm_year < 100)
+  {
+    if (!clockNtpSynced && millis() - clockNtpLastTry > 10000UL)
+    {
+      Serial.println("[CLOCK] Waiting for NTP sync...");
+      clockNtpLastTry = millis();
+    }
+    return false;
+  }
+  clockNtpSynced = true;
+  h = ti.tm_hour;
+  m = ti.tm_min;
+  s = ti.tm_sec;
+  return true;
+}
+
+// -- Show clock during clockDuration seconds, checks MQTT each frame --
+// Affiche meme si NTP pas encore synchro (heure 1970 temporaire).
+// -- Show clock using retro themes --
+// Affiche les themes retro pixel-art pendant clockDuration.
+static bool showClock()
+{
+  if (!clockEnabled) return true;
+
+  // Choisir le theme
+  currentTheme = (clockTheme >= 0 && clockTheme < RETRO_THEME_COUNT)
+                  ? clockTheme
+                  : random(0, RETRO_THEME_COUNT);
+  themeStartMs = millis();
+
+  clockVisible = true;
+  clockStartMs = millis();
+  lastClockMs = clockStartMs;
+
+  // Afficher brievement le nom du theme
+  display->fillRect(0, 0, 128, 32, 0);
+  display->setTextSize(1);
+  display->setTextColor(display->color565(255,255,255));
+  int tx = (128 - strlen(retroThemeNames[currentTheme]) * 6) / 2;
+  if (tx < 0) tx = 0;
+  display->setCursor(tx, 12);
+  display->print(retroThemeNames[currentTheme]);
+  {
+    unsigned long nameEnd = millis() + 800UL;
+    while (millis() < nameEnd) {
+      yield();
+      if (hasPendingMqttCommand()) {
+        clockVisible = false;
+        return true;
+      }
+      delay(1);
+    }
+  }
+  display->clearScreen();
+
+  Serial.println("[CLOCK] Start retro theme=" + String(retroThemeNames[currentTheme]) + " id=" + String(currentTheme));
+
+  unsigned long endMs = clockStartMs + ((unsigned long)clockDuration * 1000UL);
+  while (millis() < endMs) {
+    yield();
+
+    // MQTT interruption
+    if (hasPendingMqttCommand()) {
+      Serial.println("[CLOCK] Interrupted by MQTT");
+      clockVisible = false;
+      return true;
+    }
+
+    // Changement de theme si random
+    if (clockTheme == -1 && (millis() - themeStartMs) >= ((unsigned long)clockDuration * 1000UL)) {
+      int prevTheme = currentTheme;
+      do { currentTheme = random(0, RETRO_THEME_COUNT); } while (currentTheme == prevTheme && RETRO_THEME_COUNT > 1);
+      themeStartMs = millis();
+
+      // Afficher le nouveau nom
+      display->fillRect(0, 0, 128, 32, 0);
+      display->setTextSize(1);
+      display->setTextColor(display->color565(255,255,255));
+      int tx2 = (128 - strlen(retroThemeNames[currentTheme]) * 6) / 2;
+      if (tx2 < 0) tx2 = 0;
+      display->setCursor(tx2, 12);
+      display->print(retroThemeNames[currentTheme]);
+      {
+        unsigned long nameEnd = millis() + 800UL;
+        while (millis() < nameEnd) {
+          yield();
+          if (hasPendingMqttCommand()) {
+            clockVisible = false;
+            return true;
+          }
+          delay(1);
+        }
+      }
+      display->clearScreen();
+    }
+
+    int h, m, s;
+    getClockTime(h, m, s);
+
+    drawRetroClockTheme(currentTheme, h, m, s, millis());
+
+    delay(10);
+    if (hasPendingMqttCommand()) break;
+  }
+
+  clockVisible = false;
+  Serial.println("[CLOCK] End display");
+  return true;
+}
+
 void setup()
 {
-  Serial.begin(115200); delay(1000); randomSeed(micros());
+  Serial.begin(115200); delay(1000);
+  // Vrai random seed: analogRead(A0) non connecte donne du bruit thermique
+  randomSeed(analogRead(A0) * 12345L + micros());
+  // Melanger le generateur
+  for (int i = 0; i < 10; i++) random(100);
 
   // Heap allocations to reduce BSS (ESP32 DRAM linker limit on .dram0.bss)
   if (!sysCacheKeys)
@@ -2386,7 +2961,7 @@ void setup()
   if (!sysCacheKeys || !sysCacheVals || !sysCacheSlowVals || !gamesIdx)
   {
     Serial.println("[MEM] heap alloc failed - halting");
-    while (1) { delay(SLEEP_DELAY_MS); yield(); }
+    while (1) { delay(100); yield(); }
   }
 
   HUB75_I2S_CFG::i2s_pins pins={R1_PIN,G1_PIN,B1_PIN,R2_PIN,G2_PIN,B2_PIN,A_PIN,B_PIN,C_PIN,D_PIN,E_PIN,LAT_PIN,OE_PIN,CLK_PIN};
@@ -2395,12 +2970,12 @@ void setup()
   mxconfig.min_refresh_rate=60; mxconfig.clkphase=false; mxconfig.double_buff=false;
 
   display=new MatrixPanel_I2S_DMA(mxconfig);
-  display->begin(); display->setBrightness8(120); display->clearScreen();
+  display->begin(); display->setBrightness8(screenBrightness); display->clearScreen();
 
   spiSD.begin(VSPI_SCLK,VSPI_MISO,VSPI_MOSI,SD_CS_PIN);
   if(!SD.begin(SD_CS_PIN,spiSD)){
     showMessage("SD ERROR","NO CARD",display->color565(255,0,0));
-    while (1) { delay(SLEEP_DELAY_MS); yield(); }
+    while(1){delay(100);yield();}
   }
 
   gif.begin(LITTLE_ENDIAN_PIXELS);
@@ -2412,17 +2987,33 @@ void setup()
         String line=cfg.readStringUntil('\n');line.trim();
         if(line.startsWith("info=")||line.startsWith("info =")){
           String val=line.substring(line.indexOf('=')+1);val.trim();
-          showInfo=(val!="0");break;
+          showInfo=(val!="0");
         }
+        else if(line.startsWith("brightness=")){
+          int v=line.substring(line.indexOf('=')+1).toInt();
+          if(v>=0&&v<=100)screenBrightness=map(v,0,100,0,255);
+        }
+        else if(line.startsWith("CLOCK_ENABLED="))clockEnabled=(line.substring(line.indexOf('=')+1).toInt()!=0);
+        else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+1).toInt();if(s>=-1&&s<=4)clockTheme=s;}
+        else if(line.startsWith("CLOCK_COLOR=")){
+          String v=line.substring(line.indexOf('=')+1);v.trim();
+          if(v.startsWith("#")){
+            unsigned long cv=strtoul(v.substring(1).c_str(),NULL,16);
+        }
+        }
+        else if(line.startsWith("CLOCK_INTERVAL="))clockIntervalGifs=line.substring(line.indexOf('=')+1).toInt();
+        else if(line.startsWith("CLOCK_INTERVAL_MIN="))clockIntervalMin=line.substring(line.indexOf('=')+1).toInt();
+        else if(line.startsWith("CLOCK_DURATION="))clockDuration=line.substring(line.indexOf('=')+1).toInt();
+        else if(line.startsWith("TZ=")){clockTimeZone=line.substring(line.indexOf('=')+1);clockTimeZone.trim();}
       }
       cfg.close();
     }
   }
 
-  showSplashScreen();  // Toujours affiché, indépendamment de info=
+  showSplashScreen();  // Toujours affichÃ©, indÃ©pendamment de info=
 
-  // Charge le cache systèmes (systems_cache.dat). Si absent, on ne rescanner
-  // que si l'utilisateur a info=1. Le script Python écrit déjà ce fichier.
+  // Charge le cache systÃ¨mes (systems_cache.dat). Si absent, on ne rescanner
+  // que si l'utilisateur a info=1. Le script Python Ã©crit dÃ©jÃ  ce fichier.
   if(!loadSysDefaultCache()){
     if(showInfo)showMessage("MARQUEE","Indexation...",display->color565(100,100,255));
     buildSysDefaultCache();
@@ -2438,9 +3029,9 @@ void setup()
 
   loadConfig();
 
-  // Pour les systèmes flags 'L' (lents), games_cache.bin est court-circuité
-  // dans findInGamesCache(). Inutile de le charger pour ces systèmes.
-  // On le charge quand même pour les systèmes 'N' qui en ont besoin.
+  // Pour les systÃ¨mes flags 'L' (lents), games_cache.bin est court-circuitÃ©
+  // dans findInGamesCache(). Inutile de le charger pour ces systÃ¨mes.
+  // On le charge quand mÃªme pour les systÃ¨mes 'N' qui en ont besoin.
   if(!loadGamesIndex())
     Serial.println("[GCACHE] "+gamesCacheFile+" absent");
   else
@@ -2454,6 +3045,16 @@ void setup()
 
   setupBluetoothFromConfig();
   setupWiFiFromConfig();
+  // Attente connexion WiFi puis synchro NTP (affiche succes/echec meme si info=0)
+  if (showInfo) {
+    display->clearScreen();
+    display->setTextWrap(false); display->setTextSize(1);
+    display->setTextColor(display->color565(200, 200, 200));
+    display->setCursor(1, 8); display->print("Brightness: ");
+    display->setCursor(1, 20); display->print(String(screenBrightness * 100 / 255) + "%");
+    delay(800);
+  }
+  initNTP();
 
   mqttCmdMutex=xSemaphoreCreateMutex();
   pendingCmd=MqttCommand(MqttCommand::CMD_NONE,"");
@@ -2534,6 +3135,9 @@ void setup()
 start_mqtt_task:
   if(wifiEnabled&&recalboxIP.length()>0)
     xTaskCreatePinnedToCore(mqttTask,"mqttTask",4096,NULL,1,&mqttTaskHandle,0);
+  
+  // Interface web de configuration
+  if (wifiEnabled) setupWebConfig();
 }
 
 // --------------------------------------------------
@@ -2541,9 +3145,9 @@ start_mqtt_task:
 // --------------------------------------------------
 void loop()
 {
-  maintainWiFi(); processPendingMqttCommand();
+  handleWebConfig(); maintainWiFi(); handleTelnet(); processPendingMqttCommand();
   if(requestNextGif){requestNextGif=false;openNextGif();}
-  if (requestReboot) { delay(SLEEP_DELAY_MS); ESP.restart(); }
+  if(requestReboot) {delay(100);ESP.restart();}
 
   switch(currentMode)
   {
@@ -2551,11 +3155,25 @@ void loop()
     if(!gifOpened){display->clearScreen();currentMode=MODE_BLACK;break;}
     {
       int fd=0; bool frameOk=gifPlayFrameCompat(false,&fd);
-      if(!frameOk){openNextGif();break;}
+      if(!frameOk){
+        if(clockEnabled) clockGifCounter++;
+        openNextGif();
+        if(clockEnabled && clockIntervalMin <= 0)
+        {
+          if(clockGifCounter >= clockIntervalGifs)
+          {
+            clockGifCounter = 0;
+            if(!showClock()) { currentMode = MODE_BLACK; break; }
+            if(nextGifFile) { nextGifFile.close(); nextGifFile = File(); }
+            break;
+          }
+        }
+        break;
+      }
       if(fd<=0)fd=10;
       if(nextGifPath.length()==0)nextGifPath=getNextGif();
       unsigned long t=millis();
-      while((long)(millis()-t)<fd){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(0);}
+      while((long)(millis()-t)<fd){handleTelnet();if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(0);}
       if(nextGifPath.length()>0&&!nextGifFile)nextGifFile=SD.open(nextGifPath.c_str());
     }
     break;
@@ -2567,13 +3185,13 @@ void loop()
       if(!frameOk){gifResetCompat();break;}
       if(fd<=0)fd=10;
       unsigned long t=millis();
-      while((long)(millis()-t)<fd){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(0);}
+      while((long)(millis()-t)<fd){handleTelnet();if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(0);}
     }
     break;
 
   case MODE_PNG:
     if(currentPngPath.length()==0){
-      // si un mask doit rester visible (LENT), on n'efface pas l'écran ici
+      // si un mask doit rester visible (LENT), on n'efface pas l'Ã©cran ici
       if(displayedMaskSysName.length()==0) display->clearScreen();
       currentMode=MODE_BLACK;break;
     }
@@ -2584,11 +3202,11 @@ void loop()
         // Lancer le decode async si necessaire
         if(!asyncPngInProgress && !asyncPngReady)
         {
-          // async PNG doit être déclenché uniquement depuis CMD_GAME (slow PNG),
-          // on évite donc de relancer ici pour ne pas spammer des tâches.
+          // async PNG doit Ãªtre dÃ©clenchÃ© uniquement depuis CMD_GAME (slow PNG),
+          // on Ã©vite donc de relancer ici pour ne pas spammer des tÃ¢ches.
         }
-        // Fallback sécurité si l’async ne devient jamais prêt
-        // Si l’async s’est terminée (échec ou abandon) sans devenir ready, fallback immédiatement
+        // Fallback sÃ©curitÃ© si lâ€™async ne devient jamais prÃªt
+        // Si lâ€™async sâ€™est terminÃ©e (Ã©chec ou abandon) sans devenir ready, fallback immÃ©diatement
         else if(!asyncPngInProgress && !asyncPngReady)
         {
           Serial.println("[PNG-ASYNC] async ended -> fallback drawPng reqId=" + String(asyncPngActiveRequestId)
@@ -2612,7 +3230,7 @@ void loop()
         // Si pret, blit et on repasse en etat PNG affiche
         if(asyncPngReady)
         {
-          // Ne pas effacer le mask tant qu'il doit rester affiché : on recouvre directement en blit
+          // Ne pas effacer le mask tant qu'il doit rester affichÃ© : on recouvre directement en blit
           if(displayedMaskSysName.length()==0) display->clearScreen();
           blitPngAsyncFbToDisplay();
           asyncPngReady = false;
@@ -2628,16 +3246,16 @@ void loop()
       }
     }
     {
-      unsigned long t = millis();
-      while ((long)(millis() - t) < 100) { if (hasPendingMqttCommand()) break; processPendingMqttCommand(); delay(1); }
+      unsigned long t=millis();
+      while((long)(millis()-t)<100){handleTelnet();if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(1);}
     }
     break;
 
   case MODE_BLACK:
   default:
     {
-      unsigned long t = millis();
-      while ((long)(millis() - t) < 50) { if (hasPendingMqttCommand()) break; processPendingMqttCommand(); delay(1); }
+      unsigned long t=millis();
+      while((long)(millis()-t)<50){handleTelnet();if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(1);}
     }
     break;
   }
