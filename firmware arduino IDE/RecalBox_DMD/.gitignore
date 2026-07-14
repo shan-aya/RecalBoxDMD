@@ -1,0 +1,67 @@
+# Compiled / Backup Files
+*.bak
+*.bin
+*.elf
+*.hex
+*.o
+
+# Archive Files
+*.rar
+*.zip
+*.7z
+*.tar.gz
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Arduino
+.pio/
+.pioenvs/
+.piolibdeps/
+.clang-format
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup Folders
+_backups/
+backups/
+old/
+tmp/
+
+# Temporary Files
+*.tmp
+*.temp
+*.log
+
+# Keep firmware source
+!RecalBox_DMD.ino
