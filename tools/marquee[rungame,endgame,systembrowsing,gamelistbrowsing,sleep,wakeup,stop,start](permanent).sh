@@ -25,8 +25,10 @@ LAST_SYSTEM=""
 LAST_ROM=""
 IN_GAME=0
 BOOT_TIME=0
+PREV_EVENT=""
 
 while true; do
+    PREV_EVENT="$event"
     event=$(mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 \
         -t "Recalbox/EmulationStation/Event" -C 1 2>/dev/null | tr -d '\r')
 
@@ -163,7 +165,24 @@ while true; do
             fi
             ;;
 
+        # Mode demo/veille EmulationStation (defilement automatique de clips
+        # video) : ES ne publie ni "sleep" ni "wakeup" pour ce mode, juste
+        # "startgameclip" en boucle toutes les ~30s -- sans ce cas, le DMD ne
+        # repassait jamais en playlist pendant la demo (tombait dans le *)
+        # ci-dessous, ignore). PREV_EVENT evite de renvoyer "default" a
+        # chaque repetition (juste au moment ou on ENTRE en mode demo).
+        startgameclip)
+            if [ "$PREV_EVENT" != "startgameclip" ]; then
+                echo "$(date '+%H:%M:%S') DEMO/VEILLE -> playlist" >> "$LOG"
+                send_mqtt_retain "default" "1"
+            fi
+            ;;
+
+        stopgameclip)
+            ;;
+
         *)
+            # Event inconnu ou vide
             ;;
     esac
 done
