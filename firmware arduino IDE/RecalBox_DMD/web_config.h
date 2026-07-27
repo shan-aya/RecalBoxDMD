@@ -3,7 +3,18 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v88
+// Version actuelle : v89
+//
+// v89 — 2026-07-27 — safe-modify — Demande utilisateur : accorder les
+//   libelles du menu d'accueil (WEB_CONFIG_MENU_HTML) avec les vrais titres
+//   des pages cibles. MEDIA ne gere plus aucune playlist depuis la refonte
+//   BASIC/MEDIA (v79/v199-200) -- son propre h1/nav dit juste "Medias" (fr),
+//   "Media" (en), "Medios" (es), mais le menu d'accueil affichait encore
+//   "Medias & Playlists". Retire "& Playlists" de menu_media/cont_media
+//   (fr/en/es). Au passage, BASIC dit bien "Affichage & Playlists" (pluriel)
+//   sur sa propre page mais le menu d'accueil disait "Affichage & Playlist"
+//   (singulier, fr/en) / "Pantalla y lista" (es) -- harmonise au pluriel
+//   partout. PAS ENCORE teste sur materiel reel.
 //
 // v88 — 2026-07-27 — safe-modify — Reintroduction du reboot cible en mode
 //   config, SYSTEMATIQUE (toutes les pages, pas seulement MEDIA). Cause
@@ -1485,18 +1496,18 @@ body{position:relative}
 <div class="section">
 <a id="continueLink" class="continue" href="#"></a>
 <div class="menu">
-<a class="btn" href="/config/basic" data-i18n="menu_basic">&#x1F4A1; Affichage &amp; Playlist</a>
+<a class="btn" href="/config/basic" data-i18n="menu_basic">&#x1F4A1; Affichage &amp; Playlists</a>
 <a class="btn" href="/config/network" data-i18n="menu_network">&#x1F4F6; Wi-Fi &amp; Bluetooth</a>
 <a class="btn" href="/config/clock" data-i18n="menu_clock">&#x23F0; Horloge</a>
-<a class="btn" href="/config/media" data-i18n="menu_media">&#x1F4BF; M&eacute;dias &amp; Playlists</a>
+<a class="btn" href="/config/media" data-i18n="menu_media">&#x1F4BF; M&eacute;dias</a>
 </div>
 <div class="small" data-i18n="small_hint">Page fractionn&eacute;e pour un chargement rapide et fiable sur ESP32.</div>
 </div>
 <script>
 const MENU_I18N={
-fr:{title:'RecalBox DMD',tagline:'Configuration DMD',menu_basic:'&#x1F4A1; Affichage &amp; Playlist',menu_network:'&#x1F4F6; Wi-Fi &amp; Bluetooth',menu_clock:'&#x23F0; Horloge',menu_media:'&#x1F4BF; Médias &amp; Playlists',small_hint:'Page fractionnée pour un chargement rapide et fiable sur ESP32.',cont_basic:'&#x1F4A1; Continuer : Affichage & Playlist',cont_network:'&#x1F4F6; Continuer : Wi-Fi & Bluetooth',cont_clock:'&#x23F0; Continuer : Horloge',cont_media:'&#x1F4BF; Continuer : Médias & Playlists'},
-en:{title:'RecalBox DMD',tagline:'DMD Configuration',menu_basic:'&#x1F4A1; Display &amp; Playlist',menu_network:'&#x1F4F6; Wi-Fi &amp; Bluetooth',menu_clock:'&#x23F0; Clock',menu_media:'&#x1F4BF; Media &amp; Playlists',small_hint:'Split page for fast, reliable loading on ESP32.',cont_basic:'&#x1F4A1; Resume: Display & Playlist',cont_network:'&#x1F4F6; Resume: Wi-Fi & Bluetooth',cont_clock:'&#x23F0; Resume: Clock',cont_media:'&#x1F4BF; Resume: Media & Playlists'},
-es:{title:'RecalBox DMD',tagline:'Configuración DMD',menu_basic:'&#x1F4A1; Pantalla y lista',menu_network:'&#x1F4F6; Wi-Fi y Bluetooth',menu_clock:'&#x23F0; Reloj',menu_media:'&#x1F4BF; Medios y listas',small_hint:'Página dividida para una carga rápida y fiable en ESP32.',cont_basic:'&#x1F4A1; Continuar: Pantalla y lista',cont_network:'&#x1F4F6; Continuar: Wi-Fi y Bluetooth',cont_clock:'&#x23F0; Continuar: Reloj',cont_media:'&#x1F4BF; Continuar: Medios y listas'}
+fr:{title:'RecalBox DMD',tagline:'Configuration DMD',menu_basic:'&#x1F4A1; Affichage &amp; Playlists',menu_network:'&#x1F4F6; Wi-Fi &amp; Bluetooth',menu_clock:'&#x23F0; Horloge',menu_media:'&#x1F4BF; Médias',small_hint:'Page fractionnée pour un chargement rapide et fiable sur ESP32.',cont_basic:'&#x1F4A1; Continuer : Affichage & Playlists',cont_network:'&#x1F4F6; Continuer : Wi-Fi & Bluetooth',cont_clock:'&#x23F0; Continuer : Horloge',cont_media:'&#x1F4BF; Continuer : Médias'},
+en:{title:'RecalBox DMD',tagline:'DMD Configuration',menu_basic:'&#x1F4A1; Display &amp; Playlists',menu_network:'&#x1F4F6; Wi-Fi &amp; Bluetooth',menu_clock:'&#x23F0; Clock',menu_media:'&#x1F4BF; Media',small_hint:'Split page for fast, reliable loading on ESP32.',cont_basic:'&#x1F4A1; Resume: Display & Playlists',cont_network:'&#x1F4F6; Resume: Wi-Fi & Bluetooth',cont_clock:'&#x23F0; Resume: Clock',cont_media:'&#x1F4BF; Resume: Media'},
+es:{title:'RecalBox DMD',tagline:'Configuración DMD',menu_basic:'&#x1F4A1; Pantalla y listas',menu_network:'&#x1F4F6; Wi-Fi y Bluetooth',menu_clock:'&#x23F0; Reloj',menu_media:'&#x1F4BF; Medios',small_hint:'Página dividida para una carga rápida y fiable en ESP32.',cont_basic:'&#x1F4A1; Continuar: Pantalla y listas',cont_network:'&#x1F4F6; Continuar: Wi-Fi y Bluetooth',cont_clock:'&#x23F0; Continuar: Reloj',cont_media:'&#x1F4BF; Continuar: Medios'}
 };
 let currentLang='fr';
 function tr(k){return (MENU_I18N[currentLang]&&MENU_I18N[currentLang][k])||MENU_I18N.fr[k]||k;}
