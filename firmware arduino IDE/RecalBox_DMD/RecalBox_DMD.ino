@@ -1,7 +1,29 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v35
+// Version actuelle : v36
+//
+// v36 - 2026-07-27 - safe-modify - BRANCHE DEV : reintroduction du reboot
+//   cible mode config (retire en v35), SYSTEMATIQUE cette fois (toutes les
+//   pages de config, pas seulement MEDIA comme avant v77). Cause reelle
+//   trouvee via logs Serial materiels reels (deux boots complets fournis par
+//   l'utilisateur) : mettre en pause un GIF en cours (webDmdPause(), appele
+//   par triggerWebConfigMode() dans web_config.h) provoque a lui seul un
+//   effondrement de ESP.getMaxAllocHeap() (~4596 octets) par fragmentation
+//   (le heap libre TOTAL augmente au meme instant -- ce n'est pas un manque
+//   de memoire, c'est de la fragmentation), meme apres un seul GIF ouvert --
+//   passe sous le seuil de garde "< 6000" deja utilise par
+//   scanGifDirsRaw(), rendant /lsgifdirs definitivement vide pour le reste
+//   du boot (BASIC comme MEDIA, puisque BASIC scanne aussi la SD depuis
+//   v79 pour la generation de playlist). Restaure a l'identique de la
+//   version pre-v35 : g_skipPlaylistForConfig/force_config_boot (config.ini),
+//   g_playlistStartedThisBoot, requestReboot, le bloc dedie dans setup() qui
+//   saute entierement la playlist/l'ouverture de GIF quand le flag est pose,
+//   et le check requestReboot dans loop(). Cote web_config.h :
+//   triggerWebConfigMode() redevient bool (voir son changelog v88) et decide
+//   du reboot selon g_playlistStartedThisBoot. Le reste du retrait v35 (pas
+//   de cache par dossier, pas de navigation/suppression fichier par fichier
+//   dans MEDIA) reste inchange. PAS ENCORE teste sur materiel reel.
 //
 // v35 - 2026-07-27 - safe-modify - BRANCHE DEV, pivot majeur : decision
 //   utilisateur de retirer completement la navigation/suppression de
@@ -1088,6 +1110,24 @@ unsigned long g_sdOpLastScroll1 = 0;
 bool     g_configDmdDirty = false;
 bool     g_firstBoot = true;
 bool     g_forceApRecovery = false; // force_ap_recovery: demande via marquee/cmd/wifi_recovery
+// v88 -- REINTRODUITS (retires en v85, ramenes suite a un test reel
+// montrant que meme le simple listing des NOMS de dossiers /lsgifdirs
+// (BASIC ET MEDIA, plus seulement l'ancien cache par fichier) echoue sans
+// ce reboot : mettre en pause une lecture GIF en cours (webDmdPause(),
+// appelee par triggerWebConfigMode()) fragmente fortement le heap a elle
+// seule (maxalloc mesure s'effondrant de ~13-18 Ko a ~4,6 Ko, alors que le
+// heap LIBRE total augmente au meme moment -- pure fragmentation, pas un
+// manque de memoire), quelle que soit la duree de lecture avant. Sans
+// reboot, `/lsgifdirs` echoue systematiquement des la 1ere entree en mode
+// config. Decision utilisateur : reboot desormais SYSTEMATIQUE (toutes
+// les pages), pas seulement MEDIA -- BASIC en a besoin aussi (generation
+// de playlist, v79/v87).
+bool     g_skipPlaylistForConfig = false; // force_config_boot (config.ini) : ce boot doit sauter
+  // directement en mode config sans jamais lancer la playlist/ouvrir de GIF --
+  // consomme (remis a "0" dans config.ini) des lecture dans loadConfig().
+bool     g_playlistStartedThisBoot = false; // true des que la playlist/le 1er GIF a reellement
+  // demarre ce boot -- sert a triggerWebConfigMode() (web_config.h) pour savoir si un reboot
+  // "propre" (sans playlist) apporterait un vrai gain de heap avant d'entrer en mode config.
 String   uiLanguage = "fr"; // language: fr/en/es -- transmis par l'outil Windows via config.ini,
                              // pilote les bannieres informatives DMD + pages web (voir trOpenBrowserAt() etc.)
 
@@ -1126,6 +1166,7 @@ File seqPlaylistFile;
 File idxFileHandle;
 
 bool   requestNextGif = false;
+bool   requestReboot  = false;
 String nextGifPath    = "";
 
 bool   wifiEnabled               = true;
@@ -3336,6 +3377,7 @@ void loadConfig()
     else if(key=="mqtt_event_topic"   &&value.length())  mqttEventTopic   =value;
     else if(key=="first_boot")                           g_firstBoot      =(value!="0");
     else if(key=="force_ap_recovery")                    g_forceApRecovery=(value!="0");
+    else if(key=="force_config_boot")                    g_skipPlaylistForConfig=(value!="0");
     else if(key=="language" && (value=="fr"||value=="en"||value=="es")) uiLanguage=value;
   }
   cfg.close();
@@ -3907,6 +3949,54 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
     goto start_mqtt_task;
   }
 
+  if (g_skipPlaylistForConfig) {
+    // Reboot demande par triggerWebConfigMode() (web_config.h) pour repartir
+    // en mode config avec un maximum de heap disponible -- ne JAMAIS lancer
+    // la playlist/ouvrir de GIF sur ce boot precis (voir memoire projet :
+    // chaque GIF ouvert perd durablement quelques Ko de heap, jamais
+    // recupere avant reboot -- et meme mettre en pause UN SEUL GIF deja
+    // ouvert fragmente fortement le heap, confirme en test reel v88).
+    // Flag consomme immediatement (config.ini remis a "0") pour qu'un
+    // reboot normal ulterieur ("Redemarrer") reparte bien en boot playlist
+    // standard, pas en boucle sur ce chemin.
+    writeConfigFlag("force_config_boot", "0");
+    // Charge quand meme l'index playlist (gifCount), SANS jamais ouvrir de
+    // GIF ni dessiner l'ecran playlist (showPlaylistInfoScreen()) -- lecture
+    // seule d'un fichier .idx deja existant, cout heap negligeable (~7ms
+    // mesures en conditions reelles). Sans ca, "Reprendre DMD" (resumePlaylist(),
+    // qui ne fait rien si gifCount==0) laissait un ecran noir en sortie de
+    // config -- gifCount ne serait sinon jamais initialise sur ce chemin.
+    // Si le cache playlist est perime (signature differente), gifCount reste
+    // a 0 pour ce boot precis (limite acceptee : cas rare, un vrai reboot
+    // normal ulterieur reconstruira le cache comme d'habitude).
+    if (playlistName.length() > 0) {
+      uint32_t curSig = computeFileHash(playlistSourcePath);
+      uint32_t savSig = readSavedSignature();
+      if (curSig && curSig == savSig) {
+        if (idxFileHandle) idxFileHandle.close();
+        idxFileHandle = SD.open(playlistIdxPath, FILE_READ);
+        if (idxFileHandle) {
+          size_t idxSize = idxFileHandle.size();
+          gifCount = (idxSize >= 4) ? (int)(idxSize / 4) : 0;
+          if (!playlistRandom) {
+            if (seqPlaylistFile) seqPlaylistFile.close();
+            seqPlaylistFile = SD.open(playlistCachePath, FILE_READ);
+            playIndex = 0;
+          }
+        }
+      }
+    }
+    String ip = WiFi.localIP().toString();
+    g_sdOpMsg = trConfigPageMsg();
+    g_sdOpSubMsg = trOpenUrl(ip);
+    g_sdOpSubMsgColor = 0x07E0;
+    g_sdOpInProgress = true;
+    currentMode = MODE_CONFIG;
+    g_configDmdDirty = true;
+    Serial.println("[BOOT] Reboot cible mode config (heap max) -> http://" + ip + " gifCount=" + String(gifCount));
+    goto start_mqtt_task;
+  }
+
   if(playlistName.length()==0){
     String ip = WiFi.localIP().toString();
     if (ip == "0.0.0.0") ip = WiFi.softAPIP().toString();
@@ -3994,6 +4084,7 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
       Serial.println("[BOOT] Playlist empty -> config mode sur http://" + ip);
       goto start_mqtt_task;
     }
+    g_playlistStartedThisBoot = true;
     playIndex=0;lastRandomIndex=-1;currentMode=MODE_PLAYLIST;openNextGif();
     Serial.println("[BOOT] apres 1er openNextGif, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
   }
@@ -4014,6 +4105,7 @@ void loop()
 {
   handleWebConfig(); maintainWiFi(); maintainApRecovery(); processPendingMqttCommand();
   if(requestNextGif&&!g_sdOpInProgress){requestNextGif=false;openNextGif();}
+  if(requestReboot) {delay(100);ESP.restart();}
 
   switch(currentMode)
   {

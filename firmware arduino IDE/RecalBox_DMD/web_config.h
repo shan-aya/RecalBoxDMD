@@ -3,7 +3,66 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v85
+// Version actuelle : v88
+//
+// v88 — 2026-07-27 — safe-modify — Reintroduction du reboot cible en mode
+//   config, SYSTEMATIQUE (toutes les pages, pas seulement MEDIA). Cause
+//   reelle trouvee via logs Serial materiels reels fournis par l'utilisateur
+//   (deux boots complets jusqu'au blocage) : mettre en pause un GIF en cours
+//   (`webDmdPause()`, appele par `triggerWebConfigMode()`) provoque a lui
+//   seul un effondrement de `ESP.getMaxAllocHeap()` (~4596 octets), meme
+//   apres l'ouverture d'un seul GIF -- c'est de la FRAGMENTATION (le heap
+//   libre total AUGMENTE au meme instant), pas un manque de memoire brut, et
+//   ca passe sous le seuil de garde `< 6000` deja utilise par
+//   `scanGifDirsRaw()`. Symptomes observes : `/lsgifdirs` renvoie une liste
+//   vide en permanence pour le reste du boot ("heap critique"),
+//   NS_ERROR_NET_EMPTY_RESPONSE cote navigateur, DMD apparemment fige dans
+//   certains cas. Le retrait du reboot cible en v85 (justifie a l'epoque par
+//   "MEDIA ne fait plus que des operations dossier, pas besoin de la marge
+//   heap") s'est avere insuffisant : BASIC fait AUSSI un vrai scan SD
+//   (/lsgifdirs pour la generation de playlist, v79) et souffre de la meme
+//   fragmentation. Demande explicite utilisateur : reboot systematique pour
+//   TOUTES les pages de config, pas seulement MEDIA. Restaure : externs
+//   `g_playlistStartedThisBoot`/`requestReboot`, `sendRebootingPage()`,
+//   `triggerWebConfigMode()` repasse de `void` a `bool` (retourne `false` si
+//   un reboot a deja ete declenche et la reponse deja envoyee -- l'appelant
+//   doit alors s'arreter immediatement sans envoyer sa propre reponse). Les
+//   6 points d'appel (handleDmdOpen + les 5 handlers de page) verifient
+//   desormais la valeur de retour via `if (!triggerWebConfigMode(...))
+//   return;`. Cote .ino : restauration a l'identique de
+//   `g_skipPlaylistForConfig`/`force_config_boot` (config.ini),
+//   `g_playlistStartedThisBoot`, `requestReboot`, et du bloc de boot dedie
+//   qui saute entierement la playlist/l'ouverture de GIF quand le flag est
+//   pose. Le reste du retrait v85 (pas de cache par fichier, pas de
+//   navigation/suppression fichier par fichier) reste inchange. PAS ENCORE
+//   teste sur materiel reel.
+//
+//
+// v87 — 2026-07-27 — safe-modify — Demande utilisateur : la generation de
+//   playlist (liste de dossiers a cocher, nom, bouton) doit etre separee
+//   graphiquement de la selection de la playlist active (qui reste juste
+//   sous la section Affichage). Section "Playlist" (sec_playlist) ne garde
+//   plus que le choix de la playlist par defaut + lecture aleatoire.
+//   Nouvelle section separee "Gestion des playlists" (sec_manage_playlists,
+//   nouvelle cle i18n remplace sec_gen_playlist devenue inutilisee) :
+//   generation ET suppression de playlist, regroupees ensemble (toutes
+//   deux des actions de GESTION de fichiers playlist, distinctes du choix
+//   de lecture). PAS ENCORE teste sur materiel reel.
+//
+//
+// v86 — 2026-07-27 — safe-modify — Bug reel confirme par l'utilisateur :
+//   aucun dossier affiche dans la section generation de playlist (BASIC).
+//   Cause trouvee : `loadGenDirs()` (v79) etait appelee en PARALLELE de la
+//   sequence `fetch('/lang')...` au chargement de la page, au lieu d'etre
+//   enchainee apres -- exactement la classe de bug deja documentee et
+//   corrigee sur MEDIA via `queuedFetch()` (v45, memoire projet) : le
+//   WebServer ESP32 ne traite qu'une requete a la fois, des fetch()
+//   concurrents corrompent silencieusement l'une des reponses. BASIC n'a
+//   pas de `queuedFetch()` (page plus simple, jusqu'ici sans besoin) --
+//   fix minimal : `loadConfig()` retourne desormais sa promesse, et
+//   `loadGenDirs()` est chainee en dernier (`.then(loadGenDirs)`) apres
+//   /lang PUIS /load, au lieu de partir en parallele. PAS ENCORE teste sur
+//   materiel reel.
 //
 // v85 — 2026-07-27 — safe-modify — Pivot majeur, decision utilisateur :
 //   retrait complet de la navigation/suppression de fichiers INDIVIDUELS
@@ -1377,6 +1436,8 @@ extern String clockTimeZone;
 extern bool    clockNeonCustomColor;
 extern uint8_t clockNeonR, clockNeonG, clockNeonB;
 extern bool   g_sdOpInProgress;
+extern bool   g_playlistStartedThisBoot;
+extern bool   requestReboot;
 extern String uiLanguage;
 extern void webDmdPause(const String &msg, uint16_t color = 0xFFFF);
 extern void webDmdResume();
@@ -1527,7 +1588,9 @@ body{position:relative}
 <h2 data-i18n="sec_playlist">&#x1F4BF; Playlist</h2>
 <div class="row"><label for="playlist" data-i18n="lbl_playlist_file">Playlist par d&eacute;faut</label><select id="playlist"></select></div>
 <div class="row"><label data-i18n="lbl_random">Lecture al&eacute;atoire</label><input id="random" type="checkbox"></div>
-<h2 data-i18n="sec_gen_playlist" style="margin-top:16px">&#x2699; G&eacute;n&eacute;rer une playlist</h2>
+</div>
+<div class="section">
+<h2 data-i18n="sec_manage_playlists">&#x2699; Gestion des playlists</h2>
 <div class="desc" data-i18n="desc_gen_playlist">Cochez des dossiers pour g&eacute;n&eacute;rer une nouvelle playlist.</div>
 <div class="mini-row">
 <button type="button" class="mini-btn" onclick="selectAllGenDirs(true)" data-i18n="btn_select_all">Tout s&eacute;lectionner</button>
@@ -1549,9 +1612,9 @@ body{position:relative}
 <div id="msg" class="msg"></div>
 <script>
 const PAGE_I18N={
-fr:{title:'RecalBox DMD - Affichage',h1:'Affichage &amp; Playlists',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_display:'&#x1F4A1; Affichage',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Luminosité (%)',lbl_silent_boot:'Démarrage silencieux',lbl_playlist_file:'Playlist par défaut',lbl_random:'Lecture aléatoire',lbl_delete_playlist:'Supprimer',btn_delete_playlist:'&#x1F5D1; Supprimer playlist',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_select_playlist:'Sélectionnez une playlist à supprimer',msg_confirm_delete:'Supprimer ${0} ?',msg_deleting:'Suppression...',msg_load_error:'Impossible de charger la config',sec_gen_playlist:'&#x2699; Générer une playlist',desc_gen_playlist:'Cochez des dossiers pour générer une nouvelle playlist.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',lbl_playlist_name:'Nom playlist',placeholder_playlist_name:'ex: MaPlaylist',btn_gen_playlist:'&#x2699; Générer playlist',msg_no_playlist_name:'Donnez un nom à la playlist',msg_select_folder:'Choisissez au moins un dossier',msg_generating:'Generation...'},
-en:{title:'RecalBox DMD - Display',h1:'Display &amp; Playlists',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_display:'&#x1F4A1; Display',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Brightness (%)',lbl_silent_boot:'Silent boot',lbl_playlist_file:'Default playlist',lbl_random:'Random playback',lbl_delete_playlist:'Delete',btn_delete_playlist:'&#x1F5D1; Delete playlist',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_select_playlist:'Select a playlist to delete',msg_confirm_delete:'Delete ${0}?',msg_deleting:'Deleting...',msg_load_error:'Unable to load config',sec_gen_playlist:'&#x2699; Generate a playlist',desc_gen_playlist:'Check folders to generate a new playlist.',btn_select_all:'Select all',btn_select_none:'Select none',lbl_playlist_name:'Playlist name',placeholder_playlist_name:'e.g. MyPlaylist',btn_gen_playlist:'&#x2699; Generate playlist',msg_no_playlist_name:'Please name the playlist',msg_select_folder:'Select at least one folder',msg_generating:'Generating...'},
-es:{title:'RecalBox DMD - Pantalla',h1:'Pantalla y listas',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_display:'&#x1F4A1; Pantalla',sec_playlist:'&#x1F4BF; Lista',lbl_brightness:'Brillo (%)',lbl_silent_boot:'Arranque silencioso',lbl_playlist_file:'Lista predeterminada',lbl_random:'Reproducción aleatoria',lbl_delete_playlist:'Eliminar',btn_delete_playlist:'&#x1F5D1; Eliminar lista',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_select_playlist:'Selecciona una lista para eliminar',msg_confirm_delete:'¿Eliminar ${0}?',msg_deleting:'Eliminando...',msg_load_error:'No se pudo cargar la configuración',sec_gen_playlist:'&#x2699; Generar una lista',desc_gen_playlist:'Marque las carpetas para generar una nueva lista.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',lbl_playlist_name:'Nombre de la lista',placeholder_playlist_name:'ej: MiLista',btn_gen_playlist:'&#x2699; Generar lista',msg_no_playlist_name:'Póngale un nombre a la lista',msg_select_folder:'Elija al menos una carpeta',msg_generating:'Generando...'}
+fr:{title:'RecalBox DMD - Affichage',h1:'Affichage &amp; Playlists',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_display:'&#x1F4A1; Affichage',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Luminosité (%)',lbl_silent_boot:'Démarrage silencieux',lbl_playlist_file:'Playlist par défaut',lbl_random:'Lecture aléatoire',lbl_delete_playlist:'Supprimer',btn_delete_playlist:'&#x1F5D1; Supprimer playlist',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_select_playlist:'Sélectionnez une playlist à supprimer',msg_confirm_delete:'Supprimer ${0} ?',msg_deleting:'Suppression...',msg_load_error:'Impossible de charger la config',sec_manage_playlists:'&#x2699; Gestion des playlists',desc_gen_playlist:'Cochez des dossiers pour générer une nouvelle playlist.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',lbl_playlist_name:'Nom playlist',placeholder_playlist_name:'ex: MaPlaylist',btn_gen_playlist:'&#x2699; Générer playlist',msg_no_playlist_name:'Donnez un nom à la playlist',msg_select_folder:'Choisissez au moins un dossier',msg_generating:'Generation...'},
+en:{title:'RecalBox DMD - Display',h1:'Display &amp; Playlists',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_display:'&#x1F4A1; Display',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Brightness (%)',lbl_silent_boot:'Silent boot',lbl_playlist_file:'Default playlist',lbl_random:'Random playback',lbl_delete_playlist:'Delete',btn_delete_playlist:'&#x1F5D1; Delete playlist',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_select_playlist:'Select a playlist to delete',msg_confirm_delete:'Delete ${0}?',msg_deleting:'Deleting...',msg_load_error:'Unable to load config',sec_manage_playlists:'&#x2699; Playlist management',desc_gen_playlist:'Check folders to generate a new playlist.',btn_select_all:'Select all',btn_select_none:'Select none',lbl_playlist_name:'Playlist name',placeholder_playlist_name:'e.g. MyPlaylist',btn_gen_playlist:'&#x2699; Generate playlist',msg_no_playlist_name:'Please name the playlist',msg_select_folder:'Select at least one folder',msg_generating:'Generating...'},
+es:{title:'RecalBox DMD - Pantalla',h1:'Pantalla y listas',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_display:'&#x1F4A1; Pantalla',sec_playlist:'&#x1F4BF; Lista',lbl_brightness:'Brillo (%)',lbl_silent_boot:'Arranque silencioso',lbl_playlist_file:'Lista predeterminada',lbl_random:'Reproducción aleatoria',lbl_delete_playlist:'Eliminar',btn_delete_playlist:'&#x1F5D1; Eliminar lista',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_select_playlist:'Selecciona una lista para eliminar',msg_confirm_delete:'¿Eliminar ${0}?',msg_deleting:'Eliminando...',msg_load_error:'No se pudo cargar la configuración',sec_manage_playlists:'&#x2699; Gestión de listas',desc_gen_playlist:'Marque las carpetas para generar una nueva lista.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',lbl_playlist_name:'Nombre de la lista',placeholder_playlist_name:'ej: MiLista',btn_gen_playlist:'&#x2699; Generar lista',msg_no_playlist_name:'Póngale un nombre a la lista',msg_select_folder:'Elija al menos una carpeta',msg_generating:'Generando...'}
 };
 let currentLang='fr';
 function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||PAGE_I18N.fr[k]||k;}
@@ -1610,10 +1673,14 @@ function generatePlaylist(){
   showMsg(tr('msg_generating'),true);
   fetch('/generate-playlist',{method:'POST',body:new URLSearchParams({name:name,dirs:dirs}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t,t.includes('OK'));if(t.includes('OK')){document.getElementById('playlistName').value='';fillPlaylists('');}}).catch(()=>showMsg(tr('msg_net_error'),false));
 }
-function loadConfig(){fetch('/load').then(r=>r.json()).then(d=>{document.getElementById('brightness').value=Math.max(0,Math.min(100,parseInt(d.brightness||50,10)));document.getElementById('bval').textContent=document.getElementById('brightness').value;document.getElementById('silent_boot').checked=d.info==='0';fillPlaylists(d.playlist||'');document.getElementById('random').checked=d.random==='1';}).catch(()=>showMsg(tr('msg_load_error'),false));}
+function loadConfig(){return fetch('/load').then(r=>r.json()).then(d=>{document.getElementById('brightness').value=Math.max(0,Math.min(100,parseInt(d.brightness||50,10)));document.getElementById('bval').textContent=document.getElementById('brightness').value;document.getElementById('silent_boot').checked=d.info==='0';fillPlaylists(d.playlist||'');document.getElementById('random').checked=d.random==='1';}).catch(()=>showMsg(tr('msg_load_error'),false));}
 localStorage.setItem('dmd_last_section','basic');
-fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);loadConfig();}).catch(()=>{applyLang();loadConfig();});
-loadGenDirs();
+// loadGenDirs() enchainee APRES /lang+/load (jamais en parallele) : le
+// WebServer ESP32 ne traite qu'une requete a la fois -- des fetch()
+// concurrents corrompent silencieusement l'une des reponses (bug deja
+// documente et corrige sur MEDIA via queuedFetch(), reintroduit ici par
+// inattention lors de l'ajout de la generation de playlist, v79).
+fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);return loadConfig();}).catch(()=>{applyLang();return loadConfig();}).then(loadGenDirs);
 document.getElementById('basicForm').addEventListener('input',()=>{_formDirty=true;});
 </script>
 </body>
@@ -3007,7 +3074,7 @@ static void handleWebConfigDeleteFolders()
 // Forward declaration : definie plus bas (juste avant handleWebConfigRoot,
 // qui l'utilise aussi), mais appelee ici par handleDmdOpen() -- sans cette
 // declaration, erreur de compilation "not declared in this scope".
-static void triggerWebConfigMode(const String &msg);
+static bool triggerWebConfigMode(const String &msg);
 
 static void handleDmdPause()
 {
@@ -3033,7 +3100,7 @@ static void handleDmdOpen()
   if (!webServer->hasArg("msg")) { webServer->send(400, "text/plain", "ERR: missing msg"); return; }
   String msg = webServer->arg("msg");
   String full = msg + " " + WiFi.localIP().toString();
-  triggerWebConfigMode(msg);
+  if (!triggerWebConfigMode(msg)) return; // reboot cible deja declenche, reponse deja envoyee
   webServer->send(200, "text/plain", "OK " + full);
 }
 
@@ -3105,37 +3172,85 @@ static void handleWebConfigSaveAP()
   ESP.restart();
 }
 
-// v85 -- decision utilisateur : retrait complet du reboot cible mode
-// config (g_skipPlaylistForConfig/force_config_boot/sendRebootingPage()).
-// Il n'avait plus lieu d'etre une fois la navigation/suppression de
-// fichiers individuels retiree de MEDIA (seule fonctionnalite qui en
-// beneficiait, via le cache /gifs desormais lui aussi retire). Verifie
-// explicitement (question utilisateur) que ni le reboot MQTT CMD_REBOOT
-// (Recalbox) ni celui de la page AP (handleWebConfigSaveAP()) n'en
-// dependaient -- deux chemins ESP.restart() entierement separes.
-static void triggerWebConfigMode(const String &msg)
+static void sendRebootingPage()
 {
-  if (g_sdOpInProgress) {
-    // Le DMD est deja en mode config (page precedente de la meme session,
-    // navigation directe entre sous-pages via la barre de nav).
-    // Reappliquer webDmdPause()/webDmdSetMainMsg() avec les MEMES valeurs
-    // (meme IP, meme message) ne changerait rien a l'affichage mais
-    // reassignerait des String et redeclencherait un redraw pour rien --
-    // pur gaspillage de heap a un moment ou il est deja rare.
-    // clearFirstBoot() reste appelee (idempotente, sans cout si deja
-    // fait) pour ne changer aucun autre comportement existant.
+  // Page volontairement generee en C++ (pas de bloc PROGMEM/gzip) : tres
+  // courte, contenu dynamique selon uiLanguage, inutile de passer par le
+  // pipeline de generation gzip pour ca.
+  // Poll JS (fetch + catch) plutot qu'un simple <meta refresh> : pendant la
+  // fenetre ou l'ESP32 redemarre reellement, une navigation classique
+  // (meta refresh) tomberait sur une erreur de connexion et le navigateur
+  // afficherait sa page d'erreur native -- laquelle n'a plus notre balise
+  // refresh, plus aucune nouvelle tentative automatique ensuite. Le fetch()
+  // echoue silencieusement (catch) sans jamais quitter cette page tant que
+  // le serveur ne repond pas, puis recharge des le premier succes reel.
+  String msg = "Redemarrage du DMD en cours, veuillez patienter...";
+  if (uiLanguage == "en") msg = "DMD rebooting, please wait...";
+  else if (uiLanguage == "es") msg = "Reiniciando el DMD, por favor espere...";
+  String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
+    "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+    "<title>RecalBox DMD</title>"
+    "<style>body{font-family:sans-serif;background:#1a1a2e;color:#eee;display:flex;"
+    "align-items:center;justify-content:center;height:100vh;margin:0;text-align:center}</style>"
+    "</head><body><div>" + msg + "</div>"
+    "<script>function poll(){fetch(location.href,{cache:'no-store'}).then(function(r){"
+    "if(r.ok)location.reload();else setTimeout(poll,1500);"
+    "}).catch(function(){setTimeout(poll,1500);});}"
+    "setTimeout(poll,1500);</script>"
+    "</body></html>";
+  webServer->send(200, "text/html", html);
+}
+
+// v88 -- REINTRODUIT (retire en v85, ramene suite a un test reel) : le
+// simple LISTING DES NOMS de dossiers (/lsgifdirs, utilise par BASIC ET
+// MEDIA desormais, pas seulement l'ancien cache par fichier) echoue sans
+// ce reboot -- mettre en pause une lecture GIF en cours (webDmdPause()
+// juste en dessous) fragmente fortement le heap A ELLE SEULE (maxalloc
+// mesure s'effondrant de ~13-18 Ko a ~4,6 Ko alors que le heap LIBRE total
+// augmente au meme moment -- pure fragmentation, pas un manque de
+// memoire), quelle que soit la duree de lecture avant l'ouverture de la
+// page. Reboot desormais SYSTEMATIQUE (toutes les pages declenchent la
+// meme logique, plus de parametre allowReboot -- BASIC a autant besoin de
+// heap contigu pour son listing que MEDIA).
+static bool triggerWebConfigMode(const String &msg)
+{
+  if (!g_playlistStartedThisBoot) {
+    // Rien n'a ete lance depuis le boot (playlist deja sautee -- AP/premier
+    // boot/secours WiFi, ou reboot precedent deja cible sur ce chemin) : le
+    // heap est deja au maximum disponible, pas besoin de rebooter encore.
+    if (g_sdOpInProgress) {
+      // Le DMD est deja en mode config (page precedente de la meme
+      // session, navigation directe entre sous-pages via la barre de nav).
+      // Reappliquer webDmdPause()/webDmdSetMainMsg() avec les MEMES
+      // valeurs (meme IP, meme message) ne changerait rien a l'affichage
+      // mais reassignerait des String et redeclencherait un redraw pour
+      // rien -- pur gaspillage de heap a un moment ou il est deja rare.
+      clearFirstBoot();
+      return true;
+    }
+    String ip = WiFi.localIP().toString();
     clearFirstBoot();
-    return;
+    webDmdSetMainMsg(msg);
+    webDmdPause(ip, 0xFFE0);
+    // Message "de fond" auquel revenir automatiquement apres un message de
+    // statut transitoire (voir SD_OP_SUBMSG_EXPIRE_MS, RecalBox_DMD.ino).
+    g_sdOpPersistentSubMsg = ip;
+    g_sdOpPersistentSubMsgColor = 0xFFE0;
+    Serial.println("[WEB] triggerWebConfigMode (pas de reboot), heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
+    return true;
   }
-  String ip = WiFi.localIP().toString();
-  clearFirstBoot();
-  webDmdSetMainMsg(msg);
-  webDmdPause(ip, 0xFFE0);
-  // Message "de fond" auquel revenir automatiquement apres un message de
-  // statut transitoire (voir SD_OP_SUBMSG_EXPIRE_MS, RecalBox_DMD.ino).
-  g_sdOpPersistentSubMsg = ip;
-  g_sdOpPersistentSubMsgColor = 0xFFE0;
-  Serial.println("[WEB] triggerWebConfigMode, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
+  // La playlist/des GIFs ont deja tourne ce boot -- chaque GIF ouvert perd
+  // durablement quelques Ko de heap (jamais recupere avant reboot), et
+  // meme mettre en pause LE SEUL GIF deja ouvert fragmente fortement le
+  // heap (confirme en test reel, v88). Plutot que d'entrer en mode config
+  // avec un heap deja fragmente, rebooter directement et sauter la
+  // playlist sur ce prochain boot (g_skipPlaylistForConfig, RecalBox_DMD.ino)
+  // pour repartir avec le maximum de heap disponible.
+  Serial.println("[WEB] triggerWebConfigMode: playlist deja active -> reboot cible mode config");
+  writeConfigFlag("force_config_boot", "1");
+  sendRebootingPage();
+  requestReboot = true;
+  return false; // reboot deja declenche, reponse deja envoyee -- l'appelant doit s'arreter la
 }
 
 static void sendGzipHtml(const uint8_t *content, size_t len)
@@ -3146,7 +3261,7 @@ static void sendGzipHtml(const uint8_t *content, size_t len)
 
 static void handleWebConfigRoot()
 {
-  triggerWebConfigMode("WEB DMD CONFIG");
+  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
   if (WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA) {
     sendGzipHtml(WEB_CONFIG_AP_HTML_GZ, WEB_CONFIG_AP_HTML_GZ_LEN);
   } else {
@@ -3156,29 +3271,28 @@ static void handleWebConfigRoot()
 
 static void handleWebConfigBasicPage()
 {
-  triggerWebConfigMode("WEB DMD CONFIG");
+  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
   sendGzipHtml(WEB_CONFIG_BASIC_HTML_GZ, WEB_CONFIG_BASIC_HTML_GZ_LEN);
 }
 
 static void handleWebConfigNetworkPage()
 {
-  triggerWebConfigMode("WEB DMD CONFIG");
+  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
   sendGzipHtml(WEB_CONFIG_NETWORK_HTML_GZ, WEB_CONFIG_NETWORK_HTML_GZ_LEN);
 }
 
 static void handleWebConfigClockPage()
 {
-  triggerWebConfigMode("WEB DMD CONFIG");
+  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
   sendGzipHtml(WEB_CONFIG_CLOCK_HTML_GZ, WEB_CONFIG_CLOCK_HTML_GZ_LEN);
 }
 
 static void handleWebConfigMediaPage()
 {
-  // v85 : plus de reboot cible (voir triggerWebConfigMode()) -- MEDIA ne
-  // fait plus que des operations dossier (creer/supprimer/uploader), plus
-  // de navigation/cache par fichier, donc plus besoin de la marge heap
-  // dediee.
-  triggerWebConfigMode("WEB DMD CONFIG");
+  // v88 : reboot cible reintroduit de facon systematique (voir triggerWebConfigMode())
+  // -- BASIC scanne aussi la SD (/lsgifdirs, generation de playlist) et souffre de la
+  // meme fragmentation heap au moment de webDmdPause(), donc MEDIA garde la meme marge.
+  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
   sendGzipHtml(WEB_CONFIG_MEDIA_HTML_GZ, WEB_CONFIG_MEDIA_HTML_GZ_LEN);
 }
 
