@@ -3,7 +3,32 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v91
+// Version actuelle : v92
+//
+// v92 — 2026-07-28 — safe-modify — Comparaison reelle avec l'ancienne
+//   version pre-heap-crise (RecalBox_DMDv10_scriptsRB, flashee et testee par
+//   l'utilisateur : upload vers dossier existant reussi du premier coup, SANS
+//   reboot, SANS garde heap) : le code bas niveau (SD.open/openNextFile pour
+//   lister, mkdir+fichier temoin+SD.open(FILE_WRITE) pour uploader) est
+//   quasi identique entre les 2 versions, et setupWebConfig() enregistre le
+//   MEME nombre de routes (25) -- donc PAS une difference d'infrastructure.
+//   Vraie difference trouvee : l'ancienne version fait UNE SEULE requete par
+//   upload (direct vers /upload) ; la version actuelle en fait 3-4
+//   (/create-folder, /lsgifdirs de rafraichissement AVANT l'upload,
+//   /dmd-pause de progression, /upload, /add-to-playlists-batch, /lsgifdirs
+//   de rafraichissement APRES l'upload) -- et le diagnostic v90 avait deja
+//   mesure un cout heap fixe non recupere par cycle requete/reponse. Fix :
+//   MEDIA JS (uploadGif()) ne rafraichit plus la liste des dossiers apres
+//   /create-folder QUE si un dossier a reellement ete cree ("OK: cree", pas
+//   "OK: existant") ; le rafraichissement systematique de FIN d'upload est
+//   retire entierement (uploader des fichiers ne change jamais l'ensemble
+//   des noms de dossiers affiches -- c'etait exactement ce /lsgifdirs de fin
+//   qui echouait "heap critique, liste vide" en test reel, faisant croire a
+//   une disparition de la liste). L'instrumentation diagnostic v90
+//   (scanGifDirsRaw) et le retry-apres-delai v91 (UPLOAD_FILE_START) sont
+//   conserves pour ce test -- objectif : verifier qu'un upload vers un
+//   dossier existant ne declenche plus qu'UN SEUL /lsgifdirs (celui du
+//   chargement de page) au lieu de 3. PAS ENCORE teste sur materiel reel.
 //
 // v91 — 2026-07-28 — safe-modify — Suite du diagnostic v90 (voir memoire
 //   projet) : les logs heap par-entree ajoutes dans scanGifDirsRaw() ont
@@ -2190,7 +2215,13 @@ async function uploadGif(){
     const cr=await queuedFetch('/create-folder',{method:'POST',body:new URLSearchParams({dir:dir}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
     const ct=await cr.text();
     if(!ct.includes('OK')){stopBtn.style.display='none';showMsg(trTpl('msg_cannot_create_folder',ct),false);return;}
-    await loadDirs();await loadUploadDirs();
+    // v92 -- ne rafraichir la liste des dossiers que si /create-folder en a
+    // reellement cree un NOUVEAU ("OK: cree") : pour un dossier deja
+    // existant ("OK: existant", cas le plus courant), la liste affichee
+    // depuis le chargement de la page est deja a jour -- ce fetch /lsgifdirs
+    // supplementaire n'apportait rien et ajoutait un cout heap par requete
+    // mesure en test reel (diagnostic v90).
+    if(ct.indexOf('cree')>=0){await loadDirs();await loadUploadDirs();}
   }catch(e){stopBtn.style.display='none';showMsg(tr('msg_net_error_folder'),false);return;}
   msgEl.textContent=tr('msg_uploading');
   let okCount=0;const failed=[];const uploaded=[];
@@ -2228,7 +2259,14 @@ async function uploadGif(){
   }
   fileList.textContent=failed.length?trTpl('msg_failures',failed.join(', ')):'';
   document.getElementById('uploadDirCustom').value='';
-  await loadDirs();await loadUploadDirs();
+  // v92 -- retire le rafraichissement /lsgifdirs de fin d'upload : uploader
+  // des FICHIERS dans un dossier ne change jamais l'ENSEMBLE des noms de
+  // dossiers affiches (#dirList/#uploadDir) -- un dossier nouvellement cree
+  // est deja reflete par le rafraichissement conditionnel juste apres
+  // /create-folder ci-dessus. Ce fetch etait systematiquement inutile et
+  // ajoutait un cout heap par requete (diagnostic v90) -- c'est lui qui
+  // echouait "heap critique, liste vide" apres plusieurs tentatives d'upload
+  // ratees en test reel, faisant croire a une disparition de la liste.
   const result=trTpl('msg_upload_result',okCount,files.length)+(failed.length?trTpl('msg_upload_result_fail',failed.join(', ')):'');
   showMsg(result,failed.length===0);
 }
