@@ -3,7 +3,28 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v89
+// Version actuelle : v90
+//
+// v90 — 2026-07-28 — safe-modify — DIAGNOSTIC TEMPORAIRE (a retirer une fois
+//   la cause confirmee). Test reel post-fusion master (v89) : upload d'un
+//   fichier vers un dossier /gifs PRE-EXISTANT (donc /create-folder prend le
+//   chemin court, aucune ecriture) echoue quand meme "heap critique,
+//   maxalloc=4596" AVANT que l'upload ait ouvert le moindre fichier -- entre
+//   les 2 derniers /lsgifdirs reussis (maxalloc 12788) et ce refus, seul un
+//   /dmd-pause (dessin GFX pur, aucun acces SD) a eu lieu. Le fix
+//   setvbuf/fopen() deja identifie pour la fuite ~4200/GIF (malloc cache de
+//   4096 octets par fopen() de FICHIER, voir memoire projet) ne concerne que
+//   la LECTURE/ECRITURE de fichiers, pas l'enumeration de dossiers -- ne
+//   suffit donc probablement pas a expliquer cette perte. Hypothese non
+//   confirmee : scanGifDirsRaw() ouvre /gifs et chaque sous-dossier via
+//   SD.open()/openNextFile() (std::make_shared<VFSFileImpl> par appel, voir
+//   vfs_api.cpp), meme pour une entree DOSSIER ou setvbuf n'est pas
+//   declenche -- de nombreux petits cycles alloc/free pourraient fragmenter
+//   le tas sans qu'aucun ne "fuie" individuellement. Logs heap ajoutes
+//   avant/apres SD.open("/gifs"), a CHAQUE entree (sur/gifs, jamais plus
+//   d'une trentaine de dossiers, cout de log negligeable ici), et avant/
+//   apres dir.close() -- objectif : isoler precisement ou part le heap sur
+//   un scan qui reussit ("OK") avant de toucher au code.
 //
 // v89 — 2026-07-27 — safe-modify — Demande utilisateur : accorder les
 //   libelles du menu d'accueil (WEB_CONFIG_MENU_HTML) avec les vrais titres
@@ -2471,7 +2492,15 @@ static bool scanGifDirsRaw(String &outNames)
   bool first = true;
   bool aborted = false;
   unsigned long t0 = millis();
+  // v90 -- instrumentation temporaire (voir changelog) : isoler precisement
+  // la source de la perte de maxalloc constatee en test reel entre 2 appels
+  // /lsgifdirs successifs sur un tres petit /gifs (~18 dossiers), alors que
+  // le fix setvbuf/fopen() (leak GIF standard) ne concerne que la LECTURE de
+  // fichiers, pas l'enumeration de dossiers. A retirer une fois la cause
+  // confirmee par ces logs.
+  Serial.println("[WEB][DIAG] scanGifDirsRaw avant SD.open(/gifs), maxalloc=" + String(ESP.getMaxAllocHeap()));
   File dir = SD.open("/gifs");
+  Serial.println("[WEB][DIAG] scanGifDirsRaw apres SD.open(/gifs), maxalloc=" + String(ESP.getMaxAllocHeap()));
   if (dir && dir.isDirectory()) {
     int n = 0;
     File entry = dir.openNextFile();
@@ -2485,7 +2514,9 @@ static bool scanGifDirsRaw(String &outNames)
         first = false;
       }
       entry.close(); entry = dir.openNextFile();
-      if ((++n % 20) == 0) delay(1);
+      n++;
+      Serial.println("[WEB][DIAG] scanGifDirsRaw entree " + String(n) + ", maxalloc=" + String(ESP.getMaxAllocHeap()));
+      if ((n % 20) == 0) delay(1);
       if ((n % 30) == 0) {
         webDmdPause("/gifs (" + String(n) + ")", 0x07E0);
         Serial.println("[WEB] scanGifDirsRaw : " + String(n) + " entrees vues, t=" + String(millis() - t0) + "ms");
@@ -2501,7 +2532,9 @@ static bool scanGifDirsRaw(String &outNames)
         break;
       }
     }
+    Serial.println("[WEB][DIAG] scanGifDirsRaw avant dir.close(), maxalloc=" + String(ESP.getMaxAllocHeap()));
     dir.close();
+    Serial.println("[WEB][DIAG] scanGifDirsRaw apres dir.close(), maxalloc=" + String(ESP.getMaxAllocHeap()));
   }
   Serial.println("[WEB] scanGifDirsRaw : termine, t=" + String(millis() - t0) + "ms" + (aborted ? " (ABANDON heap critique)" : ""));
   return !aborted;
