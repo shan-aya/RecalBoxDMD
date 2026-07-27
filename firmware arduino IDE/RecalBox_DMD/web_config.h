@@ -3,7 +3,22 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v80
+// Version actuelle : v81
+//
+// v81 — 2026-07-27 — safe-modify — Question utilisateur : un cacheBuild
+//   interrompu reprend ou est perdu ? Verification du code reel : les
+//   dossiers DEJA termines (.dmdcache final ecrit) sont toujours preserves
+//   (jamais reconstruits inutilement). Mais le dossier ACTIVEMENT en cours
+//   de scan au moment d'une invalidation etait TOUJOURS perdu (redemarre a
+//   zero), meme quand l'invalidation concernait un dossier totalement
+//   different (upload/suppression/creation ailleurs) -- cacheBuilderStart()
+//   abandonnait sans condition le scan en cours. Sur un gros dossier
+//   (Consoles, Arcade...) deja en cours depuis plusieurs minutes, des
+//   actions web frequentes sur d'autres dossiers pouvaient le faire
+//   recommencer indefiniment sans jamais aboutir. cacheBuilderStart() ne
+//   touche plus au dossier en cours de scan (CB_SCANNING) : rafraichit
+//   seulement la liste des dossiers a traiter APRES lui. PAS ENCORE teste
+//   sur materiel reel.
 //
 // v80 — 2026-07-27 — safe-modify — Question utilisateur : un dossier
 //   ajoute manuellement (carte SD retiree/modifiee sur PC) est-il detecte
@@ -2542,8 +2557,35 @@ static void cacheBuilderExcludeCurrentDir()
 // creation de dossier) -- une passe qui retrouve tous les caches deja
 // valides ne fait que des SD.exists() (rapide), donc la relancer souvent
 // n'est pas couteux.
+//
+// v81 -- question utilisateur ("un cacheBuild interrompu reprend ou est
+// perdu ?") a mis en evidence un vrai probleme : cette fonction abandonnait
+// SANS CONDITION le dossier activement en cours de scan (cacheBuilderAbort
+// CurrentDir(), .tmp jamais renomme -- toute la progression perdue), meme
+// quand l'invalidation ne concernait qu'un AUTRE dossier (upload/
+// suppression/creation ailleurs). Sur un gros dossier deja en cours depuis
+// plusieurs minutes (Consoles, Arcade...), des actions web frequentes sur
+// d'autres dossiers pouvaient le faire redemarrer a zero indefiniment,
+// sans jamais aboutir. Desormais : si un scan est ACTIVEMENT en cours
+// (CB_SCANNING, un File handle deja ouvert avec du contenu deja
+// accumule), on ne l'interrompt plus -- on rafraichit seulement la liste
+// des dossiers a traiter ENSUITE (capture un nouveau dossier ou une
+// invalidation), le dossier en cours continue et finira normalement.
 static void cacheBuilderStart()
 {
+  if (g_cbState == CB_SCANNING) {
+    Serial.println("[CACHEBUILD] refresh liste (scan " + g_cbCurDir + " deja en cours, non interrompu)");
+    String newList;
+    scanGifDirsRaw(newList);
+    g_cbDirsList = newList;
+    g_cbDirsPos = 0; // s'applique aux PROCHAINS dossiers -- celui en cours n'est pas touche
+    g_cbTotalDirs = 0;
+    if (g_cbDirsList.length() > 0) {
+      g_cbTotalDirs = 1;
+      for (unsigned int i = 0; i < g_cbDirsList.length(); i++) if (g_cbDirsList.charAt(i) == ',') g_cbTotalDirs++;
+    }
+    return;
+  }
   cacheBuilderAbortCurrentDir();
   g_cbDirsList = "";
   scanGifDirsRaw(g_cbDirsList); // liste des dossiers seulement : peu nombreux, scan deja rapide (voir log reel : 306ms)
