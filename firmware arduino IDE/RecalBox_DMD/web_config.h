@@ -3,7 +3,24 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v75
+// Version actuelle : v76
+//
+// v76 — 2026-07-27 — safe-modify — BRANCHE DEV : test reel de v75 --
+//   "la page de config n'apparait pas ou avec bcp de difficulte". Le log
+//   montre le meme message DMD "Consoles (4/18)" repete en boucle SANS
+//   compteur d'entrees ni chronometrage (pas ajoutes dans cette nouvelle
+//   machine a etats, contrairement a l'ancien scanGifFilesInRaw() qui les
+//   avait) -- impossible de distinguer une vraie progression lente
+//   (attendue : cout FAT32 deja confirme degradant fortement en
+//   profondeur, jusqu'a ~244ms/entree en fin de dossier) d'un blocage
+//   reel. Deux changements : (1) CB_MAX_ENTRIES_PER_STEP 15 -> 5, pour
+//   reduire le pire cas de temps ou loop() ne peut pas rappeler
+//   webServer->handleClient() (hypothese principale du symptome : un pas
+//   de 15 entrees profondement degradees peut bloquer plusieurs secondes
+//   d'affilee) ; (2) chronometrage reel par pas (compteur d'entrees +
+//   duree du pas + duree cumulee depuis le debut du dossier) dans le log
+//   Serial, meme principe que l'ancienne instrumentation. PAS ENCORE
+//   reteste sur materiel reel.
 //
 // v75 — 2026-07-27 — safe-modify — BRANCHE DEV : le test reel de v74 a
 //   montre un probleme non anticipe -- sans aucun cache SD, CHAQUE
@@ -2336,7 +2353,17 @@ static BufferedCacheWriter *g_cbWriter = nullptr;
 static String g_cbTmpPath, g_cbCachePath;
 static bool g_cbFirstEntry = true;
 static int g_cbTotalDirs = 0, g_cbDoneDirs = 0;
-static const int CB_MAX_ENTRIES_PER_STEP = 15;
+// Reduit de 15 a 5 (v76) : test reel a montre la page de config
+// inaccessible/tres difficile pendant la construction d'un gros dossier --
+// hypothese la plus probable, le cout par entree FAT32 deja confirme
+// degradant fortement en profondeur (jusqu'a ~244ms/entree en fin de
+// dossier sur Arcade, cf. investigation precedente) rend un pas de 15
+// entrees potentiellement bloquant plusieurs secondes d'affilee avant que
+// loop() ne puisse rappeler webServer->handleClient(). 5 reduit le pire
+// cas sans pour autant multiplier a l'exces le nombre d'appels.
+static const int CB_MAX_ENTRIES_PER_STEP = 5;
+static int g_cbEntriesThisDir = 0;
+static unsigned long g_cbDirStartMs = 0;
 
 static void cacheBuilderAbortCurrentDir()
 {
@@ -2393,6 +2420,8 @@ static void cacheBuilderAdvanceToNextDir()
     g_cbWriter = new BufferedCacheWriter(g_cbOutHandle);
     g_cbDirHandle = SD.open(("/gifs/" + name).c_str());
     g_cbFirstEntry = true;
+    g_cbEntriesThisDir = 0;
+    g_cbDirStartMs = millis();
     g_cbState = CB_SCANNING;
     Serial.println("[CACHEBUILD] " + name + " (" + String(g_cbDoneDirs + 1) + "/" + String(g_cbTotalDirs) + ") : construction demarree");
     return;
@@ -2431,6 +2460,7 @@ static void cacheBuilderStep()
       return;
     case CB_SCANNING: {
       if (!g_cbDirHandle || !g_cbDirHandle.isDirectory()) { cacheBuilderFinishCurrentDir(); return; }
+      unsigned long stepStart = millis();
       int n = 0;
       while (n < CB_MAX_ENTRIES_PER_STEP) {
         File f = g_cbDirHandle.openNextFile();
@@ -2443,7 +2473,12 @@ static void cacheBuilderStep()
         }
         f.close();
         n++;
+        g_cbEntriesThisDir++;
       }
+      // Chronometrage reel par pas (v76, diagnostic) : confirme si le
+      // ralentissement observe vient bien du cout FAT32 deja documente
+      // (degrade avec la profondeur) plutot que d'un blocage reel.
+      Serial.println("[CACHEBUILD] " + g_cbCurDir + " : " + String(g_cbEntriesThisDir) + " entrees vues, pas=" + String(millis() - stepStart) + "ms, total=" + String(millis() - g_cbDirStartMs) + "ms");
       // Statut d'activite sur le DMD (meme mecanisme que les progressions
       // deja existantes ailleurs sur ce projet) -- un appel par pas, pas
       // par entree, pour ne pas redessiner l'ecran trop souvent.
