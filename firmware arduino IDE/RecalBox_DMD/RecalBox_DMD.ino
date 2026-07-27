@@ -1,7 +1,20 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v33
+// Version actuelle : v34
+//
+// v34 - 2026-07-27 - safe-modify - BRANCHE DEV : cablage de la nouvelle
+//   machine a etats de cache (web_config.h v75). cacheBuilderStep() ajoutee
+//   dans loop(), juste apres handleWebConfig() -- avance par petits pas a
+//   chaque iteration, aucun cout quand rien a construire (CB_IDLE/CB_DONE).
+//   cacheBuilderStart() appelee une seule fois au boot, a l'endroit exact
+//   ou warmUpGifCaches() etait appelee avant (v30-v33) : seulement sur le
+//   reboot cible mode config (g_skipPlaylistForConfig), jamais pendant une
+//   lecture normale de playlist. Contrairement a warmUpGifCaches(),
+//   cacheBuilderStart() ne bloque pas -- elle initialise juste l'etat, le
+//   scan reel se fait au fil des iterations de loop() suivantes, pendant
+//   que la page web reste deja utilisable. PAS ENCORE teste sur materiel
+//   reel.
 //
 // v33 - 2026-07-27 - safe-modify - BRANCHE DEV (dev/cache-externalisation) :
 //   suppression du prechauffage bloquant de tous les caches SD au boot
@@ -4028,6 +4041,15 @@ start_mqtt_task:
   // Interface web de configuration
   if (wifiEnabled) setupWebConfig();
   Serial.println("[BOOT] apres setupWebConfig, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
+
+  // Demarre la machine a etats de construction du cache /gifs (v75) --
+  // seulement sur le reboot cible mode config (g_skipPlaylistForConfig),
+  // jamais pendant une lecture normale de playlist (heap deja tendu par le
+  // GIF en cours, SD deja sollicitee par openNextGif()/drawRaw565()). Ne
+  // bloque PAS ici : cacheBuilderStart() se contente d'initialiser l'etat,
+  // le vrai travail avance par petits pas via cacheBuilderStep(), appelee
+  // depuis loop() a chaque iteration.
+  if (g_skipPlaylistForConfig && wifiEnabled) cacheBuilderStart();
 }
 
 // --------------------------------------------------
@@ -4035,7 +4057,7 @@ start_mqtt_task:
 // --------------------------------------------------
 void loop()
 {
-  handleWebConfig(); maintainWiFi(); maintainApRecovery(); processPendingMqttCommand();
+  handleWebConfig(); cacheBuilderStep(); maintainWiFi(); maintainApRecovery(); processPendingMqttCommand();
   if(requestNextGif&&!g_sdOpInProgress){requestNextGif=false;openNextGif();}
   if(requestReboot) {delay(100);ESP.restart();}
 
