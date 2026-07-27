@@ -3,7 +3,35 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v84
+// Version actuelle : v85
+//
+// v85 — 2026-07-27 — safe-modify — Pivot majeur, decision utilisateur :
+//   retrait complet de la navigation/suppression de fichiers INDIVIDUELS
+//   dans un dossier depuis MEDIA (le fait que certains dossiers soient
+//   accessibles et d'autres non selon leur statut de cache posait un
+//   probleme d'experience utilisateur -- remplacement envisage : outil PC
+//   pour composer des playlists personnalisees, GIF par GIF, a etudier
+//   separement, pas commence). Retires : tout le sous-systeme de cache
+//   /gifs par dossier (v75-v84 en integralite -- GifCacheStatus,
+//   gifFilesCacheStatus/Ready/Excluded, readGifFilesCache,
+//   BufferedCacheWriter, toute la machine a etats cacheBuilder*, format
+//   V5 horodate) ; handleWebConfigListGifFiles() + route /lsgiffiles ;
+//   handleWebConfigDeleteFiles() + route /delete-files ; le mecanisme de
+//   reboot cible mode config (triggerWebConfigMode() simplifie, plus de
+//   parametre allowReboot, plus jamais de reboot -- g_skipPlaylistForConfig/
+//   force_config_boot/sendRebootingPage()/requestReboot retires cote .ino).
+//   Verifie explicitement (question utilisateur) que ni le reboot MQTT
+//   CMD_REBOOT (Recalbox) ni celui de la page AP (handleWebConfigSaveAP())
+//   n'en dependaient. Cote MEDIA : plus d'icone d'ouverture de dossier, la
+//   liste redevient une simple selection de dossiers (creer/supprimer/
+//   uploader uniquement) -- la suppression de DOSSIERS ENTIERS reste
+//   disponible (confirme avec l'utilisateur, distincte de la suppression
+//   de fichiers individuels retiree). handleWebConfigListGifDirs() garde
+//   scanGifDirsRaw() (liste des noms de dossiers, jamais mise en cache,
+//   n'a jamais souffert de la degradation FAT32 qui ne touchait que
+//   l'enumeration du CONTENU d'un dossier) mais ne renvoie plus de statut
+//   cached/excluded (simple tableau de noms). PAS ENCORE teste sur
+//   materiel reel.
 //
 // v84 — 2026-07-27 — safe-modify — Question utilisateur : un cache genere
 //   hors ESP32 (outil PC modifie) serait-il detecte comme perime, et de
@@ -1348,8 +1376,6 @@ extern int    clockDuration;
 extern String clockTimeZone;
 extern bool    clockNeonCustomColor;
 extern uint8_t clockNeonR, clockNeonG, clockNeonB;
-extern bool   requestReboot;
-extern bool   g_playlistStartedThisBoot;
 extern bool   g_sdOpInProgress;
 extern String uiLanguage;
 extern void webDmdPause(const String &msg, uint16_t color = 0xFFFF);
@@ -1873,12 +1899,10 @@ h2{color:#8ab4f8;font-size:15px;margin:0 0 10px;border-left:3px solid #8ab4f8;pa
 .dirs{margin:8px 0;max-height:220px;overflow-y:auto}
 .dirs label{display:flex;align-items:center;gap:8px;font-size:14px;padding:3px 0}
 .dirs label span.name{flex:1}
-.dirs label span.open{color:#4fc3f7;font-weight:bold;cursor:pointer;padding:0 6px}
 .mini-row{display:flex;gap:8px;margin-bottom:8px}
 .mini-btn{padding:4px 10px;border:none;border-radius:4px;background:#1a6b9e;color:#fff;font-size:11px;cursor:pointer}
 .upload-row{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
 .upload-row select,.upload-row input{flex:1;min-width:110px;padding:8px 10px;border:1px solid #333;border-radius:4px;background:#0f3460;color:#eee;font-size:14px}
-.back-link{display:inline-block;margin-bottom:8px;color:#4fc3f7;cursor:pointer;font-size:13px}
 .btn-row{display:flex;gap:10px;justify-content:center;margin:14px 0;flex-wrap:wrap}
 .btn{padding:10px 18px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
 .btn-upload{background:#1a6b9e;color:#fff}
@@ -1905,17 +1929,13 @@ body{position:relative}
 </div>
 <h1 data-i18n="h1">M&eacute;dias</h1>
 <div class="section">
-<h2 data-i18n="sec_dirs">&#x1F4C1; Dossiers / Images (/gifs/)</h2>
-<div class="desc" data-i18n="desc_dirs">Cochez des dossiers pour les supprimer. Cliquez &#x1F4C2; pour ouvrir un dossier et g&eacute;rer ses images individuellement.</div>
+<h2 data-i18n="sec_dirs">&#x1F4C1; Dossiers (/gifs/)</h2>
+<div class="desc" data-i18n="desc_dirs">Cochez des dossiers pour les supprimer.</div>
 <div class="mini-row">
 <button type="button" class="mini-btn" onclick="selectAllDirs(true)" data-i18n="btn_select_all">Tout s&eacute;lectionner</button>
 <button type="button" class="mini-btn" onclick="selectAllDirs(false)" data-i18n="btn_select_none">Rien s&eacute;lectionner</button>
 </div>
 <div id="dirList" class="dirs"></div>
-<div id="fileNav" style="display:none">
-<a class="back-link" onclick="closeFolder()" data-i18n="back_to_folders">&#x25C0; Retour aux dossiers</a>
-<div id="fileList" class="dirs"></div>
-</div>
 <div class="btn-row">
 <button type="button" class="btn btn-del" onclick="deleteSelected()" data-i18n="btn_delete_sel">&#x1F5D1; Supprimer la s&eacute;lection</button>
 </div>
@@ -1943,20 +1963,20 @@ body{position:relative}
 <script>
 const PAGE_I18N={
 fr:{title:'RecalBox DMD - Médias',h1:'Médias',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',
-sec_dirs:'&#x1F4C1; Dossiers / Images (/gifs/)',desc_dirs:'Cochez des dossiers pour les supprimer. Cliquez &#x1F4C2; pour ouvrir un dossier et gérer ses images individuellement.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',back_to_folders:'&#x25C0; Retour aux dossiers',btn_delete_sel:'&#x1F5D1; Supprimer la sélection',
+sec_dirs:'&#x1F4C1; Dossiers (/gifs/)',desc_dirs:'Cochez des dossiers pour les supprimer.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',btn_delete_sel:'&#x1F5D1; Supprimer la sélection',
 sec_upload:'&#x1F4E4; Envoi GIF',desc_upload:'Ajoutez un fichier .gif directement depuis votre navigateur dans un dossier de /gifs/. Choisissez un dossier existant OU tapez un nouveau nom (créé automatiquement). &#x26A0;&#xFE0F; Pas fait pour transférer de nombreux fichiers (débit lent, risque d\'erreur d\'écriture) -- réservé à l\'ajout ponctuel de quelques fichiers. Pour un transfert consequent, retirez la carte SD et copiez-la depuis un PC.',placeholder_upload_dir:'ou nouveau dossier...',lbl_upload_file:'Fichiers .gif',btn_upload:'&#x1F4E4; Uploader',btn_stop:'&#x23F9; Arrêter',
 btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',
-no_file:'Aucun fichier',net_error:'Erreur réseau',msg_caching:'Mise en cache du contenu, patientez...',msg_select_image:'Sélectionnez au moins une image',msg_confirm_delete_images:'Supprimer ${0} image(s) de ${1} ?',msg_deleting:'Suppression...',msg_select_folder:'Choisissez au moins un dossier',msg_confirm_delete_folders:'Supprimer ${0} ?',msg_specify_dir:'Précisez un dossier cible',msg_select_gif:'Choisissez un fichier GIF',msg_select_gif_files:'Choisissez des fichiers .gif',msg_preparing_folder:'Preparation du dossier...',msg_cannot_create_folder:'Impossible de creer le dossier: ${0}',msg_net_error_folder:'Erreur reseau (creation dossier)',msg_uploading:'Upload...',msg_attempt:'tentative ${0}/${1}',msg_stopped_by_user:'Arrete par l\'utilisateur (${0}/${1})',msg_upload_fail:'ECHEC',msg_failures:'Echecs: ${0}',msg_upload_result:'${0}/${1} fichier(s) uploade(s)',msg_upload_result_fail:' -- echecs: ${0}',msg_confirm_reboot:'Redemarrer l\'ESP32 ?',msg_rebooting:'Redemarrage...',msg_dmd_resumed:'DMD repris',msg_updating_playlists:'Mise a jour des playlists...',msg_folder_excluded:'Dossier trop volumineux, non gere automatiquement'},
+net_error:'Erreur réseau',msg_deleting:'Suppression...',msg_select_folder:'Choisissez au moins un dossier',msg_confirm_delete_folders:'Supprimer ${0} ?',msg_specify_dir:'Précisez un dossier cible',msg_select_gif:'Choisissez un fichier GIF',msg_select_gif_files:'Choisissez des fichiers .gif',msg_preparing_folder:'Preparation du dossier...',msg_cannot_create_folder:'Impossible de creer le dossier: ${0}',msg_net_error_folder:'Erreur reseau (creation dossier)',msg_uploading:'Upload...',msg_attempt:'tentative ${0}/${1}',msg_stopped_by_user:'Arrete par l\'utilisateur (${0}/${1})',msg_upload_fail:'ECHEC',msg_failures:'Echecs: ${0}',msg_upload_result:'${0}/${1} fichier(s) uploade(s)',msg_upload_result_fail:' -- echecs: ${0}',msg_confirm_reboot:'Redemarrer l\'ESP32 ?',msg_rebooting:'Redemarrage...',msg_dmd_resumed:'DMD repris',msg_updating_playlists:'Mise a jour des playlists...'},
 en:{title:'RecalBox DMD - Media',h1:'Media',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',
-sec_dirs:'&#x1F4C1; Folders / Images (/gifs/)',desc_dirs:'Check folders to delete them. Click &#x1F4C2; to open a folder and manage its images individually.',btn_select_all:'Select all',btn_select_none:'Select none',back_to_folders:'&#x25C0; Back to folders',btn_delete_sel:'&#x1F5D1; Delete selection',
+sec_dirs:'&#x1F4C1; Folders (/gifs/)',desc_dirs:'Check folders to delete them.',btn_select_all:'Select all',btn_select_none:'Select none',btn_delete_sel:'&#x1F5D1; Delete selection',
 sec_upload:'&#x1F4E4; GIF Upload',desc_upload:'Add a .gif file directly from your browser into a folder in /gifs/. Choose an existing folder OR type a new name (created automatically). &#x26A0;&#xFE0F; Not designed for transferring many files (slow throughput, risk of write errors) -- meant for occasionally adding a few files. For a large transfer, remove the SD card and copy from a PC instead.',placeholder_upload_dir:'or new folder...',lbl_upload_file:'.gif files',btn_upload:'&#x1F4E4; Upload',btn_stop:'&#x23F9; Stop',
 btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',
-no_file:'No files',net_error:'Network error',msg_caching:'Caching content, please wait...',msg_select_image:'Select at least one image',msg_confirm_delete_images:'Delete ${0} image(s) from ${1}?',msg_deleting:'Deleting...',msg_select_folder:'Select at least one folder',msg_confirm_delete_folders:'Delete ${0}?',msg_specify_dir:'Please specify a target folder',msg_select_gif:'Select a GIF file',msg_select_gif_files:'Select .gif files',msg_preparing_folder:'Preparing folder...',msg_cannot_create_folder:'Unable to create folder: ${0}',msg_net_error_folder:'Network error (folder creation)',msg_uploading:'Uploading...',msg_attempt:'attempt ${0}/${1}',msg_stopped_by_user:'Stopped by user (${0}/${1})',msg_upload_fail:'FAILED',msg_failures:'Failures: ${0}',msg_upload_result:'${0}/${1} file(s) uploaded',msg_upload_result_fail:' -- failures: ${0}',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_updating_playlists:'Updating playlists...',msg_folder_excluded:'Folder too large, not handled automatically'},
+net_error:'Network error',msg_deleting:'Deleting...',msg_select_folder:'Select at least one folder',msg_confirm_delete_folders:'Delete ${0}?',msg_specify_dir:'Please specify a target folder',msg_select_gif:'Select a GIF file',msg_select_gif_files:'Select .gif files',msg_preparing_folder:'Preparing folder...',msg_cannot_create_folder:'Unable to create folder: ${0}',msg_net_error_folder:'Network error (folder creation)',msg_uploading:'Uploading...',msg_attempt:'attempt ${0}/${1}',msg_stopped_by_user:'Stopped by user (${0}/${1})',msg_upload_fail:'FAILED',msg_failures:'Failures: ${0}',msg_upload_result:'${0}/${1} file(s) uploaded',msg_upload_result_fail:' -- failures: ${0}',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_updating_playlists:'Updating playlists...'},
 es:{title:'RecalBox DMD - Medios',h1:'Medios',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',
-sec_dirs:'&#x1F4C1; Carpetas / Imágenes (/gifs/)',desc_dirs:'Marque las carpetas para eliminarlas. Haga clic en &#x1F4C2; para abrir una carpeta y gestionar sus imágenes individualmente.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',back_to_folders:'&#x25C0; Volver a las carpetas',btn_delete_sel:'&#x1F5D1; Eliminar selección',
+sec_dirs:'&#x1F4C1; Carpetas (/gifs/)',desc_dirs:'Marque las carpetas para eliminarlas.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',btn_delete_sel:'&#x1F5D1; Eliminar selección',
 sec_upload:'&#x1F4E4; Subir GIF',desc_upload:'Añada un archivo .gif desde su navegador a una carpeta en /gifs/. Elija una carpeta existente O escriba un nombre nuevo (se crea automáticamente). &#x26A0;&#xFE0F; No pensado para transferir muchos archivos (velocidad lenta, riesgo de error de escritura) -- reservado para añadir algunos archivos puntualmente. Para una transferencia importante, retire la tarjeta SD y cópiela desde un PC.',placeholder_upload_dir:'o nueva carpeta...',lbl_upload_file:'Archivos .gif',btn_upload:'&#x1F4E4; Subir',btn_stop:'&#x23F9; Detener',
 btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',
-no_file:'Ningún archivo',net_error:'Error de red',msg_caching:'Almacenando en caché el contenido, espere...',msg_select_image:'Seleccione al menos una imagen',msg_confirm_delete_images:'¿Eliminar ${0} imagen(es) de ${1}?',msg_deleting:'Eliminando...',msg_select_folder:'Elija al menos una carpeta',msg_confirm_delete_folders:'¿Eliminar ${0}?',msg_specify_dir:'Especifique una carpeta destino',msg_select_gif:'Seleccione un archivo GIF',msg_select_gif_files:'Seleccione archivos .gif',msg_preparing_folder:'Preparando carpeta...',msg_cannot_create_folder:'No se pudo crear la carpeta: ${0}',msg_net_error_folder:'Error de red (creación de carpeta)',msg_uploading:'Subiendo...',msg_attempt:'intento ${0}/${1}',msg_stopped_by_user:'Detenido por el usuario (${0}/${1})',msg_upload_fail:'ERROR',msg_failures:'Errores: ${0}',msg_upload_result:'${0}/${1} archivo(s) subido(s)',msg_upload_result_fail:' -- errores: ${0}',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_updating_playlists:'Actualizando listas...',msg_folder_excluded:'Carpeta demasiado grande, no gestionada automaticamente'}
+net_error:'Error de red',msg_deleting:'Eliminando...',msg_select_folder:'Elija al menos una carpeta',msg_confirm_delete_folders:'¿Eliminar ${0}?',msg_specify_dir:'Especifique una carpeta destino',msg_select_gif:'Seleccione un archivo GIF',msg_select_gif_files:'Seleccione archivos .gif',msg_preparing_folder:'Preparando carpeta...',msg_cannot_create_folder:'No se pudo crear la carpeta: ${0}',msg_net_error_folder:'Error de red (creación de carpeta)',msg_uploading:'Subiendo...',msg_attempt:'intento ${0}/${1}',msg_stopped_by_user:'Detenido por el usuario (${0}/${1})',msg_upload_fail:'ERROR',msg_failures:'Errores: ${0}',msg_upload_result:'${0}/${1} archivo(s) subido(s)',msg_upload_result_fail:' -- errores: ${0}',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_updating_playlists:'Actualizando listas...'}
 };
 let currentLang='fr';
 function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||PAGE_I18N.fr[k]||k;}
@@ -1996,42 +2016,22 @@ function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textCon
 function doReboot(){if(!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);queuedFetch('/reboot').catch(()=>{});}
 function dmdResume(){queuedFetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('net_error'),false));}
 function selectAllDirs(v){document.querySelectorAll('#dirList input').forEach(i=>i.checked=v);}
-// v75 (branche dev/cache-externalisation) : /lsgifdirs renvoie desormais
-// {"name":...,"cached":bool} par dossier -- le cache est construit en
-// tache de fond sur l'ESP32 (machine a etats, voir web_config.h), pas au
-// moment de la requete. Icone dossier ouvrable seulement si cached=true ;
-// sablier inactif sinon. Tant qu'au moins un dossier n'est pas encore
-// pret, la liste est re-interrogee automatiquement toutes les ~4s pour
-// mettre a jour les icones au fur et a mesure (s'arrete tout seul des que
-// tout est pret). Pas de sessionStorage sur la liste des dossiers (le
-// statut cached doit rester a jour) ; conserve en revanche pour le
-// CONTENU d'un dossier deja pret (dmd_files_<nom>) -- invalide
-// explicitement apres upload/suppression/creation de dossier.
-function filesCacheGet(name){try{const c=sessionStorage.getItem('dmd_files_'+name);return c?JSON.parse(c):null;}catch(e){return null;}}
-function filesCacheSet(name,files){try{sessionStorage.setItem('dmd_files_'+name,JSON.stringify(files));}catch(e){}}
-function filesCacheClear(name){try{sessionStorage.removeItem('dmd_files_'+name);}catch(e){}}
-let _dirsPollTimer=null;
+// v85 : plus de navigation dans un dossier (contenu individuel des GIF) ni
+// de statut cached/excluded -- decision utilisateur de retirer cette
+// fonctionnalite (voir changelog web_config.h). renderDirs() redevient une
+// simple liste de dossiers a cocher (creation/suppression/upload
+// uniquement).
 function renderDirs(dirs){
   const list=document.getElementById('dirList');list.innerHTML='';
   const sel=document.getElementById('uploadDir');sel.innerHTML='';
   const opt=document.createElement('option');opt.value='';opt.textContent='---';sel.appendChild(opt);
-  let anyPending=false;
   dirs.forEach(d=>{
     const name=(d&&typeof d==='object')?d.name:d;
-    const cached=(d&&typeof d==='object')?!!d.cached:true;
-    const excluded=(d&&typeof d==='object')&&!!d.excluded;
-    if(!cached&&!excluded)anyPending=true; // exclu = etat final, ne redeclenche plus le poll
     const row=document.createElement('label');
-    let icon;
-    if(cached)icon='<span class="open" onclick="event.preventDefault();openFolder(\''+name+'\')">&#x1F4C2;</span>';
-    else if(excluded)icon='<span class="open" style="opacity:.4;cursor:default" title="'+tr('msg_folder_excluded')+'">&#x26A0;&#xFE0F;</span>';
-    else icon='<span class="open" style="opacity:.4;cursor:default" title="'+tr('msg_caching')+'">&#x23F3;</span>';
-    row.innerHTML='<input type="checkbox" value="'+name+'"><span class="name">&#x1F4C1; '+name+'</span>'+icon;
+    row.innerHTML='<input type="checkbox" value="'+name+'"><span class="name">&#x1F4C1; '+name+'</span>';
     list.appendChild(row);
     const o=document.createElement('option');o.value=name;o.textContent=name;sel.appendChild(o);
   });
-  if(_dirsPollTimer){clearTimeout(_dirsPollTimer);_dirsPollTimer=null;}
-  if(anyPending)_dirsPollTimer=setTimeout(loadDirs,4000);
 }
 // loadDirs() et loadUploadDirs() appelaient chacun /lsgifdirs
 // independamment (2 scans SD + 2 parsings JSON pour la MEME donnee a
@@ -2042,53 +2042,14 @@ function loadDirs(){
   return queuedFetch('/lsgifdirs').then(r=>r.json()).then(renderDirs).catch(()=>{});
 }
 function loadUploadDirs(){return Promise.resolve();} // conserve pour compatibilite des appels existants -- loadDirs() peuple desormais aussi #uploadDir
-let _currentFolder='';
-async function openFolder(name){
-  _currentFolder=name;
-  document.getElementById('dirList').style.display='none';
-  document.getElementById('fileNav').style.display='block';
-  const fl=document.getElementById('fileList');
-  fl.innerHTML='<div style="color:#aaa;font-size:13px;margin-bottom:4px">&#x1F4C1; '+name+'</div>';
-  const renderFiles=(files)=>{
-    if(!files||!files.length){fl.innerHTML+='<div style="color:#666">'+tr('no_file')+'</div>';return;}
-    files.forEach(f=>{
-      const fname=f.replace(/^.*[\/]/,'');
-      const row=document.createElement('label');
-      row.innerHTML='<input type="checkbox" value="'+fname+'"><span class="name">&#x1F5BC; '+fname+'</span>';
-      fl.appendChild(row);
-    });
-  };
-  const cachedFiles=filesCacheGet(name);
-  if(cachedFiles){renderFiles(cachedFiles);return;}
-  queuedFetch('/lsgiffiles?dir='+encodeURIComponent(name)).then(r=>r.json().then(files=>({files:files,status:r.status}))).then(res=>{
-    if(res.status===202){fl.innerHTML+='<div style="color:#666">'+tr('msg_caching')+'</div>';return;} // pas encore pret -- ne devrait normalement pas arriver (icone inactive), garde-fou
-    if(res.status===200)filesCacheSet(name,res.files);
-    renderFiles(res.files);
-  }).catch(()=>{fl.innerHTML+='<div style="color:#666">'+tr('net_error')+'</div>';});
-}
-function closeFolder(){
-  _currentFolder='';
-  document.getElementById('fileNav').style.display='none';
-  document.getElementById('dirList').style.display='block';
-}
 function deleteSelected(){
-  if(_currentFolder){
-    const files=[].slice.call(document.querySelectorAll('#fileList input:checked')).map(i=>i.value);
-    if(!files.length){showMsg(tr('msg_select_image'),false);return;}
-    if(!confirm(trTpl('msg_confirm_delete_images',files.length,_currentFolder)))return;
-    showMsg(tr('msg_deleting'),true);
-    queuedFetch('/delete-files',{method:'POST',body:new URLSearchParams({dir:_currentFolder,files:files.join(',')}),headers:{'Content-Type':'application/x-www-form-urlencoded'}})
-      .then(r=>r.text()).then(t=>{showMsg(t,t.includes('OK'));if(t.includes('OK')){filesCacheClear(_currentFolder);openFolder(_currentFolder);}})
-      .catch(()=>showMsg(tr('net_error'),false));
-  } else {
-    const dirs=[].slice.call(document.querySelectorAll('#dirList input:checked')).map(i=>i.value);
-    if(!dirs.length){showMsg(tr('msg_select_folder'),false);return;}
-    if(!confirm(trTpl('msg_confirm_delete_folders',dirs.join(', '))))return;
-    showMsg(tr('msg_deleting'),true);
-    queuedFetch('/delete-folders',{method:'POST',body:new URLSearchParams({dirs:dirs.join(',')}),headers:{'Content-Type':'application/x-www-form-urlencoded'}})
-      .then(r=>r.text()).then(t=>{showMsg(t,t.includes('OK'));dirs.forEach(filesCacheClear);loadDirs();loadUploadDirs();})
-      .catch(()=>showMsg(tr('net_error'),false));
-  }
+  const dirs=[].slice.call(document.querySelectorAll('#dirList input:checked')).map(i=>i.value);
+  if(!dirs.length){showMsg(tr('msg_select_folder'),false);return;}
+  if(!confirm(trTpl('msg_confirm_delete_folders',dirs.join(', '))))return;
+  showMsg(tr('msg_deleting'),true);
+  queuedFetch('/delete-folders',{method:'POST',body:new URLSearchParams({dirs:dirs.join(',')}),headers:{'Content-Type':'application/x-www-form-urlencoded'}})
+    .then(r=>r.text()).then(t=>{showMsg(t,t.includes('OK'));loadDirs();loadUploadDirs();})
+    .catch(()=>showMsg(tr('net_error'),false));
 }
 async function uploadGif(){
   const sel=document.getElementById('uploadDir');
@@ -2148,8 +2109,7 @@ async function uploadGif(){
   }
   fileList.textContent=failed.length?trTpl('msg_failures',failed.join(', ')):'';
   document.getElementById('uploadDirCustom').value='';
-  if(uploaded.length)filesCacheClear(dir); // nouveaux fichiers reellement ajoutes -- la liste memorisee est perimee
-  await loadDirs();await loadUploadDirs();if(_currentFolder)openFolder(_currentFolder);
+  await loadDirs();await loadUploadDirs();
   const result=trTpl('msg_upload_result',okCount,files.length)+(failed.length?trTpl('msg_upload_result_fail',failed.join(', ')):'');
   showMsg(result,failed.length===0);
 }
@@ -2469,366 +2429,18 @@ static bool scanGifDirsRaw(String &outNames)
   return !aborted;
 }
 
-// ============================================
-// Cache persistant SD par dossier (v75) -- construit par une machine a
-// etats cooperative (cacheBuilderStep(), plus bas), jamais par un handler
-// HTTP. Validite = "le fichier .dmdcache existe" (pas de comptage de
-// controle) : la fraicheur est garantie par une invalidation EXPLICITE
-// (suppression du fichier) a chaque upload/suppression/creation de
-// dossier, qui relance aussi la machine a etats pour reconstruire ce qui a
-// change -- voir handleWebConfigUpload()/DeleteFiles()/DeleteFolders()/
-// CreateFolder().
-// ============================================
-static const char *GIF_CACHE_FILE = ".dmdcache";
-static const char *GIF_CACHE_VERSION = "V5"; // V5 (v84) : ajout d'un horodatage dossier dans l'en-tete
-// Marqueur ecrit a la place du cache normal quand un dossier depasse
-// CB_DIR_TIME_BUDGET_MS (v78) -- distinct de GIF_CACHE_VERSION pour ne
-// jamais etre confondu avec un vrai cache pret a servir.
-static const char *GIF_CACHE_EXCLUDED_MARKER = "EXCLU";
-// Largeur FIXE (zero-pad) du champ horodatage dans l'en-tete -- permet de
-// le reecrire EN PLACE (File.seek()+write(), mode "r+") sans jamais
-// toucher au reste du fichier, y compris apres un ajout incremental
-// (v82/v84). 10 chiffres decimaux couvrent un time_t unsigned jusqu'en 2106.
-static const int GIF_CACHE_MTIME_WIDTH = 10;
-
-static String formatCacheMtime(unsigned long t)
-{
-  char buf[GIF_CACHE_MTIME_WIDTH + 1];
-  snprintf(buf, sizeof(buf), "%0*lu", GIF_CACHE_MTIME_WIDTH, t);
-  return String(buf);
-}
-
-enum GifCacheStatus { GIFCACHE_MISSING, GIFCACHE_READY, GIFCACHE_EXCLUDED };
-
-// Distingue les 3 etats sans jamais charger tout le fichier -- seuls les
-// premiers octets (l'en-tete) suffisent. Pour READY, compare aussi
-// l'horodatage stocke a l'horodatage REEL du dossier (v84 -- question
-// utilisateur : un cache genere hors ESP32/perime est-il detecte ?) via
-// File::getLastWrite() sur le dossier lui-meme -- un simple stat() POSIX
-// (confirme par lecture du code source de la lib SD ESP32/vfs_api.cpp,
-// aucune distinction fichier/dossier, pas d'enumeration du contenu), donc
-// cout CONSTANT quelle que soit la taille du dossier. Detecte aussi bien
-// un cache ESP32 perime (modification qui aurait echappe a l'invalidation
-// explicite) qu'un cache depose manuellement (outil PC) dont l'horodatage
-// ne correspond plus au dossier reel.
-static GifCacheStatus gifFilesCacheStatus(const String &dirName)
-{
-  String cachePath = "/gifs/" + dirName + "/" + String(GIF_CACHE_FILE);
-  File f = SD.open(cachePath.c_str());
-  if (!f) return GIFCACHE_MISSING;
-  char buf[24];
-  size_t n = f.readBytes(buf, sizeof(buf) - 1);
-  buf[n] = 0;
-  f.close();
-  String head(buf);
-  if (head.startsWith(String(GIF_CACHE_EXCLUDED_MARKER) + "|")) return GIFCACHE_EXCLUDED;
-  String prefix = String(GIF_CACHE_VERSION) + "|";
-  if (!head.startsWith(prefix)) return GIFCACHE_MISSING; // format inconnu/perime -- traite comme absent, sera reconstruit
-  String rest = head.substring(prefix.length());
-  if ((int)rest.length() < GIF_CACHE_MTIME_WIDTH) return GIFCACHE_MISSING; // en-tete tronque/corrompu
-  unsigned long storedMtime = (unsigned long)rest.substring(0, GIF_CACHE_MTIME_WIDTH).toInt();
-  File dir = SD.open(("/gifs/" + dirName).c_str());
-  if (!dir) return GIFCACHE_MISSING;
-  unsigned long liveMtime = (unsigned long)dir.getLastWrite();
-  dir.close();
-  if (liveMtime != storedMtime) {
-    Serial.println("[CACHEBUILD] " + dirName + " : cache perime (horodatage dossier different, stocke=" + String(storedMtime) + " reel=" + String(liveMtime) + ")");
-    return GIFCACHE_MISSING;
-  }
-  return GIFCACHE_READY;
-}
-
-static bool gifFilesCacheReady(const String &dirName) { return gifFilesCacheStatus(dirName) == GIFCACHE_READY; }
-static bool gifFilesCacheExcluded(const String &dirName) { return gifFilesCacheStatus(dirName) == GIFCACHE_EXCLUDED; }
-
-static bool readGifFilesCache(const String &dirName, String &outNames)
-{
-  File f = SD.open(("/gifs/" + dirName + "/" + String(GIF_CACHE_FILE)).c_str());
-  if (!f) return false;
-  String content = f.readString();
-  f.close();
-  String prefix = String(GIF_CACHE_VERSION) + "|";
-  if (!content.startsWith(prefix)) return false; // format d'un ancien firmware/branche, ou marqueur d'exclusion -- ignore
-  String rest = content.substring(prefix.length());
-  if ((int)rest.length() < GIF_CACHE_MTIME_WIDTH) return false; // en-tete tronque/corrompu
-  outNames = rest.substring(GIF_CACHE_MTIME_WIDTH);
-  return true;
-}
-
-// Accumule les noms dans un petit buffer FIXE (jamais proportionnel au
-// contenu) avant d'ecrire sur la carte SD par blocs -- reintroduite ici
-// (retiree en v74 avec tout le systeme de cache SD, redevenue necessaire
-// puisque la construction se fait a nouveau sur SD, cf. changelog v75).
-class BufferedCacheWriter
-{
-public:
-  explicit BufferedCacheWriter(File &f) : _f(f), _len(0) {}
-  void write(const String &s) { write(s.c_str(), s.length()); }
-  void write(const char *data, size_t n)
-  {
-    if (n >= sizeof(_buf)) { flush(); _f.write((const uint8_t *)data, n); return; }
-    if (_len + n > sizeof(_buf)) flush();
-    memcpy(_buf + _len, data, n);
-    _len += n;
-  }
-  void flush() { if (_len > 0) { _f.write((const uint8_t *)_buf, _len); _len = 0; } }
-private:
-  File &_f;
-  char _buf[256];
-  size_t _len;
-};
-
-// ============================================
-// Machine a etats cooperative de construction du cache (v75) : avance par
-// petits pas (CB_MAX_ENTRIES_PER_STEP fichiers) a chaque appel de
-// cacheBuilderStep(), elle-meme appelee depuis loop() (RecalBox_DMD.ino).
-// PAS de tache FreeRTOS separee, PAS de mutex : un seul thread, comme le
-// reste du sketch -- donc aucune concurrence possible par construction
-// avec les handlers web (qui s'executent eux aussi dans loop(), via
-// webServer->handleClient()). En contrepartie, chaque requete HTTP
-// (lsgifdirs/lsgiffiles) ne fait plus JAMAIS de scan SD elle-meme : elle
-// lit un cache deja pret, ou repond "pas encore pret" -- voir
-// handleWebConfigListGifFiles().
-// ============================================
-enum CacheBuilderState { CB_IDLE, CB_NEXT_DIR, CB_SCANNING, CB_DONE };
-static CacheBuilderState g_cbState = CB_IDLE;
-static String g_cbDirsList;
-static int g_cbDirsPos = 0;
-static String g_cbCurDir;
-static File g_cbDirHandle;
-static File g_cbOutHandle;
-static BufferedCacheWriter *g_cbWriter = nullptr;
-static String g_cbTmpPath, g_cbCachePath;
-static bool g_cbFirstEntry = true;
-static int g_cbTotalDirs = 0, g_cbDoneDirs = 0;
-// Reduit de 15 a 5 (v76) : test reel a montre la page de config
-// inaccessible/tres difficile pendant la construction d'un gros dossier --
-// hypothese la plus probable, le cout par entree FAT32 deja confirme
-// degradant fortement en profondeur (jusqu'a ~244ms/entree en fin de
-// dossier sur Arcade, cf. investigation precedente) rend un pas de 15
-// entrees potentiellement bloquant plusieurs secondes d'affilee avant que
-// loop() ne puisse rappeler webServer->handleClient(). 5 reduit le pire
-// cas sans pour autant multiplier a l'exces le nombre d'appels.
-static const int CB_MAX_ENTRIES_PER_STEP = 5;
-static int g_cbEntriesThisDir = 0;
-static unsigned long g_cbDirStartMs = 0;
-// v78 -- test reel (Consoles) : le cout par entree grimpe de ~7,6ms au
-// debut a ~438ms a l'entree 1480, TOUJOURS en train de croitre (392s
-// cumulees et pas termine). Aucun decoupage ne peut plus compenser un
-// cout PAR APPEL individuel devenu si eleve -- decision utilisateur :
-// plutot que de laisser un dossier grignoter indefiniment le temps de
-// boucle (et donc la reactivite de TOUTES les pages web), lui donner un
-// budget de temps total ; au-dela, abandon propre et marquage "exclu" du
-// cache automatique (voir cacheBuilderExcludeCurrentDir()) -- ne sera plus
-// jamais retente automatiquement (evite de reperdre le meme temps a
-// chaque nouvelle passe). Valeur choisie empiriquement (petits/moyens
-// dossiers observes terminant en quelques secondes, tres au-dela de ce
-// budget) -- a ajuster si l'usage reel montre un seuil plus juste.
-static const unsigned long CB_DIR_TIME_BUDGET_MS = 60000;
-
-static void cacheBuilderAbortCurrentDir()
-{
-  if (g_cbWriter) { delete g_cbWriter; g_cbWriter = nullptr; }
-  if (g_cbOutHandle) g_cbOutHandle.close();
-  if (g_cbDirHandle) g_cbDirHandle.close();
-}
-
-// Abandonne proprement le dossier en cours (budget de temps depasse,
-// cf. CB_DIR_TIME_BUDGET_MS) : jette le .tmp partiel, ecrit un marqueur
-// d'exclusion a la place du cache normal -- pour ne plus jamais retenter
-// ce dossier automatiquement. Le dossier reste visible dans la liste mais
-// n'est plus ouvrable (icone dediee cote JS, voir handleWebConfigListGifDirs()).
-static void cacheBuilderExcludeCurrentDir()
-{
-  if (g_cbWriter) { g_cbWriter->flush(); delete g_cbWriter; g_cbWriter = nullptr; }
-  if (g_cbOutHandle) g_cbOutHandle.close();
-  if (g_cbDirHandle) g_cbDirHandle.close();
-  if (SD.exists(g_cbTmpPath.c_str())) SD.remove(g_cbTmpPath.c_str());
-  if (SD.exists(g_cbCachePath.c_str())) SD.remove(g_cbCachePath.c_str());
-  File marker = SD.open(g_cbCachePath.c_str(), FILE_WRITE);
-  if (marker) { marker.print(String(GIF_CACHE_EXCLUDED_MARKER) + "|"); marker.close(); }
-  Serial.println("[CACHEBUILD] " + g_cbCurDir + " : EXCLU (budget " + String(CB_DIR_TIME_BUDGET_MS) + "ms depasse a " + String(g_cbEntriesThisDir) + " entrees), maxalloc=" + String(ESP.getMaxAllocHeap()));
-  g_cbDoneDirs++;
-  g_cbState = CB_NEXT_DIR;
-}
-
-// (Re)demarre une passe complete : a appeler au moment d'entrer en mode
-// config (RecalBox_DMD.ino) ET a chaque invalidation (upload, suppression,
-// creation de dossier) -- une passe qui retrouve tous les caches deja
-// valides ne fait que des SD.exists() (rapide), donc la relancer souvent
-// n'est pas couteux.
-//
-// v81 -- question utilisateur ("un cacheBuild interrompu reprend ou est
-// perdu ?") a mis en evidence un vrai probleme : cette fonction abandonnait
-// SANS CONDITION le dossier activement en cours de scan (cacheBuilderAbort
-// CurrentDir(), .tmp jamais renomme -- toute la progression perdue), meme
-// quand l'invalidation ne concernait qu'un AUTRE dossier (upload/
-// suppression/creation ailleurs). Sur un gros dossier deja en cours depuis
-// plusieurs minutes (Consoles, Arcade...), des actions web frequentes sur
-// d'autres dossiers pouvaient le faire redemarrer a zero indefiniment,
-// sans jamais aboutir. Desormais : si un scan est ACTIVEMENT en cours
-// (CB_SCANNING, un File handle deja ouvert avec du contenu deja
-// accumule), on ne l'interrompt plus -- on rafraichit seulement la liste
-// des dossiers a traiter ENSUITE (capture un nouveau dossier ou une
-// invalidation), le dossier en cours continue et finira normalement.
-static void cacheBuilderStart()
-{
-  if (g_cbState == CB_SCANNING) {
-    Serial.println("[CACHEBUILD] refresh liste (scan " + g_cbCurDir + " deja en cours, non interrompu)");
-    String newList;
-    scanGifDirsRaw(newList);
-    g_cbDirsList = newList;
-    g_cbDirsPos = 0; // s'applique aux PROCHAINS dossiers -- celui en cours n'est pas touche
-    g_cbTotalDirs = 0;
-    if (g_cbDirsList.length() > 0) {
-      g_cbTotalDirs = 1;
-      for (unsigned int i = 0; i < g_cbDirsList.length(); i++) if (g_cbDirsList.charAt(i) == ',') g_cbTotalDirs++;
-    }
-    return;
-  }
-  cacheBuilderAbortCurrentDir();
-  g_cbDirsList = "";
-  scanGifDirsRaw(g_cbDirsList); // liste des dossiers seulement : peu nombreux, scan deja rapide (voir log reel : 306ms)
-  g_cbDirsPos = 0;
-  g_cbTotalDirs = 0;
-  if (g_cbDirsList.length() > 0) {
-    g_cbTotalDirs = 1;
-    for (unsigned int i = 0; i < g_cbDirsList.length(); i++) if (g_cbDirsList.charAt(i) == ',') g_cbTotalDirs++;
-  }
-  g_cbDoneDirs = 0;
-  g_cbState = (g_cbTotalDirs > 0) ? CB_NEXT_DIR : CB_DONE;
-  Serial.println("[CACHEBUILD] (re)demarre, " + String(g_cbTotalDirs) + " dossier(s)");
-}
-
-static void cacheBuilderAdvanceToNextDir()
-{
-  while (g_cbDirsPos <= (int)g_cbDirsList.length()) {
-    int comma = g_cbDirsList.indexOf(',', g_cbDirsPos);
-    String name = (comma < 0) ? g_cbDirsList.substring(g_cbDirsPos) : g_cbDirsList.substring(g_cbDirsPos, comma);
-    g_cbDirsPos = (comma < 0) ? (int)g_cbDirsList.length() + 1 : comma + 1;
-    if (name.length() == 0) { if (comma < 0) break; else continue; }
-    GifCacheStatus st = gifFilesCacheStatus(name);
-    if (st == GIFCACHE_READY || st == GIFCACHE_EXCLUDED) {
-      // EXCLUDED : deja tente, budget depasse -- ne jamais retenter
-      // automatiquement (voir cacheBuilderExcludeCurrentDir()).
-      g_cbDoneDirs++;
-      if (comma < 0) break; else continue;
-    }
-    g_cbCurDir = name;
-    g_cbCachePath = "/gifs/" + name + "/" + String(GIF_CACHE_FILE);
-    g_cbTmpPath = g_cbCachePath + ".tmp";
-    if (SD.exists(g_cbTmpPath.c_str())) SD.remove(g_cbTmpPath.c_str());
-    // Handle du dossier ouvert AVANT l'en-tete pour capturer son
-    // horodatage (v84) au moment le plus proche possible du debut du
-    // scan -- ecrit dans l'en-tete, compare a chaque lecture future pour
-    // detecter une modification (voir gifFilesCacheStatus()).
-    g_cbDirHandle = SD.open(("/gifs/" + name).c_str());
-    unsigned long dirMtime = g_cbDirHandle ? (unsigned long)g_cbDirHandle.getLastWrite() : 0;
-    g_cbOutHandle = SD.open(g_cbTmpPath.c_str(), FILE_WRITE);
-    if (!g_cbOutHandle) {
-      // Echec d'ouverture (rare) : passe au dossier suivant plutot que de
-      // bloquer toute la machine a etats indefiniment sur celui-ci.
-      if (g_cbDirHandle) g_cbDirHandle.close();
-      g_cbDoneDirs++;
-      Serial.println("[CACHEBUILD] " + name + " : echec ouverture .tmp, ignore");
-      if (comma < 0) break; else continue;
-    }
-    g_cbOutHandle.print(String(GIF_CACHE_VERSION) + "|" + formatCacheMtime(dirMtime));
-    g_cbWriter = new BufferedCacheWriter(g_cbOutHandle);
-    g_cbFirstEntry = true;
-    g_cbEntriesThisDir = 0;
-    g_cbDirStartMs = millis();
-    g_cbState = CB_SCANNING;
-    Serial.println("[CACHEBUILD] " + name + " (" + String(g_cbDoneDirs + 1) + "/" + String(g_cbTotalDirs) + ") : construction demarree");
-    return;
-  }
-  g_cbState = CB_DONE;
-  Serial.println("[CACHEBUILD] termine, " + String(g_cbDoneDirs) + "/" + String(g_cbTotalDirs) + " dossier(s) en cache");
-}
-
-static void cacheBuilderFinishCurrentDir()
-{
-  g_cbWriter->flush();
-  delete g_cbWriter; g_cbWriter = nullptr;
-  g_cbOutHandle.close();
-  if (g_cbDirHandle) g_cbDirHandle.close();
-  if (SD.exists(g_cbCachePath.c_str())) SD.remove(g_cbCachePath.c_str());
-  SD.rename(g_cbTmpPath.c_str(), g_cbCachePath.c_str());
-  g_cbDoneDirs++;
-  Serial.println("[CACHEBUILD] " + g_cbCurDir + " OK (" + String(g_cbDoneDirs) + "/" + String(g_cbTotalDirs) + "), maxalloc=" + String(ESP.getMaxAllocHeap()));
-  g_cbState = CB_NEXT_DIR;
-}
-
-// Avance la construction du cache par petits pas -- a appeler depuis
-// loop() a CHAQUE iteration (cout nul si rien a faire : CB_IDLE/CB_DONE
-// retournent immediatement). Ne bloque jamais longtemps : au plus
-// CB_MAX_ENTRIES_PER_STEP fichiers par appel, pour laisser
-// webServer->handleClient() s'executer regulierement et garder la page
-// web reactive pendant la construction.
-static void cacheBuilderStep()
-{
-  if (g_cbState == CB_IDLE || g_cbState == CB_DONE) return;
-  // Pause complete si le DMD n'est plus en mode config (v83 -- question
-  // utilisateur : la reprise de la lecture normale ("Reprendre DMD")
-  // pendant qu'un scan est en cours laissait cacheBuilderStep() continuer
-  // a tourner sans condition sur le mode courant -- contention SD/heap
-  // avec la lecture GIF active, exactement ce que la restriction du
-  // prechauffage au mode config (RecalBox_DMD.ino) cherchait deja a
-  // eviter. g_sdOpInProgress (deja extern, deja mis a jour partout ou le
-  // DMD entre/sort du mode config, y compris webDmdResume()) est le
-  // signal fiable existant pour ca. Les handles ouverts (g_cbDirHandle/
-  // g_cbOutHandle) restent intentionnellement EN L'ETAT (pas fermes) --
-  // la construction reprend exactement ou elle en etait des que le DMD
-  // repasse en mode config, sans rien reperdre.
-  if (!g_sdOpInProgress) return;
-  // Priorite absolue a un client web actif (v78) : un client connecte
-  // signale une requete en cours (ou une connexion garder-vivante toute
-  // recente) -- on saute ce pas entierement plutot que de le faire
-  // attendre derriere un scan potentiellement degrade. Heuristique
-  // volontairement large (un simple keep-alive sans requete active fait
-  // aussi sauter un tour) : mieux vaut retarder legerement la
-  // construction du cache que de rendre une page injoignable.
-  if (webServer && webServer->client().connected()) return;
-  switch (g_cbState) {
-    case CB_IDLE:
-    case CB_DONE:
-      return;
-    case CB_NEXT_DIR:
-      cacheBuilderAdvanceToNextDir();
-      return;
-    case CB_SCANNING: {
-      if (!g_cbDirHandle || !g_cbDirHandle.isDirectory()) { cacheBuilderFinishCurrentDir(); return; }
-      unsigned long stepStart = millis();
-      int n = 0;
-      while (n < CB_MAX_ENTRIES_PER_STEP) {
-        File f = g_cbDirHandle.openNextFile();
-        if (!f) { cacheBuilderFinishCurrentDir(); return; }
-        String fn = String(f.name());
-        if (!f.isDirectory() && fn.endsWith(".gif")) {
-          if (!g_cbFirstEntry) g_cbWriter->write(",", 1);
-          g_cbWriter->write(jsonEscape(fn));
-          g_cbFirstEntry = false;
-        }
-        f.close();
-        n++;
-        g_cbEntriesThisDir++;
-      }
-      // Chronometrage reel par pas (v76, diagnostic) : confirme si le
-      // ralentissement observe vient bien du cout FAT32 deja documente
-      // (degrade avec la profondeur) plutot que d'un blocage reel.
-      Serial.println("[CACHEBUILD] " + g_cbCurDir + " : " + String(g_cbEntriesThisDir) + " entrees vues, pas=" + String(millis() - stepStart) + "ms, total=" + String(millis() - g_cbDirStartMs) + "ms");
-      if (millis() - g_cbDirStartMs > CB_DIR_TIME_BUDGET_MS) {
-        cacheBuilderExcludeCurrentDir();
-        return;
-      }
-      // Statut d'activite sur le DMD (meme mecanisme que les progressions
-      // deja existantes ailleurs sur ce projet) -- un appel par pas, pas
-      // par entree, pour ne pas redessiner l'ecran trop souvent.
-      webDmdPause(g_cbCurDir + " (" + String(g_cbDoneDirs + 1) + "/" + String(g_cbTotalDirs) + ")", 0x07E0);
-      return;
-    }
-  }
-}
+// v85 -- decision utilisateur : retrait complet de la navigation/
+// suppression de fichiers individuels dans un dossier depuis MEDIA. Tout
+// le sous-systeme de cache /gifs par dossier (v75-v84 : machine a etats
+// cooperative, format V5 horodate, exclusion sur budget de temps,
+// detection de peremption) n'avait plus d'utilite -- il n'existait que
+// pour rendre la LECTURE du contenu d'un dossier rapide/sure sur l'ESP32,
+// fonctionnalite desormais retiree (remplacement envisage : composition
+// de playlists personnalisees depuis l'outil PC, a etudier separement).
+// handleWebConfigListGifDirs() (juste en dessous) reste base sur
+// scanGifDirsRaw() seul (liste des NOMS de dossiers, toujours rapide,
+// jamais mise en cache -- n'a jamais souffert de la degradation FAT32,
+// qui ne touchait que l'enumeration du CONTENU d'un dossier).
 
 static void handleWebConfigListGifDirs()
 {
@@ -2841,57 +2453,11 @@ static void handleWebConfigListGifDirs()
     webServer->client().setTimeout(3000);
     return;
   }
-  // Chaque dossier est envoye comme objet {"name":...,"cached":bool,
-  // "excluded":bool} au lieu d'une simple chaine -- demande utilisateur :
-  // icone d'ouverture seulement sur les dossiers deja en cache, sablier
-  // inactif sinon, icone dediee si exclu (trop lent/gros, v78). Le statut
-  // vient d'une lecture des seuls premiers octets du fichier cache (pas
-  // d'enumeration du dossier), donc reste bon marche meme repete a chaque
-  // chargement de page.
-  String json;
-  json.reserve(names.length() + 96);
-  json += "[";
-  bool first = true;
-  int start = 0;
-  while (start <= (int)names.length()) {
-    int comma = names.indexOf(',', start);
-    String name = (comma < 0) ? names.substring(start) : names.substring(start, comma);
-    if (name.length() > 0) {
-      GifCacheStatus st = gifFilesCacheStatus(name);
-      json += (first ? "{\"name\":\"" : ",{\"name\":\"");
-      json += name;
-      json += "\",\"cached\":";
-      json += (st == GIFCACHE_READY) ? "true" : "false";
-      json += ",\"excluded\":";
-      json += (st == GIFCACHE_EXCLUDED) ? "true" : "false";
-      json += "}";
-      first = false;
-    }
-    if (comma < 0) break;
-    start = comma + 1;
-  }
-  json += "]";
-  webServer->send(200, "application/json", json);
-  webServer->client().setTimeout(3000);
-}
-
-static void handleWebConfigListGifFiles()
-{
-  if (!webServer->hasArg("dir")) { webServer->send(400, "application/json", "[]"); return; }
-  String dirName = webServer->arg("dir"); dirName.trim();
-  String names;
-  if (!readGifFilesCache(dirName, names)) {
-    // Pas encore construit par la machine a etats : jamais de scan live
-    // ici (c'est exactement ce qui faisait s'effondrer le heap en v74,
-    // confirme en test reel). 202 (Accepted, pas encore pret) plutot que
-    // 200/503 -- le JS ne doit ni mettre ce resultat en cache, ni
-    // l'afficher comme une erreur.
-    Serial.println("[WEB] lsgiffiles dir=" + dirName + " : pas encore en cache");
-    webServer->send(202, "application/json", "[]");
-    return;
-  }
-  Serial.println("[WEB] lsgiffiles dir=" + dirName + " : cache OK, heap libre=" + String(ESP.getFreeHeap()));
+  // v85 : simple tableau de noms (plus de statut cached/excluded -- le
+  // cache par dossier qui portait cette notion a ete retire, voir plus
+  // haut).
   sendJsonArrayFromCommaList(names);
+  webServer->client().setTimeout(3000);
 }
 
 static void handleWebConfigGifCount()
@@ -3013,60 +2579,6 @@ static void handleWebConfigAddToPlaylistsBatch()
   String folder = webServer->arg("dir"); folder.trim();
   String filesArg = webServer->arg("files");
   if (folder.length() == 0 || filesArg.length() == 0) { webServer->send(200, "text/plain", "OK:0"); return; }
-
-  // Cache /gifs du dossier perime (nouveaux fichiers uploades). Si le
-  // cache est deja pret (V4, valide), ajout INCREMENTAL des noms
-  // nouvellement uploades directement a la fin du fichier existant (mode
-  // append) plutot que de tout supprimer et forcer un rescan complet du
-  // dossier entier -- decisif sur un gros dossier deja construit (des
-  // minutes de scan pour un seul fichier ajoute, cf. degradation FAT32
-  // deja documentee, question utilisateur "3600 gifs + 1 ajoute -> rescan
-  // de 0 ?"). Coherent avec le fait que les noms sont deja connus ici
-  // (upload) -- la suppression de fichier reste en revanche une
-  // invalidation complete plus bas (cas moins frequent, retrouver la
-  // position exacte d'un nom dans la liste pour le retirer serait plus
-  // complexe).
-  {
-    String cachePath = "/gifs/" + folder + "/" + String(GIF_CACHE_FILE);
-    if (gifFilesCacheStatus(folder) == GIFCACHE_READY) {
-      File capp = SD.open(cachePath.c_str(), FILE_APPEND);
-      if (capp) {
-        int fstart = 0;
-        while (fstart <= (int)filesArg.length()) {
-          int fcomma = filesArg.indexOf(',', fstart);
-          String fname = (fcomma < 0) ? filesArg.substring(fstart) : filesArg.substring(fstart, fcomma);
-          fname.trim();
-          if (fname.length() > 0) { capp.print(","); capp.print(jsonEscape(fname)); }
-          if (fcomma < 0) break;
-          fstart = fcomma + 1;
-        }
-        capp.close();
-        // v84 : l'ajout vient de modifier le dossier, donc son horodatage
-        // FAT a change -- reecrit le champ horodatage de l'en-tete EN
-        // PLACE ("r+", largeur fixe GIF_CACHE_MTIME_WIDTH, ne touche a
-        // rien d'autre dans le fichier) pour que la prochaine lecture ne
-        // croie pas, a tort, que ce cache tout juste mis a jour est
-        // perime (gifFilesCacheStatus() comparerait sinon l'ancien
-        // horodatage stocke au nouveau, desormais different).
-        File dir = SD.open(("/gifs/" + folder).c_str());
-        if (dir) {
-          unsigned long newMtime = (unsigned long)dir.getLastWrite();
-          dir.close();
-          File hpatch = SD.open(cachePath.c_str(), "r+");
-          if (hpatch) {
-            hpatch.seek(String(GIF_CACHE_VERSION).length() + 1); // juste apres "V5|"
-            String m = formatCacheMtime(newMtime);
-            hpatch.write((const uint8_t *)m.c_str(), m.length());
-            hpatch.close();
-          }
-        }
-        Serial.println("[CACHEBUILD] " + folder + " : ajout incremental au cache existant (" + filesArg + ")");
-      }
-    } else if (SD.exists(cachePath.c_str())) {
-      SD.remove(cachePath.c_str());
-    }
-  }
-  cacheBuilderStart();
 
   if (g_plRefCacheFolder != folder) {
     g_plRefCacheFolder = folder;
@@ -3194,10 +2706,6 @@ static void handleWebConfigCreateFolder()
   Serial.println("[WEB] create-folder: fichier temoin " + dirPath + " -> " + (tmp ? "OK" : "FAIL") + " (" + String(millis() - t1) + "ms)");
   webServer->client().setTimeout(3000);
   bool ok = SD.exists(dirPath.c_str());
-  // Nouveau dossier possible non couvert par la liste capturee au demarrage
-  // de la passe en cours -- relance la machine a etats pour qu'elle le
-  // decouvre (son propre cache, vide, sera construit rapidement).
-  if (ok) cacheBuilderStart();
   webServer->send(ok ? 200 : 500, "text/plain", ok ? "OK: cree" : "ERR: creation echouee");
 }
 
@@ -3486,54 +2994,20 @@ static void handleWebConfigDeleteFolders()
     if (comma < 0) break;
     start = comma + 1;
   }
-  // Dossiers supprimes -- leur .dmdcache disparait avec eux
-  // (deleteFolderRecursive() est recursif), rien a invalider explicitement
-  // ici. La LISTE des dossiers a change en revanche : relance la machine a
-  // etats pour qu'elle en tienne compte (nouvelle capture via
-  // scanGifDirsRaw()).
-  cacheBuilderStart();
   String msg = "OK: " + String(count) + " supprime(s)" + (fail>0?", " + String(fail) + " echec(s)":"");
   webServer->send(200, "text/plain", msg);
 }
 
-static void handleWebConfigDeleteFiles()
-{
-  if (!webServer->hasArg("dir") || !webServer->hasArg("files")) { webServer->send(400, "text/plain", "ERR: missing dir or files"); return; }
-  String dirName = webServer->arg("dir"); dirName.trim();
-  String files = webServer->arg("files");
-  int count = 0, fail = 0, start = 0;
-  while (true) {
-    int comma = files.indexOf(',', start);
-    String f = (comma < 0) ? files.substring(start) : files.substring(start, comma);
-    f.trim();
-    if (f.length() > 0) {
-      String path = "/gifs/" + dirName + "/" + f;
-      if (SD.exists(path.c_str())) {
-        // forceDeleteFile() (rename puis remove) : meme repli que
-        // deleteFolderRecursive() pour le bug FAT32 lecture seule deja
-        // rencontre sur ce projet -- un SD.remove() brut echouait
-        // silencieusement sur certains fichiers marques read-only.
-        if (forceDeleteFile(path)) { count++; }
-        else { fail++; }
-      } else { fail++; }
-    }
-    if (comma < 0) break;
-    start = comma + 1;
-  }
-  {
-    String cachePath = "/gifs/" + dirName + "/" + String(GIF_CACHE_FILE);
-    if (SD.exists(cachePath.c_str())) SD.remove(cachePath.c_str());
-  }
-  cacheBuilderStart();
-  String msg = "OK: " + String(count) + " supprime(s)" + (fail>0?", " + String(fail) + " echec(s)":"");
-  webServer->send(200, "text/plain", msg);
-}
-
+// v85 : handleWebConfigDeleteFiles() (suppression de fichiers INDIVIDUELS
+// dans un dossier) et sa route /delete-files retirees -- decision
+// utilisateur de supprimer la navigation/suppression de fichiers
+// individuels depuis MEDIA (voir plus haut). La suppression de DOSSIERS
+// ENTIERS (handleWebConfigDeleteFolders(), ci-dessus) reste disponible.
 
 // Forward declaration : definie plus bas (juste avant handleWebConfigRoot,
 // qui l'utilise aussi), mais appelee ici par handleDmdOpen() -- sans cette
 // declaration, erreur de compilation "not declared in this scope".
-static bool triggerWebConfigMode(const String &msg, bool allowReboot);
+static void triggerWebConfigMode(const String &msg);
 
 static void handleDmdPause()
 {
@@ -3559,7 +3033,7 @@ static void handleDmdOpen()
   if (!webServer->hasArg("msg")) { webServer->send(400, "text/plain", "ERR: missing msg"); return; }
   String msg = webServer->arg("msg");
   String full = msg + " " + WiFi.localIP().toString();
-  if (!triggerWebConfigMode(msg, true)) return; // reboot cible mode config deja declenche, reponse deja envoyee -- allowReboot=true : declenchement explicite (pas une simple navigation de page), voir changelog v77
+  triggerWebConfigMode(msg);
   webServer->send(200, "text/plain", "OK " + full);
 }
 
@@ -3631,85 +3105,37 @@ static void handleWebConfigSaveAP()
   ESP.restart();
 }
 
-static void sendRebootingPage()
+// v85 -- decision utilisateur : retrait complet du reboot cible mode
+// config (g_skipPlaylistForConfig/force_config_boot/sendRebootingPage()).
+// Il n'avait plus lieu d'etre une fois la navigation/suppression de
+// fichiers individuels retiree de MEDIA (seule fonctionnalite qui en
+// beneficiait, via le cache /gifs desormais lui aussi retire). Verifie
+// explicitement (question utilisateur) que ni le reboot MQTT CMD_REBOOT
+// (Recalbox) ni celui de la page AP (handleWebConfigSaveAP()) n'en
+// dependaient -- deux chemins ESP.restart() entierement separes.
+static void triggerWebConfigMode(const String &msg)
 {
-  // Page volontairement generee en C++ (pas de bloc PROGMEM/gzip) : tres
-  // courte, contenu dynamique selon uiLanguage, inutile de passer par le
-  // pipeline de generation gzip pour ca.
-  // Poll JS (fetch + catch) plutot qu'un simple <meta refresh> : pendant la
-  // fenetre ou l'ESP32 redemarre reellement, une navigation classique
-  // (meta refresh) tomberait sur une erreur de connexion et le navigateur
-  // afficherait sa page d'erreur native -- laquelle n'a plus notre balise
-  // refresh, plus aucune nouvelle tentative automatique ensuite. Le fetch()
-  // echoue silencieusement (catch) sans jamais quitter cette page tant que
-  // le serveur ne repond pas, puis recharge des le premier succes reel.
-  // Mentionne explicitement le demarrage/prechauffage du DMD (peut prendre
-  // plusieurs secondes sur une grosse collection, voir warmUpGifCaches()) --
-  // pas juste "redemarrage", pour eviter que l'attente semble anormalement
-  // longue sans explication.
-  String msg = "Redemarrage du DMD en cours, veuillez patienter...";
-  if (uiLanguage == "en") msg = "DMD rebooting, please wait...";
-  else if (uiLanguage == "es") msg = "Reiniciando el DMD, por favor espere...";
-  String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
-    "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-    "<title>RecalBox DMD</title>"
-    "<style>body{font-family:sans-serif;background:#1a1a2e;color:#eee;display:flex;"
-    "align-items:center;justify-content:center;height:100vh;margin:0;text-align:center}</style>"
-    "</head><body><div>" + msg + "</div>"
-    "<script>function poll(){fetch(location.href,{cache:'no-store'}).then(function(r){"
-    "if(r.ok)location.reload();else setTimeout(poll,1500);"
-    "}).catch(function(){setTimeout(poll,1500);});}"
-    "setTimeout(poll,1500);</script>"
-    "</body></html>";
-  webServer->send(200, "text/html", html);
-}
-
-static bool triggerWebConfigMode(const String &msg, bool allowReboot)
-{
-  if (!(allowReboot && g_playlistStartedThisBoot)) {
-    // Pas de reboot dans ce cas : soit rien n'a ete lance depuis le boot
-    // (playlist deja sautee -- AP/premier boot/secours WiFi, ou reboot
-    // precedent deja cible sur ce chemin), soit l'appelant a explicitement
-    // demande de ne jamais rebooter (allowReboot=false -- root/BASIC/
-    // NETWORK/CLOCK, v77 : ces pages ne font aucun scan SD lourd, elles
-    // n'ont donc pas besoin de la marge heap du reboot cible, et le
-    // declencher sur une simple navigation/autocompletion navigateur etait
-    // une interruption de lecture non justifiee, signalee par l'utilisateur
-    // -- seul MEDIA, qui construit reellement le cache, passe allowReboot=true).
-    if (g_sdOpInProgress) {
-      // Le DMD est deja en mode config (page precedente de la meme
-      // session, navigation directe entre sous-pages via la barre de nav).
-      // Reappliquer webDmdPause()/webDmdSetMainMsg() avec les MEMES
-      // valeurs (meme IP, meme message) ne changerait rien a l'affichage
-      // mais reassignerait des String et redeclencherait un redraw pour
-      // rien -- pur gaspillage de heap a un moment ou il est deja rare.
-      // clearFirstBoot() reste appelee (idempotente, sans cout si deja
-      // fait) pour ne changer aucun autre comportement existant.
-      clearFirstBoot();
-      return true;
-    }
-    String ip = WiFi.localIP().toString();
+  if (g_sdOpInProgress) {
+    // Le DMD est deja en mode config (page precedente de la meme session,
+    // navigation directe entre sous-pages via la barre de nav).
+    // Reappliquer webDmdPause()/webDmdSetMainMsg() avec les MEMES valeurs
+    // (meme IP, meme message) ne changerait rien a l'affichage mais
+    // reassignerait des String et redeclencherait un redraw pour rien --
+    // pur gaspillage de heap a un moment ou il est deja rare.
+    // clearFirstBoot() reste appelee (idempotente, sans cout si deja
+    // fait) pour ne changer aucun autre comportement existant.
     clearFirstBoot();
-    webDmdSetMainMsg(msg);
-    webDmdPause(ip, 0xFFE0);
-    // Message "de fond" auquel revenir automatiquement apres un message de
-    // statut transitoire (voir SD_OP_SUBMSG_EXPIRE_MS, RecalBox_DMD.ino).
-    g_sdOpPersistentSubMsg = ip;
-    g_sdOpPersistentSubMsgColor = 0xFFE0;
-    Serial.println("[WEB] triggerWebConfigMode (pas de reboot), heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
-    return true;
+    return;
   }
-  // La playlist/des GIFs ont deja tourne ce boot -- chaque GIF ouvert perd
-  // durablement quelques Ko de heap (jamais recupere avant reboot, voir
-  // memoire projet). Demande utilisateur : plutot que de rentrer en mode
-  // config avec un heap deja entame, rebooter directement et sauter la
-  // playlist sur ce prochain boot (voir g_skipPlaylistForConfig dans
-  // RecalBox_DMD.ino) pour repartir avec le maximum de heap disponible.
-  Serial.println("[WEB] triggerWebConfigMode: playlist deja active -> reboot cible mode config");
-  writeConfigFlag("force_config_boot", "1");
-  sendRebootingPage();
-  requestReboot = true;
-  return false;
+  String ip = WiFi.localIP().toString();
+  clearFirstBoot();
+  webDmdSetMainMsg(msg);
+  webDmdPause(ip, 0xFFE0);
+  // Message "de fond" auquel revenir automatiquement apres un message de
+  // statut transitoire (voir SD_OP_SUBMSG_EXPIRE_MS, RecalBox_DMD.ino).
+  g_sdOpPersistentSubMsg = ip;
+  g_sdOpPersistentSubMsgColor = 0xFFE0;
+  Serial.println("[WEB] triggerWebConfigMode, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
 }
 
 static void sendGzipHtml(const uint8_t *content, size_t len)
@@ -3720,11 +3146,7 @@ static void sendGzipHtml(const uint8_t *content, size_t len)
 
 static void handleWebConfigRoot()
 {
-  // allowReboot=false (v77) : simple page de menu, aucun scan SD -- ne
-  // doit jamais interrompre une lecture en cours (risque reel confirme par
-  // l'utilisateur : autocompletion/prechargement du navigateur peut
-  // atteindre cette route sans navigation deliberee).
-  if (!triggerWebConfigMode("WEB DMD CONFIG", false)) return;
+  triggerWebConfigMode("WEB DMD CONFIG");
   if (WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA) {
     sendGzipHtml(WEB_CONFIG_AP_HTML_GZ, WEB_CONFIG_AP_HTML_GZ_LEN);
   } else {
@@ -3734,40 +3156,29 @@ static void handleWebConfigRoot()
 
 static void handleWebConfigBasicPage()
 {
-  if (!triggerWebConfigMode("WEB DMD CONFIG", false)) return; // v77 : voir handleWebConfigRoot()
+  triggerWebConfigMode("WEB DMD CONFIG");
   sendGzipHtml(WEB_CONFIG_BASIC_HTML_GZ, WEB_CONFIG_BASIC_HTML_GZ_LEN);
 }
 
 static void handleWebConfigNetworkPage()
 {
-  if (!triggerWebConfigMode("WEB DMD CONFIG", false)) return; // v77 : voir handleWebConfigRoot()
+  triggerWebConfigMode("WEB DMD CONFIG");
   sendGzipHtml(WEB_CONFIG_NETWORK_HTML_GZ, WEB_CONFIG_NETWORK_HTML_GZ_LEN);
 }
 
 static void handleWebConfigClockPage()
 {
-  if (!triggerWebConfigMode("WEB DMD CONFIG", false)) return; // v77 : voir handleWebConfigRoot()
+  triggerWebConfigMode("WEB DMD CONFIG");
   sendGzipHtml(WEB_CONFIG_CLOCK_HTML_GZ, WEB_CONFIG_CLOCK_HTML_GZ_LEN);
 }
 
 static void handleWebConfigMediaPage()
 {
-  // allowReboot=true (v77) : seule page qui construit reellement le cache
-  // /gifs -- la seule a beneficier de la marge heap/exclusivite SD du
-  // reboot cible. Voir handleWebConfigRoot() pour les autres pages.
-  if (!triggerWebConfigMode("WEB DMD CONFIG", true)) return;
-  // v80 -- faille reelle trouvee (question utilisateur) : cacheBuilderStart()
-  // n'etait jusqu'ici appelee QU'au boot, gardee par g_skipPlaylistForConfig
-  // (donc seulement apres le reboot cible declenche ci-dessus). Si MEDIA est
-  // atteinte SANS ce reboot (playlist vide au boot, tout premier demarrage,
-  // mode AP -- triggerWebConfigMode() renvoie alors true sans jamais
-  // rebooter), la machine a etats ne demarrait JAMAIS pour toute la session :
-  // un dossier ajoute manuellement (carte SD retiree/modifiee sur PC)
-  // restait bloque au sablier indefiniment. Demarre desormais aussi ici,
-  // mais seulement si IDLE/DONE (jamais en cours de scan -- ne perd pas la
-  // progression d'un gros dossier en cours) : couvre le cas d'un dossier
-  // ajoute manuellement pendant qu'une session config est deja active.
-  if (g_cbState == CB_IDLE || g_cbState == CB_DONE) cacheBuilderStart();
+  // v85 : plus de reboot cible (voir triggerWebConfigMode()) -- MEDIA ne
+  // fait plus que des operations dossier (creer/supprimer/uploader), plus
+  // de navigation/cache par fichier, donc plus besoin de la marge heap
+  // dediee.
+  triggerWebConfigMode("WEB DMD CONFIG");
   sendGzipHtml(WEB_CONFIG_MEDIA_HTML_GZ, WEB_CONFIG_MEDIA_HTML_GZ_LEN);
 }
 
@@ -3783,14 +3194,12 @@ void setupWebConfig()
   webServer->on("/load", handleWebConfigLoad);
   webServer->on("/lsplaylists", handleWebConfigListPlaylists);
   webServer->on("/lsgifdirs", handleWebConfigListGifDirs);
-  webServer->on("/lsgiffiles", handleWebConfigListGifFiles);
   webServer->on("/gifcount", handleWebConfigGifCount);
   webServer->on("/generate-playlist", HTTP_POST, handleWebConfigGeneratePlaylist);
   webServer->on("/delete-playlist", HTTP_POST, handleWebConfigDeletePlaylist);
   webServer->on("/create-folder", HTTP_POST, handleWebConfigCreateFolder);
   webServer->on("/upload", HTTP_POST, handleWebConfigUpload, handleWebConfigUploadFile);
   webServer->on("/delete-folders", HTTP_POST, handleWebConfigDeleteFolders);
-  webServer->on("/delete-files", HTTP_POST, handleWebConfigDeleteFiles);
   webServer->on("/scan-wifi", handleWebConfigScanWiFi);
   webServer->on("/save-ap", HTTP_POST, handleWebConfigSaveAP);
   webServer->on("/lang", handleWebConfigLang);

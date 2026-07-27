@@ -1,7 +1,26 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v34
+// Version actuelle : v35
+//
+// v35 - 2026-07-27 - safe-modify - BRANCHE DEV, pivot majeur : decision
+//   utilisateur de retirer completement la navigation/suppression de
+//   fichiers INDIVIDUELS dans un dossier depuis MEDIA (le fait que
+//   certains dossiers soient accessibles et d'autres non selon leur statut
+//   de cache posait un probleme d'experience utilisateur) -- remplace a
+//   terme par un ajout a l'outil PC pour composer des playlists
+//   personnalisees (choix de GIF individuels, potentiellement avec
+//   miniatures) -- a etudier separement, pas encore commence. Consequence
+//   directe : plus besoin du reboot cible mode config (g_skipPlaylistFor
+//   Config, force_config_boot, le bloc dedie dans setup()) ni de la machine
+//   a etats de cache -- retires. g_playlistStartedThisBoot devenu mort
+//   (uniquement lu par la decision de reboot, elle-meme supprimee cote
+//   web_config.h) -- retire. loop() n'appelle plus cacheBuilderStep().
+//   Verifie explicitement (question utilisateur) que ni le reboot MQTT
+//   CMD_REBOOT (Recalbox, "marquee/cmd/reboot") ni le reboot de la page AP
+//   (handleWebConfigSaveAP()) ne dependent de ce mecanisme -- deux chemins
+//   ESP.restart() entierement separes, non touches. PAS ENCORE teste sur
+//   materiel reel.
 //
 // v34 - 2026-07-27 - safe-modify - BRANCHE DEV : cablage de la nouvelle
 //   machine a etats de cache (web_config.h v75). cacheBuilderStep() ajoutee
@@ -1069,12 +1088,6 @@ unsigned long g_sdOpLastScroll1 = 0;
 bool     g_configDmdDirty = false;
 bool     g_firstBoot = true;
 bool     g_forceApRecovery = false; // force_ap_recovery: demande via marquee/cmd/wifi_recovery
-bool     g_skipPlaylistForConfig = false; // force_config_boot (config.ini) : ce boot doit sauter
-  // directement en mode config sans jamais lancer la playlist/ouvrir de GIF --
-  // consomme (remis a "0" dans config.ini) des lecture dans loadConfig().
-bool     g_playlistStartedThisBoot = false; // true des que la playlist/le 1er GIF a reellement
-  // demarre ce boot -- sert a triggerWebConfigMode() (web_config.h) pour savoir si un reboot
-  // "propre" (sans playlist) apporterait un vrai gain de heap avant d'entrer en mode config.
 String   uiLanguage = "fr"; // language: fr/en/es -- transmis par l'outil Windows via config.ini,
                              // pilote les bannieres informatives DMD + pages web (voir trOpenBrowserAt() etc.)
 
@@ -1113,7 +1126,6 @@ File seqPlaylistFile;
 File idxFileHandle;
 
 bool   requestNextGif = false;
-bool   requestReboot  = false;
 String nextGifPath    = "";
 
 bool   wifiEnabled               = true;
@@ -3324,7 +3336,6 @@ void loadConfig()
     else if(key=="mqtt_event_topic"   &&value.length())  mqttEventTopic   =value;
     else if(key=="first_boot")                           g_firstBoot      =(value!="0");
     else if(key=="force_ap_recovery")                    g_forceApRecovery=(value!="0");
-    else if(key=="force_config_boot")                    g_skipPlaylistForConfig=(value!="0");
     else if(key=="language" && (value=="fr"||value=="en"||value=="es")) uiLanguage=value;
   }
   cfg.close();
@@ -3896,52 +3907,6 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
     goto start_mqtt_task;
   }
 
-  if (g_skipPlaylistForConfig) {
-    // Reboot demande par triggerWebConfigMode() (web_config.h) pour repartir
-    // en mode config avec un maximum de heap disponible -- ne JAMAIS lancer
-    // la playlist/ouvrir de GIF sur ce boot precis (voir memoire projet :
-    // chaque GIF ouvert perd durablement quelques Ko de heap, jamais
-    // recupere avant reboot). Flag consomme immediatement (config.ini remis
-    // a "0") pour qu'un reboot normal ulterieur ("Redemarrer") reparte bien
-    // en boot playlist standard, pas en boucle sur ce chemin.
-    writeConfigFlag("force_config_boot", "0");
-    // Charge quand meme l'index playlist (gifCount), SANS jamais ouvrir de
-    // GIF ni dessiner l'ecran playlist (showPlaylistInfoScreen()) -- lecture
-    // seule d'un fichier .idx deja existant, cout heap negligeable (~7ms
-    // mesures en conditions reelles). Sans ca, "Reprendre DMD" (resumePlaylist(),
-    // qui ne fait rien si gifCount==0) laissait un ecran noir en sortie de
-    // config -- gifCount ne serait sinon jamais initialise sur ce chemin.
-    // Si le cache playlist est perime (signature differente), gifCount reste
-    // a 0 pour ce boot precis (limite acceptee : cas rare, un vrai reboot
-    // normal ulterieur reconstruira le cache comme d'habitude).
-    if (playlistName.length() > 0) {
-      uint32_t curSig = computeFileHash(playlistSourcePath);
-      uint32_t savSig = readSavedSignature();
-      if (curSig && curSig == savSig) {
-        if (idxFileHandle) idxFileHandle.close();
-        idxFileHandle = SD.open(playlistIdxPath, FILE_READ);
-        if (idxFileHandle) {
-          size_t idxSize = idxFileHandle.size();
-          gifCount = (idxSize >= 4) ? (int)(idxSize / 4) : 0;
-          if (!playlistRandom) {
-            if (seqPlaylistFile) seqPlaylistFile.close();
-            seqPlaylistFile = SD.open(playlistCachePath, FILE_READ);
-            playIndex = 0;
-          }
-        }
-      }
-    }
-    String ip = WiFi.localIP().toString();
-    g_sdOpMsg = trConfigPageMsg();
-    g_sdOpSubMsg = trOpenUrl(ip);
-    g_sdOpSubMsgColor = 0x07E0;
-    g_sdOpInProgress = true;
-    currentMode = MODE_CONFIG;
-    g_configDmdDirty = true;
-    Serial.println("[BOOT] Reboot cible mode config (heap max) -> http://" + ip + " gifCount=" + String(gifCount));
-    goto start_mqtt_task;
-  }
-
   if(playlistName.length()==0){
     String ip = WiFi.localIP().toString();
     if (ip == "0.0.0.0") ip = WiFi.softAPIP().toString();
@@ -4029,7 +3994,6 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
       Serial.println("[BOOT] Playlist empty -> config mode sur http://" + ip);
       goto start_mqtt_task;
     }
-    g_playlistStartedThisBoot = true;
     playIndex=0;lastRandomIndex=-1;currentMode=MODE_PLAYLIST;openNextGif();
     Serial.println("[BOOT] apres 1er openNextGif, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
   }
@@ -4041,15 +4005,6 @@ start_mqtt_task:
   // Interface web de configuration
   if (wifiEnabled) setupWebConfig();
   Serial.println("[BOOT] apres setupWebConfig, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
-
-  // Demarre la machine a etats de construction du cache /gifs (v75) --
-  // seulement sur le reboot cible mode config (g_skipPlaylistForConfig),
-  // jamais pendant une lecture normale de playlist (heap deja tendu par le
-  // GIF en cours, SD deja sollicitee par openNextGif()/drawRaw565()). Ne
-  // bloque PAS ici : cacheBuilderStart() se contente d'initialiser l'etat,
-  // le vrai travail avance par petits pas via cacheBuilderStep(), appelee
-  // depuis loop() a chaque iteration.
-  if (g_skipPlaylistForConfig && wifiEnabled) cacheBuilderStart();
 }
 
 // --------------------------------------------------
@@ -4057,9 +4012,8 @@ start_mqtt_task:
 // --------------------------------------------------
 void loop()
 {
-  handleWebConfig(); cacheBuilderStep(); maintainWiFi(); maintainApRecovery(); processPendingMqttCommand();
+  handleWebConfig(); maintainWiFi(); maintainApRecovery(); processPendingMqttCommand();
   if(requestNextGif&&!g_sdOpInProgress){requestNextGif=false;openNextGif();}
-  if(requestReboot) {delay(100);ESP.restart();}
 
   switch(currentMode)
   {
