@@ -3,7 +3,27 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v90
+// Version actuelle : v91
+//
+// v91 — 2026-07-28 — safe-modify — Suite du diagnostic v90 (voir memoire
+//   projet) : les logs heap par-entree ajoutes dans scanGifDirsRaw() ont
+//   montre que le scan lui-meme est quasi neutre en heap sur toute sa duree
+//   (perte nette 0-512 octets, PAS des milliers) et que les creux de
+//   plusieurs Ko observes en cours de route (ex. entrees 12/19, memes
+//   positions dans les 2 scans) sont TRANSITOIRES -- resorbes 1 a 4
+//   iterations plus tard, probablement un buffer de lecture bloc SD/FATFS.
+//   Fait cle : le maxalloc=4596 vu lors des 3 refus d'upload consecutifs
+//   (UPLOAD_FILE_START, garde heap<6000) n'etait PAS non plus permanent -- le
+//   scan de rafraichissement automatique juste apres a redemarre a 12276,
+//   quasiment le niveau d'avant l'upload (12788). Hypothese testee : ce
+//   garde-fou intercepte un creux transitoire (parsing multipart de la
+//   requete POST entrante, pas encore identifie precisement -- lib
+//   WebServer/lwIP, pas notre code), pas un etat de fragmentation stable.
+//   Fix teste : si maxalloc<6000 a l'entree d'UPLOAD_FILE_START, attendre
+//   10ms et recontroler avant de refuser pour de bon (au lieu de refuser
+//   immediatement). Logs ajoutes (avant/apres le delay) pour confirmer sur
+//   le prochain test reel si le creux se resorbe effectivement a ce point
+//   precis. PAS ENCORE teste sur materiel reel.
 //
 // v90 — 2026-07-28 — safe-modify — DIAGNOSTIC TEMPORAIRE (a retirer une fois
 //   la cause confirmee). Test reel post-fusion master (v89) : upload d'un
@@ -2868,9 +2888,26 @@ static void handleWebConfigUploadFile()
     // retentera (jusqu'a 3x) et le prochain essai aura peut-etre plus de
     // marge si le tas s'est un peu detendu entre-temps.
     if (ESP.getMaxAllocHeap() < 6000) {
-      uploadErrorMsg = "ERR: heap critique, reessayez";
-      Serial.println("[WEB] Upload refuse (heap critique, maxalloc=" + String(ESP.getMaxAllocHeap()) + ")");
-      return;
+      // v90 -- logs diagnostic (scanGifDirsRaw) ont montre que la plupart des
+      // creux maxalloc observes pendant un scan de dossiers sont TRANSITOIRES
+      // (probablement un buffer de lecture bloc SD/FATFS, ~4096 octets,
+      // libere 1 a 4 iterations plus tard) et non une fragmentation stable --
+      // le heap avait quasiment recupere (12788->12276) juste apres un refus
+      // d'upload a maxalloc=4596 mesure en test reel. Hypothese testee ici :
+      // le creux au moment precis d'UPLOAD_FILE_START (avant meme d'ouvrir
+      // le fichier cible) pourrait etre du meme type -- une courte pause
+      // suffit peut-etre a le laisser se resorber avant de refuser pour de
+      // bon. PAS ENCORE confirme sur materiel reel.
+      unsigned long maBefore = ESP.getMaxAllocHeap();
+      delay(10);
+      unsigned long maAfter = ESP.getMaxAllocHeap();
+      Serial.println("[WEB] Upload heap critique initial maxalloc=" + String(maBefore) + ", apres delay(10) maxalloc=" + String(maAfter));
+      if (maAfter < 6000) {
+        uploadErrorMsg = "ERR: heap critique, reessayez";
+        Serial.println("[WEB] Upload refuse (heap critique, maxalloc=" + String(maAfter) + ")");
+        return;
+      }
+      Serial.println("[WEB] Upload : creux transitoire resorbe, poursuite normale");
     }
     uploadDir = webServer->arg("dir");
     uploadDir.trim();
