@@ -63,5 +63,10 @@ tmp/
 *.temp
 *.log
 
+# Preferences utilisateur locales de l'outil Windows (IP Recalbox, theme,
+# langue...) -- personnelles a chaque poste, ne doivent jamais etre commitees
+# ni partagees avec un autre utilisateur du tool.
+tools/RecalBoxDMD_prefs.json
+
 # Keep firmware source
 !RecalBox_DMD.ino

@@ -1346,8 +1346,9 @@ static void drawTheme_Mario(int h, int m, int s, unsigned long ms) {
   }
 
   // Time, small in the corner -- no background box, just the digits.
-  uint16_t hudWhite = c565(252,252,252);
-  drawTimeHHMM(97, 1, h, m, hudWhite);
+  // Noir (pas blanc) : le blanc se lit mal sur le fond ciel clair du DMD reel.
+  uint16_t hudDark = c565(0,0,0);
+  drawTimeHHMM(97, 1, h, m, hudDark);
 }
 
 // ── THEME 10: LEVEL 1-1 ──────────────────────
@@ -1512,7 +1513,8 @@ static void drawTheme_Level11(int h, int m, int s, unsigned long ms) {
 
   // Time, small in the corner, HH:MM:SS -- no background box, and the
   // extra SS field (this theme has no other use of that corner's width).
-  uint16_t hudWhite = c565(252,252,252);
+  // Noir (pas blanc) : le blanc se lit mal sur le fond ciel clair du DMD reel.
+  uint16_t hudDark = c565(0,0,0);
   char tbuf[9];
   tbuf[0]='0'+h/10; tbuf[1]='0'+h%10; tbuf[2]=':';
   tbuf[3]='0'+m/10; tbuf[4]='0'+m%10; tbuf[5]=':';
@@ -1520,7 +1522,7 @@ static void drawTheme_Level11(int h, int m, int s, unsigned long ms) {
   int timeX = 74;
   for (int i = 0; i < 8; i++) {
     if (isColonHidden(tbuf[i], ms)) continue;
-    drawFontChar(timeX + i*6, 1, tbuf[i], hudWhite);
+    drawFontChar(timeX + i*6, 1, tbuf[i], hudDark);
   }
 }
 

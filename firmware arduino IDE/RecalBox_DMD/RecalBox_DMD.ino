@@ -1,7 +1,393 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v10
+// Version actuelle : v32
+//
+// v32 - 2026-07-27 - safe-modify - Demande utilisateur : afficher un
+//   message sur l'ecran DMD pendant le prechauffage des caches SD (v30) --
+//   jusqu'ici totalement silencieux visuellement (ecran vierge pendant
+//   plusieurs secondes sur une grosse collection, loop() n'ayant pas
+//   encore demarre pour rafraichir l'affichage normal). Nouvelle
+//   trCachingMsg() (fr/en/es, meme pattern que trConfigPageMsg() etc.) --
+//   ligne 1 dessinee une seule fois juste avant l'appel a
+//   warmUpGifCaches(). Nouvelle webDmdForceRedraw() (factorisee depuis le
+//   bloc d'affichage MODE_CONFIG de loop(), reutilisee telle quelle) --
+//   pas appelee directement ici, mais webDmdPause() dessinait deja sa
+//   ligne 2 immediatement (mecanisme preexistant pour les progressions
+//   d'upload), reutilise par warmUpGifCaches() (web_config.h, meme date)
+//   pour afficher "nom_dossier (i/total)" en direct pendant le scan de
+//   chaque dossier. Compilation verifiee OK. PAS ENCORE reteste.
+//
+// v31 - 2026-07-27 - safe-modify - Demande utilisateur : les messages de
+//   statut transitoires mirrores sur l'ecran physique du DMD via
+//   webDmdPause() (ex: "Mise en cache du contenu, patientez...", "OK",
+//   erreurs -- appeles par web_config.h a chaque showMsg() cote page web)
+//   restaient affiches indefiniment sur le DMD une fois le process
+//   termine, contrairement au popup web qui s'auto-masque deja depuis la
+//   v48 (2026-07-26). Nouveaux g_sdOpPersistentSubMsg/Color (message "de
+//   fond", pose par triggerWebConfigMode() = IP du DMD) et
+//   g_sdOpSubMsgSetAt (horodatage, mis a jour dans webDmdPause()) : en
+//   MODE_CONFIG, si g_sdOpSubMsg n'a pas ete mis a jour depuis
+//   SD_OP_SUBMSG_EXPIRE_MS (5000ms, meme duree que le cote web) ET differe
+//   du message persistant, retour automatique a ce dernier (l'IP). Les
+//   ecrans de boot/secours WiFi qui assignent g_sdOpSubMsg directement
+//   (hors webDmdPause()) ne sont pas concernes -- g_sdOpSubMsgSetAt reste
+//   a 0 dans leur cas, condition d'expiration jamais vraie. Compilation
+//   verifiee OK. PAS ENCORE reteste sur materiel reel.
+//
+// v30 - 2026-07-27 - safe-modify - Demande utilisateur : appel de
+//   warmUpGifCaches() (nouvelle, web_config.h meme date) juste apres le
+//   reboot cible mode config, avant setupWebConfig() -- construit tous les
+//   caches SD (dossiers /gifs + contenu de chaque sous-dossier) en une
+//   seule fois pendant que le heap est proche de son maximum, au lieu de
+//   payer ce cout plus tard sur des requetes web individuelles avec un
+//   heap deja entame. Compilation verifiee OK. PAS ENCORE reteste.
+//
+// v29 - 2026-07-27 - safe-modify - Test reel du prechauffage (v28) :
+//   ECHEC -- maxalloc identique avant/apres (18420->18420) et surtout
+//   aucun "[WEB] DMD setMainMsg"/"DMD pause" logue pendant les 3s
+//   d'attente, preuve que la requete WiFiClient vers nous-memes
+//   (WiFi.localIP():80) n'a jamais ete traitee par le WebServer -- l'auto-
+//   connexion via l'IP STA propre ne fonctionne visiblement pas de facon
+//   fiable sur ce materiel/reseau (isolation client possible sur la box,
+//   ou limite du bouclage lwIP/WiFi). Retire integralement (perdait 3s
+//   pour rien). Le meme log a revele un fait plus important en comparant
+//   les checkpoints : le vrai gros poste mal attribue precedemment
+//   ("1ere page ~16 Ko") est en fait setupWebConfig() elle-meme
+//   (creation WebServer + ~25 webServer->on() + begin()) : ~13 Ko a elle
+//   seule (31732->18420, AVANT toute requete). La vraie 1ere page reelle
+//   ne coute plus que ~3 Ko une fois ce poste isole. Nouveau checkpoint
+//   ajoute juste apres setupWebConfig() pour confirmer ce chiffre
+//   precisement au prochain test. Chaque webServer->on() alloue 2 objets
+//   heap (FunctionRequestHandler + Uri clone(), verifie dans le code
+//   source de la lib WebServer ESP32 3.3.11) mais ca ne semble pas
+//   suffire a expliquer 13 Ko pour ~25 routes (quelques Ko tout au plus,
+//   estimation) -- le reste vient probablement de _server.begin() (socket
+//   TCP d'ecoute lwIP), cout d'infrastructure difficilement reductible
+//   sans toucher a la configuration ESP-IDF sous-jacente (hors de portee
+//   d'un sketch Arduino). Compilation verifiee OK. PAS ENCORE reteste.
+//
+// v28 - 2026-07-27 - safe-modify - Test reel confirme : meme apres
+//   l'optimisation du tri (web_config.h v58), le scan lsgifdirs echoue
+//   encore (maxalloc trop bas au moment du scan, ~10-14 Ko, et ne recupere
+//   pas entre 2 tentatives dans le meme boot). Logs avec checkpoints (v27)
+//   avaient confirme un cout FIXE et ponctuel de ~16 Ko sur le tout premier
+//   envoi HTTP du WebServer (chaque page suivante ne coute presque plus
+//   rien) -- implementation de la piste de "prechauffage" evoquee : sur le
+//   chemin g_skipPlaylistForConfig, juste apres setupWebConfig(), le
+//   firmware s'envoie une requete HTTP a lui-meme (WiFiClient vers
+//   WiFi.localIP():80, GET /) pour declencher ce cout ponctuel PENDANT le
+//   boot (quand il reste ~31 Ko disponibles, juste apres WiFi/NTP) plutot
+//   qu'au moment ou l'utilisateur ouvre reellement une page et a besoin de
+//   heap pour le scan. Bloquant (jusqu'a 3s max), mais deja attendu par
+//   l'utilisateur pendant l'ecran "Redemarrage en cours". Compilation
+//   verifiee OK. PAS ENCORE reteste sur materiel reel -- a confirmer :
+//   maxalloc juste avant lsgifdirs devrait etre nettement plus haut
+//   qu'avant (comparer avec "apres initNTP", ~31 Ko, cible).
+//
+// v27 - 2026-07-27 - safe-modify - Test reel du reboot cible (v25/v26) :
+//   "Reprendre DMD" fonctionne desormais (confirme), mais la liste des
+//   sous-dossiers a quand meme echoue cette fois (maxalloc=13812 juste
+//   avant le scan, contre 18420 lors d'un essai precedent reussi). Fait
+//   marquant : meme playlist sautee, maxalloc chute de 49140 (juste apres
+//   boot) a 13812 (juste avant lsgifdirs) -- environ 35 Ko perdus SANS
+//   jamais ouvrir de GIF, donc une bonne partie de la perte n'est pas liee
+//   a la playlist du tout. Ajout de 2 points de mesure supplementaires
+//   pour isoler la source : juste apres setupWiFiFromConfig() et juste
+//   apres initNTP() -- permettra de savoir si le cout vient de la
+//   connexion WiFi elle-meme ou des allers-retours de pages web (3
+//   DMD pause/setMainMsg observes dans le log avant le scan, voir aussi
+//   web_config.h meme date pour le point de mesure cote page web).
+//   Compilation verifiee OK. PAS ENCORE reteste.
+//
+// v26 - 2026-07-27 - safe-modify - Bug remonte suite au reboot cible mode
+//   config (v25) : "Reprendre DMD" affichait un ecran vide. Cause :
+//   resumePlaylist() ne relance l'affichage que si gifCount>0, or gifCount
+//   n'est jamais initialise sur le chemin g_skipPlaylistForConfig (aucun
+//   chargement de playlist). Fix : ce chemin charge maintenant l'index
+//   playlist existant (gifCount, via le fichier .idx deja construit -- pas
+//   de rebuildPlaylistCache(), pas de showPlaylistInfoScreen(), pas
+//   d'openNextGif()) si la signature du cache est encore valide -- cout
+//   heap negligeable (~7ms mesures en conditions reelles pour cette seule
+//   etape). "Reprendre DMD" doit desormais fonctionner normalement. Limite
+//   acceptee : si le cache playlist est perime a ce moment precis (rare),
+//   gifCount reste a 0 pour ce boot -- necessiterait un vrai reboot pour
+//   se reconstruire, comme avant l'existence de ce chemin. Compilation
+//   verifiee OK. PAS ENCORE reteste sur materiel reel.
+//
+// v25 - 2026-07-27 - safe-modify - Demande utilisateur : plutot que de
+//   continuer a chercher la fuite heap par-GIF (v23/v24, pas encore
+//   localisee dans la lib AnimatedGIF/SD), reboot cible en mode config des
+//   que la playlist a deja tourne ce boot -- voir web_config.h v55 pour le
+//   declenchement cote serveur web. Nouveaux globals : g_skipPlaylistForConfig
+//   (lu depuis config.ini "force_config_boot", consomme/remis a "0" des sa
+//   lecture dans setup() pour ne jamais boucler), g_playlistStartedThisBoot
+//   (mis a true au tout premier openNextGif() du boot, expose a
+//   web_config.h). Nouveau garde dans setup() (meme pattern que
+//   g_forceApRecovery) : si g_skipPlaylistForConfig, saute directement en
+//   MODE_CONFIG (message "page de configuration" + IP) sans jamais lancer
+//   playlist/GIF -- le heap reste alors pres de son maximum post-boot
+//   (~49 Ko au lieu de ~13 Ko mesures en conditions reelles apres
+//   playlist+plusieurs GIFs). Compilation verifiee OK. PAS ENCORE reteste
+//   sur materiel reel -- a valider : ouverture config web depuis une
+//   session playlist normale doit maintenant rebooter puis afficher la
+//   page demandee automatiquement une fois revenu ; un reboot manuel
+//   ("Redemarrer") depuis la page config doit lui repartir en boot
+//   playlist normal (pas de boucle sur ce nouveau chemin).
+//
+// v24 - 2026-07-27 - safe-modify - Suite de l'investigation v23 : log reel
+//   fourni confirme que le total libre chute AUSSI (pas seulement maxalloc)
+//   a chaque GIF ouvert (~4200 octets/ouverture, jamais recupere) --
+//   signature d'une vraie fuite, pas juste de la fragmentation. Verifie
+//   dans le code source de la lib AnimatedGIF (D:\...\libraries\
+//   AnimatedGIF\src\) : pFrameBuffer (alloue par allocFrameBuf(), libere
+//   par freeFrameBuf() -- mais close() n'appelle PAS freeFrameBuf()) n'est
+//   utilise qu'en mode dessin GIF_DRAW_COOKED ; notre code reste en
+//   GIF_DRAW_RAW (jamais setDrawType()/allocFrameBuf() appeles), donc ce
+//   pointeur reste toujours NULL -- PAS notre fuite. gif.inl ne contient
+//   aucun malloc/calloc (LZW decode sur buffers internes fixes). Nos
+//   callbacks SD (GIFOpenFile/GIFReadFile/GIFSeekFile/GIFCloseFile) sont
+//   legers, rien d'evident. Piste restante : classe File (SD/FS ESP32) ou
+//   pipeline de dessin (GIFDraw()/HUB75), pas encore isole. Ajout d'un
+//   nouveau point de mesure dans openGif() juste apres gif.open() reussi
+//   (AVANT toute frame dessinee) pour savoir si la perte a deja eu lieu a
+//   l'ouverture ou seulement pendant la lecture des frames qui suit.
+//   Compilation verifiee OK. PAS ENCORE reteste (log a fournir au prochain
+//   boot).
+//
+// v23 - 2026-07-26 - safe-modify - Investigation heap critique (voir
+//   web_config.h v54) : log reel fourni par l'utilisateur montre
+//   maxalloc=8692 des l'ouverture de la page web config, PUIS 4596 des le
+//   debut du scan lsgifdirs -- MAIS ce log est un boot A FROID
+//   (POWERON_RESET), pas une session longue comme suppose precedemment
+//   (aucune activite prolongee avant, juste boot -> WiFi -> playlist ->
+//   quelques rotations GIF -> ouverture web config). Le heap est donc deja
+//   critique tres tot, pas seulement apres usage prolonge. Ajout de 3
+//   points de mesure ESP.getMaxAllocHeap()/getFreeHeap() dans setup() pour
+//   isoler QUELLE etape fait chuter maxalloc : juste apres le chargement
+//   des caches (systemes/games), juste apres showPlaylistInfoScreen(), et
+//   juste apres le tout premier openNextGif(). Objectif : comparer ces 3
+//   valeurs avec le maxalloc=8692 deja observe a l'ouverture web config
+//   pour localiser la source (chargement caches boot / lecture playlist /
+//   decodage GIF) avant de tenter un correctif. Aucun changement de
+//   comportement, uniquement des logs. Compilation verifiee OK. PAS ENCORE
+//   reteste (log a fournir au prochain boot).
+//
+// v22 - 2026-07-26 - safe-modify - Investigation "MQTT connecting/failed
+//   rc=-2 pendant une session web config" (log reel fourni par
+//   l'utilisateur). Ajout mineur : msg.reserve(length+1) dans
+//   onMqttMessage() avant la concatenation octet-par-octet (optimisation
+//   generale, ce handler tournant pour chaque message MQTT recu) --
+//   l'utilisateur a ensuite precise que dans le test en cause la Recalbox
+//   etait eteinte, donc aucun message MQTT recu (seules des tentatives de
+//   connexion echouees) : ce fix ne concerne pas cet evenement precis.
+//   Vraie explication trouvee en relisant le log ligne a ligne : la tentative
+//   "[MQTT] connecting" survient ~0.6s APRES un "[WEB] DMD resume" (donc
+//   g_sdOpInProgress=false, comportement attendu du garde de mqttTask() --
+//   pas un bug), puis ~1.4s plus tard un "[WEB] DMD pause: DMD repris"
+//   remet g_sdOpInProgress a true : c'est le message de confirmation
+//   "Reprendre DMD" qui se re-mirroitait lui-meme vers le DMD via
+//   showMsg()/webDmdPause(), deja identifie et corrige cote web_config.h
+//   (v47, fonction showMsgLocal() sans mirroir DMD) -- mais ce test reel
+//   avait manifestement ete flashe AVANT ce correctif. mqttTask() n'a donc
+//   pas de bug distinct : son garde g_sdOpInProgress fonctionne comme prevu,
+//   c'est la fenetre reelle (mais tres breve, ~1.4s) entre un vrai resume et
+//   son propre re-pause errone qui laissait passer une tentative de
+//   connexion. Aucun changement de code necessaire ici au-dela du
+//   reserve() ci-dessus -- reflasher avec le firmware incluant web_config.h
+//   v47+ et reesayer le meme scenario pour confirmer. Compilation verifiee
+//   OK. PAS ENCORE reteste sur materiel reel avec le firmware a jour.
+//
+// v21 - 2026-07-26 - safe-modify - Demande utilisateur : version affichee au
+//   splash boot (RETRO_VERSION, ecran physique du DMD, info=1 uniquement)
+//   passee de "Raw565 Ed. v10" a "Raw565 Ed. v11". N'a aucun rapport avec
+//   le numero de version safe-modify de ce fichier (historique interne des
+//   commits/patches, actuellement v21) -- deux compteurs distincts,
+//   confirme volontairement inchange lors d'une precedente session.
+//
+// v20 - 2026-07-26 - safe-modify - Retire #include <esp_task_wdt.h> (v19) :
+//   les esp_task_wdt_reset() ajoutes dans web_config.h echouaient en boucle
+//   en test reel ("task not found" -- la tache HTTP n'est pas enregistree
+//   aupres du Task Watchdog Timer), sans aucun benefice et avec un vrai
+//   cout (log d'erreur repete). Tous retires cote web_config.h (v44),
+//   include devenu inutile ici. Compilation verifiee OK.
+//
+// v19 - 2026-07-26 - safe-modify - Ajout #include <esp_task_wdt.h> : reboot
+//   du DMD confirme en test reel a la premiere tentative de copie de
+//   fichier (upload web vers un nouveau dossier /gifs). Piste la plus
+//   probable : Task Watchdog de loopTask (~5s par defaut) declenche par un
+//   premier mkdir()/ecriture SD anormalement lent. Voir web_config.h v40
+//   pour les esp_task_wdt_reset() ajoutes dans handleWebConfigCreateFolder()
+//   et le mkdir de secours d'UPLOAD_FILE_START. Compilation verifiee OK.
+//   PAS ENCORE reteste sur materiel reel.
+//
+// v18 - 2026-07-26 - safe-modify - Demande utilisateur : serveur telnet de
+//   debug (port 23) retire completement -- plus utilise, gagne RAM et CPU.
+//   Supprime : bloc de fonctions telnetWrite/telnetWriteln/telnetPrompt/
+//   stopTelnetClient/startTelnetServer/stopTelnetServer/printTelnetWifiInfo/
+//   handleTelnetCommand/handleTelnetLineSubmit/handleTelnet (~250 lignes,
+//   console de commandes debug : help/ip/wifi/wifiinfo/next/count/playlist/
+//   random/reboot/heap/mode/mqttlog/syscache/rebuildcache/show/showsys/
+//   showgame/exists/ls/default/black/resumesys) ; globals telnetServer/
+//   telnetClient/telnetServerStarted/telnetClientActive/telnetLine/
+//   telnetLastWasCR ; #define TELNET_PORT ; tous les appels handleTelnet()/
+//   startTelnetServer()/stopTelnetServer() (loop(), maintainWiFi(),
+//   setupWiFiFromConfig(), et les boucles d'attente MODE_GIF/MODE_PNG/
+//   MODE_BLACK). Compilation verifiee OK (62% flash, -17 Ko de flash vs
+//   v17). PAS ENCORE reteste sur materiel reel.
+//
+// v17 - 2026-07-23 - safe-modify - Bug confirme sur test reel du v16 :
+//   ecran DMD noir/vide apres connexion MQTT ("page vide sur le DMD").
+//   Cause racine trouvee : case MODE_PNG de loop() efface l'ecran et
+//   repasse en MODE_BLACK des que currentPngPath est vide (comportement
+//   preexistant, ~ligne 3970) -- mon CMD_WAITING_MQTT (v14) mettait
+//   currentPngPath="" (copie du pattern openBestMedia(), qui a
+//   probablement le meme defaut latent, non touche ici -- hors demande)
+//   avant de definir currentMode=MODE_PNG, provoquant un auto-clear QUASI
+//   INSTANTANE a la frame suivante : l'image de secours n'etait visible
+//   qu'une fraction de frame, invisible en pratique. Fix : currentPngPath
+//   mis a DEFAULT_RAW565_PATH (non-vide, jamais relu puisque pngDrawn=true
+//   saute la logique de redessin) pour eviter ce garde. Ajout de logs de
+//   diagnostic (ensureDefaultRaw565Cached() etait entierement silencieuse
+//   sur ses 3 chemins d'echec ; nouveau print de resultat dans
+//   CMD_WAITING_MQTT) pour eviter de futurs diagnostics a l'aveugle sur
+//   ce chemin. Compilation verifiee OK (62% flash). PAS ENCORE reteste
+//   sur materiel reel.
+//
+// v16 - 2026-07-23 - safe-modify - Bug confirme sur test reel du v15 (log
+//   serie) : la fenetre de grace ne s'appliquait toujours pas -- cause
+//   racine reelle trouvee : le garde currentMode!=MODE_PLAYLIST (copie de
+//   la logique CMD_DEFAULT) empechait CMD_WAITING_MQTT/g_mqttWaitingUntilMs
+//   d'etre poses des que la playlist avait deja demarre pendant les 12s de
+//   MQTT_START_DELAY_MS -- ce qui est le cas NORMAL (le log montrait des
+//   GIFs deja en lecture avant meme "[MQTT] connecting"). Fix : garde
+//   retire pour CMD_WAITING_MQTT specifiquement (reste present pour
+//   CMD_DEFAULT, comportement inchange). Compilation verifiee OK (62%
+//   flash). PAS ENCORE reteste sur materiel reel.
+//
+// v15 - 2026-07-23 - safe-modify - Bug confirme sur test reel du v14 (log
+//   serie) : CMD_WAITING_MQTT n'etait jamais visible -- "[MQTT] connected"
+//   est immediatement suivi de "marquee/cmd/default -> 1" puis
+//   "marquee/cmd/system -> lastplayed" dans le MEME cycle, car ce sont des
+//   messages RETENUS (mosquitto -r) rejoues par le broker des la
+//   souscription (pas de nouveaux evenements RB) -- ils ecrasaient
+//   pendingCmd avant meme que l'image de secours soit rendue. Fix :
+//   nouvelle fenetre de grace g_mqttWaitingUntilMs (MQTT_WAITING_GRACE_MS
+//   = 1500ms, posee au moment ou CMD_WAITING_MQTT est emis) -- pendant
+//   cette fenetre, onMqttMessage() ignore default/system/game (stop/
+//   show_config/wifi_recovery/reboot restent des actions explicites,
+//   jamais supprimees). Un vrai message d'evenement RB (le pont marquee
+//   republie "system" ~5s apres son propre demarrage, largement apres
+//   cette fenetre de 1.5s) n'est jamais bloque. Compilation verifiee OK
+//   (62% flash). PAS ENCORE reteste sur materiel reel.
+//
+// v14 - 2026-07-23 - safe-modify - Demande utilisateur : au moment ou la
+//   connexion MQTT a la Recalbox vient d'aboutir, afficher l'image de
+//   secours statique (RAM default.raw565, drawDefaultRaw565Cached()) au
+//   lieu de relancer directement la playlist en rotation -- le temps que
+//   la Recalbox envoie un premier vrai message system/game. Nouveau
+//   MqttCommand::CMD_WAITING_MQTT (distinct de CMD_DEFAULT, qui reste
+//   utilise tel quel par le pont marquee sur stop/sleep -- relance bien la
+//   playlist dans ce cas, comportement inchange). mqttTask() : au succes
+//   de mqttClient.connect(), emet CMD_WAITING_MQTT au lieu de CMD_DEFAULT
+//   (condition gifCount>0 retiree : l'image de secours ne depend pas du
+//   contenu de la playlist). Compilation verifiee OK (62% flash). PAS
+//   ENCORE teste sur materiel reel.
+//
+// v13 - 2026-07-21 - DMD multilingue (demande utilisateur) : nouveau global
+//   uiLanguage (fr/en/es) + cle config.ini "language=" lue dans loadConfig().
+//   7 helpers de traduction (trOpenBrowserAt/trWifiRecoveryCountdown/
+//   trConnectWifiMsg/trOpenUrl/trConfigPageMsg/trJoinWifi/trOpenInBrowser)
+//   couvrant les bannieres informatives ecran (CMD_SHOW_CONFIG, decompte +
+//   ligne 2 SSID/IP du mode secours WiFi, ecrans "connectez-vous au WiFi"/
+//   "page de configuration") -- les libelles techniques courts (WIFI OK,
+//   NTP, BT ON/OFF, brightness%, splash boot) restent volontairement non
+//   traduits (deja compacts/universels). Alternance SSID/IP du mode secours
+//   passee de 2s a 6s (chaines plus longues avec le prefixe demande,
+//   laisser le defilement horizontal avancer). Compile OK (arduino-cli via
+//   compile.ps1, 1976449 octets/62% flash) -- PAS ENCORE flashe/teste sur
+//   le DMD reel au moment de ce commentaire.
+//
+// v12 - 2026-07-21 - [Session parallele, suite du v11 -- les 3 scripts
+//   utilisateur (Config Web DMD, WiFi Recovery DMD, Reboot DMD) sont
+//   confirmes fonctionnels sur materiel reel par l'utilisateur apres flash]
+//   1) Auto-detection mDNS de l'IP Recalbox : nouvelle fonction
+//   autoDetectRecalboxIP() (#include <ESPmDNS.h>, requete MDNS.queryHost
+//   ("recalbox")), appelee juste apres une connexion WiFi STA reussie dans
+//   setupWiFiFromConfig() -- couvre a la fois le boot normal ET le retour
+//   STA apres un mode secours WiFi, sans code specifique dans la page AP
+//   (qui n'a pas acces au reseau domestique pendant qu'elle tourne). Ecrit
+//   via writeConfigFlag() si recalbox_ip est vide ; n'ecrase jamais une
+//   valeur deja renseignee manuellement. Objectif : MQTT disponible sans
+//   ressaisie manuelle apres un passage par le mode secours/AP.
+//   2) Refonte affichage ecran secours WiFi : ligne 1 = decompte
+//   ("Secours WiFi XXXs", mise a jour chaque seconde) au lieu de la ligne 2
+//   comme avant ; ligne 2 = alterne SSID ("RecalBox-DMD-Config") et IP
+//   ("http://<ip AP>") toutes les 2s -- les deux tiennent seuls sous 128px
+//   (pas de defilement horizontal lent a attendre pour lire l'info
+//   complete). apRecoveryIP capture via WiFi.softAPIP() a l'entree en mode
+//   secours (avec repli "192.168.4.1" si 0.0.0.0).
+//   3) Fix cosmetique : "[WEB] Interface config sur http://0.0.0.0" dans
+//   web_config.h (startWebServer) -- utilisait WiFi.localIP() (STA uniquement,
+//   retourne 0.0.0.0 hors STA) au lieu du meme repli localIP->softAPIP->
+//   "192.168.4.1" deja utilise ailleurs dans setup() pour ce cas.
+//   Compile OK (arduino-cli, 1971569 octets/62% flash, 102440 octets/31%
+//   RAM) -- PAS ENCORE teste sur le DMD reel au moment de ce commentaire.
+//
+// v11 - 2026-07-21 - [Session parallele -- au-dessus des correctifs "Reprendre
+//   DMD sans reboot"/gzip notes dans le bloc v10 ci-dessous, ecrits par une
+//   autre session Claude Code le meme jour] Portage cible (pas de copie de
+//   fichier complet) depuis _wip_clock_themes/RecalBox_DMD_dev/, pour les 2
+//   scripts utilisateur Recalbox installes via l'outil Windows (Mode 9,
+//   RecalBoxDMD_tool.py) : ils publiaient/s'abonnaient sur des topics MQTT
+//   (marquee/cmd/show_config, marquee/cmd/wifi_recovery, marquee/status/ip)
+//   qui n'existaient QUE dans la copie dev, jamais fusionnes -- confirme sur
+//   materiel reel (script "Config Web DMD" : mosquitto_pub reussit mais le
+//   DMD ignore la commande, aucun effet). Ajouts : enum MqttCommand::
+//   CMD_SHOW_CONFIG/CMD_WIFI_RECOVERY, abonnements aux 2 nouveaux topics,
+//   publish retenu (retain=true) de marquee/status/ip a chaque connexion MQTT
+//   (le script Recalbox le lit via mosquitto_sub -C 1 pour recuperer l'IP
+//   sans etre connecte au moment exact du publish), writeConfigFlag()
+//   (nouveau helper generique cle=valeur dans config.ini, meme pattern que
+//   clearFirstBoot()), flag config.ini force_ap_recovery + g_forceApRecovery,
+//   et le sous-systeme complet de secours WiFi (maintainApRecovery(), appele
+//   depuis loop()) : CMD_WIFI_RECOVERY redemarre en WIFI_AP PUR (jamais
+//   WIFI_AP_STA -- rejete precedemment sur ce materiel, crash heap + debit
+//   radio casse, voir memoire projet) avec un compte a rebours de 3 min
+//   affiche sur l'ecran DMD avant retour automatique en STA normal.
+//   CMD_SHOW_CONFIG reutilise webDmdSetMainMsg()/webDmdPause() (deja
+//   existants, section web config) pour afficher l'IP du DMD sur l'ecran LED
+//   sans toucher au WiFi ; message ligne 2 elargi a "Ouvrez un navigateur sur
+//   http://<IP>" (defile automatiquement, mecanisme deja existant) suite a
+//   un retour utilisateur en test reel (l'IP seule manquait de contexte).
+//   TESTE SUR MATERIEL REEL (2026-07-21) : CMD_SHOW_CONFIG fonctionnel des
+//   le 1er flash. CMD_WIFI_RECOVERY avait un bug reel (absent de la copie
+//   dev aussi, jamais teste avant) : le reboot en AP secours fonctionnait
+//   (SSID RecalBox-DMD-Config visible, page config accessible/fonctionnelle,
+//   confirme par log serie "[WIFI] force_ap_recovery actif -> AP secours
+//   pur"), MAIS setup() continuait tout droit dans le chargement/affichage
+//   de playlist (showPlaylistInfoScreen()/openNextGif(), qui remettait
+//   currentMode=MODE_PLAYLIST) au lieu de sauter cette etape -- l'ecran DMD
+//   restait donc en mode playlist normal au lieu d'afficher "Mode secours
+//   WiFi"/le compte a rebours. Fix : nouveau garde-fou
+//   "if(g_forceApRecovery){goto start_mqtt_task;}" dans setup(), au meme
+//   endroit que les gardes existants pour g_firstBoot/playlist vide. Meme
+//   fix applique dans _wip_clock_themes/RecalBox_DMD_dev/ (bug identique,
+//   jamais teste non plus la-bas). Compile OK (arduino-cli, 1937697
+//   octets/61% flash, 99968 octets/30% RAM) -- ce fix precis PAS ENCORE
+//   reteste sur le DMD reel au moment de ce commentaire.
+//   Ajout demande par l'utilisateur : 3e script "Reboot DMD"
+//   (scripts/manual/Reboot DMD.sh, route userscripts/manual) -> nouvelle
+//   commande MQTT marquee/cmd/reboot / MqttCommand::CMD_REBOOT, redemarrage
+//   simple SANS aucune condition de garde (contrairement aux autres
+//   commandes qui s'auto-ignorent si g_sdOpInProgress) -- bouton de secours
+//   manuel en cas d'affichage fige. Limite connue et volontairement non
+//   contournee : ne fonctionne que si la tache MQTT/loop() du DMD repond
+//   encore (un blocage complet -- boucle infinie, tache plantee -- empeche
+//   par definition de recevoir/traiter cette commande ; seul un
+//   debranchement physique ou le watchdog materiel peuvent recuperer ce
+//   cas-la). Compile OK (arduino-cli, 1937893 octets/61% flash, 99968
+//   octets/30% RAM) -- PAS ENCORE teste sur le DMD reel.
 //
 // === Compilation / Flash ===
 // Compilation (arduino-cli) :
@@ -31,6 +417,19 @@
 //   debut d'affichage DU theme, pas l'uptime global) pour permettre une sequence d'ouverture
 //   jouee une seule fois par affichage. Travail prepare et verifie dans _wip_clock_themes/
 //   avant fusion (voir clock_themes.h et web_config.h, memes dates).
+//   Note: cette fusion (basee sur un snapshot du fichier anterieur a la session v9-boot-
+//   silencieux) a ecrase 2 fixes: RETRO_VERSION reste a "v9" (corrige -> v10 ici), et le
+//   showSplashScreen()/bloc setup() remettaient un clearScreen() qui effacait le titre avant
+//   le sablier (re-corrige: titre persistant, sablier par-dessus, cf bootHourglassTick()).
+//   Note (2026-07-21) : webDmdResume() ne fait plus ESP.restart() -- "Reprendre DMD" quitte
+//   desormais le mode config sans reboot (g_sdOpInProgress=false + resumePlaylist(), meme
+//   mecanisme que la commande MQTT CMD_DEFAULT). Cote page web (web_config.h, meme date) :
+//   confirmation ajoutee sur "Reprendre DMD" et "Redemarrer" quand des reglages ont ete
+//   modifies sans etre sauvegardes. Fusionne depuis _wip_clock_themes/RecalBox_DMD_dev/ et
+//   valide en conditions reelles (sauvegarde + reprise d'activite MQTT confirmees par
+//   l'utilisateur). Applique en patch cible (pas de copie de fichier complet) pour ne pas
+//   ecraser le travail en cours non fusionne sur ce fichier (WiFi 3-tentatives/IP statique/
+//   theme horloge) -- cf diff non commite au moment de cette fusion.
 // v9 - 2026-07-13 - Boot silencieux (info=0) revu: masque brightness/wifi/ntp (initNTP() gate
 //   showInfo), ne montre que le splash (titre) + sablier anime coin haut-droit
 //   (bootHourglassTick(), tick pendant l'attente WiFi et NTP). Web config: dropdown
@@ -66,6 +465,7 @@ typedef uint8_t BitOrder; // Workaround: Adafruit_BusIO attend BitOrder (AVR) ma
 #include <SD.h>
 #include <SPI.h>
 #include <WiFi.h>
+#include <ESPmDNS.h>
 #include <PubSubClient.h>
 #include "BluetoothSerial.h"
 #include "esp_bt.h"
@@ -75,6 +475,16 @@ typedef uint8_t BitOrder; // Workaround: Adafruit_BusIO attend BitOrder (AVR) ma
 #include "hal/brownout_ll.h"
 #include "nvs_flash.h"
 #include "clock_themes.h"
+
+// Declarations anticipees: web_config.h (inclus juste apres) utilise ces
+// symboles avant leur definition/textuelle plus bas dans ce .ino -- l'auto-
+// prototypage Arduino ne couvre pas les macros, et pas de facon fiable les
+// fonctions referencees depuis un header inclus avant leur definition.
+#define MQTT_PORT 1883
+bool parseIP(const String &s, IPAddress &ip);
+bool applyStaticIP();
+void writeConfigFlag(const String &key, const String &value);
+
 #include "web_config.h"
 
 // --------------------------------------------------
@@ -588,7 +998,6 @@ char findInGamesCache(const String &sysName, const String &gameName)
 #define VSPI_MOSI 23
 #define VSPI_SCLK 18
 
-#define TELNET_PORT         23
 #define MQTT_PORT         1883
 #define MQTT_CLIENT  "esp32-marquee"
 #define MQTT_RETRY_MS    15000
@@ -612,6 +1021,19 @@ bool g_sdOpInProgress = false;
 String   g_sdOpMsg       = "";
 String   g_sdOpSubMsg    = "";
 uint16_t g_sdOpSubMsgColor = 0xFFFF;
+// Message "de fond" (ex: IP du DMD, pose par triggerWebConfigMode()) a
+// reafficher automatiquement quand un message de statut transitoire
+// (ex: "Mise en cache...", "OK", erreurs -- via webDmdPause()) reste
+// affiche sans mise a jour depuis SD_OP_SUBMSG_EXPIRE_MS : evite qu'un
+// message ponctuel ne reste affiche indefiniment sur l'ecran physique une
+// fois le process termine (demande utilisateur). g_sdOpSubMsgSetAt reste a
+// 0 tant que webDmdPause() n'a jamais ete appelee (ecrans de boot/secours
+// WiFi qui assignent g_sdOpSubMsg directement, hors webDmdPause() -- non
+// concernes par cette expiration).
+String        g_sdOpPersistentSubMsg = "";
+uint16_t      g_sdOpPersistentSubMsgColor = 0xFFE0;
+unsigned long g_sdOpSubMsgSetAt = 0;
+static const unsigned long SD_OP_SUBMSG_EXPIRE_MS = 5000;
 // Scroll tracking pour le sous-message
 int      g_sdOpScrollOffset = 0;
 unsigned long g_sdOpLastScroll = 0;
@@ -619,6 +1041,15 @@ int      g_sdOpScrollOffset1 = 0;
 unsigned long g_sdOpLastScroll1 = 0;
 bool     g_configDmdDirty = false;
 bool     g_firstBoot = true;
+bool     g_forceApRecovery = false; // force_ap_recovery: demande via marquee/cmd/wifi_recovery
+bool     g_skipPlaylistForConfig = false; // force_config_boot (config.ini) : ce boot doit sauter
+  // directement en mode config sans jamais lancer la playlist/ouvrir de GIF --
+  // consomme (remis a "0" dans config.ini) des lecture dans loadConfig().
+bool     g_playlistStartedThisBoot = false; // true des que la playlist/le 1er GIF a reellement
+  // demarre ce boot -- sert a triggerWebConfigMode() (web_config.h) pour savoir si un reboot
+  // "propre" (sans playlist) apporterait un vrai gain de heap avant d'entrer en mode config.
+String   uiLanguage = "fr"; // language: fr/en/es -- transmis par l'outil Windows via config.ini,
+                             // pilote les bannieres informatives DMD + pages web (voir trOpenBrowserAt() etc.)
 
 bool   gifOpened      = false;
 bool   pngDrawn       = false;
@@ -697,6 +1128,16 @@ uint8_t clockNeonR = 255, clockNeonG = 40, clockNeonB = 120; // defaults match N
 String recalboxIP     = "";
 String mqttEventTopic = "marquee/event";
 const unsigned long MQTT_OFFLINE_FALLBACK_MS = 60000;
+// Duree minimale d'affichage de l'image de secours (CMD_WAITING_MQTT) a la
+// connexion MQTT -- sans ca, un message RETENU (mosquitto -r, publie par le
+// pont marquee lors d'une session precedente : "system=lastplayed" par ex.)
+// arrive quasi instantanement a la souscription et ecrase l'image de
+// secours avant meme qu'elle soit visible (bug remonte : "il prend le
+// premier mqtt lastplayed"). Un vrai message d'evenement RB (ex: le
+// "system" envoye par le pont marquee ~5s apres son propre demarrage)
+// arrive largement apres cette fenetre, donc n'est jamais bloque.
+const unsigned long MQTT_WAITING_GRACE_MS = 1500;
+unsigned long g_mqttWaitingUntilMs = 0;
 
 WiFiClient   wifiClientMqtt;
 PubSubClient mqttClient(wifiClientMqtt);
@@ -706,7 +1147,8 @@ String       displayedMaskSysName = "";
 struct MqttCommand
 {
   enum Type { CMD_NONE, CMD_STOP, CMD_DEFAULT, CMD_SYSTEM, CMD_GAME,
-              CMD_STARTCLIP, CMD_RESUMESYS };
+              CMD_STARTCLIP, CMD_RESUMESYS, CMD_SHOW_CONFIG, CMD_WIFI_RECOVERY,
+              CMD_REBOOT, CMD_WAITING_MQTT };
   Type   type;
   String arg;
   MqttCommand() : type(CMD_NONE), arg("") {}
@@ -716,13 +1158,6 @@ struct MqttCommand
 SemaphoreHandle_t mqttCmdMutex   = nullptr;
 MqttCommand       pendingCmd;
 TaskHandle_t      mqttTaskHandle = nullptr;
-
-WiFiServer telnetServer(TELNET_PORT);
-WiFiClient telnetClient;
-bool   telnetServerStarted = false;
-bool   telnetClientActive  = false;
-String telnetLine          = "";
-bool   telnetLastWasCR     = false;
 
 #define MQTT_LOG_SIZE 10
 struct MqttLogEntry { String topic; String msg; unsigned long ts; };
@@ -992,20 +1427,24 @@ static bool ensureDefaultRaw565Cached()
 {
   if (defaultRaw565Cached) return true;
 
+  // Diagnostic ajoute (bug remonte : ecran DMD noir/vide apres
+  // CMD_WAITING_MQTT) -- cette fonction etait entierement silencieuse sur
+  // ses 3 chemins d'echec, impossible de savoir depuis le log lequel se
+  // produisait.
   const size_t totalBytes = (size_t)RAW565_W * (size_t)RAW565_H * sizeof(uint16_t);
   if (!defaultRaw565Buf)
   {
     defaultRaw565Buf = (uint16_t*)malloc(totalBytes);
-    if (!defaultRaw565Buf) return false;
+    if (!defaultRaw565Buf) { Serial.println("[CACHE] default.raw565 malloc FAIL"); return false; }
   }
 
   File f = SD.open(DEFAULT_RAW565_PATH, FILE_READ);
-  if (!f) return false;
+  if (!f) { Serial.println("[CACHE] default.raw565 open FAIL " + String(DEFAULT_RAW565_PATH)); return false; }
 
   size_t gotAll = f.read((uint8_t*)defaultRaw565Buf, totalBytes);
   f.close();
 
-  if (gotAll != totalBytes) return false;
+  if (gotAll != totalBytes) { Serial.println("[CACHE] default.raw565 read incomplete " + String(gotAll) + "/" + String(totalBytes)); return false; }
 
   defaultRaw565Cached = true;
   return true;
@@ -1686,6 +2125,7 @@ bool openGif(const String &path, bool clearBefore=true, bool skipProbe=false, bo
     gifRawPackMode = false;
     gifOpened = true;
     Serial.println("[GIF] open OK standard path=" + path + " rc=" + String(rc));
+    Serial.println("[GIF] apres open (avant 1ere frame), heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
     return true;
   }
 
@@ -1850,6 +2290,7 @@ void webDmdPause(const String &msg, uint16_t color)
 {
   g_sdOpSubMsg = msg;
   g_sdOpSubMsgColor = color;
+  g_sdOpSubMsgSetAt = millis();
   g_sdOpScrollOffset = 0;
   g_sdOpLastScroll = 0;
 
@@ -1871,6 +2312,26 @@ void webDmdPause(const String &msg, uint16_t color)
   Serial.println("[WEB] DMD pause: " + msg);
 }
 
+// Redessine immediatement l'ecran MODE_CONFIG (les 2 lignes) a partir de
+// g_sdOpMsg/g_sdOpSubMsg -- factorise depuis loop() pour pouvoir aussi etre
+// appelee depuis un contexte bloquant hors boucle normale si besoin.
+void webDmdForceRedraw()
+{
+  g_configDmdDirty = false;
+  g_sdOpScrollOffset = 0;
+  g_sdOpScrollOffset1 = 0;
+  display->clearScreen();
+  display->setTextWrap(false);
+  display->setTextSize(1);
+  display->setTextColor(0xFFE0);
+  display->setCursor(1, 4);
+  display->print(g_sdOpMsg);
+  display->fillRect(0, 24, 128, 8, 0);
+  display->setTextColor(g_sdOpSubMsgColor);
+  display->setCursor(1, 24);
+  display->print(g_sdOpSubMsg);
+}
+
 void webDmdSetMainMsg(const String &msg)
 {
   g_sdOpMsg = msg;
@@ -1882,8 +2343,17 @@ void webDmdSetMainMsg(const String &msg)
 
 void webDmdResume()
 {
-  Serial.println("[WEB] DMD resume -> reboot");
-  ESP.restart();
+  // Ne redemarre plus l'ESP32 : on quitte simplement le mode config (les
+  // ecrans/handlers HTTP restent actifs) et on reprend l'affichage normal,
+  // comme le fait deja resumePlaylist() pour les commandes MQTT CMD_DEFAULT.
+  // g_sdOpInProgress doit etre remis a false explicitement ici -- avant, un
+  // ESP.restart() le remettait a zero gratuitement au boot ; les handlers
+  // MQTT (CMD_STOP/CMD_DEFAULT/CMD_SYSTEM/CMD_GAME) l'utilisent pour ignorer
+  // toute commande tant que le mode config est actif, donc l'oublier ici
+  // bloquerait ces commandes indefiniment apres un "Reprendre DMD".
+  Serial.println("[WEB] DMD resume -> retour a l'affichage normal (sans reboot)");
+  g_sdOpInProgress = false;
+  resumePlaylist();
 }
 
 // Marque first_boot=0 dans config.ini (appele quand page web ouverte)
@@ -1911,6 +2381,98 @@ void clearFirstBoot()
   }
   cfg = SD.open("/config.ini", FILE_WRITE);
   if (cfg) { cfg.print(all); cfg.close(); Serial.println("[BOOT] first_boot=0 written to config.ini"); }
+}
+
+// Ecrit une cle=valeur dans config.ini: remplace la ligne existante si presente,
+// sinon l'ajoute a la fin. Meme pattern que clearFirstBoot() ci-dessus, generalise
+// pour les flags ajoutes pour le mode secours WiFi (force_ap_recovery).
+void writeConfigFlag(const String &key, const String &value)
+{
+  String all;
+  File cfg = SD.open("/config.ini", FILE_READ);
+  if (cfg) { while (cfg.available()) all += (char)cfg.read(); cfg.close(); }
+  String needle = key + "=";
+  int pos = all.indexOf(needle);
+  if (pos >= 0) {
+    int eol = all.indexOf('\n', pos);
+    if (eol < 0) eol = all.length();
+    all = all.substring(0, pos) + needle + value + "\n" + all.substring(eol + 1);
+  } else {
+    if (all.length() > 0 && all[all.length()-1] != '\n') all += "\n";
+    all += needle + value + "\n";
+  }
+  cfg = SD.open("/config.ini", FILE_WRITE);
+  if (cfg) { cfg.print(all); cfg.close(); }
+}
+
+// --------------------------------------------------
+// Traductions des bannieres informatives DMD (fr/en/es, pilotees par
+// uiLanguage/config.ini "language="). Les libelles techniques courts
+// (WIFI OK, NTP, BT ON/OFF, brightness%, splash boot) restent volontairement
+// non traduits -- deja compacts/quasi universels sur un ecran 128x32.
+// Accents volontairement omis (police ecran/encodage source ASCII, meme
+// convention que le reste des commentaires de ce fichier).
+// --------------------------------------------------
+String trOpenBrowserAt(const String &ip)
+{
+  if (uiLanguage == "en") return "Open a browser at http://" + ip;
+  if (uiLanguage == "es") return "Abra un navegador en http://" + ip;
+  return "Ouvrez un navigateur sur http://" + ip;
+}
+
+String trWifiRecoveryCountdown(unsigned long seconds)
+{
+  String base;
+  if (uiLanguage == "en") base = "WiFi Recovery ";
+  else if (uiLanguage == "es") base = "Recuperacion WiFi ";
+  else base = "Secours WiFi ";
+  return base + String(seconds) + "s";
+}
+
+String trConnectWifiMsg()
+{
+  if (uiLanguage == "en") return "Connect to WiFi RecalBox-DMD-Config";
+  if (uiLanguage == "es") return "Conectese al WiFi RecalBox-DMD-Config";
+  return "Connectez-vous au WiFi RecalBox-DMD-Config";
+}
+
+String trOpenUrl(const String &ip)
+{
+  if (uiLanguage == "en") return "Open http://" + ip;
+  if (uiLanguage == "es") return "Abrir http://" + ip;
+  return "Ouvrir http://" + ip;
+}
+
+String trConfigPageMsg()
+{
+  if (uiLanguage == "en") return "Configuration page";
+  if (uiLanguage == "es") return "Pagina de configuracion";
+  return "Page de configuration";
+}
+
+String trCachingMsg()
+{
+  if (uiLanguage == "en") return "Building cache...";
+  if (uiLanguage == "es") return "Creando cache...";
+  return "Mise en cache...";
+}
+
+// Ligne 2 de l'ecran secours WiFi : prefixe l'instruction avant le SSID/l'IP
+// (demande utilisateur) -- toggle toutes les 6s (au lieu de 2s) dans
+// maintainApRecovery() pour laisser le defilement horizontal le temps
+// d'avancer sur ces chaines plus longues (depassent 128px).
+String trJoinWifi(const String &ssid)
+{
+  if (uiLanguage == "en") return "Join the wifi " + ssid;
+  if (uiLanguage == "es") return "Unase al wifi " + ssid;
+  return "Rejoignez le wifi " + ssid;
+}
+
+String trOpenInBrowser(const String &url)
+{
+  if (uiLanguage == "en") return "Open in a browser " + url;
+  if (uiLanguage == "es") return "Abra en un navegador " + url;
+  return "Ouvrez dans un navigateur " + url;
 }
 
 // --------------------------------------------------
@@ -1943,6 +2505,30 @@ void processPendingMqttCommand()
   case MqttCommand::CMD_DEFAULT:
     if (g_sdOpInProgress) { Serial.println("[MQTT] default ignored (web open)"); break; }
     resumePlaylist();
+    break;
+
+  // Emis uniquement au moment ou la connexion MQTT vient d'aboutir (voir
+  // mqttTask()) -- affiche l'image de secours statique (RAM default.raw565)
+  // au lieu de relancer directement la playlist en rotation, le temps que
+  // la Recalbox envoie un premier vrai message (system/game). Distinct de
+  // CMD_DEFAULT (qui reste utilise par le pont marquee sur stop/sleep et
+  // doit continuer a relancer la playlist normalement).
+  case MqttCommand::CMD_WAITING_MQTT:
+    if (g_sdOpInProgress) { Serial.println("[MQTT] waiting ignored (web open)"); break; }
+    // Bug trouve sur test reel (ecran DMD noir/vide) : le case MODE_PNG de
+    // loop() efface l'ecran et repasse en MODE_BLACK des que
+    // currentPngPath est vide (voir loop(), ~ligne 3970) -- currentPngPath="",
+    // copie du pattern openBestMedia(), provoquait donc un auto-clear
+    // QUASI INSTANTANE a la frame suivante. Fix : currentPngPath non-vide
+    // (chemin informatif seulement, jamais relu puisque pngDrawn=true
+    // saute la logique de redessin) pour eviter ce garde.
+    gif.close(); gifOpened=false; currentPngPath=String(DEFAULT_RAW565_PATH); pngDrawn=true;
+    display->clearScreen();
+    {
+      bool okDraw = drawDefaultRaw565Cached();
+      currentMode = okDraw ? MODE_PNG : MODE_BLACK;
+      Serial.println(String("[MQTT] waiting -> default.raw565 ") + (okDraw ? "OK" : "FAIL (ecran vide)"));
+    }
     break;
 
   case MqttCommand::CMD_SYSTEM:
@@ -2306,6 +2892,42 @@ void processPendingMqttCommand()
     displayedMaskSysName=cmd.arg;
     break;
 
+  case MqttCommand::CMD_SHOW_CONFIG:
+    // Declenche depuis Recalbox (script "Config Web DMD") pour retrouver/
+    // afficher l'IP du DMD sans toucher au WiFi -- reutilise exactement
+    // l'affichage deja declenche par handleDmdOpen() quand la page web est
+    // ouverte normalement.
+    if (g_sdOpInProgress) { Serial.println("[MQTT] show_config ignored (web deja ouvert)"); break; }
+    clearFirstBoot();
+    webDmdSetMainMsg("WEB DMD CONFIG");
+    // Ligne 2 : message complet (defile automatiquement si >128px, cf boucle
+    // de rendu MODE_CONFIG) plutot que la seule IP -- plus clair pour
+    // l'utilisateur qui regarde l'ecran du DMD sans autre contexte.
+    webDmdPause(trOpenBrowserAt(WiFi.localIP().toString()), 0xFFE0);
+    break;
+
+  case MqttCommand::CMD_WIFI_RECOVERY:
+    // Declenche depuis Recalbox (script "WiFi Recovery DMD") quand le web
+    // config est injoignable via l'IP STA normale (ex. pare-feu inter-VLAN).
+    // Redemarre en WIFI_AP pur (seul mode fiable mesure sur ce materiel, cf
+    // AP_STA rejete precedemment) avec compte a rebours de 3 min avant retour
+    // automatique.
+    Serial.println("[MQTT] wifi_recovery -> reboot en AP secours");
+    writeConfigFlag("force_ap_recovery", "1");
+    delay(100);
+    ESP.restart();
+    break;
+
+  case MqttCommand::CMD_REBOOT:
+    // Declenche depuis Recalbox (script "Reboot DMD") : redemarrage simple,
+    // sans condition (pas de garde g_sdOpInProgress) -- c'est le bouton de
+    // secours en cas de DMD bloque/affichage fige, il ne doit jamais pouvoir
+    // etre lui-meme ignore.
+    Serial.println("[MQTT] reboot demande par l'utilisateur");
+    delay(100);
+    ESP.restart();
+    break;
+
   default: break;
   }
 }
@@ -2316,6 +2938,15 @@ void processPendingMqttCommand()
 void onMqttMessage(char *topic, byte *payload, unsigned int length)
 {
   String t=String(topic); String msg="";
+  // reserve() : sans lui, la concatenation octet-par-octet reallouait le
+  // buffer de la String a chaque caractere dans le pire cas -- ce handler
+  // s'execute pour CHAQUE message MQTT recu (seule l'action qui en decoule
+  // est ignoree via g_sdOpInProgress plus bas, pas ce traitement). Reste une
+  // optimisation valable en general, meme si non liee au cas heap-critique
+  // reporte le 2026-07-26 (RB eteinte au moment du test -> aucun message
+  // MQTT recu, seules des tentatives de connexion en echec -- ce handler
+  // n'avait donc pas pu s'executer ce jour-la).
+  msg.reserve(length + 1);
   for(unsigned int i=0;i<length;i++) msg+=(char)payload[i];
   msg.trim();
   Serial.println("[MQTT] "+t+" -> "+msg);
@@ -2324,10 +2955,23 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
   if(mqttCmdMutex==nullptr) return;
   if(xSemaphoreTake(mqttCmdMutex,pdMS_TO_TICKS(10))!=pdTRUE) return;
 
+  // Fenetre de grace CMD_WAITING_MQTT (voir mqttTask()) : un message RETENU
+  // (mosquitto -r, rejoue par le broker des la souscription -- ex:
+  // "system=lastplayed" publie par le pont marquee lors d'une session
+  // precedente) arrive quasi instantanement a la connexion et ecraserait
+  // sinon l'image de secours avant meme qu'elle soit visible. On ignore
+  // uniquement default/system/game pendant cette fenetre tres courte (1.5s) --
+  // stop/show_config/wifi_recovery/reboot restent des actions explicites,
+  // jamais suppriemees.
+  bool inWaitingGrace = (millis() < g_mqttWaitingUntilMs);
+
   if     (t=="marquee/cmd/stop")    pendingCmd=MqttCommand(MqttCommand::CMD_STOP,"");
-  else if(t=="marquee/cmd/default") pendingCmd=MqttCommand(MqttCommand::CMD_DEFAULT,"");
-  else if(t=="marquee/cmd/system")  {lastSysName=msg;pendingCmd=MqttCommand(MqttCommand::CMD_SYSTEM,msg);}
-  else if(t=="marquee/cmd/game")    pendingCmd=MqttCommand(MqttCommand::CMD_GAME,msg);
+  else if(t=="marquee/cmd/default") { if(!inWaitingGrace) pendingCmd=MqttCommand(MqttCommand::CMD_DEFAULT,""); }
+  else if(t=="marquee/cmd/system")  { if(!inWaitingGrace) {lastSysName=msg;pendingCmd=MqttCommand(MqttCommand::CMD_SYSTEM,msg);} }
+  else if(t=="marquee/cmd/game")    { if(!inWaitingGrace) pendingCmd=MqttCommand(MqttCommand::CMD_GAME,msg); }
+  else if(t=="marquee/cmd/show_config") pendingCmd=MqttCommand(MqttCommand::CMD_SHOW_CONFIG,"");
+  else if(t=="marquee/cmd/wifi_recovery") pendingCmd=MqttCommand(MqttCommand::CMD_WIFI_RECOVERY,"");
+  else if(t=="marquee/cmd/reboot")        pendingCmd=MqttCommand(MqttCommand::CMD_REBOOT,"");
   else if(t==mqttEventTopic)
   {
     String ev=extractField(msg,"EVENT");
@@ -2374,11 +3018,32 @@ void mqttTask(void *param)
         mqttClient.subscribe("marquee/cmd/default");
         mqttClient.subscribe("marquee/cmd/system");
         mqttClient.subscribe("marquee/cmd/game");
+        mqttClient.subscribe("marquee/cmd/show_config");
+        mqttClient.subscribe("marquee/cmd/wifi_recovery");
+        mqttClient.subscribe("marquee/cmd/reboot");
         mqttClient.subscribe(mqttEventTopic.c_str());
+        // Retenu (retain=true) : un abonne (script Recalbox) qui se connecte
+        // plus tard recoit immediatement la derniere IP publiee, sans avoir
+        // besoin d'etre a l'ecoute au moment exact de cette connexion.
+        mqttClient.publish("marquee/status/ip", WiFi.localIP().toString().c_str(), true);
         if(mqttCmdMutex!=nullptr&&xSemaphoreTake(mqttCmdMutex,pdMS_TO_TICKS(100))==pdTRUE)
         {
-          if(currentMode!=MODE_PLAYLIST&&gifCount>0&&!g_sdOpInProgress)
-            pendingCmd=MqttCommand(MqttCommand::CMD_DEFAULT,"");
+          // Connexion MQTT tout juste effective : affiche l'image de
+          // secours statique (pas la playlist en rotation) en attendant le
+          // premier vrai message system/game de la Recalbox -- demande
+          // utilisateur. Volontairement SANS le garde currentMode!=MODE_PLAYLIST
+          // (contrairement a CMD_DEFAULT) : MQTT_START_DELAY_MS (12s) laisse
+          // largement le temps a la playlist de demarrer AVANT que MQTT ne
+          // se connecte -- currentMode==MODE_PLAYLIST est donc le cas normal
+          // ici, pas une exception. Bug confirme sur test reel (log serie) :
+          // avec ce garde, CMD_WAITING_MQTT (et g_mqttWaitingUntilMs) n'etait
+          // JAMAIS pose, donc la fenetre de grace ne s'appliquait jamais et
+          // "lastplayed" (retenu) passait directement sans filtrage.
+          if(!g_sdOpInProgress)
+          {
+            pendingCmd=MqttCommand(MqttCommand::CMD_WAITING_MQTT,"");
+            g_mqttWaitingUntilMs=millis()+MQTT_WAITING_GRACE_MS;
+          }
           xSemaphoreGive(mqttCmdMutex);
         }
       }
@@ -2407,259 +3072,6 @@ void mqttTask(void *param)
 }
 
 // --------------------------------------------------
-// Telnet
-// --------------------------------------------------
-void telnetWrite(const String &s)
-{if(telnetClientActive&&telnetClient&&telnetClient.connected())telnetClient.print(s);}
-void telnetWriteln(const String &s="")
-{if(telnetClientActive&&telnetClient&&telnetClient.connected()){telnetClient.print(s);telnetClient.print("\r\n");}}
-void telnetPrompt(){telnetWrite("> ");}
-void stopTelnetClient(){if(telnetClient)telnetClient.stop();telnetClientActive=false;telnetLine="";telnetLastWasCR=false;}
-void startTelnetServer(){if(telnetServerStarted)return;telnetServer.begin();telnetServer.setNoDelay(true);telnetServerStarted=true;Serial.println("[TELNET] listening on port 23");}
-void stopTelnetServer(){stopTelnetClient();telnetServer.end();telnetServerStarted=false;}
-
-void printTelnetWifiInfo()
-{
-  telnetWriteln("STATUS="+String(WiFi.status()==WL_CONNECTED?"CONNECTED":"DISCONNECTED"));
-  telnetWriteln("IP="+WiFi.localIP().toString());
-  telnetWriteln("MASK="+WiFi.subnetMask().toString());
-  telnetWriteln("GW="+WiFi.gatewayIP().toString());
-  telnetWriteln("DNS1="+WiFi.dnsIP(0).toString());
-  telnetWriteln("DNS2="+WiFi.dnsIP(1).toString());
-  telnetWriteln("RSSI="+String(WiFi.RSSI()));
-  telnetWriteln("STATIC="+String(wifiStaticEnabled?"YES":"NO"));
-  telnetWriteln("MQTT="+String(mqttClient.connected()?"CONNECTED":"DISCONNECTED"));
-  telnetWriteln("BT="+String(bluetoothEnabled?"ON":"OFF"));
-  telnetWriteln("RANDOM="+String(playlistRandom?"ON":"OFF"));
-  telnetWriteln("LASTSYS="+lastSysName);
-  telnetWriteln("EVTOPIC="+mqttEventTopic);
-  telnetWriteln("CACHE="+gamesCacheFile);
-}
-
-void handleTelnetCommand(String cmd)
-{
-  cmd.trim(); cmd.replace("\r",""); cmd.replace("\n","");
-  while(cmd.length()>0&&!isAlphaNumeric(cmd[0])&&cmd[0]!='/'&&cmd[0]!='-') cmd.remove(0,1);
-  while(cmd.length()>0&&(cmd[cmd.length()-1]<32||cmd[cmd.length()-1]>126)) cmd.remove(cmd.length()-1);
-  if(cmd.length()==0){telnetPrompt();return;}
-
-  String dbg="[TELNET] cmd(len="+String(cmd.length())+"): ";
-  for(int i=0;i<(int)cmd.length();i++) dbg+=String((uint8_t)cmd[i])+" ";
-  Serial.println(dbg); telnetWriteln(dbg);
-
-  String cmdLower=cmd; cmdLower.toLowerCase();
-
-  if(cmdLower=="help")
-  {
-    telnetWriteln("help ip wifi wifiinfo next count playlist random reboot");
-    telnetWriteln("exists <path>  -- teste si un fichier existe sur la SD");
-    telnetWriteln("ls <path>      -- liste le contenu d un dossier");
-    telnetWriteln("show <path>    -- affiche un gif ou png (chemin complet)");
-    telnetWriteln("showsys <sys>  -- affiche le logo du systeme");
-    telnetWriteln("showgame <s/r> -- affiche le logo du jeu");
-    telnetWriteln("default        -- affiche /systems/_defaults/default");
-    telnetWriteln("black          -- ecran noir");
-    telnetWriteln("mode           -- affiche le mode courant");
-    telnetWriteln("mqttlog        -- affiche les derniers messages MQTT");
-    telnetWriteln("syscache       -- affiche le cache des systemes");
-    telnetWriteln("rebuildcache   -- reconstruit le cache des systemes");
-    telnetWriteln("lastsys        -- affiche le dernier systeme memorise");
-    telnetWriteln("resumesys      -- reaffiche le dernier systeme memorise");
-    telnetWriteln("heap           -- affiche la RAM libre");
-  }
-  else if(cmdLower=="ip")         telnetWriteln(WiFi.localIP().toString());
-  else if(cmdLower=="wifi")       telnetWriteln(WiFi.status()==WL_CONNECTED?"CONNECTED":"DISCONNECTED");
-  else if(cmdLower=="wifiinfo")   printTelnetWifiInfo();
-  else if(cmdLower=="next")       {requestNextGif=true;telnetWriteln("OK");}
-  else if(cmdLower=="count")      telnetWriteln(String(gifCount));
-  else if(cmdLower=="playlist")   telnetWriteln(playlistName.length()?playlistName:"NONE");
-  else if(cmdLower=="random")     telnetWriteln(String(playlistRandom?"ON":"OFF"));
-  else if(cmdLower=="random on")  {playlistRandom=true; telnetWriteln("RANDOM=ON");}
-  else if(cmdLower=="random off") {playlistRandom=false;telnetWriteln("RANDOM=OFF");}
-  else if(cmdLower=="reboot")     {telnetWriteln("REBOOT");requestReboot=true;}
-  else if(cmdLower=="lastsys")    telnetWriteln("LASTSYS="+(lastSysName.length()?lastSysName:"NONE"));
-  else if(cmdLower=="heap")
-  {
-    telnetWriteln("FreeHeap="    +String(ESP.getFreeHeap()));
-    telnetWriteln("MinFreeHeap=" +String(ESP.getMinFreeHeap()));
-    telnetWriteln("MaxAllocHeap="+String(ESP.getMaxAllocHeap()));
-    telnetWriteln("BigramTable=" +(bigramTableLoaded&&bigramTable?bigramTableSys+" ("+String(NB_IDX*4)+" bytes)":"none"));
-    telnetWriteln("BigramBuf="   +(bigramBufKey.length()?bigramBufKey+" ("+String(bigramBufSize)+" bytes)":"none"));
-    telnetWriteln("CacheFile="   +gamesCacheFile);
-  }
-  else if(cmdLower=="resumesys")
-  {
-    if(lastSysName.length()>0)
-    {
-      telnetWriteln("Reaffichage: "+lastSysName);
-      gif.close();gifOpened=false;pngDrawn=false;currentPngPath="";
-      if(nextGifFile){nextGifFile.close();nextGifFile=File();nextGifPath="";}
-      freeBigramAll();
-      currentMode=openBestMedia("/systems/"+lastSysName+"/_default");
-telnetWriteln("MODE="+String(currentMode==MODE_GIF?"GIF":currentMode==MODE_PNG?"PNG":g_sdOpInProgress?"CONFIG":"BLACK"));
-    }
-    else telnetWriteln("ERREUR - aucun systeme memorise");
-  }
-  else if(cmdLower=="black")
-  {
-    gif.close();gifOpened=false;currentPngPath="";
-    currentMode=MODE_BLACK;display->clearScreen();telnetWriteln("OK");
-  }
-  else if(cmdLower=="mode")
-  {
-    String m="UNKNOWN";
-    switch(currentMode){case MODE_PLAYLIST:m="PLAYLIST";break;case MODE_GIF:m="GIF";break;case MODE_PNG:m="PNG";break;case MODE_BLACK:m=g_sdOpInProgress?"CONFIG":"BLACK";break;}
-    telnetWriteln("MODE="+m);
-    telnetWriteln("pngPath="+currentPngPath);
-    telnetWriteln("gifOpened="+String(gifOpened?"YES":"NO"));
-    telnetWriteln("lastSysName="+lastSysName);
-    telnetWriteln("bigramTable="+(bigramTableLoaded&&bigramTable?bigramTableSys:"none"));
-    telnetWriteln("bigramBuf="  +(bigramBufKey.length()?bigramBufKey:"none"));
-    telnetWriteln("cacheFile="  +gamesCacheFile);
-  }
-  else if(cmdLower=="mqttlog")
-  {
-    if(mqttLogCount==0) telnetWriteln("Aucun message MQTT recu.");
-    else
-    {
-      telnetWriteln("--- Derniers messages MQTT ("+String(mqttLogCount)+") ---");
-      int start=(mqttLogHead-mqttLogCount+MQTT_LOG_SIZE)%MQTT_LOG_SIZE;
-      for(int i=0;i<mqttLogCount;i++)
-      {
-        int idx=(start+i)%MQTT_LOG_SIZE;
-        telnetWriteln("[+"+String(mqttLog[idx].ts/1000)+"s] "+mqttLog[idx].topic+" -> "+mqttLog[idx].msg);
-      }
-      telnetWriteln("---");
-    }
-  }
-  else if(cmdLower=="syscache")
-  {
-    telnetWriteln("--- Cache systemes ("+String(sysCacheCount)+") ---");
-    for(int i=0;i<sysCacheCount;i++)
-    {
-      String val=sysCacheVals[i]=='g'?"gif":sysCacheVals[i]=='p'?"png":"?";
-      String slow=(sysCacheSlowVals[i]=='L'||sysCacheSlowVals[i]=='l')?" (LENT)":"";
-      telnetWriteln(String(sysCacheKeys[i])+" -> "+val+slow);
-    }
-    telnetWriteln("---");
-  }
-  else if(cmdLower=="rebuildcache")
-  {
-    telnetWriteln("Reconstruction...");
-    buildSysDefaultCache();
-    telnetWriteln("Cache: "+String(sysCacheCount)+" systemes");
-  }
-  else if(cmdLower=="default")
-  {
-    String defPath="/systems/_defaults/default";
-    bool ok=openGif(defPath+".gif");
-    if(ok){currentMode=MODE_GIF;telnetWriteln("OK - GIF");}
-    else{
-      display->clearScreen();
-      bool okp=drawPng(defPath+".png");
-      if(okp){currentPngPath=defPath+".png";pngDrawn=true;currentMode=MODE_PNG;telnetWriteln("OK - PNG");}
-      else{telnetWriteln("ERREUR");currentMode=MODE_BLACK;}
-    }
-  }
-  else if(cmd.startsWith("exists ")||cmdLower.startsWith("exists "))
-  {
-    String path=cmd.substring(7);path.trim();
-    telnetWriteln("exists("+path+") = "+(SD.exists(path.c_str())?"YES":"NO"));
-  }
-  else if(cmdLower.startsWith("ls"))
-  {
-    String path="/"; if(cmd.length()>3){path=cmd.substring(3);path.trim();}
-    File root=SD.open(path.c_str());
-    if(!root) telnetWriteln("ERREUR: "+path);
-    else if(!root.isDirectory()){telnetWriteln("Pas un dossier: "+path);root.close();}
-    else
-    {
-      telnetWriteln("Listing: "+path);
-      File f=root.openNextFile(); int count=0;
-      while(f)
-      {
-        String name=String(f.name());
-        if(f.isDirectory()) telnetWriteln("DIR  "+name);
-        else                telnetWriteln("FILE "+name+" ("+String(f.size())+" bytes)");
-        f.close(); f=root.openNextFile();
-        if(++count>50){telnetWriteln("... (trop de fichiers)");break;}
-      }
-      root.close(); telnetWriteln("Total: "+String(count)+" entrees");
-    }
-  }
-  else if(cmd.startsWith("show ")||cmdLower.startsWith("show "))
-  {
-    String path=cmd.substring(5);path.trim();
-    gif.close();gifOpened=false;
-    String pl=path;pl.toLowerCase();
-    if(pl.endsWith(".gif")){
-      if(openGif(path)){currentMode=MODE_GIF;telnetWriteln("OK - GIF");}
-      else telnetWriteln("ERREUR GIF");
-    } else if(pl.endsWith(".png")){
-      display->clearScreen();
-      if(drawPng(path)){currentPngPath=path;pngDrawn=true;currentMode=MODE_PNG;telnetWriteln("OK - PNG");}
-      else telnetWriteln("ERREUR PNG");
-    } else telnetWriteln("ERREUR extension");
-  }
-  else if(cmdLower.startsWith("showsys "))
-  {
-    String sys=cmd.substring(8);sys.trim();
-    gif.close();gifOpened=false;
-    currentMode=openBestMedia("/systems/"+sys+"/_default");
-    telnetWriteln("MODE="+String(currentMode==MODE_GIF?"GIF":currentMode==MODE_PNG?"PNG":g_sdOpInProgress?"CONFIG":"BLACK"));
-  }
-  else if(cmdLower.startsWith("showgame "))
-  {
-    String arg=cmd.substring(9);arg.trim();
-    int slash=arg.indexOf('/');
-    String sysName=(slash>=0)?arg.substring(0,slash):arg;
-    String romName=(slash>=0)?arg.substring(slash+1):arg;
-    String gameBase;
-    if(slash>=0)
-      gameBase="/systems/"+sysName+(imageFolder.length()?"/"+imageFolder+"/"+romName:"/"+romName);
-    else
-      gameBase="/systems/"+arg;
-    gif.close();gifOpened=false;
-    if(slash>=0){
-      preloadBigram(sysName,romName);
-      char cached=findInGamesCache(sysName,romName);
-      telnetWriteln("bigram="+bigramBufKey+" cache="+String(cached));
-    }
-    currentMode=openBestMedia(gameBase,"/systems/"+sysName+"/_default");
-    telnetWriteln("MODE="+String(currentMode==MODE_GIF?"GIF":currentMode==MODE_PNG?"PNG":g_sdOpInProgress?"CONFIG":"BLACK"));
-  }
-  else telnetWriteln("ERR - commande inconnue (tape help)");
-
-  telnetPrompt();
-}
-
-void handleTelnetLineSubmit(){String cmd=telnetLine;telnetLine="";handleTelnetCommand(cmd);}
-
-void handleTelnet()
-{
-  if(!wifiEnabled||WiFi.status()!=WL_CONNECTED){if(telnetServerStarted)stopTelnetServer();return;}
-  if(!telnetServerStarted) startTelnetServer();
-  if(!telnetClientActive)
-  {
-    WiFiClient incoming=telnetServer.available(); if(!incoming) return;
-    telnetClient=incoming; telnetClient.setNoDelay(true);
-    telnetClientActive=true; telnetLine=""; telnetLastWasCR=false;
-    Serial.println("[TELNET] client connected");
-    telnetWriteln("READY"); telnetPrompt(); return;
-  }
-  if(!telnetClient.connected()){Serial.println("[TELNET] disconnected");stopTelnetClient();return;}
-  while(telnetClient.available())
-  {
-    uint8_t c=(uint8_t)telnetClient.read();
-    if(c=='\r'){handleTelnetLineSubmit();telnetLastWasCR=true;}
-    else if(c=='\n'||c==0){if(telnetLastWasCR)telnetLastWasCR=false;else handleTelnetLineSubmit();}
-    else if(c==8||c==127){telnetLastWasCR=false;if(telnetLine.length()>0){telnetLine.remove(telnetLine.length()-1);telnetWrite("\x08 \x08");}}
-    else if(c>=32&&c<=126){telnetLastWasCR=false;if(telnetLine.length()<64)telnetLine+=(char)c;}
-    else telnetLastWasCR=false;
-  }
-}
-
-// --------------------------------------------------
 // WiFi
 // --------------------------------------------------
 bool parseIP(const String &s, IPAddress &ip)
@@ -2681,9 +3093,89 @@ bool applyStaticIP()
   return WiFi.config(localIP,gateway,subnet);
 }
 
+// Resout automatiquement l'IP de la Recalbox via mDNS (nom d'hote "recalbox",
+// annonce par Avahi cote Recalbox) -- evite d'avoir a la ressaisir a la main
+// dans la page de config (necessaire notamment apres un mode secours WiFi,
+// pour que MQTT redevienne disponible sans intervention). N'ecrase jamais un
+// recalboxIP deja renseigne (choix manuel de l'utilisateur, ex: IP fixe ou
+// nom d'hote personnalise) -- ne fait rien si le champ n'est pas vide.
+void autoDetectRecalboxIP()
+{
+  if (recalboxIP.length() > 0) return;
+  if (WiFi.status() != WL_CONNECTED) return;
+  if (!MDNS.begin("dmd-marquee")) { Serial.println("[MDNS] begin echoue"); return; }
+  IPAddress ip = MDNS.queryHost("recalbox", 3000);
+  MDNS.end();
+  if (ip == IPAddress(0,0,0,0)) { Serial.println("[MDNS] recalbox.local introuvable"); return; }
+  recalboxIP = ip.toString();
+  writeConfigFlag("recalbox_ip", recalboxIP);
+  Serial.println("[MDNS] Recalbox detectee: " + recalboxIP);
+}
+
+// Mode secours declenche via marquee/cmd/wifi_recovery (config.ini: force_ap_recovery).
+// WIFI_AP pur (pas WIFI_AP_STA -- rejete precedemment, cf memoire projet) avec un
+// compte a rebours de 3 min avant retour automatique en STA normal.
+unsigned long apRecoveryStartMs = 0;
+bool          apRecoveryActive  = false;
+String        apRecoveryIP      = "";
+const unsigned long AP_RECOVERY_DURATION_MS = 180000UL;
+const char*   AP_RECOVERY_SSID  = "RecalBox-DMD-Config";
+
+void maintainApRecovery()
+{
+  if (!apRecoveryActive) return;
+  unsigned long ms = millis();
+  if (ms < apRecoveryStartMs) apRecoveryStartMs = ms; // protection wrap millis()
+  unsigned long elapsed = ms - apRecoveryStartMs;
+  if (elapsed >= AP_RECOVERY_DURATION_MS) {
+    apRecoveryActive = false;
+    Serial.println("[WIFI] fin mode secours -> reboot STA normal");
+    writeConfigFlag("force_ap_recovery", "0");
+    delay(100);
+    ESP.restart();
+    return;
+  }
+  static unsigned long lastSecUpdate = 0;
+  if (ms - lastSecUpdate >= 1000UL) {
+    lastSecUpdate = ms;
+    unsigned long remaining = (AP_RECOVERY_DURATION_MS - elapsed) / 1000UL;
+    g_sdOpMsg = trWifiRecoveryCountdown(remaining);
+    g_configDmdDirty = true;
+  }
+  // Alterne SSID / IP (avec instruction prefixee) sur la ligne 2 toutes les
+  // 6s -- ces chaines depassent 128px avec le prefixe, 6s (au lieu de 2s)
+  // laisse le defilement horizontal existant le temps d'avancer avant de
+  // reinitialiser le scroll sur la chaine suivante.
+  static unsigned long lastToggle = 0;
+  static bool showSSID = true;
+  if (ms - lastToggle >= 6000UL) {
+    lastToggle = ms;
+    showSSID = !showSSID;
+    g_sdOpSubMsg = showSSID ? trJoinWifi(AP_RECOVERY_SSID) : trOpenInBrowser(String("http://") + apRecoveryIP);
+    g_configDmdDirty = true;
+  }
+}
+
 void setupWiFiFromConfig()
 {
   if(!wifiEnabled){WiFi.disconnect(true);WiFi.mode(WIFI_OFF);return;}
+  if(g_forceApRecovery){
+    Serial.println("[WIFI] force_ap_recovery actif -> AP secours pur");
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP(AP_RECOVERY_SSID);
+    delay(500);
+    apRecoveryStartMs = millis();
+    apRecoveryActive = true;
+    apRecoveryIP = WiFi.softAPIP().toString();
+    if (apRecoveryIP == "0.0.0.0") apRecoveryIP = "192.168.4.1";
+    g_sdOpMsg = trWifiRecoveryCountdown(AP_RECOVERY_DURATION_MS / 1000UL);
+    g_sdOpSubMsg = trJoinWifi(AP_RECOVERY_SSID);
+    g_sdOpSubMsgColor = 0xFFE0;
+    g_sdOpInProgress = true;
+    currentMode = MODE_CONFIG;
+    g_configDmdDirty = true;
+    return;
+  }
   if(wifiSSID.length()==0){
     Serial.println("[WIFI] No SSID -> AP mode");
     WiFi.persistent(false);
@@ -2700,19 +3192,37 @@ void setupWiFiFromConfig()
   }
   WiFi.mode(WIFI_STA);WiFi.setSleep(false);WiFi.setAutoReconnect(true);
   if(!applyStaticIP()){if(showInfo)showWifiStatusScreen("WIFI","IP CFG ERR",display->color565(255,0,0));delay(1200);}
-  WiFi.begin(wifiSSID.c_str(),wifiPassword.c_str());
   if(showInfo)showWifiStatusScreen("WIFI","CONNECT",display->color565(0,180,255));
-  unsigned long start=millis();
-  while(WiFi.status()!=WL_CONNECTED&&(millis()-start)<12000){
-    if(!showInfo) bootHourglassTick();
-    delay(200);
+  // Plusieurs tentatives avant d'abandonner et de basculer en AP: sur un
+  // reseau multi-VLAN, l'association + le bail DHCP peuvent occasionnellement
+  // depasser une seule fenetre de 12s (relais DHCP inter-VLAN, convergence
+  // STP du port switch, attribution dynamique de VLAN par SSID/RADIUS) sans
+  // que le SSID/mot de passe soit en cause -- un seul echec transitoire ne
+  // doit pas condamner tout le boot a un fallback AP definitif (jusqu'au
+  // reboot). Les identifiants reellement faux echouent quand meme aux 3
+  // tentatives (retenter ne repare pas un mauvais mot de passe), donc le
+  // comportement de fallback lui-meme est inchange, juste retarde de
+  // quelques secondes.
+  const int WIFI_CONNECT_ATTEMPTS = 3;
+  const unsigned long WIFI_ATTEMPT_TIMEOUT_MS = 9000;
+  for (int attempt = 0; attempt < WIFI_CONNECT_ATTEMPTS; attempt++) {
+    if (attempt > 0) { WiFi.disconnect(); delay(100); }
+    WiFi.begin(wifiSSID.c_str(),wifiPassword.c_str());
+    unsigned long start=millis();
+    while(WiFi.status()!=WL_CONNECTED&&(millis()-start)<WIFI_ATTEMPT_TIMEOUT_MS){
+      if(!showInfo) bootHourglassTick();
+      delay(200);
+    }
+    if (WiFi.status()==WL_CONNECTED) break;
+    Serial.println("[WIFI] attempt " + String(attempt+1) + "/" + String(WIFI_CONNECT_ATTEMPTS) + " failed");
   }
   if(WiFi.status()==WL_CONNECTED)
   {
     String ip=WiFi.localIP().toString();
     if(showInfo) showWifiStatusScreen("WIFI OK",fitLabel(ip,14),display->color565(0,255,0));
     Serial.println("[WIFI] connected: "+ip);
-    delay(1200); startTelnetServer();
+    delay(1200);
+    autoDetectRecalboxIP();
     if(recalboxIP.length()>0){
       mqttClient.setServer(recalboxIP.c_str(),MQTT_PORT);
       mqttClient.setCallback(onMqttMessage);
@@ -2728,8 +3238,8 @@ void setupWiFiFromConfig()
     String apIP = WiFi.softAPIP().toString();
     if (apIP == "0.0.0.0") apIP = "192.168.4.1";
     // Mode config avec message AP
-    g_sdOpMsg = "Connectez-vous au WiFi RecalBox-DMD-Config";
-    g_sdOpSubMsg = "Ouvrir http://" + apIP;
+    g_sdOpMsg = trConnectWifiMsg();
+    g_sdOpSubMsg = trOpenUrl(apIP);
     g_sdOpSubMsgColor = 0xFFE0;
     g_sdOpInProgress = true;
     currentMode = MODE_CONFIG;
@@ -2749,7 +3259,12 @@ void maintainWiFi()
   if(now-lastWifiReconnectAttempt<5000) return;
   lastWifiReconnectAttempt=now;
   Serial.println("[WIFI] reconnect");
-  delay(1500);stopTelnetServer();WiFi.disconnect();delay(50);
+  delay(1500);WiFi.disconnect();delay(50);
+  // Reappliquer l'IP fixe: WiFi.disconnect() reinitialise la config IP de
+  // l'interface, sans reappel ici toute reconnexion repassait silencieusement
+  // en DHCP (bug identifie en session -- IP fixe perdue apres la moindre
+  // coupure WiFi transitoire).
+  applyStaticIP();
   WiFi.begin(wifiSSID.c_str(),wifiPassword.c_str());
 }
 
@@ -2788,6 +3303,9 @@ void loadConfig()
     else if(key=="brightness")                            screenBrightness =map(constrain(value.toInt(),0,100),0,100,0,255);
     else if(key=="mqtt_event_topic"   &&value.length())  mqttEventTopic   =value;
     else if(key=="first_boot")                           g_firstBoot      =(value!="0");
+    else if(key=="force_ap_recovery")                    g_forceApRecovery=(value!="0");
+    else if(key=="force_config_boot")                    g_skipPlaylistForConfig=(value!="0");
+    else if(key=="language" && (value=="fr"||value=="en"||value=="es")) uiLanguage=value;
   }
   cfg.close();
 
@@ -2880,7 +3398,7 @@ int buildOffsetIndex()
 // --------------------------------------------------
 // Splash screen â€” version au dÃ©marrage (info=1 uniquement)
 // --------------------------------------------------
-#define RETRO_VERSION "Raw565 Ed. v9"
+#define RETRO_VERSION "Raw565 Ed. v11"
 
 void showSplashScreen()
 {
@@ -2904,13 +3422,15 @@ void showSplashScreen()
   display->setTextColor(blue);  display->print("Box");
   display->setTextColor(green); display->print("DMD");
 
-  // Ligne 2 : version centrÃ©e ("Raw565 Ed. v8" = 13 x 6 = 78px -> x = (128-78)/2 = 25)
-  display->setCursor(25, 21);
+  // Ligne 2 : version centrée ("Raw565 Ed. v10" = 14 x 6 = 84px -> x = (128-84)/2 = 22)
+  display->setCursor(22, 21);
   display->setTextColor(white);
   display->print(RETRO_VERSION);
 
   delay(2500);
-  display->clearScreen();
+  // En boot silencieux (info=0) le titre reste affiche, le sablier se dessine
+  // par-dessus (cf bootHourglassTick()) jusqu'a la fin du boot WiFi/NTP.
+  if (showInfo) display->clearScreen();
 }
 
 // --------------------------------------------------
@@ -3118,8 +3638,13 @@ static bool showClock()
       return true;
     }
 
-    // Changement de theme si random
-    if (clockTheme == -1 && (millis() - themeStartMs) >= ((unsigned long)clockDuration * 1000UL)) {
+    // Changement de theme si random. Le garde-fou sur endMs evite qu'une
+    // rotation se declenche dans les derniers instants de la session: comme
+    // themeStartMs et clockStartMs demarrent quasi en meme temps, sans lui
+    // la bannière de nom (800ms) se declenchait juste avant la sortie du
+    // clock, donnant l'impression a tort d'un nom affiche "a la sortie".
+    if (clockTheme == -1 && (millis() - themeStartMs) >= ((unsigned long)clockDuration * 1000UL)
+        && (long)(endMs - millis()) > 800) {
       int prevTheme = currentTheme;
       do { currentTheme = random(0, RETRO_THEME_COUNT); } while (currentTheme == prevTheme && RETRO_THEME_COUNT > 1);
       themeStartMs = millis();
@@ -3291,13 +3816,11 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
     Serial.println("[GCACHE] "+gamesCacheFile+" absent");
   else
     Serial.println("[GCACHE] OK - "+String(gamesIdxCount)+" systemes");
+  Serial.println("[BOOT] apres chargement caches, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
 
-  // Boot silencieux (info=0): rien d'autre que le titre (splash) + sablier coin
-  // haut-droit jusqu'a la fin du boot (WiFi/NTP), au lieu de l'apercu par defaut.
-  if(!showInfo){
-    display->clearScreen();
-    bootHourglassTick();
-  }
+  // Boot silencieux (info=0): le titre (splash) reste affiche, le sablier coin
+  // haut-droit se dessine par-dessus jusqu'a la fin du boot (WiFi/NTP).
+  if(!showInfo) bootHourglassTick();
 
   
   // BT avant WiFi: si le Bluetooth est desactive, esp_bt_mem_release() libere
@@ -3307,6 +3830,7 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
   setupBluetoothFromConfig();
 
   setupWiFiFromConfig();
+  Serial.println("[BOOT] apres setupWiFiFromConfig, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
   // Attente connexion WiFi puis synchro NTP (ecran masque si info=0, cf initNTP())
   if (showInfo) {
     display->clearScreen();
@@ -3318,15 +3842,15 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
   }
   
   initNTP();
-  
+  Serial.println("[BOOT] apres initNTP, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
 
   // Premier demarrage : inviter l'utilisateur a ouvrir la page web
   if (g_firstBoot) {
     String ip = WiFi.localIP().toString();
     if (ip == "0.0.0.0") ip = WiFi.softAPIP().toString();
     if (ip == "0.0.0.0") ip = "192.168.4.1";
-    g_sdOpMsg = "Connectez-vous au WiFi RecalBox-DMD-Config";
-    g_sdOpSubMsg = "Ouvrir http://" + ip;
+    g_sdOpMsg = trConnectWifiMsg();
+    g_sdOpSubMsg = trOpenUrl(ip);
     g_sdOpSubMsgColor = 0x07E0;
     g_sdOpInProgress = true;
     currentMode = MODE_CONFIG;
@@ -3341,12 +3865,69 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
     goto start_mqtt_task;
   }
 
+  if (g_forceApRecovery) {
+    // Mode secours WiFi (marquee/cmd/wifi_recovery) : setupWiFiFromConfig()
+    // a deja positionne l'ecran (g_sdOpMsg/currentMode=MODE_CONFIG) -- sauter
+    // le chargement/affichage de la playlist qui l'ecraserait sinon (bug
+    // trouve en test reel le 2026-07-21 : le boot continuait tout droit dans
+    // showPlaylistInfoScreen()/openNextGif() apres le mode secours, qui
+    // remettait currentMode=MODE_PLAYLIST avant meme que l'utilisateur ne
+    // voie l'ecran "Mode secours WiFi").
+    goto start_mqtt_task;
+  }
+
+  if (g_skipPlaylistForConfig) {
+    // Reboot demande par triggerWebConfigMode() (web_config.h) pour repartir
+    // en mode config avec un maximum de heap disponible -- ne JAMAIS lancer
+    // la playlist/ouvrir de GIF sur ce boot precis (voir memoire projet :
+    // chaque GIF ouvert perd durablement quelques Ko de heap, jamais
+    // recupere avant reboot). Flag consomme immediatement (config.ini remis
+    // a "0") pour qu'un reboot normal ulterieur ("Redemarrer") reparte bien
+    // en boot playlist standard, pas en boucle sur ce chemin.
+    writeConfigFlag("force_config_boot", "0");
+    // Charge quand meme l'index playlist (gifCount), SANS jamais ouvrir de
+    // GIF ni dessiner l'ecran playlist (showPlaylistInfoScreen()) -- lecture
+    // seule d'un fichier .idx deja existant, cout heap negligeable (~7ms
+    // mesures en conditions reelles). Sans ca, "Reprendre DMD" (resumePlaylist(),
+    // qui ne fait rien si gifCount==0) laissait un ecran noir en sortie de
+    // config -- gifCount ne serait sinon jamais initialise sur ce chemin.
+    // Si le cache playlist est perime (signature differente), gifCount reste
+    // a 0 pour ce boot precis (limite acceptee : cas rare, un vrai reboot
+    // normal ulterieur reconstruira le cache comme d'habitude).
+    if (playlistName.length() > 0) {
+      uint32_t curSig = computeFileHash(playlistSourcePath);
+      uint32_t savSig = readSavedSignature();
+      if (curSig && curSig == savSig) {
+        if (idxFileHandle) idxFileHandle.close();
+        idxFileHandle = SD.open(playlistIdxPath, FILE_READ);
+        if (idxFileHandle) {
+          size_t idxSize = idxFileHandle.size();
+          gifCount = (idxSize >= 4) ? (int)(idxSize / 4) : 0;
+          if (!playlistRandom) {
+            if (seqPlaylistFile) seqPlaylistFile.close();
+            seqPlaylistFile = SD.open(playlistCachePath, FILE_READ);
+            playIndex = 0;
+          }
+        }
+      }
+    }
+    String ip = WiFi.localIP().toString();
+    g_sdOpMsg = trConfigPageMsg();
+    g_sdOpSubMsg = trOpenUrl(ip);
+    g_sdOpSubMsgColor = 0x07E0;
+    g_sdOpInProgress = true;
+    currentMode = MODE_CONFIG;
+    g_configDmdDirty = true;
+    Serial.println("[BOOT] Reboot cible mode config (heap max) -> http://" + ip + " gifCount=" + String(gifCount));
+    goto start_mqtt_task;
+  }
+
   if(playlistName.length()==0){
     String ip = WiFi.localIP().toString();
     if (ip == "0.0.0.0") ip = WiFi.softAPIP().toString();
     if (ip == "0.0.0.0") ip = "192.168.4.1";
-    g_sdOpMsg = "Page de configuration";
-    g_sdOpSubMsg = "Ouvrir http://" + ip;
+    g_sdOpMsg = trConfigPageMsg();
+    g_sdOpSubMsg = trOpenUrl(ip);
     g_sdOpSubMsgColor = 0x07E0;
     g_sdOpInProgress = true;
     currentMode = MODE_CONFIG;
@@ -3414,12 +3995,13 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
     Serial.println("[PLAYLIST] showPlaylistInfoScreen start t=" + String(millis()));
     showPlaylistInfoScreen(); delay(1300);
     Serial.println("[PLAYLIST] showPlaylistInfoScreen done t=" + String(millis()));
+    Serial.println("[BOOT] apres showPlaylistInfoScreen, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
     if(gifCount==0){
       String ip = WiFi.localIP().toString();
       if (ip == "0.0.0.0") ip = WiFi.softAPIP().toString();
       if (ip == "0.0.0.0") ip = "192.168.4.1";
-      g_sdOpMsg = "Page de configuration";
-      g_sdOpSubMsg = "Ouvrir http://" + ip;
+      g_sdOpMsg = trConfigPageMsg();
+      g_sdOpSubMsg = trOpenUrl(ip);
       g_sdOpSubMsgColor = 0x07E0;
       g_sdOpInProgress = true;
       currentMode = MODE_CONFIG;
@@ -3427,15 +4009,39 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
       Serial.println("[BOOT] Playlist empty -> config mode sur http://" + ip);
       goto start_mqtt_task;
     }
+    g_playlistStartedThisBoot = true;
     playIndex=0;lastRandomIndex=-1;currentMode=MODE_PLAYLIST;openNextGif();
+    Serial.println("[BOOT] apres 1er openNextGif, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
   }
 
 start_mqtt_task:
   if(wifiEnabled&&recalboxIP.length()>0)
     xTaskCreatePinnedToCore(mqttTask,"mqttTask",4096,NULL,1,&mqttTaskHandle,0);
-  
+
+  // Prechauffage des caches SD (dossiers /gifs + contenu de chacun) : fait
+  // ici, juste apres le reboot cible mode config (heap encore proche de son
+  // maximum, avant meme setupWebConfig()), pour ne payer le cout du scan
+  // qu'une seule fois -- les visites suivantes de la page MEDIA ne feront
+  // plus que relire des caches deja valides (rapide). Voir web_config.h.
+  if (g_skipPlaylistForConfig && wifiEnabled) {
+    // Message ecran pendant le prechauffage (demande utilisateur) : ligne 1
+    // dessinee ici une seule fois (loop() n'a pas encore demarre, rien
+    // d'autre ne rafraichirait l'ecran pendant ce process bloquant qui peut
+    // prendre plusieurs secondes sur une grosse collection) -- ligne 2
+    // (progression par dossier) geree par warmUpGifCaches() via
+    // webDmdPause(), qui dessine deja directement sans attendre loop()
+    // (meme mecanisme que les progressions d'upload existantes).
+    display->clearScreen();
+    display->setTextWrap(false); display->setTextSize(1);
+    display->setTextColor(0xFFE0);
+    display->setCursor(1, 4);
+    display->print(trCachingMsg());
+    warmUpGifCaches();
+  }
+
   // Interface web de configuration
   if (wifiEnabled) setupWebConfig();
+  Serial.println("[BOOT] apres setupWebConfig, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
 }
 
 // --------------------------------------------------
@@ -3443,7 +4049,7 @@ start_mqtt_task:
 // --------------------------------------------------
 void loop()
 {
-  handleWebConfig(); maintainWiFi(); handleTelnet(); processPendingMqttCommand();
+  handleWebConfig(); maintainWiFi(); maintainApRecovery(); processPendingMqttCommand();
   if(requestNextGif&&!g_sdOpInProgress){requestNextGif=false;openNextGif();}
   if(requestReboot) {delay(100);ESP.restart();}
 
@@ -3472,7 +4078,7 @@ void loop()
       if(fd<=0)fd=10;
       if(nextGifPath.length()==0)nextGifPath=getNextGif();
       unsigned long t=millis();
-      while((long)(millis()-t)<fd){handleTelnet();if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(0);}
+      while((long)(millis()-t)<fd){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(0);}
       if(nextGifPath.length()>0&&!nextGifFile)nextGifFile=SD.open(nextGifPath.c_str());
     }
     break;
@@ -3484,7 +4090,7 @@ void loop()
       if(!frameOk){gifResetCompat();break;}
       if(fd<=0)fd=10;
       unsigned long t=millis();
-      while((long)(millis()-t)<fd){handleTelnet();if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(0);}
+      while((long)(millis()-t)<fd){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(0);}
     }
     break;
 
@@ -3546,25 +4152,27 @@ void loop()
     }
     {
       unsigned long t=millis();
-      while((long)(millis()-t)<100){handleTelnet();if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(1);}
+      while((long)(millis()-t)<100){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(1);}
     }
     break;
 
   case MODE_CONFIG:
+    // Message de statut transitoire (webDmdPause(), ex: "Mise en cache...")
+    // expire apres SD_OP_SUBMSG_EXPIRE_MS sans mise a jour -- retour au
+    // message persistant (IP du DMD, pose par triggerWebConfigMode()) plutot
+    // que de rester affiche indefiniment une fois le process termine.
+    // g_sdOpSubMsgSetAt reste a 0 (donc cette condition jamais vraie) tant
+    // que webDmdPause() n'a jamais ete appelee -- les ecrans de boot/secours
+    // WiFi (g_sdOpSubMsg assigne directement) ne sont pas concernes.
+    if (g_sdOpSubMsgSetAt != 0 && g_sdOpSubMsg != g_sdOpPersistentSubMsg &&
+        millis() - g_sdOpSubMsgSetAt > SD_OP_SUBMSG_EXPIRE_MS) {
+      g_sdOpSubMsg = g_sdOpPersistentSubMsg;
+      g_sdOpSubMsgColor = g_sdOpPersistentSubMsgColor;
+      g_sdOpSubMsgSetAt = millis();
+      g_configDmdDirty = true;
+    }
     if (g_configDmdDirty) {
-      g_configDmdDirty = false;
-      g_sdOpScrollOffset = 0;
-      g_sdOpScrollOffset1 = 0;
-      display->clearScreen();
-      display->setTextWrap(false);
-      display->setTextSize(1);
-      display->setTextColor(0xFFE0);
-      display->setCursor(1, 4);
-      display->print(g_sdOpMsg);
-      display->fillRect(0, 24, 128, 8, 0);
-      display->setTextColor(g_sdOpSubMsgColor);
-      display->setCursor(1, 24);
-      display->print(g_sdOpSubMsg);
+      webDmdForceRedraw();
     }
     // Defilement ligne 1
     {
@@ -3596,7 +4204,6 @@ void loop()
   case MODE_BLACK:
   default:
     if (g_sdOpInProgress) {
-      handleTelnet();
       processPendingMqttCommand();
       delay(1);
     }
