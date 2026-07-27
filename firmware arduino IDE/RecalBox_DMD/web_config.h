@@ -3,7 +3,24 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v76
+// Version actuelle : v77
+//
+// v77 — 2026-07-27 — safe-modify — Question utilisateur : le reboot cible
+//   est-il encore necessaire ? Reponse en creusant le code reel : OUI pour
+//   MEDIA (marge heap + exclusivite SD confirmees par les logs), mais le
+//   code declenchait ce reboot sur TOUTES les pages de config (root/BASIC/
+//   NETWORK/CLOCK/MEDIA), pas seulement MEDIA -- confirme problematique
+//   par l'utilisateur : un simple chargement de la racine (voire une
+//   autocompletion/prechargement du navigateur, qui peut emettre une
+//   vraie requete HTTP sans navigation deliberee) suffisait a interrompre
+//   une lecture en cours pour rebooter, alors que ces pages ne font aucun
+//   scan SD et n'ont donc aucun besoin de cette marge.
+//   triggerWebConfigMode() prend desormais un parametre allowReboot :
+//   root/BASIC/NETWORK/CLOCK passent false (jamais de reboot, juste le
+//   passage en mode config a l'ecran comme avant) ; seule MEDIA passe true
+//   (seule page qui construit reellement le cache). handleDmdOpen()
+//   (declenchement explicite, pas une simple navigation de page) garde
+//   aussi true. PAS ENCORE teste sur materiel reel.
 //
 // v76 — 2026-07-27 — safe-modify — BRANCHE DEV : test reel de v75 --
 //   "la page de config n'apparait pas ou avec bcp de difficulte". Le log
@@ -3142,7 +3159,7 @@ static void handleWebConfigDeleteFiles()
 // Forward declaration : definie plus bas (juste avant handleWebConfigRoot,
 // qui l'utilise aussi), mais appelee ici par handleDmdOpen() -- sans cette
 // declaration, erreur de compilation "not declared in this scope".
-static bool triggerWebConfigMode(const String &msg);
+static bool triggerWebConfigMode(const String &msg, bool allowReboot);
 
 static void handleDmdPause()
 {
@@ -3168,7 +3185,7 @@ static void handleDmdOpen()
   if (!webServer->hasArg("msg")) { webServer->send(400, "text/plain", "ERR: missing msg"); return; }
   String msg = webServer->arg("msg");
   String full = msg + " " + WiFi.localIP().toString();
-  if (!triggerWebConfigMode(msg)) return; // reboot cible mode config deja declenche, reponse deja envoyee
+  if (!triggerWebConfigMode(msg, true)) return; // reboot cible mode config deja declenche, reponse deja envoyee -- allowReboot=true : declenchement explicite (pas une simple navigation de page), voir changelog v77
   webServer->send(200, "text/plain", "OK " + full);
 }
 
@@ -3273,12 +3290,18 @@ static void sendRebootingPage()
   webServer->send(200, "text/html", html);
 }
 
-static bool triggerWebConfigMode(const String &msg)
+static bool triggerWebConfigMode(const String &msg, bool allowReboot)
 {
-  if (!g_playlistStartedThisBoot) {
-    // Rien n'a ete lance depuis le boot (playlist deja sautee -- AP/premier
-    // boot/secours WiFi, ou reboot precedent deja cible sur ce chemin) : le
-    // heap est deja au maximum disponible, pas besoin de rebooter encore.
+  if (!(allowReboot && g_playlistStartedThisBoot)) {
+    // Pas de reboot dans ce cas : soit rien n'a ete lance depuis le boot
+    // (playlist deja sautee -- AP/premier boot/secours WiFi, ou reboot
+    // precedent deja cible sur ce chemin), soit l'appelant a explicitement
+    // demande de ne jamais rebooter (allowReboot=false -- root/BASIC/
+    // NETWORK/CLOCK, v77 : ces pages ne font aucun scan SD lourd, elles
+    // n'ont donc pas besoin de la marge heap du reboot cible, et le
+    // declencher sur une simple navigation/autocompletion navigateur etait
+    // une interruption de lecture non justifiee, signalee par l'utilisateur
+    // -- seul MEDIA, qui construit reellement le cache, passe allowReboot=true).
     if (g_sdOpInProgress) {
       // Le DMD est deja en mode config (page precedente de la meme
       // session, navigation directe entre sous-pages via la barre de nav).
@@ -3323,7 +3346,11 @@ static void sendGzipHtml(const uint8_t *content, size_t len)
 
 static void handleWebConfigRoot()
 {
-  if (!triggerWebConfigMode("WEB DMD CONFIG")) return;
+  // allowReboot=false (v77) : simple page de menu, aucun scan SD -- ne
+  // doit jamais interrompre une lecture en cours (risque reel confirme par
+  // l'utilisateur : autocompletion/prechargement du navigateur peut
+  // atteindre cette route sans navigation deliberee).
+  if (!triggerWebConfigMode("WEB DMD CONFIG", false)) return;
   if (WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA) {
     sendGzipHtml(WEB_CONFIG_AP_HTML_GZ, WEB_CONFIG_AP_HTML_GZ_LEN);
   } else {
@@ -3333,25 +3360,28 @@ static void handleWebConfigRoot()
 
 static void handleWebConfigBasicPage()
 {
-  if (!triggerWebConfigMode("WEB DMD CONFIG")) return;
+  if (!triggerWebConfigMode("WEB DMD CONFIG", false)) return; // v77 : voir handleWebConfigRoot()
   sendGzipHtml(WEB_CONFIG_BASIC_HTML_GZ, WEB_CONFIG_BASIC_HTML_GZ_LEN);
 }
 
 static void handleWebConfigNetworkPage()
 {
-  if (!triggerWebConfigMode("WEB DMD CONFIG")) return;
+  if (!triggerWebConfigMode("WEB DMD CONFIG", false)) return; // v77 : voir handleWebConfigRoot()
   sendGzipHtml(WEB_CONFIG_NETWORK_HTML_GZ, WEB_CONFIG_NETWORK_HTML_GZ_LEN);
 }
 
 static void handleWebConfigClockPage()
 {
-  if (!triggerWebConfigMode("WEB DMD CONFIG")) return;
+  if (!triggerWebConfigMode("WEB DMD CONFIG", false)) return; // v77 : voir handleWebConfigRoot()
   sendGzipHtml(WEB_CONFIG_CLOCK_HTML_GZ, WEB_CONFIG_CLOCK_HTML_GZ_LEN);
 }
 
 static void handleWebConfigMediaPage()
 {
-  if (!triggerWebConfigMode("WEB DMD CONFIG")) return;
+  // allowReboot=true (v77) : seule page qui construit reellement le cache
+  // /gifs -- la seule a beneficier de la marge heap/exclusivite SD du
+  // reboot cible. Voir handleWebConfigRoot() pour les autres pages.
+  if (!triggerWebConfigMode("WEB DMD CONFIG", true)) return;
   sendGzipHtml(WEB_CONFIG_MEDIA_HTML_GZ, WEB_CONFIG_MEDIA_HTML_GZ_LEN);
 }
 
