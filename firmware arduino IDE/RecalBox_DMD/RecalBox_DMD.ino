@@ -1,7 +1,21 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v32
+// Version actuelle : v33
+//
+// v33 - 2026-07-27 - safe-modify - BRANCHE DEV (dev/cache-externalisation) :
+//   suppression du prechauffage bloquant de tous les caches SD au boot
+//   (warmUpGifCaches(), v30/v32) -- la fonction elle-meme et tout le
+//   systeme de cache SD persistant qu'elle alimentait ont ete retires cote
+//   web_config.h (v74, voir son changelog : le navigateur retient
+//   desormais le resultat en sessionStorage, chaque dossier n'est plus
+//   scanne qu'a la demande). Retire aussi l'affichage DMD associe
+//   (trCachingMsg() sur la ligne 1) puisqu'il n'y a plus rien a
+//   prechauffer. Consequence attendue : le boot en mode config n'est plus
+//   jamais bloque plusieurs minutes par un scan de 18 dossiers avant meme
+//   d'afficher la page web -- chaque dossier ne sera scanne (toujours
+//   lentement sur les gros dossiers, cout FAT32 intact) qu'au moment ou
+//   l'utilisateur clique dessus. PAS ENCORE reteste sur materiel reel.
 //
 // v32 - 2026-07-27 - safe-modify - Demande utilisateur : afficher un
 //   message sur l'ecran DMD pendant le prechauffage des caches SD (v30) --
@@ -2450,13 +2464,6 @@ String trConfigPageMsg()
   return "Page de configuration";
 }
 
-String trCachingMsg()
-{
-  if (uiLanguage == "en") return "Building cache...";
-  if (uiLanguage == "es") return "Creando cache...";
-  return "Mise en cache...";
-}
-
 // Ligne 2 de l'ecran secours WiFi : prefixe l'instruction avant le SSID/l'IP
 // (demande utilisateur) -- toggle toutes les 6s (au lieu de 2s) dans
 // maintainApRecovery() pour laisser le defilement horizontal le temps
@@ -4017,27 +4024,6 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
 start_mqtt_task:
   if(wifiEnabled&&recalboxIP.length()>0)
     xTaskCreatePinnedToCore(mqttTask,"mqttTask",4096,NULL,1,&mqttTaskHandle,0);
-
-  // Prechauffage des caches SD (dossiers /gifs + contenu de chacun) : fait
-  // ici, juste apres le reboot cible mode config (heap encore proche de son
-  // maximum, avant meme setupWebConfig()), pour ne payer le cout du scan
-  // qu'une seule fois -- les visites suivantes de la page MEDIA ne feront
-  // plus que relire des caches deja valides (rapide). Voir web_config.h.
-  if (g_skipPlaylistForConfig && wifiEnabled) {
-    // Message ecran pendant le prechauffage (demande utilisateur) : ligne 1
-    // dessinee ici une seule fois (loop() n'a pas encore demarre, rien
-    // d'autre ne rafraichirait l'ecran pendant ce process bloquant qui peut
-    // prendre plusieurs secondes sur une grosse collection) -- ligne 2
-    // (progression par dossier) geree par warmUpGifCaches() via
-    // webDmdPause(), qui dessine deja directement sans attendre loop()
-    // (meme mecanisme que les progressions d'upload existantes).
-    display->clearScreen();
-    display->setTextWrap(false); display->setTextSize(1);
-    display->setTextColor(0xFFE0);
-    display->setCursor(1, 4);
-    display->print(trCachingMsg());
-    warmUpGifCaches();
-  }
 
   // Interface web de configuration
   if (wifiEnabled) setupWebConfig();
