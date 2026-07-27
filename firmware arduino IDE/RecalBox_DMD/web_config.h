@@ -3,7 +3,21 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v79
+// Version actuelle : v80
+//
+// v80 — 2026-07-27 — safe-modify — Question utilisateur : un dossier
+//   ajoute manuellement (carte SD retiree/modifiee sur PC) est-il detecte
+//   et mis en cache ? Reponse en verifiant le code reel : OUI si le
+//   passage par MEDIA declenche le reboot cible (cas courant, playlist
+//   active) -- cacheBuilderStart() est appelee au boot suivant. Mais faille
+//   trouvee : si MEDIA est atteinte SANS ce reboot (playlist vide au boot,
+//   tout premier demarrage, mode AP), la machine a etats ne demarrait
+//   JAMAIS pour toute la session -- un dossier ajoute manuellement restait
+//   bloque au sablier indefiniment. handleWebConfigMediaPage() appelle
+//   desormais aussi cacheBuilderStart() directement (si IDLE/DONE
+//   uniquement -- jamais en cours de scan, pour ne pas perdre la
+//   progression d'un gros dossier deja en route). PAS ENCORE teste sur
+//   materiel reel.
 //
 // v79 — 2026-07-27 — safe-modify — Demande utilisateur : separer la
 //   gestion des PLAYLISTS (generer/supprimer) de la gestion PHYSIQUE des
@@ -3537,6 +3551,18 @@ static void handleWebConfigMediaPage()
   // /gifs -- la seule a beneficier de la marge heap/exclusivite SD du
   // reboot cible. Voir handleWebConfigRoot() pour les autres pages.
   if (!triggerWebConfigMode("WEB DMD CONFIG", true)) return;
+  // v80 -- faille reelle trouvee (question utilisateur) : cacheBuilderStart()
+  // n'etait jusqu'ici appelee QU'au boot, gardee par g_skipPlaylistForConfig
+  // (donc seulement apres le reboot cible declenche ci-dessus). Si MEDIA est
+  // atteinte SANS ce reboot (playlist vide au boot, tout premier demarrage,
+  // mode AP -- triggerWebConfigMode() renvoie alors true sans jamais
+  // rebooter), la machine a etats ne demarrait JAMAIS pour toute la session :
+  // un dossier ajoute manuellement (carte SD retiree/modifiee sur PC)
+  // restait bloque au sablier indefiniment. Demarre desormais aussi ici,
+  // mais seulement si IDLE/DONE (jamais en cours de scan -- ne perd pas la
+  // progression d'un gros dossier en cours) : couvre le cas d'un dossier
+  // ajoute manuellement pendant qu'une session config est deja active.
+  if (g_cbState == CB_IDLE || g_cbState == CB_DONE) cacheBuilderStart();
   sendGzipHtml(WEB_CONFIG_MEDIA_HTML_GZ, WEB_CONFIG_MEDIA_HTML_GZ_LEN);
 }
 
