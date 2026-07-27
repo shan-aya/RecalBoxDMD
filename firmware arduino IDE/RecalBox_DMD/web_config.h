@@ -3,7 +3,35 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v83
+// Version actuelle : v84
+//
+// v84 — 2026-07-27 — safe-modify — Question utilisateur : un cache genere
+//   hors ESP32 (outil PC modifie) serait-il detecte comme perime, et de
+//   combien de fichiers ? Verification (v83) : NON, aucune detection.
+//   Recherche menee (agent Explore) sur le code source de la lib SD
+//   ESP32 (arduino-esp32 core 3.3.11, FS.h/vfs_api.cpp) : File::
+//   getLastWrite() delegue a un stat() POSIX brut, SANS distinction
+//   fichier/dossier -- donc utilisable sur un dossier pour connaitre son
+//   horodatage de derniere modification en cout CONSTANT (pas
+//   d'enumeration). Format de cache V4 -> V5 : en-tete etendu avec un
+//   horodatage dossier a largeur FIXE (GIF_CACHE_MTIME_WIDTH=10, permet
+//   une reecriture en place via seek()+"r+" sans jamais toucher au reste
+//   du fichier). gifFilesCacheStatus() compare desormais l'horodatage
+//   stocke a l'horodatage REEL du dossier (File::getLastWrite()) : un
+//   cache dont l'horodatage ne correspond plus (deplace/genere hors ESP32,
+//   ou dossier modifie par un chemin qui aurait echappe a l'invalidation
+//   explicite) est traite comme absent et reconstruit. cacheBuilderAdvance
+//   ToNextDir() capture l'horodatage au demarrage d'un scan et l'ecrit
+//   dans l'en-tete ; l'ajout incremental (v82) reecrit ce champ en place
+//   apres coup (sinon le cache tout juste mis a jour se croirait perime
+//   des la prochaine lecture). Ne repond PAS a la question du "delta"
+//   (combien de fichiers en plus/moins) -- seulement perime oui/non ;
+//   un delta precis necessiterait soit un rescan complet, soit que
+//   l'outil externe fournisse lui-meme la liste complete (le cache externe
+//   remplace alors integralement l'ancien, meme principe qu'un rebuild
+//   ESP32). PAS ENCORE teste sur materiel reel -- fiabilite du timestamp
+//   FAT sur repertoire confirmee par lecture de code, jamais verifiee en
+//   conditions reelles sur cette carte SD/ce materiel.
 //
 // v83 — 2026-07-27 — safe-modify — Question utilisateur ("si l'utilisateur
 //   quitte la page web on doit repartir de zero ?") : reponse verifiee --
@@ -2452,28 +2480,62 @@ static bool scanGifDirsRaw(String &outNames)
 // CreateFolder().
 // ============================================
 static const char *GIF_CACHE_FILE = ".dmdcache";
-static const char *GIF_CACHE_VERSION = "V4"; // V4 (v75) : plus de comptage de controle dans l'en-tete
+static const char *GIF_CACHE_VERSION = "V5"; // V5 (v84) : ajout d'un horodatage dossier dans l'en-tete
 // Marqueur ecrit a la place du cache normal quand un dossier depasse
 // CB_DIR_TIME_BUDGET_MS (v78) -- distinct de GIF_CACHE_VERSION pour ne
 // jamais etre confondu avec un vrai cache pret a servir.
 static const char *GIF_CACHE_EXCLUDED_MARKER = "EXCLU";
+// Largeur FIXE (zero-pad) du champ horodatage dans l'en-tete -- permet de
+// le reecrire EN PLACE (File.seek()+write(), mode "r+") sans jamais
+// toucher au reste du fichier, y compris apres un ajout incremental
+// (v82/v84). 10 chiffres decimaux couvrent un time_t unsigned jusqu'en 2106.
+static const int GIF_CACHE_MTIME_WIDTH = 10;
+
+static String formatCacheMtime(unsigned long t)
+{
+  char buf[GIF_CACHE_MTIME_WIDTH + 1];
+  snprintf(buf, sizeof(buf), "%0*lu", GIF_CACHE_MTIME_WIDTH, t);
+  return String(buf);
+}
 
 enum GifCacheStatus { GIFCACHE_MISSING, GIFCACHE_READY, GIFCACHE_EXCLUDED };
 
 // Distingue les 3 etats sans jamais charger tout le fichier -- seuls les
-// premiers octets (l'en-tete) suffisent a savoir de quel format il s'agit.
+// premiers octets (l'en-tete) suffisent. Pour READY, compare aussi
+// l'horodatage stocke a l'horodatage REEL du dossier (v84 -- question
+// utilisateur : un cache genere hors ESP32/perime est-il detecte ?) via
+// File::getLastWrite() sur le dossier lui-meme -- un simple stat() POSIX
+// (confirme par lecture du code source de la lib SD ESP32/vfs_api.cpp,
+// aucune distinction fichier/dossier, pas d'enumeration du contenu), donc
+// cout CONSTANT quelle que soit la taille du dossier. Detecte aussi bien
+// un cache ESP32 perime (modification qui aurait echappe a l'invalidation
+// explicite) qu'un cache depose manuellement (outil PC) dont l'horodatage
+// ne correspond plus au dossier reel.
 static GifCacheStatus gifFilesCacheStatus(const String &dirName)
 {
-  File f = SD.open(("/gifs/" + dirName + "/" + String(GIF_CACHE_FILE)).c_str());
+  String cachePath = "/gifs/" + dirName + "/" + String(GIF_CACHE_FILE);
+  File f = SD.open(cachePath.c_str());
   if (!f) return GIFCACHE_MISSING;
-  char buf[8];
+  char buf[24];
   size_t n = f.readBytes(buf, sizeof(buf) - 1);
   buf[n] = 0;
   f.close();
   String head(buf);
   if (head.startsWith(String(GIF_CACHE_EXCLUDED_MARKER) + "|")) return GIFCACHE_EXCLUDED;
-  if (head.startsWith(String(GIF_CACHE_VERSION) + "|")) return GIFCACHE_READY;
-  return GIFCACHE_MISSING; // format inconnu/perime -- traite comme absent, sera reconstruit
+  String prefix = String(GIF_CACHE_VERSION) + "|";
+  if (!head.startsWith(prefix)) return GIFCACHE_MISSING; // format inconnu/perime -- traite comme absent, sera reconstruit
+  String rest = head.substring(prefix.length());
+  if ((int)rest.length() < GIF_CACHE_MTIME_WIDTH) return GIFCACHE_MISSING; // en-tete tronque/corrompu
+  unsigned long storedMtime = (unsigned long)rest.substring(0, GIF_CACHE_MTIME_WIDTH).toInt();
+  File dir = SD.open(("/gifs/" + dirName).c_str());
+  if (!dir) return GIFCACHE_MISSING;
+  unsigned long liveMtime = (unsigned long)dir.getLastWrite();
+  dir.close();
+  if (liveMtime != storedMtime) {
+    Serial.println("[CACHEBUILD] " + dirName + " : cache perime (horodatage dossier different, stocke=" + String(storedMtime) + " reel=" + String(liveMtime) + ")");
+    return GIFCACHE_MISSING;
+  }
+  return GIFCACHE_READY;
 }
 
 static bool gifFilesCacheReady(const String &dirName) { return gifFilesCacheStatus(dirName) == GIFCACHE_READY; }
@@ -2487,7 +2549,9 @@ static bool readGifFilesCache(const String &dirName, String &outNames)
   f.close();
   String prefix = String(GIF_CACHE_VERSION) + "|";
   if (!content.startsWith(prefix)) return false; // format d'un ancien firmware/branche, ou marqueur d'exclusion -- ignore
-  outNames = content.substring(prefix.length());
+  String rest = content.substring(prefix.length());
+  if ((int)rest.length() < GIF_CACHE_MTIME_WIDTH) return false; // en-tete tronque/corrompu
+  outNames = rest.substring(GIF_CACHE_MTIME_WIDTH);
   return true;
 }
 
@@ -2654,17 +2718,23 @@ static void cacheBuilderAdvanceToNextDir()
     g_cbCachePath = "/gifs/" + name + "/" + String(GIF_CACHE_FILE);
     g_cbTmpPath = g_cbCachePath + ".tmp";
     if (SD.exists(g_cbTmpPath.c_str())) SD.remove(g_cbTmpPath.c_str());
+    // Handle du dossier ouvert AVANT l'en-tete pour capturer son
+    // horodatage (v84) au moment le plus proche possible du debut du
+    // scan -- ecrit dans l'en-tete, compare a chaque lecture future pour
+    // detecter une modification (voir gifFilesCacheStatus()).
+    g_cbDirHandle = SD.open(("/gifs/" + name).c_str());
+    unsigned long dirMtime = g_cbDirHandle ? (unsigned long)g_cbDirHandle.getLastWrite() : 0;
     g_cbOutHandle = SD.open(g_cbTmpPath.c_str(), FILE_WRITE);
     if (!g_cbOutHandle) {
       // Echec d'ouverture (rare) : passe au dossier suivant plutot que de
       // bloquer toute la machine a etats indefiniment sur celui-ci.
+      if (g_cbDirHandle) g_cbDirHandle.close();
       g_cbDoneDirs++;
       Serial.println("[CACHEBUILD] " + name + " : echec ouverture .tmp, ignore");
       if (comma < 0) break; else continue;
     }
-    g_cbOutHandle.print(String(GIF_CACHE_VERSION) + "|");
+    g_cbOutHandle.print(String(GIF_CACHE_VERSION) + "|" + formatCacheMtime(dirMtime));
     g_cbWriter = new BufferedCacheWriter(g_cbOutHandle);
-    g_cbDirHandle = SD.open(("/gifs/" + name).c_str());
     g_cbFirstEntry = true;
     g_cbEntriesThisDir = 0;
     g_cbDirStartMs = millis();
@@ -2971,6 +3041,25 @@ static void handleWebConfigAddToPlaylistsBatch()
           fstart = fcomma + 1;
         }
         capp.close();
+        // v84 : l'ajout vient de modifier le dossier, donc son horodatage
+        // FAT a change -- reecrit le champ horodatage de l'en-tete EN
+        // PLACE ("r+", largeur fixe GIF_CACHE_MTIME_WIDTH, ne touche a
+        // rien d'autre dans le fichier) pour que la prochaine lecture ne
+        // croie pas, a tort, que ce cache tout juste mis a jour est
+        // perime (gifFilesCacheStatus() comparerait sinon l'ancien
+        // horodatage stocke au nouveau, desormais different).
+        File dir = SD.open(("/gifs/" + folder).c_str());
+        if (dir) {
+          unsigned long newMtime = (unsigned long)dir.getLastWrite();
+          dir.close();
+          File hpatch = SD.open(cachePath.c_str(), "r+");
+          if (hpatch) {
+            hpatch.seek(String(GIF_CACHE_VERSION).length() + 1); // juste apres "V5|"
+            String m = formatCacheMtime(newMtime);
+            hpatch.write((const uint8_t *)m.c_str(), m.length());
+            hpatch.close();
+          }
+        }
         Serial.println("[CACHEBUILD] " + folder + " : ajout incremental au cache existant (" + filesArg + ")");
       }
     } else if (SD.exists(cachePath.c_str())) {
