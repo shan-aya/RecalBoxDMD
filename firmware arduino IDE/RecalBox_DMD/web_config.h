@@ -3,7 +3,26 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v81
+// Version actuelle : v82
+//
+// v82 — 2026-07-27 — safe-modify — Question utilisateur : "j'ai scanne
+//   Consoles et 3600 gifs, je rajoute 1 gif... rescan de 0 ou simple
+//   ajout d'1 element ?" Reponse en verifiant le code : c'etait un rescan
+//   complet -- handleWebConfigAddToPlaylistsBatch() supprimait
+//   INCONDITIONNELLEMENT tout le .dmdcache existant puis relancait la
+//   machine a etats, qui reconstruisait le dossier ENTIER depuis l'entree
+//   0 (les 3600 fichiers deja connus reenumeres), meme pour un seul
+//   fichier ajoute. Sur un dossier degrade FAT32 (des centaines de ms par
+//   entree en profondeur, deja confirme), ca voulait dire plusieurs
+//   minutes de scan reperdues pour chaque upload individuel.
+//   Nouveau : si le cache du dossier est deja pret (V4, valide), les noms
+//   nouvellement uploades (deja connus par cette fonction, recus du JS)
+//   sont ajoutes directement a la fin du fichier existant (SD.open(...,
+//   FILE_APPEND)) -- cout quasi nul, proportionnel au nombre de NOUVEAUX
+//   fichiers seulement, jamais au contenu deja present. La suppression de
+//   fichier reste une invalidation complete (cas moins frequent, retrouver
+//   la position exacte d'un nom pour le retirer serait plus complexe).
+//   PAS ENCORE teste sur materiel reel.
 //
 // v81 — 2026-07-27 — safe-modify — Question utilisateur : un cacheBuild
 //   interrompu reprend ou est perdu ? Verification du code reel : les
@@ -2895,13 +2914,38 @@ static void handleWebConfigAddToPlaylistsBatch()
   String filesArg = webServer->arg("files");
   if (folder.length() == 0 || filesArg.length() == 0) { webServer->send(200, "text/plain", "OK:0"); return; }
 
-  // Cache /gifs du dossier perime (nouveaux fichiers uploades) -- invalide
-  // UNE SEULE fois ici (appelee une seule fois par lot d'upload complet,
-  // pas par fichier individuel, meme principe que le reste de cette
-  // fonction) et relance la machine a etats pour qu'elle le reconstruise.
+  // Cache /gifs du dossier perime (nouveaux fichiers uploades). Si le
+  // cache est deja pret (V4, valide), ajout INCREMENTAL des noms
+  // nouvellement uploades directement a la fin du fichier existant (mode
+  // append) plutot que de tout supprimer et forcer un rescan complet du
+  // dossier entier -- decisif sur un gros dossier deja construit (des
+  // minutes de scan pour un seul fichier ajoute, cf. degradation FAT32
+  // deja documentee, question utilisateur "3600 gifs + 1 ajoute -> rescan
+  // de 0 ?"). Coherent avec le fait que les noms sont deja connus ici
+  // (upload) -- la suppression de fichier reste en revanche une
+  // invalidation complete plus bas (cas moins frequent, retrouver la
+  // position exacte d'un nom dans la liste pour le retirer serait plus
+  // complexe).
   {
     String cachePath = "/gifs/" + folder + "/" + String(GIF_CACHE_FILE);
-    if (SD.exists(cachePath.c_str())) SD.remove(cachePath.c_str());
+    if (gifFilesCacheStatus(folder) == GIFCACHE_READY) {
+      File capp = SD.open(cachePath.c_str(), FILE_APPEND);
+      if (capp) {
+        int fstart = 0;
+        while (fstart <= (int)filesArg.length()) {
+          int fcomma = filesArg.indexOf(',', fstart);
+          String fname = (fcomma < 0) ? filesArg.substring(fstart) : filesArg.substring(fstart, fcomma);
+          fname.trim();
+          if (fname.length() > 0) { capp.print(","); capp.print(jsonEscape(fname)); }
+          if (fcomma < 0) break;
+          fstart = fcomma + 1;
+        }
+        capp.close();
+        Serial.println("[CACHEBUILD] " + folder + " : ajout incremental au cache existant (" + filesArg + ")");
+      }
+    } else if (SD.exists(cachePath.c_str())) {
+      SD.remove(cachePath.c_str());
+    }
   }
   cacheBuilderStart();
 
