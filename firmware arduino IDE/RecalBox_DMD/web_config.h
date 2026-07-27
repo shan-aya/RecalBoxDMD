@@ -3,7 +3,24 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v82
+// Version actuelle : v83
+//
+// v83 — 2026-07-27 — safe-modify — Question utilisateur ("si l'utilisateur
+//   quitte la page web on doit repartir de zero ?") : reponse verifiee --
+//   NON, l'etat de la machine a etats est entierement cote ESP32 (variables
+//   globales), independant de toute connexion navigateur ; fermer la page
+//   n'affecte rien (et accelere meme la construction, puisque le garde-fou
+//   "client web actif" de v78 ne s'applique plus). En revanche, question
+//   a fait remarquer un vrai gap adjacent : cacheBuilderStep() n'avait
+//   AUCUNE condition sur le mode courant du DMD -- si l'utilisateur
+//   cliquait "Reprendre DMD" (retour lecture normale) pendant qu'un scan
+//   etait en cours, la construction continuait en tache de fond CONCURREM
+//   MENT a la lecture GIF active, exactement la contention SD/heap que la
+//   restriction du prechauffage au mode config (RecalBox_DMD.ino) visait
+//   deja a eviter. cacheBuilderStep() se met desormais en PAUSE complete
+//   (aucun etat touche, juste return immediat) tant que g_sdOpInProgress
+//   est faux -- reprend exactement ou elle en etait des que le DMD
+//   repasse en mode config. PAS ENCORE teste sur materiel reel.
 //
 // v82 — 2026-07-27 — safe-modify — Question utilisateur : "j'ai scanne
 //   Consoles et 3600 gifs, je rajoute 1 gif... rescan de 0 ou simple
@@ -2681,6 +2698,19 @@ static void cacheBuilderFinishCurrentDir()
 static void cacheBuilderStep()
 {
   if (g_cbState == CB_IDLE || g_cbState == CB_DONE) return;
+  // Pause complete si le DMD n'est plus en mode config (v83 -- question
+  // utilisateur : la reprise de la lecture normale ("Reprendre DMD")
+  // pendant qu'un scan est en cours laissait cacheBuilderStep() continuer
+  // a tourner sans condition sur le mode courant -- contention SD/heap
+  // avec la lecture GIF active, exactement ce que la restriction du
+  // prechauffage au mode config (RecalBox_DMD.ino) cherchait deja a
+  // eviter. g_sdOpInProgress (deja extern, deja mis a jour partout ou le
+  // DMD entre/sort du mode config, y compris webDmdResume()) est le
+  // signal fiable existant pour ca. Les handles ouverts (g_cbDirHandle/
+  // g_cbOutHandle) restent intentionnellement EN L'ETAT (pas fermes) --
+  // la construction reprend exactement ou elle en etait des que le DMD
+  // repasse en mode config, sans rien reperdre.
+  if (!g_sdOpInProgress) return;
   // Priorite absolue a un client web actif (v78) : un client connecte
   // signale une requete en cours (ou une connexion garder-vivante toute
   // recente) -- on saute ce pas entierement plutot que de le faire
