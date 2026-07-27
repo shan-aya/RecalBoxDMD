@@ -3,7 +3,39 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v77
+// Version actuelle : v78
+//
+// v78 — 2026-07-27 — safe-modify — Test reel v76/v77 (dossier Consoles) :
+//   donnees chiffrees decisives -- cout par entree FAT32 monte de ~7,6ms
+//   (debut) a ~438ms (entree 1480), TOUJOURS croissant (392s cumulees, pas
+//   termine). Confirme : aucun decoupage (deja teste 15 puis 5
+//   entrees/pas) ne peut plus compenser un cout PAR APPEL individuel
+//   devenu si eleve -- un seul openNextFile() peut a lui seul bloquer
+//   loop() plusieurs centaines de ms, non interruptible en cours de route.
+//   Decision utilisateur : exclure automatiquement les dossiers trop
+//   lents/gros du cache en tache de fond plutot que de continuer a
+//   chercher un decoupage plus fin (deja demontre insuffisant).
+//   Nouveau : CB_DIR_TIME_BUDGET_MS (60s) -- si la construction d'un
+//   dossier depasse ce budget, cacheBuilderExcludeCurrentDir() abandonne
+//   proprement (jette le .tmp partiel) et ecrit un marqueur "EXCLU" a la
+//   place du cache normal (GIF_CACHE_EXCLUDED_MARKER) -- ne sera plus
+//   jamais retente automatiquement (cacheBuilderAdvanceToNextDir() saute
+//   desormais les dossiers READY ET EXCLUDED). gifFilesCacheStatus()
+//   distingue les 3 etats (absent/pret/exclu) par lecture des seuls
+//   premiers octets du fichier cache, sans jamais tout charger.
+//   handleWebConfigListGifDirs() expose ce statut ("excluded":bool) ; JS
+//   affiche une 3e icone dediee (avertissement, non cliquable) sur les
+//   dossiers exclus, distincte du sablier (encore en attente) et du
+//   dossier ouvrable (pret). Limite connue et acceptee : un dossier exclu
+//   n'est plus navigable via cette page web (impossible de voir/gerer son
+//   contenu depuis MEDIA) -- gestion de ce cas via retrait de la carte SD
+//   sur PC, comme deja le cas pour d'autres operations lourdes sur ce
+//   projet.
+//   Ajoute aussi : priorite absolue a un client web connecte dans
+//   cacheBuilderStep() (saute le pas de construction entierement si un
+//   client est actif) -- ameliore la reactivite des AUTRES dossiers/pages
+//   pendant qu'un gros dossier est en cours de construction/exclusion.
+//   PAS ENCORE teste sur materiel reel.
 //
 // v77 — 2026-07-27 — safe-modify — Question utilisateur : le reboot cible
 //   est-il encore necessaire ? Reponse en creusant le code reel : OUI pour
@@ -1768,19 +1800,19 @@ sec_dirs:'&#x1F4C1; Dossiers / Images (/gifs/)',desc_dirs:'Cochez des dossiers p
 sec_del_playlist:'&#x1F5D1; Supprimer une playlist',lbl_playlist:'Playlist',btn_delete:'&#x1F5D1; Supprimer',
 sec_upload:'&#x1F4E4; Envoi GIF',desc_upload:'Ajoutez un fichier .gif directement depuis votre navigateur dans un dossier de /gifs/. Choisissez un dossier existant OU tapez un nouveau nom (créé automatiquement). &#x26A0;&#xFE0F; Pas fait pour transférer de nombreux fichiers (débit lent, risque d\'erreur d\'écriture) -- réservé à l\'ajout ponctuel de quelques fichiers. Pour un transfert consequent, retirez la carte SD et copiez-la depuis un PC.',placeholder_upload_dir:'ou nouveau dossier...',lbl_upload_file:'Fichiers .gif',btn_upload:'&#x1F4E4; Uploader',btn_stop:'&#x23F9; Arrêter',
 btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',
-no_file:'Aucun fichier',net_error:'Erreur réseau',msg_caching:'Mise en cache du contenu, patientez...',msg_select_image:'Sélectionnez au moins une image',msg_confirm_delete_images:'Supprimer ${0} image(s) de ${1} ?',msg_deleting:'Suppression...',msg_select_folder:'Choisissez au moins un dossier',msg_confirm_delete_folders:'Supprimer ${0} ?',msg_no_playlist_name:'Donnez un nom à la playlist',msg_generating:'Generation...',msg_select_playlist:'Sélectionnez une playlist',msg_confirm_delete_playlist:'Supprimer ${0} ?',msg_specify_dir:'Précisez un dossier cible',msg_select_gif:'Choisissez un fichier GIF',msg_select_gif_files:'Choisissez des fichiers .gif',msg_preparing_folder:'Preparation du dossier...',msg_cannot_create_folder:'Impossible de creer le dossier: ${0}',msg_net_error_folder:'Erreur reseau (creation dossier)',msg_uploading:'Upload...',msg_attempt:'tentative ${0}/${1}',msg_stopped_by_user:'Arrete par l\'utilisateur (${0}/${1})',msg_upload_fail:'ECHEC',msg_failures:'Echecs: ${0}',msg_upload_result:'${0}/${1} fichier(s) uploade(s)',msg_upload_result_fail:' -- echecs: ${0}',msg_confirm_reboot:'Redemarrer l\'ESP32 ?',msg_rebooting:'Redemarrage...',msg_dmd_resumed:'DMD repris',msg_updating_playlists:'Mise a jour des playlists...'},
+no_file:'Aucun fichier',net_error:'Erreur réseau',msg_caching:'Mise en cache du contenu, patientez...',msg_select_image:'Sélectionnez au moins une image',msg_confirm_delete_images:'Supprimer ${0} image(s) de ${1} ?',msg_deleting:'Suppression...',msg_select_folder:'Choisissez au moins un dossier',msg_confirm_delete_folders:'Supprimer ${0} ?',msg_no_playlist_name:'Donnez un nom à la playlist',msg_generating:'Generation...',msg_select_playlist:'Sélectionnez une playlist',msg_confirm_delete_playlist:'Supprimer ${0} ?',msg_specify_dir:'Précisez un dossier cible',msg_select_gif:'Choisissez un fichier GIF',msg_select_gif_files:'Choisissez des fichiers .gif',msg_preparing_folder:'Preparation du dossier...',msg_cannot_create_folder:'Impossible de creer le dossier: ${0}',msg_net_error_folder:'Erreur reseau (creation dossier)',msg_uploading:'Upload...',msg_attempt:'tentative ${0}/${1}',msg_stopped_by_user:'Arrete par l\'utilisateur (${0}/${1})',msg_upload_fail:'ECHEC',msg_failures:'Echecs: ${0}',msg_upload_result:'${0}/${1} fichier(s) uploade(s)',msg_upload_result_fail:' -- echecs: ${0}',msg_confirm_reboot:'Redemarrer l\'ESP32 ?',msg_rebooting:'Redemarrage...',msg_dmd_resumed:'DMD repris',msg_updating_playlists:'Mise a jour des playlists...',msg_folder_excluded:'Dossier trop volumineux, non gere automatiquement'},
 en:{title:'RecalBox DMD - Media',h1:'Media &amp; Playlists',nav_basic:'&#x1F4A1; Display',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',
 sec_dirs:'&#x1F4C1; Folders / Images (/gifs/)',desc_dirs:'Check folders to generate a playlist or delete them. Click &#x1F4C2; to open a folder and manage its images individually.',btn_select_all:'Select all',btn_select_none:'Select none',back_to_folders:'&#x25C0; Back to folders',lbl_playlist_name:'Playlist name',placeholder_playlist_name:'e.g. MyPlaylist',btn_gen_playlist:'&#x2699; Generate playlist',btn_delete_sel:'&#x1F5D1; Delete selection',
 sec_del_playlist:'&#x1F5D1; Delete a playlist',lbl_playlist:'Playlist',btn_delete:'&#x1F5D1; Delete',
 sec_upload:'&#x1F4E4; GIF Upload',desc_upload:'Add a .gif file directly from your browser into a folder in /gifs/. Choose an existing folder OR type a new name (created automatically). &#x26A0;&#xFE0F; Not designed for transferring many files (slow throughput, risk of write errors) -- meant for occasionally adding a few files. For a large transfer, remove the SD card and copy from a PC instead.',placeholder_upload_dir:'or new folder...',lbl_upload_file:'.gif files',btn_upload:'&#x1F4E4; Upload',btn_stop:'&#x23F9; Stop',
 btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',
-no_file:'No files',net_error:'Network error',msg_caching:'Caching content, please wait...',msg_select_image:'Select at least one image',msg_confirm_delete_images:'Delete ${0} image(s) from ${1}?',msg_deleting:'Deleting...',msg_select_folder:'Select at least one folder',msg_confirm_delete_folders:'Delete ${0}?',msg_no_playlist_name:'Please name the playlist',msg_generating:'Generating...',msg_select_playlist:'Select a playlist',msg_confirm_delete_playlist:'Delete ${0}?',msg_specify_dir:'Please specify a target folder',msg_select_gif:'Select a GIF file',msg_select_gif_files:'Select .gif files',msg_preparing_folder:'Preparing folder...',msg_cannot_create_folder:'Unable to create folder: ${0}',msg_net_error_folder:'Network error (folder creation)',msg_uploading:'Uploading...',msg_attempt:'attempt ${0}/${1}',msg_stopped_by_user:'Stopped by user (${0}/${1})',msg_upload_fail:'FAILED',msg_failures:'Failures: ${0}',msg_upload_result:'${0}/${1} file(s) uploaded',msg_upload_result_fail:' -- failures: ${0}',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_updating_playlists:'Updating playlists...'},
+no_file:'No files',net_error:'Network error',msg_caching:'Caching content, please wait...',msg_select_image:'Select at least one image',msg_confirm_delete_images:'Delete ${0} image(s) from ${1}?',msg_deleting:'Deleting...',msg_select_folder:'Select at least one folder',msg_confirm_delete_folders:'Delete ${0}?',msg_no_playlist_name:'Please name the playlist',msg_generating:'Generating...',msg_select_playlist:'Select a playlist',msg_confirm_delete_playlist:'Delete ${0}?',msg_specify_dir:'Please specify a target folder',msg_select_gif:'Select a GIF file',msg_select_gif_files:'Select .gif files',msg_preparing_folder:'Preparing folder...',msg_cannot_create_folder:'Unable to create folder: ${0}',msg_net_error_folder:'Network error (folder creation)',msg_uploading:'Uploading...',msg_attempt:'attempt ${0}/${1}',msg_stopped_by_user:'Stopped by user (${0}/${1})',msg_upload_fail:'FAILED',msg_failures:'Failures: ${0}',msg_upload_result:'${0}/${1} file(s) uploaded',msg_upload_result_fail:' -- failures: ${0}',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_updating_playlists:'Updating playlists...',msg_folder_excluded:'Folder too large, not handled automatically'},
 es:{title:'RecalBox DMD - Medios',h1:'Medios y listas',nav_basic:'&#x1F4A1; Pantalla',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',
 sec_dirs:'&#x1F4C1; Carpetas / Imágenes (/gifs/)',desc_dirs:'Marque las carpetas para generar una lista o eliminarlas. Haga clic en &#x1F4C2; para abrir una carpeta y gestionar sus imágenes individualmente.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',back_to_folders:'&#x25C0; Volver a las carpetas',lbl_playlist_name:'Nombre de la lista',placeholder_playlist_name:'ej: MiLista',btn_gen_playlist:'&#x2699; Generar lista',btn_delete_sel:'&#x1F5D1; Eliminar selección',
 sec_del_playlist:'&#x1F5D1; Eliminar una lista',lbl_playlist:'Lista',btn_delete:'&#x1F5D1; Eliminar',
 sec_upload:'&#x1F4E4; Subir GIF',desc_upload:'Añada un archivo .gif desde su navegador a una carpeta en /gifs/. Elija una carpeta existente O escriba un nombre nuevo (se crea automáticamente). &#x26A0;&#xFE0F; No pensado para transferir muchos archivos (velocidad lenta, riesgo de error de escritura) -- reservado para añadir algunos archivos puntualmente. Para una transferencia importante, retire la tarjeta SD y cópiela desde un PC.',placeholder_upload_dir:'o nueva carpeta...',lbl_upload_file:'Archivos .gif',btn_upload:'&#x1F4E4; Subir',btn_stop:'&#x23F9; Detener',
 btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',
-no_file:'Ningún archivo',net_error:'Error de red',msg_caching:'Almacenando en caché el contenido, espere...',msg_select_image:'Seleccione al menos una imagen',msg_confirm_delete_images:'¿Eliminar ${0} imagen(es) de ${1}?',msg_deleting:'Eliminando...',msg_select_folder:'Elija al menos una carpeta',msg_confirm_delete_folders:'¿Eliminar ${0}?',msg_no_playlist_name:'Póngale un nombre a la lista',msg_generating:'Generando...',msg_select_playlist:'Seleccione una lista',msg_confirm_delete_playlist:'¿Eliminar ${0}?',msg_specify_dir:'Especifique una carpeta destino',msg_select_gif:'Seleccione un archivo GIF',msg_select_gif_files:'Seleccione archivos .gif',msg_preparing_folder:'Preparando carpeta...',msg_cannot_create_folder:'No se pudo crear la carpeta: ${0}',msg_net_error_folder:'Error de red (creación de carpeta)',msg_uploading:'Subiendo...',msg_attempt:'intento ${0}/${1}',msg_stopped_by_user:'Detenido por el usuario (${0}/${1})',msg_upload_fail:'ERROR',msg_failures:'Errores: ${0}',msg_upload_result:'${0}/${1} archivo(s) subido(s)',msg_upload_result_fail:' -- errores: ${0}',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_updating_playlists:'Actualizando listas...'}
+no_file:'Ningún archivo',net_error:'Error de red',msg_caching:'Almacenando en caché el contenido, espere...',msg_select_image:'Seleccione al menos una imagen',msg_confirm_delete_images:'¿Eliminar ${0} imagen(es) de ${1}?',msg_deleting:'Eliminando...',msg_select_folder:'Elija al menos una carpeta',msg_confirm_delete_folders:'¿Eliminar ${0}?',msg_no_playlist_name:'Póngale un nombre a la lista',msg_generating:'Generando...',msg_select_playlist:'Seleccione una lista',msg_confirm_delete_playlist:'¿Eliminar ${0}?',msg_specify_dir:'Especifique una carpeta destino',msg_select_gif:'Seleccione un archivo GIF',msg_select_gif_files:'Seleccione archivos .gif',msg_preparing_folder:'Preparando carpeta...',msg_cannot_create_folder:'No se pudo crear la carpeta: ${0}',msg_net_error_folder:'Error de red (creación de carpeta)',msg_uploading:'Subiendo...',msg_attempt:'intento ${0}/${1}',msg_stopped_by_user:'Detenido por el usuario (${0}/${1})',msg_upload_fail:'ERROR',msg_failures:'Errores: ${0}',msg_upload_result:'${0}/${1} archivo(s) subido(s)',msg_upload_result_fail:' -- errores: ${0}',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_updating_playlists:'Actualizando listas...',msg_folder_excluded:'Carpeta demasiado grande, no gestionada automaticamente'}
 };
 let currentLang='fr';
 function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||PAGE_I18N.fr[k]||k;}
@@ -1839,21 +1871,23 @@ function renderDirs(dirs){
   const list=document.getElementById('dirList');list.innerHTML='';
   const sel=document.getElementById('uploadDir');sel.innerHTML='';
   const opt=document.createElement('option');opt.value='';opt.textContent='---';sel.appendChild(opt);
-  let anyNotCached=false;
+  let anyPending=false;
   dirs.forEach(d=>{
     const name=(d&&typeof d==='object')?d.name:d;
     const cached=(d&&typeof d==='object')?!!d.cached:true;
-    if(!cached)anyNotCached=true;
+    const excluded=(d&&typeof d==='object')&&!!d.excluded;
+    if(!cached&&!excluded)anyPending=true; // exclu = etat final, ne redeclenche plus le poll
     const row=document.createElement('label');
-    const icon=cached
-      ?'<span class="open" onclick="event.preventDefault();openFolder(\''+name+'\')">&#x1F4C2;</span>'
-      :'<span class="open" style="opacity:.4;cursor:default" title="'+tr('msg_caching')+'">&#x23F3;</span>';
+    let icon;
+    if(cached)icon='<span class="open" onclick="event.preventDefault();openFolder(\''+name+'\')">&#x1F4C2;</span>';
+    else if(excluded)icon='<span class="open" style="opacity:.4;cursor:default" title="'+tr('msg_folder_excluded')+'">&#x26A0;&#xFE0F;</span>';
+    else icon='<span class="open" style="opacity:.4;cursor:default" title="'+tr('msg_caching')+'">&#x23F3;</span>';
     row.innerHTML='<input type="checkbox" value="'+name+'"><span class="name">&#x1F4C1; '+name+'</span>'+icon;
     list.appendChild(row);
     const o=document.createElement('option');o.value=name;o.textContent=name;sel.appendChild(o);
   });
   if(_dirsPollTimer){clearTimeout(_dirsPollTimer);_dirsPollTimer=null;}
-  if(anyNotCached)_dirsPollTimer=setTimeout(loadDirs,4000);
+  if(anyPending)_dirsPollTimer=setTimeout(loadDirs,4000);
 }
 // loadDirs() et loadUploadDirs() appelaient chacun /lsgifdirs
 // independamment (2 scans SD + 2 parsings JSON pour la MEME donnee a
@@ -2306,11 +2340,31 @@ static bool scanGifDirsRaw(String &outNames)
 // ============================================
 static const char *GIF_CACHE_FILE = ".dmdcache";
 static const char *GIF_CACHE_VERSION = "V4"; // V4 (v75) : plus de comptage de controle dans l'en-tete
+// Marqueur ecrit a la place du cache normal quand un dossier depasse
+// CB_DIR_TIME_BUDGET_MS (v78) -- distinct de GIF_CACHE_VERSION pour ne
+// jamais etre confondu avec un vrai cache pret a servir.
+static const char *GIF_CACHE_EXCLUDED_MARKER = "EXCLU";
 
-static bool gifFilesCacheReady(const String &dirName)
+enum GifCacheStatus { GIFCACHE_MISSING, GIFCACHE_READY, GIFCACHE_EXCLUDED };
+
+// Distingue les 3 etats sans jamais charger tout le fichier -- seuls les
+// premiers octets (l'en-tete) suffisent a savoir de quel format il s'agit.
+static GifCacheStatus gifFilesCacheStatus(const String &dirName)
 {
-  return SD.exists(("/gifs/" + dirName + "/" + String(GIF_CACHE_FILE)).c_str());
+  File f = SD.open(("/gifs/" + dirName + "/" + String(GIF_CACHE_FILE)).c_str());
+  if (!f) return GIFCACHE_MISSING;
+  char buf[8];
+  size_t n = f.readBytes(buf, sizeof(buf) - 1);
+  buf[n] = 0;
+  f.close();
+  String head(buf);
+  if (head.startsWith(String(GIF_CACHE_EXCLUDED_MARKER) + "|")) return GIFCACHE_EXCLUDED;
+  if (head.startsWith(String(GIF_CACHE_VERSION) + "|")) return GIFCACHE_READY;
+  return GIFCACHE_MISSING; // format inconnu/perime -- traite comme absent, sera reconstruit
 }
+
+static bool gifFilesCacheReady(const String &dirName) { return gifFilesCacheStatus(dirName) == GIFCACHE_READY; }
+static bool gifFilesCacheExcluded(const String &dirName) { return gifFilesCacheStatus(dirName) == GIFCACHE_EXCLUDED; }
 
 static bool readGifFilesCache(const String &dirName, String &outNames)
 {
@@ -2319,7 +2373,7 @@ static bool readGifFilesCache(const String &dirName, String &outNames)
   String content = f.readString();
   f.close();
   String prefix = String(GIF_CACHE_VERSION) + "|";
-  if (!content.startsWith(prefix)) return false; // format d'un ancien firmware/branche -- ignore, sera reconstruit
+  if (!content.startsWith(prefix)) return false; // format d'un ancien firmware/branche, ou marqueur d'exclusion -- ignore
   outNames = content.substring(prefix.length());
   return true;
 }
@@ -2381,12 +2435,44 @@ static int g_cbTotalDirs = 0, g_cbDoneDirs = 0;
 static const int CB_MAX_ENTRIES_PER_STEP = 5;
 static int g_cbEntriesThisDir = 0;
 static unsigned long g_cbDirStartMs = 0;
+// v78 -- test reel (Consoles) : le cout par entree grimpe de ~7,6ms au
+// debut a ~438ms a l'entree 1480, TOUJOURS en train de croitre (392s
+// cumulees et pas termine). Aucun decoupage ne peut plus compenser un
+// cout PAR APPEL individuel devenu si eleve -- decision utilisateur :
+// plutot que de laisser un dossier grignoter indefiniment le temps de
+// boucle (et donc la reactivite de TOUTES les pages web), lui donner un
+// budget de temps total ; au-dela, abandon propre et marquage "exclu" du
+// cache automatique (voir cacheBuilderExcludeCurrentDir()) -- ne sera plus
+// jamais retente automatiquement (evite de reperdre le meme temps a
+// chaque nouvelle passe). Valeur choisie empiriquement (petits/moyens
+// dossiers observes terminant en quelques secondes, tres au-dela de ce
+// budget) -- a ajuster si l'usage reel montre un seuil plus juste.
+static const unsigned long CB_DIR_TIME_BUDGET_MS = 60000;
 
 static void cacheBuilderAbortCurrentDir()
 {
   if (g_cbWriter) { delete g_cbWriter; g_cbWriter = nullptr; }
   if (g_cbOutHandle) g_cbOutHandle.close();
   if (g_cbDirHandle) g_cbDirHandle.close();
+}
+
+// Abandonne proprement le dossier en cours (budget de temps depasse,
+// cf. CB_DIR_TIME_BUDGET_MS) : jette le .tmp partiel, ecrit un marqueur
+// d'exclusion a la place du cache normal -- pour ne plus jamais retenter
+// ce dossier automatiquement. Le dossier reste visible dans la liste mais
+// n'est plus ouvrable (icone dediee cote JS, voir handleWebConfigListGifDirs()).
+static void cacheBuilderExcludeCurrentDir()
+{
+  if (g_cbWriter) { g_cbWriter->flush(); delete g_cbWriter; g_cbWriter = nullptr; }
+  if (g_cbOutHandle) g_cbOutHandle.close();
+  if (g_cbDirHandle) g_cbDirHandle.close();
+  if (SD.exists(g_cbTmpPath.c_str())) SD.remove(g_cbTmpPath.c_str());
+  if (SD.exists(g_cbCachePath.c_str())) SD.remove(g_cbCachePath.c_str());
+  File marker = SD.open(g_cbCachePath.c_str(), FILE_WRITE);
+  if (marker) { marker.print(String(GIF_CACHE_EXCLUDED_MARKER) + "|"); marker.close(); }
+  Serial.println("[CACHEBUILD] " + g_cbCurDir + " : EXCLU (budget " + String(CB_DIR_TIME_BUDGET_MS) + "ms depasse a " + String(g_cbEntriesThisDir) + " entrees), maxalloc=" + String(ESP.getMaxAllocHeap()));
+  g_cbDoneDirs++;
+  g_cbState = CB_NEXT_DIR;
 }
 
 // (Re)demarre une passe complete : a appeler au moment d'entrer en mode
@@ -2417,7 +2503,10 @@ static void cacheBuilderAdvanceToNextDir()
     String name = (comma < 0) ? g_cbDirsList.substring(g_cbDirsPos) : g_cbDirsList.substring(g_cbDirsPos, comma);
     g_cbDirsPos = (comma < 0) ? (int)g_cbDirsList.length() + 1 : comma + 1;
     if (name.length() == 0) { if (comma < 0) break; else continue; }
-    if (gifFilesCacheReady(name)) {
+    GifCacheStatus st = gifFilesCacheStatus(name);
+    if (st == GIFCACHE_READY || st == GIFCACHE_EXCLUDED) {
+      // EXCLUDED : deja tente, budget depasse -- ne jamais retenter
+      // automatiquement (voir cacheBuilderExcludeCurrentDir()).
       g_cbDoneDirs++;
       if (comma < 0) break; else continue;
     }
@@ -2468,6 +2557,15 @@ static void cacheBuilderFinishCurrentDir()
 // web reactive pendant la construction.
 static void cacheBuilderStep()
 {
+  if (g_cbState == CB_IDLE || g_cbState == CB_DONE) return;
+  // Priorite absolue a un client web actif (v78) : un client connecte
+  // signale une requete en cours (ou une connexion garder-vivante toute
+  // recente) -- on saute ce pas entierement plutot que de le faire
+  // attendre derriere un scan potentiellement degrade. Heuristique
+  // volontairement large (un simple keep-alive sans requete active fait
+  // aussi sauter un tour) : mieux vaut retarder legerement la
+  // construction du cache que de rendre une page injoignable.
+  if (webServer && webServer->client().connected()) return;
   switch (g_cbState) {
     case CB_IDLE:
     case CB_DONE:
@@ -2496,6 +2594,10 @@ static void cacheBuilderStep()
       // ralentissement observe vient bien du cout FAT32 deja documente
       // (degrade avec la profondeur) plutot que d'un blocage reel.
       Serial.println("[CACHEBUILD] " + g_cbCurDir + " : " + String(g_cbEntriesThisDir) + " entrees vues, pas=" + String(millis() - stepStart) + "ms, total=" + String(millis() - g_cbDirStartMs) + "ms");
+      if (millis() - g_cbDirStartMs > CB_DIR_TIME_BUDGET_MS) {
+        cacheBuilderExcludeCurrentDir();
+        return;
+      }
       // Statut d'activite sur le DMD (meme mecanisme que les progressions
       // deja existantes ailleurs sur ce projet) -- un appel par pas, pas
       // par entree, pour ne pas redessiner l'ecran trop souvent.
@@ -2516,13 +2618,15 @@ static void handleWebConfigListGifDirs()
     webServer->client().setTimeout(3000);
     return;
   }
-  // Chaque dossier est envoye comme objet {"name":...,"cached":bool} au
-  // lieu d'une simple chaine -- demande utilisateur : icone d'ouverture
-  // seulement sur les dossiers deja en cache, sablier inactif sinon. Le
-  // statut vient d'un simple SD.exists() par dossier (pas d'enumeration),
-  // donc reste bon marche meme repete a chaque chargement de page.
+  // Chaque dossier est envoye comme objet {"name":...,"cached":bool,
+  // "excluded":bool} au lieu d'une simple chaine -- demande utilisateur :
+  // icone d'ouverture seulement sur les dossiers deja en cache, sablier
+  // inactif sinon, icone dediee si exclu (trop lent/gros, v78). Le statut
+  // vient d'une lecture des seuls premiers octets du fichier cache (pas
+  // d'enumeration du dossier), donc reste bon marche meme repete a chaque
+  // chargement de page.
   String json;
-  json.reserve(names.length() + 64);
+  json.reserve(names.length() + 96);
   json += "[";
   bool first = true;
   int start = 0;
@@ -2530,10 +2634,13 @@ static void handleWebConfigListGifDirs()
     int comma = names.indexOf(',', start);
     String name = (comma < 0) ? names.substring(start) : names.substring(start, comma);
     if (name.length() > 0) {
+      GifCacheStatus st = gifFilesCacheStatus(name);
       json += (first ? "{\"name\":\"" : ",{\"name\":\"");
       json += name;
       json += "\",\"cached\":";
-      json += gifFilesCacheReady(name) ? "true" : "false";
+      json += (st == GIFCACHE_READY) ? "true" : "false";
+      json += ",\"excluded\":";
+      json += (st == GIFCACHE_EXCLUDED) ? "true" : "false";
       json += "}";
       first = false;
     }
