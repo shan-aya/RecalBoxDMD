@@ -1,1378 +1,9 @@
-// ============================================
+﻿// ============================================
 // web_config.h — Interface web de configuration
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v92
-//
-// v92 — 2026-07-28 — safe-modify — Comparaison reelle avec l'ancienne
-//   version pre-heap-crise (RecalBox_DMDv10_scriptsRB, flashee et testee par
-//   l'utilisateur : upload vers dossier existant reussi du premier coup, SANS
-//   reboot, SANS garde heap) : le code bas niveau (SD.open/openNextFile pour
-//   lister, mkdir+fichier temoin+SD.open(FILE_WRITE) pour uploader) est
-//   quasi identique entre les 2 versions, et setupWebConfig() enregistre le
-//   MEME nombre de routes (25) -- donc PAS une difference d'infrastructure.
-//   Vraie difference trouvee : l'ancienne version fait UNE SEULE requete par
-//   upload (direct vers /upload) ; la version actuelle en fait 3-4
-//   (/create-folder, /lsgifdirs de rafraichissement AVANT l'upload,
-//   /dmd-pause de progression, /upload, /add-to-playlists-batch, /lsgifdirs
-//   de rafraichissement APRES l'upload) -- et le diagnostic v90 avait deja
-//   mesure un cout heap fixe non recupere par cycle requete/reponse. Fix :
-//   MEDIA JS (uploadGif()) ne rafraichit plus la liste des dossiers apres
-//   /create-folder QUE si un dossier a reellement ete cree ("OK: cree", pas
-//   "OK: existant") ; le rafraichissement systematique de FIN d'upload est
-//   retire entierement (uploader des fichiers ne change jamais l'ensemble
-//   des noms de dossiers affiches -- c'etait exactement ce /lsgifdirs de fin
-//   qui echouait "heap critique, liste vide" en test reel, faisant croire a
-//   une disparition de la liste). L'instrumentation diagnostic v90
-//   (scanGifDirsRaw) et le retry-apres-delai v91 (UPLOAD_FILE_START) sont
-//   conserves pour ce test -- objectif : verifier qu'un upload vers un
-//   dossier existant ne declenche plus qu'UN SEUL /lsgifdirs (celui du
-//   chargement de page) au lieu de 3. PAS ENCORE teste sur materiel reel.
-//
-// v91 — 2026-07-28 — safe-modify — Suite du diagnostic v90 (voir memoire
-//   projet) : les logs heap par-entree ajoutes dans scanGifDirsRaw() ont
-//   montre que le scan lui-meme est quasi neutre en heap sur toute sa duree
-//   (perte nette 0-512 octets, PAS des milliers) et que les creux de
-//   plusieurs Ko observes en cours de route (ex. entrees 12/19, memes
-//   positions dans les 2 scans) sont TRANSITOIRES -- resorbes 1 a 4
-//   iterations plus tard, probablement un buffer de lecture bloc SD/FATFS.
-//   Fait cle : le maxalloc=4596 vu lors des 3 refus d'upload consecutifs
-//   (UPLOAD_FILE_START, garde heap<6000) n'etait PAS non plus permanent -- le
-//   scan de rafraichissement automatique juste apres a redemarre a 12276,
-//   quasiment le niveau d'avant l'upload (12788). Hypothese testee : ce
-//   garde-fou intercepte un creux transitoire (parsing multipart de la
-//   requete POST entrante, pas encore identifie precisement -- lib
-//   WebServer/lwIP, pas notre code), pas un etat de fragmentation stable.
-//   Fix teste : si maxalloc<6000 a l'entree d'UPLOAD_FILE_START, attendre
-//   10ms et recontroler avant de refuser pour de bon (au lieu de refuser
-//   immediatement). Logs ajoutes (avant/apres le delay) pour confirmer sur
-//   le prochain test reel si le creux se resorbe effectivement a ce point
-//   precis. PAS ENCORE teste sur materiel reel.
-//
-// v90 — 2026-07-28 — safe-modify — DIAGNOSTIC TEMPORAIRE (a retirer une fois
-//   la cause confirmee). Test reel post-fusion master (v89) : upload d'un
-//   fichier vers un dossier /gifs PRE-EXISTANT (donc /create-folder prend le
-//   chemin court, aucune ecriture) echoue quand meme "heap critique,
-//   maxalloc=4596" AVANT que l'upload ait ouvert le moindre fichier -- entre
-//   les 2 derniers /lsgifdirs reussis (maxalloc 12788) et ce refus, seul un
-//   /dmd-pause (dessin GFX pur, aucun acces SD) a eu lieu. Le fix
-//   setvbuf/fopen() deja identifie pour la fuite ~4200/GIF (malloc cache de
-//   4096 octets par fopen() de FICHIER, voir memoire projet) ne concerne que
-//   la LECTURE/ECRITURE de fichiers, pas l'enumeration de dossiers -- ne
-//   suffit donc probablement pas a expliquer cette perte. Hypothese non
-//   confirmee : scanGifDirsRaw() ouvre /gifs et chaque sous-dossier via
-//   SD.open()/openNextFile() (std::make_shared<VFSFileImpl> par appel, voir
-//   vfs_api.cpp), meme pour une entree DOSSIER ou setvbuf n'est pas
-//   declenche -- de nombreux petits cycles alloc/free pourraient fragmenter
-//   le tas sans qu'aucun ne "fuie" individuellement. Logs heap ajoutes
-//   avant/apres SD.open("/gifs"), a CHAQUE entree (sur/gifs, jamais plus
-//   d'une trentaine de dossiers, cout de log negligeable ici), et avant/
-//   apres dir.close() -- objectif : isoler precisement ou part le heap sur
-//   un scan qui reussit ("OK") avant de toucher au code.
-//
-// v89 — 2026-07-27 — safe-modify — Demande utilisateur : accorder les
-//   libelles du menu d'accueil (WEB_CONFIG_MENU_HTML) avec les vrais titres
-//   des pages cibles. MEDIA ne gere plus aucune playlist depuis la refonte
-//   BASIC/MEDIA (v79/v199-200) -- son propre h1/nav dit juste "Medias" (fr),
-//   "Media" (en), "Medios" (es), mais le menu d'accueil affichait encore
-//   "Medias & Playlists". Retire "& Playlists" de menu_media/cont_media
-//   (fr/en/es). Au passage, BASIC dit bien "Affichage & Playlists" (pluriel)
-//   sur sa propre page mais le menu d'accueil disait "Affichage & Playlist"
-//   (singulier, fr/en) / "Pantalla y lista" (es) -- harmonise au pluriel
-//   partout. PAS ENCORE teste sur materiel reel.
-//
-// v88 — 2026-07-27 — safe-modify — Reintroduction du reboot cible en mode
-//   config, SYSTEMATIQUE (toutes les pages, pas seulement MEDIA). Cause
-//   reelle trouvee via logs Serial materiels reels fournis par l'utilisateur
-//   (deux boots complets jusqu'au blocage) : mettre en pause un GIF en cours
-//   (`webDmdPause()`, appele par `triggerWebConfigMode()`) provoque a lui
-//   seul un effondrement de `ESP.getMaxAllocHeap()` (~4596 octets), meme
-//   apres l'ouverture d'un seul GIF -- c'est de la FRAGMENTATION (le heap
-//   libre total AUGMENTE au meme instant), pas un manque de memoire brut, et
-//   ca passe sous le seuil de garde `< 6000` deja utilise par
-//   `scanGifDirsRaw()`. Symptomes observes : `/lsgifdirs` renvoie une liste
-//   vide en permanence pour le reste du boot ("heap critique"),
-//   NS_ERROR_NET_EMPTY_RESPONSE cote navigateur, DMD apparemment fige dans
-//   certains cas. Le retrait du reboot cible en v85 (justifie a l'epoque par
-//   "MEDIA ne fait plus que des operations dossier, pas besoin de la marge
-//   heap") s'est avere insuffisant : BASIC fait AUSSI un vrai scan SD
-//   (/lsgifdirs pour la generation de playlist, v79) et souffre de la meme
-//   fragmentation. Demande explicite utilisateur : reboot systematique pour
-//   TOUTES les pages de config, pas seulement MEDIA. Restaure : externs
-//   `g_playlistStartedThisBoot`/`requestReboot`, `sendRebootingPage()`,
-//   `triggerWebConfigMode()` repasse de `void` a `bool` (retourne `false` si
-//   un reboot a deja ete declenche et la reponse deja envoyee -- l'appelant
-//   doit alors s'arreter immediatement sans envoyer sa propre reponse). Les
-//   6 points d'appel (handleDmdOpen + les 5 handlers de page) verifient
-//   desormais la valeur de retour via `if (!triggerWebConfigMode(...))
-//   return;`. Cote .ino : restauration a l'identique de
-//   `g_skipPlaylistForConfig`/`force_config_boot` (config.ini),
-//   `g_playlistStartedThisBoot`, `requestReboot`, et du bloc de boot dedie
-//   qui saute entierement la playlist/l'ouverture de GIF quand le flag est
-//   pose. Le reste du retrait v85 (pas de cache par fichier, pas de
-//   navigation/suppression fichier par fichier) reste inchange. PAS ENCORE
-//   teste sur materiel reel.
-//
-//
-// v87 — 2026-07-27 — safe-modify — Demande utilisateur : la generation de
-//   playlist (liste de dossiers a cocher, nom, bouton) doit etre separee
-//   graphiquement de la selection de la playlist active (qui reste juste
-//   sous la section Affichage). Section "Playlist" (sec_playlist) ne garde
-//   plus que le choix de la playlist par defaut + lecture aleatoire.
-//   Nouvelle section separee "Gestion des playlists" (sec_manage_playlists,
-//   nouvelle cle i18n remplace sec_gen_playlist devenue inutilisee) :
-//   generation ET suppression de playlist, regroupees ensemble (toutes
-//   deux des actions de GESTION de fichiers playlist, distinctes du choix
-//   de lecture). PAS ENCORE teste sur materiel reel.
-//
-//
-// v86 — 2026-07-27 — safe-modify — Bug reel confirme par l'utilisateur :
-//   aucun dossier affiche dans la section generation de playlist (BASIC).
-//   Cause trouvee : `loadGenDirs()` (v79) etait appelee en PARALLELE de la
-//   sequence `fetch('/lang')...` au chargement de la page, au lieu d'etre
-//   enchainee apres -- exactement la classe de bug deja documentee et
-//   corrigee sur MEDIA via `queuedFetch()` (v45, memoire projet) : le
-//   WebServer ESP32 ne traite qu'une requete a la fois, des fetch()
-//   concurrents corrompent silencieusement l'une des reponses. BASIC n'a
-//   pas de `queuedFetch()` (page plus simple, jusqu'ici sans besoin) --
-//   fix minimal : `loadConfig()` retourne desormais sa promesse, et
-//   `loadGenDirs()` est chainee en dernier (`.then(loadGenDirs)`) apres
-//   /lang PUIS /load, au lieu de partir en parallele. PAS ENCORE teste sur
-//   materiel reel.
-//
-// v85 — 2026-07-27 — safe-modify — Pivot majeur, decision utilisateur :
-//   retrait complet de la navigation/suppression de fichiers INDIVIDUELS
-//   dans un dossier depuis MEDIA (le fait que certains dossiers soient
-//   accessibles et d'autres non selon leur statut de cache posait un
-//   probleme d'experience utilisateur -- remplacement envisage : outil PC
-//   pour composer des playlists personnalisees, GIF par GIF, a etudier
-//   separement, pas commence). Retires : tout le sous-systeme de cache
-//   /gifs par dossier (v75-v84 en integralite -- GifCacheStatus,
-//   gifFilesCacheStatus/Ready/Excluded, readGifFilesCache,
-//   BufferedCacheWriter, toute la machine a etats cacheBuilder*, format
-//   V5 horodate) ; handleWebConfigListGifFiles() + route /lsgiffiles ;
-//   handleWebConfigDeleteFiles() + route /delete-files ; le mecanisme de
-//   reboot cible mode config (triggerWebConfigMode() simplifie, plus de
-//   parametre allowReboot, plus jamais de reboot -- g_skipPlaylistForConfig/
-//   force_config_boot/sendRebootingPage()/requestReboot retires cote .ino).
-//   Verifie explicitement (question utilisateur) que ni le reboot MQTT
-//   CMD_REBOOT (Recalbox) ni celui de la page AP (handleWebConfigSaveAP())
-//   n'en dependaient. Cote MEDIA : plus d'icone d'ouverture de dossier, la
-//   liste redevient une simple selection de dossiers (creer/supprimer/
-//   uploader uniquement) -- la suppression de DOSSIERS ENTIERS reste
-//   disponible (confirme avec l'utilisateur, distincte de la suppression
-//   de fichiers individuels retiree). handleWebConfigListGifDirs() garde
-//   scanGifDirsRaw() (liste des noms de dossiers, jamais mise en cache,
-//   n'a jamais souffert de la degradation FAT32 qui ne touchait que
-//   l'enumeration du CONTENU d'un dossier) mais ne renvoie plus de statut
-//   cached/excluded (simple tableau de noms). PAS ENCORE teste sur
-//   materiel reel.
-//
-// v84 — 2026-07-27 — safe-modify — Question utilisateur : un cache genere
-//   hors ESP32 (outil PC modifie) serait-il detecte comme perime, et de
-//   combien de fichiers ? Verification (v83) : NON, aucune detection.
-//   Recherche menee (agent Explore) sur le code source de la lib SD
-//   ESP32 (arduino-esp32 core 3.3.11, FS.h/vfs_api.cpp) : File::
-//   getLastWrite() delegue a un stat() POSIX brut, SANS distinction
-//   fichier/dossier -- donc utilisable sur un dossier pour connaitre son
-//   horodatage de derniere modification en cout CONSTANT (pas
-//   d'enumeration). Format de cache V4 -> V5 : en-tete etendu avec un
-//   horodatage dossier a largeur FIXE (GIF_CACHE_MTIME_WIDTH=10, permet
-//   une reecriture en place via seek()+"r+" sans jamais toucher au reste
-//   du fichier). gifFilesCacheStatus() compare desormais l'horodatage
-//   stocke a l'horodatage REEL du dossier (File::getLastWrite()) : un
-//   cache dont l'horodatage ne correspond plus (deplace/genere hors ESP32,
-//   ou dossier modifie par un chemin qui aurait echappe a l'invalidation
-//   explicite) est traite comme absent et reconstruit. cacheBuilderAdvance
-//   ToNextDir() capture l'horodatage au demarrage d'un scan et l'ecrit
-//   dans l'en-tete ; l'ajout incremental (v82) reecrit ce champ en place
-//   apres coup (sinon le cache tout juste mis a jour se croirait perime
-//   des la prochaine lecture). Ne repond PAS a la question du "delta"
-//   (combien de fichiers en plus/moins) -- seulement perime oui/non ;
-//   un delta precis necessiterait soit un rescan complet, soit que
-//   l'outil externe fournisse lui-meme la liste complete (le cache externe
-//   remplace alors integralement l'ancien, meme principe qu'un rebuild
-//   ESP32). PAS ENCORE teste sur materiel reel -- fiabilite du timestamp
-//   FAT sur repertoire confirmee par lecture de code, jamais verifiee en
-//   conditions reelles sur cette carte SD/ce materiel.
-//
-// v83 — 2026-07-27 — safe-modify — Question utilisateur ("si l'utilisateur
-//   quitte la page web on doit repartir de zero ?") : reponse verifiee --
-//   NON, l'etat de la machine a etats est entierement cote ESP32 (variables
-//   globales), independant de toute connexion navigateur ; fermer la page
-//   n'affecte rien (et accelere meme la construction, puisque le garde-fou
-//   "client web actif" de v78 ne s'applique plus). En revanche, question
-//   a fait remarquer un vrai gap adjacent : cacheBuilderStep() n'avait
-//   AUCUNE condition sur le mode courant du DMD -- si l'utilisateur
-//   cliquait "Reprendre DMD" (retour lecture normale) pendant qu'un scan
-//   etait en cours, la construction continuait en tache de fond CONCURREM
-//   MENT a la lecture GIF active, exactement la contention SD/heap que la
-//   restriction du prechauffage au mode config (RecalBox_DMD.ino) visait
-//   deja a eviter. cacheBuilderStep() se met desormais en PAUSE complete
-//   (aucun etat touche, juste return immediat) tant que g_sdOpInProgress
-//   est faux -- reprend exactement ou elle en etait des que le DMD
-//   repasse en mode config. PAS ENCORE teste sur materiel reel.
-//
-// v82 — 2026-07-27 — safe-modify — Question utilisateur : "j'ai scanne
-//   Consoles et 3600 gifs, je rajoute 1 gif... rescan de 0 ou simple
-//   ajout d'1 element ?" Reponse en verifiant le code : c'etait un rescan
-//   complet -- handleWebConfigAddToPlaylistsBatch() supprimait
-//   INCONDITIONNELLEMENT tout le .dmdcache existant puis relancait la
-//   machine a etats, qui reconstruisait le dossier ENTIER depuis l'entree
-//   0 (les 3600 fichiers deja connus reenumeres), meme pour un seul
-//   fichier ajoute. Sur un dossier degrade FAT32 (des centaines de ms par
-//   entree en profondeur, deja confirme), ca voulait dire plusieurs
-//   minutes de scan reperdues pour chaque upload individuel.
-//   Nouveau : si le cache du dossier est deja pret (V4, valide), les noms
-//   nouvellement uploades (deja connus par cette fonction, recus du JS)
-//   sont ajoutes directement a la fin du fichier existant (SD.open(...,
-//   FILE_APPEND)) -- cout quasi nul, proportionnel au nombre de NOUVEAUX
-//   fichiers seulement, jamais au contenu deja present. La suppression de
-//   fichier reste une invalidation complete (cas moins frequent, retrouver
-//   la position exacte d'un nom pour le retirer serait plus complexe).
-//   PAS ENCORE teste sur materiel reel.
-//
-// v81 — 2026-07-27 — safe-modify — Question utilisateur : un cacheBuild
-//   interrompu reprend ou est perdu ? Verification du code reel : les
-//   dossiers DEJA termines (.dmdcache final ecrit) sont toujours preserves
-//   (jamais reconstruits inutilement). Mais le dossier ACTIVEMENT en cours
-//   de scan au moment d'une invalidation etait TOUJOURS perdu (redemarre a
-//   zero), meme quand l'invalidation concernait un dossier totalement
-//   different (upload/suppression/creation ailleurs) -- cacheBuilderStart()
-//   abandonnait sans condition le scan en cours. Sur un gros dossier
-//   (Consoles, Arcade...) deja en cours depuis plusieurs minutes, des
-//   actions web frequentes sur d'autres dossiers pouvaient le faire
-//   recommencer indefiniment sans jamais aboutir. cacheBuilderStart() ne
-//   touche plus au dossier en cours de scan (CB_SCANNING) : rafraichit
-//   seulement la liste des dossiers a traiter APRES lui. PAS ENCORE teste
-//   sur materiel reel.
-//
-// v80 — 2026-07-27 — safe-modify — Question utilisateur : un dossier
-//   ajoute manuellement (carte SD retiree/modifiee sur PC) est-il detecte
-//   et mis en cache ? Reponse en verifiant le code reel : OUI si le
-//   passage par MEDIA declenche le reboot cible (cas courant, playlist
-//   active) -- cacheBuilderStart() est appelee au boot suivant. Mais faille
-//   trouvee : si MEDIA est atteinte SANS ce reboot (playlist vide au boot,
-//   tout premier demarrage, mode AP), la machine a etats ne demarrait
-//   JAMAIS pour toute la session -- un dossier ajoute manuellement restait
-//   bloque au sablier indefiniment. handleWebConfigMediaPage() appelle
-//   desormais aussi cacheBuilderStart() directement (si IDLE/DONE
-//   uniquement -- jamais en cours de scan, pour ne pas perdre la
-//   progression d'un gros dossier deja en route). PAS ENCORE teste sur
-//   materiel reel.
-//
-// v79 — 2026-07-27 — safe-modify — Demande utilisateur : separer la
-//   gestion des PLAYLISTS (generer/supprimer) de la gestion PHYSIQUE des
-//   fichiers/dossiers (ajout/suppression, reservee a MEDIA). BASIC avait
-//   deja une section "Playlist" (playlist par defaut, lecture aleatoire,
-//   suppression -- deletePlaylist()/fillPlaylists() deja presents) : y
-//   ajoute la GENERATION (liste de dossiers a cocher -- noms uniquement,
-//   PAS d'icone d'ouverture/consultation du contenu, reservee a MEDIA
-//   selon precision utilisateur explicite -- + nom + bouton). Retire de
-//   MEDIA : ligne "Nom playlist"+bouton "Generer playlist", et toute la
-//   section "Supprimer une playlist" (redondante avec celle deja presente
-//   sur BASIC) -- generatePlaylist()/deletePlaylist()/loadPlaylists()
-//   supprimees de MEDIA, appel loadPlaylists() retire de la sequence
-//   d'init. h1 MEDIA "Medias & Playlists" -> "Medias" (seul) ;
-//   desc_dirs MEDIA mise a jour (ne mentionne plus generer une playlist).
-//   nav_basic (barre de navigation, dupliquee sur les 4 pages) renomme
-//   "Affichage" -> "Affichage & Playlists" (fr/en/es) pour refleter le
-//   nouveau perimetre. Aucun handler C++ modifie -- /lsgifdirs,
-//   /generate-playlist, /delete-playlist, /lsplaylists sont deja des
-//   routes generiques reutilisables depuis n'importe quelle page :
-//   changement HTML/JS pur. PAS ENCORE teste sur materiel reel.
-//
-// v78 — 2026-07-27 — safe-modify — Test reel v76/v77 (dossier Consoles) :
-//   donnees chiffrees decisives -- cout par entree FAT32 monte de ~7,6ms
-//   (debut) a ~438ms (entree 1480), TOUJOURS croissant (392s cumulees, pas
-//   termine). Confirme : aucun decoupage (deja teste 15 puis 5
-//   entrees/pas) ne peut plus compenser un cout PAR APPEL individuel
-//   devenu si eleve -- un seul openNextFile() peut a lui seul bloquer
-//   loop() plusieurs centaines de ms, non interruptible en cours de route.
-//   Decision utilisateur : exclure automatiquement les dossiers trop
-//   lents/gros du cache en tache de fond plutot que de continuer a
-//   chercher un decoupage plus fin (deja demontre insuffisant).
-//   Nouveau : CB_DIR_TIME_BUDGET_MS (60s) -- si la construction d'un
-//   dossier depasse ce budget, cacheBuilderExcludeCurrentDir() abandonne
-//   proprement (jette le .tmp partiel) et ecrit un marqueur "EXCLU" a la
-//   place du cache normal (GIF_CACHE_EXCLUDED_MARKER) -- ne sera plus
-//   jamais retente automatiquement (cacheBuilderAdvanceToNextDir() saute
-//   desormais les dossiers READY ET EXCLUDED). gifFilesCacheStatus()
-//   distingue les 3 etats (absent/pret/exclu) par lecture des seuls
-//   premiers octets du fichier cache, sans jamais tout charger.
-//   handleWebConfigListGifDirs() expose ce statut ("excluded":bool) ; JS
-//   affiche une 3e icone dediee (avertissement, non cliquable) sur les
-//   dossiers exclus, distincte du sablier (encore en attente) et du
-//   dossier ouvrable (pret). Limite connue et acceptee : un dossier exclu
-//   n'est plus navigable via cette page web (impossible de voir/gerer son
-//   contenu depuis MEDIA) -- gestion de ce cas via retrait de la carte SD
-//   sur PC, comme deja le cas pour d'autres operations lourdes sur ce
-//   projet.
-//   Ajoute aussi : priorite absolue a un client web connecte dans
-//   cacheBuilderStep() (saute le pas de construction entierement si un
-//   client est actif) -- ameliore la reactivite des AUTRES dossiers/pages
-//   pendant qu'un gros dossier est en cours de construction/exclusion.
-//   PAS ENCORE teste sur materiel reel.
-//
-// v77 — 2026-07-27 — safe-modify — Question utilisateur : le reboot cible
-//   est-il encore necessaire ? Reponse en creusant le code reel : OUI pour
-//   MEDIA (marge heap + exclusivite SD confirmees par les logs), mais le
-//   code declenchait ce reboot sur TOUTES les pages de config (root/BASIC/
-//   NETWORK/CLOCK/MEDIA), pas seulement MEDIA -- confirme problematique
-//   par l'utilisateur : un simple chargement de la racine (voire une
-//   autocompletion/prechargement du navigateur, qui peut emettre une
-//   vraie requete HTTP sans navigation deliberee) suffisait a interrompre
-//   une lecture en cours pour rebooter, alors que ces pages ne font aucun
-//   scan SD et n'ont donc aucun besoin de cette marge.
-//   triggerWebConfigMode() prend desormais un parametre allowReboot :
-//   root/BASIC/NETWORK/CLOCK passent false (jamais de reboot, juste le
-//   passage en mode config a l'ecran comme avant) ; seule MEDIA passe true
-//   (seule page qui construit reellement le cache). handleDmdOpen()
-//   (declenchement explicite, pas une simple navigation de page) garde
-//   aussi true. PAS ENCORE teste sur materiel reel.
-//
-// v76 — 2026-07-27 — safe-modify — BRANCHE DEV : test reel de v75 --
-//   "la page de config n'apparait pas ou avec bcp de difficulte". Le log
-//   montre le meme message DMD "Consoles (4/18)" repete en boucle SANS
-//   compteur d'entrees ni chronometrage (pas ajoutes dans cette nouvelle
-//   machine a etats, contrairement a l'ancien scanGifFilesInRaw() qui les
-//   avait) -- impossible de distinguer une vraie progression lente
-//   (attendue : cout FAT32 deja confirme degradant fortement en
-//   profondeur, jusqu'a ~244ms/entree en fin de dossier) d'un blocage
-//   reel. Deux changements : (1) CB_MAX_ENTRIES_PER_STEP 15 -> 5, pour
-//   reduire le pire cas de temps ou loop() ne peut pas rappeler
-//   webServer->handleClient() (hypothese principale du symptome : un pas
-//   de 15 entrees profondement degradees peut bloquer plusieurs secondes
-//   d'affilee) ; (2) chronometrage reel par pas (compteur d'entrees +
-//   duree du pas + duree cumulee depuis le debut du dossier) dans le log
-//   Serial, meme principe que l'ancienne instrumentation. PAS ENCORE
-//   reteste sur materiel reel.
-//
-// v75 — 2026-07-27 — safe-modify — BRANCHE DEV : le test reel de v74 a
-//   montre un probleme non anticipe -- sans aucun cache SD, CHAQUE
-//   navigation vers un dossier (meme un dossier deja visite, meme un
-//   dossier different) repaye le cout RAM complet d'un scan live. Log reel
-//   confirme : apres seulement 2-3 dossiers ouverts a la suite, le heap
-//   s'effondre (maxalloc 12276 -> 5876 -> 5620) et les dossiers suivants
-//   echouent en "heap critique" avec liste vide, meme sur des dossiers pas
-//   particulierement gros. Nouvelle approche demandee par l'utilisateur :
-//   reintroduire un cache PERSISTANT sur SD (comme avant v74) mais le
-//   CONSTRUIRE en tache de fond, PAS dans le thread d'une requete HTTP --
-//   discussion avec l'utilisateur, deux options : (a) vraie tache FreeRTOS
-//   separee avec mutex partage pour proteger l'acces SD concurrent, (b)
-//   machine a etats cooperative avancee depuis loop(), meme thread que le
-//   serveur web, sans mutex. Choix retenu : (b), plus simple et sans
-//   risque de race condition -- satisfait exactement le besoin "jamais
-//   deux acces SD simultanes" par construction (un seul thread), sans
-//   avoir besoin d'aucune synchronisation explicite.
-//   Suppression de scanGifFilesInRaw() (devenue inutile, remplacee par la
-//   machine a etats). Reintroduction de BufferedCacheWriter (retiree en
-//   v74) et d'un format de cache SIMPLIFIE (GIF_CACHE_VERSION "V4") : plus
-//   de comptage de controle pour verifier la fraicheur -- la validite est
-//   desormais "le fichier .dmdcache existe", et la fraicheur est garantie
-//   par une invalidation EXPLICITE (suppression du fichier + relance de la
-//   machine a etats) a chaque upload/suppression/creation de dossier,
-//   plutot que par une re-verification couteuse (comptage) a chaque
-//   lecture. Nouveau : handleWebConfigListGifDirs() indique desormais un
-//   statut "cached" par dossier (demande utilisateur : icone dossier
-//   ouvrable seulement si deja en cache, sablier inactif sinon, cote JS).
-//   handleWebConfigListGifFiles() ne fait PLUS JAMAIS de scan live : lit le
-//   cache s'il existe, renvoie "pas encore pret" sinon (statut HTTP 202).
-//   PAS ENCORE teste sur materiel reel.
-//
-// v74 — 2026-07-27 — safe-modify — BRANCHE DEV (dev/cache-externalisation),
-//   experimentation demandee par l'utilisateur suite a la confirmation
-//   chiffree (log reel v73) que FAT32 est O(n^2) sur les gros dossiers
-//   plats de ce materiel (Arcade, 1441 fichiers : ~352s de comptage +
-//   ~352s de scan, cout par entree passant de ~10ms a ~244ms au fil du
-//   parcours) -- la cause est le materiel/systeme de fichiers, pas le code
-//   d'ecriture (buffer, etc, deja optimises sans effet suffisant).
-//   Idee retenue : externaliser le SOUVENIR du resultat plutot que le scan
-//   lui-meme (impossible a deporter, c'est l'ESP32 seul qui a acces
-//   physique a la carte SD). Suppression COMPLETE du cache persistant sur
-//   SD (.dmdcache, fichier .tmp, renommage, BufferedCacheWriter,
-//   quickCountGifSubdirs()/quickCountGifFilesIn(), readListCacheFile(),
-//   invalidateGifDirsCache()/invalidateGifFilesCache(), warmUpGifCaches())
-//   -- toute cette mecanique existait pour rendre un second acces rapide,
-//   mais construisait/entretenait un etat sur la carte SD qui a ete la
-//   source de la quasi-totalite des bugs et lenteurs des dernieres
-//   iterations (v54 a v73). Remplacee par scanGifDirsRaw()/
-//   scanGifFilesInRaw() : un scan direct, UNE SEULE fois par requete (plus
-//   de double-passage comptage+scan), dont le resultat est envoye tel
-//   quel et jamais persiste sur la carte SD. C'est desormais le
-//   NAVIGATEUR qui retient (sessionStorage, cote JS) qu'il a deja recu la
-//   liste d'un dossier donne pour ne plus la redemander pendant la
-//   session -- memoire quasi illimitee cote PC/telephone, contrairement
-//   au heap ESP32. Consequence directe : plus de prechauffage bloquant de
-//   18 dossiers au boot (supprime de RecalBox_DMD.ino) -- chaque dossier
-//   n'est plus scanne qu'a la demande, une seule fois par session
-//   navigateur. Le cout du premier scan d'un GROS dossier (les fameuses
-//   ~12 minutes sur Arcade) N'EST PAS RESOLU par ce changement (le scan
-//   FAT32 lui-meme est intact) -- seul le double-scan et la complexite/
-//   fragilite du cache SD disparaissent. sessionStorage explicitement
-//   invalide cote JS apres toute operation qui modifie le contenu reel
-//   (upload, suppression fichier/dossier, creation dossier). A tester en
-//   conditions reelles : (1) confirmer que la navigation repetee dans un
-//   MEME dossier pendant une session ne re-declenche plus de scan SD ;
-//   (2) confirmer que upload/suppression rafraichissent bien la liste
-//   affichee sans necessiter un F5 ; (3) mesurer si le temps du PREMIER
-//   scan d'un gros dossier a diminue (attendu : environ moitie moins,
-//   gain du double-scan supprime, PAS un fix complet).
-//
-// v73 — 2026-07-27 — safe-modify — Retour utilisateur sur v72 : toujours
-//   aucun indicateur d'activite ni log de chronometrage visible -- "le log
-//   semble bloque". Ca change le diagnostic : v72 n'instrumentait que la
-//   boucle de scan PRINCIPALE (dans ensureGifFilesCache()), pas
-//   quickCountGifFilesIn()/quickCountGifSubdirs() -- appelees AVANT, pour
-//   connaitre le compte attendu (verification cache + en-tete), qui font
-//   leur PROPRE enumeration complete du dossier, entierement silencieuse.
-//   Si l'utilisateur ne voit jamais rien, il est probable que le blocage
-//   ait lieu DANS cette phase de comptage, jamais atteinte par les logs
-//   de v72. Ajout d'un message DMD immediat des l'entree dans
-//   quickCountGifFilesIn() (avant meme le premier openNextFile()) + log de
-//   progression/chronometrage toutes les 30 entrees, meme principe que
-//   quickCountGifSubdirs(). Si le prochain test ne montre TOUJOURS aucun
-//   message, meme pas celui-ci, ca voudra dire que le blocage a lieu
-//   encore plus tot (avant l'appel a quickCountGifFilesIn() lui-meme,
-//   possible probleme materiel/SPI plutot qu'un cout cumulatif par
-//   fichier). Compilation verifiee OK. PAS ENCORE reteste.
-//
-// v72 — 2026-07-27 — safe-modify — Test reel du buffer d'ecriture (v70) :
-//   toujours ECHEC -- 5 minutes sur le dossier Arcade, pas termine. Le
-//   buffer d'ecriture n'etait donc pas (ou pas seulement) la cause.
-//   Hypothese retenue, appuyee sur un fait deja documente sur ce projet
-//   (RecalBox_DMD.ino v3, 2026-06-24) : FAT32 est intrinsequement lent a
-//   enumerer au-dela de ~800 fichiers dans un meme dossier physique sur ce
-//   materiel -- deja rencontre et contourne a l'epoque pour la LECTURE de
-//   GIF (sous-dossiers alphabetiques A..Z/#), jamais applique a
-//   l'enumeration faite ici pour le cache. Si "Arcade" est un dossier
-//   plat avec des centaines de fichiers, l'enumeration elle-meme
-//   (openNextFile()/close() par entree) est probablement le vrai goulot,
-//   pas l'ecriture. En attendant de confirmer par log reel : (1) retire un
-//   appel redondant a quickCountGifFilesIn()/quickCountGifSubdirs()
-//   (enumeration complete du dossier appelee 2 fois avant meme le scan
-//   principal -- verification cache + en-tete -- desormais calculee une
-//   seule fois et reutilisee) ; (2) ajoute un indicateur d'activite sur le
-//   DMD toutes les 30 entrees (webDmdPause() avec compteur croissant --
-//   demande utilisateur, le DMD semblait fige/plante sans aucun retour
-//   pendant un scan long) ; (3) ajoute un log de chronometrage reel
-//   (millis() toutes les 30 entrees + debut/fin) pour confirmer ou
-//   infirmer l'hypothese FAT32 avec des chiffres plutot qu'une nouvelle
-//   supposition. Compilation verifiee OK. PAS ENCORE reteste -- si le log
-//   confirme un cout lineaire par entree incompressible (FAT32), il
-//   faudra reconsiderer l'organisation physique des fichiers (sous-
-//   dossiers alphabetiques, comme deja fait pour la lecture) plutot que
-//   d'optimiser encore le code de scan lui-meme.
-//
-// v71 — 2026-07-27 — safe-modify — Demande utilisateur : mise a jour des
-//   playlists apres upload (handleWebConfigAddToPlaylistsBatch()) signalee
-//   lente et silencieuse. Meme cause que le fix precedent (v70) mais cote
-//   lecture cette fois : la phase "quelles playlists referencent ce
-//   dossier" relisait CHAQUE playlist ligne par ligne
-//   (readStringUntil('\n') + delay(1) PAR LIGNE) -- tres lent des qu'une
-//   playlist contient beaucoup d'entrees. Remplace par une lecture
-//   bufferisee complete (readString(), deja utilisee plus bas dans la
-//   meme fonction pour la verification de doublons) + un seul indexOf().
-//   Nettoyage en meme temps : addFileToPlaylists() et
-//   handleWebConfigAddToPlaylists() (route /add-to-playlists singulier)
-//   confirmees mortes (plus aucun appelant JS depuis le passage au
-//   traitement par lot, v41) -- supprimees plutot que de corriger un bug
-//   dans du code inutilise. Silence corrige aussi : nouveau
-//   msg_updating_playlists (fr/en/es) affiche cote page ET mirrorte sur le
-//   DMD (/dmd-pause) avant l'appel a /add-to-playlists-batch, qui pouvait
-//   rester invisible pendant toute cette phase. Compilation verifiee OK.
-//   PAS ENCORE reteste.
-//
-// v70 — 2026-07-27 — safe-modify — Test reel du streaming direct (v67) :
-//   ECHEC -- fonctionnel mais beaucoup trop lent (12 minutes signalees sur
-//   le dossier Arcade, 1/18). Cause : un out.print() separe par nom de
-//   fichier (des centaines d'ecritures individuelles sur la carte SD pour
-//   un gros dossier, chacune avec sa propre latence physique) est
-//   dramatiquement plus lent qu'une seule grosse ecriture. Fix : nouvelle
-//   BufferedCacheWriter (buffer FIXE de 256 octets, jamais plus, donc
-//   toujours pas de cout RAM proportionnel au contenu -- l'acquis de v67
-//   est preserve) qui accumule plusieurs noms avant de les ecrire en un
-//   seul bloc sur la carte SD -- meilleur des deux mondes : heap constant
-//   ET peu d'ecritures physiques. Utilisee par ensureGifDirsCache() ET
-//   ensureGifFilesCache(). Compilation verifiee OK. PAS ENCORE reteste --
-//   objectif : les gros dossiers doivent se construire en quelques
-//   secondes, pas en minutes.
-//
-// v69 — 2026-07-27 — safe-modify — Demande utilisateur : message de la page
-//   d'attente pendant le reboot cible (sendRebootingPage()) mentionne
-//   desormais explicitement le demarrage du DMD ("Redemarrage en cours,
-//   demarrage du DMD, veuillez patienter...") -- le prechauffage complet
-//   des caches (v30) peut ajouter plusieurs secondes a l'attente, sans
-//   cette precision le delai pouvait sembler anormalement long. fr/en/es
-//   mis a jour. Compilation verifiee OK. PAS ENCORE reteste.
-//
-// v68 — 2026-07-27 — safe-modify — Demande utilisateur : warmUpGifCaches()
-//   affiche desormais "nom_dossier (i/total)" sur la ligne 2 de l'ecran
-//   DMD pendant le scan de chaque dossier, via webDmdPause() (mecanisme
-//   deja existant de dessin direct, immediat, sans attendre loop() -- voir
-//   RecalBox_DMD.ino meme date pour la ligne 1, dessinee une seule fois
-//   avant l'appel). Compilation verifiee OK. PAS ENCORE reteste.
-//
-// v67 — 2026-07-27 — safe-modify — Demande explicite utilisateur ("soit on
-//   parvient a gerer les gros dossiers, soit on abandonne -- 80% equivaut
-//   a non fonctionnel") : test reel du prechauffage (v64) confirmait 13/18
-//   dossiers en cache avec succes, mais 5 dossiers (probablement les plus
-//   gros : Arcade, Consoles, Halloween, Other, Pinball_Short) echouaient
-//   encore MEME au prechauffage (heap au maximum, ~22 Ko). Cause : le
-//   scan accumulait toujours un buffer `built` proportionnel au nombre de
-//   fichiers avant d'ecrire le cache -- pour un dossier de plusieurs
-//   centaines de GIFs, ce buffer seul suffit a depasser le budget heap,
-//   independamment de toutes les optimisations precedentes (tri retire,
-//   reserve reduit, chunked evite). Fix radical : ensureGifDirsCache()/
-//   ensureGifFilesCache() ecrivent desormais CHAQUE nom directement sur la
-//   carte SD (fichier .tmp) au fil du scan, sans jamais accumuler la liste
-//   en RAM -- le seul cout RAM par entree redevient une String temporaire
-//   (nom de fichier), liberee a chaque iteration, quelle que soit la
-//   taille du dossier. Le fichier .tmp n'est renomme vers le chemin final
-//   (SD.rename(), deja utilise ailleurs sur ce projet pour le contournement
-//   FAT32 lecture-seule) qu'en cas de succes complet -- jamais de cache
-//   partiel en place si le scan est interrompu. writeListCacheFile()
-//   devenue morte, supprimee. La lecture du cache (readListCacheFile(),
-//   servant les requetes une fois le cache construit) est inchangee --
-//   deja confirmee fonctionner meme sur de gros caches (lecture bufferisee
-//   en un seul bloc, pas de cout par entree). Compilation verifiee OK.
-//   PAS ENCORE reteste sur materiel reel -- objectif : les 5 dossiers en
-//   echec doivent desormais reussir, meme au prechauffage.
-//
-// v66 — 2026-07-27 — safe-modify — Suite discussion utilisateur sur le
-//   cout heap des multiples triggerWebConfigMode() par page (~1 Ko/appel
-//   mesure en conditions reelles, cf changelog v57/v60/v61). Proposition
-//   initiale (page d'accueil comme point d'entree strict, sous-pages sans
-//   triggerWebConfigMode()) ecartee : casserait la navigation directe
-//   entre BASIC/NETWORK/CLOCK/MEDIA (barre de nav existante, demande
-//   explicite anterieure) et un F5/favori sur une sous-page -- un
-//   WebServer ESP32 est fondamentalement sans etat, "interdire" l'acces
-//   direct demanderait un vrai suivi de session, fragile. Alternative plus
-//   simple retenue : triggerWebConfigMode() court-circuite desormais
-//   webDmdPause()/webDmdSetMainMsg() si g_sdOpInProgress est deja vrai (le
-//   DMD est deja dans l'etat vise -- meme IP, meme message -- reappliquer
-//   les memes valeurs ne changerait rien a l'affichage). Meme economie
-//   heap que la proposition initiale, sans toucher a l'architecture de
-//   navigation : chaque page continue d'appeler triggerWebConfigMode()
-//   normalement, donc navigation directe/rafraichissement restent
-//   garantis fonctionnels. Compilation verifiee OK. PAS ENCORE reteste.
-//
-// v65 — 2026-07-27 — safe-modify — Demande utilisateur, voir RecalBox_DMD.ino
-//   meme date : triggerWebConfigMode() pose desormais g_sdOpPersistentSubMsg
-//   (= IP du DMD) en plus de l'appel webDmdPause() habituel -- c'est ce
-//   message "de fond" que l'ecran physique reaffiche automatiquement apres
-//   l'expiration d'un message de statut transitoire (5s sans mise a jour).
-//   Compilation verifiee OK. PAS ENCORE reteste.
-//
-// v64 — 2026-07-27 — safe-modify — Demande utilisateur : plutot que de
-//   subir le cout du scan/cache dilue sur plusieurs requetes web (heap
-//   deja entame par WiFi/serveur/navigations), construire TOUS les caches
-//   SD (dossiers + contenu de chaque dossier) en une seule fois, juste
-//   apres le reboot cible mode config, quand le heap est proche de son
-//   maximum. Logique de scan+ecriture cache factorisee depuis
-//   handleWebConfigListGifDirs()/ListGifFiles() dans 2 nouvelles fonctions
-//   partagees : ensureGifDirsCache()/ensureGifFilesCache(dirName) --
-//   verifient si le cache existant est deja valide (comptage de controle)
-//   et ne rescannent que si necessaire (absent ou perime). Nouvelle
-//   warmUpGifCaches() (appelee une fois depuis RecalBox_DMD.ino, voir meme
-//   date) : assure le cache des dossiers, puis celui de CHAQUE sous-
-//   dossier trouve. Une fois tous les caches valides, les handlers HTTP
-//   (desormais tres simplifies : ensureXxxCache() + lecture + envoi) ne
-//   font plus qu'une lecture rapide tant que le contenu de la carte SD ne
-//   change pas -- "construction" une seule fois au reboot, puis simple
-//   actualisation a la demande si un dossier est modifie entre-temps.
-//   Compilation verifiee OK. PAS ENCORE reteste sur materiel reel -- le
-//   prechauffage complet peut prendre plusieurs secondes selon le nombre
-//   de dossiers/fichiers a scanner la premiere fois (deja attendu par
-//   l'utilisateur pendant l'ecran "Redemarrage en cours").
-//
-// v63 — 2026-07-27 — safe-modify — Suite du fix v62 (liste des dossiers
-//   desormais instantanee, confirme par l'utilisateur) : "aucun fichier"
-//   affiche pour TOUS les dossiers sauf un (deja re-scanne pendant les
-//   tests recents). Diagnostic : cette carte SD a traverse de nombreux
-//   tests cette session avec des versions du firmware anterieures au fix
-//   v54 (qui interdit d'ecrire un cache sur un scan interrompu par manque
-//   de heap) -- des .dmdcache invalides/vides ecrits par ces anciens
-//   scans avortes restent probablement present sur la carte, et passent
-//   la verification de comptage par coincidence, donc resservis tels
-//   quels indefiniment. Fix : GIF_CACHE_VERSION "V2"->"V3", force le rejet
-//   et la reconstruction automatique de tous les .dmdcache existants au
-//   prochain acces (meme mecanisme deja utilise en v49 pour un probleme
-//   similaire). Compilation verifiee OK. PAS ENCORE reteste.
-//
-// v62 — 2026-07-27 — safe-modify — Test A/B reel decisif (meme materiel,
-//   meme carte SD) confirme l'encodage chunke comme cause principale du
-//   plantage heap : l'ancienne version RecalBox_DMDv9_preclockv2 (instrumentee
-//   avec les memes logs heap, jamais chunkee) liste les ~18 memes dossiers
-//   sans AUCUNE chute notable (maxalloc parfaitement stable a 14836 sur 15
-//   entrees, -512 sur les 3 dernieres, remonte avant l'envoi) -- alors que
-//   la version actuelle perdait ~9 Ko sur le meme scan. Nouveau
-//   sendJsonArrayFromCommaList() (helper partage par
-//   handleWebConfigListGifDirs()/ListGifFiles()) : sous SIMPLE_SEND_MAX_LEN
-//   (4096 octets), un seul webServer->send() avec le JSON complet deja
-//   construit -- exactement la methode de l'ancienne version. Au-dessus,
-//   repli sur l'encodage chunke deja en place (necessaire pour les tres
-//   gros dossiers, cf. ERR_CONTENT_LENGTH_MISMATCH confirme le 2026-07-25 --
-//   ne pas retirer entierement le chunke, juste eviter de le payer pour les
-//   petites/moyennes listes qui sont le cas courant). Le webServer->send()
-//   qui demarrait le mode chunke AVANT le scan (donc avant meme de savoir
-//   quelle taille aura la reponse) est retire des 2 handlers -- l'envoi
-//   n'a plus lieu qu'une fois cachedNames connu, permettant de choisir le
-//   bon mode. Logs de diagnostic devenus obsoletes retires (apres
-//   reserve(512), apres SD.open(dossier), apres send chunked init) --
-//   remplaces par le nouveau mecanisme lui-meme. Compilation verifiee OK.
-//   PAS ENCORE reteste sur materiel reel.
-//
-// v61 — 2026-07-27 — safe-modify — Log reel v60 : maxalloc stable sur 13
-//   entrees consecutives (Logo_Rpi2dmd a RB_intros, 9204 constant) --
-//   ecarte definitivement l'hypothese "cout par ouverture de File" (aurait
-//   du decroitre a chaque entree). Les 2 vraies chutes sont concentrees a
-//   la toute 1ere entree (13812->8692, juste apres webServer->send(200,
-//   "application/json","") qui demarre le mode chunke) et apres la
-//   derniere entree listee (9204->5108, avant l'abandon). Nouvelle
-//   analyse comparative (2e agent, meme methode) confirme via le
-//   changelog du fichier lui-meme (v56 : perte identique -7168 sur un
-//   dossier quasi vide "ecriture_test" ET sur ~10 dossiers) que la perte
-//   est un COUT FIXE PAR REQUETE, pas proportionnel au nombre d'entrees --
-//   incompatible avec un cout "par fichier/dossier". L'ancienne version
-//   (RecalBox_DMDv9_preclockv2) n'utilise JAMAIS l'encodage chunke
-//   (setContentLength(CONTENT_LENGTH_UNKNOWN)+sendContent()) nulle part
-//   dans tout web_config.h -- c'est le seul mecanisme present UNIQUEMENT
-//   dans les 2 handlers qui plantent (lsgifdirs/lsgiffiles) et absent de
-//   tous les autres. Forte correlation, mecanisme exact non prouve dans le
-//   code source de la lib WebServer 3.3.11 (send()/sendContent() ne
-//   semblent allouer que de petites String d'en-tete). Ajout d'un
-//   checkpoint heap juste apres le webServer->send(200,...,"") qui
-//   demarre le mode chunke (avant tout scan SD) dans les 2 handlers, pour
-//   isoler precisement ce cout de celui du scan qui suit. Compilation
-//   verifiee OK. PAS ENCORE reteste.
-//
-// v60 — 2026-07-27 — safe-modify — Test reel du retrait du tri (v59) :
-//   INSUFFISANT -- lsgifdirs plante encore exactement pareil (maxalloc
-//   13812->4596) alors que /gifs ne contient qu'une petite dizaine de
-//   sous-dossiers. Le tri n'etait donc pas la seule cause pour CE scan
-//   precis (contrairement au scan de fichiers qui peut avoir des centaines
-//   d'entrees, le scan de dossiers en a tres peu). Nouvelle piste : le
-//   cycle SD.open()/openNextFile()/close() lui-meme pourrait couter du
-//   heap par ouverture (buffer interne de la classe File, jamais
-//   totalement exclu lors de l'investigation de la fuite GIF plus tot
-//   cette session). Ajout d'un log heap (maxalloc) a CHAQUE entree de
-//   dossier trouvee dans la boucle de handleWebConfigListGifDirs() --
-//   nombre d'entrees faible, pas de risque de spam -- pour voir si le cout
-//   est reparti uniformement par entree (confirmerait le cout par File)
-//   ou concentre sur une seule. Egalement : commentaire obsolete
-//   mentionnant le tri (retire en v59) corrige. Compilation verifiee OK.
-//   PAS ENCORE reteste.
-//
-// v59 — 2026-07-27 — safe-modify — Demande explicite utilisateur : retire
-//   integralement le tri alphabetique cote serveur (sortBuiltEntries()/
-//   compareBuiltEntries(), ajoutees v47/v58) pour retrouver un listing de
-//   dossiers/fichiers FONCTIONNEL en priorite -- meme apres optimisation
-//   du tri (v58, tableau d'int au lieu de String), le scan echouait
-//   encore en conditions reelles (heap trop bas au moment du scan, voir
-//   memoire projet pour le detail des investigations heap de cette
-//   session). Comparaison avec une tres ancienne version du firmware
-//   (RecalBox_DMDv9_preclockv2, listing instantane sur le meme materiel)
-//   a confirme que cette ancienne version n'a JAMAIS eu de tri, ni serveur
-//   ni client -- juste un scan+envoi simple. Les dossiers/fichiers
-//   s'affichent donc de nouveau dans l'ordre FAT (ordre de creation SD),
-//   pas alphabetique -- regression assumee temporairement, une piste de
-//   tri cote client (JavaScript, RAM du PC/telephone plutot que heap
-//   ESP32) sera explorees separement sur une branche de developpement
-//   avant toute reimplementation. Le reste de la mecanique (cache SD
-//   persistant, envoi chunke, garde-fou heap critique) est inchange.
-//   Compilation verifiee OK. PAS ENCORE reteste sur materiel reel.
-//
-// v58 — 2026-07-27 — safe-modify — Demande utilisateur : reduire le cout
-//   heap du tri alphabetique lui-meme (v47), plutot que de continuer a
-//   contourner via le reboot cible. Nouvelles sortBuiltEntries()/
-//   compareBuiltEntries() : remplacent le tri sur un tableau de String
-//   (String *names = new String[realCount] -- chaque entree dupliquait le
-//   nom ET l'objet String lui-meme, ~24-28 octets de surcout par entree
-//   rien que pour le conteneur, sans compter le contenu) par un tri par
-//   insertion sur un tableau d'int (positions dans `built`, 4 octets/entree,
-//   AUCUNE String temporaire creee pendant les comparaisons -- pure
-//   arithmetique de pointeurs). Applique a handleWebConfigListGifDirs() ET
-//   handleWebConfigListGifFiles(). Egalement : built.reserve() reduit de
-//   4096 a 512 dans les 2 fonctions -- un log reel (meme date) montrait un
-//   cout FIXE identique (~7168 octets) sur un tres petit dossier de test
-//   ET un gros dossier, suggerant que ce reserve() upfront etait lui-meme
-//   une part significative du cout, independamment du contenu reel scanne.
-//   Compilation verifiee OK. PAS ENCORE reteste sur materiel reel.
-//
-// v57 — 2026-07-27 — safe-modify — Suite v56 : test reel montre que c'est
-//   cette fois lsgifdirs (liste des dossiers) qui echoue, pas lsgiffiles
-//   (contenu d'un dossier) -- variance de session en session, le heap
-//   disponible au moment du scan n'est visiblement pas garanti stable
-//   meme avec le reboot cible (v25/v26 RecalBox_DMD.ino). Ajout d'un point
-//   de mesure dans triggerWebConfigMode() (chemin normal, pas de reboot)
-//   pour voir le cout heap de CHAQUE chargement de page (le log montre 3
-//   paires DMD setMainMsg/pause avant le scan, probablement MENU->MEDIA
-//   ou rechargements) -- a comparer avec les nouveaux points de mesure
-//   RecalBox_DMD.ino (meme date, apres WiFi/apres NTP) pour savoir si la
-//   perte de ~35 Ko (49140->13812) vient surtout du WiFi ou des
-//   navigations de page. Compilation verifiee OK. PAS ENCORE reteste.
-//
-// v56 — 2026-07-27 — safe-modify — Test reel confirme : le reboot cible
-//   mode config (v55) fonctionne (lsgifdirs part de maxalloc=18420, plus
-//   d'abandon premature) -- mais l'ouverture d'un dossier pour voir son
-//   contenu (lsgiffiles) echoue systematiquement, meme sur un petit
-//   dossier de test ("ecriture_test"). Log reel troublant : la perte
-//   maxalloc du scan dossiers (18420->11252, soit -7168) et celle du scan
-//   fichiers sur ecriture_test (11764->4596, soit -7168 aussi) sont
-//   EXACTEMENT identiques, alors qu'un petit dossier de test ne devrait
-//   quasi rien couter si le cout etait proportionnel au nombre de
-//   fichiers. Suspicion : cout FIXE (pas proportionnel au contenu),
-//   candidat n°1 = built.reserve(4096) appele inconditionnellement avant
-//   meme de savoir combien de fichiers existent. Ajout de 2 points de
-//   mesure dans handleWebConfigListGifFiles() : juste apres
-//   built.reserve(4096), et juste apres SD.open() du dossier -- pour
-//   isoler si le cout vient de la reservation String ou de l'ouverture du
-//   handle SD lui-meme (piste alternative : classe File/FS ESP32, deja
-//   suspectee lors de l'investigation de la fuite GIF). Compilation
-//   verifiee OK. PAS ENCORE reteste (log a fournir au prochain essai).
-//
-// v55 — 2026-07-27 — safe-modify — Demande utilisateur, suite investigation
-//   heap critique (log reel : maxalloc passe de 49140 juste apres boot a
-//   13300 juste avant l'ouverture de la config web, a cause de la playlist
-//   + plusieurs GIFs ouverts avant meme que l'utilisateur n'accede a la
-//   page -- chaque GIF perd durablement quelques Ko, jamais recupere avant
-//   reboot, cf RecalBox_DMD.ino v24) : triggerWebConfigMode() retourne
-//   desormais un bool. Si g_playlistStartedThisBoot (RecalBox_DMD.ino) est
-//   deja vrai (playlist/GIF deja lances ce boot), au lieu d'entrer en mode
-//   config avec un heap deja entame, on ecrit force_config_boot=1 dans
-//   config.ini, on envoie une page "Redemarrage en cours, veuillez
-//   patienter..." (JS poll fetch+catch, pas de <meta refresh> qui
-//   tomberait sur une erreur navigateur pendant la fenetre de reboot), puis
-//   requestReboot=true. Le prochain boot saute directement la playlist
-//   (g_skipPlaylistForConfig, voir .ino) et repart avec le maximum de heap
-//   disponible (~49 Ko au lieu de ~13 Ko). Si g_playlistStartedThisBoot est
-//   deja faux (AP/premier boot/secours WiFi, ou ce reboot cible lui-meme),
-//   comportement inchange (pas de reboot supplementaire, deja au maximum).
-//   5 handlers de page (Root/Basic/Network/Clock/Media) + handleDmdOpen()
-//   mis a jour pour ne pas envoyer leur page normale si un reboot vient
-//   d'etre declenche (return si triggerWebConfigMode() renvoie false).
-//   Compilation verifiee OK. PAS ENCORE reteste sur materiel reel.
-//
-// v54 — 2026-07-26 — safe-modify — Bug remonte : la liste des sous-dossiers
-//   /gifs n'affichait plus qu'un seul dossier ("arcade"). Cause trouvee par
-//   lecture du code (pas encore confirmee par log reel) : quand le scan SD
-//   de handleWebConfigListGifDirs()/handleWebConfigListGifFiles() s'arrete
-//   prematurement (garde heap critique < 6000, deja en place), le code
-//   envoyait quand meme au client la liste PARTIELLE accumulee jusque-la
-//   (`built`) comme si elle etait complete -- aucune verification sur
-//   `realCount==-1`/`aborted` avant l'envoi. Le client affichait donc
-//   uniquement les quelques dossiers vus avant l'abandon (le premier
-//   scanne dans l'ordre FAT, pas alphabetique puisque le tri n'a jamais
-//   lieu si le scan est interrompu), donnant l'impression que les autres
-//   dossiers avaient disparu. Fix : sur abandon, `cachedNames` est mis a
-//   vide (liste vide envoyee) plutot que la liste partielle -- le client
-//   ne voit plus une fausse liste complete, quitte a devoir reessayer. Ne
-//   corrige pas la cause du heap critique lui-meme (fragmentation
-//   accumulee sur ce projet, deja documentee) -- seulement la consequence
-//   trompeuse cote client. Compilation verifiee OK. PAS ENCORE reteste sur
-//   materiel reel (a confirmer via le log Serial "heap critique, arret
-//   premature" au moment du prochain repro).
-//
-// v53 — 2026-07-26 — safe-modify — Bug confirme en test reel des le premier
-//   essai du v52 : un simple rafraichissement de page (F5) declenchait un
-//   reboot du DMD. Cause : un F5 emet le MEME evenement `pagehide` qu'une
-//   fermeture d'onglet reelle -- il n'existe pas de moyen fiable cote
-//   navigateur de distinguer les deux (la nav interne entre pages de config
-//   etait bien geree via le flag sessionStorage, mais pas ce cas). Le
-//   mecanisme v52 (pagehide -> sendBeacon('/reboot')) est retire integralement
-//   des 4 pages BASIC/NETWORK/CLOCK/MEDIA (doReboot()/dmdResume() et le
-//   script de detection nav/pagehide) -- retour a l'etat v51. Alternative a
-//   envisager si le besoin reste reel : timeout d'inactivite cote SERVEUR
-//   (ESP32 suit lui-meme le dernier appel HTTP recu pendant g_sdOpInProgress,
-//   et se resume/reboot tout seul apres N minutes sans AUCUNE requete -- un
-//   F5 renvoie immediatement une nouvelle requete donc ne serait jamais
-//   confondu avec un abandon reel) -- pas implementee ici, a valider avec
-//   l'utilisateur avant de s'y lancer (compromis duree du timeout vs sessions
-//   longues legitimes sans interaction deja signalees sur ce projet).
-//   Compilation verifiee OK. PAS ENCORE reteste sur materiel reel.
-//
-// v52 — 2026-07-26 — safe-modify — Demande utilisateur : supprimer le besoin
-//   du "reboot MQTT depuis la Recalbox" comme unique moyen de debloquer un
-//   DMD reste bloque en mode config (g_sdOpInProgress) apres une fermeture
-//   d'onglet/navigateur sans avoir clique "Reprendre DMD" ni "Redemarrer".
-//   Sur BASIC/NETWORK/CLOCK/MEDIA (les 4 pages qui appellent webDmdPause()
-//   a l'ouverture) : un evenement pagehide envoie desormais
-//   navigator.sendBeacon('/reboot') -- SAUF si sessionStorage
-//   'dmd_skip_abandon_reboot' vaut '1', flag pose (a) au clic sur un lien de
-//   la barre .topnav (navigation normale vers une autre page de config, pas
-//   un abandon) ou (b) dans doReboot()/dmdResume() une fois l'action confirmee
-//   et effective (sortie explicite et propre, pas besoin d'un reboot forcé
-//   en plus). Le flag est efface au chargement de chaque page (evite qu'un
-//   clic de nav sur la page precedente ne desactive la protection pour de
-//   bon sur toute la session onglet). Reutilise directement la route /reboot
-//   existante (deja HTTP_ANY cote WebServer, pas de nouvelle route
-//   necessaire) : sendBeacon() est toujours en POST, /reboot repondait deja
-//   a n'importe quelle methode. mqttTask() n'est pas touche ici : le garde
-//   g_sdOpInProgress qui saute les tentatives de connexion MQTT pendant le
-//   mode config reste actif (cf. investigation v22 -- il fonctionnait deja
-//   comme prevu, le vrai declencheur du log "MQTT connecting" observe etait
-//   la fenetre entre un resume reel et son propre re-pause errone, deja
-//   corrige en v47). Compilation verifiee OK. PAS ENCORE reteste sur
-//   materiel reel -- a valider particulierement : fermeture d'onglet pendant
-//   config (doit rebooter), navigation entre pages BASIC<->NETWORK<->CLOCK
-//   <->MEDIA (ne doit PAS rebooter), et mise en arriere-plan de l'onglet sur
-//   mobile (a surveiller : un pagehide peut aussi se declencher en cas de
-//   mise en veille de l'app, pas seulement une fermeture reelle -- si ca
-//   provoque des reboots intempestifs sur mobile, il faudra restreindre le
-//   declencheur, ex. ignorer pagehide quand event.persisted est true).
-//
-// v51 — 2026-07-26 — safe-modify — Incoherence trouvee sur la page AP :
-//   contrairement aux 4 autres pages (BASIC/NETWORK/CLOCK/MEDIA, fix v48),
-//   son showMsg() avait deja un setTimeout(...,5000) mais SANS le
-//   clearTimeout/window._msgTimer associe -- un message qui en ecrase un
-//   autre avant la fin des 5s pouvait donc se faire masquer prematurement
-//   par le timer du precedent. Aligne sur le meme pattern que les 4 autres
-//   pages. Compilation verifiee OK (AP_HTML 9060->9128 octets brut,
-//   3250->3271 gzip). PAS ENCORE reteste sur materiel reel.
-//
-// v50 — 2026-07-26 — safe-modify — Demande explicite : suppression du code
-//   mort WEB_CONFIG_HTML (ancienne page monopage remplacee par le
-//   fractionnement en 6 pages du 2026-07-23, ~635 lignes, aucune route ne
-//   la servait plus depuis cette date). Compilation verifiee OK -- taille
-//   flash strictement identique (le compilateur l'excluait deja du
-//   binaire), donc ce nettoyage n'ameliore que la lisibilite du fichier
-//   source, pas l'empreinte memoire. Les mentions de "WEB_CONFIG_HTML,
-//   code mort" dans les entrees de changelog anterieures restent en l'etat
-//   (historique, pas modifiees).
-//
-// v49 — 2026-07-26 — safe-modify — 2 corrections suite aux retours :
-//   1) Le tri alphabetique des dossiers (v47) etait invisible en test reel
-//      car un fichier /gifs/.dmdcache ecrit AVANT ce fix restait considere
-//      valide (comptage inchange) et continuait a servir l'ancien ordre
-//      non trie indefiniment. Ajoute un prefixe de version au format du
-//      cache (GIF_CACHE_VERSION="V2") : tout cache existant ecrit avant ce
-//      fix est desormais automatiquement rejete et reconstruit (trie) des
-//      le premier acces, sans intervention manuelle sur la carte SD.
-//   2) Demande explicite : tutoiement remplace par du vouvoiement dans les
-//      textes francais et espagnols des 6 pages (dict i18n + texte HTML de
-//      repli) -- ex. "Choisis"->"Choisissez", "Coche"->"Cochez",
-//      "Clique"->"Cliquez", "ton navigateur"->"votre navigateur",
-//      "Selecciona"->"Seleccione", "Marca"->"Marque", "tu WiFi"->"su
-//      WiFi", etc. Portee : uniquement les 6 pages actives (MENU/BASIC/
-//      NETWORK/CLOCK/MEDIA/AP) ; l'ancien WEB_CONFIG_HTML mort n'a pas ete
-//      touche (jamais servi).
-//   Compilation verifiee OK (62% flash, 28% RAM). PAS ENCORE reteste sur
-//   materiel reel.
-//
-// v48 — 2026-07-26 — safe-modify — Retour utilisateur : "affichages web/dmd
-//   qui persistent alors que le process est termine". Deux points :
-//   1) BUG CONFIRME : sur BASIC/NETWORK/CLOCK/MEDIA, showMsg() (et
-//      showMsgLocal(), v47) n'avait AUCUN timeout d'auto-masquage -- le
-//      popup web restait affiche indefiniment jusqu'au message suivant
-//      (contrairement a la page AP, qui a toujours eu ce timeout de 5s).
-//      Puisque showMsg() miroite chaque message sur le DMD via
-//      /dmd-pause, le popup web ET le message DMD restaient donc
-//      affiches indefiniment ensemble. Ajoute le meme setTimeout(5000)
-//      que la page AP sur les 4 pages.
-//   2) Demande explicite : tri alphabetique (v47, jusqu'ici limite a la
-//      liste des dossiers) etendu a la liste des fichiers a l'interieur
-//      d'un dossier ouvert (handleWebConfigListGifFiles()) -- meme
-//      principe (accumulation avant envoi, tri par insertion, cache de la
-//      liste deja triee).
-//   Question clarifiee avec l'utilisateur : le DMD physique reste en mode
-//   pause/config jusqu'a un clic EXPLICITE sur "Reprendre DMD" (protection
-//   anti-coupure) -- confirme comme comportement voulu, pas un bug, aucun
-//   changement apporte de ce cote.
-//   Compilation verifiee OK (62% flash, 28% RAM). PAS ENCORE reteste sur
-//   materiel reel.
-//
-// v47 — 2026-07-26 — safe-modify — 3 retours utilisateur :
-//   1) BUG CONFIRME : cliquer "Reprendre DMD" affichait "DMD repris" en
-//      miroir sur l'ecran physique... via /dmd-pause, qui remet justement
-//      le DMD en mode pause/config -- annulant la reprise a peine
-//      effectuee (ecran fige juste apres, non bloquant : un 2e clic sur
-//      "Reprendre DMD" recupere puisqu'il repasse par webDmdResume()).
-//      Confirme par le log reel : "[WEB] DMD resume..." puis "[GIF] open
-//      OK..." (reprise reussie) suivi immediatement de "[WEB] DMD pause:
-//      DMD repris" (la confirmation elle-meme repausait tout). Fix :
-//      nouvelle fonction showMsgLocal() (popup web identique, SANS l'appel
-//      /dmd-pause) utilisee uniquement par dmdResume() sur les 4 pages
-//      concernees (BASIC/NETWORK/CLOCK/MEDIA) pour ce message precis --
-//      tous les autres messages continuent d'etre miroites sur le DMD
-//      normalement.
-//   2) Demande explicite : liste des dossiers triee par ordre alphabetique
-//      (les dossiers crees manuellement ou copies via l'outil Windows
-//      apparaissaient dans l'ordre FAT -- ordre de creation, pas
-//      alphabetique). handleWebConfigListGifDirs() accumule desormais tous
-//      les noms avant d'envoyer quoi que ce soit (au lieu d'envoyer au fur
-//      et a mesure du scan), trie par insertion (nombre de dossiers
-//      generalement modeste), puis envoie et met en cache la liste deja
-//      triee -- un cache-hit ulterieur reste donc trie sans retri. Portee
-//      limitee a la liste des DOSSIERS (pas les fichiers dans un dossier,
-//      non demande).
-//   3) Demande explicite : avertissement ajoute dans la description de la
-//      fonction d'envoi GIF (page MEDIA, section "Envoi GIF") -- pas concue
-//      pour transferer de nombreux fichiers (debit lent, risque d'erreur
-//      d'ecriture), reservee a l'ajout ponctuel de quelques fichiers ;
-//      recommande de retirer la carte SD pour un transfert consequent.
-//      Traduit fr/en/es.
-//   Compilation verifiee OK (62% flash, 28% RAM). PAS ENCORE reteste sur
-//   materiel reel.
-//
-// v46 — 2026-07-26 — safe-modify — CRASH CONFIRME en test reel : abort()
-//   + reboot pendant un upload en masse, apres une sequence suppression
-//   dossier + creation dossier + plusieurs listings + plusieurs retries
-//   d'upload. Backtrace abort() typique d'une allocation heap qui echoue
-//   avec les exceptions C++ desactivees (Arduino ESP32) -- meme classe de
-//   crash deja documentee sur ce projet (piste /sync-playlists-check
-//   abandonnee en 2026-07). Deux actions :
-//   1) Reduction de la pression heap a la source : loadDirs() et
-//      loadUploadDirs() (page MEDIA) appelaient chacun /lsgifdirs
-//      independamment -- 2 scans SD + 2 parsings JSON pour la MEME donnee
-//      a chaque chargement de page ou rafraichissement post-action.
-//      Fusionnes : loadDirs() peuple maintenant aussi #uploadDir,
-//      loadUploadDirs() devient un no-op conserve pour compatibilite des
-//      appels existants (aucun autre site a modifier).
-//   2) Refus explicite et propre plutot qu'un crash silencieux : verifie
-//      ESP.getMaxAllocHeap() en debut de handleWebConfigCreateFolder() et
-//      d'UPLOAD_FILE_START (handleWebConfigUploadFile()) -- sous 6000
-//      octets de plus gros bloc allouable, renvoie une erreur claire
-//      ("ERR: heap critique, reessayez") au lieu de continuer vers une
-//      allocation qui echouerait. Le JS retente deja automatiquement
-//      (jusqu'a 3x, cf. v41) : au pire un fichier echoue proprement avec
-//      un message clair au lieu de faire rebooter tout le DMD.
-//   Reste un point d'attention : ces deux fixes reduisent la frequence et
-//   la gravite du probleme mais ne l'eliminent pas structurellement --
-//   l'usage intensif de String Arduino dans les chemins chauds (listing,
-//   playlists) reste une source de fragmentation sur un ESP32 a heap
-//   limite. Une resolution complete demanderait probablement de remplacer
-//   ces String par des buffers de taille fixe, hors de portee d'un
-//   correctif ponctuel.
-//   Compilation verifiee OK (62% flash, 28% RAM). PAS ENCORE reteste sur
-//   materiel reel.
-//
-// v45 — 2026-07-26 — safe-modify — Preuve decisive en test reel : le log
-//   serie montrait le cache SD lu des le premier essai ("(cache SD)" sur
-//   CHAQUE appel, y compris le tout premier a un dossier) et pourtant
-//   net::ERR_INVALID_CHUNKED_ENCODING persistait cote navigateur -- ce
-//   n'etait donc ni la lenteur du scan ni un probleme de cache. Cause
-//   racine reelle : au chargement de la page MEDIA, /lang + loadDirs() +
-//   loadPlaylists() + loadUploadDirs() partaient TOUS en parallele (aucun
-//   await entre eux) -- 4 requetes concurrentes sur un WebServer ESP32 qui
-//   n'en traite qu'une a la fois. Si l'utilisateur cliquait sur un dossier
-//   PENDANT ce lot initial, sa requete /lsgiffiles entrait en collision
-//   avec l'une d'elles, corrompant la reponse (chunk invalide) -- meme
-//   symptome que le bug d'upload corrige en v41 (meme classe de bug,
-//   endroit different). Fix definitif plutot qu'un nouveau correctif au
-//   cas par cas : ajout d'une file d'attente globale (queuedFetch(), voir
-//   MEDIA) qui serialise STRICTEMENT toutes les requetes de la page,
-//   quelle que soit la fonction qui les declenche -- tous les fetch() de
-//   la page MEDIA (seule page a declencher plusieurs requetes concurrentes
-//   au chargement) passent desormais par queuedFetch() au lieu de fetch()
-//   directement. Les 5 autres pages sequencent deja naturellement leurs
-//   appels initiaux (chaque fetch() suivant est appele DANS le .then() du
-//   precedent) et n'ont jamais presente ce risque.
-//   Egalement : la popup "Mise en cache..." (v41) est desormais aussi
-//   miroitee sur l'ecran DMD (demande explicite), en attendant proprement
-//   la fin du POST /dmd-pause avant de lancer /lsgiffiles (meme principe
-//   que uploadGif()). Seuil de securite heap critique des scans de listing
-//   (v42) bascule de ESP.getFreeHeap() vers ESP.getMaxAllocHeap() (plus
-//   grand bloc contigu allouable) : le log reel montrait un total libre
-//   encore correct (~12 Ko) alors que le plus gros bloc disponible etait
-//   deja tombe a ~4,5 Ko -- le total libre seul sous-estimait le risque
-//   reel d'echec d'allocation sur un tas fragmente.
-//   Compilation verifiee OK (62% flash, 28% RAM). PAS ENCORE reteste sur
-//   materiel reel.
-//
-// v44 — 2026-07-26 — safe-modify — Log serie reel decisif : les
-//   esp_task_wdt_reset() ajoutes en v40 echouaient EN BOUCLE avec
-//   "task not found" (la tache qui traite les requetes HTTP n'est en fait
-//   pas enregistree aupres du Task Watchdog Timer) -- chaque appel rate
-//   coute un print d'erreur ESP-IDF, explique une bonne partie du
-//   ralentissement observe. RETIRES INTEGRALEMENT (create-folder, mkdir de
-//   secours upload, UPLOAD_FILE_WRITE, boucles de scan des listings +
-//   quickCount*()) -- n'apportaient aucun benefice confirme et un cout
-//   reel. #include <esp_task_wdt.h> retire du .ino (v20).
-//   Root cause du "ne trouve plus qu'un seul fichier apres une erreur
-//   reseau" : le heap ne recupere JAMAIS entre plusieurs scans de gros
-//   dossiers (19-20 Ko libres au debut de la session, jamais revu ensuite,
-//   descend en escalier jusqu'a ~7 Ko puis le filet de securite v42 coupe
-//   le scan de plus en plus tot -- d'ou l'impression de "un seul fichier").
-//   Deux sources de fragmentation reduites :
-//   1) readListCacheFile() et la lecture de playlist dans handleWebConfig
-//      AddToPlaylistsBatch() concatenaient le contenu d'un fichier
-//      OCTET PAR OCTET (`content += (char)f.read()`) -- chaque += peut
-//      reallouer tout le buffer de la String, un vrai generateur de
-//      fragmentation sur un fichier de plusieurs Ko. Remplace par
-//      f.readString() (lecture bufferisee).
-//   2) Les accumulateurs `built` (listes construites pendant un scan)
-//      reservent maintenant 4096 octets d'un coup (built.reserve(4096))
-//      au lieu de grandir par petits a-coups au fil des noms de fichiers.
-//   Logs de diagnostic enrichis : heap libre ET maxalloc (ESP.getMaxAlloc
-//   Heap(), plus representatif de la fragmentation reelle que le total
-//   libre) sur chaque debut/fin de scan ; distingue desormais explicitement
-//   "pas de cache", "cache perime" et "cache SD" dans les logs (l'utilisateur
-//   se demandait si le cache etait vraiment relu -- ces logs le confirmeront
-//   sans ambiguite au prochain test).
-//   Compilation verifiee OK (62% flash, 28% RAM). PAS ENCORE reteste sur
-//   materiel reel -- si le heap continue de ne pas recuperer entre les
-//   scans malgre ces deux fixes, il faudra investiguer plus loin (peut-etre
-//   ailleurs dans le firmware, hors de ce fichier).
-//
-// v43 — 2026-07-26 — safe-modify — Remarque justifiee de l'utilisateur sur
-//   le cache v40/v41 : un cache RAM mono-slot n'a quasiment aucun interet
-//   des qu'on navigue entre plusieurs dossiers dans une meme session
-//   (chaque changement de dossier evince le precedent -- confirme dans le
-//   log du 2026-07-26, XXX_Mature repassait en scan SD apres consultation
-//   de RB_intros entre-temps). Demande explicite : garder le cache de TOUS
-//   les dossiers deja parcourus, et le conserver entre les sessions (reboot
-//   du DMD). Remplace par un cache PERSISTANT sur la carte SD : un petit
-//   fichier cache par dossier (/gifs/<dossier>/.dmdcache et /gifs/.dmdcache
-//   pour la liste des dossiers), format "N|nom1,nom2,..." ou N est un
-//   comptage de controle. A chaque requete, un COMPTAGE RAPIDE (sans
-//   construire ni echapper les noms, donc bien plus leger que la liste
-//   complete) verifie que le nombre reel correspond toujours au nombre
-//   enregistre ; sinon le cache est ignore et reconstruit -- couvre a la
-//   fois nos propres modifications (upload/suppression, qui suppriment le
-//   fichier cache concerne) ET des modifications faites hors du firmware
-//   (carte SD modifiee depuis un PC entre deux sessions, ex. via l'outil
-//   Windows -- scenario courant sur ce projet). Le comptage rapide n'est
-//   fait que si un fichier cache existe deja (sinon scan direct). Limite
-//   acceptee : un remplacement de fichier a nombre de fichiers inchange ne
-//   serait pas detecte (compromis face au cout d'une verification exacte
-//   par hash/mtime). g_dirCache*/g_fileCache* (globals RAM) supprimes,
-//   remplaces par quickCountGifSubdirs()/quickCountGifFilesIn()/
-//   readListCacheFile()/writeListCacheFile()/invalidateGifDirsCache()/
-//   invalidateGifFilesCache(). Le fichier .dmdcache d'un dossier supprime
-//   disparait avec lui (deleteFolderRecursive() est recursif sans filtre
-//   sur les fichiers caches, aucune action supplementaire necessaire).
-//   Compilation verifiee OK (62% flash, RAM legerement reduite -- plus de
-//   String globales de cache fixes). PAS ENCORE reteste sur materiel reel.
-//
-// v42 — 2026-07-26 — safe-modify — net::ERR_INVALID_CHUNKED_ENCODING encore
-//   signale en test reel sur un GROS dossier (XXX_Mature) au retour dessus
-//   (cache mono-slot deja evince par la consultation d'un autre dossier
-//   entre-temps -- donc re-scan SD, pas un chemin "cache" bugue). Analyse
-//   demandee de la methode de l'ancienne page monopage (WEB_CONFIG_HTML,
-//   code mort) : son JS (refreshGifDirs()/openFolder(), lignes ~915-955)
-//   utilise EXACTEMENT le meme endpoint /lsgiffiles et la meme methode
-//   (un seul fetch, construit toutes les lignes d'un coup) -- aucune
-//   difference de methode cote frontend, et le handler C++ est PARTAGE
-//   entre les deux versions (une seule implementation dans tout le
-//   fichier). Il n'existe donc pas d'"ancienne methode plus rapide" a
-//   restaurer : soit ce dossier precis n'a jamais ete teste avec l'ancienne
-//   page, soit le cout est intrinseque a un tres gros dossier peu importe
-//   la version de page. Piste retenue : le scan d'un gros dossier (String
-//   par fichier, jsonEscape() char-par-char) fragmente le heap ; sur un
-//   retour au meme dossier avec un heap deja plus bas (accumulation de
-//   fragmentation entre plusieurs scans), l'ecriture pourrait echouer en
-//   cours de route sans jamais atteindre le chunk final -- vu cote
-//   navigateur comme un flux chunke invalide. Ajoute pour handleWebConfig
-//   ListGifDirs() ET handleWebConfigListGifFiles() : esp_task_wdt_reset()
-//   dans la boucle de scan (meme cadence que le delay(1) existant), filet
-//   de securite qui interrompt proprement le scan (chunk final quand meme
-//   envoye, resultat partiel non mis en cache) si le heap libre descend
-//   sous 8000 octets plutot que de risquer un crash en cours de reponse.
-//   jsonEscape() reserve desormais sa capacite de sortie (moins de
-//   reallocations). Compilation verifiee OK (62% flash). PAS ENCORE
-//   reteste sur materiel reel.
-//
-// v41 — 2026-07-26 — safe-modify — Audit de la copie de fichiers demande
-//   par l'utilisateur, log serie reel analyse (nombreux "Upload aborted"
-//   avant reussite, jusqu'a 3 echecs definitifs sur 15 fichiers) :
-//   1) CAUSE PRINCIPALE trouvee : dans uploadGif() (page MEDIA), le POST
-//      /dmd-pause (message de progression) et l'appel loadDirs()/
-//      loadUploadDirs() apres /create-folder etaient envoyes SANS attendre
-//      leur fin (fire-and-forget), juste avant de lancer /upload. Le
-//      WebServer de l'ESP32 ne traite qu'une requete a la fois : ces
-//      requetes concurrentes se faisaient concurrence pour la meme
-//      connexion, provoquant des UPLOAD_FILE_ABORTED cote firmware --
-//      confirme par le log serie montrant des "Upload aborted" intermittents
-//      correles a ce pattern. Fix : chaque fetch (/dmd-pause, loadDirs(),
-//      loadUploadDirs()) est desormais attendu (await) avant l'appel
-//      suivant.
-//   2) Les tentatives de retry (2/3, 3/3) n'etaient pas visibles (ni page
-//      web ni DMD) -- ajoute : le texte de progression et le message
-//      /dmd-pause affichent maintenant "nom_fichier (i/n) - tentative X/3"
-//      a partir de la 2e tentative.
-//   3) Demande explicite : la mise a jour des playlists lors d'un upload en
-//      masse verifiait TOUTES les playlists concernees pour CHAQUE fichier
-//      individuellement (cache g_plRefCache* deja en place pour "quelles
-//      playlists referencent ce dossier", mais la verification "ce fichier
-//      est-il deja present" relisait la playlist entiere a chaque fichier).
-//      Nouvelle route POST /add-to-playlists-batch (handleWebConfigAdd
-//      ToPlaylistsBatch()) : traite tous les fichiers d'un meme lot en un
-//      seul appel, chaque playlist candidate n'est lue qu'UNE FOIS pour
-//      determiner les fichiers manquants, puis tous ajoutes en un seul
-//      SD.open(FILE_APPEND). L'appel par fichier (addFileToPlaylists()
-//      dans UPLOAD_FILE_END) est retire ; le JS appelle desormais le lot
-//      une seule fois a la fin de tout l'upload.
-//   4) esp_task_wdt_reset() ajoute aussi dans UPLOAD_FILE_WRITE (defensif,
-//      meme precaution que la v40 sur /create-folder).
-//   5) Demande explicite : popup "Mise en cache du contenu, patientez..."
-//      affiche des l'ouverture d'un dossier (openFolder()), le temps que
-//      /lsgiffiles reponde -- utile en particulier au premier scan d'un
-//      dossier (avant mise en cache par le fix v40). N'utilise PAS le
-//      miroir DMD habituel de showMsg() (pas de fetch /dmd-pause
-//      supplementaire ici) pour eviter de reintroduire une requete
-//      concurrente juste avant le fetch /lsgiffiles.
-//   Compilation verifiee OK (62% flash, 28% RAM). PAS ENCORE reteste sur
-//   materiel reel.
-//
-// v40 — 2026-07-26 — safe-modify — 2 retours utilisateur supplementaires :
-//   1) "Reboot du DMD a la premiere tentative de copie de fichier" -- piste
-//      la plus probable : le Task Watchdog de loopTask (~5s par defaut sur
-//      ce coeur ESP32) se declenche si une carte SD est lente sur son tout
-//      premier mkdir()/ecriture (creation d'un dossier neuf jamais touche
-//      depuis le formatage) -- explique "seulement au premier essai".
-//      Ajoute esp_task_wdt_reset() (#include <esp_task_wdt.h> cote .ino)
-//      entre chaque etape SD bloquante de handleWebConfigCreateFolder()
-//      (mkdir, creation/suppression du fichier temoin) et sur le mkdir de
-//      secours dans UPLOAD_FILE_START, pour eviter un reset meme si une
-//      etape individuelle est plus lente que d'habitude.
-//   2) Listing /gifs signale lent : cache RAM ajoute pour /lsgifdirs
-//      (g_dirCacheNames, une seule liste pour tout /gifs) et /lsgiffiles
-//      (g_fileCacheFolder/g_fileCacheNames, un seul dossier a la fois --
-//      meme principe que le cache add-to-playlists) -- evite de rescanner
-//      la carte SD tant que rien n'a change. Invalide automatiquement :
-//      creation de dossier reussie (/create-folder), upload de fichier
-//      reussi (UPLOAD_FILE_END), suppression de fichiers (/delete-files,
-//      dossier concerne uniquement) et suppression de dossiers
-//      (/delete-folders, invalide tout par securite vu qu'une liste de
-//      dossiers peut etre affectee).
-//   Compilation verifiee OK (62% flash, 28% RAM). PAS ENCORE reteste sur
-//   materiel reel.
-//
-// v39 — 2026-07-26 — safe-modify — Durcissement preventif de /lsgifdirs et
-//   /lsgiffiles suite a un test reel montrant le firmware pre-v38 (meme
-//   ERR_INVALID_CHUNKED_ENCODING) suivi d'un blocage complet du reseau
-//   (timeout sur /dmd-pause et /delete-folders juste apres) -- DMD reste
-//   bloque en mode web config, reseau injoignable. Ajoute par precaution
-//   avant le retest du fix v38 : timeout client elargi a 5s (au lieu du
-//   defaut ~3s) pendant l'enumeration + logs Serial (heap libre avant/
-//   apres) sur les deux routes, pour pouvoir diagnostiquer via le moniteur
-//   serie si le blocage se reproduit malgre le fix v38 (auquel cas ce
-//   serait un probleme distinct, ex. epuisement heap -- deja rencontre sur
-//   ce projet, cf. plus bas dans ce fichier). Compilation verifiee OK
-//   (63% flash). PAS ENCORE reteste sur materiel reel.
-//
-// v38 — 2026-07-26 — safe-modify — Regression introduite par le fix v36 :
-//   net::ERR_INVALID_CHUNKED_ENCODING sur /lsgiffiles (et potentiellement
-//   /lsgifdirs), y compris sur des dossiers qui fonctionnaient au test
-//   precedent -- le passage en envoi chunke (setContentLength(CONTENT_
-//   LENGTH_UNKNOWN) + sendContent()) n'etait jamais termine par le chunk
-//   final de taille 0 (sendContent("") apres le dernier "]"), obligatoire
-//   pour un flux "Transfer-Encoding: chunked" valide cote HTTP -- sans lui
-//   le navigateur rejette la reponse entiere, meme un tout petit dossier.
-//   Ajoute sur handleWebConfigListGifDirs() et handleWebConfigListGifFiles().
-//   Compilation verifiee OK. PAS ENCORE reteste sur materiel reel.
-//
-// v37 — 2026-07-25 — safe-modify — Demande explicite utilisateur : remettre
-//   la gestion multilingue + tous les messages web/DMD accompagnant les
-//   actions, comme dans l'ancienne version monopage (WEB_CONFIG_HTML,
-//   desormais code mort). Deux volets :
-//   1) i18n complet (dict fr/en/es, data-i18n/data-i18n-placeholder,
-//      tr()/applyLang()/setLang(), selecteur #langSelect en haut a droite,
-//      priorite localStorage > config.ini (/lang) > navigator.language >
-//      fr, persistance via /save-language) porte sur les 5 pages qui ne
-//      l'avaient pas (MENU/BASIC/NETWORK/CLOCK/MEDIA -- seule la page AP
-//      l'avait, depuis le 2026-07-23). Chaque page garde son propre dict,
-//      limite aux cles qu'elle utilise (meme discipline de poids que la
-//      page AP), traductions reprises de l'ancien dict I18N complet
-//      (WEB_CONFIG_HTML) quand une cle equivalente existait. Tailles gzip
-//      apres ajout : MENU 6554, BASIC 3880, NETWORK 3938, CLOCK 4460,
-//      MEDIA 6555 octets -- toutes tres en-dessous du seuil ~12.5 Ko a
-//      risque.
-//   2) Miroir DMD des messages web : showMsg() sur les 5 pages + AP envoie
-//      desormais systematiquement le message (succes ou erreur) sur
-//      l'ecran physique via POST /dmd-pause (stripAccents() cote JS,
-//      l'ecran LED ne gere pas les caracteres accentues) -- exactement le
-//      comportement de l'ancienne page unique, perdu par les 6 nouvelles
-//      pages lors du fractionnement. Les messages DMD "en provenance du
-//      DMD" (passage en mode AP, secours WiFi, page de config au boot)
-//      etaient deja localises via uiLanguage/config.ini et les 7 helpers
-//      trOpenBrowserAt/trWifiRecoveryCountdown/trConnectWifiMsg/trOpenUrl/
-//      trConfigPageMsg/trJoinWifi/trOpenInBrowser (RecalBox_DMD.ino) --
-//      rien a refaire de ce cote, deja en place. Le message de bascule en
-//      mode "webconfig" ("WEB DMD CONFIG", triggerWebConfigMode()) reste
-//      volontairement identique dans les 3 langues, comme dans l'ancien
-//      dict (msg_welcome).
-//   Compilation verifiee OK (62% flash, 28% RAM). PAS ENCORE reteste sur
-//   materiel reel.
-//
-// v36 — 2026-07-25 — safe-modify — 3 retours utilisateur supplementaires en
-//   test reel (console F12 + inspection SD directe) :
-//   1) net::ERR_CONTENT_LENGTH_MISMATCH sur /lsgiffiles pour des dossiers
-//      avec beaucoup de fichiers ("ca marche sur des dossiers avec peu de
-//      fichiers sinon erreur reseau ou tres tres long") -- handleWebConfig
-//      ListGifDirs()/ListGifFiles() construisaient tout le JSON dans un
-//      seul String puis un seul send() ; au-dela d'une certaine taille, le
-//      nombre d'octets reellement transmis par WebServer::send() peut etre
-//      inferieur au Content-Length annonce (calcule sur le String complet)
-//      -> rejet cote navigateur alors que le status HTTP est 200. Passes en
-//      envoi chunke (setContentLength(CONTENT_LENGTH_UNKNOWN) + sendContent()
-//      par entree), qui n'annonce aucune longueur a l'avance. delay(1) par
-//      fichier egalement retire (un delay(1) toutes les 20 entrees suffit a
-//      eviter le watchdog) -- explique aussi la lenteur signalee.
-//   2) Cache RAM add-to-playlists (g_plRefCacheFolder/g_plRefCachePlaylists,
-//      documente valide le 2026-07-20) totalement absent du code actuel --
-//      9e regression confirmee du fractionnement du 23/07. Sans lui, un
-//      upload vers un dossier NON reference par une playlist relit
-//      integralement TOUTES les playlists a CHAQUE fichier (~15s/fichier
-//      mesure a l'epoque). Restaure a l'identique (cache par dossier,
-//      invalide a la creation/suppression d'une playlist).
-//   3) ERR_CONNECTION_RESET persistant sur /upload vers un nouveau dossier
-//      malgre le timeout 15s de la v34 : le mkdir + fichier-temoin (contre
-//      l'attribut lecture seule) restait dans UPLOAD_FILE_START, sur le
-//      chemin critique du multipart. Decouple dans une nouvelle route
-//      dediee POST /create-folder (idempotente), appelee par le JS AVANT
-//      le premier fichier -- le dossier existe deja quand l'upload
-//      multipart demarre vraiment, et la creation a son propre budget de
-//      temps sans concurrencer la reception du fichier. Corrige aussi "le
-//      dossier cree n'apparait pas dans la liste" : loadDirs()/
-//      loadUploadDirs() sont maintenant rafraichis juste apres la creation
-//      reussie, pas seulement apres le premier fichier uploade.
-//   Compilation verifiee OK (62% flash). PAS ENCORE reteste sur materiel
-//   reel.
-//
-// v35 — 2026-07-25 — safe-modify — Verification exhaustive des 6 pages
-//   suite a une demande explicite de l'utilisateur, apres un nouveau crash
-//   console F12 sur BASIC ("deletePlaylist is not a function"). Trouves et
-//   corriges :
-//   1) BUG REEL confirme (BASIC) : <select id="deletePlaylist"> ET
-//      function deletePlaylist(){} portaient le meme nom -- "DOM
-//      clobbering" classique : le navigateur expose automatiquement tout
-//      element avec un id comme propriete globale de window, ecrasant la
-//      fonction du meme nom. L'ancienne page (WEB_CONFIG_HTML, code mort)
-//      utilisait deja "deletePlaylistSelect" pour cette raison -- la
-//      nouvelle page BASIC (fractionnement du 23/07) avait repris un nom
-//      plus court sans ce garde-fou. Renomme l'id en "deletePlaylistSelect"
-//      (BASIC uniquement -- verifie qu'aucune autre page ne collisionne :
-//      MEDIA utilise deja "playlistSelect", distinct de sa fonction
-//      deletePlaylist()).
-//   2) Confirmation JS avant perte de modifications non sauvegardees sur
-//      "Reprendre DMD"/"Redemarrer" (_formDirty) : documentee comme fusionnee
-//      et validee le 2026-07-21, absente des 3 pages a formulaire (BASIC/
-//      NETWORK/CLOCK) -- 7e regression confirmee du fractionnement du
-//      23/07. Restauree : suit les evenements 'input' du formulaire,
-//      remise a false apres un /save reussi, confirm() avant doReboot()/
-//      dmdResume() si des modifications sont en attente.
-//   3) handleWebConfigDeleteFiles() (suppression d'image individuelle dans
-//      un dossier /gifs, page MEDIA) utilisait SD.remove() brut, sans le
-//      repli forceDeleteFile() (rename puis remove) deja utilise par
-//      deleteFolderRecursive() pour le bug FAT32 lecture-seule documente
-//      sur ce projet -- pouvait echouer silencieusement sur certains
-//      fichiers. Aligne sur le meme repli.
-//   Verifie sans anomalie : toutes les routes fetch() des 6 pages
-//   correspondent a des handlers webServer->on() enregistres ; tous les
-//   champs serialize() de BASIC/NETWORK/CLOCK sont bien lus par
-//   handleWebConfigSave() ET renvoyes par handleWebConfigLoad() (aucun
-//   champ orphelin) ; aucune autre collision id/nom de fonction sur les
-//   6 pages ; aucun onclick ne reference une fonction absente.
-//   Compilation verifiee OK (62% flash). PAS ENCORE reteste sur materiel
-//   reel.
-//
-// v34 — 2026-07-25 — safe-modify — Suite test reel (console F12) : le fix v33
-//   (send() plus jamais appele depuis le callback upload) n'a PAS suffi --
-//   ERR_CONNECTION_RESET x3 (les 3 tentatives) puis ERR_CONNECTION_TIMED_OUT
-//   confirmes par le navigateur sur /upload lors de la creation d'un nouveau
-//   dossier. Cause reelle trouvee : le timeout client HTTP elargi a 15s
-//   pendant l'upload (deja documente et valide le 2026-07-21 -- les
-//   ecritures/creations SD depassent le defaut ~3s de la lib WebServer,
-//   qui coupe alors la connexion) etait ABSENT du code actuel : 5e
-//   regression confirmee du fractionnement en pages du 2026-07-23 (apres
-//   SSID, config.ini wipe, missing-params brightness, upload multi-fichier).
-//   Restaure : webServer->client().setTimeout(15000) au tout debut de
-//   UPLOAD_FILE_START (avant le mkdir/tentative d'ouverture), remis a 3000
-//   des UPLOAD_FILE_END/UPLOAD_FILE_ABORTED. Compilation verifiee OK. PAS
-//   ENCORE reteste sur materiel reel.
-//
-// v33 — 2026-07-25 — safe-modify — Retours utilisateur post-test reel (page
-//   MEDIA + Reprendre DMD). Corriges :
-//   1) "Reprendre DMD reste en mode web config" -- chaque page (MENU/BASIC/
-//      NETWORK/CLOCK/MEDIA) faisait un fetch('/dmd-open') cote client des
-//      son chargement, EN PLUS du triggerWebConfigMode() deja fait cote
-//      serveur avant l'envoi du HTML (redondant, meme message "WEB DMD
-//      CONFIG"). Cet appel asynchrone pouvait etre traite par le
-//      WebServer APRES un clic rapide sur "Reprendre DMD", re-armant le
-//      mode config juste apres la reprise. Supprime des 5 pages (garde sur
-//      la page AP, qui envoie un message localise different).
-//   2) Upload GIF "erreur reseau" a la creation d'un nouveau dossier --
-//      handleWebConfigUploadFile() appelait webServer->send() DEPUIS le
-//      callback UPLOAD_FILE_START en cas d'erreur (dossier manquant, nom
-//      invalide, echec ouverture SD) alors que le client est encore en
-//      train d'envoyer le corps multipart : une reponse prematuree casse
-//      la connexion HTTP en cours, vu cote navigateur comme une erreur
-//      reseau. Plus courant sur un dossier a creer (mkdir + tentative
-//      d'ouverture juste apres, plus fragile). Fix : le callback upload ne
-//      fait plus jamais send(), stocke l'erreur dans uploadErrorMsg ;
-//      handleWebConfigUpload() (appele une fois le corps entierement
-//      recu) est desormais seul a repondre. Ajout d'une 2e tentative
-//      d'ouverture apres 50ms si la 1ere echoue juste apres un mkdir (SD
-//      pas encore prete), et de logs Serial a chaque etape.
-//   3) Upload GIF ne permettait plus qu'un seul fichier a la fois
-//      (regression vs l'ancienne page unique) -- <input> repasse en
-//      multiple, uploadGif() reecrit en boucle sequentielle asynchrone
-//      (3 tentatives + 500ms de backoff par fichier, recap nomme des
-//      echecs definitifs), bouton "Arreter" (n'interrompt qu'entre deux
-//      fichiers) et progression /dmd-pause par fichier restaures --
-//      parite avec le mecanisme documente le 2026-07-21 et perdu lors du
-//      fractionnement en pages minces du 2026-07-23.
-//   4) Page MENU (accueil) : menu du haut (topnav) retire -- faisait
-//      double emploi avec la grille de liens juste en dessous. Reste sur
-//      les memes couleurs que les sous-pages (section #16213e, accent
-//      #8ab4f8), inchange sur BASIC/NETWORK/CLOCK/MEDIA (utile la, un seul
-//      lien "actif" par page).
-//   PAS CORRIGE (investigue, cause non trouvee par lecture statique) :
-//   affichage du contenu d'un sous-dossier /gifs qui n'apparaitrait pas
-//   apres clic sur l'icone dossier -- routes /lsgifdirs et /lsgiffiles
-//   confirmees enregistrees, JS structurellement correct, format JSON
-//   coherent des 2 cotes, pas de conflit CSS display ni de collision de
-//   declaration JS trouves. A retester avec la console navigateur (F12)
-//   ouverte pour voir si le fetch echoue silencieusement.
-//   Compilation verifiee OK. PAS ENCORE teste sur materiel reel.
-//
-// v32 — 2026-07-23 — safe-modify — Logo Recalbox (fourni par l'utilisateur)
-//   integre sur la page MENU en data-URI base64 (pas de nouvelle route/
-//   PROGMEM binaire separe -- reste dans le pipeline gzip existant).
-//   Recadre (source 1920x1080 -> zone logo+fantomes 1170x830) et
-//   redimensionne a 260px de large, palette reduite a 32 couleurs (choix
-//   utilisateur parmi 3 options testees : 220px/24c, 260px/32c, sans
-//   image -- voir tools/assets pour le script de generation). Page MENU :
-//   1252 -> 5791 octets gzip -- notable mais reste tres en-dessous du
-//   seuil ~12.5 Ko a risque, et c'est la page d'accueil (chargee une
-//   fois, pas en boucle). Compilation verifiee OK (62% flash). PAS
-//   ENCORE reteste sur materiel reel.
-//
-// v31 — 2026-07-23 — safe-modify — Retours utilisateur post-test reel des
-//   pages fractionnees (v29/v30) :
-//   (1) Bug confirme "sauvegarder : missing parameter" : handleWebConfigSave()
-//   exigeait "brightness" comme parametre obligatoire (herite de l'ancienne
-//   page unique, ou tous les champs etaient dans le meme formulaire) --
-//   les pages NETWORK/CLOCK/MEDIA ne l'envoient jamais, donc TOUTE
-//   sauvegarde depuis ces pages echouait. Pire : la variable locale `b`
-//   (brightness) etait ensuite ecrite telle quelle dans config.ini sans
-//   repli sur la valeur persistee -- une simple suppression du garde
-//   aurait ecrit brightness=0 (ecran noir) a chaque sauvegarde
-//   NETWORK/CLOCK/MEDIA. Fix complet : "brightness" suit desormais le
-//   meme pattern hasArg() que tous les autres champs, et `b` est
-//   recalcule depuis screenBrightness (valeur persistee) juste avant
-//   l'ecriture, meme formule que handleWebConfigLoad().
-//   (2) Page MENU (accueil) reecrite pour s'harmoniser avec les 4 autres :
-//   meme topnav permanente, meme palette/style de cartes, banniere titre.
-//   Nouveau : lien "Continuer..." mis en avant si une section a deja ete
-//   visitee (localStorage "dmd_last_section", ecrit par chaque page en
-//   fin de script) -- sinon la grille des 4 sections reste affichee
-//   normalement (pas de section "par defaut" arbitraire).
-//   (3) Page MEDIA : parite complete avec l'ancienne page unique --
-//   navigation dans un dossier (icone dossier ouvert) pour lister/
-//   selectionner/supprimer des IMAGES individuelles (/delete-files), en
-//   plus de la suppression de dossiers entiers deja presente
-//   (/delete-folders, un seul bouton "Supprimer la selection"
-//   desormais context-sensible comme sur l'ancienne page). Upload GIF :
-//   champ texte ajoute a cote du menu deroulant pour taper un NOUVEAU nom
-//   de dossier (le backend le cree deja automatiquement, seule l'UI ne le
-//   permettait pas). Tailles apres regeneration : MENU 1252, MEDIA 3411
-//   octets gzip (BASIC/NETWORK/CLOCK inchangees a la marge) -- toutes
-//   tres en-dessous du seuil ~12.5 Ko a risque. Compilation verifiee OK
-//   (62% flash). PAS ENCORE reteste sur materiel reel.
+// Version actuelle : v30
 //
 // v30 — 2026-07-23 — safe-modify — Bug confirme (retour utilisateur :
 //   "recalbox_ip disparu du config.ini") : handleWebConfigSaveAP() faisait
@@ -1512,8 +143,6 @@ extern int    clockDuration;
 extern String clockTimeZone;
 extern bool    clockNeonCustomColor;
 extern uint8_t clockNeonR, clockNeonG, clockNeonB;
-extern bool   g_sdOpInProgress;
-extern bool   g_playlistStartedThisBoot;
 extern bool   requestReboot;
 extern String uiLanguage;
 extern void webDmdPause(const String &msg, uint16_t color = 0xFFFF);
@@ -1521,8 +150,6 @@ extern void webDmdResume();
 extern void webDmdSetMainMsg(const String &msg);
 extern void clearFirstBoot();
 extern String g_sdOpSubMsg;
-extern String g_sdOpPersistentSubMsg;
-extern uint16_t g_sdOpPersistentSubMsgColor;
 
 static WebServer *webServer = nullptr;
 static File uploadFile;
@@ -1532,6 +159,10 @@ static int uploadTotalBytes;
 static bool uploadSuccess = false;
 static String uploadErrorMsg;
 
+// v92 -- bloc WEB_CONFIG_HTML (ancienne page monolithique pre-fractionnement,
+// jamais servie par aucun handler depuis le passage aux 6 pages minces)
+// retire integralement lors de la reconstruction depuis cette base -- code
+// mort, cf. plan de reconstruction.
 static const char WEB_CONFIG_MENU_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="fr">
@@ -1620,6 +251,7 @@ h1{color:#ffd146;text-align:center;margin:8px 0 14px;font-size:22px;border-botto
 .topnav{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px}
 .topnav a{padding:8px 14px;border-radius:6px;background:#16213e;color:#8ab4f8;font-size:13px;font-weight:600;text-decoration:none}
 .topnav a.active{background:#8ab4f8;color:#1a1a2e}
+body.gen-busy .topnav a{pointer-events:none;opacity:.4}
 .section{background:#16213e;border-radius:8px;padding:16px;margin:12px 0}
 h2{color:#8ab4f8;font-size:15px;margin:0 0 10px;border-left:3px solid #8ab4f8;padding-left:8px}
 .row{display:flex;flex-wrap:wrap;align-items:center;margin:10px 0}
@@ -1674,8 +306,9 @@ body{position:relative}
 <button type="button" class="mini-btn" onclick="selectAllGenDirs(false)" data-i18n="btn_select_none">Rien s&eacute;lectionner</button>
 </div>
 <div id="genDirList" class="dirs"></div>
+<div class="row"><label for="loadPlaylistSelect" data-i18n="lbl_load_playlist">Modifier une playlist existante</label><select id="loadPlaylistSelect" onchange="loadPlaylistForEdit()"><option value="">---</option></select></div>
 <div class="row"><label for="playlistName" data-i18n="lbl_playlist_name">Nom playlist</label><input id="playlistName" data-i18n-placeholder="placeholder_playlist_name" placeholder="ex: MaPlaylist"></div>
-<div class="btn-row"><button type="button" class="btn btn-gen" onclick="generatePlaylist()" data-i18n="btn_gen_playlist">&#x2699; G&eacute;n&eacute;rer playlist</button></div>
+<div class="btn-row"><button type="button" class="btn btn-gen" onclick="generatePlaylist()" data-i18n="btn_gen_playlist">&#x2699; G&eacute;n&eacute;rer playlist</button><button type="button" class="btn btn-del" id="genStopBtn" style="display:none" onclick="stopGeneratePlaylist()" data-i18n="btn_stop_gen">&#x23F9; Arr&ecirc;ter</button></div>
 <div class="row"><label for="deletePlaylistSelect" data-i18n="lbl_delete_playlist">Supprimer</label><select id="deletePlaylistSelect"></select></div>
 <div class="btn-row"><button type="button" class="btn btn-del" onclick="deletePlaylist()" data-i18n="btn_delete_playlist">&#x1F5D1; Supprimer playlist</button></div>
 </div>
@@ -1689,11 +322,12 @@ body{position:relative}
 <div id="msg" class="msg"></div>
 <script>
 const PAGE_I18N={
-fr:{title:'RecalBox DMD - Affichage',h1:'Affichage &amp; Playlists',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_display:'&#x1F4A1; Affichage',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Luminosité (%)',lbl_silent_boot:'Démarrage silencieux',lbl_playlist_file:'Playlist par défaut',lbl_random:'Lecture aléatoire',lbl_delete_playlist:'Supprimer',btn_delete_playlist:'&#x1F5D1; Supprimer playlist',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_select_playlist:'Sélectionnez une playlist à supprimer',msg_confirm_delete:'Supprimer ${0} ?',msg_deleting:'Suppression...',msg_load_error:'Impossible de charger la config',sec_manage_playlists:'&#x2699; Gestion des playlists',desc_gen_playlist:'Cochez des dossiers pour générer une nouvelle playlist.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',lbl_playlist_name:'Nom playlist',placeholder_playlist_name:'ex: MaPlaylist',btn_gen_playlist:'&#x2699; Générer playlist',msg_no_playlist_name:'Donnez un nom à la playlist',msg_select_folder:'Choisissez au moins un dossier',msg_generating:'Generation...'},
-en:{title:'RecalBox DMD - Display',h1:'Display &amp; Playlists',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_display:'&#x1F4A1; Display',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Brightness (%)',lbl_silent_boot:'Silent boot',lbl_playlist_file:'Default playlist',lbl_random:'Random playback',lbl_delete_playlist:'Delete',btn_delete_playlist:'&#x1F5D1; Delete playlist',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_select_playlist:'Select a playlist to delete',msg_confirm_delete:'Delete ${0}?',msg_deleting:'Deleting...',msg_load_error:'Unable to load config',sec_manage_playlists:'&#x2699; Playlist management',desc_gen_playlist:'Check folders to generate a new playlist.',btn_select_all:'Select all',btn_select_none:'Select none',lbl_playlist_name:'Playlist name',placeholder_playlist_name:'e.g. MyPlaylist',btn_gen_playlist:'&#x2699; Generate playlist',msg_no_playlist_name:'Please name the playlist',msg_select_folder:'Select at least one folder',msg_generating:'Generating...'},
-es:{title:'RecalBox DMD - Pantalla',h1:'Pantalla y listas',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_display:'&#x1F4A1; Pantalla',sec_playlist:'&#x1F4BF; Lista',lbl_brightness:'Brillo (%)',lbl_silent_boot:'Arranque silencioso',lbl_playlist_file:'Lista predeterminada',lbl_random:'Reproducción aleatoria',lbl_delete_playlist:'Eliminar',btn_delete_playlist:'&#x1F5D1; Eliminar lista',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_select_playlist:'Selecciona una lista para eliminar',msg_confirm_delete:'¿Eliminar ${0}?',msg_deleting:'Eliminando...',msg_load_error:'No se pudo cargar la configuración',sec_manage_playlists:'&#x2699; Gestión de listas',desc_gen_playlist:'Marque las carpetas para generar una nueva lista.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',lbl_playlist_name:'Nombre de la lista',placeholder_playlist_name:'ej: MiLista',btn_gen_playlist:'&#x2699; Generar lista',msg_no_playlist_name:'Póngale un nombre a la lista',msg_select_folder:'Elija al menos una carpeta',msg_generating:'Generando...'}
+fr:{title:'RecalBox DMD - Affichage',h1:'Affichage &amp; Playlists',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_display:'&#x1F4A1; Affichage',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Luminosité (%)',lbl_silent_boot:'Démarrage silencieux',lbl_playlist_file:'Playlist par défaut',lbl_random:'Lecture aléatoire',lbl_delete_playlist:'Supprimer',btn_delete_playlist:'&#x1F5D1; Supprimer playlist',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_select_playlist:'Sélectionnez une playlist à supprimer',msg_confirm_delete:'Supprimer ${0} ?',msg_deleting:'Suppression...',msg_load_error:'Impossible de charger la config',sec_manage_playlists:'&#x2699; Gestion des playlists',desc_gen_playlist:'Cochez des dossiers pour générer une nouvelle playlist. &#x26A0;&#xFE0F; La création n\'est performante que sur des dossiers avec un nombre limité de fichiers. Pour des playlists contenant des dossiers conséquents, passez par l\'utilitaire RecalboxDMD_tool sur PC.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',lbl_playlist_name:'Nom playlist',placeholder_playlist_name:'ex: MaPlaylist',btn_gen_playlist:'&#x2699; Générer playlist',msg_no_playlist_name:'Donnez un nom à la playlist',msg_select_folder:'Choisissez au moins un dossier',msg_generating:'Generation...',lbl_load_playlist:'Modifier une playlist existante',msg_scanning:'Analyse',msg_gen_busy:'Generation deja en cours ailleurs',msg_gen_start_error:'Impossible de demarrer la generation',msg_gen_leave_warning:'Une generation de playlist est en cours. Quitter la page ?',btn_stop_gen:'&#x23F9; Arreter',msg_confirm_stop_gen:'Arreter la generation ? La playlist en cours de creation sera supprimee.',msg_stopping_gen:'Arret playlist en cours, veuillez patienter...'},
+en:{title:'RecalBox DMD - Display',h1:'Display &amp; Playlists',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_display:'&#x1F4A1; Display',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Brightness (%)',lbl_silent_boot:'Silent boot',lbl_playlist_file:'Default playlist',lbl_random:'Random playback',lbl_delete_playlist:'Delete',btn_delete_playlist:'&#x1F5D1; Delete playlist',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_select_playlist:'Select a playlist to delete',msg_confirm_delete:'Delete ${0}?',msg_deleting:'Deleting...',msg_load_error:'Unable to load config',sec_manage_playlists:'&#x2699; Playlist management',desc_gen_playlist:'Check folders to generate a new playlist. &#x26A0;&#xFE0F; Generation is only fast on folders with a limited number of files. For playlists covering large folders, use the RecalboxDMD_tool utility on PC instead.',btn_select_all:'Select all',btn_select_none:'Select none',lbl_playlist_name:'Playlist name',placeholder_playlist_name:'e.g. MyPlaylist',btn_gen_playlist:'&#x2699; Generate playlist',msg_no_playlist_name:'Please name the playlist',msg_select_folder:'Select at least one folder',msg_generating:'Generating...',lbl_load_playlist:'Edit an existing playlist',msg_scanning:'Scanning',msg_gen_busy:'A generation is already running',msg_gen_start_error:'Could not start generation',msg_gen_leave_warning:'A playlist generation is in progress. Leave the page?',btn_stop_gen:'&#x23F9; Stop',msg_confirm_stop_gen:'Stop generation? The playlist being created will be deleted.',msg_stopping_gen:'Stopping playlist generation, please wait...'},
+es:{title:'RecalBox DMD - Pantalla',h1:'Pantalla y listas',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_display:'&#x1F4A1; Pantalla',sec_playlist:'&#x1F4BF; Lista',lbl_brightness:'Brillo (%)',lbl_silent_boot:'Arranque silencioso',lbl_playlist_file:'Lista predeterminada',lbl_random:'Reproducción aleatoria',lbl_delete_playlist:'Eliminar',btn_delete_playlist:'&#x1F5D1; Eliminar lista',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_select_playlist:'Selecciona una lista para eliminar',msg_confirm_delete:'¿Eliminar ${0}?',msg_deleting:'Eliminando...',msg_load_error:'No se pudo cargar la configuración',sec_manage_playlists:'&#x2699; Gestión de listas',desc_gen_playlist:'Marque las carpetas para generar una nueva lista. &#x26A0;&#xFE0F; La creación solo es rápida en carpetas con un número limitado de archivos. Para listas con carpetas voluminosas, use la utilidad RecalboxDMD_tool en el PC.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',lbl_playlist_name:'Nombre de la lista',placeholder_playlist_name:'ej: MiLista',btn_gen_playlist:'&#x2699; Generar lista',msg_no_playlist_name:'Póngale un nombre a la lista',msg_select_folder:'Elija al menos una carpeta',msg_generating:'Generando...',lbl_load_playlist:'Editar una lista existente',msg_scanning:'Analizando',msg_gen_busy:'Ya hay una generación en curso',msg_gen_start_error:'No se pudo iniciar la generación',msg_gen_leave_warning:'Hay una generación de lista en curso. ¿Salir de la página?',btn_stop_gen:'&#x23F9; Detener',msg_confirm_stop_gen:'¿Detener la generación? La lista en creación se eliminará.',msg_stopping_gen:'Deteniendo la generación de la lista, espere...'}
 };
 let currentLang='fr';
+let _plNameAutoFilled=false; // suivi de la suggestion auto de nom (voir updatePlaylistNameSuggestion())
 function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||PAGE_I18N.fr[k]||k;}
 function trTpl(k,v){return tr(k).replace('${0}',v);}
 function applyLang(backendLang){
@@ -1725,8 +359,13 @@ function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg
 function doReboot(){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});}
 function saveAndReboot(){saveConfig().then(()=>setTimeout(doReboot,400));}
 function dmdResume(){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;fetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('msg_net_error'),false));}
-function fillPlaylists(selVal){fetch('/lsplaylists').then(r=>r.json()).then(pl=>{const sel=document.getElementById('playlist');const del=document.getElementById('deletePlaylistSelect');sel.innerHTML='';del.innerHTML='';const opt=document.createElement('option');opt.value='';opt.textContent='---';sel.appendChild(opt);const opt2=document.createElement('option');opt2.value='';opt2.textContent='---';del.appendChild(opt2);pl.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;if(p===selVal)o.selected=true;sel.appendChild(o);const o2=document.createElement('option');o2.value=p;o2.textContent=p;del.appendChild(o2);});}).catch(()=>{});}
-function deletePlaylist(){const name=document.getElementById('deletePlaylistSelect').value;if(!name){showMsg(tr('msg_select_playlist'),false);return;}if(!confirm(trTpl('msg_confirm_delete',name)))return;showMsg(tr('msg_deleting'),true);fetch('/delete-playlist',{method:'POST',body:new URLSearchParams({name:name}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t,t.includes('OK'));fillPlaylists('');}).catch(()=>showMsg(tr('msg_net_error'),false));}
+function fillPlaylists(selVal){fetch('/lsplaylists').then(r=>r.json()).then(pl=>{const sel=document.getElementById('playlist');const del=document.getElementById('deletePlaylistSelect');const load=document.getElementById('loadPlaylistSelect');sel.innerHTML='';del.innerHTML='';load.innerHTML='';const opt=document.createElement('option');opt.value='';opt.textContent='---';sel.appendChild(opt);const opt2=document.createElement('option');opt2.value='';opt2.textContent='---';del.appendChild(opt2);const opt3=document.createElement('option');opt3.value='';opt3.textContent='---';load.appendChild(opt3);pl.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;if(p===selVal)o.selected=true;sel.appendChild(o);const o2=document.createElement('option');o2.value=p;o2.textContent=p;del.appendChild(o2);const o3=document.createElement('option');o3.value=p;o3.textContent=p;load.appendChild(o3);});}).catch(()=>{});}
+function deletePlaylist(){const name=document.getElementById('deletePlaylistSelect').value;if(!name){showMsg(tr('msg_select_playlist'),false);return;}if(!confirm(trTpl('msg_confirm_delete',name)))return;
+  // showMsgLocal (pas showMsg) : meme raison que dans generatePlaylist()
+  // ci-dessous -- eviter le fetch('/dmd-pause') interne de showMsg() en
+  // concurrence avec le fetch('/delete-playlist') juste apres.
+  showMsgLocal(tr('msg_deleting'),true);
+  fetch('/delete-playlist',{method:'POST',body:new URLSearchParams({name:name}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t,t.includes('OK'));fillPlaylists('');}).catch(()=>showMsg(tr('msg_net_error'),false));}
 // Generation de playlist (deplacee depuis MEDIA -- demande utilisateur :
 // la gestion des playlists va dans Affichage, la gestion physique des
 // fichiers/dossiers reste dans MEDIA). Liste des dossiers ici pour
@@ -1741,14 +380,139 @@ function loadGenDirs(){fetch('/lsgifdirs').then(r=>r.json()).then(dirs=>{
     list.appendChild(row);
   });
 }).catch(()=>{});}
-function selectAllGenDirs(v){document.querySelectorAll('#genDirList input').forEach(i=>i.checked=v);}
-function generatePlaylist(){
+function selectAllGenDirs(v){document.querySelectorAll('#genDirList input').forEach(i=>i.checked=v);updatePlaylistNameSuggestion();}
+// Suggestion de nom (demande utilisateur) : si exactement un dossier est
+// coche, pre-remplit "Nom playlist" avec son nom -- efface a la 1ere prise
+// de controle du champ par l'utilisateur (focus), jamais ecrase apres. Ne
+// s'applique QUE pour une NOUVELLE playlist (loadPlaylistSelect vide) --
+// ne touche jamais au nom d'une playlist existante en cours d'edition.
+function updatePlaylistNameSuggestion(){
+  if(document.getElementById('loadPlaylistSelect').value)return;
+  const checked=[].slice.call(document.querySelectorAll('#genDirList input:checked'));
+  const nameEl=document.getElementById('playlistName');
+  if(checked.length===1){
+    if(_plNameAutoFilled||nameEl.value==='') { nameEl.value=checked[0].value; _plNameAutoFilled=true; }
+  } else if(_plNameAutoFilled){
+    nameEl.value=''; _plNameAutoFilled=false;
+  }
+}
+document.getElementById('genDirList').addEventListener('change',function(e){if(e.target&&e.target.type==='checkbox')updatePlaylistNameSuggestion();});
+document.getElementById('playlistName').addEventListener('focus',function(){if(_plNameAutoFilled){this.value='';_plNameAutoFilled=false;}});
+// Modifier une playlist existante (demande utilisateur) : precoche les
+// dossiers qu'elle referme deja au lieu de forcer une re-selection complete
+// avant de regenerer (la regeneration ecrase le fichier a l'identique --
+// meme nom).
+function loadPlaylistForEdit(){
+  const raw=document.getElementById('loadPlaylistSelect').value;
+  if(!raw){
+    // Retour a "---" (demande utilisateur) : decoche tout plutot que de
+    // laisser les cases d'une precedente edition/selection.
+    selectAllGenDirs(false);
+    document.getElementById('playlistName').value='';
+    _plNameAutoFilled=false;
+    return;
+  }
+  // raw vient de /lsplaylists, QUI INCLUT ".txt" -- retire l'extension avant
+  // de l'utiliser : sinon /playlist-dirs cherche "name.txt.txt" (introuvable,
+  // dossiers jamais precoches) et une regeneration ecrirait un fichier
+  // "name.txt.txt" au lieu d'ecraser l'original.
+  const name=raw.replace(/\.txt$/i,'');
+  _plNameAutoFilled=false; // le nom vient d'une playlist existante, jamais ecrase par la suggestion auto
+  document.getElementById('playlistName').value=name;
+  fetch('/playlist-dirs?name='+encodeURIComponent(name)).then(r=>r.json()).then(dirs=>{
+    document.querySelectorAll('#genDirList input[type=checkbox]').forEach(c=>{c.checked=dirs.indexOf(c.value)>=0;});
+  }).catch(()=>showMsg(tr('msg_net_error'),false));
+}
+// Verrouille/deverrouille toute la page pendant la generation -- empeche de
+// lancer une autre action (upload, suppression...) pendant qu'un scan est en
+// cours, en plus du garde cote serveur (g_plGenActive, web_config.h).
+function setPageBusy(busy){document.querySelectorAll('button,input,select').forEach(e=>{if(e.id!=='genStopBtn')e.disabled=busy;});document.body.classList.toggle('gen-busy',busy);
+  document.getElementById('genStopBtn').style.display=busy?'inline-block':'none';
+  if(busy)document.getElementById('genStopBtn').disabled=false; // etat frais a chaque nouvelle generation (peut avoir ete desactive par un arret precedent)
+  // beforeunload : la generation continue cote serveur meme si l'utilisateur
+  // quitte la page (machine a etats independante du navigateur), mais le
+  // polling JS s'arreterait -- avertir plutot que laisser croire a un blocage
+  // silencieux si jamais le verrou CSS est contourne (ex. navigation clavier).
+  if(busy)window.onbeforeunload=function(){return tr('msg_gen_leave_warning');};else window.onbeforeunload=null;
+}
+function stopGeneratePlaylist(){
+  if(!confirm(tr('msg_confirm_stop_gen')))return;
+  // Message persistant immediat (pas de setTimeout d'auto-masquage) : le
+  // temps reel d'arret depend de la lenteur SD en cours (jusqu'a ~1 min
+  // observe en test reel) -- sans ca, rien n'indique que le clic a bien ete
+  // pris en compte pendant cette attente. Reste affiche jusqu'a ce que la
+  // boucle de polling deja en cours dans generatePlaylist() detecte la fin
+  // reelle (!active) et affiche le resultat definitif.
+  const msgEl=document.getElementById('msg');
+  if(window._msgTimer)clearTimeout(window._msgTimer);
+  msgEl.className='msg ok';msgEl.style.display='block';msgEl.textContent=tr('msg_stopping_gen');
+  document.getElementById('genStopBtn').disabled=true; // evite un double-clic pendant l'attente
+  fetch('/generate-playlist-stop',{method:'POST'}).catch(()=>{});
+}
+async function generatePlaylist(){
   const name=document.getElementById('playlistName').value.trim();
   const dirs=[].slice.call(document.querySelectorAll('#genDirList input:checked')).map(i=>i.value).join(',');
   if(!name){showMsg(tr('msg_no_playlist_name'),false);return;}
   if(!dirs){showMsg(tr('msg_select_folder'),false);return;}
-  showMsg(tr('msg_generating'),true);
-  fetch('/generate-playlist',{method:'POST',body:new URLSearchParams({name:name,dirs:dirs}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t,t.includes('OK'));if(t.includes('OK')){document.getElementById('playlistName').value='';fillPlaylists('');}}).catch(()=>showMsg(tr('msg_net_error'),false));
+  setPageBusy(true);
+  const msgEl=document.getElementById('msg');
+  if(window._msgTimer)clearTimeout(window._msgTimer);
+  msgEl.className='msg ok';msgEl.style.display='block';msgEl.textContent=tr('msg_generating');
+  let started=false;
+  try{
+    const r=await fetch('/generate-playlist',{method:'POST',body:new URLSearchParams({name:name,dirs:dirs}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+    const t=await r.text();
+    started=t.includes('STARTED');
+    if(!started){msgEl.textContent=(r.status===409)?tr('msg_gen_busy'):t;msgEl.className='msg err';}
+  }catch(e){msgEl.textContent=tr('msg_net_error');msgEl.className='msg err';}
+  if(!started){setPageBusy(false);return;}
+  // Polling de progression (le WebServer ESP32 est mono-thread : impossible
+  // de pousser une mise a jour depuis le serveur pendant que le scan tourne,
+  // la page doit donc interroger periodiquement /generate-playlist-status).
+  while(true){
+    await new Promise(res=>setTimeout(res,700));
+    let st;
+    try{
+      // AbortController : sans ca, une seule requete de statut qui reste
+      // bloquee (observe en test reel 2026-07-28 -- page figee a 20/165
+      // pendant que le DMD, lui, continuait a avancer normalement) fige le
+      // polling pour de bon, la boucle n'atteignant jamais l'iteration
+      // suivante puisqu'elle reste indefiniment en attente du fetch().
+      // 9000ms (pas 4000) : certains dossiers ont des lenteurs SD localisees
+      // ou plusieurs fichiers consecutifs prennent chacun plusieurs secondes
+      // (Halloween/Vertical_DMD/tous, confirme en test reel) -- un timeout
+      // trop court se remettait lui-meme a echouer en boucle sur ces series,
+      // sans jamais laisser au serveur (mono-thread, deja occupe par le scan)
+      // le temps de repondre. Mitigation legere : pas une elimination du gel
+      // possible (deplacer le scan sur une tache dediee reglerait la cause,
+      // pas fait ici sur decision explicite -- juste tolerer une serie plus
+      // longue avant d'abandonner une requete).
+      const ctrl=new AbortController();
+      const abortTimer=setTimeout(()=>ctrl.abort(),9000);
+      st=await(await fetch('/generate-playlist-status',{signal:ctrl.signal})).json();
+      clearTimeout(abortTimer);
+    }catch(e){continue;}
+    if(!st.active){
+      msgEl.textContent=st.result||tr('msg_gen_start_error');
+      msgEl.className='msg '+(st.done?'ok':'err');
+      if(window._msgTimer)clearTimeout(window._msgTimer);
+      window._msgTimer=setTimeout(()=>{msgEl.style.display='none';},5000);
+      fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(st.result||''),color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});
+      document.getElementById('playlistName').value='';
+      fillPlaylists('');
+      break;
+    }
+    // Message volontairement generique, SANS compteur numerique (retire
+    // 2026-07-28, demande explicite) : un nombre affiche qui ne bouge plus
+    // pendant un des blocages SD documentes cette session (jusqu'a plusieurs
+    // secondes/fichier sur certains dossiers) donne l'impression d'un
+    // blocage reel, meme quand ce n'est que l'affichage qui n'a pas eu de
+    // nouvelle donnee. Le nom de dossier + sa position dans la liste restent
+    // affiches (contexte utile, non alarmants s'ils restent statiques -- un
+    // scan normal reste naturellement sur le meme dossier un moment).
+    msgEl.textContent=tr('msg_scanning')+': '+st.dir+' ('+st.dirIdx+'/'+st.totalDirs+')...';
+  }
+  setPageBusy(false);
 }
 function loadConfig(){return fetch('/load').then(r=>r.json()).then(d=>{document.getElementById('brightness').value=Math.max(0,Math.min(100,parseInt(d.brightness||50,10)));document.getElementById('bval').textContent=document.getElementById('brightness').value;document.getElementById('silent_boot').checked=d.info==='0';fillPlaylists(d.playlist||'');document.getElementById('random').checked=d.random==='1';}).catch(()=>showMsg(tr('msg_load_error'),false));}
 localStorage.setItem('dmd_last_section','basic');
@@ -2253,7 +1017,7 @@ async function uploadGif(){
   }
   stopBtn.style.display='none';
   if(uploaded.length){
-    fileList.textContent=tr('msg_updating_playlists');
+    msgEl.textContent=tr('msg_updating_playlists');
     try{await queuedFetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(tr('msg_updating_playlists')),color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});}catch(e){}
     try{await queuedFetch('/add-to-playlists-batch',{method:'POST',body:new URLSearchParams({dir:dir,files:uploaded.join(',')}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});}catch(e){}
   }
@@ -2401,7 +1165,7 @@ fetch('/lang').then(function(r){return r.json();}).then(function(d){applyLang(d.
 static String jsonEscape(const String &s)
 {
   String out;
-  out.reserve(s.length() + 4); // evite les reallocations repetees (chaque += peut recopier tout le buffer)
+  out.reserve(s.length() + 4);
   for (unsigned int i = 0; i < s.length(); i++) {
     char c = s.charAt(i);
     if (c == '"') out += "\\\"";
@@ -2474,186 +1238,182 @@ static void handleWebConfigListPlaylists()
   webServer->send(200, "application/json", json);
 }
 
-// Envoie un tableau JSON de strings a partir d'une liste "nom1,nom2,..."
-// deja echappee (jsonEscape), qu'elle vienne d'un scan frais ou du cache SD.
-//
-// En dessous de SIMPLE_SEND_MAX_LEN : un seul webServer->send() avec le JSON
-// complet deja construit -- exactement la methode de l'ancienne version du
-// firmware (RecalBox_DMDv9_preclockv2), dont un test A/B reel sur le meme
-// materiel/carte SD (2026-07-27) a confirme qu'elle ne montre AUCUN cout heap
-// fixe mesurable (heap stable pendant tout le scan), contrairement au mode
-// chunke ci-dessous qui coute a lui seul plusieurs Ko des son initialisation
-// (setContentLength(CONTENT_LENGTH_UNKNOWN)+send(200,...,"") vide), quelle
-// que soit la taille du contenu envoye ensuite -- confirme par plusieurs
-// tests reels montrant une perte identique sur un dossier quasi vide ET sur
-// des dossiers avec plusieurs dizaines d'entrees (donc un cout fixe par
-// requete, pas proportionnel au contenu).
-//
-// Au-dessus de SIMPLE_SEND_MAX_LEN : repli sur l'encodage chunke
-// (setContentLength(CONTENT_LENGTH_UNKNOWN) + sendContent() par petits
-// morceaux) -- necessaire pour les tres gros dossiers, ou le JSON complet
-// peut depasser ce que WebServer::send() sait transmettre en un seul envoi
-// (le client recoit alors moins d'octets que le Content-Length annonce,
-// d'ou net::ERR_CONTENT_LENGTH_MISMATCH cote navigateur, confirme en test
-// reel le 2026-07-25 sur des dossiers avec de nombreux fichiers -- les
-// petits dossiers ne declenchaient jamais ce depassement). Le cout fixe du
-// mode chunke devient alors un compromis acceptable face au risque de
-// depassement d'un envoi simple sur un contenu volumineux.
-static const size_t SIMPLE_SEND_MAX_LEN = 4096;
-
-static void sendJsonArrayFromCommaList(const String &names)
+static void handleWebConfigListGifDirs()
 {
-  if (names.length() < SIMPLE_SEND_MAX_LEN) {
-    String json;
-    json.reserve(names.length() + 16);
-    json += "[";
-    bool first = true;
-    int start = 0;
-    while (start <= (int)names.length()) {
-      int comma = names.indexOf(',', start);
-      String name = (comma < 0) ? names.substring(start) : names.substring(start, comma);
-      if (name.length() > 0) { json += (first ? "\"" : ",\""); json += name; json += "\""; first = false; }
-      if (comma < 0) break;
-      start = comma + 1;
-    }
-    json += "]";
-    webServer->send(200, "application/json", json);
-    return;
-  }
-  webServer->setContentLength(CONTENT_LENGTH_UNKNOWN);
-  webServer->send(200, "application/json", "");
-  webServer->sendContent("[");
-  bool first = true;
-  int start = 0;
-  while (start <= (int)names.length()) {
-    int comma = names.indexOf(',', start);
-    String name = (comma < 0) ? names.substring(start) : names.substring(start, comma);
-    if (name.length() > 0) { webServer->sendContent((first ? "\"" : ",\"") + name + "\""); first = false; }
-    if (comma < 0) break;
-    start = comma + 1;
-  }
-  webServer->sendContent("]");
-  webServer->sendContent(""); // chunk final (taille 0) -- termine proprement l'encodage chunke
-}
-
-// Scan direct de /gifs (liste des dossiers), sans aucune persistance SD --
-// voir changelog v74. Un seul passage FAT32, resultat accumule en RAM
-// (String, proportionnelle au contenu -- limite connue, cf. filet de
-// securite heap critique ci-dessous) puis envoye tel quel par l'appelant.
-// Retourne false si le scan a du etre abandonne (heap critique) ; dans ce
-// cas, l'appelant ne doit jamais presenter le contenu partiel comme complet
-// (et le JS ne doit pas le mettre en sessionStorage).
-static bool scanGifDirsRaw(String &outNames)
-{
-  outNames = "";
-  outNames.reserve(512);
-  bool first = true;
-  bool aborted = false;
-  unsigned long t0 = millis();
-  // v90 -- instrumentation temporaire (voir changelog) : isoler precisement
-  // la source de la perte de maxalloc constatee en test reel entre 2 appels
-  // /lsgifdirs successifs sur un tres petit /gifs (~18 dossiers), alors que
-  // le fix setvbuf/fopen() (leak GIF standard) ne concerne que la LECTURE de
-  // fichiers, pas l'enumeration de dossiers. A retirer une fois la cause
-  // confirmee par ces logs.
-  Serial.println("[WEB][DIAG] scanGifDirsRaw avant SD.open(/gifs), maxalloc=" + String(ESP.getMaxAllocHeap()));
+  String json = "[";
   File dir = SD.open("/gifs");
-  Serial.println("[WEB][DIAG] scanGifDirsRaw apres SD.open(/gifs), maxalloc=" + String(ESP.getMaxAllocHeap()));
   if (dir && dir.isDirectory()) {
-    int n = 0;
+    bool first = true;
     File entry = dir.openNextFile();
     while (entry) {
       if (entry.isDirectory()) {
         String name = String(entry.name());
         int slash = name.lastIndexOf('/');
         if (slash >= 0) name = name.substring(slash + 1);
-        if (!first) outNames += ",";
-        outNames += jsonEscape(name);
+        if (!first) json += ",";
+        json += "\"" + name + "\"";
         first = false;
       }
       entry.close(); entry = dir.openNextFile();
-      n++;
-      Serial.println("[WEB][DIAG] scanGifDirsRaw entree " + String(n) + ", maxalloc=" + String(ESP.getMaxAllocHeap()));
-      if ((n % 20) == 0) delay(1);
-      if ((n % 30) == 0) {
-        webDmdPause("/gifs (" + String(n) + ")", 0x07E0);
-        Serial.println("[WEB] scanGifDirsRaw : " + String(n) + " entrees vues, t=" + String(millis() - t0) + "ms");
-      }
-      // Filet de securite : abandonne proprement plutot que de risquer un
-      // abort() par epuisement heap. getMaxAllocHeap() (plus grand bloc
-      // contigu allouable) plutot que getFreeHeap() (total libre) : le
-      // total libre seul sous-estime le risque d'echec d'allocation sur
-      // un tas fragmente.
-      if (ESP.getMaxAllocHeap() < 6000) {
-        entry.close();
-        aborted = true;
-        break;
-      }
-    }
-    Serial.println("[WEB][DIAG] scanGifDirsRaw avant dir.close(), maxalloc=" + String(ESP.getMaxAllocHeap()));
-    dir.close();
-    Serial.println("[WEB][DIAG] scanGifDirsRaw apres dir.close(), maxalloc=" + String(ESP.getMaxAllocHeap()));
-  }
-  Serial.println("[WEB] scanGifDirsRaw : termine, t=" + String(millis() - t0) + "ms" + (aborted ? " (ABANDON heap critique)" : ""));
-  return !aborted;
-}
-
-// v85 -- decision utilisateur : retrait complet de la navigation/
-// suppression de fichiers individuels dans un dossier depuis MEDIA. Tout
-// le sous-systeme de cache /gifs par dossier (v75-v84 : machine a etats
-// cooperative, format V5 horodate, exclusion sur budget de temps,
-// detection de peremption) n'avait plus d'utilite -- il n'existait que
-// pour rendre la LECTURE du contenu d'un dossier rapide/sure sur l'ESP32,
-// fonctionnalite desormais retiree (remplacement envisage : composition
-// de playlists personnalisees depuis l'outil PC, a etudier separement).
-// handleWebConfigListGifDirs() (juste en dessous) reste base sur
-// scanGifDirsRaw() seul (liste des NOMS de dossiers, toujours rapide,
-// jamais mise en cache -- n'a jamais souffert de la degradation FAT32,
-// qui ne touchait que l'enumeration du CONTENU d'un dossier).
-
-static void handleWebConfigListGifDirs()
-{
-  String names;
-  bool ok = scanGifDirsRaw(names);
-  Serial.println("[WEB] lsgifdirs, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()) + (ok ? " (OK)" : " (heap critique, liste vide)"));
-  webServer->client().setTimeout(5000);
-  if (!ok) {
-    webServer->send(503, "application/json", "[]");
-    webServer->client().setTimeout(3000);
-    return;
-  }
-  // v85 : simple tableau de noms (plus de statut cached/excluded -- le
-  // cache par dossier qui portait cette notion a ete retire, voir plus
-  // haut).
-  sendJsonArrayFromCommaList(names);
-  webServer->client().setTimeout(3000);
-}
-
-static void handleWebConfigGifCount()
-{
-  if (!webServer->hasArg("dir")) { webServer->send(400, "text/plain", "0"); return; }
-  String dirName = webServer->arg("dir"); dirName.trim();
-  int count = 0;
-  File sub = SD.open(("/gifs/" + dirName).c_str());
-  if (sub && sub.isDirectory()) {
-    File f = sub.openNextFile();
-    while (f) {
-      if (!f.isDirectory() && String(f.name()).endsWith(".gif")) count++;
-      f.close(); f = sub.openNextFile();
       delay(1);
     }
-    sub.close();
+    dir.close();
   }
-  webServer->send(200, "text/plain", String(count));
+  json += "]";
+  webServer->send(200, "application/json", json);
 }
 
-// Definie plus bas avec le cache g_plRefCache* ; declaree ici pour que
-// handleWebConfigGeneratePlaylist()/handleWebConfigDeletePlaylist() puissent
-// invalider le cache quand la liste des playlists change.
+// v92 -- handleWebConfigListGifFiles()/handleWebConfigGifCount() (listing du
+// CONTENU d'un dossier, compteur de fichiers) retires : aucune page reelle
+// ne les appelle plus, la navigation/suppression fichier par fichier ayant
+// ete abandonnee (decision produit anterieure) -- voir plan de
+// reconstruction.
+
+// Forward declaration -- definie plus bas avec le cache g_plRefCache*, mais
+// invalidee ici (creation/suppression de playlist) et dans
+// handleWebConfigDeletePlaylist().
 static void invalidatePlaylistRefCache();
+
+// Machine a etats non-bloquante de generation de playlist (remplace un scan
+// synchrone unique qui bloquait toute la requete HTTP -- donc toute la page
+// web -- pendant tout le scan : aucune progression visible cote navigateur,
+// seul le DMD recevait les messages "Scan: ..." directement depuis cette
+// fonction). POST /generate-playlist initialise l'etat et repond
+// immediatement ("STARTED") ; playlistGenStep() (appelee depuis loop(),
+// meme principe que l'ancien cacheBuilderStep() du cache MEDIA, abandonne en
+// v85 -- mais l'idee de machine a etats par petits pas reste valide) avance
+// le scan par petits pas ; GET /generate-playlist-status permet a la page
+// web de suivre une vraie progression en l'interrogeant en polling.
+// g_plGenActive sert aussi de garde pour bloquer les autres operations SD
+// concurrentes (upload, creation de dossier, suppression de playlist)
+// pendant la generation -- une ecriture simultanee sur la carte SD pendant
+// ce scan serait de toute facon a risque.
+static bool   g_plGenActive = false;
+static bool   g_plGenDone = false;
+static String g_plGenName;
+static String g_plGenDirsCsv;
+static int    g_plGenParseIdx = 0;
+static int    g_plGenDirIdx = 0;
+static int    g_plGenTotalDirs = 0;
+static String g_plGenCurDirName;
+static bool   g_plGenCurDirOpen = false;
+static File   g_plGenOutFile;
+static File   g_plGenCurDir;
+static String g_plGenBuf;
+static int    g_plGenTotalGifs = 0;
+static int    g_plGenCurDirGifs = 0;
+static unsigned long g_plGenLastDmdMs = 0;
+static String g_plGenResultMsg;
+
+// Nombre max de fichiers traites par appel de playlistGenStep() -- borne le
+// cout par iteration de loop() (meme contrainte que CB_MAX_ENTRIES_PER_STEP,
+// cache MEDIA v76). Reduit a 1 (2026-07-28, test reel) : sur certains
+// dossiers, openNextFile() lui-meme (simple listing, sans lecture de
+// contenu) peut ponctuellement prendre plusieurs secondes par fichier
+// (meme classe de lenteur SD localisee que "Tous.txt" plus haut, mais ici
+// sur le listing plutot que le contenu) -- un lot de 5 pouvait alors geler
+// loop() (donc la page web ET le DMD) jusqu'a ~19s d'affilee. Un lot de 1
+// ne resout pas la lenteur intrinseque de ces entrees, mais limite le blocage
+// maximum par appel et rend la main a loop()/handleWebConfig() bien plus
+// souvent. Une elimination complete necessiterait de deplacer le scan sur
+// une tache FreeRTOS separee (comme mqttTask()) -- pas fait ici, discuter
+// avec l'utilisateur si le probleme persiste trop souvent en usage reel.
+#define PLGEN_MAX_FILES_PER_STEP 1
+
+// Le message DMD (webDmdPause()) expire et revient au message de fond apres
+// SD_OP_SUBMSG_EXPIRE_MS (5000ms, RecalBox_DMD.ino) sans nouvel appel --
+// observe en test reel (2026-07-28) sur un gros dossier ("Arcade") : n'etant
+// rappelee qu'une fois par CHANGEMENT de dossier, la progression disparaissait
+// du DMD des qu'un dossier prenait plus de 5s a scanner. Rafraichie ici toutes
+// les PLGEN_DMD_REFRESH_MS pendant le scan d'un dossier, marge large sous les
+// 5000ms d'expiration.
+#define PLGEN_DMD_REFRESH_MS 2000
+
+// Texte DMD compact : "Scan: <nom> (i/total) X/Y" pouvait depasser 30
+// caracteres (ex. "Scan: BEST_OF_TOP_30 (1/3) 0/30") -- largement au-dessus
+// de ce qu'un panneau 128px affiche sans defilement, et les mises a jour
+// frequentes (toutes les PLGEN_DMD_REFRESH_MS) interrompent le defilement
+// avant qu'il ait pu faire un tour complet (illisible en pratique, retour
+// utilisateur 2026-07-28). Retire le prefixe "Scan:" et l'index de dossier
+// (deja visible sur la page web, qui n'a pas cette contrainte de largeur),
+// et tronque le nom du dossier si besoin -- tient sur une ligne sans
+// defilement dans la grande majorite des cas.
+// Comptage du total cible par dossier RETIRE (2026-07-28, demande explicite
+// utilisateur) : necessitait un 2e listing complet du dossier avant de
+// pouvoir traiter le moindre fichier, doublant l'exposition aux lenteurs SD
+// localisees deja documentees (Vertical_DMD/Tous/Halloween) pour un gain
+// d'affichage juge trop couteux. Retour a un simple compte cumule.
+static String plGenDmdText()
+{
+  String n = g_plGenCurDirName;
+  if (n.length() > 10) n = n.substring(0, 10) + "..";
+  return n + " " + String(g_plGenCurDirGifs);
+}
+
+// Avance la generation d'un pas borne depuis loop(). Cout quasi nul quand
+// aucune generation n'est active (un seul if).
+void playlistGenStep()
+{
+  if (!g_plGenActive) return;
+
+  if (!g_plGenCurDirOpen) {
+    if (g_plGenParseIdx > (int)g_plGenDirsCsv.length()) {
+      // Plus de dossier a traiter : finalisation.
+      if (g_plGenBuf.length() > 0) { g_plGenOutFile.print(g_plGenBuf); g_plGenBuf = ""; }
+      g_plGenOutFile.close();
+      invalidatePlaylistRefCache();
+      g_plGenResultMsg = "OK: " + String(g_plGenTotalGifs) + " GIFs ajoutes dans la playlist " + g_plGenName + ".txt";
+      Serial.println("[WEB] " + g_plGenResultMsg);
+      webDmdPause("Playlist creee: " + String(g_plGenTotalGifs) + " GIFs", 0x07E0);
+      g_plGenActive = false;
+      g_plGenDone = true;
+      return;
+    }
+    int comma = g_plGenDirsCsv.indexOf(',', g_plGenParseIdx);
+    String dirName = (comma < 0) ? g_plGenDirsCsv.substring(g_plGenParseIdx) : g_plGenDirsCsv.substring(g_plGenParseIdx, comma);
+    dirName.trim();
+    g_plGenParseIdx = (comma < 0) ? (int)(g_plGenDirsCsv.length() + 1) : (comma + 1);
+    if (dirName.length() == 0) return; // segment vide (virgules successives) -- traite au step suivant
+    g_plGenDirIdx++;
+    g_plGenCurDirName = dirName;
+    g_plGenCurDirGifs = 0;
+    webDmdPause(plGenDmdText(), 0x07E0);
+    g_plGenLastDmdMs = millis();
+    g_plGenCurDir = SD.open(("/gifs/" + dirName).c_str());
+    g_plGenCurDirOpen = g_plGenCurDir && g_plGenCurDir.isDirectory();
+    if (!g_plGenCurDirOpen && g_plGenCurDir) g_plGenCurDir.close();
+    return;
+  }
+
+  int processed = 0;
+  while (processed < PLGEN_MAX_FILES_PER_STEP) {
+    File f = g_plGenCurDir.openNextFile();
+    if (!f) {
+      g_plGenCurDir.close();
+      g_plGenCurDirOpen = false;
+      break;
+    }
+    if (!f.isDirectory()) {
+      String fname = String(f.name());
+      if (fname.endsWith(".gif")) {
+        g_plGenBuf += "/gifs/" + g_plGenCurDirName + "/" + fname + "\n";
+        g_plGenTotalGifs++;
+        g_plGenCurDirGifs++;
+        if (g_plGenBuf.length() > 4000) { g_plGenOutFile.print(g_plGenBuf); g_plGenBuf = ""; }
+      }
+    }
+    f.close();
+    processed++;
+  }
+  if (millis() - g_plGenLastDmdMs > PLGEN_DMD_REFRESH_MS) {
+    webDmdPause(plGenDmdText(), 0x07E0);
+    g_plGenLastDmdMs = millis();
+  }
+}
 
 static void handleWebConfigGeneratePlaylist()
 {
+  if (g_plGenActive) { webServer->send(409, "text/plain", "ERR: generation deja en cours"); return; }
   if (!webServer->hasArg("name") || !webServer->hasArg("dirs")) {
     webServer->send(400, "text/plain", "ERR: manque nom ou dirs"); return;
   }
@@ -2664,49 +1424,137 @@ static void handleWebConfigGeneratePlaylist()
   if (SD.exists(outputPath.c_str())) SD.remove(outputPath.c_str());
   File outf = SD.open(outputPath.c_str(), FILE_WRITE);
   if (!outf) { webServer->send(500, "text/plain", "ERR: ecriture impossible"); return; }
-  String buf;
-  // Compter d'abord le nombre de dossiers pour la progression
-  int totalDirs = 1, processedDirs = 0;
-  for (int i = 0; i < dirs.length(); i++) if (dirs.charAt(i) == ',') totalDirs++;
-  int totalGifs = 0, startIdx = 0;
+
+  g_plGenName = name;
+  g_plGenDirsCsv = dirs;
+  g_plGenParseIdx = 0;
+  g_plGenDirIdx = 0;
+  g_plGenTotalDirs = 1;
+  for (int i = 0; i < dirs.length(); i++) if (dirs.charAt(i) == ',') g_plGenTotalDirs++;
+  g_plGenCurDirName = "";
+  g_plGenCurDirOpen = false;
+  g_plGenOutFile = outf;
+  g_plGenBuf = "";
+  g_plGenTotalGifs = 0;
+  g_plGenCurDirGifs = 0;
+  g_plGenResultMsg = "";
+  g_plGenDone = false;
+  g_plGenActive = true;
+  Serial.println("[WEB] generate-playlist: demarrage " + name + ".txt, dirs=" + dirs);
+  webServer->send(200, "text/plain", "STARTED");
+}
+
+static void handleWebConfigGeneratePlaylistStatus()
+{
+  String json = "{\"active\":" + String(g_plGenActive ? "true" : "false");
+  json += ",\"done\":" + String(g_plGenDone ? "true" : "false");
+  json += ",\"dir\":\"" + jsonEscape(g_plGenCurDirName) + "\"";
+  json += ",\"dirIdx\":" + String(g_plGenDirIdx);
+  json += ",\"totalDirs\":" + String(g_plGenTotalDirs);
+  json += ",\"gifs\":" + String(g_plGenTotalGifs);
+  json += ",\"curDirGifs\":" + String(g_plGenCurDirGifs);
+  json += ",\"result\":\"" + jsonEscape(g_plGenResultMsg) + "\"}";
+  webServer->send(200, "application/json", json);
+}
+
+// Forward declaration -- definie plus bas avec deleteFolderRecursive() (meme
+// fonction de suppression tolerante FAT32 lecture-seule), utilisee ici pour
+// supprimer la playlist partielle en cas d'arret demande par l'utilisateur.
+static bool forceDeleteFile(const String &path);
+
+// Arret demande par l'utilisateur (bouton "Arreter", meme principe que celui
+// de l'upload MEDIA) : la generation etant enterement synchrone avec loop()
+// (pas de tache separee), on peut fermer/nettoyer directement ici sans
+// risque de concurrence. Supprime la playlist PARTIELLE en cours de creation
+// (demande explicite -- un fichier incomplet ne doit jamais rester utilisable
+// tel quel) et reinitialise l'etat pour que le polling en cours (JS) detecte
+// la fin via son chemin normal (!active).
+static void handleWebConfigGeneratePlaylistStop()
+{
+  if (!g_plGenActive) { webServer->send(200, "text/plain", "OK: rien a arreter"); return; }
+  if (g_plGenCurDirOpen && g_plGenCurDir) g_plGenCurDir.close();
+  if (g_plGenOutFile) g_plGenOutFile.close();
+  String path = "/playlists/" + g_plGenName + ".txt";
+  if (SD.exists(path.c_str())) forceDeleteFile(path);
+  g_plGenActive = false;
+  g_plGenCurDirOpen = false;
+  g_plGenDone = true;
+  g_plGenResultMsg = "Generation annulee, playlist supprimee";
+  Serial.println("[WEB] generate-playlist-stop: " + g_plGenName + ".txt annulee/supprimee");
+  webDmdPause("Generation annulee", 0xF800);
+  webServer->send(200, "text/plain", "OK: annule");
+}
+
+// Renvoie la liste (JSON) des dossiers distincts references par une playlist
+// existante -- utilise par la page web pour pre-cocher les cases du dossier
+// correspondant quand l'utilisateur choisit de modifier une playlist deja
+// generee, plutot que de devoir tout re-cocher a la main.
+static void handleWebConfigPlaylistDirs()
+{
+  if (!webServer->hasArg("name")) { webServer->send(400, "text/plain", "ERR: manque nom"); return; }
+  String name = webServer->arg("name");
+  int dotExt = name.lastIndexOf('.');
+  if (dotExt > 0) name = name.substring(0, dotExt); // defensif : accepte "nom" ou "nom.txt"
+  File f = SD.open(("/playlists/" + name + ".txt").c_str());
+  if (!f) { webServer->send(200, "application/json", "[]"); return; }
+
+  // Lecture par blocs fixes + extraction ligne par ligne -- jamais tout le
+  // fichier en une seule String (meme raison que fileContainsNeedle : une
+  // grosse playlist comme "tous", ~400 Ko, a montre en test reel des
+  // blocages de plusieurs dizaines de secondes avec un simple readString()).
+  String json = "[";
+  String seen = ",";
+  bool first = true;
+  const size_t BUFSZ = 512;
+  char buf[BUFSZ + 1];
+  String pending;
   while (true) {
-    int comma = dirs.indexOf(',', startIdx);
-    String dirName = (comma < 0) ? dirs.substring(startIdx) : dirs.substring(startIdx, comma);
-    dirName.trim();
-    if (dirName.length() > 0) {
-      processedDirs++;
-      webDmdPause("Scan: " + dirName + " (" + String(processedDirs) + "/" + String(totalDirs) + ")", 0x07E0);
-      File sysDir = SD.open(("/gifs/" + dirName).c_str());
-      if (sysDir && sysDir.isDirectory()) {
-        File f = sysDir.openNextFile();
-        while (f) {
-          String fname = String(f.name());
-          if (!f.isDirectory() && fname.endsWith(".gif")) {
-            buf += "/gifs/" + dirName + "/" + fname + "\n";
-            totalGifs++;
-            if (buf.length() > 4000) { outf.print(buf); buf = ""; }
+    int n = f.read((uint8_t *)buf, BUFSZ);
+    if (n <= 0) break;
+    buf[n] = 0;
+    pending += buf;
+    int lineStart = 0;
+    while (true) {
+      int nl = pending.indexOf('\n', lineStart);
+      if (nl < 0) break;
+      String line = pending.substring(lineStart, nl);
+      line.trim();
+      if (line.startsWith("/gifs/")) {
+        int s2 = line.indexOf('/', 6);
+        if (s2 > 6) {
+          String dir = line.substring(6, s2);
+          if (seen.indexOf("," + dir + ",") < 0) {
+            seen += dir + ",";
+            if (!first) json += ",";
+            json += "\"" + jsonEscape(dir) + "\"";
+            first = false;
           }
-          f.close(); f = sysDir.openNextFile();
-          delay(1);
         }
       }
-      if (sysDir) sysDir.close();
+      lineStart = nl + 1;
     }
-    if (comma < 0) break;
-    startIdx = comma + 1;
-    delay(1);
+    pending = pending.substring(lineStart); // garde le reste incomplet (ligne a cheval sur 2 blocs) pour le prochain tour
+    if ((size_t)n < BUFSZ) break;
   }
-  if (buf.length() > 0) outf.print(buf);
-  outf.close();
-  invalidatePlaylistRefCache();
-  webDmdPause("Playlist creee: " + String(totalGifs) + " GIFs", 0x07E0);
-  String msg = "OK: " + String(totalGifs) + " GIFs ajoutes dans la playlist " + name + ".txt";
-  Serial.println("[WEB] " + msg);
-  webServer->send(200, "text/plain", msg);
+  f.close();
+  pending.trim();
+  if (pending.startsWith("/gifs/")) { // derniere ligne sans retour a la ligne final
+    int s2 = pending.indexOf('/', 6);
+    if (s2 > 6) {
+      String dir = pending.substring(6, s2);
+      if (seen.indexOf("," + dir + ",") < 0) {
+        if (!first) json += ",";
+        json += "\"" + jsonEscape(dir) + "\"";
+      }
+    }
+  }
+  json += "]";
+  webServer->send(200, "application/json", json);
 }
 
 static void handleWebConfigDeletePlaylist()
 {
+  if (g_plGenActive) { webServer->send(409, "text/plain", "ERR: generation en cours"); return; }
   if (!webServer->hasArg("name")) { webServer->send(400, "text/plain", "ERR: manque nom"); return; }
   String name = webServer->arg("name");
   String base = name;
@@ -2724,6 +1572,13 @@ static void handleWebConfigDeletePlaylist()
   webServer->send(200, "text/plain", msg);
 }
 
+// v92 -- addFileToPlaylists() (mise a jour PAR FICHIER, relisait chaque
+// playlist ligne par ligne a chaque appel) remplacee par le cache RAM
+// g_plRefCache*/handleWebConfigAddToPlaylistsBatch() ci-dessous : c'est le
+// fix exact du probleme "mise a jour playlist lente, sans buffer" -- un
+// seul passage par LOT d'upload (pas par fichier), lecture bufferisee
+// File::readString() au lieu de readStringUntil('\n') ligne par ligne.
+
 // Cache RAM : pour g_plRefCacheFolder, liste (CSV) des playlists .txt qui
 // referencent deja ce dossier. Invalide (chaine vide) a la creation ou
 // suppression d'une playlist -- voir invalidatePlaylistRefCache().
@@ -2732,18 +1587,89 @@ static String g_plRefCachePlaylists = "";
 
 static void invalidatePlaylistRefCache() { g_plRefCacheFolder = ""; g_plRefCachePlaylists = ""; }
 
-// Version "lot" : traite plusieurs fichiers du MEME
-// dossier en un seul appel. Meme dossier => memes playlists concernees (via
-// g_plRefCache*), et surtout chaque playlist candidate n'est lue qu'UNE
-// FOIS (au lieu d'une fois par fichier du lot) pour verifier quels fichiers
-// y sont deja presents, puis tous les fichiers manquants sont ajoutes en un
-// seul SD.open(FILE_APPEND). Appelee par le JS (uploadGif()) une seule fois
-// a la fin de tout un lot d'upload, plutot que addFileToPlaylists() a
-// chaque fichier individuel (cout mesure : verification "deja present"
-// relisait la playlist entiere pour chaque fichier meme avec le cache
-// "quelles playlists referencent ce dossier").
+// Cherche needle dans f SANS charger tout le fichier en memoire (contrairement
+// a f.readString(), qui a montre en test reel (2026-07-28) des blocages de
+// 40-44s ET un resultat FAUX -- "found=0" pour une playlist "Tous"/~400 Ko
+// qui referencait pourtant bien le dossier -- des qu'un fichier depasse
+// quelques centaines de Ko avec un heap deja fragmente (maxalloc mesure a
+// ~9-10 Ko a ce moment du boot) : la reallocation progressive d'une String
+// Arduino jusqu'a des centaines de Ko dans un tas aussi fragmente est soit
+// catastrophiquement lente, soit echoue silencieusement en cours de route.
+// Lecture par blocs fixes (BUFSZ), avec chevauchement pour ne pas rater une
+// correspondance a cheval sur 2 blocs -- cout memoire constant, quelle que
+// soit la taille du fichier.
+static bool fileContainsNeedle(File &f, const String &needle)
+{
+  const size_t BUFSZ = 512;
+  size_t nlen = needle.length();
+  if (nlen == 0 || nlen > 64) return false; // needle attendu court ("/gifs/<dossier>/")
+  char buf[BUFSZ + 64];
+  size_t carried = 0;
+  while (true) {
+    int n = f.read((uint8_t *)(buf + carried), BUFSZ);
+    if (n <= 0) break;
+    size_t total = carried + (size_t)n;
+    if (total >= nlen) {
+      for (size_t i = 0; i + nlen <= total; i++) {
+        if (memcmp(buf + i, needle.c_str(), nlen) == 0) return true;
+      }
+    }
+    size_t keep = (nlen > 1) ? (nlen - 1) : 0;
+    if (keep > total) keep = total;
+    if (keep > 0) memmove(buf, buf + (total - keep), keep);
+    carried = keep;
+    if ((size_t)n < BUFSZ) break; // fin de fichier
+  }
+  return false;
+}
+
+// Meme principe que fileContainsNeedle() ci-dessus, mais pour plusieurs
+// chemins candidats en un seul passage streaming sur le fichier (utilise par
+// la boucle d'ajout : verifie lesquels des fichiers d'un lot d'upload sont
+// deja presents dans une playlist, sans jamais charger tout son contenu en
+// memoire). candidates[]/found[] : memes indices, meme taille nCandidates.
+static void fileFindExistingPaths(File &f, int nCandidates, const String candidates[], bool found[])
+{
+  for (int i = 0; i < nCandidates; i++) found[i] = false;
+  const size_t BUFSZ = 512;
+  char buf[BUFSZ + 300]; // marge pour l'overlap (chemins de fichiers potentiellement longs)
+  buf[0] = '\n'; // emule le prefixe "\n"+contenu de l'ancienne version (detecte une correspondance des le tout debut du fichier)
+  size_t carried = 1;
+  while (true) {
+    int n = f.read((uint8_t *)(buf + carried), BUFSZ);
+    if (n <= 0) break;
+    size_t total = carried + (size_t)n;
+    size_t maxOverlap = 0;
+    for (int i = 0; i < nCandidates; i++) {
+      if (found[i]) continue;
+      String withNl = candidates[i] + "\n";
+      size_t nlen = withNl.length();
+      if (nlen == 0 || nlen > 260) continue;
+      if (nlen - 1 > maxOverlap) maxOverlap = nlen - 1;
+      if (total >= nlen) {
+        const char *needle = withNl.c_str();
+        for (size_t p = 0; p + nlen <= total; p++) {
+          if (memcmp(buf + p, needle, nlen) == 0) { found[i] = true; break; }
+        }
+      }
+    }
+    size_t keep = (maxOverlap > total) ? total : maxOverlap;
+    if (keep > 0) memmove(buf, buf + (total - keep), keep);
+    carried = keep;
+    if ((size_t)n < BUFSZ) break;
+  }
+}
+
+// Version "lot" : traite plusieurs fichiers du MEME dossier en un seul
+// appel. Meme dossier => memes playlists concernees (via g_plRefCache*), et
+// surtout chaque playlist candidate n'est lue qu'UNE FOIS (au lieu d'une
+// fois par fichier du lot) pour verifier quels fichiers y sont deja
+// presents, puis tous les fichiers manquants sont ajoutes en un seul
+// SD.open(FILE_APPEND). Appelee par le JS (uploadGif()) une seule fois a la
+// fin de tout un lot d'upload.
 static void handleWebConfigAddToPlaylistsBatch()
 {
+  unsigned long tFn0 = millis(); // DIAGNOSTIC TEMPORAIRE (68s constates en test reel 2026-07-28) -- a retirer une fois la cause trouvee
   if (!webServer->hasArg("dir") || !webServer->hasArg("files")) { webServer->send(200, "text/plain", "OK:0"); return; }
   String folder = webServer->arg("dir"); folder.trim();
   String filesArg = webServer->arg("files");
@@ -2753,13 +1679,12 @@ static void handleWebConfigAddToPlaylistsBatch()
     g_plRefCacheFolder = folder;
     g_plRefCachePlaylists = "";
     // Detection "quelle playlist reference ce dossier" : lecture bufferisee
-    // complete (readString(), deja utilisee plus bas dans cette meme
-    // fonction pour la verification de doublons) + un seul indexOf(), au
-    // lieu de la version precedente qui relisait CHAQUE playlist ligne par
-    // ligne (readStringUntil('\n') + delay(1) PAR LIGNE) -- tres lent en
-    // conditions reelles des qu'une playlist contient beaucoup d'entrees
-    // (signale par l'utilisateur, silencieux en plus : aucun retour tant
-    // que cette phase durait).
+    // complete (readString(), reutilisee plus bas dans cette meme fonction
+    // pour la verification de doublons) + un seul indexOf(), au lieu d'une
+    // relecture ligne par ligne (readStringUntil('\n') + delay(1) PAR
+    // LIGNE) -- tres lent des qu'une playlist contient beaucoup d'entrees.
+    unsigned long tScan0 = millis(); // DIAGNOSTIC TEMPORAIRE
+    int plCount = 0;
     String needle = "/gifs/" + folder + "/";
     File plDir = SD.open("/playlists");
     if (plDir && plDir.isDirectory()) {
@@ -2769,14 +1694,16 @@ static void handleWebConfigAddToPlaylistsBatch()
         int slash = name.lastIndexOf('/');
         String base = (slash >= 0) ? name.substring(slash + 1) : name;
         if (!entry.isDirectory() && base.endsWith(".txt")) {
-          String plPath = "/playlists/" + base;
-          File pl = SD.open(plPath.c_str());
-          bool found = false;
-          if (pl) {
-            String content = pl.readString();
-            pl.close();
-            found = content.indexOf(needle) >= 0;
-          }
+          plCount++;
+          unsigned long tEntry0 = millis(); // DIAGNOSTIC TEMPORAIRE
+          // entry est deja un handle ouvert sur ce fichier precis (obtenu par
+          // iteration via openNextFile(), pas par nom) -- pas besoin de le
+          // rouvrir. fileContainsNeedle() lit par blocs fixes (voir plus haut) :
+          // evite de charger tout le fichier en memoire, cause reelle des
+          // blocages 40-44s mesures en test reel sur "Tous"/"gaming" (l'ancienne
+          // hypothese "recherche par nom" a ete infirmee par un test dedie).
+          bool found = fileContainsNeedle(entry, needle);
+          Serial.println("[WEB] plscan " + base + " " + String(millis() - tEntry0) + "ms found=" + String(found ? "1" : "0")); // DIAGNOSTIC TEMPORAIRE
           if (found) {
             if (g_plRefCachePlaylists.length() > 0) g_plRefCachePlaylists += ",";
             g_plRefCachePlaylists += base;
@@ -2787,35 +1714,48 @@ static void handleWebConfigAddToPlaylistsBatch()
       }
       plDir.close();
     }
+    Serial.println("[WEB] add-to-playlists-batch: scan " + String(plCount) + " playlist(s) en " + String(millis() - tScan0) + "ms, maxalloc=" + String(ESP.getMaxAllocHeap())); // DIAGNOSTIC TEMPORAIRE
   }
 
+  unsigned long tAppend0 = millis(); // DIAGNOSTIC TEMPORAIRE
   int totalAppended = 0;
+
+  // Chemins candidats du lot, calcules une seule fois (identiques pour
+  // toutes les playlists candidates ci-dessous) -- bornes a MAX_BATCH_FILES,
+  // largement au-dessus des lots observes en usage reel (jusqu'a ~15).
+  const int MAX_BATCH_FILES = 64;
+  String candidates[MAX_BATCH_FILES];
+  int nCand = 0;
+  {
+    int fstart = 0;
+    while (fstart <= (int)filesArg.length() && nCand < MAX_BATCH_FILES) {
+      int fcomma = filesArg.indexOf(',', fstart);
+      String fname = (fcomma < 0) ? filesArg.substring(fstart) : filesArg.substring(fstart, fcomma);
+      fname.trim();
+      if (fname.length() > 0) candidates[nCand++] = "/gifs/" + folder + "/" + fname;
+      if (fcomma < 0) break;
+      fstart = fcomma + 1;
+    }
+  }
+
   int pstart = 0;
   while (pstart <= (int)g_plRefCachePlaylists.length()) {
     int pcomma = g_plRefCachePlaylists.indexOf(',', pstart);
     String base = (pcomma < 0) ? g_plRefCachePlaylists.substring(pstart) : g_plRefCachePlaylists.substring(pstart, pcomma);
     if (base.length() > 0) {
       String plPath = "/playlists/" + base;
-      String existing;
+      // fileFindExistingPaths() lit par blocs fixes (voir fileContainsNeedle
+      // plus haut) -- evite de charger toute la playlist en memoire
+      // (pl.readString() sur une grosse playlist a montre en test reel des
+      // blocages de plusieurs dizaines de secondes, meme cause que le scan
+      // de detection ci-dessus).
+      bool already[MAX_BATCH_FILES];
       File pl = SD.open(plPath.c_str());
-      if (pl) { existing = pl.readString(); pl.close(); } // readString() bufferise, evite la fragmentation d'une concatenation octet-par-octet sur une grosse playlist
-      String existingPadded = "\n" + existing;
-      if (!existingPadded.endsWith("\n")) existingPadded += "\n";
+      if (pl) { fileFindExistingPaths(pl, nCand, candidates, already); pl.close(); }
+      else { for (int i = 0; i < nCand; i++) already[i] = false; }
       String toAppend;
-      int fstart = 0;
-      while (fstart <= (int)filesArg.length()) {
-        int fcomma = filesArg.indexOf(',', fstart);
-        String fname = (fcomma < 0) ? filesArg.substring(fstart) : filesArg.substring(fstart, fcomma);
-        fname.trim();
-        if (fname.length() > 0) {
-          String gifPath = "/gifs/" + folder + "/" + fname;
-          if (existingPadded.indexOf("\n" + gifPath + "\n") < 0) {
-            toAppend += gifPath + "\n";
-            totalAppended++;
-          }
-        }
-        if (fcomma < 0) break;
-        fstart = fcomma + 1;
+      for (int i = 0; i < nCand; i++) {
+        if (!already[i]) { toAppend += candidates[i] + "\n"; totalAppended++; }
       }
       if (toAppend.length() > 0) {
         File plApp = SD.open(plPath.c_str(), FILE_APPEND);
@@ -2825,7 +1765,7 @@ static void handleWebConfigAddToPlaylistsBatch()
     if (pcomma < 0) break;
     pstart = pcomma + 1;
   }
-  Serial.println("[WEB] add-to-playlists-batch: dir=" + folder + " -> " + String(totalAppended) + " ajout(s)");
+  Serial.println("[WEB] add-to-playlists-batch: dir=" + folder + " -> " + String(totalAppended) + " ajout(s), append=" + String(millis() - tAppend0) + "ms, total=" + String(millis() - tFn0) + "ms"); // DIAGNOSTIC TEMPORAIRE : timings ajoutes
   webServer->send(200, "text/plain", "OK:" + String(totalAppended));
 }
 
@@ -2833,15 +1773,14 @@ static void handleWebConfigAddToPlaylistsBatch()
 // JS AVANT le premier fichier d'un upload). Decouple la creation de dossier
 // du chemin critique de l'upload multipart : le workaround (mkdir + creer/
 // supprimer un fichier temoin, necessaire pour eviter un attribut lecture
-// seule sur certaines cartes SD) restait auparavant dans
-// UPLOAD_FILE_START -- meme avec le timeout client elargi a 15s (v34), le
-// navigateur continuait a signaler ERR_CONNECTION_RESET en test reel sur un
-// nouveau dossier. En le sortant du multipart, cette requete a son propre
-// budget de temps (elle n'est pas concurrente d'un flux de donnees fichier
-// en cours de reception) et le dossier existe deja quand l'upload demarre
-// vraiment.
+// seule sur certaines cartes SD) restait auparavant dans UPLOAD_FILE_START,
+// ou meme un timeout client elargi ne suffisait pas toujours (requete
+// concurrente du flux de donnees fichier en cours de reception). En le
+// sortant du multipart, cette requete a son propre budget de temps et le
+// dossier existe deja quand l'upload demarre vraiment.
 static void handleWebConfigCreateFolder()
 {
+  if (g_plGenActive) { webServer->send(409, "text/plain", "ERR: generation de playlist en cours"); return; }
   if (!webServer->hasArg("dir")) { webServer->send(400, "text/plain", "ERR: dossier manquant"); return; }
   String dirName = webServer->arg("dir"); dirName.trim();
   if (dirName.length() == 0) { webServer->send(400, "text/plain", "ERR: dossier manquant"); return; }
@@ -2852,20 +1791,6 @@ static void handleWebConfigCreateFolder()
     webServer->send(200, "text/plain", "OK: existant");
     return;
   }
-  // Meme filet de securite que UPLOAD_FILE_START : refuser proprement sur
-  // un tas critique plutot que de risquer un abort().
-  if (ESP.getMaxAllocHeap() < 6000) {
-    webServer->client().setTimeout(3000);
-    Serial.println("[WEB] create-folder refuse (heap critique, maxalloc=" + String(ESP.getMaxAllocHeap()) + ")");
-    webServer->send(503, "text/plain", "ERR: heap critique, reessayez");
-    return;
-  }
-  // NOTE : esp_task_wdt_reset() avait ete ajoute ici par precaution (theorie
-  // du Task Watchdog sur mkdir lent) mais s'est revele actif erroner en test
-  // reel ("task not found" en boucle, cf. changelog v44) -- la tache qui
-  // traite les requetes web n'est en fait pas enregistree aupres du TWDT.
-  // Retire : n'apportait aucun benefice et ajoutait un vrai cout (log
-  // d'erreur repete).
   unsigned long t0 = millis();
   bool mkOk = SD.mkdir(dirPath.c_str());
   Serial.println("[WEB] create-folder: mkdir " + dirPath + " -> " + (mkOk ? "OK" : "FAIL") + " (" + String(millis() - t0) + "ms)");
@@ -2890,11 +1815,9 @@ static void handleWebConfigUpload()
     // Ne JAMAIS appeler webServer->send() depuis handleWebConfigUploadFile()
     // (callback UPLOAD_FILE_*) : le client est encore en train d'envoyer le
     // corps multipart a ce moment-la, et une reponse prematuree casse la
-    // connexion HTTP en cours -- observe en test reel comme "erreur reseau"
-    // cote navigateur, specifiquement lors de l'upload vers un dossier a
-    // creer (chemin avec plus d'etapes SD synchrones avant l'ouverture du
-    // fichier). Seul ce handler, appele une fois le corps entierement
-    // consomme, a le droit d'envoyer une reponse.
+    // connexion HTTP en cours (vu cote navigateur comme une erreur reseau).
+    // Seul ce handler, appele une fois le corps entierement consomme, a le
+    // droit d'envoyer une reponse.
     String msg = uploadErrorMsg.length() ? uploadErrorMsg : "ERR: aucun fichier recu";
     uploadErrorMsg = "";
     webServer->send(400, "text/plain", msg);
@@ -2905,48 +1828,15 @@ static void handleWebConfigUploadFile()
 {
   HTTPUpload &upload = webServer->upload();
   if (upload.status == UPLOAD_FILE_START) {
+    if (g_plGenActive) { uploadErrorMsg = "ERR: generation de playlist en cours"; return; }
     // Timeout client elargi (defaut lib WebServer ~3s) le temps de l'upload :
-    // les operations SD synchrones ci-dessous (mkdir + creation/suppression
-    // d'un fichier temoin sur un dossier a creer, ecritures sous charge) le
-    // depassent facilement -> la lib coupe alors la connexion, vu cote
-    // navigateur comme ERR_CONNECTION_RESET/TIMED_OUT (confirme en test reel
-    // le 2026-07-25, F12). Remis a une valeur courte des la fin/l'abandon de
-    // l'upload. Meme correctif que celui documente le 2026-07-21, perdu lors
-    // du fractionnement en pages du 2026-07-23.
+    // les ecritures SD sous charge peuvent le depasser facilement -> la lib
+    // coupe alors la connexion, vu cote navigateur comme ERR_CONNECTION_
+    // RESET/TIMED_OUT. Remis a une valeur courte des la fin/l'abandon de
+    // l'upload.
     webServer->client().setTimeout(15000);
     uploadSuccess = false;
     uploadErrorMsg = "";
-    // Refus propre plutot qu'un crash : sur un tas deja fragmente (upload
-    // en masse avec plusieurs operations precedentes -- suppressions,
-    // listings, retries), une allocation qui echoue plus loin dans ce
-    // handler declenche abort() (exceptions C++ desactivees sur Arduino
-    // ESP32) et fait rebooter le DMD -- confirme en test reel (backtrace
-    // abort() apres plusieurs "Upload aborted" consecutifs). Mieux vaut
-    // refuser explicitement ce fichier avec un message clair : le JS
-    // retentera (jusqu'a 3x) et le prochain essai aura peut-etre plus de
-    // marge si le tas s'est un peu detendu entre-temps.
-    if (ESP.getMaxAllocHeap() < 6000) {
-      // v90 -- logs diagnostic (scanGifDirsRaw) ont montre que la plupart des
-      // creux maxalloc observes pendant un scan de dossiers sont TRANSITOIRES
-      // (probablement un buffer de lecture bloc SD/FATFS, ~4096 octets,
-      // libere 1 a 4 iterations plus tard) et non une fragmentation stable --
-      // le heap avait quasiment recupere (12788->12276) juste apres un refus
-      // d'upload a maxalloc=4596 mesure en test reel. Hypothese testee ici :
-      // le creux au moment precis d'UPLOAD_FILE_START (avant meme d'ouvrir
-      // le fichier cible) pourrait etre du meme type -- une courte pause
-      // suffit peut-etre a le laisser se resorber avant de refuser pour de
-      // bon. PAS ENCORE confirme sur materiel reel.
-      unsigned long maBefore = ESP.getMaxAllocHeap();
-      delay(10);
-      unsigned long maAfter = ESP.getMaxAllocHeap();
-      Serial.println("[WEB] Upload heap critique initial maxalloc=" + String(maBefore) + ", apres delay(10) maxalloc=" + String(maAfter));
-      if (maAfter < 6000) {
-        uploadErrorMsg = "ERR: heap critique, reessayez";
-        Serial.println("[WEB] Upload refuse (heap critique, maxalloc=" + String(maAfter) + ")");
-        return;
-      }
-      Serial.println("[WEB] Upload : creux transitoire resorbe, poursuite normale");
-    }
     uploadDir = webServer->arg("dir");
     uploadDir.trim();
     if (uploadDir.length() == 0) {
@@ -3000,17 +1890,8 @@ static void handleWebConfigUploadFile()
       unsigned long dt = millis() - uploadStartMs;
       Serial.println("[WEB] Upload done: " + String(uploadTotalBytes) + " bytes in " + String(dt) + "ms");
       // Mise a jour des playlists PLUS appelee ici par fichier -- le JS
-      // (uploadGif()) appelle desormais /add-to-playlists-batch UNE SEULE
-      // FOIS a la fin de tout le lot, avec la liste des fichiers uploades
-      // avec succes. Meme dossier => memes playlists concernees : inutile
-      // de rescanner toutes les playlists a chaque fichier individuel (le
-      // cout mesure precedemment, cf. cache g_plRefCache*, restait par
-      // fichier meme avec le cache "quelles playlists referencent ce
-      // dossier" -- seule la verification "deja present" etait encore
-      // faite par fichier). Meme principe desormais pour l'invalidation du
-      // cache /gifs : faite UNE SEULE fois par lot, dans
-      // handleWebConfigAddToPlaylistsBatch() (appelee a la fin du lot), pas
-      // ici a chaque fichier individuel.
+      // (uploadGif()) appelle /add-to-playlists-batch UNE SEULE FOIS a la
+      // fin de tout le lot, avec la liste des fichiers uploades avec succes.
     }
   } else if (upload.status == UPLOAD_FILE_ABORTED) {
     webServer->client().setTimeout(3000);
@@ -3021,12 +1902,9 @@ static void handleWebConfigUploadFile()
 
 static void handleWebConfigSave()
 {
-  // "brightness" n'est plus obligatoire : chaque page (BASIC/NETWORK/
-  // CLOCK/MEDIA) n'envoie que SES propres champs a /save -- l'exiger
-  // systematiquement (herite de l'ancienne page unique, ou tous les
-  // champs etaient dans le meme formulaire) faisait echouer TOUTE
-  // sauvegarde depuis NETWORK/CLOCK/MEDIA avec "missing params". Meme
-  // pattern hasArg() que tous les autres champs ci-dessous.
+  // "brightness" n'est plus obligatoire : chaque page (BASIC/NETWORK/CLOCK/
+  // MEDIA) n'envoie que SES propres champs a /save -- l'exiger fait echouer
+  // la sauvegarde depuis toutes les pages sauf BASIC.
   if (webServer->hasArg("brightness")) {
     int b = webServer->arg("brightness").toInt();
     if (b >= 0 && b <= 100) screenBrightness = map(b, 0, 100, 0, 255);
@@ -3061,11 +1939,6 @@ static void handleWebConfigSave()
   if (webServer->hasArg("clock_duration"))  clockDuration = webServer->arg("clock_duration").toInt();
   if (webServer->hasArg("clock_tz"))        clockTimeZone = webServer->arg("clock_tz");
 
-  // Recalcule depuis screenBrightness (valeur persistee, mise a jour ou
-  // non ci-dessus selon que "brightness" etait present) -- meme formule
-  // que handleWebConfigLoad(), jamais une variable locale non initialisee
-  // qui aurait ecrit brightness=0 dans config.ini si la page appelante
-  // n'envoyait pas ce champ (ecran DMD noir).
   int b = (screenBrightness * 100 + 127) / 255;
 
   File f = SD.open("/config.ini", FILE_WRITE);
@@ -3160,6 +2033,7 @@ static bool deleteFolderRecursive(const String &path)
 
 static void handleWebConfigDeleteFolders()
 {
+  if (g_plGenActive) { webServer->send(409, "text/plain", "ERR: generation de playlist en cours"); return; }
   if (!webServer->hasArg("dirs")) { webServer->send(400, "text/plain", "ERR: missing dirs"); return; }
   String dirs = webServer->arg("dirs");
   int count = 0, fail = 0, start = 0;
@@ -3184,16 +2058,19 @@ static void handleWebConfigDeleteFolders()
   webServer->send(200, "text/plain", msg);
 }
 
-// v85 : handleWebConfigDeleteFiles() (suppression de fichiers INDIVIDUELS
-// dans un dossier) et sa route /delete-files retirees -- decision
-// utilisateur de supprimer la navigation/suppression de fichiers
-// individuels depuis MEDIA (voir plus haut). La suppression de DOSSIERS
-// ENTIERS (handleWebConfigDeleteFolders(), ci-dessus) reste disponible.
+// v92 -- handleWebConfigDeleteFiles() (suppression de fichiers individuels
+// dans un dossier) retiree : plus aucune page ne l'appelle -- voir plan de
+// reconstruction.
+
+// v92 -- handleWebConfigAddToPlaylists() (mise a jour PAR FICHIER, route
+// /add-to-playlists singulier) retiree : remplacee par
+// handleWebConfigAddToPlaylistsBatch()//add-to-playlists-batch (cache
+// g_plRefCache* + lecture bufferisee, voir plus haut).
 
 // Forward declaration : definie plus bas (juste avant handleWebConfigRoot,
 // qui l'utilise aussi), mais appelee ici par handleDmdOpen() -- sans cette
 // declaration, erreur de compilation "not declared in this scope".
-static bool triggerWebConfigMode(const String &msg);
+static void triggerWebConfigMode(const String &msg);
 
 static void handleDmdPause()
 {
@@ -3219,7 +2096,7 @@ static void handleDmdOpen()
   if (!webServer->hasArg("msg")) { webServer->send(400, "text/plain", "ERR: missing msg"); return; }
   String msg = webServer->arg("msg");
   String full = msg + " " + WiFi.localIP().toString();
-  if (!triggerWebConfigMode(msg)) return; // reboot cible deja declenche, reponse deja envoyee
+  triggerWebConfigMode(msg);
   webServer->send(200, "text/plain", "OK " + full);
 }
 
@@ -3291,85 +2168,12 @@ static void handleWebConfigSaveAP()
   ESP.restart();
 }
 
-static void sendRebootingPage()
+static void triggerWebConfigMode(const String &msg)
 {
-  // Page volontairement generee en C++ (pas de bloc PROGMEM/gzip) : tres
-  // courte, contenu dynamique selon uiLanguage, inutile de passer par le
-  // pipeline de generation gzip pour ca.
-  // Poll JS (fetch + catch) plutot qu'un simple <meta refresh> : pendant la
-  // fenetre ou l'ESP32 redemarre reellement, une navigation classique
-  // (meta refresh) tomberait sur une erreur de connexion et le navigateur
-  // afficherait sa page d'erreur native -- laquelle n'a plus notre balise
-  // refresh, plus aucune nouvelle tentative automatique ensuite. Le fetch()
-  // echoue silencieusement (catch) sans jamais quitter cette page tant que
-  // le serveur ne repond pas, puis recharge des le premier succes reel.
-  String msg = "Redemarrage du DMD en cours, veuillez patienter...";
-  if (uiLanguage == "en") msg = "DMD rebooting, please wait...";
-  else if (uiLanguage == "es") msg = "Reiniciando el DMD, por favor espere...";
-  String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
-    "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-    "<title>RecalBox DMD</title>"
-    "<style>body{font-family:sans-serif;background:#1a1a2e;color:#eee;display:flex;"
-    "align-items:center;justify-content:center;height:100vh;margin:0;text-align:center}</style>"
-    "</head><body><div>" + msg + "</div>"
-    "<script>function poll(){fetch(location.href,{cache:'no-store'}).then(function(r){"
-    "if(r.ok)location.reload();else setTimeout(poll,1500);"
-    "}).catch(function(){setTimeout(poll,1500);});}"
-    "setTimeout(poll,1500);</script>"
-    "</body></html>";
-  webServer->send(200, "text/html", html);
-}
-
-// v88 -- REINTRODUIT (retire en v85, ramene suite a un test reel) : le
-// simple LISTING DES NOMS de dossiers (/lsgifdirs, utilise par BASIC ET
-// MEDIA desormais, pas seulement l'ancien cache par fichier) echoue sans
-// ce reboot -- mettre en pause une lecture GIF en cours (webDmdPause()
-// juste en dessous) fragmente fortement le heap A ELLE SEULE (maxalloc
-// mesure s'effondrant de ~13-18 Ko a ~4,6 Ko alors que le heap LIBRE total
-// augmente au meme moment -- pure fragmentation, pas un manque de
-// memoire), quelle que soit la duree de lecture avant l'ouverture de la
-// page. Reboot desormais SYSTEMATIQUE (toutes les pages declenchent la
-// meme logique, plus de parametre allowReboot -- BASIC a autant besoin de
-// heap contigu pour son listing que MEDIA).
-static bool triggerWebConfigMode(const String &msg)
-{
-  if (!g_playlistStartedThisBoot) {
-    // Rien n'a ete lance depuis le boot (playlist deja sautee -- AP/premier
-    // boot/secours WiFi, ou reboot precedent deja cible sur ce chemin) : le
-    // heap est deja au maximum disponible, pas besoin de rebooter encore.
-    if (g_sdOpInProgress) {
-      // Le DMD est deja en mode config (page precedente de la meme
-      // session, navigation directe entre sous-pages via la barre de nav).
-      // Reappliquer webDmdPause()/webDmdSetMainMsg() avec les MEMES
-      // valeurs (meme IP, meme message) ne changerait rien a l'affichage
-      // mais reassignerait des String et redeclencherait un redraw pour
-      // rien -- pur gaspillage de heap a un moment ou il est deja rare.
-      clearFirstBoot();
-      return true;
-    }
-    String ip = WiFi.localIP().toString();
-    clearFirstBoot();
-    webDmdSetMainMsg(msg);
-    webDmdPause(ip, 0xFFE0);
-    // Message "de fond" auquel revenir automatiquement apres un message de
-    // statut transitoire (voir SD_OP_SUBMSG_EXPIRE_MS, RecalBox_DMD.ino).
-    g_sdOpPersistentSubMsg = ip;
-    g_sdOpPersistentSubMsgColor = 0xFFE0;
-    Serial.println("[WEB] triggerWebConfigMode (pas de reboot), heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
-    return true;
-  }
-  // La playlist/des GIFs ont deja tourne ce boot -- chaque GIF ouvert perd
-  // durablement quelques Ko de heap (jamais recupere avant reboot), et
-  // meme mettre en pause LE SEUL GIF deja ouvert fragmente fortement le
-  // heap (confirme en test reel, v88). Plutot que d'entrer en mode config
-  // avec un heap deja fragmente, rebooter directement et sauter la
-  // playlist sur ce prochain boot (g_skipPlaylistForConfig, RecalBox_DMD.ino)
-  // pour repartir avec le maximum de heap disponible.
-  Serial.println("[WEB] triggerWebConfigMode: playlist deja active -> reboot cible mode config");
-  writeConfigFlag("force_config_boot", "1");
-  sendRebootingPage();
-  requestReboot = true;
-  return false; // reboot deja declenche, reponse deja envoyee -- l'appelant doit s'arreter la
+  String ip = WiFi.localIP().toString();
+  clearFirstBoot();
+  webDmdSetMainMsg(msg);
+  webDmdPause(ip, 0xFFE0);
 }
 
 static void sendGzipHtml(const uint8_t *content, size_t len)
@@ -3380,7 +2184,7 @@ static void sendGzipHtml(const uint8_t *content, size_t len)
 
 static void handleWebConfigRoot()
 {
-  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
+  triggerWebConfigMode("WEB DMD CONFIG");
   if (WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA) {
     sendGzipHtml(WEB_CONFIG_AP_HTML_GZ, WEB_CONFIG_AP_HTML_GZ_LEN);
   } else {
@@ -3390,28 +2194,25 @@ static void handleWebConfigRoot()
 
 static void handleWebConfigBasicPage()
 {
-  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
+  triggerWebConfigMode("WEB DMD CONFIG");
   sendGzipHtml(WEB_CONFIG_BASIC_HTML_GZ, WEB_CONFIG_BASIC_HTML_GZ_LEN);
 }
 
 static void handleWebConfigNetworkPage()
 {
-  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
+  triggerWebConfigMode("WEB DMD CONFIG");
   sendGzipHtml(WEB_CONFIG_NETWORK_HTML_GZ, WEB_CONFIG_NETWORK_HTML_GZ_LEN);
 }
 
 static void handleWebConfigClockPage()
 {
-  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
+  triggerWebConfigMode("WEB DMD CONFIG");
   sendGzipHtml(WEB_CONFIG_CLOCK_HTML_GZ, WEB_CONFIG_CLOCK_HTML_GZ_LEN);
 }
 
 static void handleWebConfigMediaPage()
 {
-  // v88 : reboot cible reintroduit de facon systematique (voir triggerWebConfigMode())
-  // -- BASIC scanne aussi la SD (/lsgifdirs, generation de playlist) et souffre de la
-  // meme fragmentation heap au moment de webDmdPause(), donc MEDIA garde la meme marge.
-  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
+  triggerWebConfigMode("WEB DMD CONFIG");
   sendGzipHtml(WEB_CONFIG_MEDIA_HTML_GZ, WEB_CONFIG_MEDIA_HTML_GZ_LEN);
 }
 
@@ -3427,11 +2228,13 @@ void setupWebConfig()
   webServer->on("/load", handleWebConfigLoad);
   webServer->on("/lsplaylists", handleWebConfigListPlaylists);
   webServer->on("/lsgifdirs", handleWebConfigListGifDirs);
-  webServer->on("/gifcount", handleWebConfigGifCount);
   webServer->on("/generate-playlist", HTTP_POST, handleWebConfigGeneratePlaylist);
+  webServer->on("/generate-playlist-status", handleWebConfigGeneratePlaylistStatus);
+  webServer->on("/generate-playlist-stop", HTTP_POST, handleWebConfigGeneratePlaylistStop);
+  webServer->on("/playlist-dirs", handleWebConfigPlaylistDirs);
   webServer->on("/delete-playlist", HTTP_POST, handleWebConfigDeletePlaylist);
-  webServer->on("/create-folder", HTTP_POST, handleWebConfigCreateFolder);
   webServer->on("/upload", HTTP_POST, handleWebConfigUpload, handleWebConfigUploadFile);
+  webServer->on("/create-folder", HTTP_POST, handleWebConfigCreateFolder);
   webServer->on("/delete-folders", HTTP_POST, handleWebConfigDeleteFolders);
   webServer->on("/scan-wifi", handleWebConfigScanWiFi);
   webServer->on("/save-ap", HTTP_POST, handleWebConfigSaveAP);
