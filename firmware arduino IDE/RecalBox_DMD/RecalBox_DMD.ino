@@ -1201,6 +1201,14 @@ const unsigned long MQTT_OFFLINE_FALLBACK_MS = 60000;
 const unsigned long MQTT_WAITING_GRACE_MS = 1500;
 unsigned long g_mqttWaitingUntilMs = 0;
 
+// Duree d'affichage FIXE de l'ecran "RecalBox connectee" (CMD_WAITING_MQTT)
+// avant reprise automatique de la playlist -- demande utilisateur
+// (2026-07-28) : ne plus attendre indefiniment le premier message MQTT reel
+// (system/game), reprendre la playlist au bout de ce delai si rien d'autre
+// n'a pris la main sur l'affichage entre-temps.
+const unsigned long MQTT_CONNECTED_SCREEN_MS = 5000;
+unsigned long g_mqttConnectedScreenUntilMs = 0;
+
 WiFiClient   wifiClientMqtt;
 PubSubClient mqttClient(wifiClientMqtt);
 String       lastSysName = "";
@@ -2241,8 +2249,15 @@ DisplayMode openBestMedia(const String &basePath, const String &systemPath="")
 
     // Ordre explicite selon le type cache:
     // p => PNG (raw565) d'abord
-    // g => GIF d'abord
-    // B => PNG d'abord puis GIF si Ã©chec
+    // g => GIF (raw565pack) d'abord
+    // B => GIF (raw565pack) d'abord, PNG (raw565) en repli si echec -- CORRIGE
+    // (2026-07-28) : ce commentaire disait auparavant l'inverse ("PNG d'abord
+    // puis GIF si echec"), ce qui ne correspondait pas au code juste en
+    // dessous (repli sur B: on force raw565pack d'abord (openDG), meme si
+    // raw565 existe) ni au meme choix applique pour B ailleurs dans ce
+    // fichier (masque d'attente CMD_GAME lent, jeu lent) -- verifie par
+    // lecture de code, aucun changement de comportement, uniquement le
+    // commentaire qui etait faux.
     if(t=='g')
     {
       // D'abord vÃ©rifier si le PNG est dÃ©jÃ  affichÃ© et Ã  jour (Ã©vite openDG Ã  chaque loop)
@@ -2498,6 +2513,15 @@ String trConnectWifiMsg()
   return "Connectez-vous au WiFi RecalBox-DMD-Config";
 }
 
+// Texte superpose a l'image de secours (default.raw565) affichee a la
+// connexion MQTT (CMD_WAITING_MQTT) -- demande utilisateur (2026-07-28).
+String trRecalboxConnected()
+{
+  if (uiLanguage == "en") return "RecalBox connected";
+  if (uiLanguage == "es") return "RecalBox conectada";
+  return "RecalBox connectee";
+}
+
 String trOpenUrl(const String &ip)
 {
   if (uiLanguage == "en") return "Open http://" + ip;
@@ -2583,6 +2607,25 @@ void processPendingMqttCommand()
       bool okDraw = drawDefaultRaw565Cached();
       currentMode = okDraw ? MODE_PNG : MODE_BLACK;
       Serial.println(String("[MQTT] waiting -> default.raw565 ") + (okDraw ? "OK" : "FAIL (ecran vide)"));
+      if (okDraw)
+      {
+        // Texte superpose (demande utilisateur) -- pngDrawn=true fait sauter
+        // le redessin dans loop(), donc ce texte reste affiche par-dessus
+        // l'image tant que rien d'autre ne prend la main sur l'affichage.
+        display->setTextWrap(false);
+        display->setTextSize(1);
+        display->setTextColor(display->color565(0, 0, 0));
+        display->setCursor(1, 25);
+        display->print(trRecalboxConnected());
+        display->setTextColor(display->color565(255, 255, 255));
+        display->setCursor(0, 24);
+        display->print(trRecalboxConnected());
+      }
+      // Reprise automatique de la playlist apres un delai fixe (demande
+      // utilisateur) -- ne plus attendre indefiniment le 1er message MQTT
+      // reel (system/game). Verifie dans loop() (voir plus bas) ; sans effet
+      // si un vrai media a deja pris la main sur l'affichage entre-temps.
+      g_mqttConnectedScreenUntilMs = millis() + MQTT_CONNECTED_SCREEN_MS;
     }
     break;
 
@@ -4036,6 +4079,18 @@ start_mqtt_task:
 void loop()
 {
   handleWebConfig(); playlistGenStep(); maintainWiFi(); maintainApRecovery(); processPendingMqttCommand();
+  // Reprise auto de la playlist apres l'ecran "RecalBox connectee" (voir
+  // CMD_WAITING_MQTT) -- sans effet si un vrai media (system/game) a deja
+  // pris la main sur l'affichage entre-temps (currentPngPath change).
+  if (g_mqttConnectedScreenUntilMs != 0 && millis() >= g_mqttConnectedScreenUntilMs)
+  {
+    g_mqttConnectedScreenUntilMs = 0;
+    if (currentMode == MODE_PNG && currentPngPath == String(DEFAULT_RAW565_PATH) && !g_sdOpInProgress)
+    {
+      Serial.println("[MQTT] fin ecran connexion -> reprise playlist");
+      resumePlaylist();
+    }
+  }
   if(requestNextGif&&!g_sdOpInProgress){requestNextGif=false;openNextGif();}
   if(requestReboot) {delay(100);ESP.restart();}
 
