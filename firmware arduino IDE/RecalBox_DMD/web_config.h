@@ -3,7 +3,36 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v30
+// Version actuelle : v31
+//
+// v31 — 2026-07-29 — safe-modify — BRANCHE DEV (dev/freertos-playlist-scan) :
+//   playlistGenStep() (machine a etats appelee depuis loop()) remplacee par
+//   playlistGenTask(), tache FreeRTOS dediee (cf. RecalBox_DMD.ino v37) --
+//   un scan de dossier lent (Arcade/Consoles/Halloween/Vertical_DMD, confirme
+//   plusieurs secondes/fichier par moments) ne bloque plus la page web ni le
+//   bouton Arreter. Tout acces SD encadre par sdAccessMutex, non-bloquant
+//   cote loop()/lecture GIF, bloquant cote tache. Bugs materiels reels
+//   trouves et corriges pendant cette session : creation de tache jamais
+//   verifiee (echec silencieux si heap insuffisant), pile 8192 trop grande
+//   ramenee a 4096, un acces SD (forceDeleteFile sur arret demande) hors
+//   mutex -- seul crash reel observe, corrige. Ajout d'un garde-fou heap
+//   critique (ESP.getMaxAllocHeap() < 4096 -> arret propre au lieu d'un
+//   abort()) suite a un second crash identique en scan normal (fragmentation
+//   heap sur un tres long scan), avec message distinct cote utilisateur
+//   ("memoire insuffisante" vs "annulee"). Bouton Arreter (JS) rendu robuste
+//   (retry 3x) apres un cas reel de requete perdue laissant le bouton
+//   desactive sans effet. Cache par dossier avec peremption par mtime
+//   ESSAYE puis ABANDONNE le meme jour : 4 bugs reels trouves d'affilee
+//   (descripteurs simultanes -> abort() fopen()/lock_init_generic(), dossier
+//   modifie pendant son enumeration -> 0 fichier trouve, flush incrementaux
+//   perdant des fichiers, comptages erratifs persistant meme apres passage
+//   en RAM-only) -- le dernier test reel a confirme que le probleme venait
+//   de ce code de cache lui-meme (pas de la creation/destruction repetee de
+//   tache, hypothese testee et infirmee via une tache persistante puis
+//   revertee). Retire entierement : playlistGenTask() revenue a un scan
+//   direct simple, sans aucun cache par dossier. A remplacer eventuellement
+//   par une approche filtrage-de-texte sur un TOUS.txt tenu a jour (evite
+//   toute re-enumeration de /gifs/<dossier>), pas encore concue en detail.
 //
 // v30 — 2026-07-23 — safe-modify — Bug confirme (retour utilisateur :
 //   "recalbox_ip disparu du config.ini") : handleWebConfigSaveAP() faisait
@@ -232,6 +261,10 @@ function updateContinueLink(){
   else{a.style.display='none';}
 }
 fetch('/lang').then(function(r){return r.json();}).then(function(d){applyLang(d.language);}).catch(function(){applyLang();});
+// Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29) :
+// aucun moyen fiable de distinguer une vraie fermeture d'un simple
+// rafraichissement de page (habitude trop ancree pour l'utilisateur, faux
+// positifs trop frequents).
 </script>
 </body>
 </html>
@@ -322,8 +355,8 @@ body{position:relative}
 <div id="msg" class="msg"></div>
 <script>
 const PAGE_I18N={
-fr:{title:'RecalBox DMD - Affichage',h1:'Affichage &amp; Playlists',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_display:'&#x1F4A1; Affichage',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Luminosité (%)',lbl_silent_boot:'Démarrage silencieux',lbl_playlist_file:'Playlist par défaut',lbl_random:'Lecture aléatoire',lbl_delete_playlist:'Supprimer',btn_delete_playlist:'&#x1F5D1; Supprimer playlist',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_select_playlist:'Sélectionnez une playlist à supprimer',msg_confirm_delete:'Supprimer ${0} ?',msg_deleting:'Suppression...',msg_load_error:'Impossible de charger la config',sec_manage_playlists:'&#x2699; Gestion des playlists',desc_gen_playlist:'Cochez des dossiers pour générer une nouvelle playlist. &#x26A0;&#xFE0F; La création n\'est performante que sur des dossiers avec un nombre limité de fichiers. Pour des playlists contenant des dossiers conséquents, passez par l\'utilitaire RecalboxDMD_tool sur PC.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',lbl_playlist_name:'Nom playlist',placeholder_playlist_name:'ex: MaPlaylist',btn_gen_playlist:'&#x2699; Générer playlist',msg_no_playlist_name:'Donnez un nom à la playlist',msg_select_folder:'Choisissez au moins un dossier',msg_generating:'Generation...',lbl_load_playlist:'Modifier une playlist existante',msg_scanning:'Analyse',msg_gen_busy:'Generation deja en cours ailleurs',msg_gen_start_error:'Impossible de demarrer la generation',msg_gen_leave_warning:'Une generation de playlist est en cours. Quitter la page ?',btn_stop_gen:'&#x23F9; Arreter',msg_confirm_stop_gen:'Arreter la generation ? La playlist en cours de creation sera supprimee.',msg_stopping_gen:'Arret playlist en cours, veuillez patienter...'},
-en:{title:'RecalBox DMD - Display',h1:'Display &amp; Playlists',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_display:'&#x1F4A1; Display',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Brightness (%)',lbl_silent_boot:'Silent boot',lbl_playlist_file:'Default playlist',lbl_random:'Random playback',lbl_delete_playlist:'Delete',btn_delete_playlist:'&#x1F5D1; Delete playlist',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_select_playlist:'Select a playlist to delete',msg_confirm_delete:'Delete ${0}?',msg_deleting:'Deleting...',msg_load_error:'Unable to load config',sec_manage_playlists:'&#x2699; Playlist management',desc_gen_playlist:'Check folders to generate a new playlist. &#x26A0;&#xFE0F; Generation is only fast on folders with a limited number of files. For playlists covering large folders, use the RecalboxDMD_tool utility on PC instead.',btn_select_all:'Select all',btn_select_none:'Select none',lbl_playlist_name:'Playlist name',placeholder_playlist_name:'e.g. MyPlaylist',btn_gen_playlist:'&#x2699; Generate playlist',msg_no_playlist_name:'Please name the playlist',msg_select_folder:'Select at least one folder',msg_generating:'Generating...',lbl_load_playlist:'Edit an existing playlist',msg_scanning:'Scanning',msg_gen_busy:'A generation is already running',msg_gen_start_error:'Could not start generation',msg_gen_leave_warning:'A playlist generation is in progress. Leave the page?',btn_stop_gen:'&#x23F9; Stop',msg_confirm_stop_gen:'Stop generation? The playlist being created will be deleted.',msg_stopping_gen:'Stopping playlist generation, please wait...'},
+fr:{title:'RecalBox DMD - Affichage',h1:'Affichage &amp; Playlists',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_display:'&#x1F4A1; Affichage',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Luminosité (%)',lbl_silent_boot:'Démarrage silencieux',lbl_playlist_file:'Playlist par défaut',lbl_random:'Lecture aléatoire',lbl_delete_playlist:'Supprimer',btn_delete_playlist:'&#x1F5D1; Supprimer playlist',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_select_playlist:'Sélectionnez une playlist à supprimer',msg_confirm_delete:'Supprimer ${0} ?',msg_deleting:'Suppression...',msg_load_error:'Impossible de charger la config',sec_manage_playlists:'&#x2699; Gestion des playlists',desc_gen_playlist:'Cochez des dossiers pour générer une nouvelle playlist. &#x26A0;&#xFE0F; La création n\'est performante que sur des dossiers avec un nombre limité de fichiers. Pour des playlists contenant des dossiers conséquents, passez par l\'utilitaire RecalboxDMD_tool sur PC.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',lbl_playlist_name:'Nom playlist',placeholder_playlist_name:'ex: MaPlaylist',btn_gen_playlist:'&#x2699; Générer playlist',msg_no_playlist_name:'Donnez un nom à la playlist',msg_select_folder:'Choisissez au moins un dossier',msg_generating:'Generation...',lbl_load_playlist:'Modifier une playlist existante',msg_scanning:'Analyse',msg_gen_busy:'Generation deja en cours ailleurs',msg_gen_start_error:'Impossible de demarrer la generation',msg_gen_leave_warning:'Une generation de playlist est en cours. Quitter la page ?',btn_stop_gen:'&#x23F9; Arreter',msg_confirm_stop_gen:'Arreter la generation ? La playlist en cours de creation sera supprimee.',msg_stopping_gen:'Arret playlist en cours, veuillez patienter...',msg_stop_gen_failed:'Echec de la demande d\'arret (reseau) -- reessayez'},
+en:{title:'RecalBox DMD - Display',h1:'Display &amp; Playlists',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_display:'&#x1F4A1; Display',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Brightness (%)',lbl_silent_boot:'Silent boot',lbl_playlist_file:'Default playlist',lbl_random:'Random playback',lbl_delete_playlist:'Delete',btn_delete_playlist:'&#x1F5D1; Delete playlist',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_select_playlist:'Select a playlist to delete',msg_confirm_delete:'Delete ${0}?',msg_deleting:'Deleting...',msg_load_error:'Unable to load config',sec_manage_playlists:'&#x2699; Playlist management',desc_gen_playlist:'Check folders to generate a new playlist. &#x26A0;&#xFE0F; Generation is only fast on folders with a limited number of files. For playlists covering large folders, use the RecalboxDMD_tool utility on PC instead.',btn_select_all:'Select all',btn_select_none:'Select none',lbl_playlist_name:'Playlist name',placeholder_playlist_name:'e.g. MyPlaylist',btn_gen_playlist:'&#x2699; Generate playlist',msg_no_playlist_name:'Please name the playlist',msg_select_folder:'Select at least one folder',msg_generating:'Generating...',lbl_load_playlist:'Edit an existing playlist',msg_scanning:'Scanning',msg_gen_busy:'A generation is already running',msg_gen_start_error:'Could not start generation',msg_gen_leave_warning:'A playlist generation is in progress. Leave the page?',btn_stop_gen:'&#x23F9; Stop',msg_confirm_stop_gen:'Stop generation? The playlist being created will be deleted.',msg_stopping_gen:'Stopping playlist generation, please wait...',msg_stop_gen_failed:'Stop request failed (network) -- please retry'},
 es:{title:'RecalBox DMD - Pantalla',h1:'Pantalla y listas',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_display:'&#x1F4A1; Pantalla',sec_playlist:'&#x1F4BF; Lista',lbl_brightness:'Brillo (%)',lbl_silent_boot:'Arranque silencioso',lbl_playlist_file:'Lista predeterminada',lbl_random:'Reproducción aleatoria',lbl_delete_playlist:'Eliminar',btn_delete_playlist:'&#x1F5D1; Eliminar lista',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_select_playlist:'Selecciona una lista para eliminar',msg_confirm_delete:'¿Eliminar ${0}?',msg_deleting:'Eliminando...',msg_load_error:'No se pudo cargar la configuración',sec_manage_playlists:'&#x2699; Gestión de listas',desc_gen_playlist:'Marque las carpetas para generar una nueva lista. &#x26A0;&#xFE0F; La creación solo es rápida en carpetas con un número limitado de archivos. Para listas con carpetas voluminosas, use la utilidad RecalboxDMD_tool en el PC.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',lbl_playlist_name:'Nombre de la lista',placeholder_playlist_name:'ej: MiLista',btn_gen_playlist:'&#x2699; Generar lista',msg_no_playlist_name:'Póngale un nombre a la lista',msg_select_folder:'Elija al menos una carpeta',msg_generating:'Generando...',lbl_load_playlist:'Editar una lista existente',msg_scanning:'Analizando',msg_gen_busy:'Ya hay una generación en curso',msg_gen_start_error:'No se pudo iniciar la generación',msg_gen_leave_warning:'Hay una generación de lista en curso. ¿Salir de la página?',btn_stop_gen:'&#x23F9; Detener',msg_confirm_stop_gen:'¿Detener la generación? La lista en creación se eliminará.',msg_stopping_gen:'Deteniendo la generación de la lista, espere...'}
 };
 let currentLang='fr';
@@ -356,9 +389,18 @@ function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=
 function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
 function serialize(){return new URLSearchParams({brightness:document.getElementById('brightness').value,info:document.getElementById('silent_boot').checked?'0':'1',playlist:document.getElementById('playlist').value,random:document.getElementById('random').checked?'1':'0'});}
 function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:serialize(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK'))_formDirty=false;}).catch(()=>showMsg(tr('msg_net_error'),false));}
-function doReboot(){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});}
-function saveAndReboot(){saveConfig().then(()=>setTimeout(doReboot,400));}
+function doReboot(skipConfirm){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});}
+// skipConfirm=true (2026-07-29) : "Enreg. & Redemarrer" a deja un intitule
+// explicite -- redemander confirmation juste apres la sauvegarde est
+// redondant, contrairement au bouton "Redemarrer" seul.
+function saveAndReboot(){saveConfig().then(()=>setTimeout(()=>doReboot(true),400));}
 function dmdResume(){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;fetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('msg_net_error'),false));}
+// Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29) : aucun
+// moyen fiable de distinguer une vraie fermeture d'onglet/navigateur d'un
+// simple rafraichissement de page (habitude trop ancree pour l'utilisateur,
+// faux positifs trop frequents -- ni le JS ni le serveur ne peuvent
+// distinguer les deux cas, une connexion qui se ferme se ressemble dans
+// tous les cas).
 function fillPlaylists(selVal){fetch('/lsplaylists').then(r=>r.json()).then(pl=>{const sel=document.getElementById('playlist');const del=document.getElementById('deletePlaylistSelect');const load=document.getElementById('loadPlaylistSelect');sel.innerHTML='';del.innerHTML='';load.innerHTML='';const opt=document.createElement('option');opt.value='';opt.textContent='---';sel.appendChild(opt);const opt2=document.createElement('option');opt2.value='';opt2.textContent='---';del.appendChild(opt2);const opt3=document.createElement('option');opt3.value='';opt3.textContent='---';load.appendChild(opt3);pl.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;if(p===selVal)o.selected=true;sel.appendChild(o);const o2=document.createElement('option');o2.value=p;o2.textContent=p;del.appendChild(o2);const o3=document.createElement('option');o3.value=p;o3.textContent=p;load.appendChild(o3);});}).catch(()=>{});}
 function deletePlaylist(){const name=document.getElementById('deletePlaylistSelect').value;if(!name){showMsg(tr('msg_select_playlist'),false);return;}if(!confirm(trTpl('msg_confirm_delete',name)))return;
   // showMsgLocal (pas showMsg) : meme raison que dans generatePlaylist()
@@ -371,15 +413,34 @@ function deletePlaylist(){const name=document.getElementById('deletePlaylistSele
 // fichiers/dossiers reste dans MEDIA). Liste des dossiers ici pour
 // COCHER uniquement -- pas d'icone d'ouverture/consultation du contenu,
 // reservee a la page MEDIA.
-function loadGenDirs(){fetch('/lsgifdirs').then(r=>r.json()).then(dirs=>{
-  const list=document.getElementById('genDirList');list.innerHTML='';
-  dirs.forEach(d=>{
-    const name=(d&&typeof d==='object')?d.name:d;
-    const row=document.createElement('label');
-    row.innerHTML='<input type="checkbox" value="'+name+'"><span class="name">&#x1F4C1; '+name+'</span>';
-    list.appendChild(row);
-  });
-}).catch(()=>{});}
+// Retry (5 tentatives, 500ms d'ecart) : un simple fetch().catch(()=>{})
+// laissait la liste vide en silence, sans aucun message ni nouvelle
+// tentative, si cette requete echouait une seule fois au chargement de la
+// page (observe en test reel 2026-07-29 -- l'endpoint repond pourtant bien
+// quand on le teste isolement juste apres). Retente aussi si la reponse est
+// VIDE (pas juste en echec reseau) : sur ce projet, /lsgifdirs ne renvoie
+// [] que si plGenIsActive() etait actif pile a ce moment (transitoire) --
+// il existe toujours des dossiers reels, donc une liste vide est ici
+// toujours anormale/transitoire, jamais un etat legitime a accepter tel
+// quel.
+async function loadGenDirs(){
+  const list=document.getElementById('genDirList');
+  for(let attempt=0;attempt<5;attempt++){
+    if(attempt>0)await new Promise(r=>setTimeout(r,500));
+    try{
+      const dirs=await(await fetch('/lsgifdirs')).json();
+      if(!dirs.length&&attempt<4)continue;
+      list.innerHTML='';
+      dirs.forEach(d=>{
+        const name=(d&&typeof d==='object')?d.name:d;
+        const row=document.createElement('label');
+        row.innerHTML='<input type="checkbox" value="'+name+'"><span class="name">&#x1F4C1; '+name+'</span>';
+        list.appendChild(row);
+      });
+      return;
+    }catch(e){}
+  }
+}
 function selectAllGenDirs(v){document.querySelectorAll('#genDirList input').forEach(i=>i.checked=v);updatePlaylistNameSuggestion();}
 // Suggestion de nom (demande utilisateur) : si exactement un dossier est
 // coche, pre-remplit "Nom playlist" avec son nom -- efface a la 1ere prise
@@ -425,7 +486,7 @@ function loadPlaylistForEdit(){
 }
 // Verrouille/deverrouille toute la page pendant la generation -- empeche de
 // lancer une autre action (upload, suppression...) pendant qu'un scan est en
-// cours, en plus du garde cote serveur (g_plGenActive, web_config.h).
+// cours, en plus du garde cote serveur (g_plGenStatus.active, RecalBox_DMD.ino).
 function setPageBusy(busy){document.querySelectorAll('button,input,select').forEach(e=>{if(e.id!=='genStopBtn')e.disabled=busy;});document.body.classList.toggle('gen-busy',busy);
   document.getElementById('genStopBtn').style.display=busy?'inline-block':'none';
   if(busy)document.getElementById('genStopBtn').disabled=false; // etat frais a chaque nouvelle generation (peut avoir ete desactive par un arret precedent)
@@ -435,7 +496,7 @@ function setPageBusy(busy){document.querySelectorAll('button,input,select').forE
   // silencieux si jamais le verrou CSS est contourne (ex. navigation clavier).
   if(busy)window.onbeforeunload=function(){return tr('msg_gen_leave_warning');};else window.onbeforeunload=null;
 }
-function stopGeneratePlaylist(){
+async function stopGeneratePlaylist(){
   if(!confirm(tr('msg_confirm_stop_gen')))return;
   // Message persistant immediat (pas de setTimeout d'auto-masquage) : le
   // temps reel d'arret depend de la lenteur SD en cours (jusqu'a ~1 min
@@ -447,7 +508,22 @@ function stopGeneratePlaylist(){
   if(window._msgTimer)clearTimeout(window._msgTimer);
   msgEl.className='msg ok';msgEl.style.display='block';msgEl.textContent=tr('msg_stopping_gen');
   document.getElementById('genStopBtn').disabled=true; // evite un double-clic pendant l'attente
-  fetch('/generate-playlist-stop',{method:'POST'}).catch(()=>{});
+  // Retry (3 tentatives, 500ms d'ecart) : un simple fetch().catch(()=>{})
+  // avalait silencieusement tout echec -- si cette requete tombe pile au
+  // meme moment qu'un sondage de statut en cours (serveur ESP32 mono-thread,
+  // une seule requete traitee a la fois), elle peut echouer sans laisser de
+  // trace, bloquant l'utilisateur sur "Arret en cours..." indefiniment sans
+  // que rien ne soit jamais retente (observe en test reel 2026-07-29).
+  let ok=false;
+  for(let attempt=0;attempt<3&&!ok;attempt++){
+    if(attempt>0)await new Promise(r=>setTimeout(r,500));
+    try{const r=await fetch('/generate-playlist-stop',{method:'POST'});ok=r.ok;}catch(e){ok=false;}
+  }
+  if(!ok){
+    msgEl.className='msg err';
+    msgEl.textContent=tr('msg_stop_gen_failed');
+    document.getElementById('genStopBtn').disabled=false;
+  }
 }
 async function generatePlaylist(){
   const name=document.getElementById('playlistName').value.trim();
@@ -464,7 +540,20 @@ async function generatePlaylist(){
     const t=await r.text();
     started=t.includes('STARTED');
     if(!started){msgEl.textContent=(r.status===409)?tr('msg_gen_busy'):t;msgEl.className='msg err';}
-  }catch(e){msgEl.textContent=tr('msg_net_error');msgEl.className='msg err';}
+  }catch(e){
+    // La reponse ("STARTED") peut echouer a arriver jusqu'au navigateur
+    // (heap degrade apres plusieurs generations enchainees dans la meme
+    // session) alors que la tache a deja bien demarre cote serveur --
+    // observe en test reel (2026-07-29) : generation qui continue tres
+    // normalement (DMD/logs), mais page qui affiche "erreur reseau" et
+    // abandonne tout suivi. Avant d'abandonner, verifier le statut reel
+    // plutot que de perdre le suivi d'une generation pourtant en cours.
+    try{
+      const st=await(await fetch('/generate-playlist-status')).json();
+      started=!!st.active;
+    }catch(e2){started=false;}
+    if(!started){msgEl.textContent=tr('msg_net_error');msgEl.className='msg err';}
+  }
   if(!started){setPageBusy(false);return;}
   // Polling de progression (le WebServer ESP32 est mono-thread : impossible
   // de pousser une mise a jour depuis le serveur pendant que le scan tourne,
@@ -502,15 +591,15 @@ async function generatePlaylist(){
       fillPlaylists('');
       break;
     }
-    // Message volontairement generique, SANS compteur numerique (retire
-    // 2026-07-28, demande explicite) : un nombre affiche qui ne bouge plus
-    // pendant un des blocages SD documentes cette session (jusqu'a plusieurs
-    // secondes/fichier sur certains dossiers) donne l'impression d'un
-    // blocage reel, meme quand ce n'est que l'affichage qui n'a pas eu de
-    // nouvelle donnee. Le nom de dossier + sa position dans la liste restent
-    // affiches (contexte utile, non alarmants s'ils restent statiques -- un
-    // scan normal reste naturellement sur le meme dossier un moment).
-    msgEl.textContent=tr('msg_scanning')+': '+st.dir+' ('+st.dirIdx+'/'+st.totalDirs+')...';
+    // Compteur numerique reintroduit (2026-07-29) : retire le 2026-07-28 car
+    // playlistGenStep() tournait alors dans loop(), donc un blocage SD figeait
+    // aussi le serveur web -- le compteur affiche restait fige en meme temps
+    // que tout le reste, donnant une fausse impression de gel. Depuis le
+    // passage a playlistGenTask() (tache FreeRTOS dediee), /generate-
+    // playlist-status repond toujours rapidement (plGenStatusMutex jamais
+    // tenu pendant un acces SD) meme pendant un dossier lent -- le compteur
+    // redevient donc une information fiable plutot qu'un faux signal de gel.
+    msgEl.textContent=tr('msg_scanning')+': '+st.dir+' ('+st.dirIdx+'/'+st.totalDirs+') - '+st.curDirGifs+' GIFs ('+st.gifs+' total)';
   }
   setPageBusy(false);
 }
@@ -630,9 +719,18 @@ function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=
 function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
 function serialize(){return new URLSearchParams({wifi_enabled:document.getElementById('wifi_enabled').checked?'1':'0',wifi_ssid:document.getElementById('wifi_ssid').value,wifi_password:document.getElementById('wifi_password').value,wifi_static_enabled:document.getElementById('wifi_static_enabled').checked?'1':'0',wifi_static_ip:document.getElementById('wifi_static_ip').value,wifi_gateway:document.getElementById('wifi_gateway').value,wifi_subnet:document.getElementById('wifi_subnet').value,wifi_dns1:document.getElementById('wifi_dns1').value,wifi_dns2:document.getElementById('wifi_dns2').value,bluetooth_enabled:document.getElementById('bluetooth_enabled').checked?'1':'0',bluetooth_name:document.getElementById('bluetooth_name').value,recalbox_ip:document.getElementById('recalbox_ip').value});}
 function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:serialize(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK'))_formDirty=false;}).catch(()=>showMsg(tr('msg_net_error'),false));}
-function doReboot(){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});}
-function saveAndReboot(){saveConfig().then(()=>setTimeout(doReboot,400));}
+function doReboot(skipConfirm){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});}
+// skipConfirm=true (2026-07-29) : "Enreg. & Redemarrer" a deja un intitule
+// explicite -- redemander confirmation juste apres la sauvegarde est
+// redondant, contrairement au bouton "Redemarrer" seul.
+function saveAndReboot(){saveConfig().then(()=>setTimeout(()=>doReboot(true),400));}
 function dmdResume(){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;fetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('msg_net_error'),false));}
+// Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29) : aucun
+// moyen fiable de distinguer une vraie fermeture d'onglet/navigateur d'un
+// simple rafraichissement de page (habitude trop ancree pour l'utilisateur,
+// faux positifs trop frequents -- ni le JS ni le serveur ne peuvent
+// distinguer les deux cas, une connexion qui se ferme se ressemble dans
+// tous les cas).
 function scanWiFi(){
   const sel=document.getElementById('wifi_ssid');
   fetch('/scan-wifi').then(r=>r.json()).then(nets=>{
@@ -772,9 +870,18 @@ function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=
 function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
 function serialize(){return new URLSearchParams({clock_enabled:document.getElementById('clock_enabled').checked?'1':'0',clock_theme:document.getElementById('clock_theme').value,clock_interval:document.getElementById('clock_interval').value,clock_interval_min:document.getElementById('clock_interval_min').value,clock_duration:document.getElementById('clock_duration').value,clock_tz:document.getElementById('clock_tz').value,clock_neon_color:document.getElementById('clock_neon_color').value,clock_neon_color_enabled:document.getElementById('clock_neon_color_enabled').checked?'1':'0'});}
 function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:serialize(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK'))_formDirty=false;}).catch(()=>showMsg(tr('msg_net_error'),false));}
-function doReboot(){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});}
-function saveAndReboot(){saveConfig().then(()=>setTimeout(doReboot,400));}
+function doReboot(skipConfirm){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});}
+// skipConfirm=true (2026-07-29) : "Enreg. & Redemarrer" a deja un intitule
+// explicite -- redemander confirmation juste apres la sauvegarde est
+// redondant, contrairement au bouton "Redemarrer" seul.
+function saveAndReboot(){saveConfig().then(()=>setTimeout(()=>doReboot(true),400));}
 function dmdResume(){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;fetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('msg_net_error'),false));}
+// Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29) : aucun
+// moyen fiable de distinguer une vraie fermeture d'onglet/navigateur d'un
+// simple rafraichissement de page (habitude trop ancree pour l'utilisateur,
+// faux positifs trop frequents -- ni le JS ni le serveur ne peuvent
+// distinguer les deux cas, une connexion qui se ferme se ressemble dans
+// tous les cas).
 function loadConfig(){fetch('/load').then(r=>r.json()).then(d=>{document.getElementById('clock_enabled').checked=d.clock_enabled==='1';document.getElementById('clock_theme').value=d.clock_theme||'0';document.getElementById('clock_interval').value=d.clock_interval||'0';document.getElementById('clock_interval_min').value=d.clock_interval_min||'0';document.getElementById('clock_duration').value=d.clock_duration||'0';document.getElementById('clock_tz').value=d.clock_tz||'UTC0';document.getElementById('clock_neon_color').value=d.clock_neon_color||'#ff2878';document.getElementById('clock_neon_color_enabled').checked=d.clock_neon_color_enabled==='1';}).catch(()=>showMsg(tr('msg_load_error'),false));}
 localStorage.setItem('dmd_last_section','clock');
 fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);loadConfig();}).catch(()=>{applyLang();loadConfig();});
@@ -923,6 +1030,9 @@ function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=
 function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
 function doReboot(){if(!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);queuedFetch('/reboot').catch(()=>{});}
 function dmdResume(){queuedFetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('net_error'),false));}
+// Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29, voir
+// page Affichage pour le detail) : aucun moyen fiable de distinguer une
+// vraie fermeture d'un simple rafraichissement de page.
 function selectAllDirs(v){document.querySelectorAll('#dirList input').forEach(i=>i.checked=v);}
 // v85 : plus de navigation dans un dossier (contenu individuel des GIF) ni
 // de statut cached/excluded -- decision utilisateur de retirer cette
@@ -1214,8 +1324,25 @@ static void handleWebConfigLoad()
   webServer->send(200, "application/json", json);
 }
 
+// Lecture rapide (mutex non bloquant, hold time negligeable) de l'etat
+// "generation de playlist active ?" -- utilisee pour garder les handlers
+// listes ci-dessous en dehors de toute generation en cours, meme regle que
+// les autres handlers SD deja gardes (upload/creation-suppression de dossier/
+// suppression de playlist) : une ecriture/lecture SD concurrente avec
+// playlistGenTask() (qui peut tenir sdAccessMutex plusieurs secondes sur un
+// dossier lent) serait a risque.
+static bool plGenIsActive()
+{
+  bool a = false;
+  if (xSemaphoreTake(plGenStatusMutex, 0) == pdTRUE) { a = g_plGenStatus.active; xSemaphoreGive(plGenStatusMutex); }
+  return a;
+}
+
 static void handleWebConfigListPlaylists()
 {
+  // Rafraichissement silencieux (pas une action utilisateur explicite) --
+  // renvoie une liste vide plutot qu'une erreur 409 pendant une generation.
+  if (plGenIsActive()) { webServer->send(200, "application/json", "[]"); return; }
   String json = "[";
   File dir = SD.open("/playlists");
   if (dir && dir.isDirectory()) {
@@ -1240,6 +1367,7 @@ static void handleWebConfigListPlaylists()
 
 static void handleWebConfigListGifDirs()
 {
+  if (plGenIsActive()) { webServer->send(200, "application/json", "[]"); return; }
   String json = "[";
   File dir = SD.open("/gifs");
   if (dir && dir.isDirectory()) {
@@ -1274,146 +1402,304 @@ static void handleWebConfigListGifDirs()
 // handleWebConfigDeletePlaylist().
 static void invalidatePlaylistRefCache();
 
-// Machine a etats non-bloquante de generation de playlist (remplace un scan
-// synchrone unique qui bloquait toute la requete HTTP -- donc toute la page
-// web -- pendant tout le scan : aucune progression visible cote navigateur,
-// seul le DMD recevait les messages "Scan: ..." directement depuis cette
-// fonction). POST /generate-playlist initialise l'etat et repond
-// immediatement ("STARTED") ; playlistGenStep() (appelee depuis loop(),
-// meme principe que l'ancien cacheBuilderStep() du cache MEDIA, abandonne en
-// v85 -- mais l'idee de machine a etats par petits pas reste valide) avance
-// le scan par petits pas ; GET /generate-playlist-status permet a la page
-// web de suivre une vraie progression en l'interrogeant en polling.
-// g_plGenActive sert aussi de garde pour bloquer les autres operations SD
-// concurrentes (upload, creation de dossier, suppression de playlist)
-// pendant la generation -- une ecriture simultanee sur la carte SD pendant
-// ce scan serait de toute facon a risque.
-static bool   g_plGenActive = false;
-static bool   g_plGenDone = false;
-static String g_plGenName;
-static String g_plGenDirsCsv;
-static int    g_plGenParseIdx = 0;
-static int    g_plGenDirIdx = 0;
-static int    g_plGenTotalDirs = 0;
-static String g_plGenCurDirName;
-static bool   g_plGenCurDirOpen = false;
-static File   g_plGenOutFile;
-static File   g_plGenCurDir;
-static String g_plGenBuf;
-static int    g_plGenTotalGifs = 0;
-static int    g_plGenCurDirGifs = 0;
-static unsigned long g_plGenLastDmdMs = 0;
-static String g_plGenResultMsg;
+// Machine a etats non-bloquante de generation de playlist, sur sa PROPRE
+// tache FreeRTOS (playlistGenTask(), 2026-07-28) -- remplace l'ancienne
+// version qui tournait sur loop() par petits pas bornes
+// (PLGEN_MAX_FILES_PER_STEP=1) : une lenteur SD localisee (confirmee en test
+// reel sur plusieurs dossiers distincts -- simple listing openNextFile(),
+// sans lecture de contenu, parfois plusieurs secondes par fichier, cause non
+// identifiee mais pas un bug de code) gelait quand meme loop() -- donc le
+// serveur web ET le bouton "Arreter" ET /reboot -- pendant toute la duree de
+// l'appel SD en cours, meme avec un lot de 1 fichier. Deplacer le scan sur sa
+// propre tache elimine le probleme a la racine : loop() (donc le WebServer
+// et la lecture GIF) ne depend plus jamais de la vitesse d'un appel SD
+// individuel de ce scan.
+//
+// POST /generate-playlist demarre la tache et repond immediatement
+// ("STARTED") ; GET /generate-playlist-status lit un instantane de
+// g_plGenStatus (struct definie dans RecalBox_DMD.ino avant #include
+// "web_config.h", meme raison que MqttCommand : web_config.h l'utilise avant
+// sa "vraie" position dans le fichier) sous plGenStatusMutex -- jamais de SD
+// dans la section critique, hold time toujours negligeable des 2 cotes ;
+// POST /generate-playlist-stop pose juste stopRequested, la tache se termine
+// proprement a son prochain point de controle (entre deux dossiers ou deux
+// fichiers).
+//
+// IMPORTANT -- sdAccessMutex protege tout acces SD partage entre cette tache
+// et loop() (lecture GIF a chaque frame, voir gifPlayFrameCompat() dans
+// RecalBox_DMD.ino) : SEULE cette tache peut l'attendre de facon bloquante
+// (portMAX_DELAY, utilise partout ci-dessous). loop()/les handlers HTTP ne
+// doivent JAMAIS l'attendre bloquant -- toujours xSemaphoreTake(sdAccessMutex,
+// 0) + degradation gracieuse si indisponible, sinon un scan lent regelerait
+// exactement le meme probleme, juste deplace vers la lecture GIF au lieu du
+// serveur web (voir le commentaire complet dans RecalBox_DMD.ino, juste avant
+// #include "web_config.h").
+//
+// Chaque appel SD individuel (un SD.open(), un openNextFile(), un print())
+// prend et rend sdAccessMutex separement -- jamais un lock tenu sur tout un
+// dossier ou plusieurs fichiers d'affilee : ca borne la fenetre de blocage
+// possible du thread principal a la duree d'un seul appel SD, jamais plus.
+//
+// Cette tache ne touche JAMAIS gif/display/currentMode directement (proprietes
+// de loop()) -- seulement g_plGenStatus. C'est loop() qui, periodiquement, lit
+// cet instantane et met a jour l'ecran DMD si le mode config est actif (voir
+// webDmdOverlayLine2()/RecalBox_DMD.ino, loop()).
 
-// Nombre max de fichiers traites par appel de playlistGenStep() -- borne le
-// cout par iteration de loop() (meme contrainte que CB_MAX_ENTRIES_PER_STEP,
-// cache MEDIA v76). Reduit a 1 (2026-07-28, test reel) : sur certains
-// dossiers, openNextFile() lui-meme (simple listing, sans lecture de
-// contenu) peut ponctuellement prendre plusieurs secondes par fichier
-// (meme classe de lenteur SD localisee que "Tous.txt" plus haut, mais ici
-// sur le listing plutot que le contenu) -- un lot de 5 pouvait alors geler
-// loop() (donc la page web ET le DMD) jusqu'a ~19s d'affilee. Un lot de 1
-// ne resout pas la lenteur intrinseque de ces entrees, mais limite le blocage
-// maximum par appel et rend la main a loop()/handleWebConfig() bien plus
-// souvent. Une elimination complete necessiterait de deplacer le scan sur
-// une tache FreeRTOS separee (comme mqttTask()) -- pas fait ici, discuter
-// avec l'utilisateur si le probleme persiste trop souvent en usage reel.
-#define PLGEN_MAX_FILES_PER_STEP 1
-
-// Le message DMD (webDmdPause()) expire et revient au message de fond apres
-// SD_OP_SUBMSG_EXPIRE_MS (5000ms, RecalBox_DMD.ino) sans nouvel appel --
-// observe en test reel (2026-07-28) sur un gros dossier ("Arcade") : n'etant
-// rappelee qu'une fois par CHANGEMENT de dossier, la progression disparaissait
-// du DMD des qu'un dossier prenait plus de 5s a scanner. Rafraichie ici toutes
-// les PLGEN_DMD_REFRESH_MS pendant le scan d'un dossier, marge large sous les
-// 5000ms d'expiration.
-#define PLGEN_DMD_REFRESH_MS 2000
-
-// Texte DMD compact : "Scan: <nom> (i/total) X/Y" pouvait depasser 30
-// caracteres (ex. "Scan: BEST_OF_TOP_30 (1/3) 0/30") -- largement au-dessus
-// de ce qu'un panneau 128px affiche sans defilement, et les mises a jour
-// frequentes (toutes les PLGEN_DMD_REFRESH_MS) interrompent le defilement
-// avant qu'il ait pu faire un tour complet (illisible en pratique, retour
-// utilisateur 2026-07-28). Retire le prefixe "Scan:" et l'index de dossier
-// (deja visible sur la page web, qui n'a pas cette contrainte de largeur),
-// et tronque le nom du dossier si besoin -- tient sur une ligne sans
-// defilement dans la grande majorite des cas.
-// Comptage du total cible par dossier RETIRE (2026-07-28, demande explicite
-// utilisateur) : necessitait un 2e listing complet du dossier avant de
-// pouvoir traiter le moindre fichier, doublant l'exposition aux lenteurs SD
-// localisees deja documentees (Vertical_DMD/Tous/Halloween) pour un gain
-// d'affichage juge trop couteux. Retour a un simple compte cumule.
-static String plGenDmdText()
+// Texte DMD compact -- fonction pure (pas de lecture de globals), utilisable
+// a la fois depuis playlistGenTask() et depuis loop() (overlay progression).
+// "Scan: <nom> (i/total) X/Y" pouvait depasser 30 caracteres, largement
+// au-dessus de ce qu'un panneau 128px affiche sans defilement, et les mises
+// a jour frequentes interrompaient le defilement avant un tour complet
+// (illisible en pratique, retour utilisateur 2026-07-28) -- nom tronque a 10
+// caracteres, pas de prefixe/index (deja visibles sur la page web). Comptage
+// du total cible par dossier retire (meme date, demande explicite) : un 2e
+// listing complet doublait l'exposition aux lenteurs SD deja documentees
+// pour un gain d'affichage juge trop couteux.
+String plGenDmdText(const String &dirName, int count)
 {
-  String n = g_plGenCurDirName;
+  String n = dirName;
   if (n.length() > 10) n = n.substring(0, 10) + "..";
-  return n + " " + String(g_plGenCurDirGifs);
+  return n + " " + String(count);
 }
 
-// Avance la generation d'un pas borne depuis loop(). Cout quasi nul quand
-// aucune generation n'est active (un seul if).
-void playlistGenStep()
-{
-  if (!g_plGenActive) return;
+// Forward declaration -- definie plus bas avec deleteFolderRecursive() (meme
+// fonction de suppression tolerante FAT32 lecture-seule), utilisee par
+// playlistGenTask() pour supprimer la playlist partielle en cas d'arret
+// demande par l'utilisateur.
+static bool forceDeleteFile(const String &path);
 
-  if (!g_plGenCurDirOpen) {
-    if (g_plGenParseIdx > (int)g_plGenDirsCsv.length()) {
-      // Plus de dossier a traiter : finalisation.
-      if (g_plGenBuf.length() > 0) { g_plGenOutFile.print(g_plGenBuf); g_plGenBuf = ""; }
-      g_plGenOutFile.close();
-      invalidatePlaylistRefCache();
-      g_plGenResultMsg = "OK: " + String(g_plGenTotalGifs) + " GIFs ajoutes dans la playlist " + g_plGenName + ".txt";
-      Serial.println("[WEB] " + g_plGenResultMsg);
-      webDmdPause("Playlist creee: " + String(g_plGenTotalGifs) + " GIFs", 0x07E0);
-      g_plGenActive = false;
-      g_plGenDone = true;
-      return;
+struct PlaylistGenRequest { String name; String dirsCsv; };
+
+// Tourne du debut a la fin sur sa propre tache (creee a la demande, voir
+// handleWebConfigGeneratePlaylist()) -- plus besoin d'une borne "fichiers par
+// appel" (existait uniquement pour borner le cout par appel loop(), obsolete
+// des que ce n'est plus loop() qui l'appelle). Tache PERSISTANTE essayee puis
+// abandonnee le 2026-07-29 -- cf. commentaire au-dessus de la declaration de
+// playlistGenTaskHandle (RecalBox_DMD.ino) pour le detail de ce qui a ete
+// tente et pourquoi.
+void playlistGenTask(void *param)
+{
+  PlaylistGenRequest *req = (PlaylistGenRequest *)param;
+  String name = req->name;
+  String dirsCsv = req->dirsCsv;
+  delete req;
+
+  String outputPath = "/playlists/" + name + ".txt";
+  File outFile;
+  if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+    outFile = SD.open(outputPath.c_str(), FILE_WRITE);
+    xSemaphoreGive(sdAccessMutex);
+  }
+  if (!outFile) {
+    // Deja valide par handleWebConfigGeneratePlaylist() avant de lancer cette
+    // tache -- ne devrait pas arriver, protection quand meme.
+    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+      g_plGenStatus.resultMsg = "ERR: ecriture impossible (" + name + ".txt)";
+      g_plGenStatus.active = false;
+      g_plGenStatus.done = true;
+      xSemaphoreGive(plGenStatusMutex);
     }
-    int comma = g_plGenDirsCsv.indexOf(',', g_plGenParseIdx);
-    String dirName = (comma < 0) ? g_plGenDirsCsv.substring(g_plGenParseIdx) : g_plGenDirsCsv.substring(g_plGenParseIdx, comma);
-    dirName.trim();
-    g_plGenParseIdx = (comma < 0) ? (int)(g_plGenDirsCsv.length() + 1) : (comma + 1);
-    if (dirName.length() == 0) return; // segment vide (virgules successives) -- traite au step suivant
-    g_plGenDirIdx++;
-    g_plGenCurDirName = dirName;
-    g_plGenCurDirGifs = 0;
-    webDmdPause(plGenDmdText(), 0x07E0);
-    g_plGenLastDmdMs = millis();
-    g_plGenCurDir = SD.open(("/gifs/" + dirName).c_str());
-    g_plGenCurDirOpen = g_plGenCurDir && g_plGenCurDir.isDirectory();
-    if (!g_plGenCurDirOpen && g_plGenCurDir) g_plGenCurDir.close();
+    playlistGenTaskHandle = nullptr;
+    vTaskDelete(nullptr);
     return;
   }
 
-  int processed = 0;
-  while (processed < PLGEN_MAX_FILES_PER_STEP) {
-    File f = g_plGenCurDir.openNextFile();
-    if (!f) {
-      g_plGenCurDir.close();
-      g_plGenCurDirOpen = false;
-      break;
+  int totalDirs = 1;
+  for (int i = 0; i < dirsCsv.length(); i++) if (dirsCsv.charAt(i) == ',') totalDirs++;
+
+  int totalGifs = 0, dirIdx = 0, parseIdx = 0;
+  String buf;
+  bool stopped = false;
+  bool lowHeapAbort = false;
+
+  while (parseIdx <= (int)dirsCsv.length())
+  {
+    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+      stopped = g_plGenStatus.stopRequested;
+      xSemaphoreGive(plGenStatusMutex);
     }
-    if (!f.isDirectory()) {
-      String fname = String(f.name());
-      if (fname.endsWith(".gif")) {
-        g_plGenBuf += "/gifs/" + g_plGenCurDirName + "/" + fname + "\n";
-        g_plGenTotalGifs++;
-        g_plGenCurDirGifs++;
-        if (g_plGenBuf.length() > 4000) { g_plGenOutFile.print(g_plGenBuf); g_plGenBuf = ""; }
+    if (stopped) break;
+
+    int comma = dirsCsv.indexOf(',', parseIdx);
+    String dirName = (comma < 0) ? dirsCsv.substring(parseIdx) : dirsCsv.substring(parseIdx, comma);
+    dirName.trim();
+    parseIdx = (comma < 0) ? (int)(dirsCsv.length() + 1) : (comma + 1);
+    if (dirName.length() == 0) continue; // segment vide (virgules successives)
+
+    dirIdx++;
+    int curDirGifs = 0;
+    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+      g_plGenStatus.curDirName = dirName;
+      g_plGenStatus.dirIdx = dirIdx;
+      g_plGenStatus.curDirGifs = 0;
+      xSemaphoreGive(plGenStatusMutex);
+    }
+
+    File dir;
+    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+      dir = SD.open(("/gifs/" + dirName).c_str());
+      xSemaphoreGive(sdAccessMutex);
+    }
+    bool dirOpen = dir && dir.isDirectory();
+    if (!dirOpen && dir) {
+      if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { dir.close(); xSemaphoreGive(sdAccessMutex); }
+    }
+
+    // Cache par dossier ESSAYE puis RETIRE le 2026-07-29 (mtime + cache
+    // centralise /playlists/<dossier>_dircache.txt, plusieurs iterations :
+    // dans le dossier lui-meme, puis centralise, puis RAM-only) -- 4 bugs
+    // reels trouves sur cette seule fonctionnalite (descripteurs simultanes,
+    // dossier modifie en cours d'enumeration, perte de donnees au flush,
+    // comptages erratifs), et le dernier test reel a confirme que meme la
+    // version RAM-only + tache creee a la demande (design d'origine)
+    // continuait a planter/donner des comptages faux -- donc le probleme
+    // n'etait pas la tache persistante, mais ce code de cache lui-meme.
+    // Abandonne : le gain reel ne couvrait de toute facon pas les gros
+    // dossiers lents (Arcade/Consoles/Halloween/Vertical_DMD, la vraie
+    // cible), un plafond RAM les excluant systematiquement. Remplace a
+    // terme par une approche filtrage-de-texte sur un TOUS.txt tenu a jour
+    // (voir discussion/plan a venir), qui evite completement l'enumeration
+    // repetee de /gifs/<dossier>.
+    while (dirOpen)
+    {
+      if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+        stopped = g_plGenStatus.stopRequested;
+        xSemaphoreGive(plGenStatusMutex);
       }
+      // Garde-fou heap critique (2026-07-29, crash reel : abort() par
+      // allocation heap echouee, meme classe de bug deja documentee sur ce
+      // projet -- exceptions C++ desactivees -> abort() direct au lieu d'une
+      // exception rattrapable). maxalloc se degrade au fil d'un long scan ;
+      // sans ce garde, une allocation (String/File) finissait par echouer et
+      // faisait planter/redemarrer tout l'appareil. Traite comme un arret
+      // demande : sortie propre plutot qu'un crash.
+      // Seuil laisse a 4096 (2026-07-29) : hypothese revue -- maxalloc
+      // pendant un fonctionnement normal reussi se situe couramment entre
+      // 4500 et 9000, donc un seuil remonte a 8192 declencherait le
+      // garde-fou en permanence, meme sur un petit dossier (marge reelle
+      // entre succes/crash mesuree a seulement ~250 octets, pas plusieurs
+      // milliers). Suspicion actuelle : le crash vient d'une course avec
+      // mqttTask() (meme coeur, tentatives de connexion concurrentes) plutot
+      // que d'un heap simplement trop bas -- mqttTask() ne tente plus de
+      // connexion pendant une generation active (voir RecalBox_DMD.ino),
+      // teste en isolation avant de reconsiderer ce seuil.
+      if (!stopped && ESP.getMaxAllocHeap() < 4096) {
+        Serial.println("[WEB] playlistGenTask: heap critique (maxalloc=" + String(ESP.getMaxAllocHeap()) + "), arret propre du scan");
+        stopped = true;
+        lowHeapAbort = true;
+      }
+      if (stopped) {
+        if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { dir.close(); xSemaphoreGive(sdAccessMutex); }
+        break;
+      }
+
+      File f;
+      if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+        f = dir.openNextFile();
+        xSemaphoreGive(sdAccessMutex);
+      }
+      if (!f) {
+        if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { dir.close(); xSemaphoreGive(sdAccessMutex); }
+        dirOpen = false;
+        break;
+      }
+      if (!f.isDirectory()) {
+        String fname = String(f.name());
+        if (fname.endsWith(".gif")) {
+          buf += "/gifs/" + dirName + "/" + fname + "\n";
+          totalGifs++;
+          curDirGifs++;
+          // Seuil de flush reduit de 4000 a 1000 (2026-07-29) : reduit la
+          // taille de pic d'allocation transitoire pendant la concatenation
+          // (String::operator+= peut reallouer un buffer plus grand avant de
+          // copier), un contributeur plausible au heap critique ci-dessus
+          // sur un scan long.
+          if (buf.length() > 1000) {
+            if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { outFile.print(buf); xSemaphoreGive(sdAccessMutex); }
+            buf = "";
+          }
+        }
+      }
+      f.close();
+
+      if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+        g_plGenStatus.curDirGifs = curDirGifs;
+        g_plGenStatus.totalGifs = totalGifs;
+        xSemaphoreGive(plGenStatusMutex);
+      }
+      vTaskDelay(1); // laisse tourner mqttTask()/l'idle task -- bonne conduite FreeRTOS, pas une borne de cout
     }
-    f.close();
-    processed++;
+    if (stopped) break;
   }
-  if (millis() - g_plGenLastDmdMs > PLGEN_DMD_REFRESH_MS) {
-    webDmdPause(plGenDmdText(), 0x07E0);
-    g_plGenLastDmdMs = millis();
+
+  if (stopped)
+  {
+    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+      outFile.close();
+      // gere elle-meme SD.exists()/le cas lecture-seule FAT32 -- BUG CORRIGE
+      // (2026-07-28) : cet appel restait hors du mutex jusqu'ici, seul acces
+      // SD non protege de toute la tache, exactement sur le chemin declenche
+      // par le bouton Arreter -- crash reel observe (abort(), reboot) en
+      // test materiel, tres probablement du a cet acces concurrent non
+      // protege au bus SD/SPI pendant que l'autre tache lisait une frame GIF.
+      forceDeleteFile(outputPath);
+      xSemaphoreGive(sdAccessMutex);
+    }
+    if (lowHeapAbort) {
+      Serial.println("[WEB] playlistGenTask: heap insuffisant, " + name + ".txt annulee/supprimee");
+    } else {
+      Serial.println("[WEB] playlistGenTask: arret demande, " + name + ".txt annulee/supprimee");
+    }
+    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+      g_plGenStatus.resultMsg = lowHeapAbort
+        ? "Memoire insuffisante, playlist supprimee. Redemarrez le DMD puis reessayez"
+        : "Generation annulee, playlist supprimee";
+      g_plGenStatus.active = false;
+      g_plGenStatus.done = true;
+      xSemaphoreGive(plGenStatusMutex);
+    }
   }
+  else
+  {
+    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+      if (buf.length() > 0) outFile.print(buf);
+      outFile.close();
+      xSemaphoreGive(sdAccessMutex);
+    }
+    // Pure RAM, pas de SD -- doit imperativement s'executer AVANT le flip
+    // active=false ci-dessous : c'est cet ordre (pas un mutex sur le cache
+    // lui-meme) qui garantit qu'un handler du thread principal voyant
+    // active=false ne peut lire ce cache qu'apres que cette tache ait fini
+    // de le toucher.
+    invalidatePlaylistRefCache();
+    String resultMsg = "OK: " + String(totalGifs) + " GIFs ajoutes dans la playlist " + name + ".txt";
+    Serial.println("[WEB] " + resultMsg);
+    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+      g_plGenStatus.resultMsg = resultMsg;
+      g_plGenStatus.active = false;
+      g_plGenStatus.done = true;
+      xSemaphoreGive(plGenStatusMutex);
+    }
+  }
+
+  // DIAGNOSTIC TEMPORAIRE : marge de pile reellement utilisee (en mots de 4
+  // octets sur ESP32) -- valide que 4096 (voir xTaskCreatePinnedToCore() dans
+  // handleWebConfigGeneratePlaylist()) est suffisant sans etre dangereusement
+  // juste. A retirer une fois confirme sur quelques scans reels.
+  Serial.println("[WEB] playlistGenTask: marge de pile restante=" + String(uxTaskGetStackHighWaterMark(nullptr) * 4) + " octets");
+
+  playlistGenTaskHandle = nullptr;
+  vTaskDelete(nullptr);
 }
 
 static void handleWebConfigGeneratePlaylist()
 {
-  if (g_plGenActive) { webServer->send(409, "text/plain", "ERR: generation deja en cours"); return; }
+  bool alreadyActive = false;
+  if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+    alreadyActive = g_plGenStatus.active;
+    xSemaphoreGive(plGenStatusMutex);
+  }
+  if (alreadyActive) { webServer->send(409, "text/plain", "ERR: generation deja en cours"); return; }
   if (!webServer->hasArg("name") || !webServer->hasArg("dirs")) {
     webServer->send(400, "text/plain", "ERR: manque nom ou dirs"); return;
   }
@@ -1424,65 +1710,88 @@ static void handleWebConfigGeneratePlaylist()
   if (SD.exists(outputPath.c_str())) SD.remove(outputPath.c_str());
   File outf = SD.open(outputPath.c_str(), FILE_WRITE);
   if (!outf) { webServer->send(500, "text/plain", "ERR: ecriture impossible"); return; }
+  outf.close(); // validation d'ecriture seulement -- playlistGenTask() rouvre le fichier elle-meme
 
-  g_plGenName = name;
-  g_plGenDirsCsv = dirs;
-  g_plGenParseIdx = 0;
-  g_plGenDirIdx = 0;
-  g_plGenTotalDirs = 1;
-  for (int i = 0; i < dirs.length(); i++) if (dirs.charAt(i) == ',') g_plGenTotalDirs++;
-  g_plGenCurDirName = "";
-  g_plGenCurDirOpen = false;
-  g_plGenOutFile = outf;
-  g_plGenBuf = "";
-  g_plGenTotalGifs = 0;
-  g_plGenCurDirGifs = 0;
-  g_plGenResultMsg = "";
-  g_plGenDone = false;
-  g_plGenActive = true;
+  int totalDirs = 1;
+  for (int i = 0; i < dirs.length(); i++) if (dirs.charAt(i) == ',') totalDirs++;
+
+  if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+    g_plGenStatus = PlaylistGenStatus();
+    g_plGenStatus.active = true;
+    g_plGenStatus.totalDirs = totalDirs;
+    xSemaphoreGive(plGenStatusMutex);
+  }
+
+  PlaylistGenRequest *req = new PlaylistGenRequest{ name, dirs };
+  Serial.println("[WEB] generate-playlist: creation tache, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap())); // DIAGNOSTIC TEMPORAIRE
+  // 4096 (pas 8192) : confirme en test reel (2026-07-28) que maxalloc peut
+  // descendre a ~8180 octets a ce point du fonctionnement normal (boot +
+  // navigation web) -- une pile de 8192 echouait de justesse (bloc contigu
+  // introuvable), laissant active bloque a true pour toujours avant l'ajout
+  // de la verification ci-dessous. 4096 correspond a la taille deja utilisee
+  // avec succes par mqttTask() dans ce meme environnement contraint ; marge
+  // reelle a confirmer via uxTaskGetStackHighWaterMark() (log en fin de
+  // tache, voir playlistGenTask()).
+  BaseType_t taskOk = xTaskCreatePinnedToCore(playlistGenTask, "playlistGen", 4096, req, 1, &playlistGenTaskHandle, 0);
+  if (taskOk != pdPASS) {
+    // xTaskCreatePinnedToCore() peut echouer (heap fragmente -- pile de 8 Ko
+    // = un bloc contigu a allouer, deja documente sur ce projet comme
+    // difficile a garantir) : SANS cette verification, g_plGenStatus.active
+    // restait bloque a true pour toujours (rien ne le repasse a false
+    // puisque la tache censee le faire n'a jamais demarre) -- symptome
+    // observe en test reel (2026-07-28) : "0" affiche indefiniment, aucune
+    // progression. delete req ici pour eviter la fuite (la tache qui aurait
+    // du le liberer n'existe pas).
+    delete req;
+    Serial.println("[WEB] generate-playlist: ECHEC creation tache (heap insuffisant ?)");
+    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+      g_plGenStatus.active = false;
+      g_plGenStatus.done = true;
+      g_plGenStatus.resultMsg = "ERR: impossible de demarrer la generation (heap insuffisant)";
+      xSemaphoreGive(plGenStatusMutex);
+    }
+    webServer->send(500, "text/plain", "ERR: impossible de demarrer la generation");
+    return;
+  }
   Serial.println("[WEB] generate-playlist: demarrage " + name + ".txt, dirs=" + dirs);
   webServer->send(200, "text/plain", "STARTED");
 }
 
 static void handleWebConfigGeneratePlaylistStatus()
 {
-  String json = "{\"active\":" + String(g_plGenActive ? "true" : "false");
-  json += ",\"done\":" + String(g_plGenDone ? "true" : "false");
-  json += ",\"dir\":\"" + jsonEscape(g_plGenCurDirName) + "\"";
-  json += ",\"dirIdx\":" + String(g_plGenDirIdx);
-  json += ",\"totalDirs\":" + String(g_plGenTotalDirs);
-  json += ",\"gifs\":" + String(g_plGenTotalGifs);
-  json += ",\"curDirGifs\":" + String(g_plGenCurDirGifs);
-  json += ",\"result\":\"" + jsonEscape(g_plGenResultMsg) + "\"}";
+  PlaylistGenStatus snap;
+  if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+    snap = g_plGenStatus;
+    xSemaphoreGive(plGenStatusMutex);
+  }
+  String json = "{\"active\":" + String(snap.active ? "true" : "false");
+  json += ",\"done\":" + String(snap.done ? "true" : "false");
+  json += ",\"dir\":\"" + jsonEscape(snap.curDirName) + "\"";
+  json += ",\"dirIdx\":" + String(snap.dirIdx);
+  json += ",\"totalDirs\":" + String(snap.totalDirs);
+  json += ",\"gifs\":" + String(snap.totalGifs);
+  json += ",\"curDirGifs\":" + String(snap.curDirGifs);
+  json += ",\"result\":\"" + jsonEscape(snap.resultMsg) + "\"}";
   webServer->send(200, "application/json", json);
 }
 
-// Forward declaration -- definie plus bas avec deleteFolderRecursive() (meme
-// fonction de suppression tolerante FAT32 lecture-seule), utilisee ici pour
-// supprimer la playlist partielle en cas d'arret demande par l'utilisateur.
-static bool forceDeleteFile(const String &path);
-
-// Arret demande par l'utilisateur (bouton "Arreter", meme principe que celui
-// de l'upload MEDIA) : la generation etant enterement synchrone avec loop()
-// (pas de tache separee), on peut fermer/nettoyer directement ici sans
-// risque de concurrence. Supprime la playlist PARTIELLE en cours de creation
-// (demande explicite -- un fichier incomplet ne doit jamais rester utilisable
-// tel quel) et reinitialise l'etat pour que le polling en cours (JS) detecte
-// la fin via son chemin normal (!active).
+// Arret demande par l'utilisateur (bouton "Arreter") : pose juste le drapeau,
+// ne touche plus AUCUN File -- playlistGenTask() est desormais la SEULE
+// proprietaire de g_plGenOutFile/du dossier en cours, elimine par construction
+// tout risque de double-fermeture/concurrence sur ces objets (au lieu de le
+// gerer par verrouillage). La tache se ferme/nettoie elle-meme a son prochain
+// point de controle ; le polling web deja en place detecte la fin via son
+// chemin normal (!active), sans changement JS necessaire.
 static void handleWebConfigGeneratePlaylistStop()
 {
-  if (!g_plGenActive) { webServer->send(200, "text/plain", "OK: rien a arreter"); return; }
-  if (g_plGenCurDirOpen && g_plGenCurDir) g_plGenCurDir.close();
-  if (g_plGenOutFile) g_plGenOutFile.close();
-  String path = "/playlists/" + g_plGenName + ".txt";
-  if (SD.exists(path.c_str())) forceDeleteFile(path);
-  g_plGenActive = false;
-  g_plGenCurDirOpen = false;
-  g_plGenDone = true;
-  g_plGenResultMsg = "Generation annulee, playlist supprimee";
-  Serial.println("[WEB] generate-playlist-stop: " + g_plGenName + ".txt annulee/supprimee");
-  webDmdPause("Generation annulee", 0xF800);
-  webServer->send(200, "text/plain", "OK: annule");
+  bool wasActive = false;
+  if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+    wasActive = g_plGenStatus.active;
+    if (wasActive) g_plGenStatus.stopRequested = true;
+    xSemaphoreGive(plGenStatusMutex);
+  }
+  Serial.println(String("[WEB] generate-playlist-stop: ") + (wasActive ? "arret demande" : "rien a arreter"));
+  webServer->send(200, "text/plain", wasActive ? "OK: arret demande" : "OK: rien a arreter");
 }
 
 // Renvoie la liste (JSON) des dossiers distincts references par une playlist
@@ -1491,6 +1800,7 @@ static void handleWebConfigGeneratePlaylistStop()
 // generee, plutot que de devoir tout re-cocher a la main.
 static void handleWebConfigPlaylistDirs()
 {
+  if (plGenIsActive()) { webServer->send(200, "application/json", "[]"); return; }
   if (!webServer->hasArg("name")) { webServer->send(400, "text/plain", "ERR: manque nom"); return; }
   String name = webServer->arg("name");
   int dotExt = name.lastIndexOf('.');
@@ -1554,7 +1864,7 @@ static void handleWebConfigPlaylistDirs()
 
 static void handleWebConfigDeletePlaylist()
 {
-  if (g_plGenActive) { webServer->send(409, "text/plain", "ERR: generation en cours"); return; }
+  if (plGenIsActive()) { webServer->send(409, "text/plain", "ERR: generation en cours"); return; }
   if (!webServer->hasArg("name")) { webServer->send(400, "text/plain", "ERR: manque nom"); return; }
   String name = webServer->arg("name");
   String base = name;
@@ -1669,6 +1979,7 @@ static void fileFindExistingPaths(File &f, int nCandidates, const String candida
 // fin de tout un lot d'upload.
 static void handleWebConfigAddToPlaylistsBatch()
 {
+  if (plGenIsActive()) { webServer->send(409, "text/plain", "ERR: generation de playlist en cours"); return; }
   unsigned long tFn0 = millis(); // DIAGNOSTIC TEMPORAIRE (68s constates en test reel 2026-07-28) -- a retirer une fois la cause trouvee
   if (!webServer->hasArg("dir") || !webServer->hasArg("files")) { webServer->send(200, "text/plain", "OK:0"); return; }
   String folder = webServer->arg("dir"); folder.trim();
@@ -1780,7 +2091,7 @@ static void handleWebConfigAddToPlaylistsBatch()
 // dossier existe deja quand l'upload demarre vraiment.
 static void handleWebConfigCreateFolder()
 {
-  if (g_plGenActive) { webServer->send(409, "text/plain", "ERR: generation de playlist en cours"); return; }
+  if (plGenIsActive()) { webServer->send(409, "text/plain", "ERR: generation de playlist en cours"); return; }
   if (!webServer->hasArg("dir")) { webServer->send(400, "text/plain", "ERR: dossier manquant"); return; }
   String dirName = webServer->arg("dir"); dirName.trim();
   if (dirName.length() == 0) { webServer->send(400, "text/plain", "ERR: dossier manquant"); return; }
@@ -1828,7 +2139,7 @@ static void handleWebConfigUploadFile()
 {
   HTTPUpload &upload = webServer->upload();
   if (upload.status == UPLOAD_FILE_START) {
-    if (g_plGenActive) { uploadErrorMsg = "ERR: generation de playlist en cours"; return; }
+    if (plGenIsActive()) { uploadErrorMsg = "ERR: generation de playlist en cours"; return; }
     // Timeout client elargi (defaut lib WebServer ~3s) le temps de l'upload :
     // les ecritures SD sous charge peuvent le depasser facilement -> la lib
     // coupe alors la connexion, vu cote navigateur comme ERR_CONNECTION_
@@ -2033,7 +2344,7 @@ static bool deleteFolderRecursive(const String &path)
 
 static void handleWebConfigDeleteFolders()
 {
-  if (g_plGenActive) { webServer->send(409, "text/plain", "ERR: generation de playlist en cours"); return; }
+  if (plGenIsActive()) { webServer->send(409, "text/plain", "ERR: generation de playlist en cours"); return; }
   if (!webServer->hasArg("dirs")) { webServer->send(400, "text/plain", "ERR: missing dirs"); return; }
   String dirs = webServer->arg("dirs");
   int count = 0, fail = 0, start = 0;
@@ -2178,6 +2489,29 @@ static void triggerWebConfigMode(const String &msg)
 
 static void sendGzipHtml(const uint8_t *content, size_t len)
 {
+  // Garde-fou heap (2026-07-29, ERR_EMPTY_RESPONSE reel en test materiel) :
+  // envoyer une page complete (plusieurs Ko gzip) peut echouer si le heap
+  // est deja tres sollicite par un long scan playlistGenTask() en cours --
+  // la connexion se fermait alors sans aucune donnee envoyee (vu cote
+  // navigateur comme une page vide, ERR_EMPTY_RESPONSE, sur plusieurs
+  // navigateurs differents -- pas un souci cote client). Repli sur une
+  // reponse texte minimaliste (bien moins gourmande a envoyer, donc bien
+  // plus susceptible de reussir meme sous pression heap) plutot que de
+  // risquer le meme echec silencieux.
+  // Seuil corrige de 8192 a 4096 (2026-07-29, meme erreur que pour le
+  // garde-fou du scan) : maxalloc se situe couramment entre 4500 et 9000 en
+  // fonctionnement tout a fait normal (meme sans generation active) --
+  // 8192 declenchait ce message quasi en permanence, meme entre 2 pages ou
+  // sur le simple menu. 4096 correspond a la valeur deja validee sans souci
+  // par le garde-fou du scan lui-meme.
+  if (ESP.getMaxAllocHeap() < 4096) {
+    // Message volontairement generique (2026-07-29) : la cause reelle du
+    // heap bas n'est pas forcement une generation de playlist en cours
+    // (retour utilisateur : message trompeur affiche hors de tout scan) --
+    // ne pas presumer d'une cause precise qui peut etre fausse.
+    webServer->send(200, "text/plain", "Memoire faible, reessayez dans quelques secondes");
+    return;
+  }
   webServer->sendHeader("Content-Encoding", "gzip");
   webServer->send_P(200, "text/html", reinterpret_cast<PGM_P>(content), len);
 }

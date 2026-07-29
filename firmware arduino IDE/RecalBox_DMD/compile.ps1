@@ -26,4 +26,4 @@ $FQBN = "esp32:esp32:esp32:UploadSpeed=921600,CPUFreq=240,FlashFreq=40,FlashMode
 # Arduino ("d:\CROQUIS ARDUINO IDE", voir arduino-cli config) -- les
 # librairies utilisees ici sont donc desormais exactement les memes que
 # celles de l'IDE, plus de --libraries explicite necessaire.
-arduino-cli compile --fqbn $FQBN --output-dir "$dir\compiled" "$dir"
+arduino-cli compile --clean --fqbn $FQBN --output-dir "$dir\compiled" "$dir"

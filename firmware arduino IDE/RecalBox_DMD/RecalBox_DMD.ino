@@ -1,7 +1,42 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v36
+// Version actuelle : v37
+//
+// v37 - 2026-07-28 - safe-modify - Resynchronisation de cet historique,
+//   reste fige sur v36 pendant plusieurs sessions alors que le code a
+//   beaucoup change entre-temps (suivi fait via les commits git, pas ce
+//   changelog -- v36 ci-dessous decrit un etat depuis longtemps obsolete,
+//   source de confusion si lu sans le git log). Recap des changements reels
+//   depuis v36, dans l'ordre :
+//   - Mecanisme de reboot cible mode config (reintroduit en v36) RETIRE A
+//     NOUVEAU et definitivement (commit git "v93") : comparaison avec
+//     l'ancienne version fonctionnelle RecalBox_DMDv10_scriptsRB (flashee,
+//     testee, fonctionne SANS ce reboot ni garde heap) a montre que le vrai
+//     probleme etait ailleurs (voir points suivants) -- g_skipPlaylistForConfig/
+//     g_playlistStartedThisBoot/sendRebootingPage/requestReboot supprimes.
+//   - Cause racine reelle des blocages "generation de playlist" trouvee :
+//     f.readString() chargeant tout le fichier en memoire (jusqu'a 40-44s de
+//     blocage ET un resultat FAUX sur une grosse playlist, heap fragmente) --
+//     remplace par une lecture en blocs fixes de 512 octets partout.
+//   - Generation de playlist transformee en machine a etats non bloquante
+//     avec vraie progression web (polling), page verrouillee pendant la
+//     generation, bouton Arreter, edition d'une playlist existante par
+//     pre-cochage des dossiers.
+//   - Ecran "RecalBox connectee" (texte fr/en/es superpose a l'image de
+//     secours default.raw565) + reprise automatique de la playlist apres 5s
+//     au lieu d'attendre indefiniment le 1er message MQTT reel (commit git
+//     "v94", fusionne sur master, valide sur materiel reel).
+//   - BRANCHE DEV (ce fichier) : la machine a etats de generation de playlist
+//     est deplacee sur sa propre tache FreeRTOS (playlistGenTask(), mirroir
+//     de mqttTask()) -- une lenteur SD localisee (confirmee sur plusieurs
+//     dossiers reels, simple listing sans lecture de contenu) ne bloque plus
+//     loop() (donc le serveur web/le bouton Arreter/reboot) pendant le scan.
+//     sdAccessMutex protege les acces SD partages avec la lecture GIF
+//     (gifPlayFrameCompat()/openNextGif(), tentative NON bloquante + repli
+//     gracieux cote loop() -- seule la tache de fond peut attendre bloquant).
+//     Voir le commentaire complet pres de PlaylistGenStatus, juste avant
+//     #include "web_config.h". PAS ENCORE teste sur materiel reel.
 //
 // v36 - 2026-07-27 - safe-modify - BRANCHE DEV : reintroduction du reboot
 //   cible mode config (retire en v35), SYSTEMATIQUE cette fois (toutes les
@@ -552,6 +587,57 @@ typedef uint8_t BitOrder; // Workaround: Adafruit_BusIO attend BitOrder (AVR) ma
 bool parseIP(const String &s, IPAddress &ip);
 bool applyStaticIP();
 void writeConfigFlag(const String &key, const String &value);
+
+// Generation de playlist -- tache FreeRTOS dediee (playlistGenTask(), definie
+// dans web_config.h) + primitives de synchronisation avec loop()/les handlers
+// HTTP. Meme principe que MqttCommand/mqttCmdMutex/pendingCmd (mqttTask())
+// plus bas dans ce fichier : la tache ne touche JAMAIS gif/display/
+// currentMode directement, seulement ce statut partage sous mutex.
+//
+// Deux mutex, deux strategies d'attente DIFFERENTES -- point critique de
+// conception (2026-07-28) : le mutex interne de la lib SD/FS (esp32 core
+// 3.3.11, vfs_api.cpp) NE protege PAS File::read/seek/close/openNextFile,
+// utilisees a la fois par le scan ET par la lecture de chaque frame GIF
+// (gifPlayFrameCompat(), tourne sur loop() a chaque frame). Un mutex
+// classique bloquant des 2 cotes ne reglerait rien : si la tache de fond le
+// tient plusieurs secondes (la lenteur SD localisee qu'on cherche justement
+// a isoler) et que loop() attend ce meme mutex pour lire la frame GIF
+// suivante, loop() -- donc le serveur web -- resterait bloque exactement
+// comme avant, juste deplace. Regle stricte : sdAccessMutex ne doit JAMAIS
+// etre attendu de facon bloquante depuis loop()/un handler HTTP (toujours
+// xSemaphoreTake(sdAccessMutex, 0) + degradation gracieuse si indisponible) ;
+// seule playlistGenTask() peut l'attendre bloquant. plGenStatusMutex ne
+// protege que de simples champs (jamais de SD dans la section critique),
+// hold time toujours negligeable des 2 cotes.
+struct PlaylistGenStatus
+{
+  bool   active = false;
+  bool   done = false;
+  String curDirName;
+  int    dirIdx = 0;
+  int    totalDirs = 0;
+  int    totalGifs = 0;
+  int    curDirGifs = 0;
+  String resultMsg;
+  bool   stopRequested = false;
+};
+SemaphoreHandle_t plGenStatusMutex     = nullptr; // garde g_plGenStatus
+PlaylistGenStatus g_plGenStatus;
+SemaphoreHandle_t sdAccessMutex        = nullptr; // garde tout acces SD partage entre playlistGenTask() et loop()
+TaskHandle_t      playlistGenTaskHandle = nullptr; // diagnostic uniquement -- ne jamais l'utiliser comme "scan actif ?" (voir g_plGenStatus.active)
+
+// Tache PERSISTANTE (2026-07-29) essayee puis ABANDONNEE le meme jour :
+// corrigeait bien un abort() reel (fopen()->lock_init_generic()) apparaissant
+// apres une dizaine de generations separees dans la meme session, mais son
+// cout heap permanent (~5 Ko, pile+TCB reserves des le boot au lieu de
+// seulement pendant une generation) a cause en test reel un ralentissement/
+// non-peuplement reproductible de la page de config (liste de dossiers vide
+// alors que l'endpoint direct /lsgifdirs repondait correctement -- donc pas
+// un blocage serveur, plutot une degradation generale de reactivite),
+// persistant apres redemarrage complet du DMD. Retour a la creation par
+// demande ci-dessous ; le crash rare qu'elle visait a corriger sera traite
+// autrement par la future refonte TOUS.txt/diff (bien moins d'invocations de
+// tache de fond attendues).
 
 #include "web_config.h"
 
@@ -1206,7 +1292,7 @@ unsigned long g_mqttWaitingUntilMs = 0;
 // (2026-07-28) : ne plus attendre indefiniment le premier message MQTT reel
 // (system/game), reprendre la playlist au bout de ce delai si rien d'autre
 // n'a pris la main sur l'affichage entre-temps.
-const unsigned long MQTT_CONNECTED_SCREEN_MS = 5000;
+const unsigned long MQTT_CONNECTED_SCREEN_MS = 10000; // 5000 -> 10000 (demande utilisateur 2026-07-29)
 unsigned long g_mqttConnectedScreenUntilMs = 0;
 
 WiFiClient   wifiClientMqtt;
@@ -1435,7 +1521,15 @@ static const int RAW565_H = PANEL_RES_Y;               // 32
 // ============================================
 // safe-modify â€” Historique des modifications
 // ============================================
-// Version actuelle : v3
+// Version actuelle : v4
+//
+// v4 - 2026-07-28 - BRANCHE DEV : gifPlayFrameCompat()/openNextGif() (lecture
+//   de frame/transition entre GIFs) protegees par une tentative NON bloquante
+//   de sdAccessMutex -- une generation de playlist tourne desormais sur sa
+//   propre tache FreeRTOS et peut tenir ce mutex plusieurs secondes sur un
+//   dossier a lenteur SD localisee ; loop() ne doit jamais l'attendre de
+//   facon bloquante (degrade gracieusement : frame maintenue a l'identique /
+//   nouvelle tentative au tour suivant). Voir web_config.h (playlistGenTask()).
 //
 // v3 - 2026-06-29 - Correction freeze playlist: skipRawPack dans openGif()
 // v2 â€” 2026-06-24 â€” Ajout sous-dossiers alphabÃ©tiques pour rÃ©soudre le ralentissement FAT32 sur 800+ fichiers (flag L). alphaSubdirPath() insÃ¨re un sous-dossier A..Z/# dans le chemin. drawRaw565() et openGif() tentent le sous-dossier en prioritÃ©.
@@ -2043,21 +2137,45 @@ static void drawGifRaw565Frame(uint32_t frameIndex)
   for (uint32_t y = 0; y < RAW565_GIF_H; y++)
     display->drawRGBBitmap(0, (int)y, gifRawFrameBuf + (size_t)y * RAW565_GIF_W, RAW565_GIF_W, 1);
 }
+// Lit/dessine une frame -- tourne sur loop() a CHAQUE frame affichee, donc
+// c'est le point de contention le plus frequent avec playlistGenTask() (qui
+// peut tenir sdAccessMutex plusieurs secondes sur un dossier a lenteur SD
+// localisee). Tentative NON BLOQUANTE uniquement (voir le commentaire complet
+// dans RecalBox_DMD.ino juste avant #include "web_config.h") : si le mutex
+// est pris, on ne bloque jamais loop() pour l'attendre -- la frame courante
+// reste affichee telle quelle quelques ms, puis loop() retente. Ne JAMAIS
+// retourner false dans ce cas (serait interprete comme "GIF termine" par
+// l'appelant et sauterait au suivant).
 static bool gifPlayFrameCompat(bool first, int *pDelayMs)
 {
+  if (xSemaphoreTake(sdAccessMutex, 0) != pdTRUE)
+  {
+    *pDelayMs = 5;
+    return true;
+  }
+  bool ok;
   if (gifRawPackMode)
   {
     if (first) gifRawFrameIndex = 0;
-    if (gifRawFrameIndex >= gifRawFrameCount) return false;
-
-    uint16_t ms = gifRawReadDelayMs(gifRawFrameIndex);
-    *pDelayMs = (int)ms;
-
-    drawGifRaw565Frame(gifRawFrameIndex);
-    gifRawFrameIndex++;
-    return true;
+    if (gifRawFrameIndex >= gifRawFrameCount)
+    {
+      ok = false;
+    }
+    else
+    {
+      uint16_t ms = gifRawReadDelayMs(gifRawFrameIndex);
+      *pDelayMs = (int)ms;
+      drawGifRaw565Frame(gifRawFrameIndex);
+      gifRawFrameIndex++;
+      ok = true;
+    }
   }
-  return gif.playFrame(first, pDelayMs);
+  else
+  {
+    ok = gif.playFrame(first, pDelayMs);
+  }
+  xSemaphoreGive(sdAccessMutex);
+  return ok;
 }
 
 static void gifResetCompat()
@@ -2344,10 +2462,24 @@ String getNextGif(){if(gifCount<=0)return "";return playlistRandom?getNextGifRan
 
 void openNextGif()
 {
+  // Transition entre 2 GIFs (moins frequente qu'une frame, mais touche
+  // encore la SD -- getNextGif()/openGif()). Meme regle de non-blocage que
+  // gifPlayFrameCompat() : si playlistGenTask() tient sdAccessMutex, on ne
+  // bascule pas en ecran noir pour rien -- on redemande ce meme GIF au
+  // prochain tour de loop() via requestNextGif (deja verifie une fois par
+  // iteration, voir loop()).
+  if (xSemaphoreTake(sdAccessMutex, 0) != pdTRUE)
+  {
+    requestNextGif = true;
+    return;
+  }
   String next=(nextGifPath.length()>0)?nextGifPath:getNextGif(); nextGifPath="";
-  if(next.length()==0||!openGif(next,false,true,true))
+  bool ok = (next.length()>0) && openGif(next,false,true,true);
+  if (ok) nextGifPath=getNextGif();
+  xSemaphoreGive(sdAccessMutex);
+  if (!ok)
   {gifOpened=false;currentMode=MODE_BLACK;display->clearScreen();return;}
-  currentMode=MODE_PLAYLIST; nextGifPath=getNextGif();
+  currentMode=MODE_PLAYLIST;
 }
 
 void resumePlaylist()
@@ -2381,11 +2513,26 @@ void webDmdPause(const String &msg, uint16_t color)
   currentMode = MODE_CONFIG;
 
   // Dessiner directement la ligne 2 (permet les progressions depuis les handlers HTTP bloquants)
+  webDmdOverlayLine2(msg, color);
+}
+
+// Dessine uniquement la ligne 2 (progression) -- SANS fermer gif/changer de
+// mode, contrairement a webDmdPause() complet. Utilisee par loop() pour
+// afficher la progression de playlistGenTask() (2026-07-28) : la tache ne
+// touche jamais gif/display elle-meme (voir commentaire pres de
+// PlaylistGenStatus, juste avant #include "web_config.h"), donc c'est loop()
+// qui lit son instantane et appelle ceci -- UNIQUEMENT si currentMode vaut
+// deja MODE_CONFIG, jamais pour l'y forcer. Corrige au passage un petit bug
+// existant : l'ancien webDmdPause() periodique re-coupait une reprise DMD
+// faite par l'utilisateur pendant un scan (il fermait gif/repassait en
+// MODE_CONFIG a chaque rafraichissement) -- cette version ne touche plus rien
+// d'autre que la ligne de texte.
+void webDmdOverlayLine2(const String &msg, uint16_t color)
+{
   display->fillRect(0, 24, 128, 8, 0);
   display->setTextColor(color);
   display->setCursor(1, 24);
   display->print(msg);
-
   Serial.println("[WEB] DMD pause: " + msg);
 }
 
@@ -2522,6 +2669,29 @@ String trRecalboxConnected()
   return "RecalBox connectee";
 }
 
+// Dessine (visible=true) ou efface (visible=false) le texte "RecalBox
+// connectee", centre horizontalement, avec la meme ombre noir/blanc
+// qu'avant -- clignotant pendant tout l'affichage (voir loop(), toggle
+// periodique). Centre le calcule dynamiquement (largeur variable selon la
+// langue) plutot qu'une position fixe.
+void drawRecalboxConnectedOverlay(bool visible)
+{
+  display->fillRect(0, 24, RAW565_W, 8, 0);
+  if (!visible) return;
+  display->setTextWrap(false);
+  display->setTextSize(1);
+  String txt = trRecalboxConnected();
+  int textW = txt.length() * 6; // taille 1 = 6px/caractere
+  int x = (RAW565_W - textW) / 2;
+  if (x < 0) x = 0;
+  display->setTextColor(display->color565(0, 0, 0));
+  display->setCursor(x + 1, 25);
+  display->print(txt);
+  display->setTextColor(display->color565(255, 255, 255));
+  display->setCursor(x, 24);
+  display->print(txt);
+}
+
 String trOpenUrl(const String &ip)
 {
   if (uiLanguage == "en") return "Open http://" + ip;
@@ -2612,14 +2782,8 @@ void processPendingMqttCommand()
         // Texte superpose (demande utilisateur) -- pngDrawn=true fait sauter
         // le redessin dans loop(), donc ce texte reste affiche par-dessus
         // l'image tant que rien d'autre ne prend la main sur l'affichage.
-        display->setTextWrap(false);
-        display->setTextSize(1);
-        display->setTextColor(display->color565(0, 0, 0));
-        display->setCursor(1, 25);
-        display->print(trRecalboxConnected());
-        display->setTextColor(display->color565(255, 255, 255));
-        display->setCursor(0, 24);
-        display->print(trRecalboxConnected());
+        // Le clignotement (loop()) prend le relais juste apres.
+        drawRecalboxConnectedOverlay(true);
       }
       // Reprise automatique de la playlist apres un delai fixe (demande
       // utilisateur) -- ne plus attendre indefiniment le 1er message MQTT
@@ -3103,7 +3267,17 @@ void mqttTask(void *param)
     if(WiFi.status()!=WL_CONNECTED){vTaskDelay(pdMS_TO_TICKS(1000));continue;}
 
     // En mode config web : ne pas tenter de connexion MQTT (garde les sockets libres pour HTTP)
-    if(g_sdOpInProgress) { if(mqttClient.connected()) mqttClient.loop(); vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
+    // Idem pendant une generation de playlist (2026-07-29, test en cours) :
+    // playlistGenTask() tourne sur le meme coeur que cette tache -- une
+    // tentative de (re)connexion MQTT ici (allocations pour le TCP/DNS)
+    // pourrait etre le facteur qui fait basculer le heap sous ce dont
+    // openNextFile() a besoin au mauvais moment, cause suspectee du crash
+    // reel observe sur ce meme materiel. Ne saute que la TENTATIVE de
+    // connexion -- .loop() reste actif si deja connecte, donc une commande
+    // (ex. reboot) recue avant le debut du scan continue d'etre traitee.
+    bool plGenActiveNow = false;
+    if (xSemaphoreTake(plGenStatusMutex, 0) == pdTRUE) { plGenActiveNow = g_plGenStatus.active; xSemaphoreGive(plGenStatusMutex); }
+    if(g_sdOpInProgress || plGenActiveNow) { if(mqttClient.connected()) mqttClient.loop(); vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
 
     if(!mqttClient.connected())
     {
@@ -3495,7 +3669,7 @@ int buildOffsetIndex()
 // --------------------------------------------------
 // Splash screen â€” version au dÃ©marrage (info=1 uniquement)
 // --------------------------------------------------
-#define RETRO_VERSION "Raw565 Ed. v11"
+#define RETRO_VERSION "Raw565 Ed. dev11"
 
 void showSplashScreen()
 {
@@ -3957,7 +4131,8 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
 
   mqttCmdMutex=xSemaphoreCreateMutex();
   pendingCmd=MqttCommand(MqttCommand::CMD_NONE,"");
-
+  plGenStatusMutex=xSemaphoreCreateMutex();
+  sdAccessMutex=xSemaphoreCreateMutex();
   if (g_firstBoot) {
     goto start_mqtt_task;
   }
@@ -4078,7 +4253,7 @@ start_mqtt_task:
 // --------------------------------------------------
 void loop()
 {
-  handleWebConfig(); playlistGenStep(); maintainWiFi(); maintainApRecovery(); processPendingMqttCommand();
+  handleWebConfig(); maintainWiFi(); maintainApRecovery(); processPendingMqttCommand();
   // Reprise auto de la playlist apres l'ecran "RecalBox connectee" (voir
   // CMD_WAITING_MQTT) -- sans effet si un vrai media (system/game) a deja
   // pris la main sur l'affichage entre-temps (currentPngPath change).
@@ -4089,6 +4264,49 @@ void loop()
     {
       Serial.println("[MQTT] fin ecran connexion -> reprise playlist");
       resumePlaylist();
+    }
+  }
+  // Clignotement du texte "RecalBox connectee" pendant tout l'affichage
+  // (demande utilisateur 2026-07-29) -- meme garde que la reprise auto
+  // ci-dessus (sans effet si un vrai media a deja pris la main). Toggle
+  // simple ~2 fois/seconde, pas de garde-fou de cout necessaire (juste un
+  // fillRect + eventuellement 2 print, deja fait a chaque CMD_WAITING_MQTT).
+  if (g_mqttConnectedScreenUntilMs != 0 && currentMode == MODE_PNG && currentPngPath == String(DEFAULT_RAW565_PATH) && !g_sdOpInProgress)
+  {
+    static unsigned long lastBlinkMs = 0;
+    static bool blinkVisible = true;
+    if (millis() - lastBlinkMs > 400)
+    {
+      blinkVisible = !blinkVisible;
+      drawRecalboxConnectedOverlay(blinkVisible);
+      lastBlinkMs = millis();
+    }
+  }
+  // Progression de playlistGenTask() affichee sur le DMD (voir
+  // PlaylistGenStatus/webDmdOverlayLine2(), web_config.h) -- uniquement si le
+  // mode config est DEJA actif (jamais pour l'imposer : la tache elle-meme
+  // ne touche jamais gif/display/currentMode -- voir le commentaire complet
+  // pres de PlaylistGenStatus, juste avant #include "web_config.h"). Si
+  // l'utilisateur a repris le DMD pendant le scan (currentMode != MODE_CONFIG),
+  // on ne touche a rien -- la lecture GIF continue sans interference.
+  // Throttle 2s, large marge sous les 5000ms d'expiration du message DMD
+  // (SD_OP_SUBMSG_EXPIRE_MS).
+  {
+    static unsigned long lastPlGenDmdMs = 0;
+    if (millis() - lastPlGenDmdMs > 2000)
+    {
+      bool active = false; String dirName; int gifs = 0;
+      if (xSemaphoreTake(plGenStatusMutex, 0) == pdTRUE) {
+        active = g_plGenStatus.active;
+        dirName = g_plGenStatus.curDirName;
+        gifs = g_plGenStatus.curDirGifs;
+        xSemaphoreGive(plGenStatusMutex);
+      }
+      if (active && currentMode == MODE_CONFIG)
+      {
+        webDmdOverlayLine2(plGenDmdText(dirName, gifs), 0x07E0);
+      }
+      lastPlGenDmdMs = millis();
     }
   }
   if(requestNextGif&&!g_sdOpInProgress){requestNextGif=false;openNextGif();}
@@ -4120,7 +4338,13 @@ void loop()
       if(nextGifPath.length()==0)nextGifPath=getNextGif();
       unsigned long t=millis();
       while((long)(millis()-t)<fd){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(0);}
-      if(nextGifPath.length()>0&&!nextGifFile)nextGifFile=SD.open(nextGifPath.c_str());
+      // Pre-chargement opportuniste (deja optionnel avant : ne fait rien si
+      // nextGifFile est deja pris). Non bloquant sur sdAccessMutex -- une
+      // tentative ratee est sans consequence, retentee au prochain tour.
+      if(nextGifPath.length()>0&&!nextGifFile&&xSemaphoreTake(sdAccessMutex,0)==pdTRUE){
+        nextGifFile=SD.open(nextGifPath.c_str());
+        xSemaphoreGive(sdAccessMutex);
+      }
     }
     break;
 
