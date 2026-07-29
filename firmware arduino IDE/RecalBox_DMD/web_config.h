@@ -344,6 +344,8 @@ body{position:relative}
 <div class="btn-row"><button type="button" class="btn btn-gen" onclick="generatePlaylist()" data-i18n="btn_gen_playlist">&#x2699; G&eacute;n&eacute;rer playlist</button><button type="button" class="btn btn-del" id="genStopBtn" style="display:none" onclick="stopGeneratePlaylist()" data-i18n="btn_stop_gen">&#x23F9; Arr&ecirc;ter</button></div>
 <div class="row"><label for="deletePlaylistSelect" data-i18n="lbl_delete_playlist">Supprimer</label><select id="deletePlaylistSelect"></select></div>
 <div class="btn-row"><button type="button" class="btn btn-del" onclick="deletePlaylist()" data-i18n="btn_delete_playlist">&#x1F5D1; Supprimer playlist</button></div>
+<div class="desc" style="margin-top:12px;border-top:1px solid #333;padding-top:12px" data-i18n="desc_resync_tous">Met &agrave; jour le fichier ma&icirc;tre tous.txt (utilis&eacute; pour g&eacute;n&eacute;rer les playlists rapidement) en ne r&eacute;analysant que les dossiers modifi&eacute;s depuis la derni&egrave;re fois.</div>
+<div class="btn-row"><button type="button" class="btn btn-gen" onclick="resyncTous()" data-i18n="btn_resync_tous">&#x1F504; Resynchroniser tous.txt</button></div>
 </div>
 <div class="btn-row">
 <button type="submit" class="btn btn-save" data-i18n="btn_save">&#x1F4BE; Enregistrer</button>
@@ -355,9 +357,9 @@ body{position:relative}
 <div id="msg" class="msg"></div>
 <script>
 const PAGE_I18N={
-fr:{title:'RecalBox DMD - Affichage',h1:'Affichage &amp; Playlists',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_display:'&#x1F4A1; Affichage',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Luminosité (%)',lbl_silent_boot:'Démarrage silencieux',lbl_playlist_file:'Playlist par défaut',lbl_random:'Lecture aléatoire',lbl_delete_playlist:'Supprimer',btn_delete_playlist:'&#x1F5D1; Supprimer playlist',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_select_playlist:'Sélectionnez une playlist à supprimer',msg_confirm_delete:'Supprimer ${0} ?',msg_deleting:'Suppression...',msg_load_error:'Impossible de charger la config',sec_manage_playlists:'&#x2699; Gestion des playlists',desc_gen_playlist:'Cochez des dossiers pour générer une nouvelle playlist. &#x26A0;&#xFE0F; La création n\'est performante que sur des dossiers avec un nombre limité de fichiers. Pour des playlists contenant des dossiers conséquents, passez par l\'utilitaire RecalboxDMD_tool sur PC.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',lbl_playlist_name:'Nom playlist',placeholder_playlist_name:'ex: MaPlaylist',btn_gen_playlist:'&#x2699; Générer playlist',msg_no_playlist_name:'Donnez un nom à la playlist',msg_select_folder:'Choisissez au moins un dossier',msg_generating:'Generation...',lbl_load_playlist:'Modifier une playlist existante',msg_scanning:'Analyse',msg_gen_busy:'Generation deja en cours ailleurs',msg_gen_start_error:'Impossible de demarrer la generation',msg_gen_leave_warning:'Une generation de playlist est en cours. Quitter la page ?',btn_stop_gen:'&#x23F9; Arreter',msg_confirm_stop_gen:'Arreter la generation ? La playlist en cours de creation sera supprimee.',msg_stopping_gen:'Arret playlist en cours, veuillez patienter...',msg_stop_gen_failed:'Echec de la demande d\'arret (reseau) -- reessayez'},
-en:{title:'RecalBox DMD - Display',h1:'Display &amp; Playlists',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_display:'&#x1F4A1; Display',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Brightness (%)',lbl_silent_boot:'Silent boot',lbl_playlist_file:'Default playlist',lbl_random:'Random playback',lbl_delete_playlist:'Delete',btn_delete_playlist:'&#x1F5D1; Delete playlist',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_select_playlist:'Select a playlist to delete',msg_confirm_delete:'Delete ${0}?',msg_deleting:'Deleting...',msg_load_error:'Unable to load config',sec_manage_playlists:'&#x2699; Playlist management',desc_gen_playlist:'Check folders to generate a new playlist. &#x26A0;&#xFE0F; Generation is only fast on folders with a limited number of files. For playlists covering large folders, use the RecalboxDMD_tool utility on PC instead.',btn_select_all:'Select all',btn_select_none:'Select none',lbl_playlist_name:'Playlist name',placeholder_playlist_name:'e.g. MyPlaylist',btn_gen_playlist:'&#x2699; Generate playlist',msg_no_playlist_name:'Please name the playlist',msg_select_folder:'Select at least one folder',msg_generating:'Generating...',lbl_load_playlist:'Edit an existing playlist',msg_scanning:'Scanning',msg_gen_busy:'A generation is already running',msg_gen_start_error:'Could not start generation',msg_gen_leave_warning:'A playlist generation is in progress. Leave the page?',btn_stop_gen:'&#x23F9; Stop',msg_confirm_stop_gen:'Stop generation? The playlist being created will be deleted.',msg_stopping_gen:'Stopping playlist generation, please wait...',msg_stop_gen_failed:'Stop request failed (network) -- please retry'},
-es:{title:'RecalBox DMD - Pantalla',h1:'Pantalla y listas',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_display:'&#x1F4A1; Pantalla',sec_playlist:'&#x1F4BF; Lista',lbl_brightness:'Brillo (%)',lbl_silent_boot:'Arranque silencioso',lbl_playlist_file:'Lista predeterminada',lbl_random:'Reproducción aleatoria',lbl_delete_playlist:'Eliminar',btn_delete_playlist:'&#x1F5D1; Eliminar lista',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_select_playlist:'Selecciona una lista para eliminar',msg_confirm_delete:'¿Eliminar ${0}?',msg_deleting:'Eliminando...',msg_load_error:'No se pudo cargar la configuración',sec_manage_playlists:'&#x2699; Gestión de listas',desc_gen_playlist:'Marque las carpetas para generar una nueva lista. &#x26A0;&#xFE0F; La creación solo es rápida en carpetas con un número limitado de archivos. Para listas con carpetas voluminosas, use la utilidad RecalboxDMD_tool en el PC.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',lbl_playlist_name:'Nombre de la lista',placeholder_playlist_name:'ej: MiLista',btn_gen_playlist:'&#x2699; Generar lista',msg_no_playlist_name:'Póngale un nombre a la lista',msg_select_folder:'Elija al menos una carpeta',msg_generating:'Generando...',lbl_load_playlist:'Editar una lista existente',msg_scanning:'Analizando',msg_gen_busy:'Ya hay una generación en curso',msg_gen_start_error:'No se pudo iniciar la generación',msg_gen_leave_warning:'Hay una generación de lista en curso. ¿Salir de la página?',btn_stop_gen:'&#x23F9; Detener',msg_confirm_stop_gen:'¿Detener la generación? La lista en creación se eliminará.',msg_stopping_gen:'Deteniendo la generación de la lista, espere...'}
+fr:{title:'RecalBox DMD - Affichage',h1:'Affichage &amp; Playlists',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_display:'&#x1F4A1; Affichage',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Luminosité (%)',lbl_silent_boot:'Démarrage silencieux',lbl_playlist_file:'Playlist par défaut',lbl_random:'Lecture aléatoire',lbl_delete_playlist:'Supprimer',btn_delete_playlist:'&#x1F5D1; Supprimer playlist',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_select_playlist:'Sélectionnez une playlist à supprimer',msg_confirm_delete:'Supprimer ${0} ?',msg_deleting:'Suppression...',msg_load_error:'Impossible de charger la config',sec_manage_playlists:'&#x2699; Gestion des playlists',desc_gen_playlist:'Cochez des dossiers pour générer une nouvelle playlist. &#x26A0;&#xFE0F; La création n\'est performante que sur des dossiers avec un nombre limité de fichiers. Pour des playlists contenant des dossiers conséquents, passez par l\'utilitaire RecalboxDMD_tool sur PC.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',lbl_playlist_name:'Nom playlist',placeholder_playlist_name:'ex: MaPlaylist',btn_gen_playlist:'&#x2699; Générer playlist',msg_no_playlist_name:'Donnez un nom à la playlist',msg_select_folder:'Choisissez au moins un dossier',msg_generating:'Generation...',lbl_load_playlist:'Modifier une playlist existante',msg_scanning:'Analyse',msg_gen_busy:'Generation deja en cours ailleurs',msg_gen_start_error:'Impossible de demarrer la generation',msg_gen_leave_warning:'Une generation de playlist est en cours. Quitter la page ?',btn_stop_gen:'&#x23F9; Arreter',msg_confirm_stop_gen:'Arreter la generation ? La playlist en cours de creation sera supprimee.',msg_stopping_gen:'Arret playlist en cours, veuillez patienter...',msg_stop_gen_failed:'Echec de la demande d\'arret (reseau) -- reessayez',desc_resync_tous:'Met à jour le fichier maître tous.txt (utilisé pour générer les playlists rapidement) en ne réanalysant que les dossiers modifiés depuis la dernière fois.',btn_resync_tous:'&#x1F504; Resynchroniser tous.txt',msg_resync_starting:'Resynchronisation...',msg_resync_progress:'Analyse: ${0} (${1} dossier(s) modifié(s))'},
+en:{title:'RecalBox DMD - Display',h1:'Display &amp; Playlists',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_display:'&#x1F4A1; Display',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Brightness (%)',lbl_silent_boot:'Silent boot',lbl_playlist_file:'Default playlist',lbl_random:'Random playback',lbl_delete_playlist:'Delete',btn_delete_playlist:'&#x1F5D1; Delete playlist',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_select_playlist:'Select a playlist to delete',msg_confirm_delete:'Delete ${0}?',msg_deleting:'Deleting...',msg_load_error:'Unable to load config',sec_manage_playlists:'&#x2699; Playlist management',desc_gen_playlist:'Check folders to generate a new playlist. &#x26A0;&#xFE0F; Generation is only fast on folders with a limited number of files. For playlists covering large folders, use the RecalboxDMD_tool utility on PC instead.',btn_select_all:'Select all',btn_select_none:'Select none',lbl_playlist_name:'Playlist name',placeholder_playlist_name:'e.g. MyPlaylist',btn_gen_playlist:'&#x2699; Generate playlist',msg_no_playlist_name:'Please name the playlist',msg_select_folder:'Select at least one folder',msg_generating:'Generating...',lbl_load_playlist:'Edit an existing playlist',msg_scanning:'Scanning',msg_gen_busy:'A generation is already running',msg_gen_start_error:'Could not start generation',msg_gen_leave_warning:'A playlist generation is in progress. Leave the page?',btn_stop_gen:'&#x23F9; Stop',msg_confirm_stop_gen:'Stop generation? The playlist being created will be deleted.',msg_stopping_gen:'Stopping playlist generation, please wait...',msg_stop_gen_failed:'Stop request failed (network) -- please retry',desc_resync_tous:'Updates the master file tous.txt (used to generate playlists quickly) by only rescanning folders that changed since last time.',btn_resync_tous:'&#x1F504; Resync tous.txt',msg_resync_starting:'Resyncing...',msg_resync_progress:'Scanning: ${0} (${1} folder(s) changed)'},
+es:{title:'RecalBox DMD - Pantalla',h1:'Pantalla y listas',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_display:'&#x1F4A1; Pantalla',sec_playlist:'&#x1F4BF; Lista',lbl_brightness:'Brillo (%)',lbl_silent_boot:'Arranque silencioso',lbl_playlist_file:'Lista predeterminada',lbl_random:'Reproducción aleatoria',lbl_delete_playlist:'Eliminar',btn_delete_playlist:'&#x1F5D1; Eliminar lista',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_select_playlist:'Selecciona una lista para eliminar',msg_confirm_delete:'¿Eliminar ${0}?',msg_deleting:'Eliminando...',msg_load_error:'No se pudo cargar la configuración',sec_manage_playlists:'&#x2699; Gestión de listas',desc_gen_playlist:'Marque las carpetas para generar una nueva lista. &#x26A0;&#xFE0F; La creación solo es rápida en carpetas con un número limitado de archivos. Para listas con carpetas voluminosas, use la utilidad RecalboxDMD_tool en el PC.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',lbl_playlist_name:'Nombre de la lista',placeholder_playlist_name:'ej: MiLista',btn_gen_playlist:'&#x2699; Generar lista',msg_no_playlist_name:'Póngale un nombre a la lista',msg_select_folder:'Elija al menos una carpeta',msg_generating:'Generando...',lbl_load_playlist:'Editar una lista existente',msg_scanning:'Analizando',msg_gen_busy:'Ya hay una generación en curso',msg_gen_start_error:'No se pudo iniciar la generación',msg_gen_leave_warning:'Hay una generación de lista en curso. ¿Salir de la página?',btn_stop_gen:'&#x23F9; Detener',msg_confirm_stop_gen:'¿Detener la generación? La lista en creación se eliminará.',msg_stopping_gen:'Deteniendo la generación de la lista, espere...',desc_resync_tous:'Actualiza el archivo maestro tous.txt (usado para generar listas rápidamente) reanalizando solo las carpetas que cambiaron desde la última vez.',btn_resync_tous:'&#x1F504; Resincronizar tous.txt',msg_resync_starting:'Resincronizando...',msg_resync_progress:'Analizando: ${0} (${1} carpeta(s) modificada(s))'}
 };
 let currentLang='fr';
 let _plNameAutoFilled=false; // suivi de la suggestion auto de nom (voir updatePlaylistNameSuggestion())
@@ -600,6 +602,54 @@ async function generatePlaylist(){
     // tenu pendant un acces SD) meme pendant un dossier lent -- le compteur
     // redevient donc une information fiable plutot qu'un faux signal de gel.
     msgEl.textContent=tr('msg_scanning')+': '+st.dir+' ('+st.dirIdx+'/'+st.totalDirs+') - '+st.curDirGifs+' GIFs ('+st.gifs+' total)';
+  }
+  setPageBusy(false);
+}
+// Resynchronisation incrementale de tous.txt (plan tous.txt-filtrage-diff-
+// sync) : reutilise le meme mecanisme de progression/arret que
+// generatePlaylist() (meme g_plGenStatus cote firmware, meme bouton
+// genStopBtn/stopGeneratePlaylist()) -- seul le texte de progression differe
+// (isResync=true cote firmware, pas de dirIdx/totalDirs/gifs pendant la
+// Phase 1 de detection, juste le dossier en cours et le nombre de dossiers
+// changes detectes jusque-la).
+async function resyncTous(){
+  setPageBusy(true);
+  const msgEl=document.getElementById('msg');
+  if(window._msgTimer)clearTimeout(window._msgTimer);
+  msgEl.className='msg ok';msgEl.style.display='block';msgEl.textContent=tr('msg_resync_starting');
+  let started=false;
+  try{
+    const r=await fetch('/resync-tous',{method:'POST'});
+    const t=await r.text();
+    started=t.includes('STARTED');
+    if(!started){msgEl.textContent=(r.status===409)?tr('msg_gen_busy'):t;msgEl.className='msg err';}
+  }catch(e){
+    try{
+      const st=await(await fetch('/generate-playlist-status')).json();
+      started=!!st.active;
+    }catch(e2){started=false;}
+    if(!started){msgEl.textContent=tr('msg_net_error');msgEl.className='msg err';}
+  }
+  if(!started){setPageBusy(false);return;}
+  while(true){
+    await new Promise(res=>setTimeout(res,700));
+    let st;
+    try{
+      const ctrl=new AbortController();
+      const abortTimer=setTimeout(()=>ctrl.abort(),9000);
+      st=await(await fetch('/generate-playlist-status',{signal:ctrl.signal})).json();
+      clearTimeout(abortTimer);
+    }catch(e){continue;}
+    if(!st.active){
+      msgEl.textContent=st.result||tr('msg_gen_start_error');
+      msgEl.className='msg '+(st.done?'ok':'err');
+      if(window._msgTimer)clearTimeout(window._msgTimer);
+      window._msgTimer=setTimeout(()=>{msgEl.style.display='none';},5000);
+      fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(st.result||''),color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});
+      fillPlaylists('');
+      break;
+    }
+    msgEl.textContent=tr('msg_resync_progress').replace('${0}',st.dir||'').replace('${1}',st.foldersChanged);
   }
   setPageBusy(false);
 }
@@ -1477,36 +1527,19 @@ struct PlaylistGenRequest { String name; String dirsCsv; };
 // abandonnee le 2026-07-29 -- cf. commentaire au-dessus de la declaration de
 // playlistGenTaskHandle (RecalBox_DMD.ino) pour le detail de ce qui a ete
 // tente et pourquoi.
-void playlistGenTask(void *param)
+// Coeur du scan (parse dirsCsv, ouvre chaque /gifs/<dossier>, ecrit les
+// chemins .gif trouves dans outFile deja ouvert) -- extrait de
+// playlistGenTask() (2026-07-30) pour etre reutilise tel quel par
+// tousSyncTask() (cas "premier lancement, tous.txt n'existe pas encore" --
+// voir plan tous-txt-filtrage-diff-sync.md). Ne touche JAMAIS
+// g_plGenStatus.active/resultMsg/done -- chaque appelant garde la
+// responsabilite de les positionner selon son propre contexte (generation
+// classique vs bootstrap de tous.txt), seul g_plGenStatus.curDirName/
+// dirIdx/curDirGifs/totalGifs (progression, deja affichee sur le DMD/la
+// page web) est mis a jour ici, identique pour les deux appelants.
+static void scanFoldersToPlaylistFile(const String &dirsCsv, File &outFile,
+                                       int &totalGifsOut, bool &stoppedOut, bool &lowHeapAbortOut)
 {
-  PlaylistGenRequest *req = (PlaylistGenRequest *)param;
-  String name = req->name;
-  String dirsCsv = req->dirsCsv;
-  delete req;
-
-  String outputPath = "/playlists/" + name + ".txt";
-  File outFile;
-  if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
-    outFile = SD.open(outputPath.c_str(), FILE_WRITE);
-    xSemaphoreGive(sdAccessMutex);
-  }
-  if (!outFile) {
-    // Deja valide par handleWebConfigGeneratePlaylist() avant de lancer cette
-    // tache -- ne devrait pas arriver, protection quand meme.
-    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
-      g_plGenStatus.resultMsg = "ERR: ecriture impossible (" + name + ".txt)";
-      g_plGenStatus.active = false;
-      g_plGenStatus.done = true;
-      xSemaphoreGive(plGenStatusMutex);
-    }
-    playlistGenTaskHandle = nullptr;
-    vTaskDelete(nullptr);
-    return;
-  }
-
-  int totalDirs = 1;
-  for (int i = 0; i < dirsCsv.length(); i++) if (dirsCsv.charAt(i) == ',') totalDirs++;
-
   int totalGifs = 0, dirIdx = 0, parseIdx = 0;
   String buf;
   bool stopped = false;
@@ -1632,6 +1665,49 @@ void playlistGenTask(void *param)
     if (stopped) break;
   }
 
+  // Flush final du reliquat -- SEULEMENT si le scan s'est termine
+  // normalement (un arret/heap-critique doit laisser le fichier de sortie
+  // intact pour que l'appelant puisse decider de le supprimer ou non selon
+  // son propre contexte).
+  if (!stopped && buf.length() > 0) {
+    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { outFile.print(buf); xSemaphoreGive(sdAccessMutex); }
+  }
+  totalGifsOut = totalGifs;
+  stoppedOut = stopped;
+  lowHeapAbortOut = lowHeapAbort;
+}
+
+void playlistGenTask(void *param)
+{
+  PlaylistGenRequest *req = (PlaylistGenRequest *)param;
+  String name = req->name;
+  String dirsCsv = req->dirsCsv;
+  delete req;
+
+  String outputPath = "/playlists/" + name + ".txt";
+  File outFile;
+  if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+    outFile = SD.open(outputPath.c_str(), FILE_WRITE);
+    xSemaphoreGive(sdAccessMutex);
+  }
+  if (!outFile) {
+    // Deja valide par handleWebConfigGeneratePlaylist() avant de lancer cette
+    // tache -- ne devrait pas arriver, protection quand meme.
+    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+      g_plGenStatus.resultMsg = "ERR: ecriture impossible (" + name + ".txt)";
+      g_plGenStatus.active = false;
+      g_plGenStatus.done = true;
+      xSemaphoreGive(plGenStatusMutex);
+    }
+    playlistGenTaskHandle = nullptr;
+    vTaskDelete(nullptr);
+    return;
+  }
+
+  int totalGifs = 0;
+  bool stopped = false, lowHeapAbort = false;
+  scanFoldersToPlaylistFile(dirsCsv, outFile, totalGifs, stopped, lowHeapAbort);
+
   if (stopped)
   {
     if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
@@ -1662,7 +1738,6 @@ void playlistGenTask(void *param)
   else
   {
     if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
-      if (buf.length() > 0) outFile.print(buf);
       outFile.close();
       xSemaphoreGive(sdAccessMutex);
     }
@@ -1692,6 +1767,112 @@ void playlistGenTask(void *param)
   vTaskDelete(nullptr);
 }
 
+// Filtre /playlists/tous.txt vers outputPath, ne gardant que les lignes
+// dont le segment dossier appartient a dirsCsv (format ",dir1,dir2,").
+// Meme algorithme de lecture par blocs de 512 octets que
+// handleWebConfigPlaylistDirs() (pending += buf, decoupage sur '\n',
+// report du reliquat, PLUS traitement de la derniere ligne sans '\n'
+// final -- piege facile a oublier en adaptant ce motif). Ne touche JAMAIS
+// /gifs/ -- tourne directement dans le thread loop() (meme raison que
+// handleWebConfigPlaylistDirs()/handleWebConfigAddToPlaylistsBatch() qui
+// font deja ca sans tache ni mutex : aucune lenteur SD localisee possible
+// sur un fichier texte). Ecrit d'abord dans outputPath+".flt" puis
+// remplace atomiquement (forceDeleteFile + rename), jamais d'ecriture
+// directe sur outputPath.
+static bool filterPlaylistFromMaster(const String &dirsCsv, const String &outputPath,
+                                      int &linesWrittenOut, String &errOut)
+{
+  File src = SD.open("/playlists/tous.txt", FILE_READ);
+  if (!src) { errOut = "tous.txt introuvable"; return false; }
+
+  // ",dir1,dir2," -- meme convention que "seen" dans handleWebConfigPlaylistDirs().
+  String wanted = ",";
+  {
+    int start = 0;
+    while (true) {
+      int comma = dirsCsv.indexOf(',', start);
+      String d = (comma < 0) ? dirsCsv.substring(start) : dirsCsv.substring(start, comma);
+      d.trim();
+      if (d.length() > 0) wanted += d + ",";
+      if (comma < 0) break;
+      start = comma + 1;
+    }
+  }
+
+  String tmpPath = outputPath + ".flt";
+  if (SD.exists(tmpPath.c_str())) SD.remove(tmpPath.c_str());
+  File out = SD.open(tmpPath.c_str(), FILE_WRITE);
+  if (!out) { src.close(); errOut = "ecriture impossible"; return false; }
+
+  int written = 0;
+  String outBuf;
+  const size_t BUFSZ = 512;
+  char buf[BUFSZ + 1];
+  String pending;
+  int chunkCount = 0;
+  while (true) {
+    int n = src.read((uint8_t *)buf, BUFSZ);
+    if (n <= 0) break;
+    buf[n] = 0;
+    pending += buf;
+    int lineStart = 0;
+    while (true) {
+      int nl = pending.indexOf('\n', lineStart);
+      if (nl < 0) break;
+      String line = pending.substring(lineStart, nl);
+      line.trim();
+      // Segment dossier = meme extraction que handleWebConfigPlaylistDirs()
+      // (indexOf('/', 6) sur le chemin entier) -- jamais un test de
+      // sous-chaine naif : "Arcade" ne doit pas matcher dans "Arcade2".
+      if (line.startsWith("/gifs/")) {
+        int s2 = line.indexOf('/', 6);
+        if (s2 > 6) {
+          String dir = line.substring(6, s2);
+          if (wanted.indexOf("," + dir + ",") >= 0) {
+            outBuf += line + "\n";
+            written++;
+            if (outBuf.length() > 1000) { out.print(outBuf); outBuf = ""; }
+          }
+        }
+      }
+      lineStart = nl + 1;
+    }
+    pending = pending.substring(lineStart); // reliquat (ligne a cheval sur 2 blocs) pour le prochain tour
+    if ((size_t)n < BUFSZ) break;
+    if (++chunkCount % 20 == 0) yield(); // watchdog-safe sur un tres gros tous.txt (aucun autre point de cession dans cette boucle)
+  }
+  pending.trim();
+  if (pending.startsWith("/gifs/")) { // derniere ligne sans retour a la ligne final
+    int s2 = pending.indexOf('/', 6);
+    if (s2 > 6) {
+      String dir = pending.substring(6, s2);
+      if (wanted.indexOf("," + dir + ",") >= 0) { outBuf += pending + "\n"; written++; }
+    }
+  }
+  if (outBuf.length() > 0) out.print(outBuf);
+  out.close();
+  src.close();
+
+  if (SD.exists(outputPath.c_str())) forceDeleteFile(outputPath);
+  SD.rename(tmpPath.c_str(), outputPath.c_str());
+
+  // Nettoyage des compagnons perimes -- meme pattern que handleWebConfigDeletePlaylist().
+  {
+    String base = outputPath.substring(outputPath.lastIndexOf('/') + 1);
+    int dot = base.lastIndexOf('.');
+    if (dot > 0) base = base.substring(0, dot);
+    const char *exts[] = {".cache", ".sig", ".idx"};
+    for (int i = 0; i < 3; i++) {
+      String p = "/playlists/" + base + exts[i];
+      if (SD.exists(p.c_str())) SD.remove(p.c_str());
+    }
+  }
+  invalidatePlaylistRefCache();
+
+  linesWrittenOut = written;
+  return true;
+}
+
 static void handleWebConfigGeneratePlaylist()
 {
   bool alreadyActive = false;
@@ -1706,6 +1887,27 @@ static void handleWebConfigGeneratePlaylist()
   String name = webServer->arg("name");
   String dirs = webServer->arg("dirs");
   String outputPath = "/playlists/" + name + ".txt";
+
+  // Filtrage texte depuis tous.txt (2026-07-30, plan tous-txt-filtrage-
+  // diff-sync) -- chemin rapide, synchrone (tourne dans loop(), pas de
+  // tache), ne touche jamais /gifs/. "tous" reste toujours sur le scan
+  // complet classique ci-dessous (jamais source==destination). Bascule
+  // automatiquement sur l'ancien chemin si tous.txt n'existe pas encore
+  // (bootstrap) -- aucun code de "premier lancement" separe necessaire.
+  if (!name.equalsIgnoreCase("tous") && SD.exists("/playlists/tous.txt")) {
+    int linesWritten = 0;
+    String err;
+    bool ok = filterPlaylistFromMaster(dirs, outputPath, linesWritten, err);
+    if (ok) {
+      Serial.println("[WEB] generate-playlist: " + String(linesWritten) + " GIFs (filtre depuis tous.txt) -> " + name + ".txt");
+      webServer->send(200, "text/plain", "OK: " + String(linesWritten) + " GIFs (filtre depuis tous.txt)");
+    } else {
+      Serial.println("[WEB] generate-playlist: ECHEC filtrage (" + err + ")");
+      webServer->send(500, "text/plain", "ERR: " + err);
+    }
+    return;
+  }
+
   if (!SD.exists("/playlists")) SD.mkdir("/playlists");
   if (SD.exists(outputPath.c_str())) SD.remove(outputPath.c_str());
   File outf = SD.open(outputPath.c_str(), FILE_WRITE);
@@ -1771,6 +1973,10 @@ static void handleWebConfigGeneratePlaylistStatus()
   json += ",\"totalDirs\":" + String(snap.totalDirs);
   json += ",\"gifs\":" + String(snap.totalGifs);
   json += ",\"curDirGifs\":" + String(snap.curDirGifs);
+  json += ",\"isResync\":" + String(snap.isResync ? "true" : "false");
+  json += ",\"foldersChanged\":" + String(snap.foldersChanged);
+  json += ",\"linesAdded\":" + String(snap.linesAdded);
+  json += ",\"linesRemoved\":" + String(snap.linesRemoved);
   json += ",\"result\":\"" + jsonEscape(snap.resultMsg) + "\"}";
   webServer->send(200, "application/json", json);
 }
@@ -1792,6 +1998,524 @@ static void handleWebConfigGeneratePlaylistStop()
   }
   Serial.println(String("[WEB] generate-playlist-stop: ") + (wasActive ? "arret demande" : "rien a arreter"));
   webServer->send(200, "text/plain", wasActive ? "OK: arret demande" : "OK: rien a arreter");
+}
+
+// Plafond RAM pour la detection d'AJOUTS pendant une resynchronisation
+// (voir tousSyncTask()) -- au-dela, le retrait des fichiers disparus
+// continue normalement (verification SD.exists() par ligne, aucune
+// accumulation necessaire), seule la detection de nouveaux fichiers est
+// abandonnee pour ce dossier precis. Nombre de dossiers pouvant changer
+// SIMULTANEMENT en une seule resynchronisation -- cas normal : 1-3 (le
+// but meme de la resync incrementale est d'eviter d'en avoir beaucoup a
+// la fois).
+#define TOUS_SYNC_MAX_ENTRIES_PER_FOLDER 1024
+#define TOUS_SYNC_MAX_CHANGED_FOLDERS 32
+
+struct ChangedFolderInfo {
+  String dirName;
+  String listedCsv;  // ",f1.gif,f2.gif,..." -- fichiers reellement presents (source de verite), vide si capped/deleted
+  String seenCsv;    // ",f1.gif,..." -- fichiers deja rencontres comme ligne existante dans tous.txt (Phase 2)
+  bool capped = false;
+  bool deleted = false; // dossier disparu de /gifs/ depuis le dernier etat sauvegarde
+};
+
+// FNV-1a 32 bits sur un nom de fichier seul (pas le chemin complet) --
+// XOR-combine sur tout un dossier (voir tousSyncTask()) pour etre
+// independant de l'ordre d'enumeration, jamais garanti stable sur FAT.
+static uint32_t fnv1aString(const String &s)
+{
+  uint32_t h = 2166136261u;
+  for (size_t i = 0; i < s.length(); i++) { h ^= (uint8_t)s[i]; h *= 16777619u; }
+  return h;
+}
+
+// tousSyncTask() -- resynchronisation de /playlists/tous.txt par diff
+// (2026-07-30, plan tous-txt-filtrage-diff-sync). 2 cas :
+//
+// 1) tous.txt n'existe pas encore (bootstrap) : delegue entierement a
+//    scanFoldersToPlaylistFile() sur TOUS les dossiers de /gifs/ -- scan
+//    complet classique, comme n'importe quelle generation de playlist.
+//
+// 2) tous.txt existe deja : Phase 1 (detection legere par dossier, compte
+//    + hash independant de l'ordre, compare a un etat sauvegarde separe
+//    /playlists/tous.txt.dircache_state -- JAMAIS playlistSigPath, qui ne
+//    suit que la playlist active en config.ini, RecalBox_DMD.ino) puis
+//    Phase 2 (une seule passe de correction sur tous.txt, seulement si au
+//    moins un dossier a change).
+//
+// stopRequested/garde heap verifies a chaque dossier en Phase 1 (jamais en
+// pleine Phase 2, qui reste une operation courte une fois demarree) --
+// meme discipline que scanFoldersToPlaylistFile(). tous.txt est toujours
+// soit entierement patche (un seul renommage final), soit integralement
+// intact -- jamais partiel, meme en cas de coupure de courant ou d'arret
+// demande en pleine Phase 2 (le fichier temporaire ".flt" est alors
+// simplement abandonne).
+void tousSyncTask(void *param)
+{
+  (void)param;
+  const char *TOUS_PATH = "/playlists/tous.txt";
+  const char *STATE_PATH = "/playlists/tous.txt.dircache_state";
+
+  bool stopped = false;
+  bool lowHeapAbort = false;
+
+  // Enumeration live des dossiers reels sous /gifs/ -- JAMAIS depuis l'etat
+  // sauvegarde : un dossier supprime de /gifs/ doit etre traite comme
+  // "change" (toutes ses lignes a retirer), pas silencieusement ignore.
+  String liveDirsCsv;
+  if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+    File dir = SD.open("/gifs");
+    if (dir && dir.isDirectory()) {
+      File entry = dir.openNextFile();
+      while (entry) {
+        if (entry.isDirectory()) {
+          String name = String(entry.name());
+          int slash = name.lastIndexOf('/');
+          if (slash >= 0) name = name.substring(slash + 1);
+          if (liveDirsCsv.length() > 0) liveDirsCsv += ",";
+          liveDirsCsv += name;
+        }
+        entry.close();
+        entry = dir.openNextFile();
+      }
+      dir.close();
+    } else if (dir) {
+      dir.close();
+    }
+    xSemaphoreGive(sdAccessMutex);
+  }
+
+  bool bootstrap = !SD.exists(TOUS_PATH);
+
+  if (bootstrap)
+  {
+    File outFile;
+    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+      outFile = SD.open(TOUS_PATH, FILE_WRITE);
+      xSemaphoreGive(sdAccessMutex);
+    }
+    if (!outFile) {
+      if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+        g_plGenStatus.resultMsg = "ERR: ecriture impossible (tous.txt)";
+        g_plGenStatus.active = false;
+        g_plGenStatus.done = true;
+        xSemaphoreGive(plGenStatusMutex);
+      }
+      playlistGenTaskHandle = nullptr;
+      vTaskDelete(nullptr);
+      return;
+    }
+    int totalGifs = 0;
+    scanFoldersToPlaylistFile(liveDirsCsv, outFile, totalGifs, stopped, lowHeapAbort);
+    if (stopped) {
+      if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { outFile.close(); forceDeleteFile(String(TOUS_PATH)); xSemaphoreGive(sdAccessMutex); }
+      if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+        g_plGenStatus.resultMsg = lowHeapAbort
+          ? "Memoire insuffisante, tous.txt non cree. Redemarrez le DMD puis reessayez"
+          : "Creation de tous.txt annulee";
+        g_plGenStatus.active = false;
+        g_plGenStatus.done = true;
+        xSemaphoreGive(plGenStatusMutex);
+      }
+    } else {
+      if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { outFile.close(); xSemaphoreGive(sdAccessMutex); }
+      String resultMsg = "OK: tous.txt cree (" + String(totalGifs) + " GIFs)";
+      Serial.println("[WEB] tousSyncTask: " + resultMsg);
+      if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+        g_plGenStatus.resultMsg = resultMsg;
+        g_plGenStatus.active = false;
+        g_plGenStatus.done = true;
+        xSemaphoreGive(plGenStatusMutex);
+      }
+    }
+    playlistGenTaskHandle = nullptr;
+    vTaskDelete(nullptr);
+    return;
+  }
+
+  // --- Cas courant : tous.txt existe deja -----------------------------
+
+  // Etat sauvegarde precedent, charge en RAM (petit fichier -- quelques
+  // dizaines de dossiers, jamais des milliers -- sans rapport avec la
+  // taille de tous.txt lui-meme).
+  String prevState;
+  {
+    File sf = SD.open(STATE_PATH, FILE_READ);
+    if (sf) {
+      while (sf.available()) prevState += (char)sf.read();
+      sf.close();
+    }
+  }
+  auto findPrevSignature = [&](const String &dirName, int &countOut, uint32_t &hashOut) -> bool {
+    int searchFrom = 0;
+    while (searchFrom <= (int)prevState.length()) {
+      int nl = prevState.indexOf('\n', searchFrom);
+      String line = (nl < 0) ? prevState.substring(searchFrom) : prevState.substring(searchFrom, nl);
+      if (line.length() > 0) {
+        int c1 = line.indexOf(',');
+        int c2 = (c1 >= 0) ? line.indexOf(',', c1 + 1) : -1;
+        if (c1 > 0 && c2 > c1 && line.substring(0, c1) == dirName) {
+          countOut = line.substring(c1 + 1, c2).toInt();
+          hashOut = (uint32_t)strtoul(line.substring(c2 + 1).c_str(), NULL, 10);
+          return true;
+        }
+      }
+      if (nl < 0) break;
+      searchFrom = nl + 1;
+    }
+    return false;
+  };
+
+  static ChangedFolderInfo changed[TOUS_SYNC_MAX_CHANGED_FOLDERS];
+  for (int i = 0; i < TOUS_SYNC_MAX_CHANGED_FOLDERS; i++) changed[i] = ChangedFolderInfo();
+  int changedCount = 0;
+  String newState;
+
+  // Phase 1 : une enumeration par dossier reel, comparaison a l'etat sauvegarde.
+  {
+    int start = 0;
+    while (start <= (int)liveDirsCsv.length())
+    {
+      if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+        stopped = g_plGenStatus.stopRequested;
+        xSemaphoreGive(plGenStatusMutex);
+      }
+      if (!stopped && ESP.getMaxAllocHeap() < 4096) {
+        Serial.println("[WEB] tousSyncTask: heap critique (maxalloc=" + String(ESP.getMaxAllocHeap()) + "), arret propre (Phase 1)");
+        stopped = true;
+        lowHeapAbort = true;
+      }
+      if (stopped) break;
+
+      int comma = liveDirsCsv.indexOf(',', start);
+      String dirName = (comma < 0) ? liveDirsCsv.substring(start) : liveDirsCsv.substring(start, comma);
+      dirName.trim();
+      start = (comma < 0) ? (int)(liveDirsCsv.length() + 1) : (comma + 1);
+      if (dirName.length() == 0) continue;
+
+      if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+        g_plGenStatus.curDirName = dirName;
+        xSemaphoreGive(plGenStatusMutex);
+      }
+
+      int liveCount = 0;
+      uint32_t liveHash = 0;
+      String listedCsv = ",";
+      bool capped = false;
+
+      File dir;
+      if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+        dir = SD.open(("/gifs/" + dirName).c_str());
+        xSemaphoreGive(sdAccessMutex);
+      }
+      bool dirOpen = dir && dir.isDirectory();
+      if (!dirOpen && dir) {
+        if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { dir.close(); xSemaphoreGive(sdAccessMutex); }
+      }
+      while (dirOpen) {
+        if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+          stopped = g_plGenStatus.stopRequested;
+          xSemaphoreGive(plGenStatusMutex);
+        }
+        if (!stopped && ESP.getMaxAllocHeap() < 4096) {
+          Serial.println("[WEB] tousSyncTask: heap critique (maxalloc=" + String(ESP.getMaxAllocHeap()) + "), arret propre (Phase 1)");
+          stopped = true;
+          lowHeapAbort = true;
+        }
+        if (stopped) {
+          if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { dir.close(); xSemaphoreGive(sdAccessMutex); }
+          break;
+        }
+        File f;
+        if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { f = dir.openNextFile(); xSemaphoreGive(sdAccessMutex); }
+        if (!f) {
+          if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { dir.close(); xSemaphoreGive(sdAccessMutex); }
+          dirOpen = false;
+          break;
+        }
+        if (!f.isDirectory()) {
+          String fname = String(f.name());
+          if (fname.endsWith(".gif")) {
+            liveHash ^= fnv1aString(fname);
+            liveCount++;
+            if (!capped) {
+              if (liveCount <= TOUS_SYNC_MAX_ENTRIES_PER_FOLDER) {
+                listedCsv += fname + ",";
+              } else {
+                capped = true;
+                listedCsv = "";
+              }
+            }
+          }
+        }
+        f.close();
+        vTaskDelay(1);
+      }
+      if (stopped) break;
+
+      int prevCount = -1; uint32_t prevHash = 0;
+      bool hadPrev = findPrevSignature(dirName, prevCount, prevHash);
+      bool isChanged = !hadPrev || prevCount != liveCount || prevHash != liveHash;
+
+      newState += dirName + "," + String(liveCount) + "," + String(liveHash) + "\n";
+
+      if (isChanged && changedCount < TOUS_SYNC_MAX_CHANGED_FOLDERS) {
+        changed[changedCount].dirName = dirName;
+        changed[changedCount].listedCsv = listedCsv;
+        changed[changedCount].capped = capped;
+        changed[changedCount].deleted = false;
+        changedCount++;
+      }
+
+      if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+        g_plGenStatus.foldersChanged = changedCount;
+        xSemaphoreGive(plGenStatusMutex);
+      }
+      vTaskDelay(1);
+    }
+  }
+
+  // Dossiers presents dans l'ancien etat mais disparus de /gifs/ (supprimes
+  // hors de l'appli) -- toutes leurs lignes doivent etre retirees,
+  // deleted=true (pas de detection d'ajout possible pour eux, evidemment).
+  if (!stopped) {
+    int lineStart = 0;
+    String liveWrapped = "," + liveDirsCsv + ",";
+    while (lineStart < (int)prevState.length() && changedCount < TOUS_SYNC_MAX_CHANGED_FOLDERS) {
+      int nl = prevState.indexOf('\n', lineStart);
+      String line = (nl < 0) ? prevState.substring(lineStart) : prevState.substring(lineStart, nl);
+      int c1 = line.indexOf(',');
+      if (c1 > 0) {
+        String d = line.substring(0, c1);
+        if (liveWrapped.indexOf("," + d + ",") < 0) {
+          bool already = false;
+          for (int i = 0; i < changedCount; i++) if (changed[i].dirName == d) { already = true; break; }
+          if (!already) {
+            changed[changedCount].dirName = d;
+            changed[changedCount].capped = false;
+            changed[changedCount].deleted = true;
+            changedCount++;
+          }
+        }
+      }
+      if (nl < 0) break;
+      lineStart = nl + 1;
+    }
+  }
+
+  // --- Phase 2 : une seule passe de correction sur tous.txt, seulement si
+  // au moins un dossier a change et si Phase 1 n'a pas ete interrompue.
+  int totalLinesAdded = 0, totalLinesRemoved = 0;
+  bool phase2Ok = true;
+
+  if (!stopped && changedCount > 0)
+  {
+    phase2Ok = false;
+    String tmpPath = String(TOUS_PATH) + ".flt";
+    File src, out;
+    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+      src = SD.open(TOUS_PATH, FILE_READ);
+      if (SD.exists(tmpPath.c_str())) SD.remove(tmpPath.c_str());
+      if (src) out = SD.open(tmpPath.c_str(), FILE_WRITE);
+      xSemaphoreGive(sdAccessMutex);
+    }
+
+    if (src && out) {
+      String outBuf;
+      const size_t BUFSZ = 512;
+      char buf[BUFSZ + 1];
+      String pending;
+      int chunkCount = 0;
+      while (true) {
+        int n = 0;
+        if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { n = src.read((uint8_t *)buf, BUFSZ); xSemaphoreGive(sdAccessMutex); }
+        if (n <= 0) break;
+        buf[n] = 0;
+        pending += buf;
+        int lineStart2 = 0;
+        while (true) {
+          int nl = pending.indexOf('\n', lineStart2);
+          if (nl < 0) break;
+          String line = pending.substring(lineStart2, nl);
+          String trimmed = line; trimmed.trim();
+          bool keep = true;
+          if (trimmed.startsWith("/gifs/")) {
+            int s2 = trimmed.indexOf('/', 6);
+            if (s2 > 6) {
+              String dir = trimmed.substring(6, s2);
+              int ci = -1;
+              for (int i = 0; i < changedCount; i++) if (changed[i].dirName == dir) { ci = i; break; }
+              if (ci >= 0) {
+                if (changed[ci].deleted) {
+                  keep = false;
+                } else {
+                  bool exists;
+                  if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { exists = SD.exists(trimmed.c_str()); xSemaphoreGive(sdAccessMutex); }
+                  if (!exists) {
+                    keep = false;
+                  } else {
+                    int lastSlash = trimmed.lastIndexOf('/');
+                    String fname = (lastSlash >= 0) ? trimmed.substring(lastSlash + 1) : trimmed;
+                    if (changed[ci].seenCsv.indexOf("," + fname + ",") < 0) changed[ci].seenCsv += "," + fname + ",";
+                  }
+                }
+              }
+            }
+          }
+          if (keep) { outBuf += line + "\n"; } else { totalLinesRemoved++; }
+          if (outBuf.length() > 1000) {
+            if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { out.print(outBuf); xSemaphoreGive(sdAccessMutex); }
+            outBuf = "";
+          }
+          lineStart2 = nl + 1;
+        }
+        pending = pending.substring(lineStart2);
+        if ((size_t)n < BUFSZ) break;
+        if (++chunkCount % 20 == 0) yield();
+      }
+      pending.trim();
+      if (pending.length() > 0) {
+        bool keep = true;
+        if (pending.startsWith("/gifs/")) {
+          int s2 = pending.indexOf('/', 6);
+          if (s2 > 6) {
+            String dir = pending.substring(6, s2);
+            for (int i = 0; i < changedCount; i++) {
+              if (changed[i].dirName == dir) {
+                bool exists = false;
+                if (!changed[i].deleted && xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { exists = SD.exists(pending.c_str()); xSemaphoreGive(sdAccessMutex); }
+                if (changed[i].deleted || !exists) {
+                  keep = false;
+                } else {
+                  int lastSlash = pending.lastIndexOf('/');
+                  String fname = (lastSlash >= 0) ? pending.substring(lastSlash + 1) : pending;
+                  if (changed[i].seenCsv.indexOf("," + fname + ",") < 0) changed[i].seenCsv += "," + fname + ",";
+                }
+                break;
+              }
+            }
+          }
+        }
+        if (keep) outBuf += pending + "\n"; else totalLinesRemoved++;
+      }
+
+      // Ajouts : pour chaque dossier change non capped/non supprime, tout
+      // fichier de listedCsv (source de verite complete) absent de seenCsv
+      // (jamais rencontre comme ligne existante ci-dessus) est nouveau.
+      for (int i = 0; i < changedCount; i++) {
+        if (changed[i].deleted || changed[i].capped) continue;
+        String &lc = changed[i].listedCsv;
+        int p = 1;
+        while (p < (int)lc.length()) {
+          int nextComma = lc.indexOf(',', p);
+          if (nextComma < 0) break;
+          String fname = lc.substring(p, nextComma);
+          if (fname.length() > 0 && changed[i].seenCsv.indexOf("," + fname + ",") < 0) {
+            outBuf += "/gifs/" + changed[i].dirName + "/" + fname + "\n";
+            totalLinesAdded++;
+            if (outBuf.length() > 1000) {
+              if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { out.print(outBuf); xSemaphoreGive(sdAccessMutex); }
+              outBuf = "";
+            }
+          }
+          p = nextComma + 1;
+        }
+      }
+      if (outBuf.length() > 0) {
+        if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { out.print(outBuf); xSemaphoreGive(sdAccessMutex); }
+      }
+      if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+        out.close();
+        src.close();
+        forceDeleteFile(String(TOUS_PATH));
+        SD.rename(tmpPath.c_str(), TOUS_PATH);
+        xSemaphoreGive(sdAccessMutex);
+      }
+      phase2Ok = true;
+    } else {
+      if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+        if (src) src.close();
+        if (out) out.close();
+        xSemaphoreGive(sdAccessMutex);
+      }
+    }
+  }
+
+  // Etat sauvegarde mis a jour -- seulement si Phase 1 a pu se terminer
+  // (newState est alors complet et correct), que des dossiers aient change
+  // ou non.
+  if (!stopped) {
+    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+      if (SD.exists(STATE_PATH)) SD.remove(STATE_PATH);
+      File sf = SD.open(STATE_PATH, FILE_WRITE);
+      if (sf) { sf.print(newState); sf.close(); }
+      xSemaphoreGive(sdAccessMutex);
+    }
+  }
+
+  String resultMsg;
+  if (stopped) {
+    resultMsg = lowHeapAbort
+      ? "Memoire insuffisante, resynchronisation annulee (tous.txt inchange)"
+      : "Resynchronisation annulee (tous.txt inchange)";
+    Serial.println("[WEB] tousSyncTask: " + resultMsg);
+  } else if (changedCount == 0) {
+    resultMsg = "OK: tous.txt deja a jour (0 dossier modifie)";
+    Serial.println("[WEB] " + resultMsg);
+  } else if (!phase2Ok) {
+    resultMsg = "ERR: echec de la resynchronisation (ecriture impossible)";
+    Serial.println("[WEB] tousSyncTask: " + resultMsg);
+  } else {
+    invalidatePlaylistRefCache();
+    resultMsg = "OK: " + String(changedCount) + " dossier(s) modifie(s), " + String(totalLinesAdded) + " ajout(s), " + String(totalLinesRemoved) + " retrait(s)";
+    Serial.println("[WEB] tousSyncTask: " + resultMsg);
+  }
+  if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+    g_plGenStatus.resultMsg = resultMsg;
+    g_plGenStatus.foldersChanged = changedCount;
+    g_plGenStatus.linesAdded = totalLinesAdded;
+    g_plGenStatus.linesRemoved = totalLinesRemoved;
+    g_plGenStatus.active = false;
+    g_plGenStatus.done = true;
+    xSemaphoreGive(plGenStatusMutex);
+  }
+
+  Serial.println("[WEB] tousSyncTask: marge de pile restante=" + String(uxTaskGetStackHighWaterMark(nullptr) * 4) + " octets");
+  playlistGenTaskHandle = nullptr;
+  vTaskDelete(nullptr);
+}
+
+static void handleWebConfigResyncTous()
+{
+  bool alreadyActive = false;
+  if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+    alreadyActive = g_plGenStatus.active;
+    xSemaphoreGive(plGenStatusMutex);
+  }
+  if (alreadyActive) { webServer->send(409, "text/plain", "ERR: generation deja en cours"); return; }
+
+  if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+    g_plGenStatus = PlaylistGenStatus();
+    g_plGenStatus.active = true;
+    g_plGenStatus.isResync = true;
+    xSemaphoreGive(plGenStatusMutex);
+  }
+
+  Serial.println("[WEB] resync-tous: creation tache, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
+  BaseType_t taskOk = xTaskCreatePinnedToCore(tousSyncTask, "tousSync", 4096, nullptr, 1, &playlistGenTaskHandle, 0);
+  if (taskOk != pdPASS) {
+    Serial.println("[WEB] resync-tous: ECHEC creation tache (heap insuffisant ?)");
+    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+      g_plGenStatus.active = false;
+      g_plGenStatus.done = true;
+      g_plGenStatus.resultMsg = "ERR: impossible de demarrer la resynchronisation (heap insuffisant)";
+      xSemaphoreGive(plGenStatusMutex);
+    }
+    webServer->send(500, "text/plain", "ERR: impossible de demarrer la resynchronisation");
+    return;
+  }
+  Serial.println("[WEB] resync-tous: demarrage");
+  webServer->send(200, "text/plain", "STARTED");
 }
 
 // Renvoie la liste (JSON) des dossiers distincts references par une playlist
@@ -2565,6 +3289,7 @@ void setupWebConfig()
   webServer->on("/generate-playlist", HTTP_POST, handleWebConfigGeneratePlaylist);
   webServer->on("/generate-playlist-status", handleWebConfigGeneratePlaylistStatus);
   webServer->on("/generate-playlist-stop", HTTP_POST, handleWebConfigGeneratePlaylistStop);
+  webServer->on("/resync-tous", HTTP_POST, handleWebConfigResyncTous);
   webServer->on("/playlist-dirs", handleWebConfigPlaylistDirs);
   webServer->on("/delete-playlist", HTTP_POST, handleWebConfigDeletePlaylist);
   webServer->on("/upload", HTTP_POST, handleWebConfigUpload, handleWebConfigUploadFile);

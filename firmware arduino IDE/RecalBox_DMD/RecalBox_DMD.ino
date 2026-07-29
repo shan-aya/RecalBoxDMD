@@ -620,6 +620,15 @@ struct PlaylistGenStatus
   int    curDirGifs = 0;
   String resultMsg;
   bool   stopRequested = false;
+  // Champs ajoutes pour tousSyncTask() (2026-07-30, plan tous-txt-filtrage-
+  // diff-sync) -- reutilise ce meme statut/mutex/garde plutot qu'une
+  // structure separee : tous les handlers qui gardent deja sur
+  // g_plGenStatus.active (plGenIsActive()) couvrent automatiquement une
+  // resynchronisation en cours, sans code supplementaire.
+  bool   isResync = false;      // pour le JS : libelle "Resynchronisation" vs "Generation"
+  int    foldersChanged = 0;
+  int    linesAdded = 0;
+  int    linesRemoved = 0;
 };
 SemaphoreHandle_t plGenStatusMutex     = nullptr; // garde g_plGenStatus
 PlaylistGenStatus g_plGenStatus;
