@@ -1861,19 +1861,17 @@ void playlistGenTask(void *param)
 
 // Chemin du fichier maitre interne (plan tous-txt-filtrage-diff-sync,
 // 2026-07-30) utilise par filterPlaylistFromMaster()/tousSyncTask().
-// Nomme distinctement de toute playlist classique (prefixe "_", jamais un
-// nom qu'un utilisateur choisirait pour une vraie playlist) et exclu du
-// listing (handleWebConfigListPlaylists()) -- corrige une confusion reelle
-// constatee en test (2026-07-30) : "tous" est depuis toujours une playlist
-// CLASSIQUE du projet (choisissable/modifiable/supprimable comme les
-// autres) ; reutiliser ce meme nom pour le fichier technique interne du
-// filtrage aurait expose l'utilisateur a une playlist "tous" qu'il croirait
-// pouvoir editer/supprimer normalement alors qu'elle sert de reference
-// interne. Reste avec l'extension ".txt" et dans /playlists : conserve
-// l'inclusion dans le scan de handleWebConfigAddToPlaylistsBatch() (garde
-// le fichier maitre a jour automatiquement lors d'un upload, comme
-// n'importe quelle autre playlist).
-#define TOUS_MASTER_PATH "/playlists/_master_gifs.txt"
+// Nomme et EXTENSIONNE distinctement de toute playlist classique (demande
+// utilisateur 2026-07-30, apres le premier nom "_master_gifs.txt") : ".txt"
+// le rendait detectable par tout code qui filtre les fichiers de
+// /playlists sur cette extension -- notamment handleWebConfigAddToPlaylists
+// Batch() (scan declenche a chaque upload), qui le traitait donc comme une
+// playlist normale. Extension ".dat" (au lieu de ".txt") : n'est plus
+// jamais confondu avec une playlist nulle part, MAIS n'est plus non plus
+// tenu a jour automatiquement par ce meme mecanisme lors d'un upload --
+// seul un clic explicite sur "Resynchroniser l'index GIFs" le met a jour
+// desormais (compromis assume, discute avec l'utilisateur).
+#define TOUS_MASTER_PATH "/playlists/cache_master_gifs.dat"
 
 // Filtre le fichier maitre interne (TOUS_MASTER_PATH) vers outputPath, ne
 // gardant que les lignes dont le segment dossier appartient a dirsCsv
