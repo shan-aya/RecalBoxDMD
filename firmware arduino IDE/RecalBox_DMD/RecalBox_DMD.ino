@@ -1,7 +1,13 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v37
+// Version actuelle : v38
+//
+// v38 - 2026-07-30 - safe-modify - Demande utilisateur : version affichee au
+//   splash boot (RETRO_VERSION) passee de "Raw565 Ed. dev11" a "Raw565 Ed.
+//   dev_pl" (branche dev/tous-txt-filter). "Raw565 Ed. dev_playlist" ne
+//   rentrait pas (23 caracteres = 138px, ecran raw565 = 128px de large) --
+//   abrege en gardant "Ed." (demande explicite) plutot que de le retirer.
 //
 // v37 - 2026-07-28 - safe-modify - Resynchronisation de cet historique,
 //   reste fige sur v36 pendant plusieurs sessions alors que le code a
@@ -3678,7 +3684,7 @@ int buildOffsetIndex()
 // --------------------------------------------------
 // Splash screen â€” version au dÃ©marrage (info=1 uniquement)
 // --------------------------------------------------
-#define RETRO_VERSION "Raw565 Ed. dev11"
+#define RETRO_VERSION "Raw565 Ed. dev_pl"
 
 void showSplashScreen()
 {
@@ -3702,8 +3708,8 @@ void showSplashScreen()
   display->setTextColor(blue);  display->print("Box");
   display->setTextColor(green); display->print("DMD");
 
-  // Ligne 2 : version centrée ("Raw565 Ed. v10" = 14 x 6 = 84px -> x = (128-84)/2 = 22)
-  display->setCursor(22, 21);
+  // Ligne 2 : version centrée ("Raw565 Ed. dev_pl" = 17 x 6 = 102px -> x = (128-102)/2 = 13)
+  display->setCursor(13, 21);
   display->setTextColor(white);
   display->print(RETRO_VERSION);
 
