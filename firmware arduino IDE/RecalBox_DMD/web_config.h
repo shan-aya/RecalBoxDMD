@@ -1586,7 +1586,17 @@ static void writeBufChecked(File &f, const String &buf)
   size_t offset = 0;
   int attempts = 0;
   while (offset < total && attempts < 3) {
-    size_t w = f.print(buf.substring(offset));
+    // buf.substring(offset) SEULEMENT si necessaire (offset>0, cas de retry
+    // rarissime) -- BUG CORRIGE (2026-07-30) : appeler substring(0) sur
+    // CHAQUE tentative dupliquait inutilement tout le buffer (encore ~1000
+    // octets a allouer) juste pour appeler print(), en plus de buf lui-meme
+    // -- sous heap deja critique (confirme en test reel : maxalloc=8692 au
+    // demarrage de la tache, degrade ensuite), cette allocation supplementaire
+    // echouait silencieusement (String::substring() sur allocation ratee
+    // renvoie une chaine VIDE, pas une erreur) -- print("") renvoie alors 0,
+    // faussement interprete comme un echec d'ecriture SD alors que c'etait
+    // uniquement ce correctif lui-meme qui aggravait la pression heap.
+    size_t w = (offset == 0) ? f.print(buf) : f.print(buf.substring(offset));
     if (w == 0) { attempts++; delay(2); continue; }
     offset += w;
   }
@@ -2851,6 +2861,14 @@ static void handleWebConfigAddToPlaylistsBatch()
     unsigned long tScan0 = millis(); // DIAGNOSTIC TEMPORAIRE
     int plCount = 0;
     String needle = "/gifs/" + folder + "/";
+    // Fichier maitre interne (cache_master_gifs.dat, TOUS_MASTER_PATH) --
+    // reintroduit ici explicitement PAR NOM (2026-07-30, demande
+    // utilisateur) : son extension .dat (changee volontairement pour ne
+    // plus jamais etre confondu avec une playlist ailleurs, cf listing) le
+    // fait sortir du filtre ".txt" ci-dessous, qui l'aurait sinon exclu de
+    // ce scan et donc de la mise a jour automatique lors d'un upload.
+    String masterBase = String(TOUS_MASTER_PATH);
+    masterBase = masterBase.substring(masterBase.lastIndexOf('/') + 1);
     File plDir = SD.open("/playlists");
     if (plDir && plDir.isDirectory()) {
       File entry = plDir.openNextFile();
@@ -2858,7 +2876,7 @@ static void handleWebConfigAddToPlaylistsBatch()
         String name = String(entry.name());
         int slash = name.lastIndexOf('/');
         String base = (slash >= 0) ? name.substring(slash + 1) : name;
-        if (!entry.isDirectory() && base.endsWith(".txt")) {
+        if (!entry.isDirectory() && (base.endsWith(".txt") || base == masterBase)) {
           plCount++;
           unsigned long tEntry0 = millis(); // DIAGNOSTIC TEMPORAIRE
           // entry est deja un handle ouvert sur ce fichier precis (obtenu par
