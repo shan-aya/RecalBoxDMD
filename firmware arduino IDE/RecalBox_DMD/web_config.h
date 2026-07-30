@@ -1917,7 +1917,22 @@ static bool filterPlaylistFromMaster(const String &dirsCsv, const String &output
   if (!src) { errOut = "fichier maitre introuvable"; return false; }
 
   // ",dir1,dir2," -- meme convention que "seen" dans handleWebConfigPlaylistDirs().
+  // reserve() AJOUTE (2026-07-30) : bug reel confirme en test materiel --
+  // sans reservation prealable, String::operator+=() peut echouer
+  // SILENCIEUSEMENT sous heap critique (maxalloc=4596 observe) en pleine
+  // boucle de concatenation, faisant purement et simplement disparaitre un
+  // ou plusieurs dossiers de "wanted" SANS AUCUNE ERREUR VISIBLE -- 5 GIFs
+  // obtenus au lieu de ~11000 attendus (tous les dossiers coches) sur ce
+  // test precis. Une seule grosse allocation en amont (au lieu de N petites
+  // reallocations incrementales, chacune un point de defaillance silencieux
+  // distinct) et une verification explicite de son succes transforment ce
+  // risque en echec net et immediat plutot qu'un resultat faux et muet.
   String wanted = ",";
+  if (!wanted.reserve(dirsCsv.length() + 4)) {
+    src.close();
+    errOut = "memoire insuffisante (liste de dossiers)";
+    return false;
+  }
   {
     int start = 0;
     while (true) {
