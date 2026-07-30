@@ -3280,6 +3280,7 @@ static void sendGzipHtml(const uint8_t *content, size_t len)
     // heap bas n'est pas forcement une generation de playlist en cours
     // (retour utilisateur : message trompeur affiche hors de tout scan) --
     // ne pas presumer d'une cause precise qui peut etre fausse.
+    Serial.println("[WEB] sendGzipHtml: repli memoire faible, maxalloc=" + String(ESP.getMaxAllocHeap()) + " libre=" + String(ESP.getFreeHeap())); // DIAGNOSTIC TEMPORAIRE (2026-07-30) -- lenteur page rapportee hors generation
     webServer->send(200, "text/plain", "Memoire faible, reessayez dans quelques secondes");
     return;
   }
