@@ -506,6 +506,18 @@ function setPageBusy(busy){document.querySelectorAll('button,input,select').forE
   // silencieux si jamais le verrou CSS est contourne (ex. navigation clavier).
   if(busy)window.onbeforeunload=function(){return tr('msg_gen_leave_warning');};else window.onbeforeunload=null;
 }
+// _stopRequestPending (2026-07-30, demande utilisateur : "Arreter" echoue
+// presque a chaque fois) : le serveur ESP32 est mono-thread (une seule
+// requete HTTP traitee a la fois) et les deux boucles de polling
+// (generatePlaylist()/resyncTous(), toutes les 700ms) tournent EN
+// PERMANENCE pendant qu'un scan est actif -- la fenetre de collision avec
+// la requete d'arret (qui doit pourtant reussir vite) est donc quasi
+// garantie, le retry existant (3x/500ms) retombant lui-meme regulierement
+// sur le sondage suivant. Les boucles de polling verifient ce drapeau et
+// SAUTENT leur propre requete pendant qu'un arret est en cours, laissant le
+// champ libre au serveur mono-thread plutot que de continuer a le
+// solliciter en parallele.
+let _stopRequestPending=false;
 async function stopGeneratePlaylist(){
   if(!confirm(tr('msg_confirm_stop_gen')))return;
   // Message persistant immediat (pas de setTimeout d'auto-masquage) : le
@@ -518,6 +530,7 @@ async function stopGeneratePlaylist(){
   if(window._msgTimer)clearTimeout(window._msgTimer);
   msgEl.className='msg ok';msgEl.style.display='block';msgEl.textContent=tr('msg_stopping_gen');
   document.getElementById('genStopBtn').disabled=true; // evite un double-clic pendant l'attente
+  _stopRequestPending=true;
   // Retry (3 tentatives, 500ms d'ecart) : un simple fetch().catch(()=>{})
   // avalait silencieusement tout echec -- si cette requete tombe pile au
   // meme moment qu'un sondage de statut en cours (serveur ESP32 mono-thread,
@@ -529,6 +542,7 @@ async function stopGeneratePlaylist(){
     if(attempt>0)await new Promise(r=>setTimeout(r,500));
     try{const r=await fetch('/generate-playlist-stop',{method:'POST'});ok=r.ok;}catch(e){ok=false;}
   }
+  _stopRequestPending=false;
   if(!ok){
     msgEl.className='msg err';
     msgEl.textContent=tr('msg_stop_gen_failed');
@@ -602,6 +616,7 @@ async function generatePlaylist(){
   // la page doit donc interroger periodiquement /generate-playlist-status).
   while(true){
     await new Promise(res=>setTimeout(res,700));
+    if(_stopRequestPending)continue; // laisse la requete d'arret passer seule (serveur mono-thread)
     let st;
     try{
       // AbortController : sans ca, une seule requete de statut qui reste
@@ -667,6 +682,7 @@ async function resyncTous(){
   if(!started){setPageBusy(false);return;}
   while(true){
     await new Promise(res=>setTimeout(res,700));
+    if(_stopRequestPending)continue; // laisse la requete d'arret passer seule (serveur mono-thread)
     let st;
     try{
       const ctrl=new AbortController();
