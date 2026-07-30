@@ -1366,6 +1366,7 @@ static String jsonEscape(const String &s)
 
 static void handleWebConfigLoad()
 {
+  unsigned long t0 = millis(); // DIAGNOSTIC TEMPORAIRE (2026-07-30) -- lenteur page rapportee hors generation
   int b = (screenBrightness * 100 + 127) / 255;
   String json = "{";
   json += "\"brightness\":\"" + String(b) + "\"";
@@ -1397,6 +1398,7 @@ static void handleWebConfigLoad()
   json += ",\"clock_duration\":\"" + String(clockDuration) + "\"";
   json += ",\"clock_tz\":\"" + jsonEscape(clockTimeZone) + "\"";
   json += "}";
+  Serial.println("[WEB] load: " + String(millis() - t0) + "ms"); // DIAGNOSTIC TEMPORAIRE
   webServer->send(200, "application/json", json);
 }
 
@@ -1416,10 +1418,16 @@ static bool plGenIsActive()
 
 static void handleWebConfigListPlaylists()
 {
+  unsigned long t0 = millis(); // DIAGNOSTIC TEMPORAIRE (2026-07-30) -- lenteur page rapportee hors generation, y compris hors upload
   // Rafraichissement silencieux (pas une action utilisateur explicite) --
   // renvoie une liste vide plutot qu'une erreur 409 pendant une generation.
-  if (plGenIsActive()) { webServer->send(200, "application/json", "[]"); return; }
+  if (plGenIsActive()) {
+    Serial.println("[WEB] lsplaylists: generation active, liste vide (" + String(millis() - t0) + "ms)"); // DIAGNOSTIC TEMPORAIRE
+    webServer->send(200, "application/json", "[]");
+    return;
+  }
   String json = "[";
+  int n = 0;
   File dir = SD.open("/playlists");
   if (dir && dir.isDirectory()) {
     bool first = true;
@@ -1430,7 +1438,7 @@ static void handleWebConfigListPlaylists()
       if (slash >= 0) name = name.substring(slash + 1);
       if (!entry.isDirectory() && name.endsWith(".txt")) {
         if (!first) json += ",";
-        json += "\"" + name + "\""; first = false;
+        json += "\"" + name + "\""; first = false; n++;
       }
       entry.close(); entry = dir.openNextFile();
       delay(1);
@@ -1438,13 +1446,20 @@ static void handleWebConfigListPlaylists()
     dir.close();
   }
   json += "]";
+  Serial.println("[WEB] lsplaylists: " + String(n) + " playlist(s) en " + String(millis() - t0) + "ms, maxalloc=" + String(ESP.getMaxAllocHeap())); // DIAGNOSTIC TEMPORAIRE
   webServer->send(200, "application/json", json);
 }
 
 static void handleWebConfigListGifDirs()
 {
-  if (plGenIsActive()) { webServer->send(200, "application/json", "[]"); return; }
+  unsigned long t0 = millis(); // DIAGNOSTIC TEMPORAIRE (2026-07-30)
+  if (plGenIsActive()) {
+    Serial.println("[WEB] lsgifdirs: generation active, liste vide (" + String(millis() - t0) + "ms)"); // DIAGNOSTIC TEMPORAIRE
+    webServer->send(200, "application/json", "[]");
+    return;
+  }
   String json = "[";
+  int n = 0;
   File dir = SD.open("/gifs");
   if (dir && dir.isDirectory()) {
     bool first = true;
@@ -1456,7 +1471,7 @@ static void handleWebConfigListGifDirs()
         if (slash >= 0) name = name.substring(slash + 1);
         if (!first) json += ",";
         json += "\"" + name + "\"";
-        first = false;
+        first = false; n++;
       }
       entry.close(); entry = dir.openNextFile();
       delay(1);
@@ -1464,6 +1479,7 @@ static void handleWebConfigListGifDirs()
     dir.close();
   }
   json += "]";
+  Serial.println("[WEB] lsgifdirs: " + String(n) + " dossier(s) en " + String(millis() - t0) + "ms, maxalloc=" + String(ESP.getMaxAllocHeap())); // DIAGNOSTIC TEMPORAIRE
   webServer->send(200, "application/json", json);
 }
 
@@ -3345,6 +3361,12 @@ void setupWebConfig()
   webServer->on("/delete-folders", HTTP_POST, handleWebConfigDeleteFolders);
   webServer->on("/scan-wifi", handleWebConfigScanWiFi);
   webServer->on("/save-ap", HTTP_POST, handleWebConfigSaveAP);
+  // Firefox/Edge demandent systematiquement /favicon.ico au chargement de
+  // toute page (Chrome aussi, mais semble plus tolerant) -- sans route
+  // dediee, cette requete tombe sur le 404 par defaut de la lib WebServer,
+  // point d'incertitude ecarte ici a peu de frais (2026-07-30, lenteur page
+  // rapportee, plus marquee sur Firefox/Edge que Chrome).
+  webServer->on("/favicon.ico", []() { webServer->send(204); });
   webServer->on("/lang", handleWebConfigLang);
   webServer->on("/save-language", HTTP_POST, handleWebConfigSaveLanguage);
   webServer->on("/add-to-playlists-batch", HTTP_POST, handleWebConfigAddToPlaylistsBatch);
