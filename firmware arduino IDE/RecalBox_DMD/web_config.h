@@ -1971,6 +1971,15 @@ static bool filterPlaylistFromMaster(const String &dirsCsv, const String &output
   const size_t BUFSZ = 512;
   char buf[BUFSZ + 1];
   String pending;
+  // reserve() (2026-07-30, meme classe de bug que "wanted" plus haut) :
+  // pending ne depasse jamais vraiment BUFSZ + une ligne (il est retaille a
+  // son reliquat apres chaque bloc), donc une seule petite reservation en
+  // amont evite les N reallocations incrementales repetees (une par bloc
+  // lu, potentiellement des centaines sur un gros fichier maitre) qui sont
+  // sinon autant de points de defaillance silencieuse individuels sous heap
+  // critique -- une desynchronisation de pending corrompt le decoupage en
+  // lignes pour TOUT le reste du fichier, pas seulement la ligne courante.
+  pending.reserve(BUFSZ + 256);
   int chunkCount = 0;
   while (true) {
     int n = src.read((uint8_t *)buf, BUFSZ);
@@ -2582,6 +2591,7 @@ void tousSyncTask(void *param)
         const size_t BUFSZ = 512;
         char buf[BUFSZ + 1];
         String pending;
+        pending.reserve(BUFSZ + 256); // meme raison que filterPlaylistFromMaster() (voir plus haut)
         int chunkCount = 0;
         while (true) {
           int n = 0;
@@ -2857,6 +2867,18 @@ static void handleWebConfigPlaylistDirs()
   const size_t BUFSZ = 512;
   char buf[BUFSZ + 1];
   String pending;
+  // reserve() (2026-07-30) : bug reel confirme en test materiel -- sur une
+  // grosse playlist (ALL2.txt, ~11000 lignes/18 dossiers), reouverte pour
+  // modification, un SEUL dossier se retrouvait precoche au lieu de tous.
+  // Meme cause que "wanted" dans filterPlaylistFromMaster() : pending +=
+  // buf peut echouer silencieusement sous heap critique a l'un des
+  // (potentiellement) centaines de blocs lus -- une seule desynchronisation
+  // corrompt le decoupage en lignes pour TOUT le reste du fichier, faisant
+  // disparaitre la quasi-totalite des dossiers reconnus d'un coup. pending
+  // ne depasse jamais vraiment BUFSZ + une ligne (retaille a son reliquat
+  // apres chaque bloc) -- une seule petite reservation en amont evite les
+  // N reallocations incrementales, chacune un point de defaillance distinct.
+  pending.reserve(BUFSZ + 256);
   while (true) {
     int n = f.read((uint8_t *)buf, BUFSZ);
     if (n <= 0) break;
