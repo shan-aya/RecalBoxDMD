@@ -1568,6 +1568,33 @@ String plGenDmdText(const String &dirName, int count)
 // demande par l'utilisateur.
 static bool forceDeleteFile(const String &path);
 
+// Ecrit buf dans f en verifiant le nombre reel d'octets ecrits (2026-07-30) :
+// File::print() peut ecrire MOINS que demande sans lever d'erreur -- valeur
+// de retour jamais verifiee jusqu'ici dans tout ce fichier, a chaque flush
+// intermediaire de buffer (toutes les fonctions de scan/filtrage). Perte de
+// donnees SILENCIEUSE confirmee en test reel (2026-07-30) : 15 fichiers
+// consecutifs (meme prefixe, meme dossier) manquants dans _master_gifs.txt
+// apres un scan complet reussi sans aucune erreur signalee -- un seul flush
+// partiel explique exactement ce genre de trou contigu. Reessaie jusqu'a 3
+// fois la partie non ecrite (delay(2) entre tentatives, laisse une chance a
+// un hoquet SPI/SD transitoire de se resorber) avant d'abandonner avec un
+// avertissement explicite (perte de donnees rarissime mais au moins visible
+// au lieu de silencieuse).
+static void writeBufChecked(File &f, const String &buf)
+{
+  size_t total = buf.length();
+  size_t offset = 0;
+  int attempts = 0;
+  while (offset < total && attempts < 3) {
+    size_t w = f.print(buf.substring(offset));
+    if (w == 0) { attempts++; delay(2); continue; }
+    offset += w;
+  }
+  if (offset < total) {
+    Serial.println("[WEB] writeBufChecked: PERTE DE DONNEES -- " + String(total - offset) + "/" + String(total) + " octets non ecrits apres retries");
+  }
+}
+
 struct PlaylistGenRequest { String name; String dirsCsv; };
 
 // Tourne du debut a la fin sur sa propre tache (creee a la demande, voir
@@ -1698,7 +1725,7 @@ static void scanFoldersToPlaylistFile(const String &dirsCsv, File &outFile,
           // copier), un contributeur plausible au heap critique ci-dessus
           // sur un scan long.
           if (buf.length() > 1000) {
-            if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { outFile.print(buf); xSemaphoreGive(sdAccessMutex); }
+            if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { writeBufChecked(outFile, buf); xSemaphoreGive(sdAccessMutex); }
             buf = "";
           }
         }
@@ -1720,7 +1747,7 @@ static void scanFoldersToPlaylistFile(const String &dirsCsv, File &outFile,
   // intact pour que l'appelant puisse decider de le supprimer ou non selon
   // son propre contexte).
   if (!stopped && buf.length() > 0) {
-    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { outFile.print(buf); xSemaphoreGive(sdAccessMutex); }
+    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { writeBufChecked(outFile, buf); xSemaphoreGive(sdAccessMutex); }
   }
   totalGifsOut = totalGifs;
   stoppedOut = stopped;
@@ -1912,7 +1939,7 @@ static bool filterPlaylistFromMaster(const String &dirsCsv, const String &output
           if (wanted.indexOf("," + dir + ",") >= 0) {
             outBuf += line + "\n";
             written++;
-            if (outBuf.length() > 1000) { out.print(outBuf); outBuf = ""; }
+            if (outBuf.length() > 1000) { writeBufChecked(out, outBuf); outBuf = ""; }
           }
         }
       }
@@ -1930,7 +1957,7 @@ static bool filterPlaylistFromMaster(const String &dirsCsv, const String &output
       if (wanted.indexOf("," + dir + ",") >= 0) { outBuf += pending + "\n"; written++; }
     }
   }
-  if (outBuf.length() > 0) out.print(outBuf);
+  if (outBuf.length() > 0) writeBufChecked(out, outBuf);
   out.close();
   src.close();
 
@@ -2457,7 +2484,7 @@ void tousSyncTask(void *param)
           }
           if (keep) { outBuf += line + "\n"; } else { totalLinesRemoved++; }
           if (outBuf.length() > 1000) {
-            if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { out.print(outBuf); xSemaphoreGive(sdAccessMutex); }
+            if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { writeBufChecked(out, outBuf); xSemaphoreGive(sdAccessMutex); }
             outBuf = "";
           }
           lineStart2 = nl + 1;
@@ -2507,7 +2534,7 @@ void tousSyncTask(void *param)
             outBuf += "/gifs/" + changed[i].dirName + "/" + fname + "\n";
             totalLinesAdded++;
             if (outBuf.length() > 1000) {
-              if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { out.print(outBuf); xSemaphoreGive(sdAccessMutex); }
+              if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { writeBufChecked(out, outBuf); xSemaphoreGive(sdAccessMutex); }
               outBuf = "";
             }
           }
@@ -2515,7 +2542,7 @@ void tousSyncTask(void *param)
         }
       }
       if (outBuf.length() > 0) {
-        if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { out.print(outBuf); xSemaphoreGive(sdAccessMutex); }
+        if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { writeBufChecked(out, outBuf); xSemaphoreGive(sdAccessMutex); }
       }
       if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
         out.close();
