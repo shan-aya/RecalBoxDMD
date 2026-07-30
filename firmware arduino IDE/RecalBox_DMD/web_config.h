@@ -536,12 +536,40 @@ async function generatePlaylist(){
   const msgEl=document.getElementById('msg');
   if(window._msgTimer)clearTimeout(window._msgTimer);
   msgEl.className='msg ok';msgEl.style.display='block';msgEl.textContent=tr('msg_generating');
+  // finishGen() : affichage final partage entre la fin du polling (generation
+  // classique, asynchrone) et une reponse DEJA terminee recue directement au
+  // POST initial (filterPlaylistFromMaster() -- filtrage synchrone depuis
+  // tous.txt, aucune tache creee cote serveur puisque aucun scan de /gifs/
+  // n'est necessaire). Avant ce correctif, une reussite synchrone tombait
+  // dans la meme branche que "generation deja en cours"/erreur reseau (ci-
+  // dessous) : jamais de minuteur d'auto-masquage (message fige en rouge en
+  // permanence) ni de rafraichissement de la liste des playlists (nouvelle
+  // playlist invisible sans F5) -- constate en test reel 2026-07-30.
+  function finishGen(resultText,ok){
+    msgEl.textContent=resultText||tr('msg_gen_start_error');
+    msgEl.className='msg '+(ok?'ok':'err');
+    if(window._msgTimer)clearTimeout(window._msgTimer);
+    window._msgTimer=setTimeout(()=>{msgEl.style.display='none';},5000);
+    fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(resultText||''),color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});
+    document.getElementById('playlistName').value='';
+    fillPlaylists('');
+  }
   let started=false;
   try{
     const r=await fetch('/generate-playlist',{method:'POST',body:new URLSearchParams({name:name,dirs:dirs}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
     const t=await r.text();
     started=t.includes('STARTED');
-    if(!started){msgEl.textContent=(r.status===409)?tr('msg_gen_busy'):t;msgEl.className='msg err';}
+    if(!started){
+      if(r.ok&&t.startsWith('OK')){
+        // Filtrage synchrone depuis tous.txt : deja termine, pas de tache a suivre.
+        finishGen(t,true);
+        setPageBusy(false);
+        return;
+      }
+      msgEl.textContent=(r.status===409)?tr('msg_gen_busy'):t;msgEl.className='msg err';
+      if(window._msgTimer)clearTimeout(window._msgTimer);
+      window._msgTimer=setTimeout(()=>{msgEl.style.display='none';},5000);
+    }
   }catch(e){
     // La reponse ("STARTED") peut echouer a arriver jusqu'au navigateur
     // (heap degrade apres plusieurs generations enchainees dans la meme
@@ -554,7 +582,11 @@ async function generatePlaylist(){
       const st=await(await fetch('/generate-playlist-status')).json();
       started=!!st.active;
     }catch(e2){started=false;}
-    if(!started){msgEl.textContent=tr('msg_net_error');msgEl.className='msg err';}
+    if(!started){
+      msgEl.textContent=tr('msg_net_error');msgEl.className='msg err';
+      if(window._msgTimer)clearTimeout(window._msgTimer);
+      window._msgTimer=setTimeout(()=>{msgEl.style.display='none';},5000);
+    }
   }
   if(!started){setPageBusy(false);return;}
   // Polling de progression (le WebServer ESP32 est mono-thread : impossible
@@ -584,13 +616,7 @@ async function generatePlaylist(){
       clearTimeout(abortTimer);
     }catch(e){continue;}
     if(!st.active){
-      msgEl.textContent=st.result||tr('msg_gen_start_error');
-      msgEl.className='msg '+(st.done?'ok':'err');
-      if(window._msgTimer)clearTimeout(window._msgTimer);
-      window._msgTimer=setTimeout(()=>{msgEl.style.display='none';},5000);
-      fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(st.result||''),color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});
-      document.getElementById('playlistName').value='';
-      fillPlaylists('');
+      finishGen(st.result,st.done);
       break;
     }
     // Compteur numerique reintroduit (2026-07-29) : retire le 2026-07-28 car
@@ -1402,7 +1428,12 @@ static void handleWebConfigListPlaylists()
       String name = String(entry.name());
       int slash = name.lastIndexOf('/');
       if (slash >= 0) name = name.substring(slash + 1);
-      if (!entry.isDirectory() && name.endsWith(".txt")) {
+      // tous.txt est le fichier maitre interne (plan tous-txt-filtrage-diff-
+      // sync) -- jamais propose comme playlist normale a charger/editer/
+      // supprimer (seul /resync-tous doit le faire evoluer). Reste bien
+      // present dans /playlists pour le scan de handleWebConfigAddToPlaylists
+      // Batch() (garde tous.txt a jour automatiquement lors d'un upload).
+      if (!entry.isDirectory() && name.endsWith(".txt") && !name.equalsIgnoreCase("tous.txt")) {
         if (!first) json += ",";
         json += "\"" + name + "\""; first = false;
       }
@@ -2594,6 +2625,12 @@ static void handleWebConfigDeletePlaylist()
   String base = name;
   int dot = base.lastIndexOf('.');
   if (dot > 0) base = base.substring(0, dot);
+  // tous.txt est le fichier maitre interne (plan tous-txt-filtrage-diff-
+  // sync) -- jamais supprimable via cette route generique, meme par un
+  // appel direct (l'UI ne le propose deja plus, voir handleWebConfig
+  // ListPlaylists()). Seule une resynchronisation (tousSyncTask()) peut
+  // le regenerer proprement depuis /gifs/.
+  if (base.equalsIgnoreCase("tous")) { webServer->send(403, "text/plain", "ERR: tous.txt ne peut pas etre supprime ici"); return; }
   const char *exts[] = {".txt", ".cache", ".sig", ".idx"};
   int deleted = 0;
   for (int i = 0; i < 4; i++) {
