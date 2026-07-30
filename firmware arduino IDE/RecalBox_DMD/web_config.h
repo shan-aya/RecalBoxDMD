@@ -2237,7 +2237,20 @@ void tousSyncTask(void *param)
   // Enumeration live des dossiers reels sous /gifs/ -- JAMAIS depuis l'etat
   // sauvegarde : un dossier supprime de /gifs/ doit etre traite comme
   // "change" (toutes ses lignes a retirer), pas silencieusement ignore.
+  // reserve() (2026-07-30) : bug reel confirme en test materiel -- SANS
+  // cette reservation, liveDirsCsv (construit par += repetes, un dossier a
+  // la fois) a fini par ne contenir qu'UN SEUL dossier sur 18 (le premier a
+  // avoir reussi avant qu'une concatenation echoue silencieusement sous
+  // heap tendu) -- tousSyncTask() a alors bascule en bootstrap (le fichier
+  // maitre n'existait pas encore a ce moment) et n'a scanne QUE ce dossier,
+  // produisant un cache_master_gifs.dat tronque a 5 lignes au lieu
+  // d'environ 11000. Meme classe de bug que "wanted"
+  // (filterPlaylistFromMaster()) -- une seule grosse reservation en amont
+  // (tres largement dimensionnee, 2048 octets pour une grosse marge au-dela
+  // des ~18 dossiers actuels) transforme un echec silencieux et partiel en
+  // succes fiable pour toute cette liste.
   String liveDirsCsv;
+  liveDirsCsv.reserve(2048);
   if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
     File dir = SD.open("/gifs");
     if (dir && dir.isDirectory()) {
