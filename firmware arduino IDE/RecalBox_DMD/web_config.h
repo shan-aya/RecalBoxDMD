@@ -2314,6 +2314,7 @@ void tousSyncTask(void *param)
 
       if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
         g_plGenStatus.curDirName = dirName;
+        g_plGenStatus.curDirGifs = 0;
         xSemaphoreGive(plGenStatusMutex);
       }
 
@@ -2368,6 +2369,17 @@ void tousSyncTask(void *param)
           }
         }
         f.close();
+        // Progression affichee (2026-07-30) : g_plGenStatus.curDirGifs
+        // n'etait jamais mis a jour pendant la Phase 1, contrairement au
+        // scan classique (scanFoldersToPlaylistFile()) qui l'incremente a
+        // chaque fichier -- l'ecran DMD restait bloque a "<dossier> 0"
+        // pendant tout le traitement d'un gros dossier (Arcade, ~1400
+        // fichiers), donnant une fausse impression de blocage alors que
+        // l'enumeration avancait normalement (confirme en test reel).
+        if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+          g_plGenStatus.curDirGifs = liveCount;
+          xSemaphoreGive(plGenStatusMutex);
+        }
         vTaskDelay(1);
       }
       if (stopped) break;
