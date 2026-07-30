@@ -344,8 +344,8 @@ body{position:relative}
 <div class="btn-row"><button type="button" class="btn btn-gen" onclick="generatePlaylist()" data-i18n="btn_gen_playlist">&#x2699; G&eacute;n&eacute;rer playlist</button><button type="button" class="btn btn-del" id="genStopBtn" style="display:none" onclick="stopGeneratePlaylist()" data-i18n="btn_stop_gen">&#x23F9; Arr&ecirc;ter</button></div>
 <div class="row"><label for="deletePlaylistSelect" data-i18n="lbl_delete_playlist">Supprimer</label><select id="deletePlaylistSelect"></select></div>
 <div class="btn-row"><button type="button" class="btn btn-del" onclick="deletePlaylist()" data-i18n="btn_delete_playlist">&#x1F5D1; Supprimer playlist</button></div>
-<div class="desc" style="margin-top:12px;border-top:1px solid #333;padding-top:12px" data-i18n="desc_resync_tous">Met &agrave; jour le fichier ma&icirc;tre tous.txt (utilis&eacute; pour g&eacute;n&eacute;rer les playlists rapidement) en ne r&eacute;analysant que les dossiers modifi&eacute;s depuis la derni&egrave;re fois.</div>
-<div class="btn-row"><button type="button" class="btn btn-gen" onclick="resyncTous()" data-i18n="btn_resync_tous">&#x1F504; Resynchroniser tous.txt</button></div>
+<div class="desc" style="margin-top:12px;border-top:1px solid #333;padding-top:12px" data-i18n="desc_resync_tous">Met &agrave; jour l'index interne utilis&eacute; pour g&eacute;n&eacute;rer les playlists rapidement, en ne r&eacute;analysant que les dossiers modifi&eacute;s depuis la derni&egrave;re fois (utile apr&egrave;s un ajout/retrait de fichiers directement sur la carte SD).</div>
+<div class="btn-row"><button type="button" class="btn btn-gen" onclick="resyncTous()" data-i18n="btn_resync_tous">&#x1F504; Resynchroniser l'index GIFs</button></div>
 </div>
 <div class="btn-row">
 <button type="submit" class="btn btn-save" data-i18n="btn_save">&#x1F4BE; Enregistrer</button>
@@ -357,9 +357,9 @@ body{position:relative}
 <div id="msg" class="msg"></div>
 <script>
 const PAGE_I18N={
-fr:{title:'RecalBox DMD - Affichage',h1:'Affichage &amp; Playlists',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_display:'&#x1F4A1; Affichage',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Luminosité (%)',lbl_silent_boot:'Démarrage silencieux',lbl_playlist_file:'Playlist par défaut',lbl_random:'Lecture aléatoire',lbl_delete_playlist:'Supprimer',btn_delete_playlist:'&#x1F5D1; Supprimer playlist',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_select_playlist:'Sélectionnez une playlist à supprimer',msg_confirm_delete:'Supprimer ${0} ?',msg_deleting:'Suppression...',msg_load_error:'Impossible de charger la config',sec_manage_playlists:'&#x2699; Gestion des playlists',desc_gen_playlist:'Cochez des dossiers pour générer une nouvelle playlist. &#x26A0;&#xFE0F; La création n\'est performante que sur des dossiers avec un nombre limité de fichiers. Pour des playlists contenant des dossiers conséquents, passez par l\'utilitaire RecalboxDMD_tool sur PC.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',lbl_playlist_name:'Nom playlist',placeholder_playlist_name:'ex: MaPlaylist',btn_gen_playlist:'&#x2699; Générer playlist',msg_no_playlist_name:'Donnez un nom à la playlist',msg_select_folder:'Choisissez au moins un dossier',msg_generating:'Generation...',lbl_load_playlist:'Modifier une playlist existante',msg_scanning:'Analyse',msg_gen_busy:'Generation deja en cours ailleurs',msg_gen_start_error:'Impossible de demarrer la generation',msg_gen_leave_warning:'Une generation de playlist est en cours. Quitter la page ?',btn_stop_gen:'&#x23F9; Arreter',msg_confirm_stop_gen:'Arreter la generation ? La playlist en cours de creation sera supprimee.',msg_stopping_gen:'Arret playlist en cours, veuillez patienter...',msg_stop_gen_failed:'Echec de la demande d\'arret (reseau) -- reessayez',desc_resync_tous:'Met à jour le fichier maître tous.txt (utilisé pour générer les playlists rapidement) en ne réanalysant que les dossiers modifiés depuis la dernière fois.',btn_resync_tous:'&#x1F504; Resynchroniser tous.txt',msg_resync_starting:'Resynchronisation...',msg_resync_progress:'Analyse: ${0} (${1} dossier(s) modifié(s))'},
-en:{title:'RecalBox DMD - Display',h1:'Display &amp; Playlists',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_display:'&#x1F4A1; Display',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Brightness (%)',lbl_silent_boot:'Silent boot',lbl_playlist_file:'Default playlist',lbl_random:'Random playback',lbl_delete_playlist:'Delete',btn_delete_playlist:'&#x1F5D1; Delete playlist',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_select_playlist:'Select a playlist to delete',msg_confirm_delete:'Delete ${0}?',msg_deleting:'Deleting...',msg_load_error:'Unable to load config',sec_manage_playlists:'&#x2699; Playlist management',desc_gen_playlist:'Check folders to generate a new playlist. &#x26A0;&#xFE0F; Generation is only fast on folders with a limited number of files. For playlists covering large folders, use the RecalboxDMD_tool utility on PC instead.',btn_select_all:'Select all',btn_select_none:'Select none',lbl_playlist_name:'Playlist name',placeholder_playlist_name:'e.g. MyPlaylist',btn_gen_playlist:'&#x2699; Generate playlist',msg_no_playlist_name:'Please name the playlist',msg_select_folder:'Select at least one folder',msg_generating:'Generating...',lbl_load_playlist:'Edit an existing playlist',msg_scanning:'Scanning',msg_gen_busy:'A generation is already running',msg_gen_start_error:'Could not start generation',msg_gen_leave_warning:'A playlist generation is in progress. Leave the page?',btn_stop_gen:'&#x23F9; Stop',msg_confirm_stop_gen:'Stop generation? The playlist being created will be deleted.',msg_stopping_gen:'Stopping playlist generation, please wait...',msg_stop_gen_failed:'Stop request failed (network) -- please retry',desc_resync_tous:'Updates the master file tous.txt (used to generate playlists quickly) by only rescanning folders that changed since last time.',btn_resync_tous:'&#x1F504; Resync tous.txt',msg_resync_starting:'Resyncing...',msg_resync_progress:'Scanning: ${0} (${1} folder(s) changed)'},
-es:{title:'RecalBox DMD - Pantalla',h1:'Pantalla y listas',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_display:'&#x1F4A1; Pantalla',sec_playlist:'&#x1F4BF; Lista',lbl_brightness:'Brillo (%)',lbl_silent_boot:'Arranque silencioso',lbl_playlist_file:'Lista predeterminada',lbl_random:'Reproducción aleatoria',lbl_delete_playlist:'Eliminar',btn_delete_playlist:'&#x1F5D1; Eliminar lista',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_select_playlist:'Selecciona una lista para eliminar',msg_confirm_delete:'¿Eliminar ${0}?',msg_deleting:'Eliminando...',msg_load_error:'No se pudo cargar la configuración',sec_manage_playlists:'&#x2699; Gestión de listas',desc_gen_playlist:'Marque las carpetas para generar una nueva lista. &#x26A0;&#xFE0F; La creación solo es rápida en carpetas con un número limitado de archivos. Para listas con carpetas voluminosas, use la utilidad RecalboxDMD_tool en el PC.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',lbl_playlist_name:'Nombre de la lista',placeholder_playlist_name:'ej: MiLista',btn_gen_playlist:'&#x2699; Generar lista',msg_no_playlist_name:'Póngale un nombre a la lista',msg_select_folder:'Elija al menos una carpeta',msg_generating:'Generando...',lbl_load_playlist:'Editar una lista existente',msg_scanning:'Analizando',msg_gen_busy:'Ya hay una generación en curso',msg_gen_start_error:'No se pudo iniciar la generación',msg_gen_leave_warning:'Hay una generación de lista en curso. ¿Salir de la página?',btn_stop_gen:'&#x23F9; Detener',msg_confirm_stop_gen:'¿Detener la generación? La lista en creación se eliminará.',msg_stopping_gen:'Deteniendo la generación de la lista, espere...',desc_resync_tous:'Actualiza el archivo maestro tous.txt (usado para generar listas rápidamente) reanalizando solo las carpetas que cambiaron desde la última vez.',btn_resync_tous:'&#x1F504; Resincronizar tous.txt',msg_resync_starting:'Resincronizando...',msg_resync_progress:'Analizando: ${0} (${1} carpeta(s) modificada(s))'}
+fr:{title:'RecalBox DMD - Affichage',h1:'Affichage &amp; Playlists',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_display:'&#x1F4A1; Affichage',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Luminosité (%)',lbl_silent_boot:'Démarrage silencieux',lbl_playlist_file:'Playlist par défaut',lbl_random:'Lecture aléatoire',lbl_delete_playlist:'Supprimer',btn_delete_playlist:'&#x1F5D1; Supprimer playlist',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_select_playlist:'Sélectionnez une playlist à supprimer',msg_confirm_delete:'Supprimer ${0} ?',msg_deleting:'Suppression...',msg_load_error:'Impossible de charger la config',sec_manage_playlists:'&#x2699; Gestion des playlists',desc_gen_playlist:'Cochez des dossiers pour générer une nouvelle playlist. &#x26A0;&#xFE0F; La création n\'est performante que sur des dossiers avec un nombre limité de fichiers. Pour des playlists contenant des dossiers conséquents, passez par l\'utilitaire RecalboxDMD_tool sur PC.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',lbl_playlist_name:'Nom playlist',placeholder_playlist_name:'ex: MaPlaylist',btn_gen_playlist:'&#x2699; Générer playlist',msg_no_playlist_name:'Donnez un nom à la playlist',msg_select_folder:'Choisissez au moins un dossier',msg_generating:'Generation...',lbl_load_playlist:'Modifier une playlist existante',msg_scanning:'Analyse',msg_gen_busy:'Generation deja en cours ailleurs',msg_gen_start_error:'Impossible de demarrer la generation',msg_gen_leave_warning:'Une generation de playlist est en cours. Quitter la page ?',btn_stop_gen:'&#x23F9; Arreter',msg_confirm_stop_gen:'Arreter la generation ? La playlist en cours de creation sera supprimee.',msg_stopping_gen:'Arret playlist en cours, veuillez patienter...',msg_stop_gen_failed:'Echec de la demande d\'arret (reseau) -- reessayez',desc_resync_tous:'Met à jour l\'index interne utilisé pour générer les playlists rapidement, en ne réanalysant que les dossiers modifiés depuis la dernière fois (utile après un ajout/retrait de fichiers directement sur la carte SD).',btn_resync_tous:'&#x1F504; Resynchroniser l\'index GIFs',msg_resync_starting:'Resynchronisation...',msg_resync_progress:'Analyse: ${0} (${1} dossier(s) modifié(s))'},
+en:{title:'RecalBox DMD - Display',h1:'Display &amp; Playlists',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_display:'&#x1F4A1; Display',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Brightness (%)',lbl_silent_boot:'Silent boot',lbl_playlist_file:'Default playlist',lbl_random:'Random playback',lbl_delete_playlist:'Delete',btn_delete_playlist:'&#x1F5D1; Delete playlist',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_select_playlist:'Select a playlist to delete',msg_confirm_delete:'Delete ${0}?',msg_deleting:'Deleting...',msg_load_error:'Unable to load config',sec_manage_playlists:'&#x2699; Playlist management',desc_gen_playlist:'Check folders to generate a new playlist. &#x26A0;&#xFE0F; Generation is only fast on folders with a limited number of files. For playlists covering large folders, use the RecalboxDMD_tool utility on PC instead.',btn_select_all:'Select all',btn_select_none:'Select none',lbl_playlist_name:'Playlist name',placeholder_playlist_name:'e.g. MyPlaylist',btn_gen_playlist:'&#x2699; Generate playlist',msg_no_playlist_name:'Please name the playlist',msg_select_folder:'Select at least one folder',msg_generating:'Generating...',lbl_load_playlist:'Edit an existing playlist',msg_scanning:'Scanning',msg_gen_busy:'A generation is already running',msg_gen_start_error:'Could not start generation',msg_gen_leave_warning:'A playlist generation is in progress. Leave the page?',btn_stop_gen:'&#x23F9; Stop',msg_confirm_stop_gen:'Stop generation? The playlist being created will be deleted.',msg_stopping_gen:'Stopping playlist generation, please wait...',msg_stop_gen_failed:'Stop request failed (network) -- please retry',desc_resync_tous:'Updates the internal index used to generate playlists quickly, by only rescanning folders that changed since last time (useful after adding/removing files directly on the SD card).',btn_resync_tous:'&#x1F504; Resync GIF index',msg_resync_starting:'Resyncing...',msg_resync_progress:'Scanning: ${0} (${1} folder(s) changed)'},
+es:{title:'RecalBox DMD - Pantalla',h1:'Pantalla y listas',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_display:'&#x1F4A1; Pantalla',sec_playlist:'&#x1F4BF; Lista',lbl_brightness:'Brillo (%)',lbl_silent_boot:'Arranque silencioso',lbl_playlist_file:'Lista predeterminada',lbl_random:'Reproducción aleatoria',lbl_delete_playlist:'Eliminar',btn_delete_playlist:'&#x1F5D1; Eliminar lista',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_select_playlist:'Selecciona una lista para eliminar',msg_confirm_delete:'¿Eliminar ${0}?',msg_deleting:'Eliminando...',msg_load_error:'No se pudo cargar la configuración',sec_manage_playlists:'&#x2699; Gestión de listas',desc_gen_playlist:'Marque las carpetas para generar una nueva lista. &#x26A0;&#xFE0F; La creación solo es rápida en carpetas con un número limitado de archivos. Para listas con carpetas voluminosas, use la utilidad RecalboxDMD_tool en el PC.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',lbl_playlist_name:'Nombre de la lista',placeholder_playlist_name:'ej: MiLista',btn_gen_playlist:'&#x2699; Generar lista',msg_no_playlist_name:'Póngale un nombre a la lista',msg_select_folder:'Elija al menos una carpeta',msg_generating:'Generando...',lbl_load_playlist:'Editar una lista existente',msg_scanning:'Analizando',msg_gen_busy:'Ya hay una generación en curso',msg_gen_start_error:'No se pudo iniciar la generación',msg_gen_leave_warning:'Hay una generación de lista en curso. ¿Salir de la página?',btn_stop_gen:'&#x23F9; Detener',msg_confirm_stop_gen:'¿Detener la generación? La lista en creación se eliminará.',msg_stopping_gen:'Deteniendo la generación de la lista, espere...',desc_resync_tous:'Actualiza el índice interno usado para generar listas rápidamente, reanalizando solo las carpetas que cambiaron desde la última vez (útil tras añadir/quitar archivos directamente en la tarjeta SD).',btn_resync_tous:'&#x1F504; Resincronizar índice GIFs',msg_resync_starting:'Resincronizando...',msg_resync_progress:'Analizando: ${0} (${1} carpeta(s) modificada(s))'}
 };
 let currentLang='fr';
 let _plNameAutoFilled=false; // suivi de la suggestion auto de nom (voir updatePlaylistNameSuggestion())
@@ -539,8 +539,8 @@ async function generatePlaylist(){
   // finishGen() : affichage final partage entre la fin du polling (generation
   // classique, asynchrone) et une reponse DEJA terminee recue directement au
   // POST initial (filterPlaylistFromMaster() -- filtrage synchrone depuis
-  // tous.txt, aucune tache creee cote serveur puisque aucun scan de /gifs/
-  // n'est necessaire). Avant ce correctif, une reussite synchrone tombait
+  // le fichier maitre interne, aucune tache creee cote serveur puisque aucun
+  // scan de /gifs/ n'est necessaire). Avant ce correctif, une reussite synchrone tombait
   // dans la meme branche que "generation deja en cours"/erreur reseau (ci-
   // dessous) : jamais de minuteur d'auto-masquage (message fige en rouge en
   // permanence) ni de rafraichissement de la liste des playlists (nouvelle
@@ -561,7 +561,7 @@ async function generatePlaylist(){
     started=t.includes('STARTED');
     if(!started){
       if(r.ok&&t.startsWith('OK')){
-        // Filtrage synchrone depuis tous.txt : deja termine, pas de tache a suivre.
+        // Filtrage synchrone depuis le fichier maitre interne : deja termine, pas de tache a suivre.
         finishGen(t,true);
         setPageBusy(false);
         return;
@@ -631,8 +631,8 @@ async function generatePlaylist(){
   }
   setPageBusy(false);
 }
-// Resynchronisation incrementale de tous.txt (plan tous.txt-filtrage-diff-
-// sync) : reutilise le meme mecanisme de progression/arret que
+// Resynchronisation incrementale du fichier maitre interne (plan tous-txt-
+// filtrage-diff-sync) : reutilise le meme mecanisme de progression/arret que
 // generatePlaylist() (meme g_plGenStatus cote firmware, meme bouton
 // genStopBtn/stopGeneratePlaylist()) -- seul le texte de progression differe
 // (isResync=true cote firmware, pas de dirIdx/totalDirs/gifs pendant la
@@ -1428,12 +1428,7 @@ static void handleWebConfigListPlaylists()
       String name = String(entry.name());
       int slash = name.lastIndexOf('/');
       if (slash >= 0) name = name.substring(slash + 1);
-      // tous.txt est le fichier maitre interne (plan tous-txt-filtrage-diff-
-      // sync) -- jamais propose comme playlist normale a charger/editer/
-      // supprimer (seul /resync-tous doit le faire evoluer). Reste bien
-      // present dans /playlists pour le scan de handleWebConfigAddToPlaylists
-      // Batch() (garde tous.txt a jour automatiquement lors d'un upload).
-      if (!entry.isDirectory() && name.endsWith(".txt") && !name.equalsIgnoreCase("tous.txt")) {
+      if (!entry.isDirectory() && name.endsWith(".txt")) {
         if (!first) json += ",";
         json += "\"" + name + "\""; first = false;
       }
@@ -1798,11 +1793,27 @@ void playlistGenTask(void *param)
   vTaskDelete(nullptr);
 }
 
-// Filtre /playlists/tous.txt vers outputPath, ne gardant que les lignes
-// dont le segment dossier appartient a dirsCsv (format ",dir1,dir2,").
-// Meme algorithme de lecture par blocs de 512 octets que
-// handleWebConfigPlaylistDirs() (pending += buf, decoupage sur '\n',
-// report du reliquat, PLUS traitement de la derniere ligne sans '\n'
+// Chemin du fichier maitre interne (plan tous-txt-filtrage-diff-sync,
+// 2026-07-30) utilise par filterPlaylistFromMaster()/tousSyncTask().
+// Nomme distinctement de toute playlist classique (prefixe "_", jamais un
+// nom qu'un utilisateur choisirait pour une vraie playlist) et exclu du
+// listing (handleWebConfigListPlaylists()) -- corrige une confusion reelle
+// constatee en test (2026-07-30) : "tous" est depuis toujours une playlist
+// CLASSIQUE du projet (choisissable/modifiable/supprimable comme les
+// autres) ; reutiliser ce meme nom pour le fichier technique interne du
+// filtrage aurait expose l'utilisateur a une playlist "tous" qu'il croirait
+// pouvoir editer/supprimer normalement alors qu'elle sert de reference
+// interne. Reste avec l'extension ".txt" et dans /playlists : conserve
+// l'inclusion dans le scan de handleWebConfigAddToPlaylistsBatch() (garde
+// le fichier maitre a jour automatiquement lors d'un upload, comme
+// n'importe quelle autre playlist).
+#define TOUS_MASTER_PATH "/playlists/_master_gifs.txt"
+
+// Filtre le fichier maitre interne (TOUS_MASTER_PATH) vers outputPath, ne
+// gardant que les lignes dont le segment dossier appartient a dirsCsv
+// (format ",dir1,dir2,"). Meme algorithme de lecture par blocs de 512
+// octets que handleWebConfigPlaylistDirs() (pending += buf, decoupage sur
+// '\n', report du reliquat, PLUS traitement de la derniere ligne sans '\n'
 // final -- piege facile a oublier en adaptant ce motif). Ne touche JAMAIS
 // /gifs/ -- tourne directement dans le thread loop() (meme raison que
 // handleWebConfigPlaylistDirs()/handleWebConfigAddToPlaylistsBatch() qui
@@ -1813,8 +1824,8 @@ void playlistGenTask(void *param)
 static bool filterPlaylistFromMaster(const String &dirsCsv, const String &outputPath,
                                       int &linesWrittenOut, String &errOut)
 {
-  File src = SD.open("/playlists/tous.txt", FILE_READ);
-  if (!src) { errOut = "tous.txt introuvable"; return false; }
+  File src = SD.open(TOUS_MASTER_PATH, FILE_READ);
+  if (!src) { errOut = "fichier maitre introuvable"; return false; }
 
   // ",dir1,dir2," -- meme convention que "seen" dans handleWebConfigPlaylistDirs().
   String wanted = ",";
@@ -1870,7 +1881,7 @@ static bool filterPlaylistFromMaster(const String &dirsCsv, const String &output
     }
     pending = pending.substring(lineStart); // reliquat (ligne a cheval sur 2 blocs) pour le prochain tour
     if ((size_t)n < BUFSZ) break;
-    if (++chunkCount % 20 == 0) yield(); // watchdog-safe sur un tres gros tous.txt (aucun autre point de cession dans cette boucle)
+    if (++chunkCount % 20 == 0) yield(); // watchdog-safe sur un tres gros fichier maitre (aucun autre point de cession dans cette boucle)
   }
   pending.trim();
   if (pending.startsWith("/gifs/")) { // derniere ligne sans retour a la ligne final
@@ -1919,19 +1930,21 @@ static void handleWebConfigGeneratePlaylist()
   String dirs = webServer->arg("dirs");
   String outputPath = "/playlists/" + name + ".txt";
 
-  // Filtrage texte depuis tous.txt (2026-07-30, plan tous-txt-filtrage-
-  // diff-sync) -- chemin rapide, synchrone (tourne dans loop(), pas de
-  // tache), ne touche jamais /gifs/. "tous" reste toujours sur le scan
-  // complet classique ci-dessous (jamais source==destination). Bascule
-  // automatiquement sur l'ancien chemin si tous.txt n'existe pas encore
-  // (bootstrap) -- aucun code de "premier lancement" separe necessaire.
-  if (!name.equalsIgnoreCase("tous") && SD.exists("/playlists/tous.txt")) {
+  // Filtrage texte depuis le fichier maitre interne (2026-07-30, plan
+  // tous-txt-filtrage-diff-sync) -- chemin rapide, synchrone (tourne dans
+  // loop(), pas de tache), ne touche jamais /gifs/. S'applique a n'importe
+  // quel nom de playlist (y compris "tous", la playlist CLASSIQUE du
+  // projet -- distincte du fichier maitre interne, voir TOUS_MASTER_PATH).
+  // Bascule automatiquement sur l'ancien chemin (scan complet classique
+  // ci-dessous) si le fichier maitre n'existe pas encore (bootstrap) --
+  // aucun code de "premier lancement" separe necessaire.
+  if (SD.exists(TOUS_MASTER_PATH)) {
     int linesWritten = 0;
     String err;
     bool ok = filterPlaylistFromMaster(dirs, outputPath, linesWritten, err);
     if (ok) {
-      Serial.println("[WEB] generate-playlist: " + String(linesWritten) + " GIFs (filtre depuis tous.txt) -> " + name + ".txt");
-      webServer->send(200, "text/plain", "OK: " + String(linesWritten) + " GIFs (filtre depuis tous.txt)");
+      Serial.println("[WEB] generate-playlist: " + String(linesWritten) + " GIFs (generation rapide) -> " + name + ".txt");
+      webServer->send(200, "text/plain", "OK: " + String(linesWritten) + " GIFs (generation rapide)");
     } else {
       Serial.println("[WEB] generate-playlist: ECHEC filtrage (" + err + ")");
       webServer->send(500, "text/plain", "ERR: " + err);
@@ -2060,32 +2073,34 @@ static uint32_t fnv1aString(const String &s)
   return h;
 }
 
-// tousSyncTask() -- resynchronisation de /playlists/tous.txt par diff
-// (2026-07-30, plan tous-txt-filtrage-diff-sync). 2 cas :
+// tousSyncTask() -- resynchronisation du fichier maitre interne
+// (TOUS_MASTER_PATH) par diff (2026-07-30, plan tous-txt-filtrage-diff-
+// sync). 2 cas :
 //
-// 1) tous.txt n'existe pas encore (bootstrap) : delegue entierement a
-//    scanFoldersToPlaylistFile() sur TOUS les dossiers de /gifs/ -- scan
+// 1) le fichier maitre n'existe pas encore (bootstrap) : delegue entierement
+//    a scanFoldersToPlaylistFile() sur TOUS les dossiers de /gifs/ -- scan
 //    complet classique, comme n'importe quelle generation de playlist.
 //
-// 2) tous.txt existe deja : Phase 1 (detection legere par dossier, compte
-//    + hash independant de l'ordre, compare a un etat sauvegarde separe
-//    /playlists/tous.txt.dircache_state -- JAMAIS playlistSigPath, qui ne
-//    suit que la playlist active en config.ini, RecalBox_DMD.ino) puis
-//    Phase 2 (une seule passe de correction sur tous.txt, seulement si au
-//    moins un dossier a change).
+// 2) le fichier maitre existe deja : Phase 1 (detection legere par dossier,
+//    compte + hash independant de l'ordre, compare a un etat sauvegarde
+//    separe TOUS_MASTER_PATH+".dircache_state" -- JAMAIS playlistSigPath,
+//    qui ne suit que la playlist active en config.ini, RecalBox_DMD.ino)
+//    puis Phase 2 (une seule passe de correction sur le fichier maitre,
+//    seulement si au moins un dossier a change).
 //
 // stopRequested/garde heap verifies a chaque dossier en Phase 1 (jamais en
 // pleine Phase 2, qui reste une operation courte une fois demarree) --
-// meme discipline que scanFoldersToPlaylistFile(). tous.txt est toujours
-// soit entierement patche (un seul renommage final), soit integralement
-// intact -- jamais partiel, meme en cas de coupure de courant ou d'arret
+// meme discipline que scanFoldersToPlaylistFile(). Le fichier maitre est
+// toujours soit entierement patche (un seul renommage final), soit
+// integralement intact -- jamais partiel, meme en cas de coupure de courant
+// ou d'arret
 // demande en pleine Phase 2 (le fichier temporaire ".flt" est alors
 // simplement abandonne).
 void tousSyncTask(void *param)
 {
   (void)param;
-  const char *TOUS_PATH = "/playlists/tous.txt";
-  const char *STATE_PATH = "/playlists/tous.txt.dircache_state";
+  const char *TOUS_PATH = TOUS_MASTER_PATH;
+  const char *STATE_PATH = TOUS_MASTER_PATH ".dircache_state";
 
   bool stopped = false;
   bool lowHeapAbort = false;
@@ -2127,7 +2142,7 @@ void tousSyncTask(void *param)
     }
     if (!outFile) {
       if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
-        g_plGenStatus.resultMsg = "ERR: ecriture impossible (tous.txt)";
+        g_plGenStatus.resultMsg = "ERR: ecriture impossible (fichier maitre)";
         g_plGenStatus.active = false;
         g_plGenStatus.done = true;
         xSemaphoreGive(plGenStatusMutex);
@@ -2142,15 +2157,15 @@ void tousSyncTask(void *param)
       if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { outFile.close(); forceDeleteFile(String(TOUS_PATH)); xSemaphoreGive(sdAccessMutex); }
       if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
         g_plGenStatus.resultMsg = lowHeapAbort
-          ? "Memoire insuffisante, tous.txt non cree. Redemarrez le DMD puis reessayez"
-          : "Creation de tous.txt annulee";
+          ? "Memoire insuffisante, fichier maitre non cree. Redemarrez le DMD puis reessayez"
+          : "Creation du fichier maitre annulee";
         g_plGenStatus.active = false;
         g_plGenStatus.done = true;
         xSemaphoreGive(plGenStatusMutex);
       }
     } else {
       if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { outFile.close(); xSemaphoreGive(sdAccessMutex); }
-      String resultMsg = "OK: tous.txt cree (" + String(totalGifs) + " GIFs)";
+      String resultMsg = "OK: fichier maitre cree (" + String(totalGifs) + " GIFs)";
       Serial.println("[WEB] tousSyncTask: " + resultMsg);
       if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
         g_plGenStatus.resultMsg = resultMsg;
@@ -2164,11 +2179,11 @@ void tousSyncTask(void *param)
     return;
   }
 
-  // --- Cas courant : tous.txt existe deja -----------------------------
+  // --- Cas courant : le fichier maitre existe deja ---------------------
 
   // Etat sauvegarde precedent, charge en RAM (petit fichier -- quelques
   // dizaines de dossiers, jamais des milliers -- sans rapport avec la
-  // taille de tous.txt lui-meme).
+  // taille du fichier maitre lui-meme).
   String prevState;
   {
     File sf = SD.open(STATE_PATH, FILE_READ);
@@ -2334,8 +2349,9 @@ void tousSyncTask(void *param)
     }
   }
 
-  // --- Phase 2 : une seule passe de correction sur tous.txt, seulement si
-  // au moins un dossier a change et si Phase 1 n'a pas ete interrompue.
+  // --- Phase 2 : une seule passe de correction sur le fichier maitre,
+  // seulement si au moins un dossier a change et si Phase 1 n'a pas ete
+  // interrompue.
   int totalLinesAdded = 0, totalLinesRemoved = 0;
   bool phase2Ok = true;
 
@@ -2487,11 +2503,11 @@ void tousSyncTask(void *param)
   String resultMsg;
   if (stopped) {
     resultMsg = lowHeapAbort
-      ? "Memoire insuffisante, resynchronisation annulee (tous.txt inchange)"
-      : "Resynchronisation annulee (tous.txt inchange)";
+      ? "Memoire insuffisante, resynchronisation annulee (fichier maitre inchange)"
+      : "Resynchronisation annulee (fichier maitre inchange)";
     Serial.println("[WEB] tousSyncTask: " + resultMsg);
   } else if (changedCount == 0) {
-    resultMsg = "OK: tous.txt deja a jour (0 dossier modifie)";
+    resultMsg = "OK: index deja a jour (0 dossier modifie)";
     Serial.println("[WEB] " + resultMsg);
   } else if (!phase2Ok) {
     resultMsg = "ERR: echec de la resynchronisation (ecriture impossible)";
@@ -2625,12 +2641,6 @@ static void handleWebConfigDeletePlaylist()
   String base = name;
   int dot = base.lastIndexOf('.');
   if (dot > 0) base = base.substring(0, dot);
-  // tous.txt est le fichier maitre interne (plan tous-txt-filtrage-diff-
-  // sync) -- jamais supprimable via cette route generique, meme par un
-  // appel direct (l'UI ne le propose deja plus, voir handleWebConfig
-  // ListPlaylists()). Seule une resynchronisation (tousSyncTask()) peut
-  // le regenerer proprement depuis /gifs/.
-  if (base.equalsIgnoreCase("tous")) { webServer->send(403, "text/plain", "ERR: tous.txt ne peut pas etre supprime ici"); return; }
   const char *exts[] = {".txt", ".cache", ".sig", ".idx"};
   int deleted = 0;
   for (int i = 0; i < 4; i++) {
