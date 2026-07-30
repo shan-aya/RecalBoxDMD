@@ -1580,7 +1580,12 @@ static bool forceDeleteFile(const String &path);
 // un hoquet SPI/SD transitoire de se resorber) avant d'abandonner avec un
 // avertissement explicite (perte de donnees rarissime mais au moins visible
 // au lieu de silencieuse).
-static void writeBufChecked(File &f, const String &buf)
+// Retourne false si une partie du buffer n'a pas pu etre ecrite meme apres
+// retries (2026-07-30) : permet a l'appelant de considerer le resultat
+// global comme suspect et d'invalider l'etat de resync sauvegarde (voir
+// tousSyncTask()) plutot que de faire confiance a un fichier maitre
+// potentiellement troue en silence.
+static bool writeBufChecked(File &f, const String &buf)
 {
   size_t total = buf.length();
   size_t offset = 0;
@@ -1602,7 +1607,9 @@ static void writeBufChecked(File &f, const String &buf)
   }
   if (offset < total) {
     Serial.println("[WEB] writeBufChecked: PERTE DE DONNEES -- " + String(total - offset) + "/" + String(total) + " octets non ecrits apres retries");
+    return false;
   }
+  return true;
 }
 
 struct PlaylistGenRequest { String name; String dirsCsv; };
@@ -1625,12 +1632,14 @@ struct PlaylistGenRequest { String name; String dirsCsv; };
 // dirIdx/curDirGifs/totalGifs (progression, deja affichee sur le DMD/la
 // page web) est mis a jour ici, identique pour les deux appelants.
 static void scanFoldersToPlaylistFile(const String &dirsCsv, File &outFile,
-                                       int &totalGifsOut, bool &stoppedOut, bool &lowHeapAbortOut)
+                                       int &totalGifsOut, bool &stoppedOut, bool &lowHeapAbortOut,
+                                       bool &hadWriteLossOut)
 {
   int totalGifs = 0, dirIdx = 0, parseIdx = 0;
   String buf;
   bool stopped = false;
   bool lowHeapAbort = false;
+  bool hadWriteLoss = false;
 
   while (parseIdx <= (int)dirsCsv.length())
   {
@@ -1735,7 +1744,7 @@ static void scanFoldersToPlaylistFile(const String &dirsCsv, File &outFile,
           // copier), un contributeur plausible au heap critique ci-dessus
           // sur un scan long.
           if (buf.length() > 1000) {
-            if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { writeBufChecked(outFile, buf); xSemaphoreGive(sdAccessMutex); }
+            if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { if (!writeBufChecked(outFile, buf)) hadWriteLoss = true; xSemaphoreGive(sdAccessMutex); }
             buf = "";
           }
         }
@@ -1757,11 +1766,12 @@ static void scanFoldersToPlaylistFile(const String &dirsCsv, File &outFile,
   // intact pour que l'appelant puisse decider de le supprimer ou non selon
   // son propre contexte).
   if (!stopped && buf.length() > 0) {
-    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { writeBufChecked(outFile, buf); xSemaphoreGive(sdAccessMutex); }
+    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { if (!writeBufChecked(outFile, buf)) hadWriteLoss = true; xSemaphoreGive(sdAccessMutex); }
   }
   totalGifsOut = totalGifs;
   stoppedOut = stopped;
   lowHeapAbortOut = lowHeapAbort;
+  hadWriteLossOut = hadWriteLoss;
 }
 
 void playlistGenTask(void *param)
@@ -1792,8 +1802,8 @@ void playlistGenTask(void *param)
   }
 
   int totalGifs = 0;
-  bool stopped = false, lowHeapAbort = false;
-  scanFoldersToPlaylistFile(dirsCsv, outFile, totalGifs, stopped, lowHeapAbort);
+  bool stopped = false, lowHeapAbort = false, hadWriteLoss = false;
+  scanFoldersToPlaylistFile(dirsCsv, outFile, totalGifs, stopped, lowHeapAbort, hadWriteLoss);
 
   if (stopped)
   {
@@ -1850,6 +1860,11 @@ void playlistGenTask(void *param)
     // de le toucher.
     invalidatePlaylistRefCache();
     String resultMsg = "OK: " + String(totalGifs) + " GIFs ajoutes dans la playlist " + name + ".txt";
+    // hadWriteLoss (2026-07-30) : contrairement au fichier maitre interne
+    // (tousSyncTask()), une playlist classique n'a pas de mecanisme de
+    // revalidation automatique -- seul un signal explicite permet a
+    // l'utilisateur de savoir qu'une regeneration est justifiee.
+    if (hadWriteLoss) resultMsg += " (ATTENTION: ecriture incomplete detectee, regenerez cette playlist pour verifier)";
     Serial.println("[WEB] " + resultMsg);
     if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
       g_plGenStatus.resultMsg = resultMsg;
@@ -2226,7 +2241,8 @@ void tousSyncTask(void *param)
       return;
     }
     int totalGifs = 0;
-    scanFoldersToPlaylistFile(liveDirsCsv, outFile, totalGifs, stopped, lowHeapAbort);
+    bool hadWriteLoss = false;
+    scanFoldersToPlaylistFile(liveDirsCsv, outFile, totalGifs, stopped, lowHeapAbort, hadWriteLoss);
     if (stopped) {
       // Garde heap avant nettoyage (2026-07-30, meme raison que dans
       // playlistGenTask()) : forceDeleteFile() peut lui-meme declencher
@@ -2247,6 +2263,14 @@ void tousSyncTask(void *param)
     } else {
       if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { outFile.close(); xSemaphoreGive(sdAccessMutex); }
       String resultMsg = "OK: fichier maitre cree (" + String(totalGifs) + " GIFs)";
+      // hadWriteLoss (2026-07-30) : le bootstrap n'ecrit JAMAIS STATE_PATH
+      // (voir plus bas) -- une resynchronisation suivante repart donc
+      // toujours d'une verification complete de chaque dossier (aucune
+      // signature prealable a comparer), ce qui comble automatiquement tout
+      // trou via la detection d'ajout de la Phase 2. Le message previent
+      // simplement l'utilisateur qu'un second passage est recommande plutot
+      // que de laisser croire a un resultat garanti complet.
+      if (hadWriteLoss) resultMsg += " (ATTENTION: ecriture incomplete detectee, relancez une resynchronisation pour verifier/completer)";
       Serial.println("[WEB] tousSyncTask: " + resultMsg);
       if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
         g_plGenStatus.resultMsg = resultMsg;
@@ -2297,6 +2321,16 @@ void tousSyncTask(void *param)
   for (int i = 0; i < TOUS_SYNC_MAX_CHANGED_FOLDERS; i++) changed[i] = ChangedFolderInfo();
   int changedCount = 0;
   String newState;
+  // Dossiers dont au moins une ligne a ete perdue pendant l'ecriture Phase 2
+  // (2026-07-30) -- format ",dir1,dir2," comme les autres accumulateurs CSV
+  // de ce fichier. Rempli plus bas (chunkDirs/writeBufChecked). Seuls CES
+  // dossiers precis verront leur signature omise de newState avant sauvegarde
+  // (voir fin de fonction) : une resynchronisation suivante ne revverifiera
+  // donc QU'EUX, jamais l'integralite -- correction ciblee plutot que
+  // d'invalider tout l'etat (qui forcerait un rescan complet a chaque raté,
+  // potentiellement en boucle sans jamais converger si les pertes persistent
+  // -- retour utilisateur explicite sur ce risque).
+  String badFolders = ",";
 
   // Phase 1 : une enumeration par dossier reel, comparaison a l'etat sauvegarde.
   {
@@ -2444,152 +2478,249 @@ void tousSyncTask(void *param)
 
   // --- Phase 2 : une seule passe de correction sur le fichier maitre,
   // seulement si au moins un dossier a change et si Phase 1 n'a pas ete
-  // interrompue.
+  // interrompue. Reessayee automatiquement EN ENCHAINE jusqu'a
+  // MAX_PHASE2_ATTEMPTS fois (2026-07-30, retour utilisateur explicite :
+  // invalider tout l'etat sur un simple raté aurait force un rescan COMPLET
+  // au prochain clic, avec un risque reel de boucle sans fin si les pertes
+  // persistent -- l'utilisateur ne comprendrait jamais pourquoi "ca ne
+  // marche pas"). Chaque tentative relit le fichier maitre actuel (jamais
+  // modifie tant que l'echange atomique final n'a pas eu lieu -- meme apres
+  // une tentative partiellement ratee, puisque le fichier vient d'etre
+  // remplace par sa propre sortie, cette tentative suivante detecte et
+  // rajoute a nouveau ce qui manque encore, en toute coherence) et refait le
+  // filtrage+ecriture au complet. Seuls les dossiers ENCORE en echec apres
+  // la derniere tentative sont exclus de l'etat sauvegarde (voir plus bas
+  // apres cette boucle) : une resynchronisation future ne revverifiera QU'
+  // EUX, jamais l'integralite -- correction ciblee, bornee, qui ne boucle
+  // jamais indefiniment.
   int totalLinesAdded = 0, totalLinesRemoved = 0;
   bool phase2Ok = true;
+  const int MAX_PHASE2_ATTEMPTS = 3;
 
   if (!stopped && changedCount > 0)
   {
-    phase2Ok = false;
-    String tmpPath = String(TOUS_PATH) + ".flt";
-    File src, out;
-    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
-      src = SD.open(TOUS_PATH, FILE_READ);
-      if (SD.exists(tmpPath.c_str())) SD.remove(tmpPath.c_str());
-      if (src) out = SD.open(tmpPath.c_str(), FILE_WRITE);
-      xSemaphoreGive(sdAccessMutex);
-    }
+    for (int attempt = 0; attempt < MAX_PHASE2_ATTEMPTS; attempt++)
+    {
+      if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+        stopped = g_plGenStatus.stopRequested;
+        xSemaphoreGive(plGenStatusMutex);
+      }
+      if (stopped) break;
 
-    if (src && out) {
-      String outBuf;
-      const size_t BUFSZ = 512;
-      char buf[BUFSZ + 1];
-      String pending;
-      int chunkCount = 0;
-      while (true) {
-        int n = 0;
-        if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { n = src.read((uint8_t *)buf, BUFSZ); xSemaphoreGive(sdAccessMutex); }
-        if (n <= 0) break;
-        buf[n] = 0;
-        pending += buf;
-        int lineStart2 = 0;
+      phase2Ok = false;
+      badFolders = ",";
+      totalLinesAdded = 0;
+      totalLinesRemoved = 0;
+      for (int i = 0; i < changedCount; i++) changed[i].seenCsv = "";
+
+      String tmpPath = String(TOUS_PATH) + ".flt";
+      File src, out;
+      if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+        src = SD.open(TOUS_PATH, FILE_READ);
+        if (SD.exists(tmpPath.c_str())) SD.remove(tmpPath.c_str());
+        if (src) out = SD.open(tmpPath.c_str(), FILE_WRITE);
+        xSemaphoreGive(sdAccessMutex);
+      }
+
+      if (src && out) {
+        // flushChecked() : flush + rattache tout dossier present dans ce
+        // chunk (chunkDirs) a badFolders si l'ecriture a echoue -- ainsi
+        // seuls les dossiers reellement touches par une perte sont exclus
+        // de l'etat sauvegarde, jamais l'ensemble (voir commentaire au-dessus
+        // de cette boucle).
+        auto flushChecked = [&](String &outBufRef, String &chunkDirsRef) {
+          if (outBufRef.length() == 0) return;
+          bool ok;
+          if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { ok = writeBufChecked(out, outBufRef); xSemaphoreGive(sdAccessMutex); }
+          if (!ok) {
+            int cp = 1;
+            while (cp < (int)chunkDirsRef.length()) {
+              int cc = chunkDirsRef.indexOf(',', cp);
+              if (cc < 0) break;
+              String d = chunkDirsRef.substring(cp, cc);
+              if (d.length() > 0 && badFolders.indexOf("," + d + ",") < 0) badFolders += d + ",";
+              cp = cc + 1;
+            }
+          }
+          outBufRef = "";
+          chunkDirsRef = ",";
+        };
+
+        String outBuf;
+        String chunkDirs = ",";
+        const size_t BUFSZ = 512;
+        char buf[BUFSZ + 1];
+        String pending;
+        int chunkCount = 0;
         while (true) {
-          int nl = pending.indexOf('\n', lineStart2);
-          if (nl < 0) break;
-          String line = pending.substring(lineStart2, nl);
-          String trimmed = line; trimmed.trim();
-          bool keep = true;
-          if (trimmed.startsWith("/gifs/")) {
-            int s2 = trimmed.indexOf('/', 6);
-            if (s2 > 6) {
-              String dir = trimmed.substring(6, s2);
-              int ci = -1;
-              for (int i = 0; i < changedCount; i++) if (changed[i].dirName == dir) { ci = i; break; }
-              if (ci >= 0) {
-                if (changed[ci].deleted) {
-                  keep = false;
-                } else {
-                  bool exists;
-                  if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { exists = SD.exists(trimmed.c_str()); xSemaphoreGive(sdAccessMutex); }
-                  if (!exists) {
+          int n = 0;
+          if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { n = src.read((uint8_t *)buf, BUFSZ); xSemaphoreGive(sdAccessMutex); }
+          if (n <= 0) break;
+          buf[n] = 0;
+          pending += buf;
+          int lineStart2 = 0;
+          while (true) {
+            int nl = pending.indexOf('\n', lineStart2);
+            if (nl < 0) break;
+            String line = pending.substring(lineStart2, nl);
+            String trimmed = line; trimmed.trim();
+            bool keep = true;
+            String lineDir;
+            if (trimmed.startsWith("/gifs/")) {
+              int s2 = trimmed.indexOf('/', 6);
+              if (s2 > 6) {
+                lineDir = trimmed.substring(6, s2);
+                int ci = -1;
+                for (int i = 0; i < changedCount; i++) if (changed[i].dirName == lineDir) { ci = i; break; }
+                if (ci >= 0) {
+                  if (changed[ci].deleted) {
                     keep = false;
                   } else {
-                    int lastSlash = trimmed.lastIndexOf('/');
-                    String fname = (lastSlash >= 0) ? trimmed.substring(lastSlash + 1) : trimmed;
-                    if (changed[ci].seenCsv.indexOf("," + fname + ",") < 0) changed[ci].seenCsv += "," + fname + ",";
+                    bool exists;
+                    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { exists = SD.exists(trimmed.c_str()); xSemaphoreGive(sdAccessMutex); }
+                    if (!exists) {
+                      keep = false;
+                    } else {
+                      int lastSlash = trimmed.lastIndexOf('/');
+                      String fname = (lastSlash >= 0) ? trimmed.substring(lastSlash + 1) : trimmed;
+                      if (changed[ci].seenCsv.indexOf("," + fname + ",") < 0) changed[ci].seenCsv += "," + fname + ",";
+                    }
                   }
                 }
               }
             }
+            if (keep) {
+              outBuf += line + "\n";
+              if (lineDir.length() > 0 && chunkDirs.indexOf("," + lineDir + ",") < 0) chunkDirs += lineDir + ",";
+            } else { totalLinesRemoved++; }
+            if (outBuf.length() > 1000) flushChecked(outBuf, chunkDirs);
+            lineStart2 = nl + 1;
           }
-          if (keep) { outBuf += line + "\n"; } else { totalLinesRemoved++; }
-          if (outBuf.length() > 1000) {
-            if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { writeBufChecked(out, outBuf); xSemaphoreGive(sdAccessMutex); }
-            outBuf = "";
-          }
-          lineStart2 = nl + 1;
+          pending = pending.substring(lineStart2);
+          if ((size_t)n < BUFSZ) break;
+          if (++chunkCount % 20 == 0) yield();
         }
-        pending = pending.substring(lineStart2);
-        if ((size_t)n < BUFSZ) break;
-        if (++chunkCount % 20 == 0) yield();
-      }
-      pending.trim();
-      if (pending.length() > 0) {
-        bool keep = true;
-        if (pending.startsWith("/gifs/")) {
-          int s2 = pending.indexOf('/', 6);
-          if (s2 > 6) {
-            String dir = pending.substring(6, s2);
-            for (int i = 0; i < changedCount; i++) {
-              if (changed[i].dirName == dir) {
-                bool exists = false;
-                if (!changed[i].deleted && xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { exists = SD.exists(pending.c_str()); xSemaphoreGive(sdAccessMutex); }
-                if (changed[i].deleted || !exists) {
-                  keep = false;
-                } else {
-                  int lastSlash = pending.lastIndexOf('/');
-                  String fname = (lastSlash >= 0) ? pending.substring(lastSlash + 1) : pending;
-                  if (changed[i].seenCsv.indexOf("," + fname + ",") < 0) changed[i].seenCsv += "," + fname + ",";
+        pending.trim();
+        if (pending.length() > 0) {
+          bool keep = true;
+          String lineDir;
+          if (pending.startsWith("/gifs/")) {
+            int s2 = pending.indexOf('/', 6);
+            if (s2 > 6) {
+              lineDir = pending.substring(6, s2);
+              for (int i = 0; i < changedCount; i++) {
+                if (changed[i].dirName == lineDir) {
+                  bool exists = false;
+                  if (!changed[i].deleted && xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { exists = SD.exists(pending.c_str()); xSemaphoreGive(sdAccessMutex); }
+                  if (changed[i].deleted || !exists) {
+                    keep = false;
+                  } else {
+                    int lastSlash = pending.lastIndexOf('/');
+                    String fname = (lastSlash >= 0) ? pending.substring(lastSlash + 1) : pending;
+                    if (changed[i].seenCsv.indexOf("," + fname + ",") < 0) changed[i].seenCsv += "," + fname + ",";
+                  }
+                  break;
                 }
-                break;
               }
             }
           }
+          if (keep) {
+            outBuf += pending + "\n";
+            if (lineDir.length() > 0 && chunkDirs.indexOf("," + lineDir + ",") < 0) chunkDirs += lineDir + ",";
+          } else { totalLinesRemoved++; }
         }
-        if (keep) outBuf += pending + "\n"; else totalLinesRemoved++;
+
+        // Ajouts : pour chaque dossier change non capped/non supprime, tout
+        // fichier de listedCsv (source de verite complete) absent de seenCsv
+        // (jamais rencontre comme ligne existante ci-dessus) est nouveau.
+        for (int i = 0; i < changedCount; i++) {
+          if (changed[i].deleted || changed[i].capped) continue;
+          String &lc = changed[i].listedCsv;
+          int p = 1;
+          while (p < (int)lc.length()) {
+            int nextComma = lc.indexOf(',', p);
+            if (nextComma < 0) break;
+            String fname = lc.substring(p, nextComma);
+            if (fname.length() > 0 && changed[i].seenCsv.indexOf("," + fname + ",") < 0) {
+              outBuf += "/gifs/" + changed[i].dirName + "/" + fname + "\n";
+              if (chunkDirs.indexOf("," + changed[i].dirName + ",") < 0) chunkDirs += changed[i].dirName + ",";
+              totalLinesAdded++;
+              if (outBuf.length() > 1000) flushChecked(outBuf, chunkDirs);
+            }
+            p = nextComma + 1;
+          }
+        }
+        flushChecked(outBuf, chunkDirs);
+        if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+          out.close();
+          src.close();
+          forceDeleteFile(String(TOUS_PATH));
+          SD.rename(tmpPath.c_str(), TOUS_PATH);
+          xSemaphoreGive(sdAccessMutex);
+        }
+        phase2Ok = true;
+      } else {
+        if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+          if (src) src.close();
+          if (out) out.close();
+          xSemaphoreGive(sdAccessMutex);
+        }
       }
 
-      // Ajouts : pour chaque dossier change non capped/non supprime, tout
-      // fichier de listedCsv (source de verite complete) absent de seenCsv
-      // (jamais rencontre comme ligne existante ci-dessus) est nouveau.
-      for (int i = 0; i < changedCount; i++) {
-        if (changed[i].deleted || changed[i].capped) continue;
-        String &lc = changed[i].listedCsv;
-        int p = 1;
-        while (p < (int)lc.length()) {
-          int nextComma = lc.indexOf(',', p);
-          if (nextComma < 0) break;
-          String fname = lc.substring(p, nextComma);
-          if (fname.length() > 0 && changed[i].seenCsv.indexOf("," + fname + ",") < 0) {
-            outBuf += "/gifs/" + changed[i].dirName + "/" + fname + "\n";
-            totalLinesAdded++;
-            if (outBuf.length() > 1000) {
-              if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { writeBufChecked(out, outBuf); xSemaphoreGive(sdAccessMutex); }
-              outBuf = "";
-            }
-          }
-          p = nextComma + 1;
+      if (badFolders == ",") break; // rien a rattraper, inutile de retenter
+      // Statut visible (DMD/page web) pendant les tentatives suivantes --
+      // demande utilisateur (2026-07-30) : ne pas laisser l'utilisateur sans
+      // aucune indication pendant qu'un nouvel essai automatique est en
+      // cours. Reutilise g_plGenStatus.curDirName/curDirGifs, meme
+      // convention d'affichage ("<texte> <nombre>") que la Phase 1.
+      {
+        int nBad = 0;
+        int cp = 1;
+        while (cp < (int)badFolders.length()) { int cc = badFolders.indexOf(',', cp); if (cc < 0) break; nBad++; cp = cc + 1; }
+        if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+          g_plGenStatus.curDirName = "Correction (essai " + String(attempt + 2) + "/" + String(MAX_PHASE2_ATTEMPTS) + ")";
+          g_plGenStatus.curDirGifs = nBad;
+          xSemaphoreGive(plGenStatusMutex);
         }
       }
-      if (outBuf.length() > 0) {
-        if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { writeBufChecked(out, outBuf); xSemaphoreGive(sdAccessMutex); }
-      }
-      if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
-        out.close();
-        src.close();
-        forceDeleteFile(String(TOUS_PATH));
-        SD.rename(tmpPath.c_str(), TOUS_PATH);
-        xSemaphoreGive(sdAccessMutex);
-      }
-      phase2Ok = true;
-    } else {
-      if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
-        if (src) src.close();
-        if (out) out.close();
-        xSemaphoreGive(sdAccessMutex);
-      }
+      Serial.println("[WEB] tousSyncTask: perte d'ecriture sur au moins un dossier (tentative " + String(attempt + 1) + "/" + String(MAX_PHASE2_ATTEMPTS) + "), nouvel essai immediat");
     }
   }
 
   // Etat sauvegarde mis a jour -- seulement si Phase 1 a pu se terminer
-  // (newState est alors complet et correct), que des dossiers aient change
-  // ou non.
+  // (newState est alors complet et correct). Les dossiers encore presents
+  // dans badFolders APRES la boucle de tentatives ci-dessus (2026-07-30,
+  // retour utilisateur : correction ciblee, pas une invalidation globale) en
+  // sont exclus avant sauvegarde -- ainsi seuls CES dossiers precis seront
+  // reconsideres comme "jamais vus" (hadPrev=false) au prochain resync,
+  // qui les revverifiera et completera automatiquement ce qui manque encore
+  // via la detection d'ajout de la Phase 2, sans jamais retomber sur un
+  // rescan integral.
   if (!stopped) {
+    String filteredState = newState;
+    if (badFolders != ",") {
+      filteredState = "";
+      int lineStart3 = 0;
+      while (lineStart3 <= (int)newState.length()) {
+        int nl = newState.indexOf('\n', lineStart3);
+        String ln = (nl < 0) ? newState.substring(lineStart3) : newState.substring(lineStart3, nl);
+        int c1 = ln.indexOf(',');
+        String d = (c1 > 0) ? ln.substring(0, c1) : "";
+        if (d.length() == 0 || badFolders.indexOf("," + d + ",") < 0) {
+          if (ln.length() > 0) filteredState += ln + "\n";
+        }
+        if (nl < 0) break;
+        lineStart3 = nl + 1;
+      }
+    }
     if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
       if (SD.exists(STATE_PATH)) SD.remove(STATE_PATH);
       File sf = SD.open(STATE_PATH, FILE_WRITE);
-      if (sf) { sf.print(newState); sf.close(); }
+      if (sf) { sf.print(filteredState); sf.close(); }
       xSemaphoreGive(sdAccessMutex);
+    }
+    if (badFolders != ",") {
+      Serial.println("[WEB] tousSyncTask: dossier(s) encore en echec apres " + String(MAX_PHASE2_ATTEMPTS) + " tentatives -- exclus de l'etat sauvegarde, seront revverifies au prochain resync: " + badFolders);
     }
   }
 
@@ -2608,6 +2739,19 @@ void tousSyncTask(void *param)
   } else {
     invalidatePlaylistRefCache();
     resultMsg = "OK: " + String(changedCount) + " dossier(s) modifie(s), " + String(totalLinesAdded) + " ajout(s), " + String(totalLinesRemoved) + " retrait(s)";
+    // badFolders encore non-vide ici = echec PERSISTANT sur les memes
+    // dossiers malgre MAX_PHASE2_ATTEMPTS tentatives consecutives et
+    // immediates (2026-07-30, demande utilisateur) -- au-dela d'un simple
+    // heap transitoire (deja couvert par les retries), ceci pointe plutot
+    // vers un probleme materiel persistant (mauvais contact de la carte SD,
+    // usure) qu'une nouvelle tentative differee ne resoudra probablement
+    // pas seule.
+    if (badFolders != ",") {
+      int nBad = 0;
+      int cp = 1;
+      while (cp < (int)badFolders.length()) { int cc = badFolders.indexOf(',', cp); if (cc < 0) break; nBad++; cp = cc + 1; }
+      resultMsg += " -- ATTENTION: echec d'ecriture persistant sur " + String(nBad) + " dossier(s) malgre " + String(MAX_PHASE2_ATTEMPTS) + " tentatives, verifiez la carte SD (contact, usure) avant de relancer";
+    }
     Serial.println("[WEB] tousSyncTask: " + resultMsg);
   }
   if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
