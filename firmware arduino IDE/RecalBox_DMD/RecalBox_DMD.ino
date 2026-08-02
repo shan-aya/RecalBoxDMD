@@ -1,7 +1,23 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v38
+// Version actuelle : v40
+//
+// v40 - 2026-08-01 - safe-modify - Partie C du plan "cache_master_gifs" :
+//   renommage automatique de l'etiquette de volume SD au boot vers
+//   "RecalBoxDMD" (11 caracteres, limite FAT classique) si elle ne
+//   correspond pas deja -- f_getlabel()/f_setlabel() (API FatFs bas
+//   niveau, deja compilees dans ce core), juste apres SD.begin() reussi.
+//   Non bloquant en cas d'echec (carte protegee en ecriture, etc.), log
+//   uniquement. #include "ff.h" ajoute. Compilation via compile.ps1 : OK
+//   (0 erreur, 63% flash, 29% RAM). PAS ENCORE teste sur materiel reel.
+//
+// v39 - 2026-08-01 - safe-modify - Partie B du plan "cache_master_gifs" :
+//   struct PlaylistGenStatus, retrait des champs isResync/foldersChanged/
+//   linesAdded/linesRemoved (ajoutes pour tousSyncTask(), lui-meme retire
+//   entierement cote web_config.h -- voir son changelog v32 pour le detail
+//   complet du chantier). Compilation via compile.ps1 : OK (0 erreur, 63%
+//   flash, 29% RAM). PAS ENCORE teste sur materiel reel.
 //
 // v38 - 2026-07-30 - safe-modify - Demande utilisateur : version affichee au
 //   splash boot (RETRO_VERSION) passee de "Raw565 Ed. dev11" a "Raw565 Ed.
@@ -583,6 +599,7 @@ typedef uint8_t BitOrder; // Workaround: Adafruit_BusIO attend BitOrder (AVR) ma
 #include <time.h>
 #include "hal/brownout_ll.h"
 #include "nvs_flash.h"
+#include "ff.h" // Partie C (plan cache_master_gifs) -- f_getlabel()/f_setlabel(), renommage etiquette volume SD au boot
 #include "clock_themes.h"
 
 // Declarations anticipees: web_config.h (inclus juste apres) utilise ces
@@ -626,15 +643,6 @@ struct PlaylistGenStatus
   int    curDirGifs = 0;
   String resultMsg;
   bool   stopRequested = false;
-  // Champs ajoutes pour tousSyncTask() (2026-07-30, plan tous-txt-filtrage-
-  // diff-sync) -- reutilise ce meme statut/mutex/garde plutot qu'une
-  // structure separee : tous les handlers qui gardent deja sur
-  // g_plGenStatus.active (plGenIsActive()) couvrent automatiquement une
-  // resynchronisation en cours, sans code supplementaire.
-  bool   isResync = false;      // pour le JS : libelle "Resynchronisation" vs "Generation"
-  int    foldersChanged = 0;
-  int    linesAdded = 0;
-  int    linesRemoved = 0;
 };
 SemaphoreHandle_t plGenStatusMutex     = nullptr; // garde g_plGenStatus
 PlaylistGenStatus g_plGenStatus;
@@ -4037,7 +4045,38 @@ void setup()
     showMessage("SD ERROR","NO CARD",display->color565(255,0,0));
     while(1){delay(100);yield();}
   }
-  
+
+  // Partie C (plan cache_master_gifs) -- renomme l'etiquette de volume FAT
+  // en "RecalBoxDMD" si elle ne correspond pas deja (carte deplacee
+  // frequemment entre le DMD et un PC pour inspection : une etiquette
+  // reconnaissable facilite son identification parmi d'autres lecteurs
+  // amovibles). f_getlabel()/f_setlabel() (API FatFs bas niveau, deja
+  // compilees dans ce core ESP32 -- CONFIG_FATFS_USE_LABEL=y) operent sur
+  // le chemin FatFs "0:", distinct du chemin VFS "/sdcard" utilise par
+  // SD.begin() -- le volume est deja monte a ce point, aucun demontage/
+  // remontage necessaire. Limite FAT classique : 11 caracteres exactement
+  // ("RecalBox_DMD", 12, ne rentre pas -- "RecalBoxDMD" retenu, coherent
+  // avec le nom de fichier de l'outil PC RecalBoxDMD_tool.py, lui non plus
+  // sans underscore entre "Box" et "DMD"). Non bloquant : une erreur
+  // quelconque (carte protegee en ecriture, etc.) est juste loguee, ne doit
+  // jamais retarder/interrompre le boot.
+  {
+    char label[34];
+    FRESULT flr = f_getlabel("0:", label, NULL);
+    String current = (flr == FR_OK) ? String(label) : String("");
+    current.trim();
+    current.toUpperCase();
+    if (current != "RECALBOXDMD") {
+      FRESULT fsr = f_setlabel("0:RecalBoxDMD");
+      if (fsr == FR_OK) {
+        Serial.println("[SD] Etiquette renommee: " + current + " -> RecalBoxDMD");
+      } else {
+        Serial.println("[SD] Echec renommage etiquette (code FatFs " + String((int)fsr) + "), etiquette actuelle: " + current);
+      }
+    } else {
+      Serial.println("[SD] Etiquette deja correcte (RecalBoxDMD)");
+    }
+  }
 
   gif.begin(LITTLE_ENDIAN_PIXELS);
 
