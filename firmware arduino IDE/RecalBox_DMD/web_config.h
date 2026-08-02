@@ -3,7 +3,24 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v30
+// Version actuelle : v31
+//
+// v31 — 2026-08-01 — safe-modify — Partie A du plan "cache_master_gifs"
+//   (nettoyage des playlists apres suppression de dossier, plan valide
+//   plusieurs sessions plus tot, jamais implemente jusqu'ici) : nouvelle
+//   fonction stripDeletedFoldersFromPlaylist() (+ portage de
+//   writeBufChecked(), retries sur ecriture SD partielle) branchee dans
+//   handleWebConfigDeleteFolders() -- chaque suppression de dossier
+//   reellement effectuee retire desormais les lignes mortes de TOUTES les
+//   playlists qui le referencaient, supprime leurs compagnons
+//   .cache/.sig/.idx, et la reponse HTTP l'indique. Cote JS (page MEDIA,
+//   deleteSelected()) : si la reponse signale des playlists mises a jour,
+//   affiche un message explicite puis enchaine automatiquement sur un
+//   redemarrage (doReboot(true), skip confirm) -- necessaire car la session
+//   de lecture en cours a deja son cache playlist charge en RAM et n'est
+//   jamais corrigee a chaud (limitation assumee). Nouvelles cles i18n
+//   FR/EN/ES : msg_folders_deleted_reboot. Compilation via compile.ps1 :
+//   OK (0 erreur, 62% flash, 28% RAM). PAS ENCORE teste sur materiel reel.
 //
 // v30 — 2026-07-23 — safe-modify — Bug confirme (retour utilisateur :
 //   "recalbox_ip disparu du config.ini") : handleWebConfigSaveAP() faisait
@@ -882,17 +899,17 @@ fr:{title:'RecalBox DMD - Médias',h1:'Médias',nav_basic:'&#x1F4A1; Affichage &
 sec_dirs:'&#x1F4C1; Dossiers (/gifs/)',desc_dirs:'Cochez des dossiers pour les supprimer.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',btn_delete_sel:'&#x1F5D1; Supprimer la sélection',
 sec_upload:'&#x1F4E4; Envoi GIF',desc_upload:'Ajoutez un fichier .gif directement depuis votre navigateur dans un dossier de /gifs/. Choisissez un dossier existant OU tapez un nouveau nom (créé automatiquement). &#x26A0;&#xFE0F; Pas fait pour transférer de nombreux fichiers (débit lent, risque d\'erreur d\'écriture) -- réservé à l\'ajout ponctuel de quelques fichiers. Pour un transfert consequent, retirez la carte SD et copiez-la depuis un PC.',placeholder_upload_dir:'ou nouveau dossier...',lbl_upload_file:'Fichiers .gif',btn_upload:'&#x1F4E4; Uploader',btn_stop:'&#x23F9; Arrêter',
 btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',
-net_error:'Erreur réseau',msg_deleting:'Suppression...',msg_select_folder:'Choisissez au moins un dossier',msg_confirm_delete_folders:'Supprimer ${0} ?',msg_specify_dir:'Précisez un dossier cible',msg_select_gif:'Choisissez un fichier GIF',msg_select_gif_files:'Choisissez des fichiers .gif',msg_preparing_folder:'Preparation du dossier...',msg_cannot_create_folder:'Impossible de creer le dossier: ${0}',msg_net_error_folder:'Erreur reseau (creation dossier)',msg_uploading:'Upload...',msg_attempt:'tentative ${0}/${1}',msg_stopped_by_user:'Arrete par l\'utilisateur (${0}/${1})',msg_upload_fail:'ECHEC',msg_failures:'Echecs: ${0}',msg_upload_result:'${0}/${1} fichier(s) uploade(s)',msg_upload_result_fail:' -- echecs: ${0}',msg_confirm_reboot:'Redemarrer l\'ESP32 ?',msg_rebooting:'Redemarrage...',msg_dmd_resumed:'DMD repris',msg_updating_playlists:'Mise a jour des playlists...'},
+net_error:'Erreur réseau',msg_deleting:'Suppression...',msg_select_folder:'Choisissez au moins un dossier',msg_confirm_delete_folders:'Supprimer ${0} ?',msg_specify_dir:'Précisez un dossier cible',msg_select_gif:'Choisissez un fichier GIF',msg_select_gif_files:'Choisissez des fichiers .gif',msg_preparing_folder:'Preparation du dossier...',msg_cannot_create_folder:'Impossible de creer le dossier: ${0}',msg_net_error_folder:'Erreur reseau (creation dossier)',msg_uploading:'Upload...',msg_attempt:'tentative ${0}/${1}',msg_stopped_by_user:'Arrete par l\'utilisateur (${0}/${1})',msg_upload_fail:'ECHEC',msg_failures:'Echecs: ${0}',msg_upload_result:'${0}/${1} fichier(s) uploade(s)',msg_upload_result_fail:' -- echecs: ${0}',msg_confirm_reboot:'Redemarrer l\'ESP32 ?',msg_rebooting:'Redemarrage...',msg_dmd_resumed:'DMD repris',msg_updating_playlists:'Mise a jour des playlists...',msg_folders_deleted_reboot:'Dossiers supprimes, ${0} playlist(s) mise(s) a jour -- redemarrage necessaire pour appliquer ces changements'},
 en:{title:'RecalBox DMD - Media',h1:'Media',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',
 sec_dirs:'&#x1F4C1; Folders (/gifs/)',desc_dirs:'Check folders to delete them.',btn_select_all:'Select all',btn_select_none:'Select none',btn_delete_sel:'&#x1F5D1; Delete selection',
 sec_upload:'&#x1F4E4; GIF Upload',desc_upload:'Add a .gif file directly from your browser into a folder in /gifs/. Choose an existing folder OR type a new name (created automatically). &#x26A0;&#xFE0F; Not designed for transferring many files (slow throughput, risk of write errors) -- meant for occasionally adding a few files. For a large transfer, remove the SD card and copy from a PC instead.',placeholder_upload_dir:'or new folder...',lbl_upload_file:'.gif files',btn_upload:'&#x1F4E4; Upload',btn_stop:'&#x23F9; Stop',
 btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',
-net_error:'Network error',msg_deleting:'Deleting...',msg_select_folder:'Select at least one folder',msg_confirm_delete_folders:'Delete ${0}?',msg_specify_dir:'Please specify a target folder',msg_select_gif:'Select a GIF file',msg_select_gif_files:'Select .gif files',msg_preparing_folder:'Preparing folder...',msg_cannot_create_folder:'Unable to create folder: ${0}',msg_net_error_folder:'Network error (folder creation)',msg_uploading:'Uploading...',msg_attempt:'attempt ${0}/${1}',msg_stopped_by_user:'Stopped by user (${0}/${1})',msg_upload_fail:'FAILED',msg_failures:'Failures: ${0}',msg_upload_result:'${0}/${1} file(s) uploaded',msg_upload_result_fail:' -- failures: ${0}',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_updating_playlists:'Updating playlists...'},
+net_error:'Network error',msg_deleting:'Deleting...',msg_select_folder:'Select at least one folder',msg_confirm_delete_folders:'Delete ${0}?',msg_specify_dir:'Please specify a target folder',msg_select_gif:'Select a GIF file',msg_select_gif_files:'Select .gif files',msg_preparing_folder:'Preparing folder...',msg_cannot_create_folder:'Unable to create folder: ${0}',msg_net_error_folder:'Network error (folder creation)',msg_uploading:'Uploading...',msg_attempt:'attempt ${0}/${1}',msg_stopped_by_user:'Stopped by user (${0}/${1})',msg_upload_fail:'FAILED',msg_failures:'Failures: ${0}',msg_upload_result:'${0}/${1} file(s) uploaded',msg_upload_result_fail:' -- failures: ${0}',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_updating_playlists:'Updating playlists...',msg_folders_deleted_reboot:'Folders deleted, ${0} playlist(s) updated -- reboot required to apply these changes'},
 es:{title:'RecalBox DMD - Medios',h1:'Medios',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',
 sec_dirs:'&#x1F4C1; Carpetas (/gifs/)',desc_dirs:'Marque las carpetas para eliminarlas.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',btn_delete_sel:'&#x1F5D1; Eliminar selección',
 sec_upload:'&#x1F4E4; Subir GIF',desc_upload:'Añada un archivo .gif desde su navegador a una carpeta en /gifs/. Elija una carpeta existente O escriba un nombre nuevo (se crea automáticamente). &#x26A0;&#xFE0F; No pensado para transferir muchos archivos (velocidad lenta, riesgo de error de escritura) -- reservado para añadir algunos archivos puntualmente. Para una transferencia importante, retire la tarjeta SD y cópiela desde un PC.',placeholder_upload_dir:'o nueva carpeta...',lbl_upload_file:'Archivos .gif',btn_upload:'&#x1F4E4; Subir',btn_stop:'&#x23F9; Detener',
 btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',
-net_error:'Error de red',msg_deleting:'Eliminando...',msg_select_folder:'Elija al menos una carpeta',msg_confirm_delete_folders:'¿Eliminar ${0}?',msg_specify_dir:'Especifique una carpeta destino',msg_select_gif:'Seleccione un archivo GIF',msg_select_gif_files:'Seleccione archivos .gif',msg_preparing_folder:'Preparando carpeta...',msg_cannot_create_folder:'No se pudo crear la carpeta: ${0}',msg_net_error_folder:'Error de red (creación de carpeta)',msg_uploading:'Subiendo...',msg_attempt:'intento ${0}/${1}',msg_stopped_by_user:'Detenido por el usuario (${0}/${1})',msg_upload_fail:'ERROR',msg_failures:'Errores: ${0}',msg_upload_result:'${0}/${1} archivo(s) subido(s)',msg_upload_result_fail:' -- errores: ${0}',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_updating_playlists:'Actualizando listas...'}
+net_error:'Error de red',msg_deleting:'Eliminando...',msg_select_folder:'Elija al menos una carpeta',msg_confirm_delete_folders:'¿Eliminar ${0}?',msg_specify_dir:'Especifique una carpeta destino',msg_select_gif:'Seleccione un archivo GIF',msg_select_gif_files:'Seleccione archivos .gif',msg_preparing_folder:'Preparando carpeta...',msg_cannot_create_folder:'No se pudo crear la carpeta: ${0}',msg_net_error_folder:'Error de red (creación de carpeta)',msg_uploading:'Subiendo...',msg_attempt:'intento ${0}/${1}',msg_stopped_by_user:'Detenido por el usuario (${0}/${1})',msg_upload_fail:'ERROR',msg_failures:'Errores: ${0}',msg_upload_result:'${0}/${1} archivo(s) subido(s)',msg_upload_result_fail:' -- errores: ${0}',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_updating_playlists:'Actualizando listas...',msg_folders_deleted_reboot:'Carpetas eliminadas, ${0} lista(s) de reproduccion actualizada(s) -- es necesario reiniciar para aplicar estos cambios'}
 };
 let currentLang='fr';
 function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||PAGE_I18N.fr[k]||k;}
@@ -929,7 +946,7 @@ function queuedFetch(url,opts){
 }
 function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);queuedFetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(txt),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}
 function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
-function doReboot(){if(!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);queuedFetch('/reboot').catch(()=>{});}
+function doReboot(skipConfirm){if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);queuedFetch('/reboot').catch(()=>{});}
 function dmdResume(){queuedFetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('net_error'),false));}
 function selectAllDirs(v){document.querySelectorAll('#dirList input').forEach(i=>i.checked=v);}
 // v85 : plus de navigation dans un dossier (contenu individuel des GIF) ni
@@ -964,7 +981,20 @@ function deleteSelected(){
   if(!confirm(trTpl('msg_confirm_delete_folders',dirs.join(', '))))return;
   showMsg(tr('msg_deleting'),true);
   queuedFetch('/delete-folders',{method:'POST',body:new URLSearchParams({dirs:dirs.join(',')}),headers:{'Content-Type':'application/x-www-form-urlencoded'}})
-    .then(r=>r.text()).then(t=>{showMsg(t,t.includes('OK'));loadDirs();loadUploadDirs();})
+    .then(r=>r.text()).then(t=>{
+      // A.3 (plan cache_master_gifs) -- si la reponse indique qu'au moins une
+      // playlist a ete mise a jour (lignes mortes retirees), un redemarrage
+      // est necessaire : la session de lecture EN COURS a deja son cache
+      // playlist (.idx) charge en RAM et ne serait pas corrigee a chaud.
+      // Rendu systematique plutot que laisse a l'initiative de l'utilisateur.
+      const m=t.match(/(\d+) playlist/);
+      if(m){
+        showMsg(trTpl('msg_folders_deleted_reboot',m[1]),true);
+        setTimeout(()=>doReboot(true),1200);
+      } else {
+        showMsg(t,t.includes('OK'));loadDirs();loadUploadDirs();
+      }
+    })
     .catch(()=>showMsg(tr('net_error'),false));
 }
 async function uploadGif(){
@@ -2039,12 +2069,140 @@ static bool deleteFolderRecursive(const String &path)
   return allOk;
 }
 
+// Ecrit buf dans f avec retries (jusqu'a 3, delay(2) entre tentatives) si
+// print() renvoie moins d'octets que prevu -- un SD.print() partiel est une
+// perte de donnees SILENCIEUSE si on ne verifie pas son retour (confirme en
+// test reel 2026-07-30 sur la branche dev/tous-txt-filter : fichiers manquants
+// sans aucune erreur signalee). Retourne false si une partie du buffer n'a
+// pas pu etre ecrite meme apres retries (log explicite dans ce cas).
+static bool writeBufChecked(File &f, const String &buf)
+{
+  size_t total = buf.length();
+  size_t offset = 0;
+  int attempts = 0;
+  while (offset < total && attempts < 3) {
+    size_t w = (offset == 0) ? f.print(buf) : f.print(buf.substring(offset));
+    if (w == 0) { attempts++; delay(2); continue; }
+    offset += w;
+  }
+  if (offset < total) {
+    Serial.println("[WEB] writeBufChecked: PERTE DE DONNEES -- " + String(total - offset) + "/" + String(total) + " octets non ecrits apres retries");
+    return false;
+  }
+  return true;
+}
+
+// A.1 (plan cache_master_gifs) -- Nettoie une playlist des lignes qui
+// referencent un dossier venant d'etre supprime. Sans cela, rien ne met a
+// jour les playlists existantes quand un dossier qu'elles referencent
+// disparait : openNextGif() (RecalBox_DMD.ino) n'a aucune tolerance aux
+// fichiers manquants -- ecran noir fige a cet index. deletedNamesCsv au
+// format ",nom1,nom2," (test d'appartenance par indexOf("," + dir + ",")).
+// Lecture par blocs fixes de 512 octets avec report de ligne incomplete
+// (meme algorithme que handleWebConfigPlaylistDirs()) -- jamais
+// f.readString() (blocage 40-44s mesure sur une grosse playlist en test
+// reel). Fichier temporaire + echange atomique (forceDeleteFile() +
+// SD.rename(), jamais de rename par-dessus un fichier existant). Retourne
+// false si aucune ligne n'a ete retiree (rien a faire).
+static bool stripDeletedFoldersFromPlaylist(const String &plBaseName, const String &deletedNamesCsv, int &linesRemovedOut)
+{
+  linesRemovedOut = 0;
+  String path = "/playlists/" + plBaseName + ".txt";
+  File f = SD.open(path.c_str());
+  if (!f) return false;
+
+  String tmpPath = path + ".new";
+  int tries = 0;
+  while (SD.exists(tmpPath.c_str()) && tries < 20) { tmpPath += "_"; tries++; }
+  File out = SD.open(tmpPath.c_str(), FILE_WRITE);
+  if (!out) {
+    f.close();
+    Serial.println("[WEB] stripDeletedFoldersFromPlaylist: impossible de creer " + tmpPath);
+    return false;
+  }
+
+  const size_t BUFSZ = 512;
+  char buf[BUFSZ + 1];
+  String pending; pending.reserve(BUFSZ + 300);
+  String outBuf; outBuf.reserve(1200);
+  int removed = 0;
+
+  while (true) {
+    int n = f.read((uint8_t *)buf, BUFSZ);
+    if (n <= 0) break;
+    buf[n] = 0;
+    pending += buf;
+    int lineStart = 0;
+    while (true) {
+      int nl = pending.indexOf('\n', lineStart);
+      if (nl < 0) break;
+      String line = pending.substring(lineStart, nl);
+      String trimmed = line; trimmed.trim();
+      bool drop = false;
+      if (trimmed.startsWith("/gifs/")) {
+        int s2 = trimmed.indexOf('/', 6);
+        if (s2 > 6) {
+          String dirName = trimmed.substring(6, s2);
+          if (deletedNamesCsv.indexOf("," + dirName + ",") >= 0) drop = true;
+        }
+      }
+      if (drop) removed++;
+      else { outBuf += line; outBuf += "\n"; }
+      lineStart = nl + 1;
+    }
+    pending = pending.substring(lineStart); // garde le reste incomplet pour le prochain tour
+    if (outBuf.length() > 1000) { writeBufChecked(out, outBuf); outBuf = ""; }
+    if ((size_t)n < BUFSZ) break;
+  }
+  pending.trim();
+  if (pending.length() > 0) { // derniere ligne sans retour a la ligne final
+    bool drop = false;
+    if (pending.startsWith("/gifs/")) {
+      int s2 = pending.indexOf('/', 6);
+      if (s2 > 6) {
+        String dirName = pending.substring(6, s2);
+        if (deletedNamesCsv.indexOf("," + dirName + ",") >= 0) drop = true;
+      }
+    }
+    if (drop) removed++;
+    else { outBuf += pending; outBuf += "\n"; }
+  }
+  if (outBuf.length() > 0) writeBufChecked(out, outBuf);
+  f.close();
+  out.close();
+
+  if (removed == 0) {
+    forceDeleteFile(tmpPath); // rien a faire, jeter le brouillon
+    return false;
+  }
+
+  if (!forceDeleteFile(path) || !SD.rename(tmpPath.c_str(), path.c_str())) {
+    Serial.println("[WEB] stripDeletedFoldersFromPlaylist: echec remplacement " + path);
+    forceDeleteFile(tmpPath);
+    return false;
+  }
+
+  const char *companionExts[] = {".cache", ".sig", ".idx"};
+  for (int i = 0; i < 3; i++) {
+    String companion = "/playlists/" + plBaseName + companionExts[i];
+    if (SD.exists(companion.c_str())) SD.remove(companion.c_str());
+  }
+  invalidatePlaylistRefCache();
+  linesRemovedOut = removed;
+  Serial.println("[WEB] stripDeletedFoldersFromPlaylist: " + plBaseName + ".txt -- " + String(removed) + " ligne(s) retiree(s)");
+  return true;
+}
+
 static void handleWebConfigDeleteFolders()
 {
   if (g_plGenActive) { webServer->send(409, "text/plain", "ERR: generation de playlist en cours"); return; }
   if (!webServer->hasArg("dirs")) { webServer->send(400, "text/plain", "ERR: missing dirs"); return; }
   String dirs = webServer->arg("dirs");
   int count = 0, fail = 0, start = 0;
+  // A.2 (plan cache_master_gifs) -- accumule uniquement les dossiers
+  // REELLEMENT supprimes (deleteFolderRecursive() == true), au format
+  // ",nom1,nom2," attendu par stripDeletedFoldersFromPlaylist().
+  String deletedNamesCsv = ",";
   while (true) {
     int comma = dirs.indexOf(',', start);
     String d = (comma < 0) ? dirs.substring(start) : dirs.substring(start, comma);
@@ -2053,7 +2211,7 @@ static void handleWebConfigDeleteFolders()
       String path = "/gifs/" + d;
       if (SD.exists(path.c_str())) {
         Serial.println("[WEB] deleteFolder start: " + path);
-        if (deleteFolderRecursive(path)) { count++; Serial.println("[WEB] deleteFolder OK: " + path); }
+        if (deleteFolderRecursive(path)) { count++; deletedNamesCsv += d + ","; Serial.println("[WEB] deleteFolder OK: " + path); }
         else { fail++; Serial.println("[WEB] deleteFolder FAIL: " + path); }
       } else {
         Serial.println("[WEB] deleteFolder introuvable: " + path);
@@ -2062,7 +2220,38 @@ static void handleWebConfigDeleteFolders()
     if (comma < 0) break;
     start = comma + 1;
   }
+
+  // A.2 -- nettoie toutes les playlists existantes des lignes qui
+  // referencaient un des dossiers effectivement supprimes ci-dessus.
+  int plModified = 0, totalLinesRemoved = 0;
+  if (deletedNamesCsv.length() > 1) {
+    File plDir = SD.open("/playlists");
+    if (plDir && plDir.isDirectory()) {
+      File entry = plDir.openNextFile();
+      while (entry) {
+        String name = String(entry.name());
+        bool isDirEntry = entry.isDirectory();
+        entry.close();
+        int slash = name.lastIndexOf('/');
+        String base = (slash >= 0) ? name.substring(slash + 1) : name;
+        if (!isDirEntry && base.endsWith(".txt")) {
+          String plBaseName = base.substring(0, base.length() - 4);
+          int linesRemoved = 0;
+          if (stripDeletedFoldersFromPlaylist(plBaseName, deletedNamesCsv, linesRemoved)) {
+            plModified++;
+            totalLinesRemoved += linesRemoved;
+            Serial.println("[WEB] playlist mise a jour: " + plBaseName + ".txt (" + String(linesRemoved) + " ligne(s) retiree(s))");
+          }
+        }
+        entry = plDir.openNextFile();
+        delay(1);
+      }
+      plDir.close();
+    }
+  }
+
   String msg = "OK: " + String(count) + " supprime(s)" + (fail>0?", " + String(fail) + " echec(s)":"");
+  if (plModified > 0) msg += ", " + String(plModified) + " playlist(s) mise(s) a jour (" + String(totalLinesRemoved) + " ligne(s) retiree(s)), redemarrage necessaire";
   webServer->send(200, "text/plain", msg);
 }
 
