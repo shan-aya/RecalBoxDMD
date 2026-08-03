@@ -1,7 +1,24 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v41
+// Version actuelle : v42
+//
+// v42 - 2026-08-02 - safe-modify - Demande explicite utilisateur : sur un
+//   boot "reboot cible mode config" (g_skipPlaylistForConfig), sauter le
+//   chargement des 3 caches lies a l'affichage GIF/MQTT (cache systemes
+//   systems_cache.dat, image de secours default.raw565, cache jeux
+//   games_cache.bin) -- aucun des trois n'est utilise pendant le mode
+//   config (MQTT bloque par g_sdOpInProgress, aucun GIF ouvert), et ce boot
+//   n'a qu'un seul but : liberer le heap au plus vite pour demarrer une
+//   copie. force_config_boot desormais lu des le premier passage de lecture
+//   de config.ini (avant ces 3 chargements), pas seulement dans
+//   loadConfig() (appelee apres) qui le relit de toute facon sans effet de
+//   bord (aucune ecriture entre les deux lectures). L'index playlist (.idx)
+//   reste charge sur ce chemin (cout negligeable, ~7ms) pour que "Reprendre
+//   DMD" continue de fonctionner pour la lecture playlist simple -- les 3
+//   caches sautes ne servent qu'aux evenements MQTT systeme/jeu, qui ne
+//   peuvent de toute facon pas survenir avant un reboot complet normal.
+//   Compilation via compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
 //
 // v41 - 2026-08-02 - safe-modify - Reintroduction du reboot cible mode
 //   config (g_skipPlaylistForConfig/force_config_boot/g_playlistStartedThisBoot),
@@ -4146,6 +4163,16 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
         else if(line.startsWith("CLOCK_INTERVAL_MIN="))clockIntervalMin=line.substring(line.indexOf('=')+1).toInt();
         else if(line.startsWith("CLOCK_DURATION="))clockDuration=line.substring(line.indexOf('=')+1).toInt();
         else if(line.startsWith("TZ=")){clockTimeZone=line.substring(line.indexOf('=')+1);clockTimeZone.trim();}
+        // Lu ICI (v45, demande explicite utilisateur), AVANT loadConfig() --
+        // les 3 caches ci-dessous (systemes, default.raw565, jeux) ne servent
+        // qu'a l'affichage GIF/MQTT (icones systeme/jeu, image de secours) --
+        // JAMAIS utilises pendant le mode config (MQTT bloque par
+        // g_sdOpInProgress, aucun GIF ouvert). Sur un boot "reboot cible" dont
+        // le seul but est de liberer le heap au plus vite pour un upload, les
+        // charger coute du temps ET de la RAM pour rien. loadConfig() (plus
+        // bas) relit aussi cette cle -- lecture redondante mais harmless,
+        // aucune ecriture entre les deux.
+        else if(line.startsWith("force_config_boot="))g_skipPlaylistForConfig=(line.substring(line.indexOf('=')+1).toInt()!=0);
       }
       cfg.close();
     }
@@ -4156,6 +4183,7 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
 
   // Charge le cache systÃ¨mes (systems_cache.dat). Si absent, on ne rescanner
   // que si l'utilisateur a info=1. Le script Python Ã©crit dÃ©jÃ  ce fichier.
+  if (!g_skipPlaylistForConfig) {
   if(!loadSysDefaultCache()){
     if(showInfo)showMessage("MARQUEE","Indexation...",display->color565(100,100,255));
     buildSysDefaultCache();
@@ -4168,16 +4196,23 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
   ensureDefaultRaw565Cached();
   if (defaultRaw565Cached) Serial.println("[CACHE] default.raw565 en RAM");
   else                     Serial.println("[CACHE] default.raw565 absent");
+  } else {
+    Serial.println("[CACHE] reboot cible mode config -- caches systemes/default.raw565 sautes");
+  }
 
   loadConfig();
 
   // Pour les systÃ¨mes flags 'L' (lents), games_cache.bin est court-circuitÃ©
   // dans findInGamesCache(). Inutile de le charger pour ces systÃ¨mes.
   // On le charge quand mÃªme pour les systÃ¨mes 'N' qui en ont besoin.
+  if (!g_skipPlaylistForConfig) {
   if(!loadGamesIndex())
     Serial.println("[GCACHE] "+gamesCacheFile+" absent");
   else
     Serial.println("[GCACHE] OK - "+String(gamesIdxCount)+" systemes");
+  } else {
+    Serial.println("[GCACHE] reboot cible mode config -- cache jeux saute");
+  }
   Serial.println("[BOOT] apres chargement caches, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
 
   // Boot silencieux (info=0): le titre (splash) reste affiche, le sablier coin

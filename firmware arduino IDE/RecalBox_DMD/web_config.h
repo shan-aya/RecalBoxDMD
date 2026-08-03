@@ -3,7 +3,47 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v43
+// Version actuelle : v45
+//
+// v45 — 2026-08-03 — safe-modify — Bug reel confirme (test materiel : "DMD
+//   bloque, aucun affichage web/DMD/serial" apres un reboot cible declenche
+//   par /prepare-upload) : le JS de uploadGif() faisait location.reload()
+//   une fois le serveur revenu -- une navigation/rechargement de page
+//   detruit les objets File du navigateur correspondant aux fichiers
+//   selectionnes par l'utilisateur, abandonnant silencieusement l'upload en
+//   cours sans aucune indication (d'ou "rien ne s'affiche" : la page MEDIA
+//   fraichement rechargee est juste... vide de toute activite, en attente
+//   d'un nouveau clic sur Uploader que rien ne suggerait de refaire).
+//   Corrige : plus de reload, on attend juste (poll sur /lang, endpoint
+//   leger qui ne re-arme pas webDmdPause()) que le serveur reponde de
+//   nouveau puis on POURSUIT la meme fonction JS avec les memes fichiers
+//   deja en memoire -- upload repris automatiquement, aucune perte de
+//   selection, aucun reclic requis.
+//   Precision demandee par l'utilisateur : masquer la liste de dossiers/
+//   suppression pendant la copie (idee initiale evoquee) ne liberait AUCUNE
+//   RAM cote ESP32 (uniquement cosmetique navigateur, cf. discussion) --
+//   ABANDONNEE sur cette base, aucun changement d'affichage fait ici.
+//   Compilation via compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
+//
+// v44 — 2026-08-02 — safe-modify — Demande explicite utilisateur : le reboot
+//   cible mode config (v43) ne doit se declencher qu'au clic sur "Uploader"
+//   (page MEDIA), pas a l'ouverture de N'IMPORTE QUELLE page de config --
+//   ouvrir MEDIA pour juste supprimer un dossier, ou BASIC/NETWORK/CLOCK
+//   pour un reglage, ne justifie pas un reboot. Aucune preuve par ailleurs
+//   que l'ecriture de playlists souffre du meme plafond heap que l'ecriture
+//   GIF volumineuse de l'upload (confirme par l'utilisateur : /add-to-
+//   playlists-batch, execute en fin de CHAQUE upload, n'a jamais echoue
+//   dans les tests recents, y compris en fin de gros lot). `triggerWebConfigMode()`
+//   (bool, avec reboot) et `sendRebootingPage()` (page HTML de patience)
+//   supprimes -- remplaces par `triggerWebConfigModeSoft()` (jamais de
+//   reboot, utilisee par TOUTES les pages + handleDmdOpen + UPLOAD_FILE_START)
+//   et une nouvelle route `POST /prepare-upload` (`handleWebConfigPrepareUpload()`)
+//   appelee par le JS de la page MEDIA juste avant le premier fichier d'un
+//   upload (clic sur "Uploader") : reponse JSON `{"reboot":bool}` au lieu
+//   d'une page HTML complete (cet appel part d'une page deja chargee, pas
+//   d'une navigation) -- si true, le JS affiche un message d'attente et
+//   attend (poll) le retour du serveur avant de recharger toute la page.
+//   Compilation via compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
 //
 // v43 — 2026-08-02 — safe-modify — Test reel du garde heap<6000 (v42) :
 //   bloquait ~99% des uploads MEDIA des que la playlist avait tourne un
@@ -1352,17 +1392,17 @@ fr:{title:'RecalBox DMD - Médias',h1:'Médias',nav_basic:'&#x1F4A1; Affichage &
 sec_dirs:'&#x1F4C1; Dossiers (/gifs/)',desc_dirs:'Cochez des dossiers pour les supprimer.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',btn_delete_sel:'&#x1F5D1; Supprimer la sélection',
 sec_upload:'&#x1F4E4; Envoi GIF',desc_upload:'Ajoutez un fichier .gif directement depuis votre navigateur dans un dossier de /gifs/. Choisissez un dossier existant OU tapez un nouveau nom (créé automatiquement). &#x26A0;&#xFE0F; Pas fait pour transférer de nombreux fichiers (débit lent, risque d\'erreur d\'écriture) -- réservé à l\'ajout ponctuel de quelques fichiers. Pour un transfert consequent, retirez la carte SD et copiez-la depuis un PC.',placeholder_upload_dir:'ou nouveau dossier...',lbl_upload_file:'Fichiers .gif',btn_upload:'&#x1F4E4; Uploader',btn_stop:'&#x23F9; Arrêter',
 btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',
-net_error:'Erreur réseau',msg_deleting:'Suppression...',msg_select_folder:'Choisissez au moins un dossier',msg_confirm_delete_folders:'Supprimer ${0} ?',msg_specify_dir:'Précisez un dossier cible',msg_select_gif:'Choisissez un fichier GIF',msg_select_gif_files:'Choisissez des fichiers .gif',msg_preparing_folder:'Preparation du dossier...',msg_cannot_create_folder:'Impossible de creer le dossier: ${0}',msg_net_error_folder:'Erreur reseau (creation dossier)',msg_uploading:'Upload...',msg_attempt:'tentative ${0}/${1}',msg_stopped_by_user:'Arrete par l\'utilisateur (${0}/${1})',msg_upload_fail:'ECHEC',msg_failures:'Echecs: ${0}',msg_upload_result:'${0}/${1} fichier(s) uploade(s)',msg_upload_result_fail:' -- echecs: ${0}',msg_confirm_reboot:'Redemarrer l\'ESP32 ?',msg_rebooting:'Redemarrage...',msg_dmd_resumed:'DMD repris',msg_updating_playlists:'Mise a jour des playlists...',msg_confirm_reboot_playlists:'Dossiers supprimes, ${0} playlist(s) mise(s) a jour. La suppression d\'un dossier lie a des playlists necessite un redemarrage du DMD pour etre prise en compte. Redemarrer maintenant ?',msg_retrying_failed:'Nouvelle tentative pour ${0} fichier(s) en echec...',msg_final_attempt:'tentative finale ${0}/${1}'},
+net_error:'Erreur réseau',msg_deleting:'Suppression...',msg_select_folder:'Choisissez au moins un dossier',msg_confirm_delete_folders:'Supprimer ${0} ?',msg_specify_dir:'Précisez un dossier cible',msg_select_gif:'Choisissez un fichier GIF',msg_select_gif_files:'Choisissez des fichiers .gif',msg_preparing_folder:'Preparation du dossier...',msg_cannot_create_folder:'Impossible de creer le dossier: ${0}',msg_net_error_folder:'Erreur reseau (creation dossier)',msg_uploading:'Upload...',msg_attempt:'tentative ${0}/${1}',msg_stopped_by_user:'Arrete par l\'utilisateur (${0}/${1})',msg_upload_fail:'ECHEC',msg_failures:'Echecs: ${0}',msg_upload_result:'${0}/${1} fichier(s) uploade(s)',msg_upload_result_fail:' -- echecs: ${0}',msg_confirm_reboot:'Redemarrer l\'ESP32 ?',msg_rebooting:'Redemarrage...',msg_dmd_resumed:'DMD repris',msg_updating_playlists:'Mise a jour des playlists...',msg_confirm_reboot_playlists:'Dossiers supprimes, ${0} playlist(s) mise(s) a jour. La suppression d\'un dossier lie a des playlists necessite un redemarrage du DMD pour etre prise en compte. Redemarrer maintenant ?',msg_retrying_failed:'Nouvelle tentative pour ${0} fichier(s) en echec...',msg_final_attempt:'tentative finale ${0}/${1}',msg_preparing_upload:'Preparation de l\'upload...',msg_rebooting_upload:'Redemarrage du DMD pour preparer la copie de fichiers, veuillez patienter...'},
 en:{title:'RecalBox DMD - Media',h1:'Media',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',
 sec_dirs:'&#x1F4C1; Folders (/gifs/)',desc_dirs:'Check folders to delete them.',btn_select_all:'Select all',btn_select_none:'Select none',btn_delete_sel:'&#x1F5D1; Delete selection',
 sec_upload:'&#x1F4E4; GIF Upload',desc_upload:'Add a .gif file directly from your browser into a folder in /gifs/. Choose an existing folder OR type a new name (created automatically). &#x26A0;&#xFE0F; Not designed for transferring many files (slow throughput, risk of write errors) -- meant for occasionally adding a few files. For a large transfer, remove the SD card and copy from a PC instead.',placeholder_upload_dir:'or new folder...',lbl_upload_file:'.gif files',btn_upload:'&#x1F4E4; Upload',btn_stop:'&#x23F9; Stop',
 btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',
-net_error:'Network error',msg_deleting:'Deleting...',msg_select_folder:'Select at least one folder',msg_confirm_delete_folders:'Delete ${0}?',msg_specify_dir:'Please specify a target folder',msg_select_gif:'Select a GIF file',msg_select_gif_files:'Select .gif files',msg_preparing_folder:'Preparing folder...',msg_cannot_create_folder:'Unable to create folder: ${0}',msg_net_error_folder:'Network error (folder creation)',msg_uploading:'Uploading...',msg_attempt:'attempt ${0}/${1}',msg_stopped_by_user:'Stopped by user (${0}/${1})',msg_upload_fail:'FAILED',msg_failures:'Failures: ${0}',msg_upload_result:'${0}/${1} file(s) uploaded',msg_upload_result_fail:' -- failures: ${0}',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_updating_playlists:'Updating playlists...',msg_confirm_reboot_playlists:'Folders deleted, ${0} playlist(s) updated. Deleting a folder linked to playlists requires a DMD reboot to take effect. Reboot now?',msg_retrying_failed:'Retrying ${0} failed file(s)...',msg_final_attempt:'final attempt ${0}/${1}'},
+net_error:'Network error',msg_deleting:'Deleting...',msg_select_folder:'Select at least one folder',msg_confirm_delete_folders:'Delete ${0}?',msg_specify_dir:'Please specify a target folder',msg_select_gif:'Select a GIF file',msg_select_gif_files:'Select .gif files',msg_preparing_folder:'Preparing folder...',msg_cannot_create_folder:'Unable to create folder: ${0}',msg_net_error_folder:'Network error (folder creation)',msg_uploading:'Uploading...',msg_attempt:'attempt ${0}/${1}',msg_stopped_by_user:'Stopped by user (${0}/${1})',msg_upload_fail:'FAILED',msg_failures:'Failures: ${0}',msg_upload_result:'${0}/${1} file(s) uploaded',msg_upload_result_fail:' -- failures: ${0}',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_updating_playlists:'Updating playlists...',msg_confirm_reboot_playlists:'Folders deleted, ${0} playlist(s) updated. Deleting a folder linked to playlists requires a DMD reboot to take effect. Reboot now?',msg_retrying_failed:'Retrying ${0} failed file(s)...',msg_final_attempt:'final attempt ${0}/${1}',msg_preparing_upload:'Preparing upload...',msg_rebooting_upload:'Rebooting the DMD to prepare the file copy, please wait...'},
 es:{title:'RecalBox DMD - Medios',h1:'Medios',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',
 sec_dirs:'&#x1F4C1; Carpetas (/gifs/)',desc_dirs:'Marque las carpetas para eliminarlas.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',btn_delete_sel:'&#x1F5D1; Eliminar selección',
 sec_upload:'&#x1F4E4; Subir GIF',desc_upload:'Añada un archivo .gif desde su navegador a una carpeta en /gifs/. Elija una carpeta existente O escriba un nombre nuevo (se crea automáticamente). &#x26A0;&#xFE0F; No pensado para transferir muchos archivos (velocidad lenta, riesgo de error de escritura) -- reservado para añadir algunos archivos puntualmente. Para una transferencia importante, retire la tarjeta SD y cópiela desde un PC.',placeholder_upload_dir:'o nueva carpeta...',lbl_upload_file:'Archivos .gif',btn_upload:'&#x1F4E4; Subir',btn_stop:'&#x23F9; Detener',
 btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',
-net_error:'Error de red',msg_deleting:'Eliminando...',msg_select_folder:'Elija al menos una carpeta',msg_confirm_delete_folders:'¿Eliminar ${0}?',msg_specify_dir:'Especifique una carpeta destino',msg_select_gif:'Seleccione un archivo GIF',msg_select_gif_files:'Seleccione archivos .gif',msg_preparing_folder:'Preparando carpeta...',msg_cannot_create_folder:'No se pudo crear la carpeta: ${0}',msg_net_error_folder:'Error de red (creación de carpeta)',msg_uploading:'Subiendo...',msg_attempt:'intento ${0}/${1}',msg_stopped_by_user:'Detenido por el usuario (${0}/${1})',msg_upload_fail:'ERROR',msg_failures:'Errores: ${0}',msg_upload_result:'${0}/${1} archivo(s) subido(s)',msg_upload_result_fail:' -- errores: ${0}',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_updating_playlists:'Actualizando listas...',msg_confirm_reboot_playlists:'Carpetas eliminadas, ${0} lista(s) de reproduccion actualizada(s). Eliminar una carpeta vinculada a listas requiere reiniciar el DMD para aplicarse. ¿Reiniciar ahora?',msg_retrying_failed:'Reintentando ${0} archivo(s) fallido(s)...',msg_final_attempt:'intento final ${0}/${1}'}
+net_error:'Error de red',msg_deleting:'Eliminando...',msg_select_folder:'Elija al menos una carpeta',msg_confirm_delete_folders:'¿Eliminar ${0}?',msg_specify_dir:'Especifique una carpeta destino',msg_select_gif:'Seleccione un archivo GIF',msg_select_gif_files:'Seleccione archivos .gif',msg_preparing_folder:'Preparando carpeta...',msg_cannot_create_folder:'No se pudo crear la carpeta: ${0}',msg_net_error_folder:'Error de red (creación de carpeta)',msg_uploading:'Subiendo...',msg_attempt:'intento ${0}/${1}',msg_stopped_by_user:'Detenido por el usuario (${0}/${1})',msg_upload_fail:'ERROR',msg_failures:'Errores: ${0}',msg_upload_result:'${0}/${1} archivo(s) subido(s)',msg_upload_result_fail:' -- errores: ${0}',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_updating_playlists:'Actualizando listas...',msg_confirm_reboot_playlists:'Carpetas eliminadas, ${0} lista(s) de reproduccion actualizada(s). Eliminar una carpeta vinculada a listas requiere reiniciar el DMD para aplicarse. ¿Reiniciar ahora?',msg_retrying_failed:'Reintentando ${0} archivo(s) fallido(s)...',msg_final_attempt:'intento final ${0}/${1}',msg_preparing_upload:'Preparando la subida...',msg_rebooting_upload:'Reiniciando el DMD para preparar la copia de archivos, por favor espere...'}
 };
 let currentLang='fr';
 function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||PAGE_I18N.fr[k]||k;}
@@ -1504,13 +1544,48 @@ async function uploadGif(){
   if(!fileInput.files.length){showMsg(tr('msg_select_gif'),false);return;}
   const files=Array.from(fileInput.files).filter(f=>f.name.toLowerCase().endsWith('.gif'));
   if(!files.length){showMsg(tr('msg_select_gif_files'),false);return;}
+  const msgEl=document.getElementById('msg');
+  // Pre-vol reboot cible (v44, demande explicite utilisateur) : declenche
+  // UNIQUEMENT au clic sur Uploader (pas a l'ouverture de la page MEDIA) --
+  // si la playlist tourne depuis un moment, le heap est plafonne par la
+  // fragmentation setvbuf(4096) accumulee au fil des GIFs ouverts (cf.
+  // memoire projet) et un reboot cible (playlist sautee au prochain boot)
+  // redonne le maximum de heap disponible AVANT le premier octet d'upload,
+  // plutot que d'echouer en cours de route. Reponse JSON {"reboot":bool} :
+  // si true, la reponse HTTP a deja ete envoyee cote serveur et le reboot
+  // reel survient dans l'instant qui suit (requestReboot, RecalBox_DMD.ino).
+  // IMPORTANT (bug corrige 2026-08-03, retour test reel "DMD bloque, aucun
+  // affichage") : ne JAMAIS faire location.reload() ici -- les fichiers
+  // selectionnes par l'utilisateur (variable `files` ci-dessus, objets File
+  // du navigateur) ne survivent PAS a une navigation/rechargement de page,
+  // l'upload etait donc silencieusement abandonne sans aucune indication.
+  // On attend juste (poll sur /lang, endpoint leger qui ne re-arme pas le
+  // mode config) que le serveur reponde de nouveau, PUIS on continue cette
+  // meme fonction avec les memes fichiers deja en memoire -- aucune perte de
+  // selection, aucun reclic necessaire.
+  msgEl.className='msg ok';msgEl.style.display='block';msgEl.textContent=tr('msg_preparing_upload');
+  try{
+    const pr=await queuedFetch('/prepare-upload',{method:'POST'});
+    const pd=await pr.json();
+    if(pd.reboot){
+      msgEl.textContent=tr('msg_rebooting_upload');
+      await new Promise(resolve=>{
+        function poll(){
+          fetch('/lang',{cache:'no-store'}).then(function(r){
+            if(r.ok) resolve(); else setTimeout(poll,1500);
+          }).catch(function(){setTimeout(poll,1500);});
+        }
+        setTimeout(poll,1500);
+      });
+      msgEl.textContent=tr('msg_preparing_upload');
+    }
+  }catch(e){/* pas de reponse ou probleme reseau ponctuel -- poursuivre normalement, le garde heap d'UPLOAD_FILE_START reste la derniere protection */}
   _uploadStopRequested=false;
   const stopBtn=document.getElementById('uploadStopBtn');stopBtn.style.display='inline-block';
   const bar=document.getElementById('uploadProgress');bar.style.display='block';
   const barInner=document.getElementById('uploadProgressBar');
   const fileList=document.getElementById('uploadFileList');
-  const msgEl=document.getElementById('msg');
-  msgEl.className='msg ok';msgEl.style.display='block';msgEl.textContent=tr('msg_preparing_folder');
+  msgEl.textContent=tr('msg_preparing_folder');
   try{
     const cr=await queuedFetch('/create-folder',{method:'POST',body:new URLSearchParams({dir:dir}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
     const ct=await cr.text();
@@ -3629,10 +3704,10 @@ static void handleWebConfigDeleteFolders()
 // handleWebConfigAddToPlaylistsBatch()//add-to-playlists-batch (cache
 // g_plRefCache* + lecture bufferisee, voir plus haut).
 
-// Forward declaration : definie plus bas (juste avant handleWebConfigRoot,
-// qui l'utilise aussi), mais appelee ici par handleDmdOpen() -- sans cette
-// declaration, erreur de compilation "not declared in this scope".
-static bool triggerWebConfigMode(const String &msg);
+// Forward declaration : definie plus bas, mais appelee ici par
+// handleDmdOpen() -- sans cette declaration, erreur de compilation "not
+// declared in this scope".
+static void triggerWebConfigModeSoft(const String &msg);
 
 static void handleDmdPause()
 {
@@ -3658,7 +3733,7 @@ static void handleDmdOpen()
   if (!webServer->hasArg("msg")) { webServer->send(400, "text/plain", "ERR: missing msg"); return; }
   String msg = webServer->arg("msg");
   String full = msg + " " + WiFi.localIP().toString();
-  if (!triggerWebConfigMode(msg)) return; // reboot cible deja declenche, reponse deja envoyee
+  triggerWebConfigModeSoft(msg);
   webServer->send(200, "text/plain", "OK " + full);
 }
 
@@ -3730,47 +3805,18 @@ static void handleWebConfigSaveAP()
   ESP.restart();
 }
 
-static void sendRebootingPage()
-{
-  // Page volontairement generee en C++ (pas de bloc PROGMEM/gzip) : tres
-  // courte, contenu dynamique selon uiLanguage, inutile de passer par le
-  // pipeline de generation gzip pour ca.
-  // Poll JS (fetch + catch) plutot qu'un simple <meta refresh> : pendant la
-  // fenetre ou l'ESP32 redemarre reellement, une navigation classique (meta
-  // refresh) tomberait sur une erreur de connexion et le navigateur
-  // afficherait sa page d'erreur native -- laquelle n'a plus notre balise
-  // refresh, plus aucune nouvelle tentative automatique ensuite. Le fetch()
-  // echoue silencieusement (catch) sans jamais quitter cette page tant que
-  // le serveur ne repond pas, puis recharge des le premier succes reel.
-  String msg = "Redemarrage du DMD en cours, veuillez patienter...";
-  if (uiLanguage == "en") msg = "DMD rebooting, please wait...";
-  else if (uiLanguage == "es") msg = "Reiniciando el DMD, por favor espere...";
-  String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
-    "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-    "<title>RecalBox DMD</title>"
-    "<style>body{font-family:sans-serif;background:#1a1a2e;color:#eee;display:flex;"
-    "align-items:center;justify-content:center;height:100vh;margin:0;text-align:center}</style>"
-    "</head><body><div>" + msg + "</div>"
-    "<script>function poll(){fetch(location.href,{cache:'no-store'}).then(function(r){"
-    "if(r.ok)location.reload();else setTimeout(poll,1500);"
-    "}).catch(function(){setTimeout(poll,1500);});}"
-    "setTimeout(poll,1500);</script>"
-    "</body></html>";
-  webServer->send(200, "text/html", html);
-}
-
-// Reintroduit (v42, 2026-08-02) -- retire en juillet (commit "v93") sur la
-// foi d'une comparaison qui ne portait pas sur ce symptome precis (voir
-// memoire projet). Cause reelle jamais corrigee depuis : chaque SD.open()
-// d'un GIF alloue un buffer setvbuf(4096) interne a la lib FS jamais
-// recycle proprement, plafonnant durablement ESP.getMaxAllocHeap() vers
-// 4500-5300 octets des que la playlist a tourne un moment -- confirme en
-// test reel 2026-08-02 responsable du blocage de ~99% des uploads MEDIA
-// malgre le garde heap<6000 (UPLOAD_FILE_START, v42). Repasse en bool :
-// false = un reboot cible a deja ete declenche et la reponse deja envoyee
-// (sendRebootingPage()) -- l'appelant DOIT s'arreter immediatement sans
-// envoyer sa propre reponse.
-static bool triggerWebConfigMode(const String &msg)
+// Pause simple, SANS jamais rebooter -- utilisee par TOUTES les pages de
+// config (Root/BASIC/NETWORK/CLOCK/MEDIA/handleDmdOpen) et par
+// UPLOAD_FILE_START. Le reboot cible (v42/v43) a ete restreint (v44,
+// demande explicite utilisateur) au seul point ou il est reellement prouve
+// necessaire : le clic sur "Uploader" (voir handleWebConfigPrepareUpload()
+// plus bas), pas l'ouverture de n'importe quelle page. Aucune preuve que
+// l'ecriture de playlists (generation BASIC, ou l'ajout aux playlists en
+// fin d'upload, /add-to-playlists-batch -- confirme sans souci meme en fin
+// de lot d'upload par l'utilisateur) souffre du meme plafond heap que
+// l'ecriture GIF volumineuse de l'upload -- perimetre volontairement
+// restreint, a elargir seulement si un echec reel est constate ailleurs.
+static void triggerWebConfigModeSoft(const String &msg)
 {
   // "http://" explicite (2026-07-30, demande utilisateur) : certains
   // navigateurs (Firefox "HTTPS-First", Edge) tentent une connexion HTTPS
@@ -3781,22 +3827,34 @@ static bool triggerWebConfigMode(const String &msg)
   // requete). En affichant l'URL complete avec schema, un utilisateur qui
   // COPIE/RETAPE exactement ce qui est affiche evite le declenchement de ce
   // mecanisme, sans reglage navigateur particulier.
-  if (g_playlistStartedThisBoot) {
-    // La playlist/des GIFs ont deja tourne ce boot -- rebooter directement
-    // et sauter la playlist sur le prochain boot (g_skipPlaylistForConfig,
-    // RecalBox_DMD.ino) pour repartir avec le maximum de heap disponible,
-    // plutot que d'entrer en mode config avec un heap deja plafonne.
-    Serial.println("[WEB] triggerWebConfigMode: playlist deja active -> reboot cible mode config");
-    writeConfigFlag("force_config_boot", "1");
-    sendRebootingPage();
-    requestReboot = true;
-    return false; // reboot deja declenche, reponse deja envoyee -- l'appelant doit s'arreter la
-  }
   String url = "http://" + WiFi.localIP().toString();
   clearFirstBoot();
   webDmdSetMainMsg(msg);
   webDmdPause(url, 0xFFE0);
-  return true;
+}
+
+// Pre-vol AJAX (v44) appele par le JS de la page MEDIA juste avant de
+// demarrer la boucle d'upload (clic sur "Uploader", avant le 1er fichier).
+// Remplace l'ancien reboot systematique a l'ouverture de la page MEDIA
+// (v42/v43) -- demande explicite utilisateur : ouvrir MEDIA pour juste
+// supprimer un dossier ne justifie pas un reboot, seul le fait de
+// reellement lancer un upload le justifie (ecriture SD volumineuse, buffer
+// setvbuf(4096) alloue par SD.open() jamais recycle proprement, cf. v42/v43
+// pour le detail complet). Reponse JSON (pas de page HTML complete, cet
+// appel part d'une page deja chargee) : {"reboot":true} si un reboot cible
+// vient d'etre declenche (le JS doit alors afficher un message d'attente et
+// recharger la page une fois l'ESP32 revenu, cf. uploadGif() page MEDIA),
+// {"reboot":false} sinon (le JS peut demarrer l'upload immediatement).
+static void handleWebConfigPrepareUpload()
+{
+  if (g_playlistStartedThisBoot) {
+    Serial.println("[WEB] prepare-upload: playlist deja active -> reboot cible mode config");
+    writeConfigFlag("force_config_boot", "1");
+    webServer->send(200, "application/json", "{\"reboot\":true}");
+    requestReboot = true;
+    return;
+  }
+  webServer->send(200, "application/json", "{\"reboot\":false}");
 }
 
 static void sendGzipHtml(const uint8_t *content, size_t len)
@@ -3831,7 +3889,7 @@ static void sendGzipHtml(const uint8_t *content, size_t len)
 
 static void handleWebConfigRoot()
 {
-  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
+  triggerWebConfigModeSoft("WEB DMD CONFIG");
   if (WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA) {
     sendGzipHtml(WEB_CONFIG_AP_HTML_GZ, WEB_CONFIG_AP_HTML_GZ_LEN);
   } else {
@@ -3841,25 +3899,25 @@ static void handleWebConfigRoot()
 
 static void handleWebConfigBasicPage()
 {
-  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
+  triggerWebConfigModeSoft("WEB DMD CONFIG");
   sendGzipHtml(WEB_CONFIG_BASIC_HTML_GZ, WEB_CONFIG_BASIC_HTML_GZ_LEN);
 }
 
 static void handleWebConfigNetworkPage()
 {
-  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
+  triggerWebConfigModeSoft("WEB DMD CONFIG");
   sendGzipHtml(WEB_CONFIG_NETWORK_HTML_GZ, WEB_CONFIG_NETWORK_HTML_GZ_LEN);
 }
 
 static void handleWebConfigClockPage()
 {
-  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
+  triggerWebConfigModeSoft("WEB DMD CONFIG");
   sendGzipHtml(WEB_CONFIG_CLOCK_HTML_GZ, WEB_CONFIG_CLOCK_HTML_GZ_LEN);
 }
 
 static void handleWebConfigMediaPage()
 {
-  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
+  triggerWebConfigModeSoft("WEB DMD CONFIG");
   sendGzipHtml(WEB_CONFIG_MEDIA_HTML_GZ, WEB_CONFIG_MEDIA_HTML_GZ_LEN);
 }
 
@@ -3880,6 +3938,7 @@ void setupWebConfig()
   webServer->on("/generate-playlist-stop", HTTP_POST, handleWebConfigGeneratePlaylistStop);
   webServer->on("/playlist-dirs", handleWebConfigPlaylistDirs);
   webServer->on("/delete-playlist", HTTP_POST, handleWebConfigDeletePlaylist);
+  webServer->on("/prepare-upload", HTTP_POST, handleWebConfigPrepareUpload);
   webServer->on("/upload", HTTP_POST, handleWebConfigUpload, handleWebConfigUploadFile);
   webServer->on("/create-folder", HTTP_POST, handleWebConfigCreateFolder);
   webServer->on("/delete-folders", HTTP_POST, handleWebConfigDeleteFolders);
