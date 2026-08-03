@@ -3,7 +3,86 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v45
+// Version actuelle : v50
+//
+// v50 — 2026-08-03 — safe-modify — setTimeout(3000) (v49) confirme SANS
+//   EFFET par lecture du code source NetworkClient.cpp : write() envoie via
+//   send(..., MSG_DONTWAIT), qui ignore purement SO_SNDTIMEO -- le vrai
+//   blocage (10-25s, escalade mesuree 10021/18244/24894ms) vient d'une
+//   boucle de retry codee en dur dans la bibliotheque (10 x select() 1s,
+//   RESET a chaque octet transmis), non configurable depuis ce sketch.
+//   sendGzipHtml() reecrit : envoi manuel par blocs de 1024 octets (en-tete
+//   HTTP construit a la main + webServer->client().write() en boucle) au
+//   lieu d'un seul appel send_P() sur toute la page -- un bloc qui echoue
+//   COMPLETEMENT (write() renvoie moins que demande) est detecte des ce
+//   premier bloc perdu, connexion coupee immediatement au lieu de laisser
+//   la lib s'acharner sur le reste. Plafonne le pire cas a ~10s au lieu de
+//   18-25s. Demande explicite utilisateur (piste "grossir les paquets pour
+//   mobile") verifiee et infirmee au passage : send_P() envoie deja TOUTE
+//   la page en un seul write(), aucune "taille de paquet" a agrandir de ce
+//   cote -- c'est la segmentation TCP/MSS, hors de portee du sketch.
+//   Compilation via compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
+//
+// v49 — 2026-08-03 — safe-modify — Cause racine CONFIRMEE par
+//   l'instrumentation v48 (test reel iOS) : send_P() bloque 10 a 25
+//   SECONDES en escalade (10021ms -> 18244ms -> 24894ms) sur des envois de
+//   quelques Ko, heap libre qui degringole par paliers pendant que maxalloc
+//   reste fige -- signature d'une connexion abandonnee par le client (iOS
+//   retente, le serveur mono-thread reste coince a ecrire sur l'ancienne
+//   connexion). Fix : webServer->client().setTimeout(3000) avant send_P()
+//   dans sendGzipHtml() -- aucun timeout d'ecriture n'etait pose sur ce
+//   chemin (contrairement a l'upload). Compilation via compile.ps1 : OK.
+//   PAS ENCORE teste sur materiel reel.
+//
+// v48 — 2026-08-03 — safe-modify — Test reel iOS Safari (setNoDelay v47 pas
+//   suffisant) : nouvelle donnee cle -- meme les pages qui REUSSISSENT
+//   mettent 10s+ a s'afficher (pas seulement celles qui echouent), motif
+//   degressif (MENU/BASIC ok mais lents, puis tout echoue en boucle a partir
+//   de NETWORK/CLOCK/MEDIA). Heap toujours sain sur les requetes mesurables
+//   (maxalloc=8692). Piste non-firmware ajoutee (Private Relay iCloud+ /
+//   permission "Reseau local" iOS, connue pour introduire des delais
+//   massifs ou des echecs sur du trafic IP locale) -- a verifier cote
+//   utilisateur. Instrumentation ajoutee dans sendGzipHtml() : chrono
+//   dedie autour de send_P() (ecriture TCP bloquante) + log heap juste
+//   avant, sur CHAQUE envoi de page (pas seulement le repli memoire faible
+//   existant) -- objectif : distinguer un envoi reseau reellement lent
+//   (send_P() long) d'un ralentissement situe ailleurs (acceptation de
+//   connexion, cote client). Compilation via compile.ps1 : OK. PAS ENCORE
+//   teste sur materiel reel.
+//
+// v47 — 2026-08-03 — safe-modify — Test reel iOS Safari (question
+//   utilisateur) : page blanche a repetition, "Safari ne peut pas ouvrir la
+//   page... connexion reseau perdue" -- meme sur MENU (page la plus legere,
+//   6.7 Ko gzip), pas specifique a MEDIA. Log serie confirme la requete
+//   atteignant bien le serveur (triggerWebConfigModeSoft() s'execute a
+//   chaque tentative) et le garde heap de sendGzipHtml() (maxalloc<4096) ne
+//   se declenchant pas -- la coupure n'est donc pas expliquee par ce
+//   garde-fou existant. Hypothese testee : Nagle + mode economie d'energie
+//   WiFi mobile (voir commentaire dans sendGzipHtml()). Fix applique :
+//   webServer->client().setNoDelay(true) avant l'envoi de chaque page.
+//   Compilation via compile.ps1 : OK. PAS ENCORE teste sur materiel reel --
+//   necessite un vrai test iOS pour confirmer/infirmer cette hypothese.
+//
+// v46 — 2026-08-03 — safe-modify — Analyse .har + log serie reels (question
+//   utilisateur : la generation de playlist simple genere des erreurs web
+//   pendant le scan de gros dossiers hors cache -- le reboot cible
+//   aiderait-il ?). Diagnostic : NON, pas de la fragmentation heap -- le
+//   .har montre la quasi-totalite des requetes /generate-playlist-status
+//   echouant a EXACTEMENT ~9000-9016ms (timeout client, pas une erreur
+//   serveur) sur un dossier de 1400+ fichiers (Arcade), pendant que le log
+//   serie confirme le scan progressant normalement en parallele (aucun heap
+//   critique). Le commentaire existant affirmant que playlistGenTask()
+//   (tache FreeRTOS dediee, 2026-07-28) avait elimine ce risque est donc
+//   FAUX en pratique sur un tres gros dossier -- cause exacte non
+//   identifiee (le code cede la main via vTaskDelay(1) et ne garde aucun
+//   mutex longtemps, ca semble suffisant en lecture statique). Correctif
+//   applique (option choisie par l'utilisateur -- rapide, faible risque) :
+//   AbortController du polling /generate-playlist-status remonte de 9000ms
+//   a 25000ms, meme marge que le polling d'upload. N'accelere pas le scan
+//   (toujours limite par la degradation FAT32 deja documentee sur ce
+//   projet), reduit seulement les faux "echecs" affiches pendant qu'il
+//   tourne encore. Compilation via compile.ps1 : OK. PAS ENCORE teste sur
+//   materiel reel.
 //
 // v45 — 2026-08-03 — safe-modify — Bug reel confirme (test materiel : "DMD
 //   bloque, aucun affichage web/DMD/serial" apres un reboot cible declenche
@@ -984,17 +1063,23 @@ async function generatePlaylist(){
       // pendant que le DMD, lui, continuait a avancer normalement) fige le
       // polling pour de bon, la boucle n'atteignant jamais l'iteration
       // suivante puisqu'elle reste indefiniment en attente du fetch().
-      // 9000ms (pas 4000) : certains dossiers ont des lenteurs SD localisees
-      // ou plusieurs fichiers consecutifs prennent chacun plusieurs secondes
-      // (Halloween/Vertical_DMD/tous, confirme en test reel) -- un timeout
-      // trop court se remettait lui-meme a echouer en boucle sur ces series,
-      // sans jamais laisser au serveur (mono-thread, deja occupe par le scan)
-      // le temps de repondre. Mitigation legere : pas une elimination du gel
-      // possible (deplacer le scan sur une tache dediee reglerait la cause,
-      // pas fait ici sur decision explicite -- juste tolerer une serie plus
-      // longue avant d'abandonner une requete).
+      // 9000ms REMONTE A 25000ms (2026-08-03, analyse .har + log serie reels) :
+      // le commentaire ci-dessous (desormais corrige) affirmait que le passage
+      // a playlistGenTask() (tache FreeRTOS dediee) avait elimine ce risque --
+      // INFIRME par un test reel sur un dossier de 1400+ fichiers (Arcade) :
+      // le .har montre la quasi-totalite des requetes /generate-playlist-
+      // status echouant a EXACTEMENT ~9000-9016ms (timeout client, pas une
+      // erreur serveur), alors que le log serie confirme le scan progressant
+      // normalement en parallele (aucun heap critique, aucun arret) -- le
+      // serveur met donc parfois plus de 9s a repondre meme depuis la tache
+      // dediee, cause exacte non identifiee (le code de playlistGenTask() cede
+      // la main via vTaskDelay(1) et ne garde aucun mutex longtemps, en
+      // lecture statique ca semble suffisant -- a investiguer plus a fond si
+      // 25s s'avere un jour insuffisant). 25000ms : marge large au-dessus du
+      // pire cas observe (borne reelle inconnue, le client abandonnait
+      // toujours avant que le serveur ne reponde).
       const ctrl=new AbortController();
-      const abortTimer=setTimeout(()=>ctrl.abort(),9000);
+      const abortTimer=setTimeout(()=>ctrl.abort(),25000);
       st=await(await fetch('/generate-playlist-status',{signal:ctrl.signal})).json();
       clearTimeout(abortTimer);
     }catch(e){continue;}
@@ -1007,9 +1092,12 @@ async function generatePlaylist(){
     // aussi le serveur web -- le compteur affiche restait fige en meme temps
     // que tout le reste, donnant une fausse impression de gel. Depuis le
     // passage a playlistGenTask() (tache FreeRTOS dediee), /generate-
-    // playlist-status repond toujours rapidement (plGenStatusMutex jamais
-    // tenu pendant un acces SD) meme pendant un dossier lent -- le compteur
-    // redevient donc une information fiable plutot qu'un faux signal de gel.
+    // playlist-status repond generalement rapidement (plGenStatusMutex jamais
+    // tenu pendant un acces SD) -- MAIS pas garanti au-dela de 9s sur un tres
+    // gros dossier (infirme par test reel 2026-08-03, voir commentaire de
+    // l'AbortController ci-dessus) : quand une requete de statut aboutit, sa
+    // valeur reste fiable (pas de fausse info figee), seul le DELAI pour
+    // l'obtenir peut varier.
     msgEl.textContent=tr('msg_scanning')+': '+st.dir+' ('+st.dirIdx+'/'+st.totalDirs+') - '+st.curDirGifs+' GIFs ('+st.gifs+' total)';
   }
   setPageBusy(false);
@@ -3859,6 +3947,31 @@ static void handleWebConfigPrepareUpload()
 
 static void sendGzipHtml(const uint8_t *content, size_t len)
 {
+  // TCP_NODELAY (2026-08-03, test reel iOS Safari : "connexion reseau
+  // perdue" a repetition sur TOUTES les pages, meme la plus legere -- MENU,
+  // 6.7 Ko gzip -- alors que le log serie confirme que la requete atteint
+  // bien le serveur a chaque fois (triggerWebConfigModeSoft() s'execute) et
+  // que le garde heap juste en dessous ne se declenche pas (maxalloc>4096)
+  // -- la coupure n'est donc pas expliquee par le garde-fou existant).
+  // Hypothese testee : l'algorithme de Nagle (actif par defaut sur les
+  // sockets ESP32) retarde l'envoi de petits paquets en attendant soit un
+  // ACK, soit assez de donnees a grouper -- combine au mode economie
+  // d'energie WiFi des telephones (radio en veille entre paquets,
+  // contrairement a un PC), l'attente peut depasser le delai de patience de
+  // Safari mobile (plus impatient qu'un navigateur desktop), qui abandonne
+  // la connexion en cours de transfert. setNoDelay(true) desactive Nagle --
+  // fix standard, faible risque, deja largement documente pour cette classe
+  // de probleme "ESP32 WebServer marche en desktop, coupe sur mobile".
+  webServer->client().setNoDelay(true);
+  // v50 (2026-08-03) -- webServer->client().setTimeout(3000) ESSAYE puis
+  // ABANDONNE : verifie sans effet par lecture du code source de la lib
+  // reseau (NetworkClient.cpp) -- write() envoie via send(..., MSG_DONTWAIT),
+  // qui ignore purement et simplement SO_SNDTIMEO/notre setTimeout(). Le vrai
+  // blocage observe (10-25s, escalade) vient d'une boucle de retry codee en
+  // dur dans la bibliotheque (10 tentatives x select() 1s, compteur RESET a
+  // 10 des qu'un seul octet passe) -- non configurable depuis ce sketch. Fix
+  // retenu a la place, plus bas : decoupage manuel de l'envoi (voir
+  // commentaire avant la boucle).
   // Garde-fou heap (2026-07-29, ERR_EMPTY_RESPONSE reel en test materiel) :
   // envoyer une page complete (plusieurs Ko gzip) peut echouer si le heap
   // est deja tres sollicite par un long scan playlistGenTask() en cours --
@@ -3883,8 +3996,52 @@ static void sendGzipHtml(const uint8_t *content, size_t len)
     webServer->send(200, "text/plain", "Memoire faible, reessayez dans quelques secondes");
     return;
   }
-  webServer->sendHeader("Content-Encoding", "gzip");
-  webServer->send_P(200, "text/html", reinterpret_cast<PGM_P>(content), len);
+  // Envoi manuel par petits blocs avec abandon rapide (v50, 2026-08-03) --
+  // cause racine confirmee par l'instrumentation v48/v49 (test reel iOS) +
+  // lecture du code source de la lib reseau : send_P() remet toute la page
+  // en UN SEUL appel write() a la bibliotheque -- si la connexion delivre au
+  // compte-goutte, le compteur de retry interne (10 tentatives x 1s) se
+  // RESET a chaque octet qui passe, pouvant etirer un seul appel a 18-25s+
+  // (mesure en test reel) avant que Safari, bien moins patient, n'ait deja
+  // abandonne de son cote. En decoupant nous-memes l'envoi et en verifiant
+  // le retour de CHAQUE write(), un bloc qui echoue COMPLETEMENT (write()
+  // renvoie moins que demande -- ses 10 tentatives internes deja epuisees
+  // SANS le moindre progres sur ce bloc precis) est detecte des ce premier
+  // bloc perdu : la connexion est alors coupee proprement plutot que de
+  // laisser la bibliotheque s'acharner sur le reste de la page. Plafonne le
+  // pire cas a ~10s (un seul bloc bloque) au lieu de 18-25s (tout le buffer).
+  // En-tete HTTP construit a la main (sendHeader()/_prepareHeader() internes
+  // a la lib ne sont pas accessibles hors de send()/send_P()) -- volontairement
+  // minimal (Content-Type/Content-Encoding/Content-Length/Connection: close),
+  // rien d'autre n'est utilise par ce firmware (pas de CORS, pas d'en-tete
+  // additionnel a ce stade).
+  unsigned long tSendStart = millis();
+  Serial.println("[WEB] sendGzipHtml: envoi " + String(len) + " octets par blocs, maxalloc=" + String(ESP.getMaxAllocHeap()) + " libre=" + String(ESP.getFreeHeap()));
+  {
+    String header = webServer->version() + " 200 " + WebServer::responseCodeToString(200) + "\r\n";
+    header += "Content-Type: text/html\r\n";
+    header += "Content-Encoding: gzip\r\n";
+    header += "Content-Length: " + String(len) + "\r\n";
+    header += "Connection: close\r\n\r\n";
+    webServer->sendContent(header);
+  }
+  const size_t CHUNK_SIZE = 1024;
+  size_t sentTotal = 0;
+  bool stalled = false;
+  while (sentTotal < len)
+  {
+    size_t toSend = (len - sentTotal < CHUNK_SIZE) ? (len - sentTotal) : CHUNK_SIZE;
+    size_t written = webServer->client().write(content + sentTotal, toSend);
+    if (written < toSend)
+    {
+      Serial.println("[WEB] sendGzipHtml: bloc bloque a " + String(sentTotal) + "/" + String(len) + " octets -- connexion coupee");
+      webServer->client().stop();
+      stalled = true;
+      break;
+    }
+    sentTotal += written;
+  }
+  Serial.println("[WEB] sendGzipHtml: " + String(stalled ? "abandon" : "termine") + " en " + String(millis() - tSendStart) + "ms (" + String(sentTotal) + "/" + String(len) + " octets)");
 }
 
 static void handleWebConfigRoot()

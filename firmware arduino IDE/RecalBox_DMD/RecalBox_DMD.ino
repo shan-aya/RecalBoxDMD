@@ -1,7 +1,104 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v43
+// Version actuelle : v50
+//
+// v50 - 2026-08-03 - safe-modify - Bug reel confirme (retour utilisateur,
+//   suite au fix v47) : "Reprendre DMD" alors que RB est en mode clip/demo
+//   ne reprenait jamais la playlist -- RB annonce son passage en demo UNE
+//   SEULE FOIS (CMD_DEFAULT/CMD_STARTCLIP), pas a chaque nouveau clip, donc
+//   v47 (qui affiche l'ecran d'attente et attend un nouveau message MQTT)
+//   restait bloque indefiniment dans ce cas precis. Fix : nouveau
+//   g_lastMqttWasDefault, memorise le dernier contenu REELLEMENT affiche via
+//   MQTT avant l'ouverture du mode config (true=playlist/demo via
+//   CMD_DEFAULT/CMD_STARTCLIP, false=system/jeu precis via
+//   CMD_SYSTEM/CMD_GAME/CMD_RESUMESYS). webDmdResume() reprend directement
+//   la playlist si le dernier etat connu etait deja la playlist (encore
+//   valide, RB ne va rien renvoyer de plus), affiche l'ecran d'attente
+//   uniquement si c'etait un system/jeu precis (potentiellement perime).
+//   Compilation via compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
+//
+// v49 - 2026-08-03 - safe-modify - Regression du fix v46 confirmee en test
+//   reel (retour utilisateur : ca fonctionne mais le delai d'affichage de
+//   5-10s de l'ecran "RecalBox connectee" n'est plus respecte, bascule
+//   immediate sur playlist) -- v46 avait retire "default" du filtrage de la
+//   fenetre de grace pour corriger le blocage indefini quand RB est deja en
+//   demo a la connexion, mais du coup un "default" arrivant tres tot (RB
+//   deja en demo) s'applique desormais instantanement, sans laisser voir
+//   l'ecran de confirmation. Fix : nouveau delai minimum d'affichage
+//   MQTT_WAITING_MIN_DISPLAY_MS (7000ms) distinct de la fenetre de grace
+//   (1.5s, toujours utilisee pour system/game) -- si un CMD_DEFAULT arrive
+//   pendant ce delai, l'action n'est PLUS ignoree (regression v46) ni
+//   appliquee tout de suite (bug remonte) : elle est MEMORISEE
+//   (g_mqttDefaultPendingAfterMinDisplay) et appliquee automatiquement des
+//   que le delai est ecoule (nouveau bloc dans loop()), jamais perdue. Un
+//   vrai system/game recu entre-temps annule cette action differee (plus
+//   specifique qu'un simple retour a la playlist). Compilation via
+//   compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
+//
+// v48 - 2026-08-03 - safe-modify - Incoherence corrigee par cohorte avec v46
+//   (retour utilisateur : RB deja en mode demo/clip a la connexion, jamais
+//   bascule sur playlist meme apres plusieurs clips lances) : CMD_STARTCLIP
+//   et CMD_RESUMESYS ne remettaient pas g_mqttConnectedScreenUntilMs a 0
+//   contrairement aux autres commandes qui peuvent quitter l'ecran d'attente
+//   (CMD_STOP/CMD_DEFAULT/CMD_SYSTEM/CMD_GAME, v45/v46) -- ajoute par
+//   coherence. Analyse du code n'a PAS trouve d'autre chemin expliquant le
+//   symptome exact rapporte (CMD_STARTCLIP appelle deja resumePlaylist()
+//   sans condition hors g_sdOpInProgress ; le repli "fallback default.raw565"
+//   du mode CMD_GAME lent ne definit ni MODE_PNG ni currentPngPath=
+//   DEFAULT_RAW565_PATH, donc ne peut pas a lui seul reactiver le
+//   clignotement) -- log serie reel necessaire pour la suite. Compilation
+//   via compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
+//
+// v47 - 2026-08-03 - safe-modify - Demande explicite utilisateur : "Reprendre
+//   DMD" (webDmdResume(), bouton web) forcait systematiquement resumePlaylist()
+//   meme si la Recalbox etait deja connectee via MQTT -- coupant un contenu
+//   RB legitime (partie en cours) au profit de la playlist locale, corrige
+//   seulement au prochain evenement MQTT reel. Fix : si mqttClient.connected(),
+//   laisse RB reprendre la main (meme traitement que CMD_WAITING_MQTT --
+//   image de secours + texte en attendant le prochain vrai message) au lieu
+//   de forcer la playlist. Playlist forcee uniquement si MQTT n'est PAS
+//   connecte (aucune autre source de contenu). Compilation via compile.ps1 :
+//   OK. PAS ENCORE teste sur materiel reel.
+//
+// v46 - 2026-08-03 - safe-modify - Bug reel confirme (retour utilisateur) :
+//   la detection clip/demo ne fonctionnait pas si la Recalbox etait DEJA en
+//   mode demo au moment ou le firmware se connecte a MQTT et affiche l'ecran
+//   d'attente -- son message "marquee/cmd/default" arrive alors quasi
+//   instantanement (comme un retenu), dans la fenetre de grace de 1.5s
+//   (MQTT_WAITING_GRACE_MS, voir v15/v16), et etait ignore a tort. Sans la
+//   reprise auto par delai (retiree en v45), l'ecran d'attente restait donc
+//   bloque indefiniment dans ce cas precis. Fix : "default" retire du filtre
+//   de la fenetre de grace (system/game restent filtres, seuls a risquer
+//   d'afficher un jeu perime) -- voir commentaire complet dans
+//   onMqttMessage(). Compilation via compile.ps1 : OK. PAS ENCORE teste sur
+//   materiel reel.
+//
+// v45 - 2026-08-03 - safe-modify - 3 bugs confirmes en test reel sur l'ecran
+//   "RecalBox connectee" (drawRecalboxConnectedOverlay(), CMD_WAITING_MQTT) :
+//   (1) le clignotement noircissait un bandeau plein (fillRect(...,0)) au
+//   lieu de laisser voir l'image de fond pendant la phase "invisible" --
+//   corrige en redessinant la bande depuis le cache RAM defaultRaw565Buf
+//   (deja charge a cet instant par CMD_WAITING_MQTT) au lieu de noircir.
+//   (2) texte positionne pres du bas (y=24 fixe, hauteur panneau=32) au lieu
+//   d'etre centre verticalement -- corrige (textY=(RAW565_H-8)/2).
+//   (3) bascule vers la playlist auto au bout de MQTT_CONNECTED_SCREEN_MS
+//   (10s) meme si la Recalbox reste connectee -- confirme par l'utilisateur
+//   comme un vrai bug de conception, pas juste un delai trop court : la
+//   logique voulue est d'attendre INDEFINIMENT un vrai message MQTT tant que
+//   la Recalbox est allumee, c'est ELLE qui decide quand revenir a la
+//   playlist (CMD_DEFAULT, pont marquee sur veille/lecture d'un clip),
+//   jamais un delai arbitraire cote DMD. MQTT_CONNECTED_SCREEN_MS et le bloc
+//   de reprise auto par delai retires entierement de loop() ;
+//   g_mqttConnectedScreenUntilMs devient un simple drapeau "ecran d'attente
+//   actif" (pose a CMD_WAITING_MQTT, remis a 0 par CMD_STOP/CMD_DEFAULT/
+//   CMD_SYSTEM/CMD_GAME) utilise uniquement pour piloter le clignotement.
+//   Compilation via compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
+//
+// v44 - 2026-08-03 - safe-modify - Demande explicite utilisateur : version
+//   affichee au splash boot (RETRO_VERSION, ecran physique) passee de
+//   "Raw565 Ed. dev_pl" a "Raw565 Ed. dev12" -- distinct du numero de
+//   version safe-modify interne de ce fichier.
 //
 // v43 - 2026-08-03 - safe-modify - Suite de v42 (question utilisateur :
 //   "Reprendre DMD" apres une copie relance la playlist ET MQTT, mais sans
@@ -1433,13 +1530,46 @@ const unsigned long MQTT_OFFLINE_FALLBACK_MS = 60000;
 const unsigned long MQTT_WAITING_GRACE_MS = 1500;
 unsigned long g_mqttWaitingUntilMs = 0;
 
-// Duree d'affichage FIXE de l'ecran "RecalBox connectee" (CMD_WAITING_MQTT)
-// avant reprise automatique de la playlist -- demande utilisateur
-// (2026-07-28) : ne plus attendre indefiniment le premier message MQTT reel
-// (system/game), reprendre la playlist au bout de ce delai si rien d'autre
-// n'a pris la main sur l'affichage entre-temps.
-const unsigned long MQTT_CONNECTED_SCREEN_MS = 10000; // 5000 -> 10000 (demande utilisateur 2026-07-29)
+// Drapeau "ecran d'attente RecalBox connectee actif" (CMD_WAITING_MQTT) --
+// pose (non-zero) a l'affichage de l'image de secours + texte, remis a 0 des
+// qu'un vrai contenu MQTT prend la main (CMD_DEFAULT/CMD_SYSTEM/CMD_GAME/
+// CMD_STOP). Sert uniquement a piloter le clignotement du texte (voir
+// loop()). PLUS d'expiration par delai fixe (retiree v45, 2026-08-03,
+// demande explicite utilisateur) : la logique voulue est d'attendre
+// INDEFINIMENT tant que la Recalbox reste connectee -- c'est elle seule qui
+// decide quand revenir a la playlist (CMD_DEFAULT, pont marquee sur
+// veille/lecture d'un clip), jamais un delai arbitraire cote DMD.
 unsigned long g_mqttConnectedScreenUntilMs = 0;
+
+// Dernier etat MQTT reellement affiche (v50, 2026-08-03, bug reel confirme :
+// apres "Reprendre DMD" alors que RB est en mode clip, la playlist ne
+// reprenait jamais) -- RB annonce son passage en demo/clip UNE FOIS
+// (CMD_DEFAULT/CMD_STARTCLIP), pas a chaque nouveau clip -- le fix v47
+// (webDmdResume() attend un nouveau message MQTT au lieu de forcer la
+// playlist) restait donc bloque indefiniment sur l'ecran d'attente dans ce
+// cas precis, RB n'ayant plus rien de neuf a annoncer. true = le dernier
+// contenu REEL affiche via MQTT etait la playlist/l'ecran d'attente
+// (CMD_DEFAULT/CMD_STARTCLIP) ; false = un system/jeu precis
+// (CMD_SYSTEM/CMD_GAME/CMD_RESUMESYS). webDmdResume() s'en sert : si true,
+// reprend directement la playlist (etat encore valide, pas besoin d'attendre
+// RB) ; si false, affiche l'ecran d'attente comme avant (un jeu/systeme
+// precis pourrait etre perime, mieux vaut attendre une confirmation fraiche).
+bool g_lastMqttWasDefault = true;
+
+// Delai minimum d'affichage de l'ecran "RecalBox connectee" (v49,
+// 2026-08-03, demande explicite utilisateur) : un "default" arrivant tres
+// tot (RB deja en mode demo/clip a la connexion, cf. v46 -- desormais honore
+// au lieu d'etre ignore) faisait basculer sur la playlist QUASI INSTANTANEMENT,
+// sans laisser le temps de voir l'ecran de confirmation. Contrairement a
+// MQTT_WAITING_GRACE_MS (1.5s, anti-retenu-perime pour system/game -- un
+// "default" trop tot n'est PLUS ignore mais DIFFERE) : si un CMD_DEFAULT
+// arrive avant ce delai, l'action (resumePlaylist()) est memorisee et
+// appliquee automatiquement des que le delai est ecoule (voir loop()),
+// jamais perdue -- contrairement a l'ancien filtrage qui pouvait bloquer
+// indefiniment si aucun autre message ne suivait.
+const unsigned long MQTT_WAITING_MIN_DISPLAY_MS = 7000;
+unsigned long g_mqttWaitingMinDisplayUntilMs = 0;
+bool          g_mqttDefaultPendingAfterMinDisplay = false;
 
 WiFiClient   wifiClientMqtt;
 PubSubClient mqttClient(wifiClientMqtt);
@@ -2714,8 +2844,7 @@ void webDmdSetMainMsg(const String &msg)
 void webDmdResume()
 {
   // Ne redemarre plus l'ESP32 : on quitte simplement le mode config (les
-  // ecrans/handlers HTTP restent actifs) et on reprend l'affichage normal,
-  // comme le fait deja resumePlaylist() pour les commandes MQTT CMD_DEFAULT.
+  // ecrans/handlers HTTP restent actifs) et on reprend l'affichage normal.
   // g_sdOpInProgress doit etre remis a false explicitement ici -- avant, un
   // ESP.restart() le remettait a zero gratuitement au boot ; les handlers
   // MQTT (CMD_STOP/CMD_DEFAULT/CMD_SYSTEM/CMD_GAME) l'utilisent pour ignorer
@@ -2723,7 +2852,37 @@ void webDmdResume()
   // bloquerait ces commandes indefiniment apres un "Reprendre DMD".
   Serial.println("[WEB] DMD resume -> retour a l'affichage normal (sans reboot)");
   g_sdOpInProgress = false;
-  resumePlaylist();
+  // Demande explicite utilisateur (2026-08-03) : si la Recalbox est deja
+  // connectee (MQTT actif), lui laisser reprendre la main plutot que de
+  // forcer la playlist -- pendant tout le temps ou le mode config etait
+  // actif, les vrais evenements MQTT (system/game) arrivaient bien mais
+  // etaient ignores (voir "X ignored (web open)" dans les handlers).
+  // v50 -- bug reel confirme (Reprendre DMD alors que RB est en mode
+  // clip/demo : plus jamais de reprise playlist) : RB annonce son passage en
+  // demo UNE SEULE FOIS (CMD_DEFAULT/CMD_STARTCLIP), pas a chaque nouveau
+  // clip -- attendre un nouveau message ici bloquait donc indefiniment sur
+  // l'ecran d'attente, RB n'ayant plus rien de neuf a annoncer. Fix : utilise
+  // g_lastMqttWasDefault (dernier contenu REELLEMENT affiche avant l'ouverture
+  // du mode config) pour decider. Si le dernier etat connu etait deja la
+  // playlist/l'ecran d'attente (RB en demo), reprend directement la playlist
+  // -- cet etat reste valide, pas besoin d'attendre RB. Si c'etait un
+  // system/jeu precis, affiche l'ecran d'attente comme avant (pourrait etre
+  // perime, mieux vaut attendre une confirmation fraiche -- partie en cours
+  // par ex.). Si MQTT n'est PAS connecte (Recalbox injoignable), aucune
+  // autre source de contenu -- comportement inchange, reprend la playlist.
+  if (mqttClient.connected() && !g_lastMqttWasDefault)
+  {
+    if (mqttCmdMutex != nullptr && xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(100)) == pdTRUE)
+    {
+      pendingCmd = MqttCommand(MqttCommand::CMD_WAITING_MQTT, "");
+      g_mqttWaitingUntilMs = millis() + MQTT_WAITING_GRACE_MS;
+      xSemaphoreGive(mqttCmdMutex);
+    }
+  }
+  else
+  {
+    resumePlaylist();
+  }
 }
 
 // Marque first_boot=0 dans config.ini (appele quand page web ouverte)
@@ -2816,13 +2975,29 @@ String trRecalboxConnected()
 }
 
 // Dessine (visible=true) ou efface (visible=false) le texte "RecalBox
-// connectee", centre horizontalement, avec la meme ombre noir/blanc
-// qu'avant -- clignotant pendant tout l'affichage (voir loop(), toggle
-// periodique). Centre le calcule dynamiquement (largeur variable selon la
-// langue) plutot qu'une position fixe.
+// connectee", centre horizontalement ET verticalement, avec la meme ombre
+// noir/blanc qu'avant -- clignotant pendant tout l'affichage (voir loop(),
+// toggle periodique). Centre horizontal calcule dynamiquement (largeur
+// variable selon la langue) plutot qu'une position fixe.
 void drawRecalboxConnectedOverlay(bool visible)
 {
-  display->fillRect(0, 24, RAW565_W, 8, 0);
+  // Texte ~8px de haut (setTextSize(1)) -- centre verticalement sur la
+  // hauteur du panneau plutot qu'une position fixe pres du bas (bug remonte
+  // en test reel 2026-08-03 : texte pas centre dans l'image).
+  const int textY = (RAW565_H - 8) / 2;
+  // Efface l'ancien texte en redessinant la bande de fond depuis le cache
+  // RAM de l'image de secours, PAS en la noircissant (bug remonte en test
+  // reel 2026-08-03 : un bandeau noir opaque masquait le GIF/image de fond
+  // pendant la phase "invisible" du clignotement). Repli sur fillRect
+  // uniquement si le cache n'est pour une raison quelconque pas disponible
+  // a cet instant (ne devrait pas arriver : CMD_WAITING_MQTT appelle deja
+  // drawDefaultRaw565Cached() avant le premier appel a cette fonction).
+  if (defaultRaw565Cached && defaultRaw565Buf) {
+    for (int y = textY; y < textY + 8 && y < RAW565_H; y++)
+      display->drawRGBBitmap(0, y, defaultRaw565Buf + (size_t)y * RAW565_W, RAW565_W, 1);
+  } else {
+    display->fillRect(0, textY, RAW565_W, 8, 0);
+  }
   if (!visible) return;
   display->setTextWrap(false);
   display->setTextSize(1);
@@ -2831,10 +3006,10 @@ void drawRecalboxConnectedOverlay(bool visible)
   int x = (RAW565_W - textW) / 2;
   if (x < 0) x = 0;
   display->setTextColor(display->color565(0, 0, 0));
-  display->setCursor(x + 1, 25);
+  display->setCursor(x + 1, textY + 1);
   display->print(txt);
   display->setTextColor(display->color565(255, 255, 255));
-  display->setCursor(x, 24);
+  display->setCursor(x, textY);
   display->print(txt);
 }
 
@@ -2893,12 +3068,29 @@ void processPendingMqttCommand()
   {
   case MqttCommand::CMD_STOP:
     if(currentMode==MODE_PLAYLIST||g_sdOpInProgress){Serial.println("[MQTT] stop ignored");break;}
+    g_mqttConnectedScreenUntilMs = 0;
+    g_mqttDefaultPendingAfterMinDisplay = false;
     gif.close();gifOpened=false;currentPngPath="";pngDrawn=false;
     currentMode=MODE_BLACK;display->clearScreen();
     break;
 
   case MqttCommand::CMD_DEFAULT:
     if (g_sdOpInProgress) { Serial.println("[MQTT] default ignored (web open)"); break; }
+    g_lastMqttWasDefault = true; // v50 -- pose ici, avant meme le differe eventuel : RB a bien annonce "default"
+    // Delai minimum d'affichage de l'ecran "RecalBox connectee" (v49) : si
+    // ce default arrive PENDANT que cet ecran est encore affiche ET avant le
+    // delai minimum, on ne bascule pas tout de suite -- on memorise l'action
+    // pour l'appliquer automatiquement une fois le delai ecoule (voir
+    // loop()), au lieu de l'ignorer (ancien bug) ou de basculer trop tot
+    // (regression du fix v46).
+    if (g_mqttConnectedScreenUntilMs != 0 && millis() < g_mqttWaitingMinDisplayUntilMs)
+    {
+      Serial.println("[MQTT] default recu pendant l'ecran de connexion -- differe jusqu'au delai minimum");
+      g_mqttDefaultPendingAfterMinDisplay = true;
+      break;
+    }
+    g_mqttConnectedScreenUntilMs = 0;
+    g_mqttDefaultPendingAfterMinDisplay = false;
     resumePlaylist();
     break;
 
@@ -2931,16 +3123,24 @@ void processPendingMqttCommand()
         // Le clignotement (loop()) prend le relais juste apres.
         drawRecalboxConnectedOverlay(true);
       }
-      // Reprise automatique de la playlist apres un delai fixe (demande
-      // utilisateur) -- ne plus attendre indefiniment le 1er message MQTT
-      // reel (system/game). Verifie dans loop() (voir plus bas) ; sans effet
-      // si un vrai media a deja pris la main sur l'affichage entre-temps.
-      g_mqttConnectedScreenUntilMs = millis() + MQTT_CONNECTED_SCREEN_MS;
+      // Drapeau "ecran d'attente actif" (pilote uniquement le clignotement,
+      // voir loop()) -- plus d'expiration par delai, on attend indefiniment
+      // le prochain vrai message MQTT (v45, voir commentaire pres de la
+      // declaration de g_mqttConnectedScreenUntilMs).
+      g_mqttConnectedScreenUntilMs = 1;
+      // Delai minimum d'affichage (v49) : reinitialise a chaque nouvel
+      // affichage de cet ecran -- voir declaration de
+      // MQTT_WAITING_MIN_DISPLAY_MS pour le detail complet.
+      g_mqttWaitingMinDisplayUntilMs = millis() + MQTT_WAITING_MIN_DISPLAY_MS;
+      g_mqttDefaultPendingAfterMinDisplay = false;
     }
     break;
 
   case MqttCommand::CMD_SYSTEM:
     if (g_sdOpInProgress) { Serial.println("[MQTT] system ignored (web open)"); break; }
+    g_mqttConnectedScreenUntilMs = 0;
+    g_mqttDefaultPendingAfterMinDisplay = false; // un vrai system prend le pas sur un default differe (v49)
+    g_lastMqttWasDefault = false; // v50
     gif.close();gifOpened=false;pngDrawn=false;currentPngPath="";
     currentMode=MODE_BLACK;
     if(nextGifFile){nextGifFile.close();nextGifFile=File();nextGifPath="";}
@@ -2951,6 +3151,9 @@ void processPendingMqttCommand()
 
   case MqttCommand::CMD_GAME:
     if (g_sdOpInProgress) { Serial.println("[MQTT] game ignored (web open)"); break; }
+    g_mqttConnectedScreenUntilMs = 0;
+    g_mqttDefaultPendingAfterMinDisplay = false; // un vrai jeu prend le pas sur un default differe (v49)
+    g_lastMqttWasDefault = false; // v50
   {
     int slash=cmd.arg.indexOf('/');
     String sysName=(slash>=0)?cmd.arg.substring(0,slash):cmd.arg;
@@ -3285,12 +3488,18 @@ void processPendingMqttCommand()
 
   case MqttCommand::CMD_STARTCLIP:
     if (g_sdOpInProgress) { Serial.println("[MQTT] startclip ignored"); break; }
+    g_mqttConnectedScreenUntilMs = 0;
+    g_mqttDefaultPendingAfterMinDisplay = false;
+    g_lastMqttWasDefault = true; // v50
     Serial.println("[MQTT] startgameclip -> playlist");
     resumePlaylist();
     break;
 
   case MqttCommand::CMD_RESUMESYS:
     if (g_sdOpInProgress) { Serial.println("[MQTT] resumesys ignored"); break; }
+    g_mqttConnectedScreenUntilMs = 0;
+    g_mqttDefaultPendingAfterMinDisplay = false;
+    g_lastMqttWasDefault = false; // v50
     Serial.println("[MQTT] resumesys -> "+cmd.arg);
     gif.close();gifOpened=false;pngDrawn=false;currentPngPath="";
     currentMode=MODE_BLACK;
@@ -3368,13 +3577,24 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
   // "system=lastplayed" publie par le pont marquee lors d'une session
   // precedente) arrive quasi instantanement a la connexion et ecraserait
   // sinon l'image de secours avant meme qu'elle soit visible. On ignore
-  // uniquement default/system/game pendant cette fenetre tres courte (1.5s) --
+  // uniquement system/game pendant cette fenetre tres courte (1.5s) --
   // stop/show_config/wifi_recovery/reboot restent des actions explicites,
-  // jamais suppriemees.
+  // jamais supprimees.
+  // "default" RETIRE de ce filtre (v45, 2026-08-03, bug reel confirme :
+  // detection clip/demo ne fonctionnait pas si RB etait DEJA en mode demo au
+  // moment de la connexion MQTT -- son message "default" arrive alors lui
+  // aussi quasi instantanement, dans cette meme fenetre, et etait ignore a
+  // tort comme s'il s'agissait d'un retenu perime). Contrairement a
+  // system/game (qui peuvent afficher un JEU perime/faux), "default" ne
+  // presente aucun risque a etre honore immediatement, retenu ou frais : il
+  // reflete toujours le DERNIER etat connu reel de RB (veille/demo), jamais
+  // "faux" en soi -- et depuis le retrait de la reprise auto par delai (v45
+  // egalement), c'est desormais le SEUL moyen de sortir de l'ecran d'attente
+  // si RB est deja en demo a la connexion.
   bool inWaitingGrace = (millis() < g_mqttWaitingUntilMs);
 
   if     (t=="marquee/cmd/stop")    pendingCmd=MqttCommand(MqttCommand::CMD_STOP,"");
-  else if(t=="marquee/cmd/default") { if(!inWaitingGrace) pendingCmd=MqttCommand(MqttCommand::CMD_DEFAULT,""); }
+  else if(t=="marquee/cmd/default") pendingCmd=MqttCommand(MqttCommand::CMD_DEFAULT,"");
   else if(t=="marquee/cmd/system")  { if(!inWaitingGrace) {lastSysName=msg;pendingCmd=MqttCommand(MqttCommand::CMD_SYSTEM,msg);} }
   else if(t=="marquee/cmd/game")    { if(!inWaitingGrace) pendingCmd=MqttCommand(MqttCommand::CMD_GAME,msg); }
   else if(t=="marquee/cmd/show_config") pendingCmd=MqttCommand(MqttCommand::CMD_SHOW_CONFIG,"");
@@ -3816,7 +4036,7 @@ int buildOffsetIndex()
 // --------------------------------------------------
 // Splash screen â€” version au dÃ©marrage (info=1 uniquement)
 // --------------------------------------------------
-#define RETRO_VERSION "Raw565 Ed. dev_pl"
+#define RETRO_VERSION "Raw565 Ed. dev12"
 
 void showSplashScreen()
 {
@@ -4504,23 +4724,33 @@ start_mqtt_task:
 void loop()
 {
   handleWebConfig(); maintainWiFi(); maintainApRecovery(); processPendingMqttCommand();
-  // Reprise auto de la playlist apres l'ecran "RecalBox connectee" (voir
-  // CMD_WAITING_MQTT) -- sans effet si un vrai media (system/game) a deja
-  // pris la main sur l'affichage entre-temps (currentPngPath change).
-  if (g_mqttConnectedScreenUntilMs != 0 && millis() >= g_mqttConnectedScreenUntilMs)
+  // Application differee d'un "default" recu trop tot (v49, 2026-08-03,
+  // demande explicite utilisateur) : voir CMD_DEFAULT/declaration de
+  // MQTT_WAITING_MIN_DISPLAY_MS pour le detail complet -- ici, on se
+  // contente d'appliquer l'action memorisee des que le delai minimum
+  // d'affichage de l'ecran "RecalBox connectee" est ecoule.
+  if (g_mqttDefaultPendingAfterMinDisplay && millis() >= g_mqttWaitingMinDisplayUntilMs)
   {
+    g_mqttDefaultPendingAfterMinDisplay = false;
     g_mqttConnectedScreenUntilMs = 0;
-    if (currentMode == MODE_PNG && currentPngPath == String(DEFAULT_RAW565_PATH) && !g_sdOpInProgress)
-    {
-      Serial.println("[MQTT] fin ecran connexion -> reprise playlist");
-      resumePlaylist();
-    }
+    Serial.println("[MQTT] default differe applique -> reprise playlist");
+    resumePlaylist();
   }
   // Clignotement du texte "RecalBox connectee" pendant tout l'affichage
-  // (demande utilisateur 2026-07-29) -- meme garde que la reprise auto
-  // ci-dessus (sans effet si un vrai media a deja pris la main). Toggle
-  // simple ~2 fois/seconde, pas de garde-fou de cout necessaire (juste un
-  // fillRect + eventuellement 2 print, deja fait a chaque CMD_WAITING_MQTT).
+  // (demande utilisateur 2026-07-29) -- sans effet si un vrai media a deja
+  // pris la main. Toggle simple ~2 fois/seconde, pas de garde-fou de cout
+  // necessaire (juste un redessin de bande + eventuellement 2 print, deja
+  // fait a chaque CMD_WAITING_MQTT).
+  // v45 (2026-08-03) -- reprise automatique de la playlist par delai fixe
+  // RETIREE (demande explicite utilisateur, comportement confirme errone en
+  // test reel) : la logique voulue est d'attendre INDEFINIMENT un vrai
+  // message MQTT tant que la Recalbox reste connectee -- c'est elle qui
+  // decide quand revenir a la playlist (CMD_DEFAULT, pont marquee sur
+  // veille/lecture d'un clip), jamais un delai arbitraire cote DMD.
+  // g_mqttConnectedScreenUntilMs n'est plus un horodatage d'expiration mais
+  // un simple drapeau "ecran d'attente actif" (pose a CMD_WAITING_MQTT,
+  // remis a 0 des qu'un vrai contenu prend la main : CMD_DEFAULT/CMD_SYSTEM/
+  // CMD_GAME/CMD_STOP) -- utilise uniquement pour piloter ce clignotement.
   if (g_mqttConnectedScreenUntilMs != 0 && currentMode == MODE_PNG && currentPngPath == String(DEFAULT_RAW565_PATH) && !g_sdOpInProgress)
   {
     static unsigned long lastBlinkMs = 0;
