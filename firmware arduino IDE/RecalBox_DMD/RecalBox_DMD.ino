@@ -1,7 +1,29 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v42
+// Version actuelle : v43
+//
+// v43 - 2026-08-03 - safe-modify - Suite de v42 (question utilisateur :
+//   "Reprendre DMD" apres une copie relance la playlist ET MQTT, mais sans
+//   les 3 caches sautes -- est-ce un probleme ?). Reponse : pas pour la
+//   playlist (aucune dependance), mais sysDefaultType()/sysDefaultSlowFlag()/
+//   findInGamesCache() renvoyaient silencieusement '?'/'N' en permanence
+//   pour tout systeme/jeu si le cache n'avait jamais ete charge -- pas un
+//   crash (replis existants sur PNG/GIF), mais des icones systeme/jeu plus
+//   lentes/potentiellement mal choisies jusqu'au prochain reboot complet.
+//   Choix retenu (vs forcer un reboot complet a "Reprendre DMD", qui aurait
+//   annule tout l'interet du reboot cible rapide) : chargement PARESSEUX,
+//   meme principe deja utilise par ensureDefaultRaw565Cached() -- nouveaux
+//   sysCacheLoadAttempted/gamesCacheLoadAttempted, nouvelles
+//   ensureSysDefaultCacheLoaded()/ensureGamesIndexLoaded() appelees en tete
+//   de sysDefaultType()/sysDefaultSlowFlag()/findInGamesCache(), rechargent
+//   le .dat/.bin existant (jamais buildSysDefaultCache(), scan recursif
+//   trop long pour un chemin pouvant etre atteint en plein evenement MQTT)
+//   une seule fois au premier vrai besoin si jamais charge au boot. Sur un
+//   boot normal, les deux flags sont mis a true juste apres le chargement
+//   eager habituel dans setup() -- aucun changement de comportement/cout
+//   sur le chemin de boot normal. Compilation via compile.ps1 : OK. PAS
+//   ENCORE teste sur materiel reel.
 //
 // v42 - 2026-08-02 - safe-modify - Demande explicite utilisateur : sur un
 //   boot "reboot cible mode config" (g_skipPlaylistForConfig), sauter le
@@ -709,9 +731,37 @@ static char (*sysCacheKeys)[32] = nullptr; // SYS_CACHE_MAX x 32 (heap)
 static char *sysCacheVals = nullptr;       // SYS_CACHE_MAX (heap)
 static char *sysCacheSlowVals = nullptr;   // SYS_CACHE_MAX (heap)
 static int  sysCacheCount = 0;
+// v43 -- chargement paresseux (demande explicite utilisateur, 2026-08-03) :
+// sur un boot "reboot cible mode config" (g_skipPlaylistForConfig), ce
+// cache est deliberement saute au demarrage (voir setup()) car inutile
+// pendant la copie -- mais si l'utilisateur clique "Reprendre DMD" ensuite
+// et que MQTT se reconnecte reellement, sysDefaultType()/sysDefaultSlowFlag()
+// ont quand meme besoin d'un cache valide pour les icones systeme/jeu.
+// sysCacheLoadAttempted distingue "jamais tente" (charger a la demande, une
+// seule fois) de "deja tente, cache vide car fichier absent" (ne pas
+// retenter a chaque appel -- couteux, appele tres frequemment). Sur un boot
+// normal, mis a true juste apres le chargement eager habituel dans setup().
+static bool sysCacheLoadAttempted = false;
+
+static void ensureSysDefaultCacheLoaded()
+{
+  if (sysCacheLoadAttempted) return;
+  sysCacheLoadAttempted = true;
+  // Uniquement loadSysDefaultCache() (lecture rapide du .dat existant) --
+  // JAMAIS buildSysDefaultCache() ici (scan recursif complet, potentiellement
+  // long) : ce chemin peut etre atteint en plein traitement d'un evenement
+  // MQTT temps reel, un scan long y serait inapproprie. Le .dat existe deja
+  // forcement si ce boot fait suite a un boot normal anterieur (seul cas
+  // realiste pour atteindre ce chemin).
+  if (loadSysDefaultCache())
+    Serial.println("[CACHE] charge a la demande (post-copie): " + String(sysCacheCount) + " systemes");
+  else
+    Serial.println("[CACHE] charge a la demande: /systems_cache.dat absent");
+}
 
 char sysDefaultType(const String &sysName)
 {
+  ensureSysDefaultCacheLoaded();
   for (int i = 0; i < sysCacheCount; i++)
     if (sysName == sysCacheKeys[i]) return sysCacheVals[i];
   return '?';
@@ -719,6 +769,7 @@ char sysDefaultType(const String &sysName)
 
 char sysDefaultSlowFlag(const String &sysName)
 {
+  ensureSysDefaultCacheLoaded();
   for (int i = 0; i < sysCacheCount; i++)
     if (sysName == sysCacheKeys[i]) return sysCacheSlowVals[i];
   return 'N';
@@ -966,6 +1017,24 @@ bool loadGamesIndex()
   return gamesIdxCount > 0;
 }
 
+// v43 -- chargement paresseux (meme principe et meme justification que
+// ensureSysDefaultCacheLoaded() ci-dessus) : sur un boot "reboot cible mode
+// config", ce cache est saute au demarrage -- rechargement automatique, une
+// seule fois, au premier vrai besoin (findInGamesCache(), typiquement un
+// evenement MQTT CMD_GAME apres "Reprendre DMD"). Sur un boot normal, mis a
+// true juste apres le chargement eager habituel dans setup().
+static bool gamesCacheLoadAttempted = false;
+
+static void ensureGamesIndexLoaded()
+{
+  if (gamesCacheLoadAttempted) return;
+  gamesCacheLoadAttempted = true;
+  if (!loadGamesIndex())
+    Serial.println("[GCACHE] charge a la demande: " + gamesCacheFile + " absent");
+  else
+    Serial.println("[GCACHE] charge a la demande (post-copie): " + String(gamesIdxCount) + " systemes");
+}
+
 // Charge la table bigramme du systeme en heap (une seule lecture SD)
 bool loadBigramTable(const String &sysName)
 {
@@ -1073,6 +1142,7 @@ static inline bool sysIsSlow(const String &sysName)
 
 char findInGamesCache(const String &sysName, const String &gameName)
 {
+  ensureGamesIndexLoaded();
   if (gamesIdxCount == 0) return '?';
 
   int    bi          = bigramIndex(gameName);
@@ -4196,6 +4266,7 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
   ensureDefaultRaw565Cached();
   if (defaultRaw565Cached) Serial.println("[CACHE] default.raw565 en RAM");
   else                     Serial.println("[CACHE] default.raw565 absent");
+  sysCacheLoadAttempted = true;
   } else {
     Serial.println("[CACHE] reboot cible mode config -- caches systemes/default.raw565 sautes");
   }
@@ -4210,6 +4281,7 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
     Serial.println("[GCACHE] "+gamesCacheFile+" absent");
   else
     Serial.println("[GCACHE] OK - "+String(gamesIdxCount)+" systemes");
+  gamesCacheLoadAttempted = true;
   } else {
     Serial.println("[GCACHE] reboot cible mode config -- cache jeux saute");
   }
