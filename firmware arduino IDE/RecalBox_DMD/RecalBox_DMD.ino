@@ -1,7 +1,27 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v40
+// Version actuelle : v41
+//
+// v41 - 2026-08-02 - safe-modify - Reintroduction du reboot cible mode
+//   config (g_skipPlaylistForConfig/force_config_boot/g_playlistStartedThisBoot),
+//   retire en v37 (commit "v93") sur la foi d'une comparaison qui ne portait
+//   pas sur ce symptome precis. Cause reelle (memoire projet, deja
+//   documentee) : chaque SD.open() d'un GIF alloue en interne un buffer
+//   setvbuf(4096) jamais recycle proprement -- apres quelques dizaines de
+//   GIFs, ESP.getMaxAllocHeap() plafonne durablement vers 4500-5300 octets,
+//   quel que soit le temps ecoule ensuite. Confirme en test reel 2026-08-02 :
+//   avec le garde heap<6000 de l'upload (web_config.h v42) seul, ce plafond
+//   bloquait ~99% des uploads des que la playlist avait tourne un moment.
+//   `requestReboot` (variable + check dans loop()) etait deja reste en place,
+//   orphelin, depuis le retrait v37 -- reutilise tel quel. Bloc de boot
+//   dedie replace a l'identique de l'ancienne implementation (juste avant le
+//   check playlistName.length()==0), `g_playlistStartedThisBoot=true` pose
+//   au premier openNextGif() de boot. Le chantier de fond (remplacer
+//   SD.open() par fopen()/setvbuf() statique pour la lecture GIF) est traite
+//   separement sur une branche dev dediee -- ce reboot reste le contournement
+//   en attendant. Compilation via compile.ps1 : OK. PAS ENCORE teste sur
+//   materiel reel.
 //
 // v40 - 2026-08-01 - safe-modify - Partie C du plan "cache_master_gifs" :
 //   renommage automatique de l'etiquette de volume SD au boot vers
@@ -1219,6 +1239,22 @@ unsigned long g_sdOpLastScroll1 = 0;
 bool     g_configDmdDirty = false;
 bool     g_firstBoot = true;
 bool     g_forceApRecovery = false; // force_ap_recovery: demande via marquee/cmd/wifi_recovery
+// v41 -- REINTRODUITS (retires en v37/commit "v93") : le plancher heap
+// ~4596 octets du au buffer setvbuf(4096) alloue par SD.open() (voir memoire
+// projet, "fuite ~4200 octets/GIF") est reapparu en test reel (upload MEDIA
+// bloque presque a 100%, 2026-08-02) -- retire a l'epoque par comparaison
+// avec RecalBox_DMDv10_scriptsRB qui n'en a jamais eu besoin, mais cette
+// comparaison ne concernait pas ce symptome precis (elle portait sur le
+// nombre de requetes HTTP par upload). La cause racine (setvbuf non statique
+// dans la lib FS) n'a jamais ete corrigee -- ce reboot cible reste le seul
+// contournement valide sur ce firmware en attendant le futur chantier
+// fopen()/setvbuf statique (branche dev separee).
+bool     g_skipPlaylistForConfig = false; // force_config_boot (config.ini) : ce boot doit sauter
+  // directement en mode config sans jamais lancer la playlist/ouvrir de GIF --
+  // consomme (remis a "0" dans config.ini) des lecture dans loadConfig().
+bool     g_playlistStartedThisBoot = false; // true des que la playlist/le 1er GIF a reellement
+  // demarre ce boot -- sert a triggerWebConfigMode() (web_config.h) pour savoir si un reboot
+  // "propre" (sans playlist) apporterait un vrai gain de heap avant d'entrer en mode config.
 String   uiLanguage = "fr"; // language: fr/en/es -- transmis par l'outil Windows via config.ini,
                              // pilote les bannieres informatives DMD + pages web (voir trOpenBrowserAt() etc.)
 
@@ -3599,6 +3635,7 @@ void loadConfig()
     else if(key=="mqtt_event_topic"   &&value.length())  mqttEventTopic   =value;
     else if(key=="first_boot")                           g_firstBoot      =(value!="0");
     else if(key=="force_ap_recovery")                    g_forceApRecovery=(value!="0");
+    else if(key=="force_config_boot")                    g_skipPlaylistForConfig=(value!="0");
     else if(key=="language" && (value=="fr"||value=="en"||value=="es")) uiLanguage=value;
   }
   cfg.close();
@@ -4202,6 +4239,57 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
     goto start_mqtt_task;
   }
 
+  if (g_skipPlaylistForConfig) {
+    // Reboot demande par triggerWebConfigMode() (web_config.h) pour repartir
+    // en mode config avec un maximum de heap disponible -- ne JAMAIS lancer
+    // la playlist/ouvrir de GIF sur ce boot precis (chaque GIF ouvert perd
+    // durablement quelques Ko de heap via le buffer setvbuf(4096) alloue par
+    // SD.open(), jamais recupere avant reboot -- et meme mettre en pause UN
+    // SEUL GIF deja ouvert fragmente fortement le heap, confirme en test reel
+    // 2026-07-27 puis reconfirme 2026-08-02). Flag consomme immediatement
+    // (config.ini remis a "0") pour qu'un reboot normal ulterieur
+    // ("Redemarrer") reparte bien en boot playlist standard, pas en boucle
+    // sur ce chemin.
+    writeConfigFlag("force_config_boot", "0");
+    // Charge quand meme l'index playlist (gifCount), SANS jamais ouvrir de
+    // GIF ni dessiner l'ecran playlist (showPlaylistInfoScreen()) -- lecture
+    // seule d'un fichier .idx deja existant, cout heap negligeable (~7ms
+    // mesures en conditions reelles). Sans ca, "Reprendre DMD" (resumePlaylist(),
+    // qui ne fait rien si gifCount==0) laissait un ecran noir en sortie de
+    // config -- gifCount ne serait sinon jamais initialise sur ce chemin.
+    // Si le cache playlist est perime (signature differente), gifCount reste
+    // a 0 pour ce boot precis (limite acceptee : cas rare, un vrai reboot
+    // normal ulterieur reconstruira le cache comme d'habitude).
+    if (playlistName.length() > 0) {
+      uint32_t curSig = computeFileHash(playlistSourcePath);
+      uint32_t savSig = readSavedSignature();
+      if (curSig && curSig == savSig) {
+        if (idxFileHandle) idxFileHandle.close();
+        idxFileHandle = SD.open(playlistIdxPath, FILE_READ);
+        if (idxFileHandle) {
+          size_t idxSize = idxFileHandle.size();
+          gifCount = (idxSize >= 4) ? (int)(idxSize / 4) : 0;
+          if (!playlistRandom) {
+            if (seqPlaylistFile) seqPlaylistFile.close();
+            seqPlaylistFile = SD.open(playlistCachePath, FILE_READ);
+            playIndex = 0;
+          }
+        }
+      }
+    }
+    {
+      String ip = WiFi.localIP().toString();
+      g_sdOpMsg = trConfigPageMsg();
+      g_sdOpSubMsg = trOpenUrl(ip);
+      g_sdOpSubMsgColor = 0x07E0;
+      g_sdOpInProgress = true;
+      currentMode = MODE_CONFIG;
+      g_configDmdDirty = true;
+      Serial.println("[BOOT] Reboot cible mode config (heap max) -> http://" + ip + " gifCount=" + String(gifCount));
+    }
+    goto start_mqtt_task;
+  }
+
   if(playlistName.length()==0){
     String ip = WiFi.localIP().toString();
     if (ip == "0.0.0.0") ip = WiFi.softAPIP().toString();
@@ -4289,6 +4377,7 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
       Serial.println("[BOOT] Playlist empty -> config mode sur http://" + ip);
       goto start_mqtt_task;
     }
+    g_playlistStartedThisBoot = true;
     playIndex=0;lastRandomIndex=-1;currentMode=MODE_PLAYLIST;openNextGif();
     Serial.println("[BOOT] apres 1er openNextGif, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
   }

@@ -3,7 +3,156 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v35
+// Version actuelle : v43
+//
+// v43 — 2026-08-02 — safe-modify — Test reel du garde heap<6000 (v42) :
+//   bloquait ~99% des uploads MEDIA des que la playlist avait tourne un
+//   moment (maxalloc reste bloque a 4596, jamais de recuperation meme apres
+//   le delai(10) de v91) -- ce n'est pas un creux transitoire mais un
+//   plancher STABLE, deja documente en memoire projet : chaque SD.open()
+//   d'un GIF alloue un buffer setvbuf(4096) jamais recycle proprement,
+//   plafonnant durablement le heap. Ce plancher avait deja motive un reboot
+//   cible mode config (commit "v88", 2026-07-27), retire ensuite (commit
+//   "v93") sur la foi d'une comparaison qui portait en realite sur un autre
+//   symptome (nombre de requetes HTTP par upload) -- la cause racine du
+//   plafond heap n'a donc jamais ete corrigee. Decision utilisateur
+//   (2026-08-02) : reintroduire ce reboot cible sur CE firmware, et traiter
+//   la vraie correction de fond (fopen()/setvbuf() statique pour la lecture
+//   GIF) separement sur une branche dev dediee. `triggerWebConfigMode()`
+//   repasse en `bool` (`false` = reboot deja declenche, reponse deja
+//   envoyee via la nouvelle `sendRebootingPage()` -- l'appelant doit
+//   s'arreter sans repondre) ; les 6 points d'appel (handleDmdOpen + les 5
+//   handlers de page) verifient desormais la valeur de retour. Le point
+//   d'appel dans `UPLOAD_FILE_START` (v41) reste volontairement en pause
+//   inline SANS passer par `triggerWebConfigMode()` -- un reboot depuis ce
+//   callback enverrait sa reponse HTTP en plein milieu du corps multipart
+//   entrant, cassant la requete en cours (meme classe de bug que le
+//   `send()` premature deja corrige sur ce chemin). Cote .ino : restauration
+//   a l'identique de `g_skipPlaylistForConfig`/`force_config_boot`,
+//   `g_playlistStartedThisBoot`, et du bloc de boot dedie qui saute
+//   entierement la playlist/l'ouverture de GIF quand le flag est pose.
+//   `requestReboot` (variable + check dans loop()) etait reste orphelin
+//   depuis le retrait de juillet -- reutilise tel quel. Compilation via
+//   compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
+//
+// v42 — 2026-08-02 — safe-modify — Test reel 151 fichiers (v41) : crash
+//   DIFFERENT des precedents malgre le try/catch (v40) -- abort() dans
+//   lock_init_generic() (newlib), appele depuis fopen()->__sfp() lors de
+//   l'ouverture du fichier cible (SD.open() dans UPLOAD_FILE_START),
+//   backtrace decodee via addr2line. Cet abort() est un appel direct (assert
+//   interne newlib sur l'allocation du mutex de flux FILE*), PAS une
+//   exception C++ -- le try/catch de handleWebConfig() ne peut structurel-
+//   lement pas l'intercepter. Cause racine identifiee : le garde heap
+//   critique (ESP.getMaxAllocHeap()<6000, avec retry-apres-delai(10ms), voir
+//   v91 ancien historique) qui refusait proprement l'upload AVANT le
+//   SD.open() a ete perdu lors de la refonte multi-fichiers (v34-v40) --
+//   plus rien n'empechait d'atteindre SD.open() avec un heap deja au plus
+//   bas. Reintroduit a l'identique en tete de UPLOAD_FILE_START, avant toute
+//   operation SD (mkdir/exists/open), pour retablir le refus propre a la
+//   place du crash. Compilation via compile.ps1 : OK. PAS ENCORE teste sur
+//   materiel reel.
+//
+// v41 — 2026-08-02 — safe-modify — Retour utilisateur : nettement plus
+//   d'echecs d'upload qu'avant cette session (151 fichiers sans aucun
+//   echec auparavant). Deux corrections : (1) AbortController remonte de
+//   12s a 25s -- 12s coupait prematurement des transferts LENTS MAIS QUI
+//   AURAIENT REUSSI (jusqu'a ~11s observes sous heap tendu, tres proche de
+//   l'ancienne limite), plus court que le timeout serveur lui-meme (15s) ;
+//   25s laisse une marge confortable au-dessus des deux. (2)
+//   HTTP_UPLOAD_BUFLEN RETIRE completement (retour au defaut bibliotheque,
+//   1436) -- sa reduction ralentissait les transferts (plus d'appels
+//   SD.write() par fichier) sans benefice net demontre, et le try/catch de
+//   handleWebConfig() (v40) rend cette customisation inutile : le crash
+//   est desormais sans consequence quelle que soit la taille du buffer.
+//   Ajout d'une passe de re-tentative finale (2026-08-02, retour test reel
+//   sur un lot de 34 fichiers -- 13 echecs en fin de lot) : apres le lot
+//   principal, les fichiers en echec beneficient d'une seconde chance
+//   (pause 1.5s puis jusqu'a 3 nouvelles tentatives chacun) une fois le
+//   reste du lot termine, le tas ayant eu le temps de se stabiliser un
+//   peu. Compilation via compile.ps1 : OK (0 erreur, 63% flash, 28% RAM).
+//   PAS ENCORE teste sur materiel reel.
+//
+// v40 — 2026-08-02 — safe-modify — Retour test reel : descendre
+//   HTTP_UPLOAD_BUFLEN a 256 n'ameliore pas clairement les choses (effet
+//   contraire possible non anticipe -- bien plus d'appels SD.write() par
+//   gros fichier, potentiellement plus de fragmentation cumulee cote
+//   bibliotheque SD/FatFs) et ralentit nettement les transferts -- remis a
+//   512 (meilleur compromis observe). Nouvelle ligne de defense
+//   PRINCIPALE : handleWebConfig() enveloppe desormais
+//   webServer->handleClient() dans un try/catch -- les exceptions C++ sont
+//   bien compilees dans ce build (confirme : __cxa_throw present dans
+//   toutes les traces de crash decodees, jamais genere avec
+//   -fno-exceptions), donc l'exception std::bad_alloc levee par
+//   WebServer::_parseForm() (operator new() de HTTPUpload echoue sous heap
+//   fragmente) devrait desormais etre rattrapee AVANT std::terminate()/
+//   abort() -- convertit un crash+reboot complet en simple echec de LA
+//   requete en cours, loop() continue normalement. Risque assume, non
+//   verifie : la bibliotheque n'est pas concue pour etre interrompue par
+//   une exception en cours de route, son etat interne pourrait rester
+//   incoherent pour l'appel suivant -- a tester en priorite. Egalement :
+//   handleWebConfigUploadFile() reengage desormais le mode config
+//   (triggerWebConfigMode()) des le premier octet d'un upload si pas deja
+//   actif (g_sdOpInProgress) -- couvre le cas ou le navigateur relance
+//   l'upload tout seul apres un crash+reboot SANS recharger de page
+//   d'abord, qui laissait sinon MQTT/lecture GIF actifs pendant l'upload.
+//   Compilation via compile.ps1 : OK (0 erreur, 63% flash, 28% RAM). PAS
+//   ENCORE teste sur materiel reel.
+//
+// v39 — 2026-08-02 — safe-modify — HTTP_UPLOAD_BUFLEN descendu de 512 a 256
+//   (retour test reel : 512 reduisait la frequence du crash sans l'eliminer
+//   -- 0 crash sur un run de 15 fichiers, 2 crashs sur le suivant). Ajout
+//   AbortController (12s) sur le fetch d'upload JS -- detection d'echec
+//   reseau plus rapide que le timeout TCP systeme (15-70s+ mesures dans le
+//   .har navigateur), relance une tentative plus tot. Compilation via
+//   compile.ps1 : OK (0 erreur, 63% flash, 28% RAM). PAS ENCORE reteste sur
+//   materiel reel.
+//
+// v38 — 2026-08-02 — safe-modify — Retour a l'upload fichier par fichier
+//   (abandon du regroupement par paquets de v36, confirme en test reel ne
+//   pas reduire la frequence du crash -- celui-ci se produit par fichier
+//   traite dans le corps multipart, pas par connexion) -- simplification
+//   demandee par l'utilisateur pour isoler proprement l'effet du seul
+//   correctif HTTP_UPLOAD_BUFLEN=512 (v37). Ajout d'un log diagnostique
+//   temporaire au demarrage (sizeof(HTTPUpload)/HTTP_UPLOAD_BUFLEN) pour
+//   confirmer que la redefinition est bien prise en compte par la
+//   bibliotheque. Compilation via compile.ps1 : OK (0 erreur, 63% flash,
+//   28% RAM). PAS ENCORE teste sur materiel reel.
+//
+// v37 — 2026-08-02 — safe-modify — Cause racine reelle du crash upload
+//   trouvee (le regroupement par lot de v36 ne la corrigeait pas, confirme
+//   en test reel -- 2 crashs sur 15 fichiers, frequence inchangee) : lu le
+//   source de la bibliotheque WebServer (Parsing.cpp ligne ~496),
+//   _currentUpload.reset(new HTTPUpload()) alloue une structure qui
+//   EMBARQUE un buffer uint8_t[HTTP_UPLOAD_BUFLEN] -- 1436 octets par
+//   defaut, EN UN SEUL BLOC CONTIGU, a CHAQUE fichier rencontre dans le
+//   corps multipart (independant du nombre de connexions). #define
+//   HTTP_UPLOAD_BUFLEN 512 AVANT le premier #include <WebServer.h> du
+//   projet (personnalisation legitime prevue par la bibliotheque via son
+//   garde #ifndef, pas un patch de son code source) -- reduit d'environ
+//   2.8x la taille de l'allocation critique. Compilation via compile.ps1 :
+//   OK (0 erreur, 63% flash, 28% RAM -- inchange, HTTPUpload est allouee
+//   dynamiquement, pas globale). PAS ENCORE teste sur materiel reel.
+//
+// v36 — 2026-08-02 — safe-modify — Fiabilisation de l'upload MEDIA (hors
+//   plan cache_master_gifs, suite a analyse .har navigateur pendant la
+//   session de test) : cause racine identifiee -- WebServer force
+//   "Connection: close" sur CHAQUE reponse (WebServer.cpp de la
+//   bibliotheque, non modifiable), donc chaque requete HTTP = une nouvelle
+//   poignee de main TCP, individuellement exposee a une perte de paquet
+//   SYN/ACK WiFi (net::ERR_CONNECTION_RESET/ABORTED confirmes dans le .har,
+//   15-70s de blocage sur l'etablissement de connexion, jamais un
+//   ralentissement de traitement serveur). handleWebConfigUploadFile()
+//   generalisee pour accepter PLUSIEURS fichiers dans une seule requete
+//   multipart (uploadCurName/uploadBatchResults/uploadBatchOkCount,
+//   reponse JSON {ok,files:[{name,ok,err}]} au lieu d'un texte simple) ;
+//   uploadGif() (JS) regroupe desormais les fichiers par paquets de 4 --
+//   moins de poignees de main TCP necessaires pour un meme lot, sans
+//   requete unique demesuree (limite la pression heap). Repli automatique
+//   sur upload fichier-par-fichier (methode individuelle deja fiable) si un
+//   paquet echoue au niveau reseau apres 3 tentatives -- reuploader un
+//   fichier deja reussi est sans consequence (idempotent). Compilation via
+//   compile.ps1 : OK (0 erreur, 63% flash, 28% RAM). PAS ENCORE teste sur
+//   materiel reel.
 //
 // v35 — 2026-08-02 — safe-modify — Retours test reel sur Partie A :
 //   (1) le redemarrage apres suppression de dossier(s) lie(s) a des
@@ -230,6 +379,22 @@
 #ifndef WEB_CONFIG_H
 #define WEB_CONFIG_H
 
+// Fiabilisation upload (2026-08-02) -- HTTP_UPLOAD_BUFLEN (WebServer.h,
+// taille du buffer interne alloue en un seul bloc a chaque fichier par
+// WebServer::_parseForm(), cause du crash out-of-memory documente ici
+// pendant cette session -- voir memoire projet) a ete redefini a 512 puis
+// 256 pour tenter de reduire la frequence du crash. RETIRE (retour test
+// reel, retour utilisateur : nettement plus d'echecs qu'avant cette
+// session sur de gros lots -- 151 fichiers sans aucun echec auparavant) --
+// un buffer plus petit multiplie le nombre d'appels UPLOAD_FILE_WRITE
+// (donc de SD.write()) par fichier (~1500 vs ~270 pour 390 Ko a 256 vs
+// 1436 octets), ralentissant nettement les transferts sans benefice net
+// demontre. Le vrai filet de securite est desormais le try/catch dans
+// handleWebConfig() (voir plus bas) : rend cette customisation inutile,
+// le crash est maintenant sans consequence (requete en echec, pas de
+// reboot) quelle que soit la taille du buffer -- autant garder le defaut
+// de la bibliotheque (1436) pour la vitesse.
+
 #include <WiFi.h>
 #include <WebServer.h>
 #include "web_config_html_gz.h"
@@ -259,12 +424,14 @@ extern String clockTimeZone;
 extern bool    clockNeonCustomColor;
 extern uint8_t clockNeonR, clockNeonG, clockNeonB;
 extern bool   requestReboot;
+extern bool   g_playlistStartedThisBoot;
 extern String uiLanguage;
 extern void webDmdPause(const String &msg, uint16_t color = 0xFFFF);
 extern void webDmdResume();
 extern void webDmdSetMainMsg(const String &msg);
 extern void clearFirstBoot();
 extern String g_sdOpSubMsg;
+extern bool   g_sdOpInProgress;
 
 static WebServer *webServer = nullptr;
 static File uploadFile;
@@ -273,6 +440,27 @@ static unsigned long uploadStartMs;
 static int uploadTotalBytes;
 static bool uploadSuccess = false;
 static String uploadErrorMsg;
+// Fiabilisation upload par lot (2026-08-02, retour test reel + analyse HAR
+// navigateur) -- WebServer::send() force TOUJOURS "Connection: close"
+// (WebServer.cpp, code de la bibliotheque, non modifiable depuis ce
+// projet) : chaque requete HTTP a besoin de sa propre poignee de main TCP.
+// Uploader N fichiers = N connexions separees, chacune individuellement
+// exposee a une perte de paquet SYN/ACK WiFi (confirme par analyse des
+// .har navigateur : net::ERR_CONNECTION_RESET/ABORTED apres 15-70s de
+// blocage sur l'etablissement de connexion, PAS un ralentissement cote
+// traitement serveur, deja mesure a 2-3ms). Regrouper plusieurs fichiers
+// dans UNE SEULE requete multipart (voir handleWebConfigUploadFile()) migre
+// autant de cycles START/WRITE/END sur la MEME connexion, reduisant le
+// nombre de poignees de main necessaires proportionnellement a la taille du
+// lot cote JS (uploadGif()). uploadCurName : nom du fichier de LA PART en
+// cours de traitement (utile car un seul UPLOAD_FILE_* callback partage
+// pour toutes les parts d'une meme requete). uploadBatchResults : resultat
+// JSON accumule au fil des UPLOAD_FILE_END successifs de la requete
+// courante, lu et remis a zero par handleWebConfigUpload() (appelee une
+// seule fois, apres la derniere part).
+static String uploadCurName;
+static String uploadBatchResults;
+static int uploadBatchOkCount = 0;
 
 // v92 -- bloc WEB_CONFIG_HTML (ancienne page monolithique pre-fractionnement,
 // jamais servie par aucun handler depuis le passage aux 6 pages minces)
@@ -1164,17 +1352,17 @@ fr:{title:'RecalBox DMD - Médias',h1:'Médias',nav_basic:'&#x1F4A1; Affichage &
 sec_dirs:'&#x1F4C1; Dossiers (/gifs/)',desc_dirs:'Cochez des dossiers pour les supprimer.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',btn_delete_sel:'&#x1F5D1; Supprimer la sélection',
 sec_upload:'&#x1F4E4; Envoi GIF',desc_upload:'Ajoutez un fichier .gif directement depuis votre navigateur dans un dossier de /gifs/. Choisissez un dossier existant OU tapez un nouveau nom (créé automatiquement). &#x26A0;&#xFE0F; Pas fait pour transférer de nombreux fichiers (débit lent, risque d\'erreur d\'écriture) -- réservé à l\'ajout ponctuel de quelques fichiers. Pour un transfert consequent, retirez la carte SD et copiez-la depuis un PC.',placeholder_upload_dir:'ou nouveau dossier...',lbl_upload_file:'Fichiers .gif',btn_upload:'&#x1F4E4; Uploader',btn_stop:'&#x23F9; Arrêter',
 btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',
-net_error:'Erreur réseau',msg_deleting:'Suppression...',msg_select_folder:'Choisissez au moins un dossier',msg_confirm_delete_folders:'Supprimer ${0} ?',msg_specify_dir:'Précisez un dossier cible',msg_select_gif:'Choisissez un fichier GIF',msg_select_gif_files:'Choisissez des fichiers .gif',msg_preparing_folder:'Preparation du dossier...',msg_cannot_create_folder:'Impossible de creer le dossier: ${0}',msg_net_error_folder:'Erreur reseau (creation dossier)',msg_uploading:'Upload...',msg_attempt:'tentative ${0}/${1}',msg_stopped_by_user:'Arrete par l\'utilisateur (${0}/${1})',msg_upload_fail:'ECHEC',msg_failures:'Echecs: ${0}',msg_upload_result:'${0}/${1} fichier(s) uploade(s)',msg_upload_result_fail:' -- echecs: ${0}',msg_confirm_reboot:'Redemarrer l\'ESP32 ?',msg_rebooting:'Redemarrage...',msg_dmd_resumed:'DMD repris',msg_updating_playlists:'Mise a jour des playlists...',msg_confirm_reboot_playlists:'Dossiers supprimes, ${0} playlist(s) mise(s) a jour. La suppression d\'un dossier lie a des playlists necessite un redemarrage du DMD pour etre prise en compte. Redemarrer maintenant ?'},
+net_error:'Erreur réseau',msg_deleting:'Suppression...',msg_select_folder:'Choisissez au moins un dossier',msg_confirm_delete_folders:'Supprimer ${0} ?',msg_specify_dir:'Précisez un dossier cible',msg_select_gif:'Choisissez un fichier GIF',msg_select_gif_files:'Choisissez des fichiers .gif',msg_preparing_folder:'Preparation du dossier...',msg_cannot_create_folder:'Impossible de creer le dossier: ${0}',msg_net_error_folder:'Erreur reseau (creation dossier)',msg_uploading:'Upload...',msg_attempt:'tentative ${0}/${1}',msg_stopped_by_user:'Arrete par l\'utilisateur (${0}/${1})',msg_upload_fail:'ECHEC',msg_failures:'Echecs: ${0}',msg_upload_result:'${0}/${1} fichier(s) uploade(s)',msg_upload_result_fail:' -- echecs: ${0}',msg_confirm_reboot:'Redemarrer l\'ESP32 ?',msg_rebooting:'Redemarrage...',msg_dmd_resumed:'DMD repris',msg_updating_playlists:'Mise a jour des playlists...',msg_confirm_reboot_playlists:'Dossiers supprimes, ${0} playlist(s) mise(s) a jour. La suppression d\'un dossier lie a des playlists necessite un redemarrage du DMD pour etre prise en compte. Redemarrer maintenant ?',msg_retrying_failed:'Nouvelle tentative pour ${0} fichier(s) en echec...',msg_final_attempt:'tentative finale ${0}/${1}'},
 en:{title:'RecalBox DMD - Media',h1:'Media',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',
 sec_dirs:'&#x1F4C1; Folders (/gifs/)',desc_dirs:'Check folders to delete them.',btn_select_all:'Select all',btn_select_none:'Select none',btn_delete_sel:'&#x1F5D1; Delete selection',
 sec_upload:'&#x1F4E4; GIF Upload',desc_upload:'Add a .gif file directly from your browser into a folder in /gifs/. Choose an existing folder OR type a new name (created automatically). &#x26A0;&#xFE0F; Not designed for transferring many files (slow throughput, risk of write errors) -- meant for occasionally adding a few files. For a large transfer, remove the SD card and copy from a PC instead.',placeholder_upload_dir:'or new folder...',lbl_upload_file:'.gif files',btn_upload:'&#x1F4E4; Upload',btn_stop:'&#x23F9; Stop',
 btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',
-net_error:'Network error',msg_deleting:'Deleting...',msg_select_folder:'Select at least one folder',msg_confirm_delete_folders:'Delete ${0}?',msg_specify_dir:'Please specify a target folder',msg_select_gif:'Select a GIF file',msg_select_gif_files:'Select .gif files',msg_preparing_folder:'Preparing folder...',msg_cannot_create_folder:'Unable to create folder: ${0}',msg_net_error_folder:'Network error (folder creation)',msg_uploading:'Uploading...',msg_attempt:'attempt ${0}/${1}',msg_stopped_by_user:'Stopped by user (${0}/${1})',msg_upload_fail:'FAILED',msg_failures:'Failures: ${0}',msg_upload_result:'${0}/${1} file(s) uploaded',msg_upload_result_fail:' -- failures: ${0}',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_updating_playlists:'Updating playlists...',msg_confirm_reboot_playlists:'Folders deleted, ${0} playlist(s) updated. Deleting a folder linked to playlists requires a DMD reboot to take effect. Reboot now?'},
+net_error:'Network error',msg_deleting:'Deleting...',msg_select_folder:'Select at least one folder',msg_confirm_delete_folders:'Delete ${0}?',msg_specify_dir:'Please specify a target folder',msg_select_gif:'Select a GIF file',msg_select_gif_files:'Select .gif files',msg_preparing_folder:'Preparing folder...',msg_cannot_create_folder:'Unable to create folder: ${0}',msg_net_error_folder:'Network error (folder creation)',msg_uploading:'Uploading...',msg_attempt:'attempt ${0}/${1}',msg_stopped_by_user:'Stopped by user (${0}/${1})',msg_upload_fail:'FAILED',msg_failures:'Failures: ${0}',msg_upload_result:'${0}/${1} file(s) uploaded',msg_upload_result_fail:' -- failures: ${0}',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_updating_playlists:'Updating playlists...',msg_confirm_reboot_playlists:'Folders deleted, ${0} playlist(s) updated. Deleting a folder linked to playlists requires a DMD reboot to take effect. Reboot now?',msg_retrying_failed:'Retrying ${0} failed file(s)...',msg_final_attempt:'final attempt ${0}/${1}'},
 es:{title:'RecalBox DMD - Medios',h1:'Medios',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',
 sec_dirs:'&#x1F4C1; Carpetas (/gifs/)',desc_dirs:'Marque las carpetas para eliminarlas.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',btn_delete_sel:'&#x1F5D1; Eliminar selección',
 sec_upload:'&#x1F4E4; Subir GIF',desc_upload:'Añada un archivo .gif desde su navegador a una carpeta en /gifs/. Elija una carpeta existente O escriba un nombre nuevo (se crea automáticamente). &#x26A0;&#xFE0F; No pensado para transferir muchos archivos (velocidad lenta, riesgo de error de escritura) -- reservado para añadir algunos archivos puntualmente. Para una transferencia importante, retire la tarjeta SD y cópiela desde un PC.',placeholder_upload_dir:'o nueva carpeta...',lbl_upload_file:'Archivos .gif',btn_upload:'&#x1F4E4; Subir',btn_stop:'&#x23F9; Detener',
 btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',
-net_error:'Error de red',msg_deleting:'Eliminando...',msg_select_folder:'Elija al menos una carpeta',msg_confirm_delete_folders:'¿Eliminar ${0}?',msg_specify_dir:'Especifique una carpeta destino',msg_select_gif:'Seleccione un archivo GIF',msg_select_gif_files:'Seleccione archivos .gif',msg_preparing_folder:'Preparando carpeta...',msg_cannot_create_folder:'No se pudo crear la carpeta: ${0}',msg_net_error_folder:'Error de red (creación de carpeta)',msg_uploading:'Subiendo...',msg_attempt:'intento ${0}/${1}',msg_stopped_by_user:'Detenido por el usuario (${0}/${1})',msg_upload_fail:'ERROR',msg_failures:'Errores: ${0}',msg_upload_result:'${0}/${1} archivo(s) subido(s)',msg_upload_result_fail:' -- errores: ${0}',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_updating_playlists:'Actualizando listas...',msg_confirm_reboot_playlists:'Carpetas eliminadas, ${0} lista(s) de reproduccion actualizada(s). Eliminar una carpeta vinculada a listas requiere reiniciar el DMD para aplicarse. ¿Reiniciar ahora?'}
+net_error:'Error de red',msg_deleting:'Eliminando...',msg_select_folder:'Elija al menos una carpeta',msg_confirm_delete_folders:'¿Eliminar ${0}?',msg_specify_dir:'Especifique una carpeta destino',msg_select_gif:'Seleccione un archivo GIF',msg_select_gif_files:'Seleccione archivos .gif',msg_preparing_folder:'Preparando carpeta...',msg_cannot_create_folder:'No se pudo crear la carpeta: ${0}',msg_net_error_folder:'Error de red (creación de carpeta)',msg_uploading:'Subiendo...',msg_attempt:'intento ${0}/${1}',msg_stopped_by_user:'Detenido por el usuario (${0}/${1})',msg_upload_fail:'ERROR',msg_failures:'Errores: ${0}',msg_upload_result:'${0}/${1} archivo(s) subido(s)',msg_upload_result_fail:' -- errores: ${0}',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_updating_playlists:'Actualizando listas...',msg_confirm_reboot_playlists:'Carpetas eliminadas, ${0} lista(s) de reproduccion actualizada(s). Eliminar una carpeta vinculada a listas requiere reiniciar el DMD para aplicarse. ¿Reiniciar ahora?',msg_retrying_failed:'Reintentando ${0} archivo(s) fallido(s)...',msg_final_attempt:'intento final ${0}/${1}'}
 };
 let currentLang='fr';
 function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||PAGE_I18N.fr[k]||k;}
@@ -1337,31 +1525,88 @@ async function uploadGif(){
   }catch(e){stopBtn.style.display='none';showMsg(tr('msg_net_error_folder'),false);return;}
   msgEl.textContent=tr('msg_uploading');
   let okCount=0;const failed=[];const uploaded=[];
-  for(let i=0;i<files.length;i++){
-    if(_uploadStopRequested){fileList.textContent=trTpl('msg_stopped_by_user',i,files.length);break;}
-    const file=files[i];
-    const pct=Math.round(((i+1)/files.length)*100);
-    barInner.style.width=Math.max(pct,5)+'%';
-    fileList.textContent=file.name+' ('+(i+1)+'/'+files.length+')';
-    msgEl.textContent=tr('msg_uploading')+' '+file.name;
-    try{await queuedFetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:file.name+' ('+(i+1)+'/'+files.length+')',color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});}catch(e){}
-    let ok=false,lastErr='';
+  // B (plan fiabilisation upload, 2026-08-02) -- regroupement par paquets de
+  // 4 fichiers ESSAYE puis ABANDONNE (retour test reel) : ne reduisait pas
+  // la frequence du crash out-of-memory dans WebServer::_parseForm() (celui-
+  // ci se produit a CHAQUE fichier rencontre dans le corps multipart,
+  // regroupes ou non -- voir HTTP_UPLOAD_BUFLEN en tete de fichier pour la
+  // cause racine reelle et le correctif applique), pour une complexite/risque
+  // de regression superieurs (paquet plus gros = pression heap potentiellement
+  // accrue). Retour a l'envoi simple fichier par fichier -- reponse JSON du
+  // serveur ({ok,files:[{name,ok,err}]}) deja compatible avec un seul fichier
+  // par requete, aucun changement cote handleWebConfigUploadFile() necessaire.
+  // Detection d'echec plus rapide (2026-08-02, analyse .har navigateur) --
+  // sans ceci, un hoquet reseau/heap au milieu d'un transfert laisse le
+  // navigateur attendre le timeout TCP par defaut du systeme (15-70s+
+  // mesures dans le .har) avant meme de lancer une nouvelle tentative.
+  // AbortController a 12s ESSAYE PUIS REMONTE A 25s (retour test reel :
+  // 12s coupait des transferts LENTS MAIS QUI AURAIENT REUSSI -- observe
+  // jusqu'a ~11s pour un succes reel sous heap tendu, tres proche de
+  // l'ancienne limite -- plus court que le propre timeout serveur
+  // (webServer->client().setTimeout(15000) pendant l'upload), cette
+  // coupure prematuree cote client augmentait le nombre d'echecs par
+  // rapport au comportement d'origine (aucun timeout client du tout).
+  // 25s : marge confortable au-dessus des 15s serveur et des transferts
+  // lents deja observes, tout en restant nettement plus rapide que le
+  // pire cas mesure (72s) pour detecter un VRAI blocage. Factorisee
+  // (2026-08-02) pour etre reutilisee aussi par la passe de re-tentative
+  // finale ci-dessous.
+  async function uploadOneFile(file,label){
+    let ok=false;
     for(let attempt=0;attempt<3&&!ok;attempt++){
       if(attempt>0){
-        const attemptTxt=file.name+' ('+(i+1)+'/'+files.length+') - '+trTpl('msg_attempt',attempt+1,3);
+        const attemptTxt=label+' - '+trTpl('msg_attempt',attempt+1,3);
         fileList.textContent=attemptTxt;
         try{await queuedFetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:attemptTxt,color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});}catch(e){}
         await new Promise(r=>setTimeout(r,500));
       }
       const form=new FormData();form.append('dir',dir);form.append('file',file);
+      const ctrl=new AbortController();
+      const abortTimer=setTimeout(()=>ctrl.abort(),25000);
       try{
-        const r=await queuedFetch('/upload',{method:'POST',body:form});
-        const t=await r.text();
-        if(t.includes('OK')){ok=true;} else {lastErr=t;}
-      }catch(e){lastErr=tr('net_error');}
+        const r=await queuedFetch('/upload',{method:'POST',body:form,signal:ctrl.signal});
+        const j=await r.json();
+        if(j&&j.files&&j.files[0]&&j.files[0].ok)ok=true;
+      }catch(e){}
+      clearTimeout(abortTimer);
     }
+    return ok;
+  }
+  for(let i=0;i<files.length;i++){
+    if(_uploadStopRequested){fileList.textContent=trTpl('msg_stopped_by_user',i,files.length);break;}
+    const file=files[i];
+    const label=file.name+' ('+(i+1)+'/'+files.length+')';
+    barInner.style.width=Math.max(Math.round(((i+1)/files.length)*100),5)+'%';
+    fileList.textContent=label;
+    msgEl.textContent=tr('msg_uploading')+' '+file.name;
+    try{await queuedFetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:label,color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});}catch(e){}
+    const ok=await uploadOneFile(file,label);
     if(ok){okCount++;uploaded.push(file.name);fileList.textContent=file.name+' OK ('+okCount+'/'+files.length+')';}
     else {failed.push(file.name);fileList.textContent=file.name+' '+tr('msg_upload_fail');}
+  }
+  // Passe de re-tentative finale (demande utilisateur 2026-08-02, retour
+  // test reel sur un lot de 34 fichiers -- 13 echecs, concentres plutot en
+  // milieu/fin de lot, coherent avec une degradation progressive du tas au
+  // fil d'un long upload). Une pause de 1.5s puis une derniere serie de
+  // tentatives APRES la fin du lot principal laisse une chance au tas de se
+  // stabiliser un peu (plus de contention SD simultanee avec le reste du
+  // lot) avant de retenter uniquement les fichiers deja identifies en
+  // echec -- jamais un nouveau scan de /gifs/.
+  if (!_uploadStopRequested && failed.length) {
+    const retryList = failed.splice(0, failed.length);
+    msgEl.textContent = trTpl('msg_retrying_failed', retryList.length);
+    await new Promise(r=>setTimeout(r,1500));
+    for (let i = 0; i < retryList.length; i++) {
+      if (_uploadStopRequested) { failed.push(...retryList.slice(i)); break; }
+      const name = retryList[i];
+      const file = files.find(f=>f.name===name);
+      if (!file) { failed.push(name); continue; }
+      const label = name + ' (' + trTpl('msg_final_attempt', i+1, retryList.length) + ')';
+      fileList.textContent = label;
+      try{await queuedFetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:label,color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});}catch(e){}
+      const ok = await uploadOneFile(file, label);
+      if (ok) { okCount++; uploaded.push(file.name); } else { failed.push(name); }
+    }
   }
   stopBtn.style.display='none';
   if(uploaded.length){
@@ -2919,37 +3164,74 @@ static void handleWebConfigCreateFolder()
 
 static void handleWebConfigUpload()
 {
-  if (uploadFile) { uploadFile.close(); uploadFile = File(); }
-  if (uploadSuccess) {
-    uploadSuccess = false;
-    String msg = "OK: fichier uploade dans /gifs/" + uploadDir;
-    Serial.println("[WEB] " + msg);
-    webServer->send(200, "text/plain", msg);
-  } else {
+  if (uploadFile) { uploadFile.close(); uploadFile = File(); } // filet de securite -- deja ferme normalement a UPLOAD_FILE_END
+  String results = uploadBatchResults;
+  int okCount = uploadBatchOkCount;
+  // Remis a zero ICI (pas au prochain UPLOAD_FILE_START) : cette requete
+  // /upload est entierement terminee, la PROCHAINE sera une requete HTTP
+  // independante (nouvelle poignee de main TCP, cf. commentaire pres des
+  // variables globales) qui doit repartir d'un accumulateur vide.
+  uploadBatchResults = "";
+  uploadBatchOkCount = 0;
+  if (results.length() == 0) {
     // Ne JAMAIS appeler webServer->send() depuis handleWebConfigUploadFile()
     // (callback UPLOAD_FILE_*) : le client est encore en train d'envoyer le
     // corps multipart a ce moment-la, et une reponse prematuree casse la
     // connexion HTTP en cours (vu cote navigateur comme une erreur reseau).
     // Seul ce handler, appele une fois le corps entierement consomme, a le
-    // droit d'envoyer une reponse.
+    // droit d'envoyer une reponse. Ici : aucun fichier n'a meme atteint
+    // UPLOAD_FILE_END (ex. heap critique des le tout debut de la requete).
     String msg = uploadErrorMsg.length() ? uploadErrorMsg : "ERR: aucun fichier recu";
     uploadErrorMsg = "";
     webServer->send(400, "text/plain", msg);
+    return;
   }
+  String json = "{\"ok\":" + String(okCount) + ",\"files\":[" + results + "]}";
+  Serial.println("[WEB] upload batch: " + String(okCount) + " fichier(s) reussi(s) sur cette requete");
+  webServer->send(200, "application/json", json);
 }
 
 static void handleWebConfigUploadFile()
 {
   HTTPUpload &upload = webServer->upload();
   if (upload.status == UPLOAD_FILE_START) {
+    // Reengage le mode config si necessaire (demande utilisateur 2026-08-02,
+    // retour test reel) : apres un crash+reboot en pleine copie, le
+    // navigateur relance l'upload tout seul (retry cote JS) SANS recharger
+    // de page au prealable -- sur ce boot frais, g_sdOpInProgress est encore
+    // false, donc la lecture GIF continue en fond ET MQTT tente de se
+    // connecter (bloque uniquement par g_sdOpInProgress, voir mqttTask()
+    // dans RecalBox_DMD.ino) pendant l'upload, aggravant la pression heap
+    // deja critique. Le forcer ICI, avant meme le premier octet ecrit,
+    // garantit le meme etat "config" qu'un upload demarre normalement
+    // depuis la page MEDIA deja chargee.
+    // Pause inline (PAS triggerWebConfigMode()) : ce dernier peut desormais
+    // declencher un reboot cible (v42, voir plus bas) qui envoie sa propre
+    // reponse HTTP -- inacceptable ici, le client est encore en train
+    // d'envoyer le corps multipart (meme regle que le reste de ce handler,
+    // cf. commentaire de handleWebConfigUpload() : jamais de send()
+    // premature depuis un callback UPLOAD_FILE_*). En pratique le reboot
+    // aurait de toute facon deja eu lieu au chargement de la page MEDIA
+    // elle-meme si le heap etait plafonne -- ce chemin ne sert que le cas
+    // de reprise auto post-crash sur un boot frais, ou le heap est encore
+    // largement suffisant.
+    if (!g_sdOpInProgress) {
+      String url = "http://" + WiFi.localIP().toString();
+      clearFirstBoot();
+      webDmdSetMainMsg("WEB DMD CONFIG");
+      webDmdPause(url, 0xFFE0);
+    }
+    uploadCurName = upload.filename;
+    { int p = uploadCurName.lastIndexOf('/'); if (p >= 0) uploadCurName = uploadCurName.substring(p + 1); }
+    { int p = uploadCurName.lastIndexOf('\\'); if (p >= 0) uploadCurName = uploadCurName.substring(p + 1); }
     if (plGenIsActive()) { uploadErrorMsg = "ERR: generation de playlist en cours"; return; }
     // Timeout client elargi (defaut lib WebServer ~3s) le temps de l'upload :
     // les ecritures SD sous charge peuvent le depasser facilement -> la lib
     // coupe alors la connexion, vu cote navigateur comme ERR_CONNECTION_
     // RESET/TIMED_OUT. Remis a une valeur courte des la fin/l'abandon de
-    // l'upload.
+    // chaque fichier (plusieurs fichiers possibles dans la meme requete,
+    // voir commentaire pres des variables globales).
     webServer->client().setTimeout(15000);
-    uploadSuccess = false;
     uploadErrorMsg = "";
     uploadDir = webServer->arg("dir");
     uploadDir.trim();
@@ -2957,11 +3239,27 @@ static void handleWebConfigUploadFile()
       uploadErrorMsg = "ERR: dossier cible manquant";
       return;
     }
-    String filename = upload.filename;
-    { int p = filename.lastIndexOf('/'); if (p >= 0) filename = filename.substring(p + 1); }
-    { int p = filename.lastIndexOf('\\'); if (p >= 0) filename = filename.substring(p + 1); }
-    if (filename.length() == 0) { uploadErrorMsg = "ERR: nom fichier invalide"; return; }
-    String path = "/gifs/" + uploadDir + "/" + filename;
+    if (uploadCurName.length() == 0) { uploadErrorMsg = "ERR: nom fichier invalide"; return; }
+    // Garde heap critique (reintroduite v42 -- perdue lors de la refonte
+    // multi-fichiers, voir v91 historique + crash reel v41) : sans ce garde,
+    // un heap deja au plus bas au moment du SD.open() plus bas peut faire
+    // echouer l'allocation interne du mutex de flux FILE* (newlib) et
+    // declencher un abort() direct -- PAS une exception C++, donc jamais
+    // rattrapable par le try/catch de handleWebConfig(). Retry-apres-delai
+    // pour ne pas refuser un creux transitoire (cf. v91).
+    if (ESP.getMaxAllocHeap() < 6000) {
+      unsigned long maBefore = ESP.getMaxAllocHeap();
+      delay(10);
+      unsigned long maAfter = ESP.getMaxAllocHeap();
+      Serial.println("[WEB] Upload heap critique initial maxalloc=" + String(maBefore) + ", apres delay(10) maxalloc=" + String(maAfter));
+      if (maAfter < 6000) {
+        uploadErrorMsg = "ERR: heap critique, reessayez";
+        Serial.println("[WEB] Upload refuse (heap critique, maxalloc=" + String(maAfter) + ")");
+        return;
+      }
+      Serial.println("[WEB] Upload : creux transitoire resorbe, poursuite normale");
+    }
+    String path = "/gifs/" + uploadDir + "/" + uploadCurName;
     String dirPath = "/gifs/" + uploadDir;
     if (!SD.exists(dirPath.c_str())) {
       // Le JS appelle /create-folder avant le premier fichier -- ce cas ne
@@ -2997,20 +3295,27 @@ static void handleWebConfigUploadFile()
     }
   } else if (upload.status == UPLOAD_FILE_END) {
     webServer->client().setTimeout(3000);
+    // Accumule le resultat de CETTE part (fichier) dans uploadBatchResults --
+    // handleWebConfigUpload() (une seule fois, apres la DERNIERE part de la
+    // requete) construit la reponse JSON finale a partir de cet accumulateur.
+    if (uploadBatchResults.length() > 0) uploadBatchResults += ",";
     if (uploadFile) {
       uploadFile.close();
       uploadFile = File();
-      uploadSuccess = true;
       unsigned long dt = millis() - uploadStartMs;
-      Serial.println("[WEB] Upload done: " + String(uploadTotalBytes) + " bytes in " + String(dt) + "ms");
-      // Mise a jour des playlists PLUS appelee ici par fichier -- le JS
-      // (uploadGif()) appelle /add-to-playlists-batch UNE SEULE FOIS a la
-      // fin de tout le lot, avec la liste des fichiers uploades avec succes.
+      Serial.println("[WEB] Upload done: " + uploadCurName + " " + String(uploadTotalBytes) + " bytes in " + String(dt) + "ms");
+      uploadBatchResults += "{\"name\":\"" + jsonEscape(uploadCurName) + "\",\"ok\":true}";
+      uploadBatchOkCount++;
+    } else {
+      String reason = uploadErrorMsg.length() ? uploadErrorMsg : "ERR: echec";
+      Serial.println("[WEB] Upload FAIL: " + uploadCurName + " (" + reason + ")");
+      uploadBatchResults += "{\"name\":\"" + jsonEscape(uploadCurName) + "\",\"ok\":false,\"err\":\"" + jsonEscape(reason) + "\"}";
     }
+    uploadErrorMsg = "";
   } else if (upload.status == UPLOAD_FILE_ABORTED) {
     webServer->client().setTimeout(3000);
     if (uploadFile) { uploadFile.close(); uploadFile = File(); }
-    Serial.println("[WEB] Upload aborted");
+    Serial.println("[WEB] Upload aborted: " + uploadCurName);
   }
 }
 
@@ -3327,7 +3632,7 @@ static void handleWebConfigDeleteFolders()
 // Forward declaration : definie plus bas (juste avant handleWebConfigRoot,
 // qui l'utilise aussi), mais appelee ici par handleDmdOpen() -- sans cette
 // declaration, erreur de compilation "not declared in this scope".
-static void triggerWebConfigMode(const String &msg);
+static bool triggerWebConfigMode(const String &msg);
 
 static void handleDmdPause()
 {
@@ -3353,7 +3658,7 @@ static void handleDmdOpen()
   if (!webServer->hasArg("msg")) { webServer->send(400, "text/plain", "ERR: missing msg"); return; }
   String msg = webServer->arg("msg");
   String full = msg + " " + WiFi.localIP().toString();
-  triggerWebConfigMode(msg);
+  if (!triggerWebConfigMode(msg)) return; // reboot cible deja declenche, reponse deja envoyee
   webServer->send(200, "text/plain", "OK " + full);
 }
 
@@ -3425,7 +3730,47 @@ static void handleWebConfigSaveAP()
   ESP.restart();
 }
 
-static void triggerWebConfigMode(const String &msg)
+static void sendRebootingPage()
+{
+  // Page volontairement generee en C++ (pas de bloc PROGMEM/gzip) : tres
+  // courte, contenu dynamique selon uiLanguage, inutile de passer par le
+  // pipeline de generation gzip pour ca.
+  // Poll JS (fetch + catch) plutot qu'un simple <meta refresh> : pendant la
+  // fenetre ou l'ESP32 redemarre reellement, une navigation classique (meta
+  // refresh) tomberait sur une erreur de connexion et le navigateur
+  // afficherait sa page d'erreur native -- laquelle n'a plus notre balise
+  // refresh, plus aucune nouvelle tentative automatique ensuite. Le fetch()
+  // echoue silencieusement (catch) sans jamais quitter cette page tant que
+  // le serveur ne repond pas, puis recharge des le premier succes reel.
+  String msg = "Redemarrage du DMD en cours, veuillez patienter...";
+  if (uiLanguage == "en") msg = "DMD rebooting, please wait...";
+  else if (uiLanguage == "es") msg = "Reiniciando el DMD, por favor espere...";
+  String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
+    "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+    "<title>RecalBox DMD</title>"
+    "<style>body{font-family:sans-serif;background:#1a1a2e;color:#eee;display:flex;"
+    "align-items:center;justify-content:center;height:100vh;margin:0;text-align:center}</style>"
+    "</head><body><div>" + msg + "</div>"
+    "<script>function poll(){fetch(location.href,{cache:'no-store'}).then(function(r){"
+    "if(r.ok)location.reload();else setTimeout(poll,1500);"
+    "}).catch(function(){setTimeout(poll,1500);});}"
+    "setTimeout(poll,1500);</script>"
+    "</body></html>";
+  webServer->send(200, "text/html", html);
+}
+
+// Reintroduit (v42, 2026-08-02) -- retire en juillet (commit "v93") sur la
+// foi d'une comparaison qui ne portait pas sur ce symptome precis (voir
+// memoire projet). Cause reelle jamais corrigee depuis : chaque SD.open()
+// d'un GIF alloue un buffer setvbuf(4096) interne a la lib FS jamais
+// recycle proprement, plafonnant durablement ESP.getMaxAllocHeap() vers
+// 4500-5300 octets des que la playlist a tourne un moment -- confirme en
+// test reel 2026-08-02 responsable du blocage de ~99% des uploads MEDIA
+// malgre le garde heap<6000 (UPLOAD_FILE_START, v42). Repasse en bool :
+// false = un reboot cible a deja ete declenche et la reponse deja envoyee
+// (sendRebootingPage()) -- l'appelant DOIT s'arreter immediatement sans
+// envoyer sa propre reponse.
+static bool triggerWebConfigMode(const String &msg)
 {
   // "http://" explicite (2026-07-30, demande utilisateur) : certains
   // navigateurs (Firefox "HTTPS-First", Edge) tentent une connexion HTTPS
@@ -3436,10 +3781,22 @@ static void triggerWebConfigMode(const String &msg)
   // requete). En affichant l'URL complete avec schema, un utilisateur qui
   // COPIE/RETAPE exactement ce qui est affiche evite le declenchement de ce
   // mecanisme, sans reglage navigateur particulier.
+  if (g_playlistStartedThisBoot) {
+    // La playlist/des GIFs ont deja tourne ce boot -- rebooter directement
+    // et sauter la playlist sur le prochain boot (g_skipPlaylistForConfig,
+    // RecalBox_DMD.ino) pour repartir avec le maximum de heap disponible,
+    // plutot que d'entrer en mode config avec un heap deja plafonne.
+    Serial.println("[WEB] triggerWebConfigMode: playlist deja active -> reboot cible mode config");
+    writeConfigFlag("force_config_boot", "1");
+    sendRebootingPage();
+    requestReboot = true;
+    return false; // reboot deja declenche, reponse deja envoyee -- l'appelant doit s'arreter la
+  }
   String url = "http://" + WiFi.localIP().toString();
   clearFirstBoot();
   webDmdSetMainMsg(msg);
   webDmdPause(url, 0xFFE0);
+  return true;
 }
 
 static void sendGzipHtml(const uint8_t *content, size_t len)
@@ -3474,7 +3831,7 @@ static void sendGzipHtml(const uint8_t *content, size_t len)
 
 static void handleWebConfigRoot()
 {
-  triggerWebConfigMode("WEB DMD CONFIG");
+  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
   if (WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA) {
     sendGzipHtml(WEB_CONFIG_AP_HTML_GZ, WEB_CONFIG_AP_HTML_GZ_LEN);
   } else {
@@ -3484,25 +3841,25 @@ static void handleWebConfigRoot()
 
 static void handleWebConfigBasicPage()
 {
-  triggerWebConfigMode("WEB DMD CONFIG");
+  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
   sendGzipHtml(WEB_CONFIG_BASIC_HTML_GZ, WEB_CONFIG_BASIC_HTML_GZ_LEN);
 }
 
 static void handleWebConfigNetworkPage()
 {
-  triggerWebConfigMode("WEB DMD CONFIG");
+  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
   sendGzipHtml(WEB_CONFIG_NETWORK_HTML_GZ, WEB_CONFIG_NETWORK_HTML_GZ_LEN);
 }
 
 static void handleWebConfigClockPage()
 {
-  triggerWebConfigMode("WEB DMD CONFIG");
+  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
   sendGzipHtml(WEB_CONFIG_CLOCK_HTML_GZ, WEB_CONFIG_CLOCK_HTML_GZ_LEN);
 }
 
 static void handleWebConfigMediaPage()
 {
-  triggerWebConfigMode("WEB DMD CONFIG");
+  if (!triggerWebConfigMode("WEB DMD CONFIG")) return; // reboot cible deja declenche, reponse deja envoyee
   sendGzipHtml(WEB_CONFIG_MEDIA_HTML_GZ, WEB_CONFIG_MEDIA_HTML_GZ_LEN);
 }
 
@@ -3544,8 +3901,38 @@ void setupWebConfig()
   webServer->on("/reboot", handleWebConfigReboot);
   webServer->begin();
   Serial.println("[WEB] Interface config sur http://" + WiFi.localIP().toString());
+  // DIAGNOSTIC TEMPORAIRE (2026-08-02) -- verifie que la redefinition de
+  // HTTP_UPLOAD_BUFLEN (voir tout en haut de web_config.h) est bien prise en
+  // compte par la bibliotheque WebServer (sizeof(HTTPUpload) doit refleter
+  // ~512+quelques octets de champs String/enum, pas ~1436+).
+  Serial.println("[WEB] sizeof(HTTPUpload)=" + String(sizeof(HTTPUpload)) + " HTTP_UPLOAD_BUFLEN=" + String(HTTP_UPLOAD_BUFLEN));
 }
 
-void handleWebConfig() { if (webServer) webServer->handleClient(); }
+// Fiabilisation upload (2026-08-02) -- tentative d'interception de
+// l'exception std::bad_alloc levee par operator new() quand
+// WebServer::_parseForm() echoue a allouer un HTTPUpload sous heap
+// fragmente (voir HTTP_UPLOAD_BUFLEN en tete de fichier -- cause confirmee
+// par plusieurs backtraces decodees, mais la reduction seule du buffer ne
+// suffit pas a l'eliminer). Les exceptions C++ SONT compilees dans ce
+// build (confirme : la trace de crash passe par __cxa_throw, jamais genere
+// si -fno-exceptions) -- un try/catch ICI, autour de TOUT handleClient(),
+// devrait rattraper l'exception avant qu'elle n'atteigne std::terminate()/
+// abort() et ne redemarre tout l'appareil. Risque assume, non verifie
+// avant ce commit : la bibliotheque WebServer n'est pas concue pour etre
+// interrompue en cours de route par une exception -- son etat interne
+// (_currentClient/_currentUpload prives) pourrait rester incoherent pour
+// l'appel suivant. Mais le pire cas resterait probablement moins grave
+// qu'un reboot complet (perte de la session de lecture en cours), donc
+// teste malgre l'incertitude.
+void handleWebConfig() {
+  if (!webServer) return;
+  try {
+    webServer->handleClient();
+  } catch (std::exception &e) {
+    Serial.println(String("[WEB] EXCEPTION rattrapee dans handleClient() (probablement heap critique) : ") + e.what());
+  } catch (...) {
+    Serial.println("[WEB] EXCEPTION inconnue rattrapee dans handleClient()");
+  }
+}
 
 #endif
