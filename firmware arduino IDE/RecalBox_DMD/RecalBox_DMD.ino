@@ -1,7 +1,34 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v50
+// Version actuelle : v51
+//
+// v51 - 2026-08-05 - safe-modify - Refonte complete premier demarrage/AP/
+//   mode config (plan valide en mode Plan, voir memoire projet) + 2
+//   indicateurs visuels DMD. Resume :
+//   1. setupWiFiFromConfig() : repli AP sur echec WiFi ne se declenche plus
+//      que si g_firstBoot est vrai (WiFi injoignable + config deja complete
+//      => demarrage normal, plus de reboot force en AP).
+//   2. setup() : needWebConfigMode = (playlist vide) || (IP Recalbox vide)
+//      || g_firstBoot, remplace les usages isoles de g_firstBoot (recalboxIP
+//      n'etait auparavant jamais teste comme declencheur du mode config).
+//   3. Bug ecran "DMD WEB CONFIG"+"0.0.0.0" en mode AP pur corrige (repli
+//      0.0.0.0->softAPIP()->192.168.4.1 ajoute a triggerWebConfigModeSoft()
+//      et son duplicata inline upload).
+//   4. Indicateur rouge clignotant "No wifi, No Recalbox" (WiFi injoignable,
+//      1ere tentative puis toutes les 60s) et indicateur orange clignotant
+//      "RecalBox non connectee" (WiFi OK mais mqttClient.state()==-2) --
+//      tous deux : image de secours default.raw565, affichage temporise 7s
+//      puis reprise automatique de la playlist, place entre 2 GIFs (jamais
+//      en coupant une animation en cours).
+//   Voir web_config.h v51 pour le volet interface web (first_boot n'est plus
+//   efface par un simple affichage de page, modale d'aide, alerte champs
+//   essentiels vides, brouillon localStorage multi-pages, fix language=).
+//   Compilation via compile.ps1 : OK (64% flash, 28% RAM). Test materiel
+//   reel EN COURS (2026-08-05) : messages d'alerte web + DMD + modale
+//   d'aide confirmes OK par l'utilisateur ; reste du parcours (AP/premier
+//   demarrage complet, coupure WiFi/MQTT reelle prolongee) PAS ENCORE
+//   teste.
 //
 // v50 - 2026-08-03 - safe-modify - Bug reel confirme (retour utilisateur,
 //   suite au fix v47) : "Reprendre DMD" alors que RB est en mode clip/demo
@@ -1541,6 +1568,52 @@ unsigned long g_mqttWaitingUntilMs = 0;
 // veille/lecture d'un clip), jamais un delai arbitraire cote DMD.
 unsigned long g_mqttConnectedScreenUntilMs = 0;
 
+// Indicateur "No wifi, No Recalbox" (2026-08-05, demande utilisateur) --
+// affiche brievement l'image de secours + texte rouge clignotant quand le
+// WiFi lui-meme reste injoignable alors qu'un SSID est configure (voir
+// mqttTask()/setupWiFiFromConfig() : sur un appareil deja entierement
+// configure, first_boot=0, le repli AP a ete retire pour ce cas -- cet
+// indicateur compense l'absence totale de feedback visuel qui en
+// resultait). Contrairement a g_mqttConnectedScreenUntilMs (attente
+// INDEFINIE d'un vrai message MQTT), ceci est un ecran TEMPORISE et
+// auto-resolutif : aucun message externe ne viendra jamais tant que le
+// WiFi est down, donc pas de sens a attendre indefiniment.
+// g_noWifiRecalboxPending : demande posee par mqttTask() (tache de fond),
+// consommee par loop() au prochain point sur qui ne coupe pas une
+// animation en cours (entre deux GIFs, voir case MODE_PLAYLIST).
+bool g_noWifiRecalboxPending = false;
+// g_noWifiRecalboxScreenActive : ecran actuellement affiche, pilote le
+// clignotement (voir loop()) -- remis a false soit par l'expiration du
+// delai (voir g_noWifiRecalboxUntilMs), soit si un vrai contenu MQTT
+// reprend la main entre-temps (memes points de reset que
+// g_mqttConnectedScreenUntilMs=0).
+bool g_noWifiRecalboxScreenActive = false;
+unsigned long g_noWifiRecalboxUntilMs = 0;
+// Duree d'affichage fixe avant retour automatique a la playlist -- valeur
+// reprise de MQTT_WAITING_MIN_DISPLAY_MS (7000ms, voir plus bas) mais
+// mecanisme different (auto-resolutif, pas juste un delai minimum avant
+// interruption) : declaree separement plutot que de reutiliser cette
+// constante existante, qui garde sa propre semantique.
+const unsigned long NO_WIFI_ALERT_DISPLAY_MS = 7000;
+
+// Indicateur "RecalBox non connectee" (2026-08-05, demande utilisateur --
+// meme principe que l'indicateur "No wifi, No Recalbox" ci-dessus, en
+// parallele) : WiFi OK mais la connexion MQTT elle-meme echoue avec
+// mqttClient.state()==-2 (MQTT_CONNECT_FAILED, PubSubClient -- echec de
+// connexion TCP au broker, ex. Recalbox eteinte/injoignable alors que le
+// WiFi fonctionne). Texte orange clignotant, TRADUIT (contrairement a
+// "No wifi, No Recalbox" -- celui-ci reprend le meme registre que
+// trRecalboxConnected(), deja traduit). Meme duree d'affichage
+// (NO_WIFI_ALERT_DISPLAY_MS, 7s) et memes points de reset que
+// l'indicateur WiFi. Frequence de reaffichage suivie par horodatage
+// (lastRecalboxDisconnectedAlertMs, dans mqttTask()) plutot que par
+// comptage d'iterations : la boucle d'echec MQTT tourne a un rythme
+// different (MQTT_RETRY_MS=15s, pas 1s) de la boucle WiFi-down, un simple
+// modulo sur le nombre de tentatives ne donnerait pas 60s reels ici.
+bool g_recalboxDisconnectedPending = false;
+bool g_recalboxDisconnectedScreenActive = false;
+unsigned long g_recalboxDisconnectedUntilMs = 0;
+
 // Dernier etat MQTT reellement affiche (v50, 2026-08-03, bug reel confirme :
 // apres "Reprendre DMD" alors que RB est en mode clip, la playlist ne
 // reprenait jamais) -- RB annonce son passage en demo/clip UNE FOIS
@@ -2885,7 +2958,13 @@ void webDmdResume()
   }
 }
 
-// Marque first_boot=0 dans config.ini (appele quand page web ouverte)
+// Marque first_boot=0 dans config.ini. PLUS APPELEE AUTOMATIQUEMENT depuis
+// le 2026-08-05 (bug corrige, demande utilisateur -- etape 3 de la logique
+// cible) : le simple affichage d'une page ne doit plus effacer first_boot,
+// seule une sauvegarde reellement complete (playlist + IP Recalbox,
+// handleWebConfigSave() dans web_config.h) le fait desormais. Conservee
+// definie (plus aucun appelant actuel) au cas ou un declenchement manuel
+// explicite serait utile plus tard -- cout nul.
 void clearFirstBoot()
 {
   if (!g_firstBoot) return;
@@ -2974,6 +3053,16 @@ String trRecalboxConnected()
   return "RecalBox connectee";
 }
 
+// Texte de l'indicateur "RecalBox non connectee" (2026-08-05, demande
+// utilisateur) -- WiFi OK mais mqttClient.state()==-2, voir declaration
+// de g_recalboxDisconnectedPending.
+String trRecalboxDisconnected()
+{
+  if (uiLanguage == "en") return "RecalBox not connected";
+  if (uiLanguage == "es") return "RecalBox no conectada";
+  return "RecalBox non connectee";
+}
+
 // Dessine (visible=true) ou efface (visible=false) le texte "RecalBox
 // connectee", centre horizontalement ET verticalement, avec la meme ombre
 // noir/blanc qu'avant -- clignotant pendant tout l'affichage (voir loop(),
@@ -3011,6 +3100,105 @@ void drawRecalboxConnectedOverlay(bool visible)
   display->setTextColor(display->color565(255, 255, 255));
   display->setCursor(x, textY);
   display->print(txt);
+}
+
+// Dessine (visible=true) ou efface (visible=false) le texte rouge
+// clignotant "No wifi, No Recalbox" -- meme structure que
+// drawRecalboxConnectedOverlay() ci-dessus (restauration du fond depuis
+// le cache RAM de l'image de secours, centrage horizontal/vertical, ombre
+// noire) mais texte fixe non traduit (2026-08-05, demande utilisateur --
+// meme convention que les libellés techniques courts de ce fichier,
+// jamais traduits : "WIFI OK", "NTP", etc.) et couleur rouge au lieu de
+// blanc, pour signaler une situation anormale (WiFi injoignable) plutot
+// qu'un etat normal d'attente.
+void drawNoWifiNoRecalboxOverlay(bool visible)
+{
+  const int textY = (RAW565_H - 8) / 2;
+  if (defaultRaw565Cached && defaultRaw565Buf) {
+    for (int y = textY; y < textY + 8 && y < RAW565_H; y++)
+      display->drawRGBBitmap(0, y, defaultRaw565Buf + (size_t)y * RAW565_W, RAW565_W, 1);
+  } else {
+    display->fillRect(0, textY, RAW565_W, 8, 0);
+  }
+  if (!visible) return;
+  display->setTextWrap(false);
+  display->setTextSize(1);
+  const char *txt = "No wifi, No Recalbox";
+  int textW = (int)strlen(txt) * 6; // taille 1 = 6px/caractere
+  int x = (RAW565_W - textW) / 2;
+  if (x < 0) x = 0;
+  display->setTextColor(display->color565(0, 0, 0));
+  display->setCursor(x + 1, textY + 1);
+  display->print(txt);
+  display->setTextColor(display->color565(255, 0, 0));
+  display->setCursor(x, textY);
+  display->print(txt);
+}
+
+// Declenche l'affichage de l'alerte "No wifi, No Recalbox" (image de
+// secours + texte rouge clignotant, 7s puis retour auto a la playlist --
+// voir g_noWifiRecalboxScreenActive/g_noWifiRecalboxUntilMs et le bloc
+// loop() qui pilote le clignotement + l'auto-resolution). Appelee depuis
+// loop() a un point ou rien d'important n'est en train de jouer (entre
+// deux GIFs en MODE_PLAYLIST, ou immediatement si aucune playlist n'est
+// active) -- jamais depuis mqttTask() (tache de fond, pas de dessin direct
+// hors thread principal, meme regle que le reste de ce fichier).
+void showNoWifiRecalboxAlert()
+{
+  gif.close(); gifOpened=false; currentPngPath=String(DEFAULT_RAW565_PATH); pngDrawn=true;
+  display->clearScreen();
+  bool okDraw = drawDefaultRaw565Cached();
+  currentMode = okDraw ? MODE_PNG : MODE_BLACK;
+  if (okDraw) drawNoWifiNoRecalboxOverlay(true);
+  g_noWifiRecalboxScreenActive = true;
+  g_noWifiRecalboxUntilMs = millis() + NO_WIFI_ALERT_DISPLAY_MS;
+  g_noWifiRecalboxPending = false;
+  Serial.println("[WIFI] No wifi, No Recalbox -- alerte affichee");
+}
+
+// Dessine (visible=true) ou efface (visible=false) le texte orange
+// clignotant "RecalBox non connectee" -- meme structure que
+// drawRecalboxConnectedOverlay()/drawNoWifiNoRecalboxOverlay() (restauration
+// du fond depuis le cache RAM de l'image de secours, centrage, ombre
+// noire), texte TRADUIT (trRecalboxDisconnected()) et couleur orange.
+void drawRecalboxDisconnectedOverlay(bool visible)
+{
+  const int textY = (RAW565_H - 8) / 2;
+  if (defaultRaw565Cached && defaultRaw565Buf) {
+    for (int y = textY; y < textY + 8 && y < RAW565_H; y++)
+      display->drawRGBBitmap(0, y, defaultRaw565Buf + (size_t)y * RAW565_W, RAW565_W, 1);
+  } else {
+    display->fillRect(0, textY, RAW565_W, 8, 0);
+  }
+  if (!visible) return;
+  display->setTextWrap(false);
+  display->setTextSize(1);
+  String txt = trRecalboxDisconnected();
+  int textW = txt.length() * 6; // taille 1 = 6px/caractere
+  int x = (RAW565_W - textW) / 2;
+  if (x < 0) x = 0;
+  display->setTextColor(display->color565(0, 0, 0));
+  display->setCursor(x + 1, textY + 1);
+  display->print(txt);
+  display->setTextColor(display->color565(255, 140, 0));
+  display->setCursor(x, textY);
+  display->print(txt);
+}
+
+// Declenche l'affichage de l'alerte "RecalBox non connectee" -- meme
+// mecanisme que showNoWifiRecalboxAlert() (voir son commentaire), drapeau
+// et duree d'affichage dedies.
+void showRecalboxDisconnectedAlert()
+{
+  gif.close(); gifOpened=false; currentPngPath=String(DEFAULT_RAW565_PATH); pngDrawn=true;
+  display->clearScreen();
+  bool okDraw = drawDefaultRaw565Cached();
+  currentMode = okDraw ? MODE_PNG : MODE_BLACK;
+  if (okDraw) drawRecalboxDisconnectedOverlay(true);
+  g_recalboxDisconnectedScreenActive = true;
+  g_recalboxDisconnectedUntilMs = millis() + NO_WIFI_ALERT_DISPLAY_MS;
+  g_recalboxDisconnectedPending = false;
+  Serial.println("[MQTT] RecalBox non connectee -- alerte affichee");
 }
 
 String trOpenUrl(const String &ip)
@@ -3069,6 +3257,13 @@ void processPendingMqttCommand()
   case MqttCommand::CMD_STOP:
     if(currentMode==MODE_PLAYLIST||g_sdOpInProgress){Serial.println("[MQTT] stop ignored");break;}
     g_mqttConnectedScreenUntilMs = 0;
+    // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
+    // contenu MQTT reprend la main, plus besoin d'attendre son
+    // expiration ni de laisser une demande en attente perimee.
+    g_noWifiRecalboxScreenActive = false;
+    g_noWifiRecalboxPending = false;
+    g_recalboxDisconnectedScreenActive = false;
+    g_recalboxDisconnectedPending = false;
     g_mqttDefaultPendingAfterMinDisplay = false;
     gif.close();gifOpened=false;currentPngPath="";pngDrawn=false;
     currentMode=MODE_BLACK;display->clearScreen();
@@ -3090,6 +3285,13 @@ void processPendingMqttCommand()
       break;
     }
     g_mqttConnectedScreenUntilMs = 0;
+    // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
+    // contenu MQTT reprend la main, plus besoin d'attendre son
+    // expiration ni de laisser une demande en attente perimee.
+    g_noWifiRecalboxScreenActive = false;
+    g_noWifiRecalboxPending = false;
+    g_recalboxDisconnectedScreenActive = false;
+    g_recalboxDisconnectedPending = false;
     g_mqttDefaultPendingAfterMinDisplay = false;
     resumePlaylist();
     break;
@@ -3139,6 +3341,13 @@ void processPendingMqttCommand()
   case MqttCommand::CMD_SYSTEM:
     if (g_sdOpInProgress) { Serial.println("[MQTT] system ignored (web open)"); break; }
     g_mqttConnectedScreenUntilMs = 0;
+    // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
+    // contenu MQTT reprend la main, plus besoin d'attendre son
+    // expiration ni de laisser une demande en attente perimee.
+    g_noWifiRecalboxScreenActive = false;
+    g_noWifiRecalboxPending = false;
+    g_recalboxDisconnectedScreenActive = false;
+    g_recalboxDisconnectedPending = false;
     g_mqttDefaultPendingAfterMinDisplay = false; // un vrai system prend le pas sur un default differe (v49)
     g_lastMqttWasDefault = false; // v50
     gif.close();gifOpened=false;pngDrawn=false;currentPngPath="";
@@ -3152,6 +3361,13 @@ void processPendingMqttCommand()
   case MqttCommand::CMD_GAME:
     if (g_sdOpInProgress) { Serial.println("[MQTT] game ignored (web open)"); break; }
     g_mqttConnectedScreenUntilMs = 0;
+    // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
+    // contenu MQTT reprend la main, plus besoin d'attendre son
+    // expiration ni de laisser une demande en attente perimee.
+    g_noWifiRecalboxScreenActive = false;
+    g_noWifiRecalboxPending = false;
+    g_recalboxDisconnectedScreenActive = false;
+    g_recalboxDisconnectedPending = false;
     g_mqttDefaultPendingAfterMinDisplay = false; // un vrai jeu prend le pas sur un default differe (v49)
     g_lastMqttWasDefault = false; // v50
   {
@@ -3489,6 +3705,13 @@ void processPendingMqttCommand()
   case MqttCommand::CMD_STARTCLIP:
     if (g_sdOpInProgress) { Serial.println("[MQTT] startclip ignored"); break; }
     g_mqttConnectedScreenUntilMs = 0;
+    // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
+    // contenu MQTT reprend la main, plus besoin d'attendre son
+    // expiration ni de laisser une demande en attente perimee.
+    g_noWifiRecalboxScreenActive = false;
+    g_noWifiRecalboxPending = false;
+    g_recalboxDisconnectedScreenActive = false;
+    g_recalboxDisconnectedPending = false;
     g_mqttDefaultPendingAfterMinDisplay = false;
     g_lastMqttWasDefault = true; // v50
     Serial.println("[MQTT] startgameclip -> playlist");
@@ -3498,6 +3721,13 @@ void processPendingMqttCommand()
   case MqttCommand::CMD_RESUMESYS:
     if (g_sdOpInProgress) { Serial.println("[MQTT] resumesys ignored"); break; }
     g_mqttConnectedScreenUntilMs = 0;
+    // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
+    // contenu MQTT reprend la main, plus besoin d'attendre son
+    // expiration ni de laisser une demande en attente perimee.
+    g_noWifiRecalboxScreenActive = false;
+    g_noWifiRecalboxPending = false;
+    g_recalboxDisconnectedScreenActive = false;
+    g_recalboxDisconnectedPending = false;
     g_mqttDefaultPendingAfterMinDisplay = false;
     g_lastMqttWasDefault = false; // v50
     Serial.println("[MQTT] resumesys -> "+cmd.arg);
@@ -3520,7 +3750,14 @@ void processPendingMqttCommand()
     // Ligne 2 : message complet (defile automatiquement si >128px, cf boucle
     // de rendu MODE_CONFIG) plutot que la seule IP -- plus clair pour
     // l'utilisateur qui regarde l'ecran du DMD sans autre contexte.
-    webDmdPause(trOpenBrowserAt(WiFi.localIP().toString()), 0xFFE0);
+    // Repli 0.0.0.0 (bug corrige 2026-08-05, seul site du fichier qui ne
+    // l'avait pas) : WiFi.localIP() est vide en mode AP pur.
+    {
+      String ip = WiFi.localIP().toString();
+      if (ip == "0.0.0.0") ip = WiFi.softAPIP().toString();
+      if (ip == "0.0.0.0") ip = "192.168.4.1";
+      webDmdPause(trOpenBrowserAt(ip), 0xFFE0);
+    }
     break;
 
   case MqttCommand::CMD_WIFI_RECOVERY:
@@ -3626,11 +3863,36 @@ void mqttTask(void *param)
   (void)param;
   vTaskDelay(pdMS_TO_TICKS(MQTT_START_DELAY_MS));
   unsigned long lastMqttConnectedMs=millis();
+  // Compteur de cycles consecutifs "WiFi non connecte" (2026-08-05, demande
+  // utilisateur) -- pilote l'alerte "No wifi, No Recalbox" (voir
+  // showNoWifiRecalboxAlert()). Uniquement le WiFi lui-meme : ne compte PAS
+  // les echecs mqttClient.connect() quand le WiFi est OK (ce cas garde son
+  // traitement existant, ecran "RecalBox connectee" une fois reellement
+  // connecte -- pas d'alerte rouge si le WiFi fonctionne).
+  unsigned long wifiDownStreak = 0;
+  // Horodatage du dernier affichage de l'alerte "RecalBox non connectee"
+  // (2026-08-05, demande utilisateur) -- WiFi OK mais mqttClient.state()==-2
+  // (MQTT_CONNECT_FAILED). Base sur le temps ecoule (pas un compteur
+  // d'iterations comme wifiDownStreak) car cette branche tourne au rythme
+  // de MQTT_RETRY_MS (15s), different du 1s de la boucle WiFi-down.
+  unsigned long lastRecalboxDisconnectedAlertMs = 0;
 
   for(;;)
   {
     if(!wifiEnabled||recalboxIP.length()==0){vTaskDelay(pdMS_TO_TICKS(2000));continue;}
-    if(WiFi.status()!=WL_CONNECTED){vTaskDelay(pdMS_TO_TICKS(1000));continue;}
+    if(WiFi.status()!=WL_CONNECTED){
+      wifiDownStreak++;
+      // Cette branche boucle a ~1/s (vTaskDelay 1000ms ci-dessous) : la
+      // 1ere fois (~1s apres la coupure) puis toutes les ~60 iterations
+      // (~60s) tant que ca persiste. Pas de dessin direct depuis cette
+      // tache de fond (voir showNoWifiRecalboxAlert(), appelee depuis
+      // loop() uniquement) -- juste une demande best-effort.
+      if (!g_sdOpInProgress && (wifiDownStreak==1 || wifiDownStreak % 60 == 0)) {
+        g_noWifiRecalboxPending = true;
+      }
+      vTaskDelay(pdMS_TO_TICKS(1000));continue;
+    }
+    wifiDownStreak = 0;
 
     // En mode config web : ne pas tenter de connexion MQTT (garde les sockets libres pour HTTP)
     // Idem pendant une generation de playlist (2026-07-29, test en cours) :
@@ -3652,6 +3914,7 @@ void mqttTask(void *param)
       {
         Serial.println("[MQTT] connected");
         lastMqttConnectedMs=millis();
+        lastRecalboxDisconnectedAlertMs=0; // reautorise l'alerte immediate en cas de future deconnexion
         mqttClient.subscribe("marquee/cmd/stop");
         mqttClient.subscribe("marquee/cmd/default");
         mqttClient.subscribe("marquee/cmd/system");
@@ -3689,6 +3952,17 @@ void mqttTask(void *param)
       {
         Serial.println("[MQTT] failed rc="+String(mqttClient.state()));
         unsigned long now=millis();
+        // Alerte "RecalBox non connectee" (2026-08-05, demande utilisateur)
+        // -- uniquement rc==-2 (MQTT_CONNECT_FAILED, echec de connexion TCP
+        // au broker) : WiFi deja confirme OK a ce point (garde plus haut
+        // dans la boucle), donc ce n'est PAS un probleme WiFi (pas
+        // d'alerte "No wifi, No Recalbox" ici, voir wifiDownStreak). 1ere
+        // fois, puis toutes les 60s tant que ca persiste.
+        if (mqttClient.state() == -2 && !g_sdOpInProgress
+            && (lastRecalboxDisconnectedAlertMs == 0 || (now - lastRecalboxDisconnectedAlertMs) >= 60000UL)) {
+          g_recalboxDisconnectedPending = true;
+          lastRecalboxDisconnectedAlertMs = now;
+        }
         if((now-lastMqttConnectedMs)>=MQTT_OFFLINE_FALLBACK_MS)
         {
           if(currentMode!=MODE_PLAYLIST&&gifCount>0&&!g_sdOpInProgress)
@@ -3869,20 +4143,35 @@ void setupWiFiFromConfig()
     }
   }
   else{
-    Serial.println("[WIFI] failed -> AP fallback");
-    WiFi.mode(WIFI_AP);
-    WiFi.softAP("RecalBox-DMD-Config");
-    delay(1000);
-    String apIP = WiFi.softAPIP().toString();
-    if (apIP == "0.0.0.0") apIP = "192.168.4.1";
-    // Mode config avec message AP
-    g_sdOpMsg = trConnectWifiMsg();
-    g_sdOpSubMsg = trOpenUrl(apIP);
-    g_sdOpSubMsgColor = 0xFFE0;
-    g_sdOpInProgress = true;
-    currentMode = MODE_CONFIG;
-    g_configDmdDirty = true;
-    Serial.println("[WIFI] AP fallback -> http://" + apIP);
+    // Repli AP uniquement si le parcours "premier demarrage" n'est pas
+    // encore termine (bug corrige 2026-08-05, demande utilisateur --
+    // logique cible en 3 etapes) : un appareil DEJA entierement
+    // configure (first_boot=0) dont le WiFi devient temporairement
+    // injoignable (routeur eteint, coupure passagere) ne doit PAS etre
+    // renvoye en mode AP/config -- il continue de demarrer normalement
+    // (playlist locale), maintainWiFi() se chargeant de reessayer la
+    // reconnexion en tache de fond sans reboot ni ecran force. Le repli
+    // AP reste le comportement voulu tant que g_firstBoot est vrai
+    // (identifiants WiFi eventuellement faux saisis lors de la phase 1,
+    // il faut pouvoir les ressaisir).
+    if (g_firstBoot) {
+      Serial.println("[WIFI] failed -> AP fallback");
+      WiFi.mode(WIFI_AP);
+      WiFi.softAP("RecalBox-DMD-Config");
+      delay(1000);
+      String apIP = WiFi.softAPIP().toString();
+      if (apIP == "0.0.0.0") apIP = "192.168.4.1";
+      // Mode config avec message AP
+      g_sdOpMsg = trConnectWifiMsg();
+      g_sdOpSubMsg = trOpenUrl(apIP);
+      g_sdOpSubMsgColor = 0xFFE0;
+      g_sdOpInProgress = true;
+      currentMode = MODE_CONFIG;
+      g_configDmdDirty = true;
+      Serial.println("[WIFI] AP fallback -> http://" + apIP);
+    } else {
+      Serial.println("[WIFI] failed, first_boot=0 -> pas de repli AP, demarrage normal (maintainWiFi() reessaiera)");
+    }
   }
 }
 
@@ -4533,25 +4822,44 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
   initNTP();
   Serial.println("[BOOT] apres initNTP, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
 
-  // Premier demarrage : inviter l'utilisateur a ouvrir la page web
-  if (g_firstBoot) {
+  // Entree en mode web config : condition unique (bug corrige 2026-08-05,
+  // demande utilisateur -- logique cible en 3 etapes) combinant les 3
+  // raisons reelles d'y entrer, la ou elles etaient auparavant eparpillees
+  // et incompletes (g_firstBoot seul court-circuitait TOUT le reste via
+  // goto, empechant le test playlistName de jamais s'executer tant qu'il
+  // etait vrai ; recalboxIP n'etait lui jamais teste comme condition
+  // d'entree nulle part dans ce fichier).
+  bool needWebConfigMode = (playlistName.length()==0) || (recalboxIP.length()==0) || g_firstBoot;
+
+  // Invite l'utilisateur a ouvrir la page web. Message choisi selon
+  // l'etat REEL de connexion (bug corrige 2026-08-05) : ce bloc s'execute
+  // apres CHAQUE appel a setupWiFiFromConfig() ci-dessus, donc aussi bien
+  // juste apres un repli AP (WiFi.status()!=WL_CONNECTED, deja invite a
+  // rejoindre RecalBox-DMD-Config par setupWiFiFromConfig() lui-meme --
+  // meme message ici, coherent) QUE juste apres une VRAIE connexion STA
+  // reussie (playlist/IP Recalbox manquantes, ou 2e phase du 1er
+  // demarrage) -- dans ce dernier cas, "Connectez-vous au WiFi
+  // RecalBox-DMD-Config" etait un contresens (ce reseau AP n'existe plus
+  // a ce stade, le DMD est deja sur le reseau reel) : utilise le meme
+  // message que les autres ecrans "page de configuration" du fichier.
+  if (needWebConfigMode) {
     String ip = WiFi.localIP().toString();
     if (ip == "0.0.0.0") ip = WiFi.softAPIP().toString();
     if (ip == "0.0.0.0") ip = "192.168.4.1";
-    g_sdOpMsg = trConnectWifiMsg();
+    g_sdOpMsg = (WiFi.status() == WL_CONNECTED) ? trConfigPageMsg() : trConnectWifiMsg();
     g_sdOpSubMsg = trOpenUrl(ip);
     g_sdOpSubMsgColor = 0x07E0;
     g_sdOpInProgress = true;
     currentMode = MODE_CONFIG;
     g_configDmdDirty = true;
-    Serial.println("[BOOT] First boot - ouvrir http://" + ip);
+    Serial.println("[BOOT] Mode web config - ouvrir http://" + ip);
   }
 
   mqttCmdMutex=xSemaphoreCreateMutex();
   pendingCmd=MqttCommand(MqttCommand::CMD_NONE,"");
   plGenStatusMutex=xSemaphoreCreateMutex();
   sdAccessMutex=xSemaphoreCreateMutex();
-  if (g_firstBoot) {
+  if (needWebConfigMode) {
     goto start_mqtt_task;
   }
 
@@ -4617,19 +4925,11 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
     goto start_mqtt_task;
   }
 
-  if(playlistName.length()==0){
-    String ip = WiFi.localIP().toString();
-    if (ip == "0.0.0.0") ip = WiFi.softAPIP().toString();
-    if (ip == "0.0.0.0") ip = "192.168.4.1";
-    g_sdOpMsg = trConfigPageMsg();
-    g_sdOpSubMsg = trOpenUrl(ip);
-    g_sdOpSubMsgColor = 0x07E0;
-    g_sdOpInProgress = true;
-    currentMode = MODE_CONFIG;
-    g_configDmdDirty = true;
-    Serial.println("[BOOT] No playlist -> config mode sur http://" + ip);
-    goto start_mqtt_task;
-  }
+  // Bloc "if(playlistName.length()==0)" retire (bug corrige 2026-08-05) :
+  // entierement redondant avec needWebConfigMode ci-dessus, qui couvre
+  // deja ce cas (et goto start_mqtt_task AVANT ce point si vrai) --
+  // playlistName ne change jamais entre les deux, ce bloc ne pouvait
+  // donc plus jamais s'executer.
 
   {
     Serial.println("[PLAYLIST] sig compute start t=" + String(millis()));
@@ -4724,6 +5024,21 @@ start_mqtt_task:
 void loop()
 {
   handleWebConfig(); maintainWiFi(); maintainApRecovery(); processPendingMqttCommand();
+  // Alerte "No wifi, No Recalbox" (2026-08-05, demande utilisateur) --
+  // repli ici pour le cas ou la demande (g_noWifiRecalboxPending, posee
+  // par mqttTask()) survient alors qu'aucune playlist n'est en cours de
+  // lecture (MODE_BLACK, aucun GIF charge, etc.) : rien a proteger d'une
+  // coupure en plein milieu dans ce cas, applique immediatement. Si une
+  // playlist tourne (MODE_PLAYLIST), c'est plutot le case MODE_PLAYLIST
+  // ci-dessous (entre deux GIFs) qui consomme cette demande.
+  if (g_noWifiRecalboxPending && currentMode != MODE_PLAYLIST) {
+    showNoWifiRecalboxAlert();
+  }
+  // Idem pour "RecalBox non connectee" (2026-08-05) -- meme repli hors
+  // MODE_PLAYLIST, voir commentaire ci-dessus.
+  if (g_recalboxDisconnectedPending && currentMode != MODE_PLAYLIST) {
+    showRecalboxDisconnectedAlert();
+  }
   // Application differee d'un "default" recu trop tot (v49, 2026-08-03,
   // demande explicite utilisateur) : voir CMD_DEFAULT/declaration de
   // MQTT_WAITING_MIN_DISPLAY_MS pour le detail complet -- ici, on se
@@ -4733,6 +5048,13 @@ void loop()
   {
     g_mqttDefaultPendingAfterMinDisplay = false;
     g_mqttConnectedScreenUntilMs = 0;
+    // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
+    // contenu MQTT reprend la main, plus besoin d'attendre son
+    // expiration ni de laisser une demande en attente perimee.
+    g_noWifiRecalboxScreenActive = false;
+    g_noWifiRecalboxPending = false;
+    g_recalboxDisconnectedScreenActive = false;
+    g_recalboxDisconnectedPending = false;
     Serial.println("[MQTT] default differe applique -> reprise playlist");
     resumePlaylist();
   }
@@ -4760,6 +5082,48 @@ void loop()
       blinkVisible = !blinkVisible;
       drawRecalboxConnectedOverlay(blinkVisible);
       lastBlinkMs = millis();
+    }
+  }
+  // Clignotement + auto-resolution de l'alerte "No wifi, No Recalbox"
+  // (2026-08-05, demande utilisateur) -- bloc jumeau du precedent mais
+  // drapeau/duree distincts (voir declaration de g_noWifiRecalboxScreenActive) :
+  // ecran TEMPORISE (7s, NO_WIFI_ALERT_DISPLAY_MS), pas d'attente indefinie
+  // d'un message externe qui ne viendra jamais tant que le WiFi est down.
+  if (g_noWifiRecalboxScreenActive && currentMode == MODE_PNG && currentPngPath == String(DEFAULT_RAW565_PATH) && !g_sdOpInProgress)
+  {
+    static unsigned long lastNoWifiBlinkMs = 0;
+    static bool noWifiBlinkVisible = true;
+    if (millis() - lastNoWifiBlinkMs > 400)
+    {
+      noWifiBlinkVisible = !noWifiBlinkVisible;
+      drawNoWifiNoRecalboxOverlay(noWifiBlinkVisible);
+      lastNoWifiBlinkMs = millis();
+    }
+    if (millis() >= g_noWifiRecalboxUntilMs)
+    {
+      g_noWifiRecalboxScreenActive = false;
+      Serial.println("[WIFI] No wifi, No Recalbox -- delai ecoule, reprise playlist");
+      resumePlaylist();
+    }
+  }
+  // Clignotement + auto-resolution de l'alerte "RecalBox non connectee"
+  // (2026-08-05, demande utilisateur) -- bloc jumeau du precedent (WiFi
+  // OK mais mqttClient.state()==-2, drapeau/duree distincts).
+  if (g_recalboxDisconnectedScreenActive && currentMode == MODE_PNG && currentPngPath == String(DEFAULT_RAW565_PATH) && !g_sdOpInProgress)
+  {
+    static unsigned long lastRecalboxDiscBlinkMs = 0;
+    static bool recalboxDiscBlinkVisible = true;
+    if (millis() - lastRecalboxDiscBlinkMs > 400)
+    {
+      recalboxDiscBlinkVisible = !recalboxDiscBlinkVisible;
+      drawRecalboxDisconnectedOverlay(recalboxDiscBlinkVisible);
+      lastRecalboxDiscBlinkMs = millis();
+    }
+    if (millis() >= g_recalboxDisconnectedUntilMs)
+    {
+      g_recalboxDisconnectedScreenActive = false;
+      Serial.println("[MQTT] RecalBox non connectee -- delai ecoule, reprise playlist");
+      resumePlaylist();
     }
   }
   // Progression de playlistGenTask() affichee sur le DMD (voir
@@ -4799,6 +5163,24 @@ void loop()
     {
       int fd=0; bool frameOk=gifPlayFrameCompat(false,&fd);
       if(!frameOk){
+        // Alerte "No wifi, No Recalbox" (2026-08-05, demande utilisateur) :
+        // le GIF courant vient de se terminer naturellement (frameOk==false)
+        // -- point d'insertion volontairement choisi ICI, AVANT openNextGif(),
+        // pour ne jamais couper une animation en plein milieu. L'alerte
+        // affichee prend la main pour 7s (voir showNoWifiRecalboxAlert()),
+        // puis resumePlaylist() (appele automatiquement dans loop() a
+        // l'expiration du delai) enchaine sur le GIF suivant normalement --
+        // la rotation reprend sans perte de position.
+        if (g_noWifiRecalboxPending) {
+          showNoWifiRecalboxAlert();
+          break;
+        }
+        // Idem pour "RecalBox non connectee" (2026-08-05) -- meme
+        // placement entre deux GIFs.
+        if (g_recalboxDisconnectedPending) {
+          showRecalboxDisconnectedAlert();
+          break;
+        }
         if(clockEnabled) clockGifCounter++;
         openNextGif();
         if(clockEnabled && clockIntervalMin <= 0)

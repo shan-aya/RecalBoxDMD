@@ -3,7 +3,44 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v50
+// Version actuelle : v51
+//
+// v51 — 2026-08-05 — safe-modify — Volet web de la refonte premier
+//   demarrage/AP/mode config (voir RecalBox_DMD.ino v51 pour le volet
+//   firmware/ecran physique). Resume :
+//   1. first_boot n'est plus efface par le simple affichage d'une page
+//      (clearFirstBoot() retiree de triggerWebConfigModeSoft() et du
+//      duplicata upload) -- ne passe a 0 que dans handleWebConfigSave() si
+//      playlist ET IP Recalbox sont non vides au moment de la sauvegarde.
+//   2. Modale d'accueil (checklist + aide detaillee par fonctionnalite) +
+//      lien "Aide" permanent, dupliques sur les 5 pages (MENU/BASIC/
+//      NETWORK/CLOCK/MEDIA), exposee via first_boot dans /lang. Gate
+//      sessionStorage (dmd_help_seen) pour n'afficher qu'une fois par
+//      onglet -- bug corrige : elle reapparaissait a chaque navigation.
+//   3. Bouton MEDIA "Enreg. & Redemarrer" (relabelage, comportement AJAX
+//      deja immediat inchange) -- manquait par rapport aux 3 autres pages.
+//   4. checkEssentialFields() (WiFi/playlist/IP Recalbox) avant
+//      doReboot()/dmdResume()/saveAndReboot() -- confirm() listant les
+//      champs vides, jamais bloquant (annulable).
+//   5. Bug corrige : language= disparaissait de config.ini a chaque
+//      sauvegarde BASIC/NETWORK/CLOCK/MEDIA (handleWebConfigSave() ne la
+//      reemettait jamais, contrairement a first_boot=) -- meme valeur RAM
+//      (uiLanguage) desormais toujours reecrite.
+//   6. Brouillon localStorage multi-pages (dmd_draft_basic/_network/_clock)
+//      -- 1er essai (window.onbeforeunload sur _formDirty) EXPLICITEMENT
+//      REJETE par l'utilisateur ("pas d'alerte bloquante, un vrai
+//      correctif"). Remplace par une vraie persistance cote navigateur :
+//      chaque champ modifie est ecrit dans localStorage, relu et applique
+//      PAR-DESSUS les valeurs serveur au chargement de chaque page -- plus
+//      aucun champ perdu en naviguant entre pages, sans le moindre
+//      avertissement. La sauvegarde reelle (config.ini) continue de
+//      n'avoir lieu que sur clic explicite Enregistrer/Enreg.&Redemarrer,
+//      qui efface alors le brouillon.
+//   Compilation via compile.ps1 : OK (64% flash, 28% RAM). JS revalide
+//   (node --check) sur les 6 pages a chaque etape. Test materiel reel EN
+//   COURS (2026-08-05) : messages d'alerte web + DMD + modale d'aide
+//   confirmes OK ; reste (brouillon localStorage, alerte champs essentiels,
+//   fix language=, indicateurs rouge/orange) PAS ENCORE teste.
 //
 // v50 — 2026-08-03 — safe-modify — setTimeout(3000) (v49) confirme SANS
 //   EFFET par lecture du code source NetworkClient.cpp : write() envoie via
@@ -544,6 +581,7 @@ extern bool    clockNeonCustomColor;
 extern uint8_t clockNeonR, clockNeonG, clockNeonB;
 extern bool   requestReboot;
 extern bool   g_playlistStartedThisBoot;
+extern bool   g_firstBoot;
 extern String uiLanguage;
 extern void webDmdPause(const String &msg, uint16_t color = 0xFFFF);
 extern void webDmdResume();
@@ -606,10 +644,41 @@ body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padd
 .small{font-size:12px;color:#9ca3af;margin-top:10px;text-align:center}
 #langSelect{position:absolute;top:10px;right:10px;width:auto;padding:6px 8px;font-size:13px;background:#16213e;color:#8ab4f8;border:1px solid #333;border-radius:4px}
 body{position:relative}
+#helpLink{position:absolute;top:14px;right:75px;font-size:13px;color:#8ab4f8;text-decoration:underline;cursor:pointer}
+.help-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.help-backdrop.show{display:flex}
+.help-box{background:#16213e;border-radius:8px;padding:20px;max-width:520px;max-height:85vh;overflow-y:auto;position:relative;text-align:left}
+.help-box h2{color:#ffd146;font-size:16px;margin:0 22px 10px 0}
+.help-box h3{color:#8ab4f8;font-size:14px;margin:14px 0 6px}
+.help-box p{font-size:13px;line-height:1.5;margin:0 0 8px}
+.help-box ul{margin:0 0 8px 18px;font-size:13px;line-height:1.5}
+.help-close{position:absolute;top:10px;right:14px;background:none;border:none;color:#aaa;font-size:22px;cursor:pointer;line-height:1}
 </style>
 </head>
 <body>
 <select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<span id="helpLink" onclick="showHelpModal()" data-i18n="help_link">Aide</span>
+<div id="helpBackdrop" class="help-backdrop" onclick="if(event.target===this)closeHelpModal()">
+<div class="help-box">
+<button class="help-close" onclick="closeHelpModal()">&times;</button>
+<h2 data-i18n="help_title">Bienvenue</h2>
+<p data-i18n="help_intro"></p>
+<h3 data-i18n="help_checklist_title"></h3>
+<ul>
+<li data-i18n="help_check_ip"></li>
+<li data-i18n="help_check_playlist"></li>
+<li data-i18n="help_check_wifi"></li>
+</ul>
+<p id="helpUrlReminder"></p>
+<h3 data-i18n="help_features_title"></h3>
+<ul>
+<li data-i18n="help_feat_playlists"></li>
+<li data-i18n="help_feat_clock"></li>
+<li data-i18n="help_feat_display"></li>
+<li data-i18n="help_feat_network"></li>
+</ul>
+</div>
+</div>
 <div class="logo-wrap"><img src="data:image/png;base64,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" alt="RecalBox"></div>
 <div class="tagline" data-i18n="tagline">Configuration DMD</div>
 <div class="section">
@@ -623,10 +692,21 @@ body{position:relative}
 <div class="small" data-i18n="small_hint">Page fractionn&eacute;e pour un chargement rapide et fiable sur ESP32.</div>
 </div>
 <script>
+const HELP_I18N={
+fr:{help_link:'Aide',help_title:'Bienvenue sur la configuration du DMD',help_intro:'Voici ce qu\'il reste à vérifier avant de sauvegarder, et un résumé de ce que permet cette interface.',help_checklist_title:'À vérifier avant de sauvegarder',help_check_ip:'IP Recalbox renseignée (page Wi-Fi & Bluetooth)',help_check_playlist:'Playlist par défaut renseignée (page Affichage & Playlists)',help_check_wifi:'Le Wi-Fi est déjà validé à ce stade — inutile d\'y retoucher, sauf si vous voulez le changer',help_url_reminder:'Cette page reste accessible à tout moment en tapant l\'IP du DMD dans un navigateur — actuellement {ip}',help_features_title:'Ce que permet cette interface',help_feat_playlists:'GIFs (page Médias) : ajouter des GIFs sur la carte SD (upload direct depuis le navigateur, création de dossiers) — les playlists qui référencent un dossier modifié sont mises à jour automatiquement',help_feat_clock:'Horloge (page Horloge) : thème, couleur néon, intervalle et durée d\'affichage, fuseau horaire',help_feat_display:'Affichage, luminosité et playlists (page Affichage & Playlists) : luminosité de l\'écran, choix entre démarrage silencieux (titre seul) ou normal (IP détectée, synchronisation de l\'heure, etc.), sélection de la playlist par défaut, et création/suppression de playlists à partir des dossiers de GIFs',help_feat_network:'Réseau (page Wi-Fi & Bluetooth) : IP Recalbox (connexion MQTT), Wi-Fi (réseau, mot de passe, IP statique)'},
+en:{help_link:'Help',help_title:'Welcome to the DMD configuration',help_intro:'Here is what\'s left to check before saving, and a summary of what this interface lets you do.',help_checklist_title:'To check before saving',help_check_ip:'Recalbox IP filled in (Wi-Fi & Bluetooth page)',help_check_playlist:'Default playlist filled in (Display & Playlists page)',help_check_wifi:'Wi-Fi is already validated at this stage — no need to touch it again, unless you want to change it',help_url_reminder:'This page stays accessible at any time by typing the DMD\'s IP in a browser — currently {ip}',help_features_title:'What this interface lets you do',help_feat_playlists:'GIFs (Media page): add GIFs to the SD card (direct upload from the browser, folder creation) — playlists referencing a modified folder are updated automatically',help_feat_clock:'Clock (Clock page): theme, custom neon color, display interval and duration, time zone',help_feat_display:'Display, brightness and playlists (Display & Playlists page): screen brightness, choice between silent startup (title only) or normal (detected IP, time sync, etc.), default playlist selection, and creating/deleting playlists from GIF folders',help_feat_network:'Network (Wi-Fi & Bluetooth page): Recalbox IP (MQTT connection), Wi-Fi (network, password, static IP)'},
+es:{help_link:'Ayuda',help_title:'Bienvenido a la configuración del DMD',help_intro:'Esto es lo que falta comprobar antes de guardar, y un resumen de lo que permite esta interfaz.',help_checklist_title:'A comprobar antes de guardar',help_check_ip:'IP de Recalbox indicada (página Wi-Fi y Bluetooth)',help_check_playlist:'Playlist por defecto indicada (página Pantalla y listas)',help_check_wifi:'El Wi-Fi ya está validado en esta etapa — no hace falta tocarlo, salvo que quiera cambiarlo',help_url_reminder:'Esta página sigue accesible en cualquier momento escribiendo la IP del DMD en un navegador — actualmente {ip}',help_features_title:'Qué permite esta interfaz',help_feat_playlists:'GIFs (página Medios): añadir GIFs a la tarjeta SD (subida directa desde el navegador, creación de carpetas) — las playlists que referencian una carpeta modificada se actualizan automáticamente',help_feat_clock:'Reloj (página Reloj): tema, color neón personalizado, intervalo y duración de visualización, zona horaria',help_feat_display:'Pantalla, brillo y listas (página Pantalla y listas): brillo de la pantalla, elección entre inicio silencioso (solo título) o normal (IP detectada, sincronización horaria, etc.), selección de la playlist por defecto, y creación/eliminación de playlists a partir de las carpetas de GIFs',help_feat_network:'Red (página Wi-Fi y Bluetooth): IP de Recalbox (conexión MQTT), Wi-Fi (red, contraseña, IP estática)'}
+};
+function showHelpModal(){
+  document.getElementById('helpBackdrop').classList.add('show');
+  const p=document.getElementById('helpUrlReminder');
+  if(p) p.textContent=((HELP_I18N[currentLang]&&HELP_I18N[currentLang].help_url_reminder)||HELP_I18N.fr.help_url_reminder).replace('{ip}',window.location.host);
+}
+function closeHelpModal(){document.getElementById('helpBackdrop').classList.remove('show');}
 const MENU_I18N={
-fr:{title:'RecalBox DMD',tagline:'Configuration DMD',menu_basic:'&#x1F4A1; Affichage &amp; Playlists',menu_network:'&#x1F4F6; Wi-Fi &amp; Bluetooth',menu_clock:'&#x23F0; Horloge',menu_media:'&#x1F4BF; Médias',small_hint:'Page fractionnée pour un chargement rapide et fiable sur ESP32.',cont_basic:'&#x1F4A1; Continuer : Affichage & Playlists',cont_network:'&#x1F4F6; Continuer : Wi-Fi & Bluetooth',cont_clock:'&#x23F0; Continuer : Horloge',cont_media:'&#x1F4BF; Continuer : Médias'},
-en:{title:'RecalBox DMD',tagline:'DMD Configuration',menu_basic:'&#x1F4A1; Display &amp; Playlists',menu_network:'&#x1F4F6; Wi-Fi &amp; Bluetooth',menu_clock:'&#x23F0; Clock',menu_media:'&#x1F4BF; Media',small_hint:'Split page for fast, reliable loading on ESP32.',cont_basic:'&#x1F4A1; Resume: Display & Playlists',cont_network:'&#x1F4F6; Resume: Wi-Fi & Bluetooth',cont_clock:'&#x23F0; Resume: Clock',cont_media:'&#x1F4BF; Resume: Media'},
-es:{title:'RecalBox DMD',tagline:'Configuración DMD',menu_basic:'&#x1F4A1; Pantalla y listas',menu_network:'&#x1F4F6; Wi-Fi y Bluetooth',menu_clock:'&#x23F0; Reloj',menu_media:'&#x1F4BF; Medios',small_hint:'Página dividida para una carga rápida y fiable en ESP32.',cont_basic:'&#x1F4A1; Continuar: Pantalla y listas',cont_network:'&#x1F4F6; Continuar: Wi-Fi y Bluetooth',cont_clock:'&#x23F0; Continuar: Reloj',cont_media:'&#x1F4BF; Continuar: Medios'}
+fr:{title:'RecalBox DMD',tagline:'Configuration DMD',menu_basic:'&#x1F4A1; Affichage &amp; Playlists',menu_network:'&#x1F4F6; Wi-Fi &amp; Bluetooth',menu_clock:'&#x23F0; Horloge',menu_media:'&#x1F4BF; Médias',small_hint:'Page fractionnée pour un chargement rapide et fiable sur ESP32.',cont_basic:'&#x1F4A1; Continuer : Affichage & Playlists',cont_network:'&#x1F4F6; Continuer : Wi-Fi & Bluetooth',cont_clock:'&#x23F0; Continuer : Horloge',cont_media:'&#x1F4BF; Continuer : Médias',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',...HELP_I18N.fr},
+en:{title:'RecalBox DMD',tagline:'DMD Configuration',menu_basic:'&#x1F4A1; Display &amp; Playlists',menu_network:'&#x1F4F6; Wi-Fi &amp; Bluetooth',menu_clock:'&#x23F0; Clock',menu_media:'&#x1F4BF; Media',small_hint:'Split page for fast, reliable loading on ESP32.',cont_basic:'&#x1F4A1; Resume: Display & Playlists',cont_network:'&#x1F4F6; Resume: Wi-Fi & Bluetooth',cont_clock:'&#x23F0; Resume: Clock',cont_media:'&#x1F4BF; Resume: Media',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',...HELP_I18N.en},
+es:{title:'RecalBox DMD',tagline:'Configuración DMD',menu_basic:'&#x1F4A1; Pantalla y listas',menu_network:'&#x1F4F6; Wi-Fi y Bluetooth',menu_clock:'&#x23F0; Reloj',menu_media:'&#x1F4BF; Medios',small_hint:'Página dividida para una carga rápida y fiable en ESP32.',cont_basic:'&#x1F4A1; Continuar: Pantalla y listas',cont_network:'&#x1F4F6; Continuar: Wi-Fi y Bluetooth',cont_clock:'&#x23F0; Continuar: Reloj',cont_media:'&#x1F4BF; Continuar: Medios',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',...HELP_I18N.es}
 };
 let currentLang='fr';
 function tr(k){return (MENU_I18N[currentLang]&&MENU_I18N[currentLang][k])||MENU_I18N.fr[k]||k;}
@@ -653,7 +733,7 @@ function updateContinueLink(){
   if(last&&SECTIONS[last]){a.href=SECTIONS[last].url;a.innerHTML=tr(SECTIONS[last].key);a.style.display='block';}
   else{a.style.display='none';}
 }
-fetch('/lang').then(function(r){return r.json();}).then(function(d){applyLang(d.language);}).catch(function(){applyLang();});
+fetch('/lang').then(function(r){return r.json();}).then(function(d){applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}}).catch(function(){applyLang();});
 // Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29) :
 // aucun moyen fiable de distinguer une vraie fermeture d'un simple
 // rafraichissement de page (habitude trop ancree pour l'utilisateur, faux
@@ -702,10 +782,41 @@ h2{color:#8ab4f8;font-size:15px;margin:0 0 10px;border-left:3px solid #8ab4f8;pa
 .err{background:#6b0f0f;color:#ffcccc}
 #langSelect{position:absolute;top:10px;right:10px;width:auto;padding:6px 8px;font-size:13px;background:#16213e;color:#8ab4f8;border:1px solid #333;border-radius:4px}
 body{position:relative}
+#helpLink{position:absolute;top:14px;right:75px;font-size:13px;color:#8ab4f8;text-decoration:underline;cursor:pointer}
+.help-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.help-backdrop.show{display:flex}
+.help-box{background:#16213e;border-radius:8px;padding:20px;max-width:520px;max-height:85vh;overflow-y:auto;position:relative;text-align:left}
+.help-box h2{color:#ffd146;font-size:16px;margin:0 22px 10px 0}
+.help-box h3{color:#8ab4f8;font-size:14px;margin:14px 0 6px}
+.help-box p{font-size:13px;line-height:1.5;margin:0 0 8px}
+.help-box ul{margin:0 0 8px 18px;font-size:13px;line-height:1.5}
+.help-close{position:absolute;top:10px;right:14px;background:none;border:none;color:#aaa;font-size:22px;cursor:pointer;line-height:1}
 </style>
 </head>
 <body>
 <select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<span id="helpLink" onclick="showHelpModal()" data-i18n="help_link">Aide</span>
+<div id="helpBackdrop" class="help-backdrop" onclick="if(event.target===this)closeHelpModal()">
+<div class="help-box">
+<button class="help-close" onclick="closeHelpModal()">&times;</button>
+<h2 data-i18n="help_title">Bienvenue</h2>
+<p data-i18n="help_intro"></p>
+<h3 data-i18n="help_checklist_title"></h3>
+<ul>
+<li data-i18n="help_check_ip"></li>
+<li data-i18n="help_check_playlist"></li>
+<li data-i18n="help_check_wifi"></li>
+</ul>
+<p id="helpUrlReminder"></p>
+<h3 data-i18n="help_features_title"></h3>
+<ul>
+<li data-i18n="help_feat_playlists"></li>
+<li data-i18n="help_feat_clock"></li>
+<li data-i18n="help_feat_display"></li>
+<li data-i18n="help_feat_network"></li>
+</ul>
+</div>
+</div>
 <div class="topnav">
 <a href="/config/basic" class="active" data-i18n="nav_basic">&#x1F4A1; Affichage &amp; Playlists</a>
 <a href="/config/network" data-i18n="nav_network">&#x1F4F6; Wi-Fi &amp; BT</a>
@@ -747,10 +858,21 @@ body{position:relative}
 </form>
 <div id="msg" class="msg"></div>
 <script>
+const HELP_I18N={
+fr:{help_link:'Aide',help_title:'Bienvenue sur la configuration du DMD',help_intro:'Voici ce qu\'il reste à vérifier avant de sauvegarder, et un résumé de ce que permet cette interface.',help_checklist_title:'À vérifier avant de sauvegarder',help_check_ip:'IP Recalbox renseignée (page Wi-Fi & Bluetooth)',help_check_playlist:'Playlist par défaut renseignée (page Affichage & Playlists)',help_check_wifi:'Le Wi-Fi est déjà validé à ce stade — inutile d\'y retoucher, sauf si vous voulez le changer',help_url_reminder:'Cette page reste accessible à tout moment en tapant l\'IP du DMD dans un navigateur — actuellement {ip}',help_features_title:'Ce que permet cette interface',help_feat_playlists:'GIFs (page Médias) : ajouter des GIFs sur la carte SD (upload direct depuis le navigateur, création de dossiers) — les playlists qui référencent un dossier modifié sont mises à jour automatiquement',help_feat_clock:'Horloge (page Horloge) : thème, couleur néon, intervalle et durée d\'affichage, fuseau horaire',help_feat_display:'Affichage, luminosité et playlists (page Affichage & Playlists) : luminosité de l\'écran, choix entre démarrage silencieux (titre seul) ou normal (IP détectée, synchronisation de l\'heure, etc.), sélection de la playlist par défaut, et création/suppression de playlists à partir des dossiers de GIFs',help_feat_network:'Réseau (page Wi-Fi & Bluetooth) : IP Recalbox (connexion MQTT), Wi-Fi (réseau, mot de passe, IP statique)'},
+en:{help_link:'Help',help_title:'Welcome to the DMD configuration',help_intro:'Here is what\'s left to check before saving, and a summary of what this interface lets you do.',help_checklist_title:'To check before saving',help_check_ip:'Recalbox IP filled in (Wi-Fi & Bluetooth page)',help_check_playlist:'Default playlist filled in (Display & Playlists page)',help_check_wifi:'Wi-Fi is already validated at this stage — no need to touch it again, unless you want to change it',help_url_reminder:'This page stays accessible at any time by typing the DMD\'s IP in a browser — currently {ip}',help_features_title:'What this interface lets you do',help_feat_playlists:'GIFs (Media page): add GIFs to the SD card (direct upload from the browser, folder creation) — playlists referencing a modified folder are updated automatically',help_feat_clock:'Clock (Clock page): theme, custom neon color, display interval and duration, time zone',help_feat_display:'Display, brightness and playlists (Display & Playlists page): screen brightness, choice between silent startup (title only) or normal (detected IP, time sync, etc.), default playlist selection, and creating/deleting playlists from GIF folders',help_feat_network:'Network (Wi-Fi & Bluetooth page): Recalbox IP (MQTT connection), Wi-Fi (network, password, static IP)'},
+es:{help_link:'Ayuda',help_title:'Bienvenido a la configuración del DMD',help_intro:'Esto es lo que falta comprobar antes de guardar, y un resumen de lo que permite esta interfaz.',help_checklist_title:'A comprobar antes de guardar',help_check_ip:'IP de Recalbox indicada (página Wi-Fi y Bluetooth)',help_check_playlist:'Playlist por defecto indicada (página Pantalla y listas)',help_check_wifi:'El Wi-Fi ya está validado en esta etapa — no hace falta tocarlo, salvo que quiera cambiarlo',help_url_reminder:'Esta página sigue accesible en cualquier momento escribiendo la IP del DMD en un navegador — actualmente {ip}',help_features_title:'Qué permite esta interfaz',help_feat_playlists:'GIFs (página Medios): añadir GIFs a la tarjeta SD (subida directa desde el navegador, creación de carpetas) — las playlists que referencian una carpeta modificada se actualizan automáticamente',help_feat_clock:'Reloj (página Reloj): tema, color neón personalizado, intervalo y duración de visualización, zona horaria',help_feat_display:'Pantalla, brillo y listas (página Pantalla y listas): brillo de la pantalla, elección entre inicio silencioso (solo título) o normal (IP detectada, sincronización horaria, etc.), selección de la playlist por defecto, y creación/eliminación de playlists a partir de las carpetas de GIFs',help_feat_network:'Red (página Wi-Fi y Bluetooth): IP de Recalbox (conexión MQTT), Wi-Fi (red, contraseña, IP estática)'}
+};
+function showHelpModal(){
+  document.getElementById('helpBackdrop').classList.add('show');
+  const p=document.getElementById('helpUrlReminder');
+  if(p) p.textContent=((HELP_I18N[currentLang]&&HELP_I18N[currentLang].help_url_reminder)||HELP_I18N.fr.help_url_reminder).replace('{ip}',window.location.host);
+}
+function closeHelpModal(){document.getElementById('helpBackdrop').classList.remove('show');}
 const PAGE_I18N={
-fr:{title:'RecalBox DMD - Affichage',h1:'Affichage &amp; Playlists',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_display:'&#x1F4A1; Affichage',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Luminosité (%)',lbl_silent_boot:'Démarrage silencieux',lbl_playlist_file:'Playlist par défaut',lbl_random:'Lecture aléatoire',lbl_delete_playlist:'Supprimer',btn_delete_playlist:'&#x1F5D1; Supprimer playlist',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_select_playlist:'Sélectionnez une playlist à supprimer',msg_confirm_delete:'Supprimer ${0} ?',msg_confirm_delete_default:'ATTENTION : ${0} est actuellement la playlist par defaut ! La supprimer peut empecher le DMD de demarrer normalement. Continuer ?',msg_deleting:'Suppression...',msg_load_error:'Impossible de charger la config',sec_manage_playlists:'&#x2699; Gestion des playlists',desc_gen_playlist:'Cochez des dossiers pour générer une nouvelle playlist. &#x26A0;&#xFE0F; La création n\'est performante que sur des dossiers avec un nombre limité de fichiers. Pour des playlists contenant des dossiers conséquents, passez par l\'utilitaire RecalboxDMD_tool sur PC.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',lbl_playlist_name:'Nom playlist',placeholder_playlist_name:'ex: MaPlaylist',btn_gen_playlist:'&#x2699; Générer playlist',msg_no_playlist_name:'Donnez un nom à la playlist',msg_select_folder:'Choisissez au moins un dossier',msg_generating:'Generation...',lbl_load_playlist:'Modifier une playlist existante',msg_scanning:'Analyse',msg_gen_busy:'Generation deja en cours ailleurs',msg_gen_start_error:'Impossible de demarrer la generation',msg_gen_leave_warning:'Une generation de playlist est en cours. Quitter la page ?',btn_stop_gen:'&#x23F9; Arreter',msg_confirm_stop_gen:'Arreter la generation ? La playlist en cours de creation sera supprimee.',msg_stopping_gen:'Arret playlist en cours, veuillez patienter...',msg_stop_gen_failed:'Echec de la demande d\'arret (reseau) -- reessayez'},
-en:{title:'RecalBox DMD - Display',h1:'Display &amp; Playlists',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_display:'&#x1F4A1; Display',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Brightness (%)',lbl_silent_boot:'Silent boot',lbl_playlist_file:'Default playlist',lbl_random:'Random playback',lbl_delete_playlist:'Delete',btn_delete_playlist:'&#x1F5D1; Delete playlist',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_select_playlist:'Select a playlist to delete',msg_confirm_delete:'Delete ${0}?',msg_confirm_delete_default:'WARNING: ${0} is currently the default playlist! Deleting it may prevent the DMD from starting normally. Continue?',msg_deleting:'Deleting...',msg_load_error:'Unable to load config',sec_manage_playlists:'&#x2699; Playlist management',desc_gen_playlist:'Check folders to generate a new playlist. &#x26A0;&#xFE0F; Generation is only fast on folders with a limited number of files. For playlists covering large folders, use the RecalboxDMD_tool utility on PC instead.',btn_select_all:'Select all',btn_select_none:'Select none',lbl_playlist_name:'Playlist name',placeholder_playlist_name:'e.g. MyPlaylist',btn_gen_playlist:'&#x2699; Generate playlist',msg_no_playlist_name:'Please name the playlist',msg_select_folder:'Select at least one folder',msg_generating:'Generating...',lbl_load_playlist:'Edit an existing playlist',msg_scanning:'Scanning',msg_gen_busy:'A generation is already running',msg_gen_start_error:'Could not start generation',msg_gen_leave_warning:'A playlist generation is in progress. Leave the page?',btn_stop_gen:'&#x23F9; Stop',msg_confirm_stop_gen:'Stop generation? The playlist being created will be deleted.',msg_stopping_gen:'Stopping playlist generation, please wait...',msg_stop_gen_failed:'Stop request failed (network) -- please retry'},
-es:{title:'RecalBox DMD - Pantalla',h1:'Pantalla y listas',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_display:'&#x1F4A1; Pantalla',sec_playlist:'&#x1F4BF; Lista',lbl_brightness:'Brillo (%)',lbl_silent_boot:'Arranque silencioso',lbl_playlist_file:'Lista predeterminada',lbl_random:'Reproducción aleatoria',lbl_delete_playlist:'Eliminar',btn_delete_playlist:'&#x1F5D1; Eliminar lista',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_select_playlist:'Selecciona una lista para eliminar',msg_confirm_delete:'¿Eliminar ${0}?',msg_confirm_delete_default:'ATENCIÓN: ¡${0} es actualmente la lista predeterminada! Eliminarla puede impedir que el DMD arranque normalmente. ¿Continuar?',msg_deleting:'Eliminando...',msg_load_error:'No se pudo cargar la configuración',sec_manage_playlists:'&#x2699; Gestión de listas',desc_gen_playlist:'Marque las carpetas para generar una nueva lista. &#x26A0;&#xFE0F; La creación solo es rápida en carpetas con un número limitado de archivos. Para listas con carpetas voluminosas, use la utilidad RecalboxDMD_tool en el PC.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',lbl_playlist_name:'Nombre de la lista',placeholder_playlist_name:'ej: MiLista',btn_gen_playlist:'&#x2699; Generar lista',msg_no_playlist_name:'Póngale un nombre a la lista',msg_select_folder:'Elija al menos una carpeta',msg_generating:'Generando...',lbl_load_playlist:'Editar una lista existente',msg_scanning:'Analizando',msg_gen_busy:'Ya hay una generación en curso',msg_gen_start_error:'No se pudo iniciar la generación',msg_gen_leave_warning:'Hay una generación de lista en curso. ¿Salir de la página?',btn_stop_gen:'&#x23F9; Detener',msg_confirm_stop_gen:'¿Detener la generación? La lista en creación se eliminará.',msg_stopping_gen:'Deteniendo la generación de la lista, espere...'}
+fr:{title:'RecalBox DMD - Affichage',h1:'Affichage &amp; Playlists',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_display:'&#x1F4A1; Affichage',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Luminosité (%)',lbl_silent_boot:'Démarrage silencieux',lbl_playlist_file:'Playlist par défaut',lbl_random:'Lecture aléatoire',lbl_delete_playlist:'Supprimer',btn_delete_playlist:'&#x1F5D1; Supprimer playlist',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_select_playlist:'Sélectionnez une playlist à supprimer',msg_confirm_delete:'Supprimer ${0} ?',msg_confirm_delete_default:'ATTENTION : ${0} est actuellement la playlist par defaut ! La supprimer peut empecher le DMD de demarrer normalement. Continuer ?',msg_deleting:'Suppression...',msg_load_error:'Impossible de charger la config',sec_manage_playlists:'&#x2699; Gestion des playlists',desc_gen_playlist:'Cochez des dossiers pour générer une nouvelle playlist. &#x26A0;&#xFE0F; La création n\'est performante que sur des dossiers avec un nombre limité de fichiers. Pour des playlists contenant des dossiers conséquents, passez par l\'utilitaire RecalboxDMD_tool sur PC.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',lbl_playlist_name:'Nom playlist',placeholder_playlist_name:'ex: MaPlaylist',btn_gen_playlist:'&#x2699; Générer playlist',msg_no_playlist_name:'Donnez un nom à la playlist',msg_select_folder:'Choisissez au moins un dossier',msg_generating:'Generation...',lbl_load_playlist:'Modifier une playlist existante',msg_scanning:'Analyse',msg_gen_busy:'Generation deja en cours ailleurs',msg_gen_start_error:'Impossible de demarrer la generation',msg_gen_leave_warning:'Une generation de playlist est en cours. Quitter la page ?',btn_stop_gen:'&#x23F9; Arreter',msg_confirm_stop_gen:'Arreter la generation ? La playlist en cours de creation sera supprimee.',msg_stopping_gen:'Arret playlist en cours, veuillez patienter...',msg_stop_gen_failed:'Echec de la demande d\'arret (reseau) -- reessayez',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',...HELP_I18N.fr},
+en:{title:'RecalBox DMD - Display',h1:'Display &amp; Playlists',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_display:'&#x1F4A1; Display',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Brightness (%)',lbl_silent_boot:'Silent boot',lbl_playlist_file:'Default playlist',lbl_random:'Random playback',lbl_delete_playlist:'Delete',btn_delete_playlist:'&#x1F5D1; Delete playlist',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_select_playlist:'Select a playlist to delete',msg_confirm_delete:'Delete ${0}?',msg_confirm_delete_default:'WARNING: ${0} is currently the default playlist! Deleting it may prevent the DMD from starting normally. Continue?',msg_deleting:'Deleting...',msg_load_error:'Unable to load config',sec_manage_playlists:'&#x2699; Playlist management',desc_gen_playlist:'Check folders to generate a new playlist. &#x26A0;&#xFE0F; Generation is only fast on folders with a limited number of files. For playlists covering large folders, use the RecalboxDMD_tool utility on PC instead.',btn_select_all:'Select all',btn_select_none:'Select none',lbl_playlist_name:'Playlist name',placeholder_playlist_name:'e.g. MyPlaylist',btn_gen_playlist:'&#x2699; Generate playlist',msg_no_playlist_name:'Please name the playlist',msg_select_folder:'Select at least one folder',msg_generating:'Generating...',lbl_load_playlist:'Edit an existing playlist',msg_scanning:'Scanning',msg_gen_busy:'A generation is already running',msg_gen_start_error:'Could not start generation',msg_gen_leave_warning:'A playlist generation is in progress. Leave the page?',btn_stop_gen:'&#x23F9; Stop',msg_confirm_stop_gen:'Stop generation? The playlist being created will be deleted.',msg_stopping_gen:'Stopping playlist generation, please wait...',msg_stop_gen_failed:'Stop request failed (network) -- please retry',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',...HELP_I18N.en},
+es:{title:'RecalBox DMD - Pantalla',h1:'Pantalla y listas',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_display:'&#x1F4A1; Pantalla',sec_playlist:'&#x1F4BF; Lista',lbl_brightness:'Brillo (%)',lbl_silent_boot:'Arranque silencioso',lbl_playlist_file:'Lista predeterminada',lbl_random:'Reproducción aleatoria',lbl_delete_playlist:'Eliminar',btn_delete_playlist:'&#x1F5D1; Eliminar lista',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_select_playlist:'Selecciona una lista para eliminar',msg_confirm_delete:'¿Eliminar ${0}?',msg_confirm_delete_default:'ATENCIÓN: ¡${0} es actualmente la lista predeterminada! Eliminarla puede impedir que el DMD arranque normalmente. ¿Continuar?',msg_deleting:'Eliminando...',msg_load_error:'No se pudo cargar la configuración',sec_manage_playlists:'&#x2699; Gestión de listas',desc_gen_playlist:'Marque las carpetas para generar una nueva lista. &#x26A0;&#xFE0F; La creación solo es rápida en carpetas con un número limitado de archivos. Para listas con carpetas voluminosas, use la utilidad RecalboxDMD_tool en el PC.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',lbl_playlist_name:'Nombre de la lista',placeholder_playlist_name:'ej: MiLista',btn_gen_playlist:'&#x2699; Generar lista',msg_no_playlist_name:'Póngale un nombre a la lista',msg_select_folder:'Elija al menos una carpeta',msg_generating:'Generando...',lbl_load_playlist:'Editar una lista existente',msg_scanning:'Analizando',msg_gen_busy:'Ya hay una generación en curso',msg_gen_start_error:'No se pudo iniciar la generación',msg_gen_leave_warning:'Hay una generación de lista en curso. ¿Salir de la página?',btn_stop_gen:'&#x23F9; Detener',msg_confirm_stop_gen:'¿Detener la generación? La lista en creación se eliminará.',msg_stopping_gen:'Deteniendo la generación de la lista, espere...',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',...HELP_I18N.es}
 };
 let currentLang='fr';
 let _plNameAutoFilled=false; // suivi de la suggestion auto de nom (voir updatePlaylistNameSuggestion())
@@ -781,13 +903,30 @@ function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=
 // "DMD repris", confirme en test reel).
 function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
 function serialize(){return new URLSearchParams({brightness:document.getElementById('brightness').value,info:document.getElementById('silent_boot').checked?'0':'1',playlist:document.getElementById('playlist').value,random:document.getElementById('random').checked?'1':'0'});}
-function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:serialize(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK'))_formDirty=false;}).catch(()=>showMsg(tr('msg_net_error'),false));}
-function doReboot(skipConfirm){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});}
+// Brouillon localStorage (2026-08-05, correctif "reglages perdus si on
+// change de page", demande explicite : pas d'alerte bloquante, un vrai
+// correctif qui empeche la perte). Chaque frappe sur cette page ecrit
+// l'etat courant du formulaire dans localStorage (cote navigateur, survit
+// a une navigation complete entre pages -- contrairement a une simple
+// variable JS) ; loadConfig() le relit au chargement et l'applique
+// PAR-DESSUS les valeurs serveur (le brouillon represente ce qu'on est en
+// train de saisir, donc plus recent que la derniere sauvegarde reelle).
+// clearDraft() n'est appele qu'apres un /save reussi -- la config.ini
+// elle-meme continue de n'etre ecrite que sur un clic explicite sur
+// "Enregistrer"/"Enregistrer & Redemarrer", inchange.
+const DRAFT_KEY='dmd_draft_basic';
+const DRAFT_FIELDS=['brightness','silent_boot','playlist','random'];
+function loadDraft(){try{const raw=localStorage.getItem(DRAFT_KEY);return raw?JSON.parse(raw):null;}catch(e){return null;}}
+function saveDraft(){const o={};DRAFT_FIELDS.forEach(id=>{const el=document.getElementById(id);if(!el)return;o[id]=(el.type==='checkbox')?el.checked:el.value;});localStorage.setItem(DRAFT_KEY,JSON.stringify(o));}
+function clearDraft(){localStorage.removeItem(DRAFT_KEY);}
+function checkEssentialFields(){return fetch('/load').then(r=>r.json()).then(d=>{const missing=[];if(!d.wifi_ssid)missing.push(tr('essential_wifi'));if(!d.playlist)missing.push(tr('essential_playlist'));if(!d.recalbox_ip)missing.push(tr('essential_ip'));if(!missing.length)return true;return confirm(tr('msg_essential_missing').replace('{fields}',missing.join(', ')));}).catch(()=>true);}
+function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:serialize(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK')){_formDirty=false;clearDraft();}}).catch(()=>showMsg(tr('msg_net_error'),false));}
+function doReboot(skipConfirm){checkEssentialFields().then(ok=>{if(!ok)return;if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});});}
 // skipConfirm=true (2026-07-29) : "Enreg. & Redemarrer" a deja un intitule
 // explicite -- redemander confirmation juste apres la sauvegarde est
 // redondant, contrairement au bouton "Redemarrer" seul.
 function saveAndReboot(){saveConfig().then(()=>setTimeout(()=>doReboot(true),400));}
-function dmdResume(){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;fetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('msg_net_error'),false));}
+function dmdResume(){checkEssentialFields().then(ok=>{if(!ok)return;if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;fetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('msg_net_error'),false));});}
 // Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29) : aucun
 // moyen fiable de distinguer une vraie fermeture d'onglet/navigateur d'un
 // simple rafraichissement de page (habitude trop ancree pour l'utilisateur,
@@ -943,7 +1082,32 @@ function setPageBusy(busy){document.querySelectorAll('button,input,select').forE
   // quitte la page (machine a etats independante du navigateur), mais le
   // polling JS s'arreterait -- avertir plutot que laisser croire a un blocage
   // silencieux si jamais le verrou CSS est contourne (ex. navigation clavier).
-  if(busy)window.onbeforeunload=function(){return tr('msg_gen_leave_warning');};else window.onbeforeunload=null;
+  _pageBusy=busy; refreshBeforeUnload();
+}
+// Garde unifiee (2026-08-05, bug signale par l'utilisateur : "reglages
+// perdus si on change de page") -- les liens de la barre de navigation
+// (topnav, <a href> classiques) et le bouton retour du navigateur ne
+// passaient par AUCUNE verification : seuls doReboot()/dmdResume()
+// avertissaient (_formDirty) avant de partir. Un champ modifie puis
+// jamais envoye a /save (aucun clic sur "Enregistrer") disparaissait donc
+// silencieusement des qu'on changeait de page -- comportement HTML normal
+// pour un simple <a>, mais sans le moindre avertissement contrairement aux
+// autres actions de cette meme page. window.onbeforeunload est le seul
+// mecanisme couvrant TOUS les cas de depart (topnav, precedent/suivant,
+// fermeture d'onglet, actualisation) en un seul point.
+let _pageBusy=false;
+// _formDirty ne declenche plus onbeforeunload (2026-08-05, demande
+// utilisateur explicite : pas d'alerte bloquante) -- remplace par la
+// persistance de brouillon localStorage (loadDraft()/saveDraft()/
+// clearDraft() ci-dessous), qui elimine le probleme a la racine : les
+// champs modifies sur cette page survivent desormais a une navigation vers
+// une autre page ou une fermeture d'onglet, sans le moindre avertissement,
+// et sont restaures automatiquement au retour -- rien n'est plus "perdu"
+// silencieusement, donc plus besoin de prevenir. _pageBusy reste protege
+// par onbeforeunload : cas different, une generation de playlist active
+// cote serveur (pas une histoire de champs de formulaire).
+function refreshBeforeUnload(){
+  window.onbeforeunload = _pageBusy ? function(){return tr('msg_gen_leave_warning');} : null;
 }
 // _stopRequestPending (2026-07-30, demande utilisateur : "Arreter" echoue
 // presque a chaque fois) : le serveur ESP32 est mono-thread (une seule
@@ -1102,15 +1266,23 @@ async function generatePlaylist(){
   }
   setPageBusy(false);
 }
-function loadConfig(){return fetch('/load').then(r=>r.json()).then(d=>{document.getElementById('brightness').value=Math.max(0,Math.min(100,parseInt(d.brightness||50,10)));document.getElementById('bval').textContent=document.getElementById('brightness').value;document.getElementById('silent_boot').checked=d.info==='0';fillPlaylists(d.playlist||'');document.getElementById('random').checked=d.random==='1';}).catch(()=>showMsg(tr('msg_load_error'),false));}
+function loadConfig(){const draft=loadDraft();return fetch('/load').then(r=>r.json()).then(d=>{
+  const g=(k,dv)=>(draft&&draft[k]!==undefined)?draft[k]:dv;
+  document.getElementById('brightness').value=Math.max(0,Math.min(100,parseInt(g('brightness',d.brightness||50),10)));
+  document.getElementById('bval').textContent=document.getElementById('brightness').value;
+  document.getElementById('silent_boot').checked=g('silent_boot',d.info==='0');
+  fillPlaylists(g('playlist',d.playlist||''));
+  document.getElementById('random').checked=g('random',d.random==='1');
+  if(draft)_formDirty=true; // reboot/reprise doivent quand meme avertir : la config.ini reelle n'a pas ce brouillon
+}).catch(()=>showMsg(tr('msg_load_error'),false));}
 localStorage.setItem('dmd_last_section','basic');
 // loadGenDirs() enchainee APRES /lang+/load (jamais en parallele) : le
 // WebServer ESP32 ne traite qu'une requete a la fois -- des fetch()
 // concurrents corrompent silencieusement l'une des reponses (bug deja
 // documente et corrige sur MEDIA via queuedFetch(), reintroduit ici par
 // inattention lors de l'ajout de la generation de playlist, v79).
-fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);return loadConfig();}).catch(()=>{applyLang();return loadConfig();}).then(loadGenDirs);
-document.getElementById('basicForm').addEventListener('input',()=>{_formDirty=true;});
+fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}return loadConfig();}).catch(()=>{applyLang();return loadConfig();}).then(loadGenDirs);
+document.getElementById('basicForm').addEventListener('input',()=>{_formDirty=true;saveDraft();});
 </script>
 </body>
 </html>
@@ -1147,10 +1319,41 @@ h2{color:#8ab4f8;font-size:15px;margin:0 0 10px;border-left:3px solid #8ab4f8;pa
 .err{background:#6b0f0f;color:#ffcccc}
 #langSelect{position:absolute;top:10px;right:10px;width:auto;padding:6px 8px;font-size:13px;background:#16213e;color:#8ab4f8;border:1px solid #333;border-radius:4px}
 body{position:relative}
+#helpLink{position:absolute;top:14px;right:75px;font-size:13px;color:#8ab4f8;text-decoration:underline;cursor:pointer}
+.help-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.help-backdrop.show{display:flex}
+.help-box{background:#16213e;border-radius:8px;padding:20px;max-width:520px;max-height:85vh;overflow-y:auto;position:relative;text-align:left}
+.help-box h2{color:#ffd146;font-size:16px;margin:0 22px 10px 0}
+.help-box h3{color:#8ab4f8;font-size:14px;margin:14px 0 6px}
+.help-box p{font-size:13px;line-height:1.5;margin:0 0 8px}
+.help-box ul{margin:0 0 8px 18px;font-size:13px;line-height:1.5}
+.help-close{position:absolute;top:10px;right:14px;background:none;border:none;color:#aaa;font-size:22px;cursor:pointer;line-height:1}
 </style>
 </head>
 <body>
 <select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<span id="helpLink" onclick="showHelpModal()" data-i18n="help_link">Aide</span>
+<div id="helpBackdrop" class="help-backdrop" onclick="if(event.target===this)closeHelpModal()">
+<div class="help-box">
+<button class="help-close" onclick="closeHelpModal()">&times;</button>
+<h2 data-i18n="help_title">Bienvenue</h2>
+<p data-i18n="help_intro"></p>
+<h3 data-i18n="help_checklist_title"></h3>
+<ul>
+<li data-i18n="help_check_ip"></li>
+<li data-i18n="help_check_playlist"></li>
+<li data-i18n="help_check_wifi"></li>
+</ul>
+<p id="helpUrlReminder"></p>
+<h3 data-i18n="help_features_title"></h3>
+<ul>
+<li data-i18n="help_feat_playlists"></li>
+<li data-i18n="help_feat_clock"></li>
+<li data-i18n="help_feat_display"></li>
+<li data-i18n="help_feat_network"></li>
+</ul>
+</div>
+</div>
 <div class="topnav">
 <a href="/config/basic" data-i18n="nav_basic">&#x1F4A1; Affichage &amp; Playlists</a>
 <a href="/config/network" class="active" data-i18n="nav_network">&#x1F4F6; Wi-Fi &amp; BT</a>
@@ -1189,10 +1392,21 @@ body{position:relative}
 </form>
 <div id="msg" class="msg"></div>
 <script>
+const HELP_I18N={
+fr:{help_link:'Aide',help_title:'Bienvenue sur la configuration du DMD',help_intro:'Voici ce qu\'il reste à vérifier avant de sauvegarder, et un résumé de ce que permet cette interface.',help_checklist_title:'À vérifier avant de sauvegarder',help_check_ip:'IP Recalbox renseignée (page Wi-Fi & Bluetooth)',help_check_playlist:'Playlist par défaut renseignée (page Affichage & Playlists)',help_check_wifi:'Le Wi-Fi est déjà validé à ce stade — inutile d\'y retoucher, sauf si vous voulez le changer',help_url_reminder:'Cette page reste accessible à tout moment en tapant l\'IP du DMD dans un navigateur — actuellement {ip}',help_features_title:'Ce que permet cette interface',help_feat_playlists:'GIFs (page Médias) : ajouter des GIFs sur la carte SD (upload direct depuis le navigateur, création de dossiers) — les playlists qui référencent un dossier modifié sont mises à jour automatiquement',help_feat_clock:'Horloge (page Horloge) : thème, couleur néon, intervalle et durée d\'affichage, fuseau horaire',help_feat_display:'Affichage, luminosité et playlists (page Affichage & Playlists) : luminosité de l\'écran, choix entre démarrage silencieux (titre seul) ou normal (IP détectée, synchronisation de l\'heure, etc.), sélection de la playlist par défaut, et création/suppression de playlists à partir des dossiers de GIFs',help_feat_network:'Réseau (page Wi-Fi & Bluetooth) : IP Recalbox (connexion MQTT), Wi-Fi (réseau, mot de passe, IP statique)'},
+en:{help_link:'Help',help_title:'Welcome to the DMD configuration',help_intro:'Here is what\'s left to check before saving, and a summary of what this interface lets you do.',help_checklist_title:'To check before saving',help_check_ip:'Recalbox IP filled in (Wi-Fi & Bluetooth page)',help_check_playlist:'Default playlist filled in (Display & Playlists page)',help_check_wifi:'Wi-Fi is already validated at this stage — no need to touch it again, unless you want to change it',help_url_reminder:'This page stays accessible at any time by typing the DMD\'s IP in a browser — currently {ip}',help_features_title:'What this interface lets you do',help_feat_playlists:'GIFs (Media page): add GIFs to the SD card (direct upload from the browser, folder creation) — playlists referencing a modified folder are updated automatically',help_feat_clock:'Clock (Clock page): theme, custom neon color, display interval and duration, time zone',help_feat_display:'Display, brightness and playlists (Display & Playlists page): screen brightness, choice between silent startup (title only) or normal (detected IP, time sync, etc.), default playlist selection, and creating/deleting playlists from GIF folders',help_feat_network:'Network (Wi-Fi & Bluetooth page): Recalbox IP (MQTT connection), Wi-Fi (network, password, static IP)'},
+es:{help_link:'Ayuda',help_title:'Bienvenido a la configuración del DMD',help_intro:'Esto es lo que falta comprobar antes de guardar, y un resumen de lo que permite esta interfaz.',help_checklist_title:'A comprobar antes de guardar',help_check_ip:'IP de Recalbox indicada (página Wi-Fi y Bluetooth)',help_check_playlist:'Playlist por defecto indicada (página Pantalla y listas)',help_check_wifi:'El Wi-Fi ya está validado en esta etapa — no hace falta tocarlo, salvo que quiera cambiarlo',help_url_reminder:'Esta página sigue accesible en cualquier momento escribiendo la IP del DMD en un navegador — actualmente {ip}',help_features_title:'Qué permite esta interfaz',help_feat_playlists:'GIFs (página Medios): añadir GIFs a la tarjeta SD (subida directa desde el navegador, creación de carpetas) — las playlists que referencian una carpeta modificada se actualizan automáticamente',help_feat_clock:'Reloj (página Reloj): tema, color neón personalizado, intervalo y duración de visualización, zona horaria',help_feat_display:'Pantalla, brillo y listas (página Pantalla y listas): brillo de la pantalla, elección entre inicio silencioso (solo título) o normal (IP detectada, sincronización horaria, etc.), selección de la playlist por defecto, y creación/eliminación de playlists a partir de las carpetas de GIFs',help_feat_network:'Red (página Wi-Fi y Bluetooth): IP de Recalbox (conexión MQTT), Wi-Fi (red, contraseña, IP estática)'}
+};
+function showHelpModal(){
+  document.getElementById('helpBackdrop').classList.add('show');
+  const p=document.getElementById('helpUrlReminder');
+  if(p) p.textContent=((HELP_I18N[currentLang]&&HELP_I18N[currentLang].help_url_reminder)||HELP_I18N.fr.help_url_reminder).replace('{ip}',window.location.host);
+}
+function closeHelpModal(){document.getElementById('helpBackdrop').classList.remove('show');}
 const PAGE_I18N={
-fr:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi &amp; Bluetooth',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_wifi:'&#x1F4F6; Wi-Fi',sec_bt:'&#x1F4F1; Bluetooth',sec_mqtt:'&#x1F310; MQTT',lbl_enabled:'Activé',lbl_network:'Réseau',lbl_password:'Mot de passe',lbl_static_ip:'IP statique',lbl_fixed_ip:'IP fixe',lbl_gateway:'Passerelle',lbl_subnet:'Masque',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_bt_name:'Nom',lbl_mqtt_ip:'IP Recalbox',opt_scanning:'-- Scan en cours... --',opt_select:'-- Sélectionnez --',opt_scan_error:'Erreur scan',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_load_error:'Impossible de charger la config'},
-en:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi &amp; Bluetooth',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_wifi:'&#x1F4F6; Wi-Fi',sec_bt:'&#x1F4F1; Bluetooth',sec_mqtt:'&#x1F310; MQTT',lbl_enabled:'Enabled',lbl_network:'Network',lbl_password:'Password',lbl_static_ip:'Static IP',lbl_fixed_ip:'Fixed IP',lbl_gateway:'Gateway',lbl_subnet:'Subnet mask',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_bt_name:'Name',lbl_mqtt_ip:'Recalbox IP',opt_scanning:'-- Scanning... --',opt_select:'-- Select --',opt_scan_error:'Scan error',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_load_error:'Unable to load config'},
-es:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi y Bluetooth',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_wifi:'&#x1F4F6; Wi-Fi',sec_bt:'&#x1F4F1; Bluetooth',sec_mqtt:'&#x1F310; MQTT',lbl_enabled:'Activado',lbl_network:'Red',lbl_password:'Contraseña',lbl_static_ip:'IP estática',lbl_fixed_ip:'IP fija',lbl_gateway:'Puerta de enlace',lbl_subnet:'Máscara de subred',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_bt_name:'Nombre',lbl_mqtt_ip:'IP de Recalbox',opt_scanning:'-- Escaneando... --',opt_select:'-- Seleccione --',opt_scan_error:'Error de escaneo',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_load_error:'No se pudo cargar la configuración'}
+fr:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi &amp; Bluetooth',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_wifi:'&#x1F4F6; Wi-Fi',sec_bt:'&#x1F4F1; Bluetooth',sec_mqtt:'&#x1F310; MQTT',lbl_enabled:'Activé',lbl_network:'Réseau',lbl_password:'Mot de passe',lbl_static_ip:'IP statique',lbl_fixed_ip:'IP fixe',lbl_gateway:'Passerelle',lbl_subnet:'Masque',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_bt_name:'Nom',lbl_mqtt_ip:'IP Recalbox',opt_scanning:'-- Scan en cours... --',opt_select:'-- Sélectionnez --',opt_scan_error:'Erreur scan',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_load_error:'Impossible de charger la config',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',...HELP_I18N.fr},
+en:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi &amp; Bluetooth',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_wifi:'&#x1F4F6; Wi-Fi',sec_bt:'&#x1F4F1; Bluetooth',sec_mqtt:'&#x1F310; MQTT',lbl_enabled:'Enabled',lbl_network:'Network',lbl_password:'Password',lbl_static_ip:'Static IP',lbl_fixed_ip:'Fixed IP',lbl_gateway:'Gateway',lbl_subnet:'Subnet mask',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_bt_name:'Name',lbl_mqtt_ip:'Recalbox IP',opt_scanning:'-- Scanning... --',opt_select:'-- Select --',opt_scan_error:'Scan error',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_load_error:'Unable to load config',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',...HELP_I18N.en},
+es:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi y Bluetooth',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_wifi:'&#x1F4F6; Wi-Fi',sec_bt:'&#x1F4F1; Bluetooth',sec_mqtt:'&#x1F310; MQTT',lbl_enabled:'Activado',lbl_network:'Red',lbl_password:'Contraseña',lbl_static_ip:'IP estática',lbl_fixed_ip:'IP fija',lbl_gateway:'Puerta de enlace',lbl_subnet:'Máscara de subred',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_bt_name:'Nombre',lbl_mqtt_ip:'IP de Recalbox',opt_scanning:'-- Escaneando... --',opt_select:'-- Seleccione --',opt_scan_error:'Error de escaneo',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_load_error:'No se pudo cargar la configuración',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',...HELP_I18N.es}
 };
 let currentLang='fr';
 function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||PAGE_I18N.fr[k]||k;}
@@ -1217,13 +1431,21 @@ function stripAccents(s){return s.normalize('NFD').replace(new RegExp('['+String
 function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(txt),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}
 function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
 function serialize(){return new URLSearchParams({wifi_enabled:document.getElementById('wifi_enabled').checked?'1':'0',wifi_ssid:document.getElementById('wifi_ssid').value,wifi_password:document.getElementById('wifi_password').value,wifi_static_enabled:document.getElementById('wifi_static_enabled').checked?'1':'0',wifi_static_ip:document.getElementById('wifi_static_ip').value,wifi_gateway:document.getElementById('wifi_gateway').value,wifi_subnet:document.getElementById('wifi_subnet').value,wifi_dns1:document.getElementById('wifi_dns1').value,wifi_dns2:document.getElementById('wifi_dns2').value,bluetooth_enabled:document.getElementById('bluetooth_enabled').checked?'1':'0',bluetooth_name:document.getElementById('bluetooth_name').value,recalbox_ip:document.getElementById('recalbox_ip').value});}
-function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:serialize(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK'))_formDirty=false;}).catch(()=>showMsg(tr('msg_net_error'),false));}
-function doReboot(skipConfirm){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});}
+// Brouillon localStorage -- voir le commentaire complet sur la page BASIC
+// (correctif "reglages perdus si on change de page", 2026-08-05).
+const DRAFT_KEY='dmd_draft_network';
+const DRAFT_FIELDS=['wifi_enabled','wifi_ssid','wifi_password','wifi_static_enabled','wifi_static_ip','wifi_gateway','wifi_subnet','wifi_dns1','wifi_dns2','bluetooth_enabled','bluetooth_name','recalbox_ip'];
+function loadDraft(){try{const raw=localStorage.getItem(DRAFT_KEY);return raw?JSON.parse(raw):null;}catch(e){return null;}}
+function saveDraft(){const o={};DRAFT_FIELDS.forEach(id=>{const el=document.getElementById(id);if(!el)return;o[id]=(el.type==='checkbox')?el.checked:el.value;});localStorage.setItem(DRAFT_KEY,JSON.stringify(o));}
+function clearDraft(){localStorage.removeItem(DRAFT_KEY);}
+function checkEssentialFields(){return fetch('/load').then(r=>r.json()).then(d=>{const missing=[];if(!d.wifi_ssid)missing.push(tr('essential_wifi'));if(!d.playlist)missing.push(tr('essential_playlist'));if(!d.recalbox_ip)missing.push(tr('essential_ip'));if(!missing.length)return true;return confirm(tr('msg_essential_missing').replace('{fields}',missing.join(', ')));}).catch(()=>true);}
+function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:serialize(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK')){_formDirty=false;clearDraft();}}).catch(()=>showMsg(tr('msg_net_error'),false));}
+function doReboot(skipConfirm){checkEssentialFields().then(ok=>{if(!ok)return;if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});});}
 // skipConfirm=true (2026-07-29) : "Enreg. & Redemarrer" a deja un intitule
 // explicite -- redemander confirmation juste apres la sauvegarde est
 // redondant, contrairement au bouton "Redemarrer" seul.
 function saveAndReboot(){saveConfig().then(()=>setTimeout(()=>doReboot(true),400));}
-function dmdResume(){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;fetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('msg_net_error'),false));}
+function dmdResume(){checkEssentialFields().then(ok=>{if(!ok)return;if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;fetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('msg_net_error'),false));});}
 // Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29) : aucun
 // moyen fiable de distinguer une vraie fermeture d'onglet/navigateur d'un
 // simple rafraichissement de page (habitude trop ancree pour l'utilisateur,
@@ -1240,10 +1462,26 @@ function scanWiFi(){
     if(savedSsid&&!found){const o=new Option(savedSsid,savedSsid,true,true);sel.add(o);}
   }).catch(()=>{sel.innerHTML='';const opt=document.createElement('option');opt.value=savedSsid;opt.textContent=savedSsid||tr('opt_scan_error');sel.appendChild(opt);});
 }
-function loadConfig(){fetch('/load').then(r=>r.json()).then(d=>{document.getElementById('wifi_enabled').checked=d.wifi_enabled==='1';savedSsid=d.wifi_ssid||'';document.getElementById('wifi_password').value=d.wifi_password||'';document.getElementById('wifi_static_enabled').checked=d.wifi_static_enabled==='1';document.getElementById('wifi_static_ip').value=d.wifi_static_ip||'';document.getElementById('wifi_gateway').value=d.wifi_gateway||'';document.getElementById('wifi_subnet').value=d.wifi_subnet||'';document.getElementById('wifi_dns1').value=d.wifi_dns1||'';document.getElementById('wifi_dns2').value=d.wifi_dns2||'';document.getElementById('bluetooth_enabled').checked=d.bluetooth_enabled==='1';document.getElementById('bluetooth_name').value=d.bluetooth_name||'';document.getElementById('recalbox_ip').value=d.recalbox_ip||'';scanWiFi();}).catch(()=>showMsg(tr('msg_load_error'),false));}
+function loadConfig(){const draft=loadDraft();fetch('/load').then(r=>r.json()).then(d=>{
+  const g=(k,dv)=>(draft&&draft[k]!==undefined)?draft[k]:dv;
+  document.getElementById('wifi_enabled').checked=g('wifi_enabled',d.wifi_enabled==='1');
+  savedSsid=g('wifi_ssid',d.wifi_ssid||''); // scanWiFi() se charge de le (re)selectionner, meme si absent du scan (fallback deja en place)
+  document.getElementById('wifi_password').value=g('wifi_password',d.wifi_password||'');
+  document.getElementById('wifi_static_enabled').checked=g('wifi_static_enabled',d.wifi_static_enabled==='1');
+  document.getElementById('wifi_static_ip').value=g('wifi_static_ip',d.wifi_static_ip||'');
+  document.getElementById('wifi_gateway').value=g('wifi_gateway',d.wifi_gateway||'');
+  document.getElementById('wifi_subnet').value=g('wifi_subnet',d.wifi_subnet||'');
+  document.getElementById('wifi_dns1').value=g('wifi_dns1',d.wifi_dns1||'');
+  document.getElementById('wifi_dns2').value=g('wifi_dns2',d.wifi_dns2||'');
+  document.getElementById('bluetooth_enabled').checked=g('bluetooth_enabled',d.bluetooth_enabled==='1');
+  document.getElementById('bluetooth_name').value=g('bluetooth_name',d.bluetooth_name||'');
+  document.getElementById('recalbox_ip').value=g('recalbox_ip',d.recalbox_ip||'');
+  scanWiFi();
+  if(draft)_formDirty=true; // reboot/reprise doivent quand meme avertir : la config.ini reelle n'a pas ce brouillon
+}).catch(()=>showMsg(tr('msg_load_error'),false));}
 localStorage.setItem('dmd_last_section','network');
-fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);loadConfig();}).catch(()=>{applyLang();loadConfig();});
-document.getElementById('networkForm').addEventListener('input',()=>{_formDirty=true;});
+fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}loadConfig();}).catch(()=>{applyLang();loadConfig();});
+document.getElementById('networkForm').addEventListener('input',()=>{_formDirty=true;saveDraft();});
 </script>
 </body>
 </html>
@@ -1281,10 +1519,41 @@ h1{color:#ffd146;text-align:center;margin:8px 0 14px;font-size:22px;border-botto
 .err{background:#6b0f0f;color:#ffcccc}
 #langSelect{position:absolute;top:10px;right:10px;width:auto;padding:6px 8px;font-size:13px;background:#16213e;color:#8ab4f8;border:1px solid #333;border-radius:4px}
 body{position:relative}
+#helpLink{position:absolute;top:14px;right:75px;font-size:13px;color:#8ab4f8;text-decoration:underline;cursor:pointer}
+.help-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.help-backdrop.show{display:flex}
+.help-box{background:#16213e;border-radius:8px;padding:20px;max-width:520px;max-height:85vh;overflow-y:auto;position:relative;text-align:left}
+.help-box h2{color:#ffd146;font-size:16px;margin:0 22px 10px 0}
+.help-box h3{color:#8ab4f8;font-size:14px;margin:14px 0 6px}
+.help-box p{font-size:13px;line-height:1.5;margin:0 0 8px}
+.help-box ul{margin:0 0 8px 18px;font-size:13px;line-height:1.5}
+.help-close{position:absolute;top:10px;right:14px;background:none;border:none;color:#aaa;font-size:22px;cursor:pointer;line-height:1}
 </style>
 </head>
 <body>
 <select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<span id="helpLink" onclick="showHelpModal()" data-i18n="help_link">Aide</span>
+<div id="helpBackdrop" class="help-backdrop" onclick="if(event.target===this)closeHelpModal()">
+<div class="help-box">
+<button class="help-close" onclick="closeHelpModal()">&times;</button>
+<h2 data-i18n="help_title">Bienvenue</h2>
+<p data-i18n="help_intro"></p>
+<h3 data-i18n="help_checklist_title"></h3>
+<ul>
+<li data-i18n="help_check_ip"></li>
+<li data-i18n="help_check_playlist"></li>
+<li data-i18n="help_check_wifi"></li>
+</ul>
+<p id="helpUrlReminder"></p>
+<h3 data-i18n="help_features_title"></h3>
+<ul>
+<li data-i18n="help_feat_playlists"></li>
+<li data-i18n="help_feat_clock"></li>
+<li data-i18n="help_feat_display"></li>
+<li data-i18n="help_feat_network"></li>
+</ul>
+</div>
+</div>
 <div class="topnav">
 <a href="/config/basic" data-i18n="nav_basic">&#x1F4A1; Affichage &amp; Playlists</a>
 <a href="/config/network" data-i18n="nav_network">&#x1F4F6; Wi-Fi &amp; BT</a>
@@ -1337,10 +1606,21 @@ body{position:relative}
 </form>
 <div id="msg" class="msg"></div>
 <script>
+const HELP_I18N={
+fr:{help_link:'Aide',help_title:'Bienvenue sur la configuration du DMD',help_intro:'Voici ce qu\'il reste à vérifier avant de sauvegarder, et un résumé de ce que permet cette interface.',help_checklist_title:'À vérifier avant de sauvegarder',help_check_ip:'IP Recalbox renseignée (page Wi-Fi & Bluetooth)',help_check_playlist:'Playlist par défaut renseignée (page Affichage & Playlists)',help_check_wifi:'Le Wi-Fi est déjà validé à ce stade — inutile d\'y retoucher, sauf si vous voulez le changer',help_url_reminder:'Cette page reste accessible à tout moment en tapant l\'IP du DMD dans un navigateur — actuellement {ip}',help_features_title:'Ce que permet cette interface',help_feat_playlists:'GIFs (page Médias) : ajouter des GIFs sur la carte SD (upload direct depuis le navigateur, création de dossiers) — les playlists qui référencent un dossier modifié sont mises à jour automatiquement',help_feat_clock:'Horloge (page Horloge) : thème, couleur néon, intervalle et durée d\'affichage, fuseau horaire',help_feat_display:'Affichage, luminosité et playlists (page Affichage & Playlists) : luminosité de l\'écran, choix entre démarrage silencieux (titre seul) ou normal (IP détectée, synchronisation de l\'heure, etc.), sélection de la playlist par défaut, et création/suppression de playlists à partir des dossiers de GIFs',help_feat_network:'Réseau (page Wi-Fi & Bluetooth) : IP Recalbox (connexion MQTT), Wi-Fi (réseau, mot de passe, IP statique)'},
+en:{help_link:'Help',help_title:'Welcome to the DMD configuration',help_intro:'Here is what\'s left to check before saving, and a summary of what this interface lets you do.',help_checklist_title:'To check before saving',help_check_ip:'Recalbox IP filled in (Wi-Fi & Bluetooth page)',help_check_playlist:'Default playlist filled in (Display & Playlists page)',help_check_wifi:'Wi-Fi is already validated at this stage — no need to touch it again, unless you want to change it',help_url_reminder:'This page stays accessible at any time by typing the DMD\'s IP in a browser — currently {ip}',help_features_title:'What this interface lets you do',help_feat_playlists:'GIFs (Media page): add GIFs to the SD card (direct upload from the browser, folder creation) — playlists referencing a modified folder are updated automatically',help_feat_clock:'Clock (Clock page): theme, custom neon color, display interval and duration, time zone',help_feat_display:'Display, brightness and playlists (Display & Playlists page): screen brightness, choice between silent startup (title only) or normal (detected IP, time sync, etc.), default playlist selection, and creating/deleting playlists from GIF folders',help_feat_network:'Network (Wi-Fi & Bluetooth page): Recalbox IP (MQTT connection), Wi-Fi (network, password, static IP)'},
+es:{help_link:'Ayuda',help_title:'Bienvenido a la configuración del DMD',help_intro:'Esto es lo que falta comprobar antes de guardar, y un resumen de lo que permite esta interfaz.',help_checklist_title:'A comprobar antes de guardar',help_check_ip:'IP de Recalbox indicada (página Wi-Fi y Bluetooth)',help_check_playlist:'Playlist por defecto indicada (página Pantalla y listas)',help_check_wifi:'El Wi-Fi ya está validado en esta etapa — no hace falta tocarlo, salvo que quiera cambiarlo',help_url_reminder:'Esta página sigue accesible en cualquier momento escribiendo la IP del DMD en un navegador — actualmente {ip}',help_features_title:'Qué permite esta interfaz',help_feat_playlists:'GIFs (página Medios): añadir GIFs a la tarjeta SD (subida directa desde el navegador, creación de carpetas) — las playlists que referencian una carpeta modificada se actualizan automáticamente',help_feat_clock:'Reloj (página Reloj): tema, color neón personalizado, intervalo y duración de visualización, zona horaria',help_feat_display:'Pantalla, brillo y listas (página Pantalla y listas): brillo de la pantalla, elección entre inicio silencioso (solo título) o normal (IP detectada, sincronización horaria, etc.), selección de la playlist por defecto, y creación/eliminación de playlists a partir de las carpetas de GIFs',help_feat_network:'Red (página Wi-Fi y Bluetooth): IP de Recalbox (conexión MQTT), Wi-Fi (red, contraseña, IP estática)'}
+};
+function showHelpModal(){
+  document.getElementById('helpBackdrop').classList.add('show');
+  const p=document.getElementById('helpUrlReminder');
+  if(p) p.textContent=((HELP_I18N[currentLang]&&HELP_I18N[currentLang].help_url_reminder)||HELP_I18N.fr.help_url_reminder).replace('{ip}',window.location.host);
+}
+function closeHelpModal(){document.getElementById('helpBackdrop').classList.remove('show');}
 const PAGE_I18N={
-fr:{title:'RecalBox DMD - Horloge',h1:'Horloge',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',lbl_enabled:'Activée',lbl_theme:'Thème',lbl_neon_color:'Couleur Neon',lbl_custom:'Personnalisée',hint_neon:'Thème Neon uniquement',lbl_interval_gifs:'Intervalle (GIFs)',lbl_interval_min:'Intervalle (min)',hint_interval_min:'0 = désactivé',lbl_duration:'Durée (sec)',lbl_tz:'Fuseau horaire',opt_random:'Aléatoire',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_tz_ce:'France / Espagne / Allemagne / Italie',opt_tz_uk:'Angleterre (UK) / Portugal',opt_tz_usa_e:'USA - Est (New York)',opt_tz_usa_c:'USA - Centre (Chicago)',opt_tz_usa_m:'USA - Montagnes (Denver)',opt_tz_usa_p:'USA - Pacifique (Los Angeles)',opt_tz_ee:'Grèce / Roumanie / Finlande',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_load_error:'Impossible de charger la config'},
-en:{title:'RecalBox DMD - Clock',h1:'Clock',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',lbl_enabled:'Enabled',lbl_theme:'Theme',lbl_neon_color:'Neon color',lbl_custom:'Custom',hint_neon:'Neon theme only',lbl_interval_gifs:'Interval (GIFs)',lbl_interval_min:'Interval (min)',hint_interval_min:'0 = disabled',lbl_duration:'Duration (sec)',lbl_tz:'Timezone',opt_random:'Random',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_tz_ce:'France / Spain / Germany / Italy',opt_tz_uk:'England (UK) / Portugal',opt_tz_usa_e:'USA - East (New York)',opt_tz_usa_c:'USA - Central (Chicago)',opt_tz_usa_m:'USA - Mountain (Denver)',opt_tz_usa_p:'USA - Pacific (Los Angeles)',opt_tz_ee:'Greece / Romania / Finland',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_load_error:'Unable to load config'},
-es:{title:'RecalBox DMD - Reloj',h1:'Reloj',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',lbl_enabled:'Activado',lbl_theme:'Tema',lbl_neon_color:'Color Neon',lbl_custom:'Personalizado',hint_neon:'Solo tema Neon',lbl_interval_gifs:'Intervalo (GIFs)',lbl_interval_min:'Intervalo (min)',hint_interval_min:'0 = desactivado',lbl_duration:'Duración (seg)',lbl_tz:'Zona horaria',opt_random:'Aleatorio',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_tz_ce:'Francia / España / Alemania / Italia',opt_tz_uk:'Inglaterra (UK) / Portugal',opt_tz_usa_e:'EE.UU. - Este (Nueva York)',opt_tz_usa_c:'EE.UU. - Centro (Chicago)',opt_tz_usa_m:'EE.UU. - Montañas (Denver)',opt_tz_usa_p:'EE.UU. - Pacífico (Los Ángeles)',opt_tz_ee:'Grecia / Rumanía / Finlandia',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_load_error:'No se pudo cargar la configuración'}
+fr:{title:'RecalBox DMD - Horloge',h1:'Horloge',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',lbl_enabled:'Activée',lbl_theme:'Thème',lbl_neon_color:'Couleur Neon',lbl_custom:'Personnalisée',hint_neon:'Thème Neon uniquement',lbl_interval_gifs:'Intervalle (GIFs)',lbl_interval_min:'Intervalle (min)',hint_interval_min:'0 = désactivé',lbl_duration:'Durée (sec)',lbl_tz:'Fuseau horaire',opt_random:'Aléatoire',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_tz_ce:'France / Espagne / Allemagne / Italie',opt_tz_uk:'Angleterre (UK) / Portugal',opt_tz_usa_e:'USA - Est (New York)',opt_tz_usa_c:'USA - Centre (Chicago)',opt_tz_usa_m:'USA - Montagnes (Denver)',opt_tz_usa_p:'USA - Pacifique (Los Angeles)',opt_tz_ee:'Grèce / Roumanie / Finlande',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_load_error:'Impossible de charger la config',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',...HELP_I18N.fr},
+en:{title:'RecalBox DMD - Clock',h1:'Clock',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',lbl_enabled:'Enabled',lbl_theme:'Theme',lbl_neon_color:'Neon color',lbl_custom:'Custom',hint_neon:'Neon theme only',lbl_interval_gifs:'Interval (GIFs)',lbl_interval_min:'Interval (min)',hint_interval_min:'0 = disabled',lbl_duration:'Duration (sec)',lbl_tz:'Timezone',opt_random:'Random',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_tz_ce:'France / Spain / Germany / Italy',opt_tz_uk:'England (UK) / Portugal',opt_tz_usa_e:'USA - East (New York)',opt_tz_usa_c:'USA - Central (Chicago)',opt_tz_usa_m:'USA - Mountain (Denver)',opt_tz_usa_p:'USA - Pacific (Los Angeles)',opt_tz_ee:'Greece / Romania / Finland',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_load_error:'Unable to load config',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',...HELP_I18N.en},
+es:{title:'RecalBox DMD - Reloj',h1:'Reloj',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',lbl_enabled:'Activado',lbl_theme:'Tema',lbl_neon_color:'Color Neon',lbl_custom:'Personalizado',hint_neon:'Solo tema Neon',lbl_interval_gifs:'Intervalo (GIFs)',lbl_interval_min:'Intervalo (min)',hint_interval_min:'0 = desactivado',lbl_duration:'Duración (seg)',lbl_tz:'Zona horaria',opt_random:'Aleatorio',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_tz_ce:'Francia / España / Alemania / Italia',opt_tz_uk:'Inglaterra (UK) / Portugal',opt_tz_usa_e:'EE.UU. - Este (Nueva York)',opt_tz_usa_c:'EE.UU. - Centro (Chicago)',opt_tz_usa_m:'EE.UU. - Montañas (Denver)',opt_tz_usa_p:'EE.UU. - Pacífico (Los Ángeles)',opt_tz_ee:'Grecia / Rumanía / Finlandia',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_load_error:'No se pudo cargar la configuración',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',...HELP_I18N.es}
 };
 let currentLang='fr';
 function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||PAGE_I18N.fr[k]||k;}
@@ -1368,23 +1648,42 @@ function stripAccents(s){return s.normalize('NFD').replace(new RegExp('['+String
 function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(txt),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}
 function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
 function serialize(){return new URLSearchParams({clock_enabled:document.getElementById('clock_enabled').checked?'1':'0',clock_theme:document.getElementById('clock_theme').value,clock_interval:document.getElementById('clock_interval').value,clock_interval_min:document.getElementById('clock_interval_min').value,clock_duration:document.getElementById('clock_duration').value,clock_tz:document.getElementById('clock_tz').value,clock_neon_color:document.getElementById('clock_neon_color').value,clock_neon_color_enabled:document.getElementById('clock_neon_color_enabled').checked?'1':'0'});}
-function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:serialize(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK'))_formDirty=false;}).catch(()=>showMsg(tr('msg_net_error'),false));}
-function doReboot(skipConfirm){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});}
+// Brouillon localStorage -- voir le commentaire complet sur la page BASIC
+// (correctif "reglages perdus si on change de page", 2026-08-05).
+const DRAFT_KEY='dmd_draft_clock';
+const DRAFT_FIELDS=['clock_enabled','clock_theme','clock_interval','clock_interval_min','clock_duration','clock_tz','clock_neon_color','clock_neon_color_enabled'];
+function loadDraft(){try{const raw=localStorage.getItem(DRAFT_KEY);return raw?JSON.parse(raw):null;}catch(e){return null;}}
+function saveDraft(){const o={};DRAFT_FIELDS.forEach(id=>{const el=document.getElementById(id);if(!el)return;o[id]=(el.type==='checkbox')?el.checked:el.value;});localStorage.setItem(DRAFT_KEY,JSON.stringify(o));}
+function clearDraft(){localStorage.removeItem(DRAFT_KEY);}
+function checkEssentialFields(){return fetch('/load').then(r=>r.json()).then(d=>{const missing=[];if(!d.wifi_ssid)missing.push(tr('essential_wifi'));if(!d.playlist)missing.push(tr('essential_playlist'));if(!d.recalbox_ip)missing.push(tr('essential_ip'));if(!missing.length)return true;return confirm(tr('msg_essential_missing').replace('{fields}',missing.join(', ')));}).catch(()=>true);}
+function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:serialize(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK')){_formDirty=false;clearDraft();}}).catch(()=>showMsg(tr('msg_net_error'),false));}
+function doReboot(skipConfirm){checkEssentialFields().then(ok=>{if(!ok)return;if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});});}
 // skipConfirm=true (2026-07-29) : "Enreg. & Redemarrer" a deja un intitule
 // explicite -- redemander confirmation juste apres la sauvegarde est
 // redondant, contrairement au bouton "Redemarrer" seul.
 function saveAndReboot(){saveConfig().then(()=>setTimeout(()=>doReboot(true),400));}
-function dmdResume(){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;fetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('msg_net_error'),false));}
+function dmdResume(){checkEssentialFields().then(ok=>{if(!ok)return;if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;fetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('msg_net_error'),false));});}
 // Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29) : aucun
 // moyen fiable de distinguer une vraie fermeture d'onglet/navigateur d'un
 // simple rafraichissement de page (habitude trop ancree pour l'utilisateur,
 // faux positifs trop frequents -- ni le JS ni le serveur ne peuvent
 // distinguer les deux cas, une connexion qui se ferme se ressemble dans
 // tous les cas).
-function loadConfig(){fetch('/load').then(r=>r.json()).then(d=>{document.getElementById('clock_enabled').checked=d.clock_enabled==='1';document.getElementById('clock_theme').value=d.clock_theme||'0';document.getElementById('clock_interval').value=d.clock_interval||'0';document.getElementById('clock_interval_min').value=d.clock_interval_min||'0';document.getElementById('clock_duration').value=d.clock_duration||'0';document.getElementById('clock_tz').value=d.clock_tz||'UTC0';document.getElementById('clock_neon_color').value=d.clock_neon_color||'#ff2878';document.getElementById('clock_neon_color_enabled').checked=d.clock_neon_color_enabled==='1';}).catch(()=>showMsg(tr('msg_load_error'),false));}
+function loadConfig(){const draft=loadDraft();fetch('/load').then(r=>r.json()).then(d=>{
+  const g=(k,dv)=>(draft&&draft[k]!==undefined)?draft[k]:dv;
+  document.getElementById('clock_enabled').checked=g('clock_enabled',d.clock_enabled==='1');
+  document.getElementById('clock_theme').value=g('clock_theme',d.clock_theme||'0');
+  document.getElementById('clock_interval').value=g('clock_interval',d.clock_interval||'0');
+  document.getElementById('clock_interval_min').value=g('clock_interval_min',d.clock_interval_min||'0');
+  document.getElementById('clock_duration').value=g('clock_duration',d.clock_duration||'0');
+  document.getElementById('clock_tz').value=g('clock_tz',d.clock_tz||'UTC0');
+  document.getElementById('clock_neon_color').value=g('clock_neon_color',d.clock_neon_color||'#ff2878');
+  document.getElementById('clock_neon_color_enabled').checked=g('clock_neon_color_enabled',d.clock_neon_color_enabled==='1');
+  if(draft)_formDirty=true; // reboot/reprise doivent quand meme avertir : la config.ini reelle n'a pas ce brouillon
+}).catch(()=>showMsg(tr('msg_load_error'),false));}
 localStorage.setItem('dmd_last_section','clock');
-fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);loadConfig();}).catch(()=>{applyLang();loadConfig();});
-document.getElementById('clockForm').addEventListener('input',()=>{_formDirty=true;});
+fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}loadConfig();}).catch(()=>{applyLang();loadConfig();});
+document.getElementById('clockForm').addEventListener('input',()=>{_formDirty=true;saveDraft();});
 </script>
 </body>
 </html>
@@ -1431,10 +1730,41 @@ h2{color:#8ab4f8;font-size:15px;margin:0 0 10px;border-left:3px solid #8ab4f8;pa
 .err{background:#6b0f0f;color:#ffcccc}
 #langSelect{position:absolute;top:10px;right:10px;width:auto;padding:6px 8px;font-size:13px;background:#16213e;color:#8ab4f8;border:1px solid #333;border-radius:4px}
 body{position:relative}
+#helpLink{position:absolute;top:14px;right:75px;font-size:13px;color:#8ab4f8;text-decoration:underline;cursor:pointer}
+.help-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.help-backdrop.show{display:flex}
+.help-box{background:#16213e;border-radius:8px;padding:20px;max-width:520px;max-height:85vh;overflow-y:auto;position:relative;text-align:left}
+.help-box h2{color:#ffd146;font-size:16px;margin:0 22px 10px 0}
+.help-box h3{color:#8ab4f8;font-size:14px;margin:14px 0 6px}
+.help-box p{font-size:13px;line-height:1.5;margin:0 0 8px}
+.help-box ul{margin:0 0 8px 18px;font-size:13px;line-height:1.5}
+.help-close{position:absolute;top:10px;right:14px;background:none;border:none;color:#aaa;font-size:22px;cursor:pointer;line-height:1}
 </style>
 </head>
 <body>
 <select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<span id="helpLink" onclick="showHelpModal()" data-i18n="help_link">Aide</span>
+<div id="helpBackdrop" class="help-backdrop" onclick="if(event.target===this)closeHelpModal()">
+<div class="help-box">
+<button class="help-close" onclick="closeHelpModal()">&times;</button>
+<h2 data-i18n="help_title">Bienvenue</h2>
+<p data-i18n="help_intro"></p>
+<h3 data-i18n="help_checklist_title"></h3>
+<ul>
+<li data-i18n="help_check_ip"></li>
+<li data-i18n="help_check_playlist"></li>
+<li data-i18n="help_check_wifi"></li>
+</ul>
+<p id="helpUrlReminder"></p>
+<h3 data-i18n="help_features_title"></h3>
+<ul>
+<li data-i18n="help_feat_playlists"></li>
+<li data-i18n="help_feat_clock"></li>
+<li data-i18n="help_feat_display"></li>
+<li data-i18n="help_feat_network"></li>
+</ul>
+</div>
+</div>
 <div class="topnav">
 <a href="/config/basic" data-i18n="nav_basic">&#x1F4A1; Affichage &amp; Playlists</a>
 <a href="/config/network" data-i18n="nav_network">&#x1F4F6; Wi-Fi &amp; BT</a>
@@ -1470,27 +1800,38 @@ body{position:relative}
 </div>
 </div>
 <div class="btn-row">
-<button type="button" class="btn btn-reboot" onclick="doReboot()" data-i18n="btn_reboot">&#x1F504; Red&eacute;marrer</button>
+<button type="button" class="btn btn-reboot" onclick="doReboot()" data-i18n="btn_save_reboot">&#x1F504; Enreg. &amp; Red&eacute;marrer</button>
 <button type="button" class="btn btn-resume" onclick="dmdResume()" data-i18n="btn_resume">&#x25B6; Reprendre DMD</button>
 </div>
 <div id="msg" class="msg"></div>
 <script>
+const HELP_I18N={
+fr:{help_link:'Aide',help_title:'Bienvenue sur la configuration du DMD',help_intro:'Voici ce qu\'il reste à vérifier avant de sauvegarder, et un résumé de ce que permet cette interface.',help_checklist_title:'À vérifier avant de sauvegarder',help_check_ip:'IP Recalbox renseignée (page Wi-Fi & Bluetooth)',help_check_playlist:'Playlist par défaut renseignée (page Affichage & Playlists)',help_check_wifi:'Le Wi-Fi est déjà validé à ce stade — inutile d\'y retoucher, sauf si vous voulez le changer',help_url_reminder:'Cette page reste accessible à tout moment en tapant l\'IP du DMD dans un navigateur — actuellement {ip}',help_features_title:'Ce que permet cette interface',help_feat_playlists:'GIFs (page Médias) : ajouter des GIFs sur la carte SD (upload direct depuis le navigateur, création de dossiers) — les playlists qui référencent un dossier modifié sont mises à jour automatiquement',help_feat_clock:'Horloge (page Horloge) : thème, couleur néon, intervalle et durée d\'affichage, fuseau horaire',help_feat_display:'Affichage, luminosité et playlists (page Affichage & Playlists) : luminosité de l\'écran, choix entre démarrage silencieux (titre seul) ou normal (IP détectée, synchronisation de l\'heure, etc.), sélection de la playlist par défaut, et création/suppression de playlists à partir des dossiers de GIFs',help_feat_network:'Réseau (page Wi-Fi & Bluetooth) : IP Recalbox (connexion MQTT), Wi-Fi (réseau, mot de passe, IP statique)'},
+en:{help_link:'Help',help_title:'Welcome to the DMD configuration',help_intro:'Here is what\'s left to check before saving, and a summary of what this interface lets you do.',help_checklist_title:'To check before saving',help_check_ip:'Recalbox IP filled in (Wi-Fi & Bluetooth page)',help_check_playlist:'Default playlist filled in (Display & Playlists page)',help_check_wifi:'Wi-Fi is already validated at this stage — no need to touch it again, unless you want to change it',help_url_reminder:'This page stays accessible at any time by typing the DMD\'s IP in a browser — currently {ip}',help_features_title:'What this interface lets you do',help_feat_playlists:'GIFs (Media page): add GIFs to the SD card (direct upload from the browser, folder creation) — playlists referencing a modified folder are updated automatically',help_feat_clock:'Clock (Clock page): theme, custom neon color, display interval and duration, time zone',help_feat_display:'Display, brightness and playlists (Display & Playlists page): screen brightness, choice between silent startup (title only) or normal (detected IP, time sync, etc.), default playlist selection, and creating/deleting playlists from GIF folders',help_feat_network:'Network (Wi-Fi & Bluetooth page): Recalbox IP (MQTT connection), Wi-Fi (network, password, static IP)'},
+es:{help_link:'Ayuda',help_title:'Bienvenido a la configuración del DMD',help_intro:'Esto es lo que falta comprobar antes de guardar, y un resumen de lo que permite esta interfaz.',help_checklist_title:'A comprobar antes de guardar',help_check_ip:'IP de Recalbox indicada (página Wi-Fi y Bluetooth)',help_check_playlist:'Playlist por defecto indicada (página Pantalla y listas)',help_check_wifi:'El Wi-Fi ya está validado en esta etapa — no hace falta tocarlo, salvo que quiera cambiarlo',help_url_reminder:'Esta página sigue accesible en cualquier momento escribiendo la IP del DMD en un navegador — actualmente {ip}',help_features_title:'Qué permite esta interfaz',help_feat_playlists:'GIFs (página Medios): añadir GIFs a la tarjeta SD (subida directa desde el navegador, creación de carpetas) — las playlists que referencian una carpeta modificada se actualizan automáticamente',help_feat_clock:'Reloj (página Reloj): tema, color neón personalizado, intervalo y duración de visualización, zona horaria',help_feat_display:'Pantalla, brillo y listas (página Pantalla y listas): brillo de la pantalla, elección entre inicio silencioso (solo título) o normal (IP detectada, sincronización horaria, etc.), selección de la playlist por defecto, y creación/eliminación de playlists a partir de las carpetas de GIFs',help_feat_network:'Red (página Wi-Fi y Bluetooth): IP de Recalbox (conexión MQTT), Wi-Fi (red, contraseña, IP estática)'}
+};
+function showHelpModal(){
+  document.getElementById('helpBackdrop').classList.add('show');
+  const p=document.getElementById('helpUrlReminder');
+  if(p) p.textContent=((HELP_I18N[currentLang]&&HELP_I18N[currentLang].help_url_reminder)||HELP_I18N.fr.help_url_reminder).replace('{ip}',window.location.host);
+}
+function closeHelpModal(){document.getElementById('helpBackdrop').classList.remove('show');}
 const PAGE_I18N={
 fr:{title:'RecalBox DMD - Médias',h1:'Médias',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',
 sec_dirs:'&#x1F4C1; Dossiers (/gifs/)',desc_dirs:'Cochez des dossiers pour les supprimer.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',btn_delete_sel:'&#x1F5D1; Supprimer la sélection',
 sec_upload:'&#x1F4E4; Envoi GIF',desc_upload:'Ajoutez un fichier .gif directement depuis votre navigateur dans un dossier de /gifs/. Choisissez un dossier existant OU tapez un nouveau nom (créé automatiquement). &#x26A0;&#xFE0F; Pas fait pour transférer de nombreux fichiers (débit lent, risque d\'erreur d\'écriture) -- réservé à l\'ajout ponctuel de quelques fichiers. Pour un transfert consequent, retirez la carte SD et copiez-la depuis un PC.',placeholder_upload_dir:'ou nouveau dossier...',lbl_upload_file:'Fichiers .gif',btn_upload:'&#x1F4E4; Uploader',btn_stop:'&#x23F9; Arrêter',
-btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',
-net_error:'Erreur réseau',msg_deleting:'Suppression...',msg_select_folder:'Choisissez au moins un dossier',msg_confirm_delete_folders:'Supprimer ${0} ?',msg_specify_dir:'Précisez un dossier cible',msg_select_gif:'Choisissez un fichier GIF',msg_select_gif_files:'Choisissez des fichiers .gif',msg_preparing_folder:'Preparation du dossier...',msg_cannot_create_folder:'Impossible de creer le dossier: ${0}',msg_net_error_folder:'Erreur reseau (creation dossier)',msg_uploading:'Upload...',msg_attempt:'tentative ${0}/${1}',msg_stopped_by_user:'Arrete par l\'utilisateur (${0}/${1})',msg_upload_fail:'ECHEC',msg_failures:'Echecs: ${0}',msg_upload_result:'${0}/${1} fichier(s) uploade(s)',msg_upload_result_fail:' -- echecs: ${0}',msg_confirm_reboot:'Redemarrer l\'ESP32 ?',msg_rebooting:'Redemarrage...',msg_dmd_resumed:'DMD repris',msg_updating_playlists:'Mise a jour des playlists...',msg_confirm_reboot_playlists:'Dossiers supprimes, ${0} playlist(s) mise(s) a jour. La suppression d\'un dossier lie a des playlists necessite un redemarrage du DMD pour etre prise en compte. Redemarrer maintenant ?',msg_retrying_failed:'Nouvelle tentative pour ${0} fichier(s) en echec...',msg_final_attempt:'tentative finale ${0}/${1}',msg_preparing_upload:'Preparation de l\'upload...',msg_rebooting_upload:'Redemarrage du DMD pour preparer la copie de fichiers, veuillez patienter...'},
+btn_reboot:'&#x1F504; Redémarrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',
+net_error:'Erreur réseau',msg_deleting:'Suppression...',msg_select_folder:'Choisissez au moins un dossier',msg_confirm_delete_folders:'Supprimer ${0} ?',msg_specify_dir:'Précisez un dossier cible',msg_select_gif:'Choisissez un fichier GIF',msg_select_gif_files:'Choisissez des fichiers .gif',msg_preparing_folder:'Preparation du dossier...',msg_cannot_create_folder:'Impossible de creer le dossier: ${0}',msg_net_error_folder:'Erreur reseau (creation dossier)',msg_uploading:'Upload...',msg_attempt:'tentative ${0}/${1}',msg_stopped_by_user:'Arrete par l\'utilisateur (${0}/${1})',msg_upload_fail:'ECHEC',msg_failures:'Echecs: ${0}',msg_upload_result:'${0}/${1} fichier(s) uploade(s)',msg_upload_result_fail:' -- echecs: ${0}',msg_confirm_reboot:'Redemarrer l\'ESP32 ?',msg_rebooting:'Redemarrage...',msg_dmd_resumed:'DMD repris',msg_updating_playlists:'Mise a jour des playlists...',msg_confirm_reboot_playlists:'Dossiers supprimes, ${0} playlist(s) mise(s) a jour. La suppression d\'un dossier lie a des playlists necessite un redemarrage du DMD pour etre prise en compte. Redemarrer maintenant ?',msg_retrying_failed:'Nouvelle tentative pour ${0} fichier(s) en echec...',msg_final_attempt:'tentative finale ${0}/${1}',msg_preparing_upload:'Preparation de l\'upload...',msg_rebooting_upload:'Redemarrage du DMD pour preparer la copie de fichiers, veuillez patienter...',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',...HELP_I18N.fr},
 en:{title:'RecalBox DMD - Media',h1:'Media',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',
 sec_dirs:'&#x1F4C1; Folders (/gifs/)',desc_dirs:'Check folders to delete them.',btn_select_all:'Select all',btn_select_none:'Select none',btn_delete_sel:'&#x1F5D1; Delete selection',
 sec_upload:'&#x1F4E4; GIF Upload',desc_upload:'Add a .gif file directly from your browser into a folder in /gifs/. Choose an existing folder OR type a new name (created automatically). &#x26A0;&#xFE0F; Not designed for transferring many files (slow throughput, risk of write errors) -- meant for occasionally adding a few files. For a large transfer, remove the SD card and copy from a PC instead.',placeholder_upload_dir:'or new folder...',lbl_upload_file:'.gif files',btn_upload:'&#x1F4E4; Upload',btn_stop:'&#x23F9; Stop',
-btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',
-net_error:'Network error',msg_deleting:'Deleting...',msg_select_folder:'Select at least one folder',msg_confirm_delete_folders:'Delete ${0}?',msg_specify_dir:'Please specify a target folder',msg_select_gif:'Select a GIF file',msg_select_gif_files:'Select .gif files',msg_preparing_folder:'Preparing folder...',msg_cannot_create_folder:'Unable to create folder: ${0}',msg_net_error_folder:'Network error (folder creation)',msg_uploading:'Uploading...',msg_attempt:'attempt ${0}/${1}',msg_stopped_by_user:'Stopped by user (${0}/${1})',msg_upload_fail:'FAILED',msg_failures:'Failures: ${0}',msg_upload_result:'${0}/${1} file(s) uploaded',msg_upload_result_fail:' -- failures: ${0}',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_updating_playlists:'Updating playlists...',msg_confirm_reboot_playlists:'Folders deleted, ${0} playlist(s) updated. Deleting a folder linked to playlists requires a DMD reboot to take effect. Reboot now?',msg_retrying_failed:'Retrying ${0} failed file(s)...',msg_final_attempt:'final attempt ${0}/${1}',msg_preparing_upload:'Preparing upload...',msg_rebooting_upload:'Rebooting the DMD to prepare the file copy, please wait...'},
+btn_reboot:'&#x1F504; Reboot',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_resume:'&#x25B6; Resume DMD',
+net_error:'Network error',msg_deleting:'Deleting...',msg_select_folder:'Select at least one folder',msg_confirm_delete_folders:'Delete ${0}?',msg_specify_dir:'Please specify a target folder',msg_select_gif:'Select a GIF file',msg_select_gif_files:'Select .gif files',msg_preparing_folder:'Preparing folder...',msg_cannot_create_folder:'Unable to create folder: ${0}',msg_net_error_folder:'Network error (folder creation)',msg_uploading:'Uploading...',msg_attempt:'attempt ${0}/${1}',msg_stopped_by_user:'Stopped by user (${0}/${1})',msg_upload_fail:'FAILED',msg_failures:'Failures: ${0}',msg_upload_result:'${0}/${1} file(s) uploaded',msg_upload_result_fail:' -- failures: ${0}',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_updating_playlists:'Updating playlists...',msg_confirm_reboot_playlists:'Folders deleted, ${0} playlist(s) updated. Deleting a folder linked to playlists requires a DMD reboot to take effect. Reboot now?',msg_retrying_failed:'Retrying ${0} failed file(s)...',msg_final_attempt:'final attempt ${0}/${1}',msg_preparing_upload:'Preparing upload...',msg_rebooting_upload:'Rebooting the DMD to prepare the file copy, please wait...',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',...HELP_I18N.en},
 es:{title:'RecalBox DMD - Medios',h1:'Medios',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',
 sec_dirs:'&#x1F4C1; Carpetas (/gifs/)',desc_dirs:'Marque las carpetas para eliminarlas.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',btn_delete_sel:'&#x1F5D1; Eliminar selección',
 sec_upload:'&#x1F4E4; Subir GIF',desc_upload:'Añada un archivo .gif desde su navegador a una carpeta en /gifs/. Elija una carpeta existente O escriba un nombre nuevo (se crea automáticamente). &#x26A0;&#xFE0F; No pensado para transferir muchos archivos (velocidad lenta, riesgo de error de escritura) -- reservado para añadir algunos archivos puntualmente. Para una transferencia importante, retire la tarjeta SD y cópiela desde un PC.',placeholder_upload_dir:'o nueva carpeta...',lbl_upload_file:'Archivos .gif',btn_upload:'&#x1F4E4; Subir',btn_stop:'&#x23F9; Detener',
-btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',
-net_error:'Error de red',msg_deleting:'Eliminando...',msg_select_folder:'Elija al menos una carpeta',msg_confirm_delete_folders:'¿Eliminar ${0}?',msg_specify_dir:'Especifique una carpeta destino',msg_select_gif:'Seleccione un archivo GIF',msg_select_gif_files:'Seleccione archivos .gif',msg_preparing_folder:'Preparando carpeta...',msg_cannot_create_folder:'No se pudo crear la carpeta: ${0}',msg_net_error_folder:'Error de red (creación de carpeta)',msg_uploading:'Subiendo...',msg_attempt:'intento ${0}/${1}',msg_stopped_by_user:'Detenido por el usuario (${0}/${1})',msg_upload_fail:'ERROR',msg_failures:'Errores: ${0}',msg_upload_result:'${0}/${1} archivo(s) subido(s)',msg_upload_result_fail:' -- errores: ${0}',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_updating_playlists:'Actualizando listas...',msg_confirm_reboot_playlists:'Carpetas eliminadas, ${0} lista(s) de reproduccion actualizada(s). Eliminar una carpeta vinculada a listas requiere reiniciar el DMD para aplicarse. ¿Reiniciar ahora?',msg_retrying_failed:'Reintentando ${0} archivo(s) fallido(s)...',msg_final_attempt:'intento final ${0}/${1}',msg_preparing_upload:'Preparando la subida...',msg_rebooting_upload:'Reiniciando el DMD para preparar la copia de archivos, por favor espere...'}
+btn_reboot:'&#x1F504; Reiniciar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_resume:'&#x25B6; Reanudar DMD',
+net_error:'Error de red',msg_deleting:'Eliminando...',msg_select_folder:'Elija al menos una carpeta',msg_confirm_delete_folders:'¿Eliminar ${0}?',msg_specify_dir:'Especifique una carpeta destino',msg_select_gif:'Seleccione un archivo GIF',msg_select_gif_files:'Seleccione archivos .gif',msg_preparing_folder:'Preparando carpeta...',msg_cannot_create_folder:'No se pudo crear la carpeta: ${0}',msg_net_error_folder:'Error de red (creación de carpeta)',msg_uploading:'Subiendo...',msg_attempt:'intento ${0}/${1}',msg_stopped_by_user:'Detenido por el usuario (${0}/${1})',msg_upload_fail:'ERROR',msg_failures:'Errores: ${0}',msg_upload_result:'${0}/${1} archivo(s) subido(s)',msg_upload_result_fail:' -- errores: ${0}',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_updating_playlists:'Actualizando listas...',msg_confirm_reboot_playlists:'Carpetas eliminadas, ${0} lista(s) de reproduccion actualizada(s). Eliminar una carpeta vinculada a listas requiere reiniciar el DMD para aplicarse. ¿Reiniciar ahora?',msg_retrying_failed:'Reintentando ${0} archivo(s) fallido(s)...',msg_final_attempt:'intento final ${0}/${1}',msg_preparing_upload:'Preparando la subida...',msg_rebooting_upload:'Reiniciando el DMD para preparar la copia de archivos, por favor espere...',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',...HELP_I18N.es}
 };
 let currentLang='fr';
 function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||PAGE_I18N.fr[k]||k;}
@@ -1527,8 +1868,9 @@ function queuedFetch(url,opts){
 }
 function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);queuedFetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(txt),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}
 function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
-function doReboot(skipConfirm){if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);queuedFetch('/reboot').catch(()=>{});}
-function dmdResume(){queuedFetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('net_error'),false));}
+function checkEssentialFields(){return queuedFetch('/load').then(r=>r.json()).then(d=>{const missing=[];if(!d.wifi_ssid)missing.push(tr('essential_wifi'));if(!d.playlist)missing.push(tr('essential_playlist'));if(!d.recalbox_ip)missing.push(tr('essential_ip'));if(!missing.length)return true;return confirm(tr('msg_essential_missing').replace('{fields}',missing.join(', ')));}).catch(()=>true);}
+function doReboot(skipConfirm){checkEssentialFields().then(ok=>{if(!ok)return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);queuedFetch('/reboot').catch(()=>{});});}
+function dmdResume(){checkEssentialFields().then(ok=>{if(!ok)return;queuedFetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('net_error'),false));});}
 // Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29, voir
 // page Affichage pour le detail) : aucun moyen fiable de distinguer une
 // vraie fermeture d'un simple rafraichissement de page.
@@ -1800,7 +2142,7 @@ localStorage.setItem('dmd_last_section','media');
 // comme la cause de net::ERR_INVALID_CHUNKED_ENCODING des le premier clic
 // sur un dossier si l'utilisateur cliquait pendant que ce lot initial
 // etait encore en cours.
-queuedFetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);}).catch(()=>{applyLang();});
+queuedFetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}}).catch(()=>{applyLang();});
 loadDirs();loadUploadDirs();
 </script>
 </body>
@@ -3379,8 +3721,14 @@ static void handleWebConfigUploadFile()
     // de reprise auto post-crash sur un boot frais, ou le heap est encore
     // largement suffisant.
     if (!g_sdOpInProgress) {
-      String url = "http://" + WiFi.localIP().toString();
-      clearFirstBoot();
+      // Repli 0.0.0.0 + clearFirstBoot() retire : memes corrections que
+      // triggerWebConfigModeSoft() (bug corrige 2026-08-05) -- duplicata
+      // volontaire (voir commentaire au-dessus, PAS triggerWebConfigMode()
+      // ici a cause du reboot cible qu'il peut declencher).
+      String ip = WiFi.localIP().toString();
+      if (ip == "0.0.0.0") ip = WiFi.softAPIP().toString();
+      if (ip == "0.0.0.0") ip = "192.168.4.1";
+      String url = "http://" + ip;
       webDmdSetMainMsg("WEB DMD CONFIG");
       webDmdPause(url, 0xFFE0);
     }
@@ -3526,6 +3874,17 @@ static void handleWebConfigSave()
   File f = SD.open("/config.ini", FILE_WRITE);
   if (!f) { webServer->send(500, "text/plain", "ERR: SD write failed"); return; }
   f.println("# Info"); f.println("info=" + String(showInfo ? "1" : "0"));
+  // language= re-ecrit ici avec la valeur RAM courante (uiLanguage, chargee
+  // au boot depuis config.ini puis mise a jour immediatement par
+  // handleWebConfigSaveLanguage() a chaque changement de langue) -- bug
+  // corrige 2026-08-05, signale par l'utilisateur : cette cle n'etait
+  // JAMAIS re-emise par cette reecriture complete de config.ini (utilisee
+  // par les pages BASIC/NETWORK/CLOCK/MEDIA), donc silencieusement perdue
+  // des la 1ere sauvegarde depuis l'une de ces pages, meme si elle avait ete
+  // correctement ecrite par l'outil PC juste avant. handleWebConfigSaveAP()
+  // (page AP) n'est PAS concernee : elle patche cle par cle via
+  // writeConfigFlag(), qui preserve deja les cles non touchees.
+  f.println("language=" + uiLanguage);
   f.println(); f.println("# Affichage"); f.println("brightness=" + String(b));
   f.println(); f.println("# Playlist"); f.println("playlist=" + playlistName); f.println("random=" + String(playlistRandom ? "1" : "0"));
   f.println(); f.println("# Wi-Fi & Bluetooth");
@@ -3547,7 +3906,20 @@ static void handleWebConfigSave()
     f.println("CLOCK_COLOR=");
   }
   f.println("TZ=" + clockTimeZone);
-  f.println(); f.println("first_boot=0");
+  f.println();
+  // first_boot ne passe a 0 QUE si la config est reellement complete
+  // (playlist par defaut ET IP Recalbox renseignees) -- bug corrige
+  // 2026-08-05, demande utilisateur (etape 3 de la logique cible) :
+  // auparavant ecrit inconditionnellement ici, meme depuis une simple
+  // sauvegarde de la page CLOCK sans jamais avoir renseigne playlist/IP.
+  // Si la config reste incomplete, g_firstBoot garde sa valeur courante
+  // (jamais remis a true ici : une fois la config complete atteinte au
+  // moins une fois, elle ne "redevient" pas premier demarrage si un
+  // champ est efface plus tard -- needWebConfigMode, setup(), continue
+  // de toute facon a re-proposer le mode config tant que playlist/IP
+  // sont vides, independamment de first_boot).
+  if (playlistName.length() > 0 && recalboxIP.length() > 0) g_firstBoot = false;
+  f.println("first_boot=" + String(g_firstBoot ? "1" : "0"));
   f.close();
   Serial.println("[WEB] config.ini saved (brightness=" + String(b) + "%)");
   webServer->send(200, "text/plain", "OK");
@@ -3846,7 +4218,12 @@ static void handleWebConfigScanWiFi()
 
 static void handleWebConfigLang()
 {
-  webServer->send(200, "application/json", "{\"language\":\"" + uiLanguage + "\"}");
+  // "first_boot" ajoute (2026-08-05, demande utilisateur) : deja
+  // l'endpoint appele au bootstrap de CHAQUE page (fetch('/lang'), meme
+  // script sur les 5 pages) -- reutilise pour exposer cet etat au JS sans
+  // aller-retour reseau supplementaire (declenche la modale d'accueil
+  // premier demarrage, voir showHelpModal() cote JS de chaque page).
+  webServer->send(200, "application/json", "{\"language\":\"" + uiLanguage + "\",\"first_boot\":\"" + String(g_firstBoot ? "1" : "0") + "\"}");
 }
 
 static void handleWebConfigSaveLanguage()
@@ -3886,7 +4263,16 @@ static void handleWebConfigSaveAP()
   writeConfigFlag("wifi_password", wifiPassword);
   writeConfigFlag("wifi_static_enabled", wifiStaticEnabled ? "1" : "0");
   writeConfigFlag("wifi_static_ip", wifiStaticIP);
-  writeConfigFlag("first_boot", "0");
+  // NE PAS ecrire first_boot ici (bug corrige 2026-08-05) : cette page
+  // ne couvre que la 1ere des 2 phases du premier demarrage (WiFi).
+  // first_boot ne passe a 0 QUE dans handleWebConfigSave() (page BASIC/
+  // NETWORK/CLOCK/MEDIA), et seulement si la sauvegarde laisse playlist
+  // ET recalbox_ip non vides -- jamais ici, jamais par le simple fait
+  // d'ouvrir une page (voir triggerWebConfigModeSoft()). L'ecrire ici
+  // desactivait a tort tout le parcours "premier demarrage" des la 1ere
+  // phase -- au reboot suivant (WiFi maintenant connecte), l'ecran
+  // d'invitation a terminer la config (voir needWebConfigMode dans
+  // setup()) etait silencieusement saute.
   Serial.println("[WEB] AP save: fichier ecrit avec SSID=" + wifiSSID + " -> reboot");
   webServer->send(200, "text/plain", "OK");
   delay(1000);
@@ -3915,8 +4301,21 @@ static void triggerWebConfigModeSoft(const String &msg)
   // requete). En affichant l'URL complete avec schema, un utilisateur qui
   // COPIE/RETAPE exactement ce qui est affiche evite le declenchement de ce
   // mecanisme, sans reglage navigateur particulier.
-  String url = "http://" + WiFi.localIP().toString();
-  clearFirstBoot();
+  //
+  // Repli 0.0.0.0 (bug corrige 2026-08-05) : WiFi.localIP() est vide en
+  // mode AP pur -- cette fonction est appelee par TOUS les handlers de
+  // page, y compris la racine "/" servie par la page AP elle-meme, donc
+  // s'execute aussi a ce moment-la. Meme repli que partout ailleurs dans
+  // ce fichier.
+  String ip = WiFi.localIP().toString();
+  if (ip == "0.0.0.0") ip = WiFi.softAPIP().toString();
+  if (ip == "0.0.0.0") ip = "192.168.4.1";
+  String url = "http://" + ip;
+  // clearFirstBoot() retire d'ici (bug corrige 2026-08-05, demande
+  // utilisateur -- etape 3 de la logique cible) : le simple AFFICHAGE
+  // d'une page ne doit plus jamais effacer first_boot, seule une
+  // sauvegarde reellement complete (handleWebConfigSave()) le fait
+  // desormais.
   webDmdSetMainMsg(msg);
   webDmdPause(url, 0xFFE0);
 }
