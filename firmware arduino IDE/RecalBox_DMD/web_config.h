@@ -3,13 +3,440 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v31
+// Version actuelle : v51
 //
-// v31 — 2026-08-01 — safe-modify — Partie A du plan "cache_master_gifs"
-//   (nettoyage des playlists apres suppression de dossier, plan valide
-//   plusieurs sessions plus tot, jamais implemente jusqu'ici) : nouvelle
-//   fonction stripDeletedFoldersFromPlaylist() (+ portage de
-//   writeBufChecked(), retries sur ecriture SD partielle) branchee dans
+// v51 — 2026-08-05 — safe-modify — Fusion dev/tous-txt-filter -> master.
+//   Voir plus bas pour le detail complet (chaine v51...v32 ci-dessous,
+//   apportee par dev/tous-txt-filter) et l'entree "v31 (branche master,
+//   2026-08-01)" plus bas pour le detail du travail propre a master
+//   fusionne ici (nettoyage playlists apres suppression de dossier).
+//
+// v51 — 2026-08-05 — safe-modify — Volet web de la refonte premier
+//   demarrage/AP/mode config (voir RecalBox_DMD.ino v51 pour le volet
+//   firmware/ecran physique). Resume :
+//   1. first_boot n'est plus efface par le simple affichage d'une page
+//      (clearFirstBoot() retiree de triggerWebConfigModeSoft() et du
+//      duplicata upload) -- ne passe a 0 que dans handleWebConfigSave() si
+//      playlist ET IP Recalbox sont non vides au moment de la sauvegarde.
+//   2. Modale d'accueil (checklist + aide detaillee par fonctionnalite) +
+//      lien "Aide" permanent, dupliques sur les 5 pages (MENU/BASIC/
+//      NETWORK/CLOCK/MEDIA), exposee via first_boot dans /lang. Gate
+//      sessionStorage (dmd_help_seen) pour n'afficher qu'une fois par
+//      onglet -- bug corrige : elle reapparaissait a chaque navigation.
+//   3. Bouton MEDIA "Enreg. & Redemarrer" (relabelage, comportement AJAX
+//      deja immediat inchange) -- manquait par rapport aux 3 autres pages.
+//   4. checkEssentialFields() (WiFi/playlist/IP Recalbox) avant
+//      doReboot()/dmdResume()/saveAndReboot() -- confirm() listant les
+//      champs vides, jamais bloquant (annulable).
+//   5. Bug corrige : language= disparaissait de config.ini a chaque
+//      sauvegarde BASIC/NETWORK/CLOCK/MEDIA (handleWebConfigSave() ne la
+//      reemettait jamais, contrairement a first_boot=) -- meme valeur RAM
+//      (uiLanguage) desormais toujours reecrite.
+//   6. Brouillon localStorage multi-pages (dmd_draft_basic/_network/_clock)
+//      -- 1er essai (window.onbeforeunload sur _formDirty) EXPLICITEMENT
+//      REJETE par l'utilisateur ("pas d'alerte bloquante, un vrai
+//      correctif"). Remplace par une vraie persistance cote navigateur :
+//      chaque champ modifie est ecrit dans localStorage, relu et applique
+//      PAR-DESSUS les valeurs serveur au chargement de chaque page -- plus
+//      aucun champ perdu en naviguant entre pages, sans le moindre
+//      avertissement. La sauvegarde reelle (config.ini) continue de
+//      n'avoir lieu que sur clic explicite Enregistrer/Enreg.&Redemarrer,
+//      qui efface alors le brouillon.
+//   Compilation via compile.ps1 : OK (64% flash, 28% RAM). JS revalide
+//   (node --check) sur les 6 pages a chaque etape. Test materiel reel EN
+//   COURS (2026-08-05) : messages d'alerte web + DMD + modale d'aide
+//   confirmes OK ; reste (brouillon localStorage, alerte champs essentiels,
+//   fix language=, indicateurs rouge/orange) PAS ENCORE teste.
+//
+// v50 — 2026-08-03 — safe-modify — setTimeout(3000) (v49) confirme SANS
+//   EFFET par lecture du code source NetworkClient.cpp : write() envoie via
+//   send(..., MSG_DONTWAIT), qui ignore purement SO_SNDTIMEO -- le vrai
+//   blocage (10-25s, escalade mesuree 10021/18244/24894ms) vient d'une
+//   boucle de retry codee en dur dans la bibliotheque (10 x select() 1s,
+//   RESET a chaque octet transmis), non configurable depuis ce sketch.
+//   sendGzipHtml() reecrit : envoi manuel par blocs de 1024 octets (en-tete
+//   HTTP construit a la main + webServer->client().write() en boucle) au
+//   lieu d'un seul appel send_P() sur toute la page -- un bloc qui echoue
+//   COMPLETEMENT (write() renvoie moins que demande) est detecte des ce
+//   premier bloc perdu, connexion coupee immediatement au lieu de laisser
+//   la lib s'acharner sur le reste. Plafonne le pire cas a ~10s au lieu de
+//   18-25s. Demande explicite utilisateur (piste "grossir les paquets pour
+//   mobile") verifiee et infirmee au passage : send_P() envoie deja TOUTE
+//   la page en un seul write(), aucune "taille de paquet" a agrandir de ce
+//   cote -- c'est la segmentation TCP/MSS, hors de portee du sketch.
+//   Compilation via compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
+//
+// v49 — 2026-08-03 — safe-modify — Cause racine CONFIRMEE par
+//   l'instrumentation v48 (test reel iOS) : send_P() bloque 10 a 25
+//   SECONDES en escalade (10021ms -> 18244ms -> 24894ms) sur des envois de
+//   quelques Ko, heap libre qui degringole par paliers pendant que maxalloc
+//   reste fige -- signature d'une connexion abandonnee par le client (iOS
+//   retente, le serveur mono-thread reste coince a ecrire sur l'ancienne
+//   connexion). Fix : webServer->client().setTimeout(3000) avant send_P()
+//   dans sendGzipHtml() -- aucun timeout d'ecriture n'etait pose sur ce
+//   chemin (contrairement a l'upload). Compilation via compile.ps1 : OK.
+//   PAS ENCORE teste sur materiel reel.
+//
+// v48 — 2026-08-03 — safe-modify — Test reel iOS Safari (setNoDelay v47 pas
+//   suffisant) : nouvelle donnee cle -- meme les pages qui REUSSISSENT
+//   mettent 10s+ a s'afficher (pas seulement celles qui echouent), motif
+//   degressif (MENU/BASIC ok mais lents, puis tout echoue en boucle a partir
+//   de NETWORK/CLOCK/MEDIA). Heap toujours sain sur les requetes mesurables
+//   (maxalloc=8692). Piste non-firmware ajoutee (Private Relay iCloud+ /
+//   permission "Reseau local" iOS, connue pour introduire des delais
+//   massifs ou des echecs sur du trafic IP locale) -- a verifier cote
+//   utilisateur. Instrumentation ajoutee dans sendGzipHtml() : chrono
+//   dedie autour de send_P() (ecriture TCP bloquante) + log heap juste
+//   avant, sur CHAQUE envoi de page (pas seulement le repli memoire faible
+//   existant) -- objectif : distinguer un envoi reseau reellement lent
+//   (send_P() long) d'un ralentissement situe ailleurs (acceptation de
+//   connexion, cote client). Compilation via compile.ps1 : OK. PAS ENCORE
+//   teste sur materiel reel.
+//
+// v47 — 2026-08-03 — safe-modify — Test reel iOS Safari (question
+//   utilisateur) : page blanche a repetition, "Safari ne peut pas ouvrir la
+//   page... connexion reseau perdue" -- meme sur MENU (page la plus legere,
+//   6.7 Ko gzip), pas specifique a MEDIA. Log serie confirme la requete
+//   atteignant bien le serveur (triggerWebConfigModeSoft() s'execute a
+//   chaque tentative) et le garde heap de sendGzipHtml() (maxalloc<4096) ne
+//   se declenchant pas -- la coupure n'est donc pas expliquee par ce
+//   garde-fou existant. Hypothese testee : Nagle + mode economie d'energie
+//   WiFi mobile (voir commentaire dans sendGzipHtml()). Fix applique :
+//   webServer->client().setNoDelay(true) avant l'envoi de chaque page.
+//   Compilation via compile.ps1 : OK. PAS ENCORE teste sur materiel reel --
+//   necessite un vrai test iOS pour confirmer/infirmer cette hypothese.
+//
+// v46 — 2026-08-03 — safe-modify — Analyse .har + log serie reels (question
+//   utilisateur : la generation de playlist simple genere des erreurs web
+//   pendant le scan de gros dossiers hors cache -- le reboot cible
+//   aiderait-il ?). Diagnostic : NON, pas de la fragmentation heap -- le
+//   .har montre la quasi-totalite des requetes /generate-playlist-status
+//   echouant a EXACTEMENT ~9000-9016ms (timeout client, pas une erreur
+//   serveur) sur un dossier de 1400+ fichiers (Arcade), pendant que le log
+//   serie confirme le scan progressant normalement en parallele (aucun heap
+//   critique). Le commentaire existant affirmant que playlistGenTask()
+//   (tache FreeRTOS dediee, 2026-07-28) avait elimine ce risque est donc
+//   FAUX en pratique sur un tres gros dossier -- cause exacte non
+//   identifiee (le code cede la main via vTaskDelay(1) et ne garde aucun
+//   mutex longtemps, ca semble suffisant en lecture statique). Correctif
+//   applique (option choisie par l'utilisateur -- rapide, faible risque) :
+//   AbortController du polling /generate-playlist-status remonte de 9000ms
+//   a 25000ms, meme marge que le polling d'upload. N'accelere pas le scan
+//   (toujours limite par la degradation FAT32 deja documentee sur ce
+//   projet), reduit seulement les faux "echecs" affiches pendant qu'il
+//   tourne encore. Compilation via compile.ps1 : OK. PAS ENCORE teste sur
+//   materiel reel.
+//
+// v45 — 2026-08-03 — safe-modify — Bug reel confirme (test materiel : "DMD
+//   bloque, aucun affichage web/DMD/serial" apres un reboot cible declenche
+//   par /prepare-upload) : le JS de uploadGif() faisait location.reload()
+//   une fois le serveur revenu -- une navigation/rechargement de page
+//   detruit les objets File du navigateur correspondant aux fichiers
+//   selectionnes par l'utilisateur, abandonnant silencieusement l'upload en
+//   cours sans aucune indication (d'ou "rien ne s'affiche" : la page MEDIA
+//   fraichement rechargee est juste... vide de toute activite, en attente
+//   d'un nouveau clic sur Uploader que rien ne suggerait de refaire).
+//   Corrige : plus de reload, on attend juste (poll sur /lang, endpoint
+//   leger qui ne re-arme pas webDmdPause()) que le serveur reponde de
+//   nouveau puis on POURSUIT la meme fonction JS avec les memes fichiers
+//   deja en memoire -- upload repris automatiquement, aucune perte de
+//   selection, aucun reclic requis.
+//   Precision demandee par l'utilisateur : masquer la liste de dossiers/
+//   suppression pendant la copie (idee initiale evoquee) ne liberait AUCUNE
+//   RAM cote ESP32 (uniquement cosmetique navigateur, cf. discussion) --
+//   ABANDONNEE sur cette base, aucun changement d'affichage fait ici.
+//   Compilation via compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
+//
+// v44 — 2026-08-02 — safe-modify — Demande explicite utilisateur : le reboot
+//   cible mode config (v43) ne doit se declencher qu'au clic sur "Uploader"
+//   (page MEDIA), pas a l'ouverture de N'IMPORTE QUELLE page de config --
+//   ouvrir MEDIA pour juste supprimer un dossier, ou BASIC/NETWORK/CLOCK
+//   pour un reglage, ne justifie pas un reboot. Aucune preuve par ailleurs
+//   que l'ecriture de playlists souffre du meme plafond heap que l'ecriture
+//   GIF volumineuse de l'upload (confirme par l'utilisateur : /add-to-
+//   playlists-batch, execute en fin de CHAQUE upload, n'a jamais echoue
+//   dans les tests recents, y compris en fin de gros lot). `triggerWebConfigMode()`
+//   (bool, avec reboot) et `sendRebootingPage()` (page HTML de patience)
+//   supprimes -- remplaces par `triggerWebConfigModeSoft()` (jamais de
+//   reboot, utilisee par TOUTES les pages + handleDmdOpen + UPLOAD_FILE_START)
+//   et une nouvelle route `POST /prepare-upload` (`handleWebConfigPrepareUpload()`)
+//   appelee par le JS de la page MEDIA juste avant le premier fichier d'un
+//   upload (clic sur "Uploader") : reponse JSON `{"reboot":bool}` au lieu
+//   d'une page HTML complete (cet appel part d'une page deja chargee, pas
+//   d'une navigation) -- si true, le JS affiche un message d'attente et
+//   attend (poll) le retour du serveur avant de recharger toute la page.
+//   Compilation via compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
+//
+// v43 — 2026-08-02 — safe-modify — Test reel du garde heap<6000 (v42) :
+//   bloquait ~99% des uploads MEDIA des que la playlist avait tourne un
+//   moment (maxalloc reste bloque a 4596, jamais de recuperation meme apres
+//   le delai(10) de v91) -- ce n'est pas un creux transitoire mais un
+//   plancher STABLE, deja documente en memoire projet : chaque SD.open()
+//   d'un GIF alloue un buffer setvbuf(4096) jamais recycle proprement,
+//   plafonnant durablement le heap. Ce plancher avait deja motive un reboot
+//   cible mode config (commit "v88", 2026-07-27), retire ensuite (commit
+//   "v93") sur la foi d'une comparaison qui portait en realite sur un autre
+//   symptome (nombre de requetes HTTP par upload) -- la cause racine du
+//   plafond heap n'a donc jamais ete corrigee. Decision utilisateur
+//   (2026-08-02) : reintroduire ce reboot cible sur CE firmware, et traiter
+//   la vraie correction de fond (fopen()/setvbuf() statique pour la lecture
+//   GIF) separement sur une branche dev dediee. `triggerWebConfigMode()`
+//   repasse en `bool` (`false` = reboot deja declenche, reponse deja
+//   envoyee via la nouvelle `sendRebootingPage()` -- l'appelant doit
+//   s'arreter sans repondre) ; les 6 points d'appel (handleDmdOpen + les 5
+//   handlers de page) verifient desormais la valeur de retour. Le point
+//   d'appel dans `UPLOAD_FILE_START` (v41) reste volontairement en pause
+//   inline SANS passer par `triggerWebConfigMode()` -- un reboot depuis ce
+//   callback enverrait sa reponse HTTP en plein milieu du corps multipart
+//   entrant, cassant la requete en cours (meme classe de bug que le
+//   `send()` premature deja corrige sur ce chemin). Cote .ino : restauration
+//   a l'identique de `g_skipPlaylistForConfig`/`force_config_boot`,
+//   `g_playlistStartedThisBoot`, et du bloc de boot dedie qui saute
+//   entierement la playlist/l'ouverture de GIF quand le flag est pose.
+//   `requestReboot` (variable + check dans loop()) etait reste orphelin
+//   depuis le retrait de juillet -- reutilise tel quel. Compilation via
+//   compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
+//
+// v42 — 2026-08-02 — safe-modify — Test reel 151 fichiers (v41) : crash
+//   DIFFERENT des precedents malgre le try/catch (v40) -- abort() dans
+//   lock_init_generic() (newlib), appele depuis fopen()->__sfp() lors de
+//   l'ouverture du fichier cible (SD.open() dans UPLOAD_FILE_START),
+//   backtrace decodee via addr2line. Cet abort() est un appel direct (assert
+//   interne newlib sur l'allocation du mutex de flux FILE*), PAS une
+//   exception C++ -- le try/catch de handleWebConfig() ne peut structurel-
+//   lement pas l'intercepter. Cause racine identifiee : le garde heap
+//   critique (ESP.getMaxAllocHeap()<6000, avec retry-apres-delai(10ms), voir
+//   v91 ancien historique) qui refusait proprement l'upload AVANT le
+//   SD.open() a ete perdu lors de la refonte multi-fichiers (v34-v40) --
+//   plus rien n'empechait d'atteindre SD.open() avec un heap deja au plus
+//   bas. Reintroduit a l'identique en tete de UPLOAD_FILE_START, avant toute
+//   operation SD (mkdir/exists/open), pour retablir le refus propre a la
+//   place du crash. Compilation via compile.ps1 : OK. PAS ENCORE teste sur
+//   materiel reel.
+//
+// v41 — 2026-08-02 — safe-modify — Retour utilisateur : nettement plus
+//   d'echecs d'upload qu'avant cette session (151 fichiers sans aucun
+//   echec auparavant). Deux corrections : (1) AbortController remonte de
+//   12s a 25s -- 12s coupait prematurement des transferts LENTS MAIS QUI
+//   AURAIENT REUSSI (jusqu'a ~11s observes sous heap tendu, tres proche de
+//   l'ancienne limite), plus court que le timeout serveur lui-meme (15s) ;
+//   25s laisse une marge confortable au-dessus des deux. (2)
+//   HTTP_UPLOAD_BUFLEN RETIRE completement (retour au defaut bibliotheque,
+//   1436) -- sa reduction ralentissait les transferts (plus d'appels
+//   SD.write() par fichier) sans benefice net demontre, et le try/catch de
+//   handleWebConfig() (v40) rend cette customisation inutile : le crash
+//   est desormais sans consequence quelle que soit la taille du buffer.
+//   Ajout d'une passe de re-tentative finale (2026-08-02, retour test reel
+//   sur un lot de 34 fichiers -- 13 echecs en fin de lot) : apres le lot
+//   principal, les fichiers en echec beneficient d'une seconde chance
+//   (pause 1.5s puis jusqu'a 3 nouvelles tentatives chacun) une fois le
+//   reste du lot termine, le tas ayant eu le temps de se stabiliser un
+//   peu. Compilation via compile.ps1 : OK (0 erreur, 63% flash, 28% RAM).
+//   PAS ENCORE teste sur materiel reel.
+//
+// v40 — 2026-08-02 — safe-modify — Retour test reel : descendre
+//   HTTP_UPLOAD_BUFLEN a 256 n'ameliore pas clairement les choses (effet
+//   contraire possible non anticipe -- bien plus d'appels SD.write() par
+//   gros fichier, potentiellement plus de fragmentation cumulee cote
+//   bibliotheque SD/FatFs) et ralentit nettement les transferts -- remis a
+//   512 (meilleur compromis observe). Nouvelle ligne de defense
+//   PRINCIPALE : handleWebConfig() enveloppe desormais
+//   webServer->handleClient() dans un try/catch -- les exceptions C++ sont
+//   bien compilees dans ce build (confirme : __cxa_throw present dans
+//   toutes les traces de crash decodees, jamais genere avec
+//   -fno-exceptions), donc l'exception std::bad_alloc levee par
+//   WebServer::_parseForm() (operator new() de HTTPUpload echoue sous heap
+//   fragmente) devrait desormais etre rattrapee AVANT std::terminate()/
+//   abort() -- convertit un crash+reboot complet en simple echec de LA
+//   requete en cours, loop() continue normalement. Risque assume, non
+//   verifie : la bibliotheque n'est pas concue pour etre interrompue par
+//   une exception en cours de route, son etat interne pourrait rester
+//   incoherent pour l'appel suivant -- a tester en priorite. Egalement :
+//   handleWebConfigUploadFile() reengage desormais le mode config
+//   (triggerWebConfigMode()) des le premier octet d'un upload si pas deja
+//   actif (g_sdOpInProgress) -- couvre le cas ou le navigateur relance
+//   l'upload tout seul apres un crash+reboot SANS recharger de page
+//   d'abord, qui laissait sinon MQTT/lecture GIF actifs pendant l'upload.
+//   Compilation via compile.ps1 : OK (0 erreur, 63% flash, 28% RAM). PAS
+//   ENCORE teste sur materiel reel.
+//
+// v39 — 2026-08-02 — safe-modify — HTTP_UPLOAD_BUFLEN descendu de 512 a 256
+//   (retour test reel : 512 reduisait la frequence du crash sans l'eliminer
+//   -- 0 crash sur un run de 15 fichiers, 2 crashs sur le suivant). Ajout
+//   AbortController (12s) sur le fetch d'upload JS -- detection d'echec
+//   reseau plus rapide que le timeout TCP systeme (15-70s+ mesures dans le
+//   .har navigateur), relance une tentative plus tot. Compilation via
+//   compile.ps1 : OK (0 erreur, 63% flash, 28% RAM). PAS ENCORE reteste sur
+//   materiel reel.
+//
+// v38 — 2026-08-02 — safe-modify — Retour a l'upload fichier par fichier
+//   (abandon du regroupement par paquets de v36, confirme en test reel ne
+//   pas reduire la frequence du crash -- celui-ci se produit par fichier
+//   traite dans le corps multipart, pas par connexion) -- simplification
+//   demandee par l'utilisateur pour isoler proprement l'effet du seul
+//   correctif HTTP_UPLOAD_BUFLEN=512 (v37). Ajout d'un log diagnostique
+//   temporaire au demarrage (sizeof(HTTPUpload)/HTTP_UPLOAD_BUFLEN) pour
+//   confirmer que la redefinition est bien prise en compte par la
+//   bibliotheque. Compilation via compile.ps1 : OK (0 erreur, 63% flash,
+//   28% RAM). PAS ENCORE teste sur materiel reel.
+//
+// v37 — 2026-08-02 — safe-modify — Cause racine reelle du crash upload
+//   trouvee (le regroupement par lot de v36 ne la corrigeait pas, confirme
+//   en test reel -- 2 crashs sur 15 fichiers, frequence inchangee) : lu le
+//   source de la bibliotheque WebServer (Parsing.cpp ligne ~496),
+//   _currentUpload.reset(new HTTPUpload()) alloue une structure qui
+//   EMBARQUE un buffer uint8_t[HTTP_UPLOAD_BUFLEN] -- 1436 octets par
+//   defaut, EN UN SEUL BLOC CONTIGU, a CHAQUE fichier rencontre dans le
+//   corps multipart (independant du nombre de connexions). #define
+//   HTTP_UPLOAD_BUFLEN 512 AVANT le premier #include <WebServer.h> du
+//   projet (personnalisation legitime prevue par la bibliotheque via son
+//   garde #ifndef, pas un patch de son code source) -- reduit d'environ
+//   2.8x la taille de l'allocation critique. Compilation via compile.ps1 :
+//   OK (0 erreur, 63% flash, 28% RAM -- inchange, HTTPUpload est allouee
+//   dynamiquement, pas globale). PAS ENCORE teste sur materiel reel.
+//
+// v36 — 2026-08-02 — safe-modify — Fiabilisation de l'upload MEDIA (hors
+//   plan cache_master_gifs, suite a analyse .har navigateur pendant la
+//   session de test) : cause racine identifiee -- WebServer force
+//   "Connection: close" sur CHAQUE reponse (WebServer.cpp de la
+//   bibliotheque, non modifiable), donc chaque requete HTTP = une nouvelle
+//   poignee de main TCP, individuellement exposee a une perte de paquet
+//   SYN/ACK WiFi (net::ERR_CONNECTION_RESET/ABORTED confirmes dans le .har,
+//   15-70s de blocage sur l'etablissement de connexion, jamais un
+//   ralentissement de traitement serveur). handleWebConfigUploadFile()
+//   generalisee pour accepter PLUSIEURS fichiers dans une seule requete
+//   multipart (uploadCurName/uploadBatchResults/uploadBatchOkCount,
+//   reponse JSON {ok,files:[{name,ok,err}]} au lieu d'un texte simple) ;
+//   uploadGif() (JS) regroupe desormais les fichiers par paquets de 4 --
+//   moins de poignees de main TCP necessaires pour un meme lot, sans
+//   requete unique demesuree (limite la pression heap). Repli automatique
+//   sur upload fichier-par-fichier (methode individuelle deja fiable) si un
+//   paquet echoue au niveau reseau apres 3 tentatives -- reuploader un
+//   fichier deja reussi est sans consequence (idempotent). Compilation via
+//   compile.ps1 : OK (0 erreur, 63% flash, 28% RAM). PAS ENCORE teste sur
+//   materiel reel.
+//
+// v35 — 2026-08-02 — safe-modify — Retours test reel sur Partie A :
+//   (1) le redemarrage apres suppression de dossier(s) lie(s) a des
+//   playlists n'est plus automatique -- popup confirm() oui/non
+//   (msg_confirm_reboot_playlists, remplace msg_folders_deleted_reboot)
+//   laisse l'utilisateur choisir le moment ; bloquant par nature, empeche
+//   aussi toute autre action pendant que la decision est en attente.
+//   (2) Cache sessionStorage partage entre les pages Affichage et MEDIA
+//   (cle 'dmd_gifdirs_cache', readDirsCache()/writeDirsCache()) pour la
+//   liste des dossiers /gifs -- demande utilisateur : le va-et-vient
+//   frequent entre les deux pages redemandait /lsgifdirs a chaque fois,
+//   avec le risque d'echec reseau deja documente cette session. Affichage
+//   immediat depuis le cache si present, rafraichissement en arriere-plan
+//   qui remet le cache a jour ensuite (jamais bloquant sur le reseau).
+//   Compilation via compile.ps1 : OK (0 erreur, 63% flash, 28% RAM). PAS
+//   ENCORE reteste sur materiel reel.
+//
+// v34 — 2026-08-02 — safe-modify — Portage de la Partie A du plan
+//   "cache_master_gifs" (jusque-la seulement sur master) dans ce worktree
+//   dev/tous-txt-filter, pour permettre de tester A+B+C ensemble sur le
+//   meme firmware pendant la session de test materiel en cours : nouvelle
+//   fonction stripDeletedFoldersFromPlaylist() (reutilise le
+//   writeBufChecked() deja present ici pour Partie B) branchee dans
+//   handleWebConfigDeleteFolders() -- chaque suppression de dossier retire
+//   desormais les lignes mortes des playlists concernees (cache_master_gifs.dat
+//   exclu de ce nettoyage, jamais lu playlist par playlist a la lecture DMD)
+//   et supprime leurs compagnons .cache/.sig/.idx. Cote JS (page MEDIA,
+//   deleteSelected()) : message explicite puis redemarrage automatique
+//   (doReboot(true)) si des playlists ont ete mises a jour. Nouvelles cles
+//   i18n FR/EN/ES : msg_folders_deleted_reboot. Compilation via
+//   compile.ps1 : OK (0 erreur, 63% flash, 28% RAM). PAS ENCORE teste sur
+//   materiel reel (portage identique au code deja teste sur master, mais
+//   jamais verifie sur CE worktree precis).
+//
+// v33 — 2026-08-02 — safe-modify — Retrait du compte de fichiers par
+//   dossier (page Affichage), a titre de test suite a un crash reel
+//   out-of-memory (abort() dans WebServer::_parseForm(), heap epuise
+//   pendant un upload) observe en session de test materiel -- tentative
+//   d'isoler si le scan de TOUS_MASTER_PATH dans handleWebConfigListGifDirs()
+//   (+ le tableau static String dirNames[128]) et le nouvel endpoint
+//   /lsgifdircount contribuaient a la pression heap ambiante. Retour a la
+//   version simple de /lsgifdirs (liste de noms uniquement) ;
+//   handleWebConfigGifCountFolder()/route /lsgifdircount retires ;
+//   loadGenDirs() (JS) revient a un affichage sans compte, tri alphabetique
+//   CONSERVE (pur JS, aucun cout heap firmware). Reste du plan (Partie
+//   B hybride/marqueur FULL, Partie C etiquette SD) inchange. Compilation
+//   via compile.ps1 : OK (0 erreur, 63% flash, 28% RAM -- variables
+//   globales legerement reduites, 94444 vs 96532 octets, coherent avec le
+//   retrait du tableau static). PAS ENCORE reteste sur materiel reel.
+//
+// v32 — 2026-08-01 — safe-modify — Partie B du plan "cache_master_gifs"
+//   (simplification radicale, apres une longue serie de bugs reels trouves
+//   en test materiel sur tousSyncTask()) : RETRAIT COMPLET de
+//   tousSyncTask()/resync incrementale (struct ChangedFolderInfo,
+//   fnv1aString(), defines TOUS_SYNC_MAX_*, handleWebConfigResyncTous(),
+//   route /resync-tous, bouton "Resynchroniser l'index GIFs" + i18n
+//   FR/EN/ES associes, champs isResync/foldersChanged/linesAdded/
+//   linesRemoved de PlaylistGenStatus) -- elimine du meme coup la limite
+//   des 1024 fichiers/dossier (n'existait que dans le code retire).
+//   REMPLACE par une generation de playlist HYBRIDE :
+//   handleWebConfigGeneratePlaylist() verifie desormais PAR DOSSIER (pas
+//   globalement) la presence dans cache_master_gifs.dat (corrige au passage
+//   un bug ou cocher un dossier neuf a cote de dossiers en cache produisait
+//   une playlist silencieusement incomplete), filtre la portion deja en
+//   cache (filterMasterIntoFile(), quasi instantane) et ne scanne que les
+//   dossiers neufs (scanFoldersToPlaylistFile(), inchangee) -- qui sont
+//   ensuite EMBARQUES AUTOMATIQUEMENT dans le fichier maitre
+//   (appendMatchingLines(), plus besoin de rescanner /gifs/). Marqueur
+//   "# FULL:dossier1,dossier2" ecrit en tete de chaque playlist generee par
+//   le DMD (toujours des dossiers entiers) : handleWebConfigAddToPlaylists
+//   Batch() le lit desormais pour decider si un nouveau fichier uploade
+//   doit y etre ajoute (plus precis que l'ancien fileContainsNeedle() seul,
+//   qui aurait pu polluer une playlist hybride cree cote PC -- retrocompat
+//   totale pour les playlists sans marqueur). cache_master_gifs.dat est
+//   desormais une cible d'ajout INCONDITIONNELLE lors d'un upload (avant :
+//   seulement s'il referencait deja le dossier). /lsgifdirs renvoie
+//   {name,count} (compte depuis le cache, "?" si dossier jamais vu) +
+//   nouvel endpoint /lsgifdircount?dir= (compte exact d'UN SEUL dossier, a
+//   la demande -- jamais /lsgiffiles, retiree v92, jamais reintroduite) ;
+//   page Affichage : tri alphabetique + affichage/rafraichissement du
+//   compte a la coche. Compilation via compile.ps1 : OK (0 erreur, 63%
+//   flash, 29% RAM). PAS ENCORE teste sur materiel reel -- chantier volumineux,
+//   tester en priorite : generation cache-seul, generation hybride
+//   (cache+scan), premiere generation jamais lancee (bootstrap), upload
+//   vers dossier neuf, playlist hybride creee cote PC (marqueur # FULL:
+//   absent cote outil PC pour l'instant, session separee a prevoir).
+//
+// v31 — 2026-07-29 — safe-modify — BRANCHE DEV (dev/freertos-playlist-scan) :
+//   playlistGenStep() (machine a etats appelee depuis loop()) remplacee par
+//   playlistGenTask(), tache FreeRTOS dediee (cf. RecalBox_DMD.ino v37) --
+//   un scan de dossier lent (Arcade/Consoles/Halloween/Vertical_DMD, confirme
+//   plusieurs secondes/fichier par moments) ne bloque plus la page web ni le
+//   bouton Arreter. Tout acces SD encadre par sdAccessMutex, non-bloquant
+//   cote loop()/lecture GIF, bloquant cote tache. Bugs materiels reels
+//   trouves et corriges pendant cette session : creation de tache jamais
+//   verifiee (echec silencieux si heap insuffisant), pile 8192 trop grande
+//   ramenee a 4096, un acces SD (forceDeleteFile sur arret demande) hors
+//   mutex -- seul crash reel observe, corrige. Ajout d'un garde-fou heap
+//   critique (ESP.getMaxAllocHeap() < 4096 -> arret propre au lieu d'un
+//   abort()) suite a un second crash identique en scan normal (fragmentation
+//   heap sur un tres long scan), avec message distinct cote utilisateur
+//   ("memoire insuffisante" vs "annulee"). Bouton Arreter (JS) rendu robuste
+//   (retry 3x) apres un cas reel de requete perdue laissant le bouton
+//   desactive sans effet. Cache par dossier avec peremption par mtime
+//   ESSAYE puis ABANDONNE le meme jour : 4 bugs reels trouves d'affilee
+//   (descripteurs simultanes -> abort() fopen()/lock_init_generic(), dossier
+//   modifie pendant son enumeration -> 0 fichier trouve, flush incrementaux
+//   perdant des fichiers, comptages erratifs persistant meme apres passage
+//   en RAM-only) -- le dernier test reel a confirme que le probleme venait
+//   de ce code de cache lui-meme (pas de la creation/destruction repetee de
+//   tache, hypothese testee et infirmee via une tache persistante puis
+//   revertee). Retire entierement : playlistGenTask() revenue a un scan
+//   direct simple, sans aucun cache par dossier. A remplacer eventuellement
+//   par une approche filtrage-de-texte sur un TOUS.txt tenu a jour (evite
+//   toute re-enumeration de /gifs/<dossier>), pas encore concue en detail.
+//
+// v31 (branche master, fusionnee 2026-08-05) — 2026-08-01 — safe-modify —
+//   Partie A du plan "cache_master_gifs" (nettoyage des playlists apres
+//   suppression de dossier, plan valide plusieurs sessions plus tot, jamais
+//   implemente jusqu'ici) : nouvelle fonction
+//   stripDeletedFoldersFromPlaylist() (+ portage de writeBufChecked(),
+//   retries sur ecriture SD partielle) branchee dans
 //   handleWebConfigDeleteFolders() -- chaque suppression de dossier
 //   reellement effectuee retire desormais les lignes mortes de TOUTES les
 //   playlists qui le referencaient, supprime leurs compagnons
@@ -20,7 +447,9 @@
 //   de lecture en cours a deja son cache playlist charge en RAM et n'est
 //   jamais corrigee a chaud (limitation assumee). Nouvelles cles i18n
 //   FR/EN/ES : msg_folders_deleted_reboot. Compilation via compile.ps1 :
-//   OK (0 erreur, 62% flash, 28% RAM). PAS ENCORE teste sur materiel reel.
+//   OK (0 erreur, 62% flash, 28% RAM). PAS ENCORE teste sur materiel reel
+//   au moment de cette entree -- voir plus haut (v51) pour l'etat de test
+//   materiel le plus recent.
 //
 // v30 — 2026-07-23 — safe-modify — Bug confirme (retour utilisateur :
 //   "recalbox_ip disparu du config.ini") : handleWebConfigSaveAP() faisait
@@ -132,6 +561,22 @@
 #ifndef WEB_CONFIG_H
 #define WEB_CONFIG_H
 
+// Fiabilisation upload (2026-08-02) -- HTTP_UPLOAD_BUFLEN (WebServer.h,
+// taille du buffer interne alloue en un seul bloc a chaque fichier par
+// WebServer::_parseForm(), cause du crash out-of-memory documente ici
+// pendant cette session -- voir memoire projet) a ete redefini a 512 puis
+// 256 pour tenter de reduire la frequence du crash. RETIRE (retour test
+// reel, retour utilisateur : nettement plus d'echecs qu'avant cette
+// session sur de gros lots -- 151 fichiers sans aucun echec auparavant) --
+// un buffer plus petit multiplie le nombre d'appels UPLOAD_FILE_WRITE
+// (donc de SD.write()) par fichier (~1500 vs ~270 pour 390 Ko a 256 vs
+// 1436 octets), ralentissant nettement les transferts sans benefice net
+// demontre. Le vrai filet de securite est desormais le try/catch dans
+// handleWebConfig() (voir plus bas) : rend cette customisation inutile,
+// le crash est maintenant sans consequence (requete en echec, pas de
+// reboot) quelle que soit la taille du buffer -- autant garder le defaut
+// de la bibliotheque (1436) pour la vitesse.
+
 #include <WiFi.h>
 #include <WebServer.h>
 #include "web_config_html_gz.h"
@@ -161,12 +606,15 @@ extern String clockTimeZone;
 extern bool    clockNeonCustomColor;
 extern uint8_t clockNeonR, clockNeonG, clockNeonB;
 extern bool   requestReboot;
+extern bool   g_playlistStartedThisBoot;
+extern bool   g_firstBoot;
 extern String uiLanguage;
 extern void webDmdPause(const String &msg, uint16_t color = 0xFFFF);
 extern void webDmdResume();
 extern void webDmdSetMainMsg(const String &msg);
 extern void clearFirstBoot();
 extern String g_sdOpSubMsg;
+extern bool   g_sdOpInProgress;
 
 static WebServer *webServer = nullptr;
 static File uploadFile;
@@ -175,6 +623,27 @@ static unsigned long uploadStartMs;
 static int uploadTotalBytes;
 static bool uploadSuccess = false;
 static String uploadErrorMsg;
+// Fiabilisation upload par lot (2026-08-02, retour test reel + analyse HAR
+// navigateur) -- WebServer::send() force TOUJOURS "Connection: close"
+// (WebServer.cpp, code de la bibliotheque, non modifiable depuis ce
+// projet) : chaque requete HTTP a besoin de sa propre poignee de main TCP.
+// Uploader N fichiers = N connexions separees, chacune individuellement
+// exposee a une perte de paquet SYN/ACK WiFi (confirme par analyse des
+// .har navigateur : net::ERR_CONNECTION_RESET/ABORTED apres 15-70s de
+// blocage sur l'etablissement de connexion, PAS un ralentissement cote
+// traitement serveur, deja mesure a 2-3ms). Regrouper plusieurs fichiers
+// dans UNE SEULE requete multipart (voir handleWebConfigUploadFile()) migre
+// autant de cycles START/WRITE/END sur la MEME connexion, reduisant le
+// nombre de poignees de main necessaires proportionnellement a la taille du
+// lot cote JS (uploadGif()). uploadCurName : nom du fichier de LA PART en
+// cours de traitement (utile car un seul UPLOAD_FILE_* callback partage
+// pour toutes les parts d'une meme requete). uploadBatchResults : resultat
+// JSON accumule au fil des UPLOAD_FILE_END successifs de la requete
+// courante, lu et remis a zero par handleWebConfigUpload() (appelee une
+// seule fois, apres la derniere part).
+static String uploadCurName;
+static String uploadBatchResults;
+static int uploadBatchOkCount = 0;
 
 // v92 -- bloc WEB_CONFIG_HTML (ancienne page monolithique pre-fractionnement,
 // jamais servie par aucun handler depuis le passage aux 6 pages minces)
@@ -201,10 +670,41 @@ body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padd
 .small{font-size:12px;color:#9ca3af;margin-top:10px;text-align:center}
 #langSelect{position:absolute;top:10px;right:10px;width:auto;padding:6px 8px;font-size:13px;background:#16213e;color:#8ab4f8;border:1px solid #333;border-radius:4px}
 body{position:relative}
+#helpLink{position:absolute;top:14px;right:75px;font-size:13px;color:#8ab4f8;text-decoration:underline;cursor:pointer}
+.help-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.help-backdrop.show{display:flex}
+.help-box{background:#16213e;border-radius:8px;padding:20px;max-width:520px;max-height:85vh;overflow-y:auto;position:relative;text-align:left}
+.help-box h2{color:#ffd146;font-size:16px;margin:0 22px 10px 0}
+.help-box h3{color:#8ab4f8;font-size:14px;margin:14px 0 6px}
+.help-box p{font-size:13px;line-height:1.5;margin:0 0 8px}
+.help-box ul{margin:0 0 8px 18px;font-size:13px;line-height:1.5}
+.help-close{position:absolute;top:10px;right:14px;background:none;border:none;color:#aaa;font-size:22px;cursor:pointer;line-height:1}
 </style>
 </head>
 <body>
 <select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<span id="helpLink" onclick="showHelpModal()" data-i18n="help_link">Aide</span>
+<div id="helpBackdrop" class="help-backdrop" onclick="if(event.target===this)closeHelpModal()">
+<div class="help-box">
+<button class="help-close" onclick="closeHelpModal()">&times;</button>
+<h2 data-i18n="help_title">Bienvenue</h2>
+<p data-i18n="help_intro"></p>
+<h3 data-i18n="help_checklist_title"></h3>
+<ul>
+<li data-i18n="help_check_ip"></li>
+<li data-i18n="help_check_playlist"></li>
+<li data-i18n="help_check_wifi"></li>
+</ul>
+<p id="helpUrlReminder"></p>
+<h3 data-i18n="help_features_title"></h3>
+<ul>
+<li data-i18n="help_feat_playlists"></li>
+<li data-i18n="help_feat_clock"></li>
+<li data-i18n="help_feat_display"></li>
+<li data-i18n="help_feat_network"></li>
+</ul>
+</div>
+</div>
 <div class="logo-wrap"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQQAAAC4CAMAAAAyqWKCAAAAYFBMVEX///8U//n+/v77+/vr6+tw6Nz7lJ/9ixTNqaFwkZSUTlJXOy9EOjk6KSXpEBDmDQ17Dg45Hx45Dg4RUlQPKiodFhYZDxAKEREVBgULBgYFBAQCAwMBAQE4AAAAAAEAAAAgLdlgAAAQH0lEQVR42u2di3aiOhSGU2A0QGhF5RZief+3PPuSQECwdk5nIdW91rRgtWvy9d+X3IjoXtaJF4IXhBeEF4QXhBeEF4QXhBeEH4fw+YIAZvqL9mkhtLNAngmCMaf4zE03XZVtn8K3IbRta6r47cRiMCaWqe7aJ3SH89vb2RgWQhzLuNo4hW9C+DSn07k6gRA6pNB2WYwUim1TEN/MCdXb21sM3nCuOD4qGSugcN50XPiuEtrTKX5DA0WgGFKZdmdQQ7ZlCt+PCS14wxuSOEG721iqtgAIEBfM80CAv/75LT5XZ1QCxkUMCjKOm6fKDq2BuNjakiljAunZPFeKNB0mBywXEAIRaJ+uYkQIZ5cS24w00JrnK5v1+K41T6gEjI7jdhvwjudSgrlcasuia5JE5WXzdEo4fIAdLh1VzcmOLAEWz1MsGUMMwJBCDwEt227/4bt9hwOq4IIkaqybkl1S5ipNEoRgnkQJNTDA7xf8bjoNnkCv57td8SQQDDYeFaBREXBb7nYKUqRu1W7XPBOExoUG8AYQQO5iw7NkB4JwoSoBlaA7EECBSjAQG56nF6khImoXE3SX7nZcPSKEtnui7ADpgbODRi+AEiHNwC3Sp4FgKdg6YVQmqKeB0EIiIBkcagoBOqMSAa1onwJCP+FW12Y04dIUucrpDea3Q0AEhVKqwFCoTS8NvDVFBj+YTs/9OggggzKWkRAijGLsLMHIEhq0Wqs4CuEHkUw2Ogsj7h5ESJCACPCLkEOfsVX8Ov0gUpscZBJ3dh51DBqglgZBGCCGoqgarZWEV+wPQtBDvEUK4j5f0FKELAKyIES3QBPD60ACXt8iBXFfPAAGYmRBMP5OF47Cb4TQdrFjAJIfWo3mcQkthe0V0OIeBir0feHKkEwQJgXEhwBDxubGmMSdAYFbK6IEksQECN/G8NYqAmmEQrYbCwviDiEkzhlCobrBNXoGURxHItNQNhGt7TmE+Do7NhG7PoYA1bYqCMeRQMJSBRUq6FR2pJIgiBpjfhUE7YRALQclJH5OYHU0oIEo65qY8yVKQf8mCFAYR4HVP5QFAEFRdeB5gzJNA04SSRctwkC2v0UJLRoModk6MVJVVcEfWMM3FfVaAHfAnlUEGpAqi+2bwTno41uH4P6WHAhHRdCoeILGJzFWjpF27w4pV2xnnadYZqAkWsYih6Z6M46lnycD6kFGIjbYl8BbUEeGn43VNiiI5QqJ44AKub2UCSUsX4X1anJcK4ShLDody661URTey33LcBuDbmI5MULjoHmqr5i97DCulygEdDoCH8g4WEC0lPhpITeRK8WiEALSdTzURlAdh8q0UEOPi2goEguulKS0snGfC8JNLPMUS9UBNz5Sfv8xYCWE076DSChBBL1EAIJCl9lIxbDkDhj/gwAW5o1DoCwKOe07YPpMMmx0X0ti3oTSKcDvm1VC2xUhVwB60l8aFUrTfrRfSxviKKItLPIUC96gsAKGnsIEQiBEMNuZFpOhBQnVEv+ODUhhSQn0VyxhTiGaZoKFMYVpzxKUUERUNultQjDYdvbnJhK3xlOWhllEpB1J/fhZUixVSgFH9v8BgTPMFsaZxGKC5GGyawhYLlzZ1WBT1HCtsQl/EIsJUkQwx/T3SsDVO9o51QYh2AQZ44yjvgqMYTxjYRBcQ2B/iB5/RZdYGkyi5AbLkSYQQpHM/ZrJwCNAaBGCwmzy+ElSLCdILnPG0y5UAPB4iWduiHX0NtP1SXKDEGA/S+/Lk7knRDM3ctYaau4IQv9pSBRmcxC8BImTT0HoM1hIeLD9w6dgcwJnmeDh/UEs9SA5v1P97DFYbA9OU/lDboqVkIVbSJJz7mBsgqTrqh9svsWAcEXDJI3E9Ioz+ptIkuJGghx8I6B/4Av61gQFDkfSW4XzgD5JthuDAMtT/d4fTkmzxL/aEg0LeiR3pcLhwxRe1IP7g1hMkH3+g6FVuJcwqHSVGyeZsqO3wrjk8M5yC/4gFhJkNHqxyO7e4VPQKrbB6Jc9+Ap4MZsgodCLVeZZkd1rRVHQF7YMC+qHLxrF0hDrzf6RZ+Ft86qG7UDACVjBU8s/YkE/4rghCJQgg68FcK/Z7tRjJ0kxGxJ+2B49KIi/CAnftkcPCi8ILwgvCC8ILwgvCC8I/wQC9h1EeHsB+EsJvx8CrmFM4jBOEnmr2P7dEGjVZgHdo5mVTNuHMPQCg5nL/gpap3UWwTL/OAhn3k2/6PfHBFJC1rnR2N+kBN7phhb0V+Hci4GDkMy9B2Ze8OtGIUT9ICGsbS/KsiqLKpZwhS+VKsqqEgwupYVgGvqJlKX9nMJfIXHJ3wZWLs1DwNX7Ma3vDmmHgyzxHl6U/Aenr3TvlKD620ri6LwKYUE4jTzLx5+JW4AAG+Al+zMs5IVt4gTF4II+8nHIibB1HPZ7ySEmRBpvDc5PK2NgeTiuBu8KudmYEMFzEiTGe5g9ajU/dDGSsA6BIUS46ymO8U1x20J2aFuEwLcFfgbWMIoYJyCKeLMQpFudQauZae+CJL3zgzixMFAoAusOBTGxt22MrVchXKoEd89FG3WHCMQueflqDJc0qyIjd6XwCi7hC8zOKdgJ526ldFcx/wq4z6In7zuEW68Yp5MNc2Wk2yw/uuV32F/xFBXjqxf5gvCC8ILwgvAkEIKfhxBsUAk/bhtTAu7UED9uwbbWJ+BG8fjHTW1s9dq/+e+aza1y1z9u7euAvO51SuALwgvCC8ILwvdOSyB7KWFlRCtDgJqkyHOY6GvWFMP6SpD07Guc6Lt+CGLbVviYL5jbMp9fqWWrEIzuHwC+gwffNjMN4dP46By6pZOIPu8429fcdKs1IcCDCXaeyfGBKQZO4judmMFbrJeakO73CVre/v3TKlaEgA828yHskpEWWjyg1LerMymNrhud7NkOt0RwPIAdwepHg6DLZDc22e+q/vw0upfBm3OJ8TZtOGhkP1iSpulx6QmIh3drx8eCAFvqd7jawTZfoijksJMOHlrwNrXxmZSmqdP92A7XfXargvePdziL4P390DTaPBQEWvHBENyFOzQFTuGL//z587bsEKY77qeWpMfruPDx7hsey3CFQawXFQte3IQK4JUvIwjxG7xkKfyBy6kWdJHury2ZRo3DATUw5mAeRwmmgKUfPoTIgwCbk7HlVgt/eh5VD6nc7/EjrvVAkCDk5VQHHxMG7x+HQz0WzIru0OFKB246rmfgK/tE09bEDAbbPlyNIKAPScegv/ZPIQIdQPKEZg++wEQuj6EEOFENlz3ZpmeZg9C/QcVJbJsuSTGRD6F3JkkCkD6EwZqPDwmLzHYWwscO9JLgDeTLR4AA29J3KruCIJOcD5OpzvxThIBrXsIxBGNK60PY9J1dPyknEDSsuY56CEQklKyFg59H1oOQ7OgvLEfugKcI4QljcEytUokHwSrh3FcCn4o/RA3HdVTuund3eLKNFDbaYMM59Ej2j4eBsBulSOlOXGQIsQ+BhGLrZ/7f56niN1DDfSB+7OXQi39+aHjklttiungcCF6t6Gj0ECgecnagBXMuXbbca9rvFyDsa+8pB5kVkcQkkcQ2uDCE7uEg+GdvOgh/RnWCK5x6CGk6D2GfuGnP40G5H2BaSO3NpiB45hWPPQSqE2yKhJ0nA4S9lYL5eE8XIEBg1JuD4JmNCbY4cHXCLhyu97araA7vh0UI7+5Qs01CqAYIvuGa2wkE6DtCVuSEQIf/ggMRBCgVPqhiMusXS/8DAnx6v2wDBKiPuDSgUvGDNmVQhnRHAf92CIaU8I6jTtxoCwFfpNvHgSCTf6mEj7G5HsSjQUg+7WhzJv8NhL7jNDUYZTLrd6Uz6jVolfBoSrIblc3/C4Lp3WHZvKJx1ZElKXNY0JVj07UuFXlHMYLQX5y+AeG4GQg40IpTDaYtIXQVdvzdVf7VGScc4pODEPc0fhUE2lqlSjp4FGDgUFiewYmc/RgjjSm2RpMOzu0pnoWQp1uG0MBho6nKS93AWfWqgC5ygw8t+/RnXiqccDm5lhONqmVGqaVQmz4SHDcHwZQ59m5UDufPAoSsaOCFNM0at8brDKbZM+AC4gRpwRtvRgqHY6PTg+0xNPdAGFKF14cSqwUEajxvmMLvOd/nZUujxNUZldCazxYuHI1qeEpua1JuLjxamhretPqYcmdqgGBHFS/1DI8HgAAnEKM7sNnvMIeEksADaonB6QzN5gt4vqPGi8r7DXWNE/o8q5tQWvxkHfRnwh8O7gxsywM6DMbxWB9CW3oQsPEDBJQCuMCJKfD3U0+jcu5ijmme1/aI57rGgAqhNT0kpTecfsEGX2CY5XK85rE6BE0QmEKaWgr4FSBoFIJtvDOPBkfGushx8hFkY+oMYgnjgA3ctfbqsfpA7aYRFqwcL/CY7frCPA6rQ2gYQs8gVVYNAKEx1xA8Gtp6E34qP9ZNeczpou004kj92RfTi8SQbzCP+mMy3LwOhJYg9BRQEil7BULQ+haECmNGfSQI0Pjj0eGoS74qhwn+epiOZx48kwsztB/H1UeWtA+hN4ZQNHAE3y0I+EztHgJYanHkecZXpXah80IQCMqUR/O5MgSYVYeS+ZoCZkxYxVXdhgArUtAHbOOdZY4BigIzBZAiBsfjpdY1X18whpiGLtdWQts05RAURhDywkI4L0KAYmEGwmAAQXtCgPZeao+HfflSDzP0YpVuA7rDvBLugqDr2xDKhuVmW45N7i96HsdhguJxIZwXIeivIVDc8CAcr3GgFlaGAE9pwWdBz4QEOMOeIZwXITQEIZtnkAEEbN4CBA9HL4V1YgJDyOchoBKWpIAvVxVDyG9AgAB4B4TaPASEbEYIX0DAn0JyyZekkBMECJ4A4fIFBL0uBAwKUwrZdyAAhSxbgFBA8/Q9EGxZtUpM0JpyJEHIroTQQzgveEOFT3m6CQGkQBC+codGrxoYyR/GFDIfQvG3EDILARj0EPIlCPWKEIyDMFCgJ9bkxRjCeYYBQeh1NA8B+pJsRIBsAQL7w2oxgdphKVjzGFh/OF8z+A6EsnQMLAX/em0IfVAoKMhbBMSgh1BcURgYoD8sQMgcBHQHCp+9Hb1LW0zXvMh3PQgVU+j/mxaBZeCkcJ4wsBAqmx6yGQa4kaamoGAhZPmVOQj1ihBanwKRsN9hHxDYiMIw0jYwsGH1mkLGcfEGhGyQAiqB8oNYa+sTRYWBgmNAEJoxBN+Ygc2wVxSsV5XUvGbiDvhD9jsrhZUhUJK8olA6BssUKh8CSyGbMBhDKHwGSCFnChYCFFVmNQgUFZrKp1A6BrjNvpqnwC9raqDTeo8h6xmQN1jGEwheUChXhmCjAlHwzTFYgGAZWBUVA4U+yeZcbjGEuvSkQK6QTyHwHhCx4o7IZorBMsADKKsZDJWDoEct9AiMhODczY8JV0pYFQJKQVv/L71gAPKkUzh1NcVQDQwmFDxjt7IM7FuKfDZFUkXV6FWVAG21EEamae+fp4WpsVC4hVcUisIXgpPC8fgFhP8A7kK1Ey30vv0AAAAASUVORK5CYII=" alt="RecalBox"></div>
 <div class="tagline" data-i18n="tagline">Configuration DMD</div>
 <div class="section">
@@ -218,10 +718,21 @@ body{position:relative}
 <div class="small" data-i18n="small_hint">Page fractionn&eacute;e pour un chargement rapide et fiable sur ESP32.</div>
 </div>
 <script>
+const HELP_I18N={
+fr:{help_link:'Aide',help_title:'Bienvenue sur la configuration du DMD',help_intro:'Voici ce qu\'il reste à vérifier avant de sauvegarder, et un résumé de ce que permet cette interface.',help_checklist_title:'À vérifier avant de sauvegarder',help_check_ip:'IP Recalbox renseignée (page Wi-Fi & Bluetooth)',help_check_playlist:'Playlist par défaut renseignée (page Affichage & Playlists)',help_check_wifi:'Le Wi-Fi est déjà validé à ce stade — inutile d\'y retoucher, sauf si vous voulez le changer',help_url_reminder:'Cette page reste accessible à tout moment en tapant l\'IP du DMD dans un navigateur — actuellement {ip}',help_features_title:'Ce que permet cette interface',help_feat_playlists:'GIFs (page Médias) : ajouter des GIFs sur la carte SD (upload direct depuis le navigateur, création de dossiers) — les playlists qui référencent un dossier modifié sont mises à jour automatiquement',help_feat_clock:'Horloge (page Horloge) : thème, couleur néon, intervalle et durée d\'affichage, fuseau horaire',help_feat_display:'Affichage, luminosité et playlists (page Affichage & Playlists) : luminosité de l\'écran, choix entre démarrage silencieux (titre seul) ou normal (IP détectée, synchronisation de l\'heure, etc.), sélection de la playlist par défaut, et création/suppression de playlists à partir des dossiers de GIFs',help_feat_network:'Réseau (page Wi-Fi & Bluetooth) : IP Recalbox (connexion MQTT), Wi-Fi (réseau, mot de passe, IP statique)'},
+en:{help_link:'Help',help_title:'Welcome to the DMD configuration',help_intro:'Here is what\'s left to check before saving, and a summary of what this interface lets you do.',help_checklist_title:'To check before saving',help_check_ip:'Recalbox IP filled in (Wi-Fi & Bluetooth page)',help_check_playlist:'Default playlist filled in (Display & Playlists page)',help_check_wifi:'Wi-Fi is already validated at this stage — no need to touch it again, unless you want to change it',help_url_reminder:'This page stays accessible at any time by typing the DMD\'s IP in a browser — currently {ip}',help_features_title:'What this interface lets you do',help_feat_playlists:'GIFs (Media page): add GIFs to the SD card (direct upload from the browser, folder creation) — playlists referencing a modified folder are updated automatically',help_feat_clock:'Clock (Clock page): theme, custom neon color, display interval and duration, time zone',help_feat_display:'Display, brightness and playlists (Display & Playlists page): screen brightness, choice between silent startup (title only) or normal (detected IP, time sync, etc.), default playlist selection, and creating/deleting playlists from GIF folders',help_feat_network:'Network (Wi-Fi & Bluetooth page): Recalbox IP (MQTT connection), Wi-Fi (network, password, static IP)'},
+es:{help_link:'Ayuda',help_title:'Bienvenido a la configuración del DMD',help_intro:'Esto es lo que falta comprobar antes de guardar, y un resumen de lo que permite esta interfaz.',help_checklist_title:'A comprobar antes de guardar',help_check_ip:'IP de Recalbox indicada (página Wi-Fi y Bluetooth)',help_check_playlist:'Playlist por defecto indicada (página Pantalla y listas)',help_check_wifi:'El Wi-Fi ya está validado en esta etapa — no hace falta tocarlo, salvo que quiera cambiarlo',help_url_reminder:'Esta página sigue accesible en cualquier momento escribiendo la IP del DMD en un navegador — actualmente {ip}',help_features_title:'Qué permite esta interfaz',help_feat_playlists:'GIFs (página Medios): añadir GIFs a la tarjeta SD (subida directa desde el navegador, creación de carpetas) — las playlists que referencian una carpeta modificada se actualizan automáticamente',help_feat_clock:'Reloj (página Reloj): tema, color neón personalizado, intervalo y duración de visualización, zona horaria',help_feat_display:'Pantalla, brillo y listas (página Pantalla y listas): brillo de la pantalla, elección entre inicio silencioso (solo título) o normal (IP detectada, sincronización horaria, etc.), selección de la playlist por defecto, y creación/eliminación de playlists a partir de las carpetas de GIFs',help_feat_network:'Red (página Wi-Fi y Bluetooth): IP de Recalbox (conexión MQTT), Wi-Fi (red, contraseña, IP estática)'}
+};
+function showHelpModal(){
+  document.getElementById('helpBackdrop').classList.add('show');
+  const p=document.getElementById('helpUrlReminder');
+  if(p) p.textContent=((HELP_I18N[currentLang]&&HELP_I18N[currentLang].help_url_reminder)||HELP_I18N.fr.help_url_reminder).replace('{ip}',window.location.host);
+}
+function closeHelpModal(){document.getElementById('helpBackdrop').classList.remove('show');}
 const MENU_I18N={
-fr:{title:'RecalBox DMD',tagline:'Configuration DMD',menu_basic:'&#x1F4A1; Affichage &amp; Playlists',menu_network:'&#x1F4F6; Wi-Fi &amp; Bluetooth',menu_clock:'&#x23F0; Horloge',menu_media:'&#x1F4BF; Médias',small_hint:'Page fractionnée pour un chargement rapide et fiable sur ESP32.',cont_basic:'&#x1F4A1; Continuer : Affichage & Playlists',cont_network:'&#x1F4F6; Continuer : Wi-Fi & Bluetooth',cont_clock:'&#x23F0; Continuer : Horloge',cont_media:'&#x1F4BF; Continuer : Médias'},
-en:{title:'RecalBox DMD',tagline:'DMD Configuration',menu_basic:'&#x1F4A1; Display &amp; Playlists',menu_network:'&#x1F4F6; Wi-Fi &amp; Bluetooth',menu_clock:'&#x23F0; Clock',menu_media:'&#x1F4BF; Media',small_hint:'Split page for fast, reliable loading on ESP32.',cont_basic:'&#x1F4A1; Resume: Display & Playlists',cont_network:'&#x1F4F6; Resume: Wi-Fi & Bluetooth',cont_clock:'&#x23F0; Resume: Clock',cont_media:'&#x1F4BF; Resume: Media'},
-es:{title:'RecalBox DMD',tagline:'Configuración DMD',menu_basic:'&#x1F4A1; Pantalla y listas',menu_network:'&#x1F4F6; Wi-Fi y Bluetooth',menu_clock:'&#x23F0; Reloj',menu_media:'&#x1F4BF; Medios',small_hint:'Página dividida para una carga rápida y fiable en ESP32.',cont_basic:'&#x1F4A1; Continuar: Pantalla y listas',cont_network:'&#x1F4F6; Continuar: Wi-Fi y Bluetooth',cont_clock:'&#x23F0; Continuar: Reloj',cont_media:'&#x1F4BF; Continuar: Medios'}
+fr:{title:'RecalBox DMD',tagline:'Configuration DMD',menu_basic:'&#x1F4A1; Affichage &amp; Playlists',menu_network:'&#x1F4F6; Wi-Fi &amp; Bluetooth',menu_clock:'&#x23F0; Horloge',menu_media:'&#x1F4BF; Médias',small_hint:'Page fractionnée pour un chargement rapide et fiable sur ESP32.',cont_basic:'&#x1F4A1; Continuer : Affichage & Playlists',cont_network:'&#x1F4F6; Continuer : Wi-Fi & Bluetooth',cont_clock:'&#x23F0; Continuer : Horloge',cont_media:'&#x1F4BF; Continuer : Médias',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',...HELP_I18N.fr},
+en:{title:'RecalBox DMD',tagline:'DMD Configuration',menu_basic:'&#x1F4A1; Display &amp; Playlists',menu_network:'&#x1F4F6; Wi-Fi &amp; Bluetooth',menu_clock:'&#x23F0; Clock',menu_media:'&#x1F4BF; Media',small_hint:'Split page for fast, reliable loading on ESP32.',cont_basic:'&#x1F4A1; Resume: Display & Playlists',cont_network:'&#x1F4F6; Resume: Wi-Fi & Bluetooth',cont_clock:'&#x23F0; Resume: Clock',cont_media:'&#x1F4BF; Resume: Media',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',...HELP_I18N.en},
+es:{title:'RecalBox DMD',tagline:'Configuración DMD',menu_basic:'&#x1F4A1; Pantalla y listas',menu_network:'&#x1F4F6; Wi-Fi y Bluetooth',menu_clock:'&#x23F0; Reloj',menu_media:'&#x1F4BF; Medios',small_hint:'Página dividida para una carga rápida y fiable en ESP32.',cont_basic:'&#x1F4A1; Continuar: Pantalla y listas',cont_network:'&#x1F4F6; Continuar: Wi-Fi y Bluetooth',cont_clock:'&#x23F0; Continuar: Reloj',cont_media:'&#x1F4BF; Continuar: Medios',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',...HELP_I18N.es}
 };
 let currentLang='fr';
 function tr(k){return (MENU_I18N[currentLang]&&MENU_I18N[currentLang][k])||MENU_I18N.fr[k]||k;}
@@ -248,7 +759,11 @@ function updateContinueLink(){
   if(last&&SECTIONS[last]){a.href=SECTIONS[last].url;a.innerHTML=tr(SECTIONS[last].key);a.style.display='block';}
   else{a.style.display='none';}
 }
-fetch('/lang').then(function(r){return r.json();}).then(function(d){applyLang(d.language);}).catch(function(){applyLang();});
+fetch('/lang').then(function(r){return r.json();}).then(function(d){applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}}).catch(function(){applyLang();});
+// Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29) :
+// aucun moyen fiable de distinguer une vraie fermeture d'un simple
+// rafraichissement de page (habitude trop ancree pour l'utilisateur, faux
+// positifs trop frequents).
 </script>
 </body>
 </html>
@@ -293,10 +808,41 @@ h2{color:#8ab4f8;font-size:15px;margin:0 0 10px;border-left:3px solid #8ab4f8;pa
 .err{background:#6b0f0f;color:#ffcccc}
 #langSelect{position:absolute;top:10px;right:10px;width:auto;padding:6px 8px;font-size:13px;background:#16213e;color:#8ab4f8;border:1px solid #333;border-radius:4px}
 body{position:relative}
+#helpLink{position:absolute;top:14px;right:75px;font-size:13px;color:#8ab4f8;text-decoration:underline;cursor:pointer}
+.help-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.help-backdrop.show{display:flex}
+.help-box{background:#16213e;border-radius:8px;padding:20px;max-width:520px;max-height:85vh;overflow-y:auto;position:relative;text-align:left}
+.help-box h2{color:#ffd146;font-size:16px;margin:0 22px 10px 0}
+.help-box h3{color:#8ab4f8;font-size:14px;margin:14px 0 6px}
+.help-box p{font-size:13px;line-height:1.5;margin:0 0 8px}
+.help-box ul{margin:0 0 8px 18px;font-size:13px;line-height:1.5}
+.help-close{position:absolute;top:10px;right:14px;background:none;border:none;color:#aaa;font-size:22px;cursor:pointer;line-height:1}
 </style>
 </head>
 <body>
 <select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<span id="helpLink" onclick="showHelpModal()" data-i18n="help_link">Aide</span>
+<div id="helpBackdrop" class="help-backdrop" onclick="if(event.target===this)closeHelpModal()">
+<div class="help-box">
+<button class="help-close" onclick="closeHelpModal()">&times;</button>
+<h2 data-i18n="help_title">Bienvenue</h2>
+<p data-i18n="help_intro"></p>
+<h3 data-i18n="help_checklist_title"></h3>
+<ul>
+<li data-i18n="help_check_ip"></li>
+<li data-i18n="help_check_playlist"></li>
+<li data-i18n="help_check_wifi"></li>
+</ul>
+<p id="helpUrlReminder"></p>
+<h3 data-i18n="help_features_title"></h3>
+<ul>
+<li data-i18n="help_feat_playlists"></li>
+<li data-i18n="help_feat_clock"></li>
+<li data-i18n="help_feat_display"></li>
+<li data-i18n="help_feat_network"></li>
+</ul>
+</div>
+</div>
 <div class="topnav">
 <a href="/config/basic" class="active" data-i18n="nav_basic">&#x1F4A1; Affichage &amp; Playlists</a>
 <a href="/config/network" data-i18n="nav_network">&#x1F4F6; Wi-Fi &amp; BT</a>
@@ -338,10 +884,21 @@ body{position:relative}
 </form>
 <div id="msg" class="msg"></div>
 <script>
+const HELP_I18N={
+fr:{help_link:'Aide',help_title:'Bienvenue sur la configuration du DMD',help_intro:'Voici ce qu\'il reste à vérifier avant de sauvegarder, et un résumé de ce que permet cette interface.',help_checklist_title:'À vérifier avant de sauvegarder',help_check_ip:'IP Recalbox renseignée (page Wi-Fi & Bluetooth)',help_check_playlist:'Playlist par défaut renseignée (page Affichage & Playlists)',help_check_wifi:'Le Wi-Fi est déjà validé à ce stade — inutile d\'y retoucher, sauf si vous voulez le changer',help_url_reminder:'Cette page reste accessible à tout moment en tapant l\'IP du DMD dans un navigateur — actuellement {ip}',help_features_title:'Ce que permet cette interface',help_feat_playlists:'GIFs (page Médias) : ajouter des GIFs sur la carte SD (upload direct depuis le navigateur, création de dossiers) — les playlists qui référencent un dossier modifié sont mises à jour automatiquement',help_feat_clock:'Horloge (page Horloge) : thème, couleur néon, intervalle et durée d\'affichage, fuseau horaire',help_feat_display:'Affichage, luminosité et playlists (page Affichage & Playlists) : luminosité de l\'écran, choix entre démarrage silencieux (titre seul) ou normal (IP détectée, synchronisation de l\'heure, etc.), sélection de la playlist par défaut, et création/suppression de playlists à partir des dossiers de GIFs',help_feat_network:'Réseau (page Wi-Fi & Bluetooth) : IP Recalbox (connexion MQTT), Wi-Fi (réseau, mot de passe, IP statique)'},
+en:{help_link:'Help',help_title:'Welcome to the DMD configuration',help_intro:'Here is what\'s left to check before saving, and a summary of what this interface lets you do.',help_checklist_title:'To check before saving',help_check_ip:'Recalbox IP filled in (Wi-Fi & Bluetooth page)',help_check_playlist:'Default playlist filled in (Display & Playlists page)',help_check_wifi:'Wi-Fi is already validated at this stage — no need to touch it again, unless you want to change it',help_url_reminder:'This page stays accessible at any time by typing the DMD\'s IP in a browser — currently {ip}',help_features_title:'What this interface lets you do',help_feat_playlists:'GIFs (Media page): add GIFs to the SD card (direct upload from the browser, folder creation) — playlists referencing a modified folder are updated automatically',help_feat_clock:'Clock (Clock page): theme, custom neon color, display interval and duration, time zone',help_feat_display:'Display, brightness and playlists (Display & Playlists page): screen brightness, choice between silent startup (title only) or normal (detected IP, time sync, etc.), default playlist selection, and creating/deleting playlists from GIF folders',help_feat_network:'Network (Wi-Fi & Bluetooth page): Recalbox IP (MQTT connection), Wi-Fi (network, password, static IP)'},
+es:{help_link:'Ayuda',help_title:'Bienvenido a la configuración del DMD',help_intro:'Esto es lo que falta comprobar antes de guardar, y un resumen de lo que permite esta interfaz.',help_checklist_title:'A comprobar antes de guardar',help_check_ip:'IP de Recalbox indicada (página Wi-Fi y Bluetooth)',help_check_playlist:'Playlist por defecto indicada (página Pantalla y listas)',help_check_wifi:'El Wi-Fi ya está validado en esta etapa — no hace falta tocarlo, salvo que quiera cambiarlo',help_url_reminder:'Esta página sigue accesible en cualquier momento escribiendo la IP del DMD en un navegador — actualmente {ip}',help_features_title:'Qué permite esta interfaz',help_feat_playlists:'GIFs (página Medios): añadir GIFs a la tarjeta SD (subida directa desde el navegador, creación de carpetas) — las playlists que referencian una carpeta modificada se actualizan automáticamente',help_feat_clock:'Reloj (página Reloj): tema, color neón personalizado, intervalo y duración de visualización, zona horaria',help_feat_display:'Pantalla, brillo y listas (página Pantalla y listas): brillo de la pantalla, elección entre inicio silencioso (solo título) o normal (IP detectada, sincronización horaria, etc.), selección de la playlist por defecto, y creación/eliminación de playlists a partir de las carpetas de GIFs',help_feat_network:'Red (página Wi-Fi y Bluetooth): IP de Recalbox (conexión MQTT), Wi-Fi (red, contraseña, IP estática)'}
+};
+function showHelpModal(){
+  document.getElementById('helpBackdrop').classList.add('show');
+  const p=document.getElementById('helpUrlReminder');
+  if(p) p.textContent=((HELP_I18N[currentLang]&&HELP_I18N[currentLang].help_url_reminder)||HELP_I18N.fr.help_url_reminder).replace('{ip}',window.location.host);
+}
+function closeHelpModal(){document.getElementById('helpBackdrop').classList.remove('show');}
 const PAGE_I18N={
-fr:{title:'RecalBox DMD - Affichage',h1:'Affichage &amp; Playlists',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_display:'&#x1F4A1; Affichage',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Luminosité (%)',lbl_silent_boot:'Démarrage silencieux',lbl_playlist_file:'Playlist par défaut',lbl_random:'Lecture aléatoire',lbl_delete_playlist:'Supprimer',btn_delete_playlist:'&#x1F5D1; Supprimer playlist',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_select_playlist:'Sélectionnez une playlist à supprimer',msg_confirm_delete:'Supprimer ${0} ?',msg_confirm_delete_default:'ATTENTION : ${0} est actuellement la playlist par defaut ! La supprimer peut empecher le DMD de demarrer normalement. Continuer ?',msg_deleting:'Suppression...',msg_load_error:'Impossible de charger la config',sec_manage_playlists:'&#x2699; Gestion des playlists',desc_gen_playlist:'Cochez des dossiers pour générer une nouvelle playlist. &#x26A0;&#xFE0F; La création n\'est performante que sur des dossiers avec un nombre limité de fichiers. Pour des playlists contenant des dossiers conséquents, passez par l\'utilitaire RecalboxDMD_tool sur PC.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',lbl_playlist_name:'Nom playlist',placeholder_playlist_name:'ex: MaPlaylist',btn_gen_playlist:'&#x2699; Générer playlist',msg_no_playlist_name:'Donnez un nom à la playlist',msg_select_folder:'Choisissez au moins un dossier',msg_generating:'Generation...',lbl_load_playlist:'Modifier une playlist existante',msg_scanning:'Analyse',msg_gen_busy:'Generation deja en cours ailleurs',msg_gen_start_error:'Impossible de demarrer la generation',msg_gen_leave_warning:'Une generation de playlist est en cours. Quitter la page ?',btn_stop_gen:'&#x23F9; Arreter',msg_confirm_stop_gen:'Arreter la generation ? La playlist en cours de creation sera supprimee.',msg_stopping_gen:'Arret playlist en cours, veuillez patienter...'},
-en:{title:'RecalBox DMD - Display',h1:'Display &amp; Playlists',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_display:'&#x1F4A1; Display',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Brightness (%)',lbl_silent_boot:'Silent boot',lbl_playlist_file:'Default playlist',lbl_random:'Random playback',lbl_delete_playlist:'Delete',btn_delete_playlist:'&#x1F5D1; Delete playlist',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_select_playlist:'Select a playlist to delete',msg_confirm_delete:'Delete ${0}?',msg_confirm_delete_default:'WARNING: ${0} is currently the default playlist! Deleting it may prevent the DMD from starting normally. Continue?',msg_deleting:'Deleting...',msg_load_error:'Unable to load config',sec_manage_playlists:'&#x2699; Playlist management',desc_gen_playlist:'Check folders to generate a new playlist. &#x26A0;&#xFE0F; Generation is only fast on folders with a limited number of files. For playlists covering large folders, use the RecalboxDMD_tool utility on PC instead.',btn_select_all:'Select all',btn_select_none:'Select none',lbl_playlist_name:'Playlist name',placeholder_playlist_name:'e.g. MyPlaylist',btn_gen_playlist:'&#x2699; Generate playlist',msg_no_playlist_name:'Please name the playlist',msg_select_folder:'Select at least one folder',msg_generating:'Generating...',lbl_load_playlist:'Edit an existing playlist',msg_scanning:'Scanning',msg_gen_busy:'A generation is already running',msg_gen_start_error:'Could not start generation',msg_gen_leave_warning:'A playlist generation is in progress. Leave the page?',btn_stop_gen:'&#x23F9; Stop',msg_confirm_stop_gen:'Stop generation? The playlist being created will be deleted.',msg_stopping_gen:'Stopping playlist generation, please wait...'},
-es:{title:'RecalBox DMD - Pantalla',h1:'Pantalla y listas',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_display:'&#x1F4A1; Pantalla',sec_playlist:'&#x1F4BF; Lista',lbl_brightness:'Brillo (%)',lbl_silent_boot:'Arranque silencioso',lbl_playlist_file:'Lista predeterminada',lbl_random:'Reproducción aleatoria',lbl_delete_playlist:'Eliminar',btn_delete_playlist:'&#x1F5D1; Eliminar lista',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_select_playlist:'Selecciona una lista para eliminar',msg_confirm_delete:'¿Eliminar ${0}?',msg_confirm_delete_default:'ATENCIÓN: ¡${0} es actualmente la lista predeterminada! Eliminarla puede impedir que el DMD arranque normalmente. ¿Continuar?',msg_deleting:'Eliminando...',msg_load_error:'No se pudo cargar la configuración',sec_manage_playlists:'&#x2699; Gestión de listas',desc_gen_playlist:'Marque las carpetas para generar una nueva lista. &#x26A0;&#xFE0F; La creación solo es rápida en carpetas con un número limitado de archivos. Para listas con carpetas voluminosas, use la utilidad RecalboxDMD_tool en el PC.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',lbl_playlist_name:'Nombre de la lista',placeholder_playlist_name:'ej: MiLista',btn_gen_playlist:'&#x2699; Generar lista',msg_no_playlist_name:'Póngale un nombre a la lista',msg_select_folder:'Elija al menos una carpeta',msg_generating:'Generando...',lbl_load_playlist:'Editar una lista existente',msg_scanning:'Analizando',msg_gen_busy:'Ya hay una generación en curso',msg_gen_start_error:'No se pudo iniciar la generación',msg_gen_leave_warning:'Hay una generación de lista en curso. ¿Salir de la página?',btn_stop_gen:'&#x23F9; Detener',msg_confirm_stop_gen:'¿Detener la generación? La lista en creación se eliminará.',msg_stopping_gen:'Deteniendo la generación de la lista, espere...'}
+fr:{title:'RecalBox DMD - Affichage',h1:'Affichage &amp; Playlists',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_display:'&#x1F4A1; Affichage',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Luminosité (%)',lbl_silent_boot:'Démarrage silencieux',lbl_playlist_file:'Playlist par défaut',lbl_random:'Lecture aléatoire',lbl_delete_playlist:'Supprimer',btn_delete_playlist:'&#x1F5D1; Supprimer playlist',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_select_playlist:'Sélectionnez une playlist à supprimer',msg_confirm_delete:'Supprimer ${0} ?',msg_confirm_delete_default:'ATTENTION : ${0} est actuellement la playlist par defaut ! La supprimer peut empecher le DMD de demarrer normalement. Continuer ?',msg_deleting:'Suppression...',msg_load_error:'Impossible de charger la config',sec_manage_playlists:'&#x2699; Gestion des playlists',desc_gen_playlist:'Cochez des dossiers pour générer une nouvelle playlist. &#x26A0;&#xFE0F; La création n\'est performante que sur des dossiers avec un nombre limité de fichiers. Pour des playlists contenant des dossiers conséquents, passez par l\'utilitaire RecalboxDMD_tool sur PC.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',lbl_playlist_name:'Nom playlist',placeholder_playlist_name:'ex: MaPlaylist',btn_gen_playlist:'&#x2699; Générer playlist',msg_no_playlist_name:'Donnez un nom à la playlist',msg_select_folder:'Choisissez au moins un dossier',msg_generating:'Generation...',lbl_load_playlist:'Modifier une playlist existante',msg_scanning:'Analyse',msg_gen_busy:'Generation deja en cours ailleurs',msg_gen_start_error:'Impossible de demarrer la generation',msg_gen_leave_warning:'Une generation de playlist est en cours. Quitter la page ?',btn_stop_gen:'&#x23F9; Arreter',msg_confirm_stop_gen:'Arreter la generation ? La playlist en cours de creation sera supprimee.',msg_stopping_gen:'Arret playlist en cours, veuillez patienter...',msg_stop_gen_failed:'Echec de la demande d\'arret (reseau) -- reessayez',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',...HELP_I18N.fr},
+en:{title:'RecalBox DMD - Display',h1:'Display &amp; Playlists',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_display:'&#x1F4A1; Display',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Brightness (%)',lbl_silent_boot:'Silent boot',lbl_playlist_file:'Default playlist',lbl_random:'Random playback',lbl_delete_playlist:'Delete',btn_delete_playlist:'&#x1F5D1; Delete playlist',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_select_playlist:'Select a playlist to delete',msg_confirm_delete:'Delete ${0}?',msg_confirm_delete_default:'WARNING: ${0} is currently the default playlist! Deleting it may prevent the DMD from starting normally. Continue?',msg_deleting:'Deleting...',msg_load_error:'Unable to load config',sec_manage_playlists:'&#x2699; Playlist management',desc_gen_playlist:'Check folders to generate a new playlist. &#x26A0;&#xFE0F; Generation is only fast on folders with a limited number of files. For playlists covering large folders, use the RecalboxDMD_tool utility on PC instead.',btn_select_all:'Select all',btn_select_none:'Select none',lbl_playlist_name:'Playlist name',placeholder_playlist_name:'e.g. MyPlaylist',btn_gen_playlist:'&#x2699; Generate playlist',msg_no_playlist_name:'Please name the playlist',msg_select_folder:'Select at least one folder',msg_generating:'Generating...',lbl_load_playlist:'Edit an existing playlist',msg_scanning:'Scanning',msg_gen_busy:'A generation is already running',msg_gen_start_error:'Could not start generation',msg_gen_leave_warning:'A playlist generation is in progress. Leave the page?',btn_stop_gen:'&#x23F9; Stop',msg_confirm_stop_gen:'Stop generation? The playlist being created will be deleted.',msg_stopping_gen:'Stopping playlist generation, please wait...',msg_stop_gen_failed:'Stop request failed (network) -- please retry',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',...HELP_I18N.en},
+es:{title:'RecalBox DMD - Pantalla',h1:'Pantalla y listas',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_display:'&#x1F4A1; Pantalla',sec_playlist:'&#x1F4BF; Lista',lbl_brightness:'Brillo (%)',lbl_silent_boot:'Arranque silencioso',lbl_playlist_file:'Lista predeterminada',lbl_random:'Reproducción aleatoria',lbl_delete_playlist:'Eliminar',btn_delete_playlist:'&#x1F5D1; Eliminar lista',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_select_playlist:'Selecciona una lista para eliminar',msg_confirm_delete:'¿Eliminar ${0}?',msg_confirm_delete_default:'ATENCIÓN: ¡${0} es actualmente la lista predeterminada! Eliminarla puede impedir que el DMD arranque normalmente. ¿Continuar?',msg_deleting:'Eliminando...',msg_load_error:'No se pudo cargar la configuración',sec_manage_playlists:'&#x2699; Gestión de listas',desc_gen_playlist:'Marque las carpetas para generar una nueva lista. &#x26A0;&#xFE0F; La creación solo es rápida en carpetas con un número limitado de archivos. Para listas con carpetas voluminosas, use la utilidad RecalboxDMD_tool en el PC.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',lbl_playlist_name:'Nombre de la lista',placeholder_playlist_name:'ej: MiLista',btn_gen_playlist:'&#x2699; Generar lista',msg_no_playlist_name:'Póngale un nombre a la lista',msg_select_folder:'Elija al menos una carpeta',msg_generating:'Generando...',lbl_load_playlist:'Editar una lista existente',msg_scanning:'Analizando',msg_gen_busy:'Ya hay una generación en curso',msg_gen_start_error:'No se pudo iniciar la generación',msg_gen_leave_warning:'Hay una generación de lista en curso. ¿Salir de la página?',btn_stop_gen:'&#x23F9; Detener',msg_confirm_stop_gen:'¿Detener la generación? La lista en creación se eliminará.',msg_stopping_gen:'Deteniendo la generación de la lista, espere...',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',...HELP_I18N.es}
 };
 let currentLang='fr';
 let _plNameAutoFilled=false; // suivi de la suggestion auto de nom (voir updatePlaylistNameSuggestion())
@@ -372,11 +929,57 @@ function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=
 // "DMD repris", confirme en test reel).
 function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
 function serialize(){return new URLSearchParams({brightness:document.getElementById('brightness').value,info:document.getElementById('silent_boot').checked?'0':'1',playlist:document.getElementById('playlist').value,random:document.getElementById('random').checked?'1':'0'});}
-function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:serialize(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK'))_formDirty=false;}).catch(()=>showMsg(tr('msg_net_error'),false));}
-function doReboot(){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});}
-function saveAndReboot(){saveConfig().then(()=>setTimeout(doReboot,400));}
-function dmdResume(){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;fetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('msg_net_error'),false));}
-function fillPlaylists(selVal){fetch('/lsplaylists').then(r=>r.json()).then(pl=>{const sel=document.getElementById('playlist');const del=document.getElementById('deletePlaylistSelect');const load=document.getElementById('loadPlaylistSelect');sel.innerHTML='';del.innerHTML='';load.innerHTML='';const opt=document.createElement('option');opt.value='';opt.textContent='---';sel.appendChild(opt);const opt2=document.createElement('option');opt2.value='';opt2.textContent='---';del.appendChild(opt2);const opt3=document.createElement('option');opt3.value='';opt3.textContent='---';load.appendChild(opt3);pl.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;if(p===selVal)o.selected=true;sel.appendChild(o);const o2=document.createElement('option');o2.value=p;o2.textContent=p;del.appendChild(o2);const o3=document.createElement('option');o3.value=p;o3.textContent=p;load.appendChild(o3);});}).catch(()=>{});}
+// Brouillon localStorage (2026-08-05, correctif "reglages perdus si on
+// change de page", demande explicite : pas d'alerte bloquante, un vrai
+// correctif qui empeche la perte). Chaque frappe sur cette page ecrit
+// l'etat courant du formulaire dans localStorage (cote navigateur, survit
+// a une navigation complete entre pages -- contrairement a une simple
+// variable JS) ; loadConfig() le relit au chargement et l'applique
+// PAR-DESSUS les valeurs serveur (le brouillon represente ce qu'on est en
+// train de saisir, donc plus recent que la derniere sauvegarde reelle).
+// clearDraft() n'est appele qu'apres un /save reussi -- la config.ini
+// elle-meme continue de n'etre ecrite que sur un clic explicite sur
+// "Enregistrer"/"Enregistrer & Redemarrer", inchange.
+const DRAFT_KEY='dmd_draft_basic';
+const DRAFT_FIELDS=['brightness','silent_boot','playlist','random'];
+function loadDraft(){try{const raw=localStorage.getItem(DRAFT_KEY);return raw?JSON.parse(raw):null;}catch(e){return null;}}
+function saveDraft(){const o={};DRAFT_FIELDS.forEach(id=>{const el=document.getElementById(id);if(!el)return;o[id]=(el.type==='checkbox')?el.checked:el.value;});localStorage.setItem(DRAFT_KEY,JSON.stringify(o));}
+function clearDraft(){localStorage.removeItem(DRAFT_KEY);}
+function checkEssentialFields(){return fetch('/load').then(r=>r.json()).then(d=>{const missing=[];if(!d.wifi_ssid)missing.push(tr('essential_wifi'));if(!d.playlist)missing.push(tr('essential_playlist'));if(!d.recalbox_ip)missing.push(tr('essential_ip'));if(!missing.length)return true;return confirm(tr('msg_essential_missing').replace('{fields}',missing.join(', ')));}).catch(()=>true);}
+function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:serialize(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK')){_formDirty=false;clearDraft();}}).catch(()=>showMsg(tr('msg_net_error'),false));}
+function doReboot(skipConfirm){checkEssentialFields().then(ok=>{if(!ok)return;if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});});}
+// skipConfirm=true (2026-07-29) : "Enreg. & Redemarrer" a deja un intitule
+// explicite -- redemander confirmation juste apres la sauvegarde est
+// redondant, contrairement au bouton "Redemarrer" seul.
+function saveAndReboot(){saveConfig().then(()=>setTimeout(()=>doReboot(true),400));}
+function dmdResume(){checkEssentialFields().then(ok=>{if(!ok)return;if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;fetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('msg_net_error'),false));});}
+// Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29) : aucun
+// moyen fiable de distinguer une vraie fermeture d'onglet/navigateur d'un
+// simple rafraichissement de page (habitude trop ancree pour l'utilisateur,
+// faux positifs trop frequents -- ni le JS ni le serveur ne peuvent
+// distinguer les deux cas, une connexion qui se ferme se ressemble dans
+// tous les cas).
+// B (plan cache_master_gifs, retour test reel 2026-08-01) -- retry (5
+// tentatives, 500ms d'ecart) SEULEMENT sur echec reel (fetch/parse), jamais
+// sur une reponse vide reussie (contrairement a loadGenDirs()/loadDirs() :
+// une liste de playlists vide est un etat legitime, pas forcement une
+// anomalie transitoire). Meme cause que loadDirs() : un simple
+// fetch().catch(()=>{}) laissait les 3 listes vides en silence des qu'une
+// seule requete /lsplaylists echouait au chargement de la page.
+async function fillPlaylists(selVal){
+  for(let attempt=0;attempt<5;attempt++){
+    try{
+      const pl=await(await fetch('/lsplaylists')).json();
+      const sel=document.getElementById('playlist');const del=document.getElementById('deletePlaylistSelect');const load=document.getElementById('loadPlaylistSelect');
+      sel.innerHTML='';del.innerHTML='';load.innerHTML='';
+      const opt=document.createElement('option');opt.value='';opt.textContent='---';sel.appendChild(opt);
+      const opt2=document.createElement('option');opt2.value='';opt2.textContent='---';del.appendChild(opt2);
+      const opt3=document.createElement('option');opt3.value='';opt3.textContent='---';load.appendChild(opt3);
+      pl.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;if(p===selVal)o.selected=true;sel.appendChild(o);const o2=document.createElement('option');o2.value=p;o2.textContent=p;del.appendChild(o2);const o3=document.createElement('option');o3.value=p;o3.textContent=p;load.appendChild(o3);});
+      return;
+    }catch(e){ if(attempt<4) await new Promise(r=>setTimeout(r,500)); }
+  }
+}
 function deletePlaylist(){const name=document.getElementById('deletePlaylistSelect').value;if(!name){showMsg(tr('msg_select_playlist'),false);return;}
   // Playlist par defaut (demande utilisateur, 2026-07-30) : popup de
   // confirmation distincte et plus explicite si la playlist qu'on s'apprete
@@ -396,15 +999,62 @@ function deletePlaylist(){const name=document.getElementById('deletePlaylistSele
 // fichiers/dossiers reste dans MEDIA). Liste des dossiers ici pour
 // COCHER uniquement -- pas d'icone d'ouverture/consultation du contenu,
 // reservee a la page MEDIA.
-function loadGenDirs(){fetch('/lsgifdirs').then(r=>r.json()).then(dirs=>{
-  const list=document.getElementById('genDirList');list.innerHTML='';
-  dirs.forEach(d=>{
+// Retry (5 tentatives, 500ms d'ecart) : un simple fetch().catch(()=>{})
+// laissait la liste vide en silence, sans aucun message ni nouvelle
+// tentative, si cette requete echouait une seule fois au chargement de la
+// page (observe en test reel 2026-07-29 -- l'endpoint repond pourtant bien
+// quand on le teste isolement juste apres). Retente aussi si la reponse est
+// VIDE (pas juste en echec reseau) : sur ce projet, /lsgifdirs ne renvoie
+// [] que si plGenIsActive() etait actif pile a ce moment (transitoire) --
+// il existe toujours des dossiers reels, donc une liste vide est ici
+// toujours anormale/transitoire, jamais un etat legitime a accepter tel
+// quel.
+// Cache sessionStorage PARTAGE avec la page MEDIA (meme cle,
+// 'dmd_gifdirs_cache') -- demande utilisateur 2026-08-02 : le va-et-vient
+// frequent entre Affichage et MEDIA redemandait /lsgifdirs a chaque fois,
+// avec le risque d'echec reseau observe en test reel. Affiche IMMEDIATEMENT
+// le contenu en cache si present (aucune attente reseau), PUIS rafraichit
+// en arriere-plan et met a jour le cache.
+function readDirsCache(){
+  try{
+    const raw=sessionStorage.getItem('dmd_gifdirs_cache');
+    return raw?JSON.parse(raw):null;
+  }catch(e){return null;}
+}
+function writeDirsCache(dirs){
+  try{sessionStorage.setItem('dmd_gifdirs_cache',JSON.stringify(dirs));}catch(e){}
+}
+function renderGenDirs(dirs){
+  const list=document.getElementById('genDirList');
+  // B (plan cache_master_gifs) -- tri alphabetique cote JS, fonctionne quel
+  // que soit l'etat/l'origine de cache_master_gifs.dat.
+  const sorted=dirs.slice().sort((a,b)=>{
+    const na=(a&&typeof a==='object')?a.name:a;
+    const nb=(b&&typeof b==='object')?b.name:b;
+    return na.localeCompare(nb);
+  });
+  list.innerHTML='';
+  sorted.forEach(d=>{
     const name=(d&&typeof d==='object')?d.name:d;
     const row=document.createElement('label');
     row.innerHTML='<input type="checkbox" value="'+name+'"><span class="name">&#x1F4C1; '+name+'</span>';
     list.appendChild(row);
   });
-}).catch(()=>{});}
+}
+async function loadGenDirs(){
+  const cached=readDirsCache();
+  if(cached&&cached.length)renderGenDirs(cached);
+  for(let attempt=0;attempt<5;attempt++){
+    if(attempt>0)await new Promise(r=>setTimeout(r,500));
+    try{
+      const dirs=await(await fetch('/lsgifdirs')).json();
+      if(!dirs.length&&attempt<4)continue;
+      renderGenDirs(dirs);
+      writeDirsCache(dirs);
+      return;
+    }catch(e){}
+  }
+}
 function selectAllGenDirs(v){document.querySelectorAll('#genDirList input').forEach(i=>i.checked=v);updatePlaylistNameSuggestion();}
 // Suggestion de nom (demande utilisateur) : si exactement un dossier est
 // coche, pre-remplit "Nom playlist" avec son nom -- efface a la 1ere prise
@@ -450,7 +1100,7 @@ function loadPlaylistForEdit(){
 }
 // Verrouille/deverrouille toute la page pendant la generation -- empeche de
 // lancer une autre action (upload, suppression...) pendant qu'un scan est en
-// cours, en plus du garde cote serveur (g_plGenActive, web_config.h).
+// cours, en plus du garde cote serveur (g_plGenStatus.active, RecalBox_DMD.ino).
 function setPageBusy(busy){document.querySelectorAll('button,input,select').forEach(e=>{if(e.id!=='genStopBtn')e.disabled=busy;});document.body.classList.toggle('gen-busy',busy);
   document.getElementById('genStopBtn').style.display=busy?'inline-block':'none';
   if(busy)document.getElementById('genStopBtn').disabled=false; // etat frais a chaque nouvelle generation (peut avoir ete desactive par un arret precedent)
@@ -458,9 +1108,46 @@ function setPageBusy(busy){document.querySelectorAll('button,input,select').forE
   // quitte la page (machine a etats independante du navigateur), mais le
   // polling JS s'arreterait -- avertir plutot que laisser croire a un blocage
   // silencieux si jamais le verrou CSS est contourne (ex. navigation clavier).
-  if(busy)window.onbeforeunload=function(){return tr('msg_gen_leave_warning');};else window.onbeforeunload=null;
+  _pageBusy=busy; refreshBeforeUnload();
 }
-function stopGeneratePlaylist(){
+// Garde unifiee (2026-08-05, bug signale par l'utilisateur : "reglages
+// perdus si on change de page") -- les liens de la barre de navigation
+// (topnav, <a href> classiques) et le bouton retour du navigateur ne
+// passaient par AUCUNE verification : seuls doReboot()/dmdResume()
+// avertissaient (_formDirty) avant de partir. Un champ modifie puis
+// jamais envoye a /save (aucun clic sur "Enregistrer") disparaissait donc
+// silencieusement des qu'on changeait de page -- comportement HTML normal
+// pour un simple <a>, mais sans le moindre avertissement contrairement aux
+// autres actions de cette meme page. window.onbeforeunload est le seul
+// mecanisme couvrant TOUS les cas de depart (topnav, precedent/suivant,
+// fermeture d'onglet, actualisation) en un seul point.
+let _pageBusy=false;
+// _formDirty ne declenche plus onbeforeunload (2026-08-05, demande
+// utilisateur explicite : pas d'alerte bloquante) -- remplace par la
+// persistance de brouillon localStorage (loadDraft()/saveDraft()/
+// clearDraft() ci-dessous), qui elimine le probleme a la racine : les
+// champs modifies sur cette page survivent desormais a une navigation vers
+// une autre page ou une fermeture d'onglet, sans le moindre avertissement,
+// et sont restaures automatiquement au retour -- rien n'est plus "perdu"
+// silencieusement, donc plus besoin de prevenir. _pageBusy reste protege
+// par onbeforeunload : cas different, une generation de playlist active
+// cote serveur (pas une histoire de champs de formulaire).
+function refreshBeforeUnload(){
+  window.onbeforeunload = _pageBusy ? function(){return tr('msg_gen_leave_warning');} : null;
+}
+// _stopRequestPending (2026-07-30, demande utilisateur : "Arreter" echoue
+// presque a chaque fois) : le serveur ESP32 est mono-thread (une seule
+// requete HTTP traitee a la fois) et la boucle de polling
+// (generatePlaylist(), toutes les 700ms) tourne EN
+// PERMANENCE pendant qu'un scan est actif -- la fenetre de collision avec
+// la requete d'arret (qui doit pourtant reussir vite) est donc quasi
+// garantie, le retry existant (3x/500ms) retombant lui-meme regulierement
+// sur le sondage suivant. Les boucles de polling verifient ce drapeau et
+// SAUTENT leur propre requete pendant qu'un arret est en cours, laissant le
+// champ libre au serveur mono-thread plutot que de continuer a le
+// solliciter en parallele.
+let _stopRequestPending=false;
+async function stopGeneratePlaylist(){
   if(!confirm(tr('msg_confirm_stop_gen')))return;
   // Message persistant immediat (pas de setTimeout d'auto-masquage) : le
   // temps reel d'arret depend de la lenteur SD en cours (jusqu'a ~1 min
@@ -472,7 +1159,24 @@ function stopGeneratePlaylist(){
   if(window._msgTimer)clearTimeout(window._msgTimer);
   msgEl.className='msg ok';msgEl.style.display='block';msgEl.textContent=tr('msg_stopping_gen');
   document.getElementById('genStopBtn').disabled=true; // evite un double-clic pendant l'attente
-  fetch('/generate-playlist-stop',{method:'POST'}).catch(()=>{});
+  _stopRequestPending=true;
+  // Retry (3 tentatives, 500ms d'ecart) : un simple fetch().catch(()=>{})
+  // avalait silencieusement tout echec -- si cette requete tombe pile au
+  // meme moment qu'un sondage de statut en cours (serveur ESP32 mono-thread,
+  // une seule requete traitee a la fois), elle peut echouer sans laisser de
+  // trace, bloquant l'utilisateur sur "Arret en cours..." indefiniment sans
+  // que rien ne soit jamais retente (observe en test reel 2026-07-29).
+  let ok=false;
+  for(let attempt=0;attempt<3&&!ok;attempt++){
+    if(attempt>0)await new Promise(r=>setTimeout(r,500));
+    try{const r=await fetch('/generate-playlist-stop',{method:'POST'});ok=r.ok;}catch(e){ok=false;}
+  }
+  _stopRequestPending=false;
+  if(!ok){
+    msgEl.className='msg err';
+    msgEl.textContent=tr('msg_stop_gen_failed');
+    document.getElementById('genStopBtn').disabled=false;
+  }
 }
 async function generatePlaylist(){
   const name=document.getElementById('playlistName').value.trim();
@@ -483,19 +1187,65 @@ async function generatePlaylist(){
   const msgEl=document.getElementById('msg');
   if(window._msgTimer)clearTimeout(window._msgTimer);
   msgEl.className='msg ok';msgEl.style.display='block';msgEl.textContent=tr('msg_generating');
+  // finishGen() : affichage final partage entre la fin du polling (generation
+  // classique, asynchrone) et une reponse DEJA terminee recue directement au
+  // POST initial (filterPlaylistFromMaster() -- filtrage synchrone depuis
+  // le fichier maitre interne, aucune tache creee cote serveur puisque aucun
+  // scan de /gifs/ n'est necessaire). Avant ce correctif, une reussite synchrone tombait
+  // dans la meme branche que "generation deja en cours"/erreur reseau (ci-
+  // dessous) : jamais de minuteur d'auto-masquage (message fige en rouge en
+  // permanence) ni de rafraichissement de la liste des playlists (nouvelle
+  // playlist invisible sans F5) -- constate en test reel 2026-07-30.
+  function finishGen(resultText,ok){
+    msgEl.textContent=resultText||tr('msg_gen_start_error');
+    msgEl.className='msg '+(ok?'ok':'err');
+    if(window._msgTimer)clearTimeout(window._msgTimer);
+    window._msgTimer=setTimeout(()=>{msgEl.style.display='none';},5000);
+    fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(resultText||''),color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});
+    document.getElementById('playlistName').value='';
+    fillPlaylists('');
+  }
   let started=false;
   try{
     const r=await fetch('/generate-playlist',{method:'POST',body:new URLSearchParams({name:name,dirs:dirs}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
     const t=await r.text();
     started=t.includes('STARTED');
-    if(!started){msgEl.textContent=(r.status===409)?tr('msg_gen_busy'):t;msgEl.className='msg err';}
-  }catch(e){msgEl.textContent=tr('msg_net_error');msgEl.className='msg err';}
+    if(!started){
+      if(r.ok&&t.startsWith('OK')){
+        // Filtrage synchrone depuis le fichier maitre interne : deja termine, pas de tache a suivre.
+        finishGen(t,true);
+        setPageBusy(false);
+        return;
+      }
+      msgEl.textContent=(r.status===409)?tr('msg_gen_busy'):t;msgEl.className='msg err';
+      if(window._msgTimer)clearTimeout(window._msgTimer);
+      window._msgTimer=setTimeout(()=>{msgEl.style.display='none';},5000);
+    }
+  }catch(e){
+    // La reponse ("STARTED") peut echouer a arriver jusqu'au navigateur
+    // (heap degrade apres plusieurs generations enchainees dans la meme
+    // session) alors que la tache a deja bien demarre cote serveur --
+    // observe en test reel (2026-07-29) : generation qui continue tres
+    // normalement (DMD/logs), mais page qui affiche "erreur reseau" et
+    // abandonne tout suivi. Avant d'abandonner, verifier le statut reel
+    // plutot que de perdre le suivi d'une generation pourtant en cours.
+    try{
+      const st=await(await fetch('/generate-playlist-status')).json();
+      started=!!st.active;
+    }catch(e2){started=false;}
+    if(!started){
+      msgEl.textContent=tr('msg_net_error');msgEl.className='msg err';
+      if(window._msgTimer)clearTimeout(window._msgTimer);
+      window._msgTimer=setTimeout(()=>{msgEl.style.display='none';},5000);
+    }
+  }
   if(!started){setPageBusy(false);return;}
   // Polling de progression (le WebServer ESP32 est mono-thread : impossible
   // de pousser une mise a jour depuis le serveur pendant que le scan tourne,
   // la page doit donc interroger periodiquement /generate-playlist-status).
   while(true){
     await new Promise(res=>setTimeout(res,700));
+    if(_stopRequestPending)continue; // laisse la requete d'arret passer seule (serveur mono-thread)
     let st;
     try{
       // AbortController : sans ca, une seule requete de statut qui reste
@@ -503,51 +1253,62 @@ async function generatePlaylist(){
       // pendant que le DMD, lui, continuait a avancer normalement) fige le
       // polling pour de bon, la boucle n'atteignant jamais l'iteration
       // suivante puisqu'elle reste indefiniment en attente du fetch().
-      // 9000ms (pas 4000) : certains dossiers ont des lenteurs SD localisees
-      // ou plusieurs fichiers consecutifs prennent chacun plusieurs secondes
-      // (Halloween/Vertical_DMD/tous, confirme en test reel) -- un timeout
-      // trop court se remettait lui-meme a echouer en boucle sur ces series,
-      // sans jamais laisser au serveur (mono-thread, deja occupe par le scan)
-      // le temps de repondre. Mitigation legere : pas une elimination du gel
-      // possible (deplacer le scan sur une tache dediee reglerait la cause,
-      // pas fait ici sur decision explicite -- juste tolerer une serie plus
-      // longue avant d'abandonner une requete).
+      // 9000ms REMONTE A 25000ms (2026-08-03, analyse .har + log serie reels) :
+      // le commentaire ci-dessous (desormais corrige) affirmait que le passage
+      // a playlistGenTask() (tache FreeRTOS dediee) avait elimine ce risque --
+      // INFIRME par un test reel sur un dossier de 1400+ fichiers (Arcade) :
+      // le .har montre la quasi-totalite des requetes /generate-playlist-
+      // status echouant a EXACTEMENT ~9000-9016ms (timeout client, pas une
+      // erreur serveur), alors que le log serie confirme le scan progressant
+      // normalement en parallele (aucun heap critique, aucun arret) -- le
+      // serveur met donc parfois plus de 9s a repondre meme depuis la tache
+      // dediee, cause exacte non identifiee (le code de playlistGenTask() cede
+      // la main via vTaskDelay(1) et ne garde aucun mutex longtemps, en
+      // lecture statique ca semble suffisant -- a investiguer plus a fond si
+      // 25s s'avere un jour insuffisant). 25000ms : marge large au-dessus du
+      // pire cas observe (borne reelle inconnue, le client abandonnait
+      // toujours avant que le serveur ne reponde).
       const ctrl=new AbortController();
-      const abortTimer=setTimeout(()=>ctrl.abort(),9000);
+      const abortTimer=setTimeout(()=>ctrl.abort(),25000);
       st=await(await fetch('/generate-playlist-status',{signal:ctrl.signal})).json();
       clearTimeout(abortTimer);
     }catch(e){continue;}
     if(!st.active){
-      msgEl.textContent=st.result||tr('msg_gen_start_error');
-      msgEl.className='msg '+(st.done?'ok':'err');
-      if(window._msgTimer)clearTimeout(window._msgTimer);
-      window._msgTimer=setTimeout(()=>{msgEl.style.display='none';},5000);
-      fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(st.result||''),color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});
-      document.getElementById('playlistName').value='';
-      fillPlaylists('');
+      finishGen(st.result,st.done);
       break;
     }
-    // Message volontairement generique, SANS compteur numerique (retire
-    // 2026-07-28, demande explicite) : un nombre affiche qui ne bouge plus
-    // pendant un des blocages SD documentes cette session (jusqu'a plusieurs
-    // secondes/fichier sur certains dossiers) donne l'impression d'un
-    // blocage reel, meme quand ce n'est que l'affichage qui n'a pas eu de
-    // nouvelle donnee. Le nom de dossier + sa position dans la liste restent
-    // affiches (contexte utile, non alarmants s'ils restent statiques -- un
-    // scan normal reste naturellement sur le meme dossier un moment).
-    msgEl.textContent=tr('msg_scanning')+': '+st.dir+' ('+st.dirIdx+'/'+st.totalDirs+')...';
+    // Compteur numerique reintroduit (2026-07-29) : retire le 2026-07-28 car
+    // playlistGenStep() tournait alors dans loop(), donc un blocage SD figeait
+    // aussi le serveur web -- le compteur affiche restait fige en meme temps
+    // que tout le reste, donnant une fausse impression de gel. Depuis le
+    // passage a playlistGenTask() (tache FreeRTOS dediee), /generate-
+    // playlist-status repond generalement rapidement (plGenStatusMutex jamais
+    // tenu pendant un acces SD) -- MAIS pas garanti au-dela de 9s sur un tres
+    // gros dossier (infirme par test reel 2026-08-03, voir commentaire de
+    // l'AbortController ci-dessus) : quand une requete de statut aboutit, sa
+    // valeur reste fiable (pas de fausse info figee), seul le DELAI pour
+    // l'obtenir peut varier.
+    msgEl.textContent=tr('msg_scanning')+': '+st.dir+' ('+st.dirIdx+'/'+st.totalDirs+') - '+st.curDirGifs+' GIFs ('+st.gifs+' total)';
   }
   setPageBusy(false);
 }
-function loadConfig(){return fetch('/load').then(r=>r.json()).then(d=>{document.getElementById('brightness').value=Math.max(0,Math.min(100,parseInt(d.brightness||50,10)));document.getElementById('bval').textContent=document.getElementById('brightness').value;document.getElementById('silent_boot').checked=d.info==='0';fillPlaylists(d.playlist||'');document.getElementById('random').checked=d.random==='1';}).catch(()=>showMsg(tr('msg_load_error'),false));}
+function loadConfig(){const draft=loadDraft();return fetch('/load').then(r=>r.json()).then(d=>{
+  const g=(k,dv)=>(draft&&draft[k]!==undefined)?draft[k]:dv;
+  document.getElementById('brightness').value=Math.max(0,Math.min(100,parseInt(g('brightness',d.brightness||50),10)));
+  document.getElementById('bval').textContent=document.getElementById('brightness').value;
+  document.getElementById('silent_boot').checked=g('silent_boot',d.info==='0');
+  fillPlaylists(g('playlist',d.playlist||''));
+  document.getElementById('random').checked=g('random',d.random==='1');
+  if(draft)_formDirty=true; // reboot/reprise doivent quand meme avertir : la config.ini reelle n'a pas ce brouillon
+}).catch(()=>showMsg(tr('msg_load_error'),false));}
 localStorage.setItem('dmd_last_section','basic');
 // loadGenDirs() enchainee APRES /lang+/load (jamais en parallele) : le
 // WebServer ESP32 ne traite qu'une requete a la fois -- des fetch()
 // concurrents corrompent silencieusement l'une des reponses (bug deja
 // documente et corrige sur MEDIA via queuedFetch(), reintroduit ici par
 // inattention lors de l'ajout de la generation de playlist, v79).
-fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);return loadConfig();}).catch(()=>{applyLang();return loadConfig();}).then(loadGenDirs);
-document.getElementById('basicForm').addEventListener('input',()=>{_formDirty=true;});
+fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}return loadConfig();}).catch(()=>{applyLang();return loadConfig();}).then(loadGenDirs);
+document.getElementById('basicForm').addEventListener('input',()=>{_formDirty=true;saveDraft();});
 </script>
 </body>
 </html>
@@ -584,10 +1345,41 @@ h2{color:#8ab4f8;font-size:15px;margin:0 0 10px;border-left:3px solid #8ab4f8;pa
 .err{background:#6b0f0f;color:#ffcccc}
 #langSelect{position:absolute;top:10px;right:10px;width:auto;padding:6px 8px;font-size:13px;background:#16213e;color:#8ab4f8;border:1px solid #333;border-radius:4px}
 body{position:relative}
+#helpLink{position:absolute;top:14px;right:75px;font-size:13px;color:#8ab4f8;text-decoration:underline;cursor:pointer}
+.help-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.help-backdrop.show{display:flex}
+.help-box{background:#16213e;border-radius:8px;padding:20px;max-width:520px;max-height:85vh;overflow-y:auto;position:relative;text-align:left}
+.help-box h2{color:#ffd146;font-size:16px;margin:0 22px 10px 0}
+.help-box h3{color:#8ab4f8;font-size:14px;margin:14px 0 6px}
+.help-box p{font-size:13px;line-height:1.5;margin:0 0 8px}
+.help-box ul{margin:0 0 8px 18px;font-size:13px;line-height:1.5}
+.help-close{position:absolute;top:10px;right:14px;background:none;border:none;color:#aaa;font-size:22px;cursor:pointer;line-height:1}
 </style>
 </head>
 <body>
 <select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<span id="helpLink" onclick="showHelpModal()" data-i18n="help_link">Aide</span>
+<div id="helpBackdrop" class="help-backdrop" onclick="if(event.target===this)closeHelpModal()">
+<div class="help-box">
+<button class="help-close" onclick="closeHelpModal()">&times;</button>
+<h2 data-i18n="help_title">Bienvenue</h2>
+<p data-i18n="help_intro"></p>
+<h3 data-i18n="help_checklist_title"></h3>
+<ul>
+<li data-i18n="help_check_ip"></li>
+<li data-i18n="help_check_playlist"></li>
+<li data-i18n="help_check_wifi"></li>
+</ul>
+<p id="helpUrlReminder"></p>
+<h3 data-i18n="help_features_title"></h3>
+<ul>
+<li data-i18n="help_feat_playlists"></li>
+<li data-i18n="help_feat_clock"></li>
+<li data-i18n="help_feat_display"></li>
+<li data-i18n="help_feat_network"></li>
+</ul>
+</div>
+</div>
 <div class="topnav">
 <a href="/config/basic" data-i18n="nav_basic">&#x1F4A1; Affichage &amp; Playlists</a>
 <a href="/config/network" class="active" data-i18n="nav_network">&#x1F4F6; Wi-Fi &amp; BT</a>
@@ -626,10 +1418,21 @@ body{position:relative}
 </form>
 <div id="msg" class="msg"></div>
 <script>
+const HELP_I18N={
+fr:{help_link:'Aide',help_title:'Bienvenue sur la configuration du DMD',help_intro:'Voici ce qu\'il reste à vérifier avant de sauvegarder, et un résumé de ce que permet cette interface.',help_checklist_title:'À vérifier avant de sauvegarder',help_check_ip:'IP Recalbox renseignée (page Wi-Fi & Bluetooth)',help_check_playlist:'Playlist par défaut renseignée (page Affichage & Playlists)',help_check_wifi:'Le Wi-Fi est déjà validé à ce stade — inutile d\'y retoucher, sauf si vous voulez le changer',help_url_reminder:'Cette page reste accessible à tout moment en tapant l\'IP du DMD dans un navigateur — actuellement {ip}',help_features_title:'Ce que permet cette interface',help_feat_playlists:'GIFs (page Médias) : ajouter des GIFs sur la carte SD (upload direct depuis le navigateur, création de dossiers) — les playlists qui référencent un dossier modifié sont mises à jour automatiquement',help_feat_clock:'Horloge (page Horloge) : thème, couleur néon, intervalle et durée d\'affichage, fuseau horaire',help_feat_display:'Affichage, luminosité et playlists (page Affichage & Playlists) : luminosité de l\'écran, choix entre démarrage silencieux (titre seul) ou normal (IP détectée, synchronisation de l\'heure, etc.), sélection de la playlist par défaut, et création/suppression de playlists à partir des dossiers de GIFs',help_feat_network:'Réseau (page Wi-Fi & Bluetooth) : IP Recalbox (connexion MQTT), Wi-Fi (réseau, mot de passe, IP statique)'},
+en:{help_link:'Help',help_title:'Welcome to the DMD configuration',help_intro:'Here is what\'s left to check before saving, and a summary of what this interface lets you do.',help_checklist_title:'To check before saving',help_check_ip:'Recalbox IP filled in (Wi-Fi & Bluetooth page)',help_check_playlist:'Default playlist filled in (Display & Playlists page)',help_check_wifi:'Wi-Fi is already validated at this stage — no need to touch it again, unless you want to change it',help_url_reminder:'This page stays accessible at any time by typing the DMD\'s IP in a browser — currently {ip}',help_features_title:'What this interface lets you do',help_feat_playlists:'GIFs (Media page): add GIFs to the SD card (direct upload from the browser, folder creation) — playlists referencing a modified folder are updated automatically',help_feat_clock:'Clock (Clock page): theme, custom neon color, display interval and duration, time zone',help_feat_display:'Display, brightness and playlists (Display & Playlists page): screen brightness, choice between silent startup (title only) or normal (detected IP, time sync, etc.), default playlist selection, and creating/deleting playlists from GIF folders',help_feat_network:'Network (Wi-Fi & Bluetooth page): Recalbox IP (MQTT connection), Wi-Fi (network, password, static IP)'},
+es:{help_link:'Ayuda',help_title:'Bienvenido a la configuración del DMD',help_intro:'Esto es lo que falta comprobar antes de guardar, y un resumen de lo que permite esta interfaz.',help_checklist_title:'A comprobar antes de guardar',help_check_ip:'IP de Recalbox indicada (página Wi-Fi y Bluetooth)',help_check_playlist:'Playlist por defecto indicada (página Pantalla y listas)',help_check_wifi:'El Wi-Fi ya está validado en esta etapa — no hace falta tocarlo, salvo que quiera cambiarlo',help_url_reminder:'Esta página sigue accesible en cualquier momento escribiendo la IP del DMD en un navegador — actualmente {ip}',help_features_title:'Qué permite esta interfaz',help_feat_playlists:'GIFs (página Medios): añadir GIFs a la tarjeta SD (subida directa desde el navegador, creación de carpetas) — las playlists que referencian una carpeta modificada se actualizan automáticamente',help_feat_clock:'Reloj (página Reloj): tema, color neón personalizado, intervalo y duración de visualización, zona horaria',help_feat_display:'Pantalla, brillo y listas (página Pantalla y listas): brillo de la pantalla, elección entre inicio silencioso (solo título) o normal (IP detectada, sincronización horaria, etc.), selección de la playlist por defecto, y creación/eliminación de playlists a partir de las carpetas de GIFs',help_feat_network:'Red (página Wi-Fi y Bluetooth): IP de Recalbox (conexión MQTT), Wi-Fi (red, contraseña, IP estática)'}
+};
+function showHelpModal(){
+  document.getElementById('helpBackdrop').classList.add('show');
+  const p=document.getElementById('helpUrlReminder');
+  if(p) p.textContent=((HELP_I18N[currentLang]&&HELP_I18N[currentLang].help_url_reminder)||HELP_I18N.fr.help_url_reminder).replace('{ip}',window.location.host);
+}
+function closeHelpModal(){document.getElementById('helpBackdrop').classList.remove('show');}
 const PAGE_I18N={
-fr:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi &amp; Bluetooth',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_wifi:'&#x1F4F6; Wi-Fi',sec_bt:'&#x1F4F1; Bluetooth',sec_mqtt:'&#x1F310; MQTT',lbl_enabled:'Activé',lbl_network:'Réseau',lbl_password:'Mot de passe',lbl_static_ip:'IP statique',lbl_fixed_ip:'IP fixe',lbl_gateway:'Passerelle',lbl_subnet:'Masque',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_bt_name:'Nom',lbl_mqtt_ip:'IP Recalbox',opt_scanning:'-- Scan en cours... --',opt_select:'-- Sélectionnez --',opt_scan_error:'Erreur scan',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_load_error:'Impossible de charger la config'},
-en:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi &amp; Bluetooth',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_wifi:'&#x1F4F6; Wi-Fi',sec_bt:'&#x1F4F1; Bluetooth',sec_mqtt:'&#x1F310; MQTT',lbl_enabled:'Enabled',lbl_network:'Network',lbl_password:'Password',lbl_static_ip:'Static IP',lbl_fixed_ip:'Fixed IP',lbl_gateway:'Gateway',lbl_subnet:'Subnet mask',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_bt_name:'Name',lbl_mqtt_ip:'Recalbox IP',opt_scanning:'-- Scanning... --',opt_select:'-- Select --',opt_scan_error:'Scan error',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_load_error:'Unable to load config'},
-es:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi y Bluetooth',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_wifi:'&#x1F4F6; Wi-Fi',sec_bt:'&#x1F4F1; Bluetooth',sec_mqtt:'&#x1F310; MQTT',lbl_enabled:'Activado',lbl_network:'Red',lbl_password:'Contraseña',lbl_static_ip:'IP estática',lbl_fixed_ip:'IP fija',lbl_gateway:'Puerta de enlace',lbl_subnet:'Máscara de subred',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_bt_name:'Nombre',lbl_mqtt_ip:'IP de Recalbox',opt_scanning:'-- Escaneando... --',opt_select:'-- Seleccione --',opt_scan_error:'Error de escaneo',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_load_error:'No se pudo cargar la configuración'}
+fr:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi &amp; Bluetooth',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_wifi:'&#x1F4F6; Wi-Fi',sec_bt:'&#x1F4F1; Bluetooth',sec_mqtt:'&#x1F310; MQTT',lbl_enabled:'Activé',lbl_network:'Réseau',lbl_password:'Mot de passe',lbl_static_ip:'IP statique',lbl_fixed_ip:'IP fixe',lbl_gateway:'Passerelle',lbl_subnet:'Masque',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_bt_name:'Nom',lbl_mqtt_ip:'IP Recalbox',opt_scanning:'-- Scan en cours... --',opt_select:'-- Sélectionnez --',opt_scan_error:'Erreur scan',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_load_error:'Impossible de charger la config',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',...HELP_I18N.fr},
+en:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi &amp; Bluetooth',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_wifi:'&#x1F4F6; Wi-Fi',sec_bt:'&#x1F4F1; Bluetooth',sec_mqtt:'&#x1F310; MQTT',lbl_enabled:'Enabled',lbl_network:'Network',lbl_password:'Password',lbl_static_ip:'Static IP',lbl_fixed_ip:'Fixed IP',lbl_gateway:'Gateway',lbl_subnet:'Subnet mask',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_bt_name:'Name',lbl_mqtt_ip:'Recalbox IP',opt_scanning:'-- Scanning... --',opt_select:'-- Select --',opt_scan_error:'Scan error',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_load_error:'Unable to load config',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',...HELP_I18N.en},
+es:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi y Bluetooth',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_wifi:'&#x1F4F6; Wi-Fi',sec_bt:'&#x1F4F1; Bluetooth',sec_mqtt:'&#x1F310; MQTT',lbl_enabled:'Activado',lbl_network:'Red',lbl_password:'Contraseña',lbl_static_ip:'IP estática',lbl_fixed_ip:'IP fija',lbl_gateway:'Puerta de enlace',lbl_subnet:'Máscara de subred',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_bt_name:'Nombre',lbl_mqtt_ip:'IP de Recalbox',opt_scanning:'-- Escaneando... --',opt_select:'-- Seleccione --',opt_scan_error:'Error de escaneo',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_load_error:'No se pudo cargar la configuración',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',...HELP_I18N.es}
 };
 let currentLang='fr';
 function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||PAGE_I18N.fr[k]||k;}
@@ -654,10 +1457,27 @@ function stripAccents(s){return s.normalize('NFD').replace(new RegExp('['+String
 function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(txt),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}
 function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
 function serialize(){return new URLSearchParams({wifi_enabled:document.getElementById('wifi_enabled').checked?'1':'0',wifi_ssid:document.getElementById('wifi_ssid').value,wifi_password:document.getElementById('wifi_password').value,wifi_static_enabled:document.getElementById('wifi_static_enabled').checked?'1':'0',wifi_static_ip:document.getElementById('wifi_static_ip').value,wifi_gateway:document.getElementById('wifi_gateway').value,wifi_subnet:document.getElementById('wifi_subnet').value,wifi_dns1:document.getElementById('wifi_dns1').value,wifi_dns2:document.getElementById('wifi_dns2').value,bluetooth_enabled:document.getElementById('bluetooth_enabled').checked?'1':'0',bluetooth_name:document.getElementById('bluetooth_name').value,recalbox_ip:document.getElementById('recalbox_ip').value});}
-function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:serialize(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK'))_formDirty=false;}).catch(()=>showMsg(tr('msg_net_error'),false));}
-function doReboot(){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});}
-function saveAndReboot(){saveConfig().then(()=>setTimeout(doReboot,400));}
-function dmdResume(){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;fetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('msg_net_error'),false));}
+// Brouillon localStorage -- voir le commentaire complet sur la page BASIC
+// (correctif "reglages perdus si on change de page", 2026-08-05).
+const DRAFT_KEY='dmd_draft_network';
+const DRAFT_FIELDS=['wifi_enabled','wifi_ssid','wifi_password','wifi_static_enabled','wifi_static_ip','wifi_gateway','wifi_subnet','wifi_dns1','wifi_dns2','bluetooth_enabled','bluetooth_name','recalbox_ip'];
+function loadDraft(){try{const raw=localStorage.getItem(DRAFT_KEY);return raw?JSON.parse(raw):null;}catch(e){return null;}}
+function saveDraft(){const o={};DRAFT_FIELDS.forEach(id=>{const el=document.getElementById(id);if(!el)return;o[id]=(el.type==='checkbox')?el.checked:el.value;});localStorage.setItem(DRAFT_KEY,JSON.stringify(o));}
+function clearDraft(){localStorage.removeItem(DRAFT_KEY);}
+function checkEssentialFields(){return fetch('/load').then(r=>r.json()).then(d=>{const missing=[];if(!d.wifi_ssid)missing.push(tr('essential_wifi'));if(!d.playlist)missing.push(tr('essential_playlist'));if(!d.recalbox_ip)missing.push(tr('essential_ip'));if(!missing.length)return true;return confirm(tr('msg_essential_missing').replace('{fields}',missing.join(', ')));}).catch(()=>true);}
+function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:serialize(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK')){_formDirty=false;clearDraft();}}).catch(()=>showMsg(tr('msg_net_error'),false));}
+function doReboot(skipConfirm){checkEssentialFields().then(ok=>{if(!ok)return;if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});});}
+// skipConfirm=true (2026-07-29) : "Enreg. & Redemarrer" a deja un intitule
+// explicite -- redemander confirmation juste apres la sauvegarde est
+// redondant, contrairement au bouton "Redemarrer" seul.
+function saveAndReboot(){saveConfig().then(()=>setTimeout(()=>doReboot(true),400));}
+function dmdResume(){checkEssentialFields().then(ok=>{if(!ok)return;if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;fetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('msg_net_error'),false));});}
+// Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29) : aucun
+// moyen fiable de distinguer une vraie fermeture d'onglet/navigateur d'un
+// simple rafraichissement de page (habitude trop ancree pour l'utilisateur,
+// faux positifs trop frequents -- ni le JS ni le serveur ne peuvent
+// distinguer les deux cas, une connexion qui se ferme se ressemble dans
+// tous les cas).
 function scanWiFi(){
   const sel=document.getElementById('wifi_ssid');
   fetch('/scan-wifi').then(r=>r.json()).then(nets=>{
@@ -668,10 +1488,26 @@ function scanWiFi(){
     if(savedSsid&&!found){const o=new Option(savedSsid,savedSsid,true,true);sel.add(o);}
   }).catch(()=>{sel.innerHTML='';const opt=document.createElement('option');opt.value=savedSsid;opt.textContent=savedSsid||tr('opt_scan_error');sel.appendChild(opt);});
 }
-function loadConfig(){fetch('/load').then(r=>r.json()).then(d=>{document.getElementById('wifi_enabled').checked=d.wifi_enabled==='1';savedSsid=d.wifi_ssid||'';document.getElementById('wifi_password').value=d.wifi_password||'';document.getElementById('wifi_static_enabled').checked=d.wifi_static_enabled==='1';document.getElementById('wifi_static_ip').value=d.wifi_static_ip||'';document.getElementById('wifi_gateway').value=d.wifi_gateway||'';document.getElementById('wifi_subnet').value=d.wifi_subnet||'';document.getElementById('wifi_dns1').value=d.wifi_dns1||'';document.getElementById('wifi_dns2').value=d.wifi_dns2||'';document.getElementById('bluetooth_enabled').checked=d.bluetooth_enabled==='1';document.getElementById('bluetooth_name').value=d.bluetooth_name||'';document.getElementById('recalbox_ip').value=d.recalbox_ip||'';scanWiFi();}).catch(()=>showMsg(tr('msg_load_error'),false));}
+function loadConfig(){const draft=loadDraft();fetch('/load').then(r=>r.json()).then(d=>{
+  const g=(k,dv)=>(draft&&draft[k]!==undefined)?draft[k]:dv;
+  document.getElementById('wifi_enabled').checked=g('wifi_enabled',d.wifi_enabled==='1');
+  savedSsid=g('wifi_ssid',d.wifi_ssid||''); // scanWiFi() se charge de le (re)selectionner, meme si absent du scan (fallback deja en place)
+  document.getElementById('wifi_password').value=g('wifi_password',d.wifi_password||'');
+  document.getElementById('wifi_static_enabled').checked=g('wifi_static_enabled',d.wifi_static_enabled==='1');
+  document.getElementById('wifi_static_ip').value=g('wifi_static_ip',d.wifi_static_ip||'');
+  document.getElementById('wifi_gateway').value=g('wifi_gateway',d.wifi_gateway||'');
+  document.getElementById('wifi_subnet').value=g('wifi_subnet',d.wifi_subnet||'');
+  document.getElementById('wifi_dns1').value=g('wifi_dns1',d.wifi_dns1||'');
+  document.getElementById('wifi_dns2').value=g('wifi_dns2',d.wifi_dns2||'');
+  document.getElementById('bluetooth_enabled').checked=g('bluetooth_enabled',d.bluetooth_enabled==='1');
+  document.getElementById('bluetooth_name').value=g('bluetooth_name',d.bluetooth_name||'');
+  document.getElementById('recalbox_ip').value=g('recalbox_ip',d.recalbox_ip||'');
+  scanWiFi();
+  if(draft)_formDirty=true; // reboot/reprise doivent quand meme avertir : la config.ini reelle n'a pas ce brouillon
+}).catch(()=>showMsg(tr('msg_load_error'),false));}
 localStorage.setItem('dmd_last_section','network');
-fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);loadConfig();}).catch(()=>{applyLang();loadConfig();});
-document.getElementById('networkForm').addEventListener('input',()=>{_formDirty=true;});
+fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}loadConfig();}).catch(()=>{applyLang();loadConfig();});
+document.getElementById('networkForm').addEventListener('input',()=>{_formDirty=true;saveDraft();});
 </script>
 </body>
 </html>
@@ -709,10 +1545,41 @@ h1{color:#ffd146;text-align:center;margin:8px 0 14px;font-size:22px;border-botto
 .err{background:#6b0f0f;color:#ffcccc}
 #langSelect{position:absolute;top:10px;right:10px;width:auto;padding:6px 8px;font-size:13px;background:#16213e;color:#8ab4f8;border:1px solid #333;border-radius:4px}
 body{position:relative}
+#helpLink{position:absolute;top:14px;right:75px;font-size:13px;color:#8ab4f8;text-decoration:underline;cursor:pointer}
+.help-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.help-backdrop.show{display:flex}
+.help-box{background:#16213e;border-radius:8px;padding:20px;max-width:520px;max-height:85vh;overflow-y:auto;position:relative;text-align:left}
+.help-box h2{color:#ffd146;font-size:16px;margin:0 22px 10px 0}
+.help-box h3{color:#8ab4f8;font-size:14px;margin:14px 0 6px}
+.help-box p{font-size:13px;line-height:1.5;margin:0 0 8px}
+.help-box ul{margin:0 0 8px 18px;font-size:13px;line-height:1.5}
+.help-close{position:absolute;top:10px;right:14px;background:none;border:none;color:#aaa;font-size:22px;cursor:pointer;line-height:1}
 </style>
 </head>
 <body>
 <select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<span id="helpLink" onclick="showHelpModal()" data-i18n="help_link">Aide</span>
+<div id="helpBackdrop" class="help-backdrop" onclick="if(event.target===this)closeHelpModal()">
+<div class="help-box">
+<button class="help-close" onclick="closeHelpModal()">&times;</button>
+<h2 data-i18n="help_title">Bienvenue</h2>
+<p data-i18n="help_intro"></p>
+<h3 data-i18n="help_checklist_title"></h3>
+<ul>
+<li data-i18n="help_check_ip"></li>
+<li data-i18n="help_check_playlist"></li>
+<li data-i18n="help_check_wifi"></li>
+</ul>
+<p id="helpUrlReminder"></p>
+<h3 data-i18n="help_features_title"></h3>
+<ul>
+<li data-i18n="help_feat_playlists"></li>
+<li data-i18n="help_feat_clock"></li>
+<li data-i18n="help_feat_display"></li>
+<li data-i18n="help_feat_network"></li>
+</ul>
+</div>
+</div>
 <div class="topnav">
 <a href="/config/basic" data-i18n="nav_basic">&#x1F4A1; Affichage &amp; Playlists</a>
 <a href="/config/network" data-i18n="nav_network">&#x1F4F6; Wi-Fi &amp; BT</a>
@@ -765,10 +1632,21 @@ body{position:relative}
 </form>
 <div id="msg" class="msg"></div>
 <script>
+const HELP_I18N={
+fr:{help_link:'Aide',help_title:'Bienvenue sur la configuration du DMD',help_intro:'Voici ce qu\'il reste à vérifier avant de sauvegarder, et un résumé de ce que permet cette interface.',help_checklist_title:'À vérifier avant de sauvegarder',help_check_ip:'IP Recalbox renseignée (page Wi-Fi & Bluetooth)',help_check_playlist:'Playlist par défaut renseignée (page Affichage & Playlists)',help_check_wifi:'Le Wi-Fi est déjà validé à ce stade — inutile d\'y retoucher, sauf si vous voulez le changer',help_url_reminder:'Cette page reste accessible à tout moment en tapant l\'IP du DMD dans un navigateur — actuellement {ip}',help_features_title:'Ce que permet cette interface',help_feat_playlists:'GIFs (page Médias) : ajouter des GIFs sur la carte SD (upload direct depuis le navigateur, création de dossiers) — les playlists qui référencent un dossier modifié sont mises à jour automatiquement',help_feat_clock:'Horloge (page Horloge) : thème, couleur néon, intervalle et durée d\'affichage, fuseau horaire',help_feat_display:'Affichage, luminosité et playlists (page Affichage & Playlists) : luminosité de l\'écran, choix entre démarrage silencieux (titre seul) ou normal (IP détectée, synchronisation de l\'heure, etc.), sélection de la playlist par défaut, et création/suppression de playlists à partir des dossiers de GIFs',help_feat_network:'Réseau (page Wi-Fi & Bluetooth) : IP Recalbox (connexion MQTT), Wi-Fi (réseau, mot de passe, IP statique)'},
+en:{help_link:'Help',help_title:'Welcome to the DMD configuration',help_intro:'Here is what\'s left to check before saving, and a summary of what this interface lets you do.',help_checklist_title:'To check before saving',help_check_ip:'Recalbox IP filled in (Wi-Fi & Bluetooth page)',help_check_playlist:'Default playlist filled in (Display & Playlists page)',help_check_wifi:'Wi-Fi is already validated at this stage — no need to touch it again, unless you want to change it',help_url_reminder:'This page stays accessible at any time by typing the DMD\'s IP in a browser — currently {ip}',help_features_title:'What this interface lets you do',help_feat_playlists:'GIFs (Media page): add GIFs to the SD card (direct upload from the browser, folder creation) — playlists referencing a modified folder are updated automatically',help_feat_clock:'Clock (Clock page): theme, custom neon color, display interval and duration, time zone',help_feat_display:'Display, brightness and playlists (Display & Playlists page): screen brightness, choice between silent startup (title only) or normal (detected IP, time sync, etc.), default playlist selection, and creating/deleting playlists from GIF folders',help_feat_network:'Network (Wi-Fi & Bluetooth page): Recalbox IP (MQTT connection), Wi-Fi (network, password, static IP)'},
+es:{help_link:'Ayuda',help_title:'Bienvenido a la configuración del DMD',help_intro:'Esto es lo que falta comprobar antes de guardar, y un resumen de lo que permite esta interfaz.',help_checklist_title:'A comprobar antes de guardar',help_check_ip:'IP de Recalbox indicada (página Wi-Fi y Bluetooth)',help_check_playlist:'Playlist por defecto indicada (página Pantalla y listas)',help_check_wifi:'El Wi-Fi ya está validado en esta etapa — no hace falta tocarlo, salvo que quiera cambiarlo',help_url_reminder:'Esta página sigue accesible en cualquier momento escribiendo la IP del DMD en un navegador — actualmente {ip}',help_features_title:'Qué permite esta interfaz',help_feat_playlists:'GIFs (página Medios): añadir GIFs a la tarjeta SD (subida directa desde el navegador, creación de carpetas) — las playlists que referencian una carpeta modificada se actualizan automáticamente',help_feat_clock:'Reloj (página Reloj): tema, color neón personalizado, intervalo y duración de visualización, zona horaria',help_feat_display:'Pantalla, brillo y listas (página Pantalla y listas): brillo de la pantalla, elección entre inicio silencioso (solo título) o normal (IP detectada, sincronización horaria, etc.), selección de la playlist por defecto, y creación/eliminación de playlists a partir de las carpetas de GIFs',help_feat_network:'Red (página Wi-Fi y Bluetooth): IP de Recalbox (conexión MQTT), Wi-Fi (red, contraseña, IP estática)'}
+};
+function showHelpModal(){
+  document.getElementById('helpBackdrop').classList.add('show');
+  const p=document.getElementById('helpUrlReminder');
+  if(p) p.textContent=((HELP_I18N[currentLang]&&HELP_I18N[currentLang].help_url_reminder)||HELP_I18N.fr.help_url_reminder).replace('{ip}',window.location.host);
+}
+function closeHelpModal(){document.getElementById('helpBackdrop').classList.remove('show');}
 const PAGE_I18N={
-fr:{title:'RecalBox DMD - Horloge',h1:'Horloge',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',lbl_enabled:'Activée',lbl_theme:'Thème',lbl_neon_color:'Couleur Neon',lbl_custom:'Personnalisée',hint_neon:'Thème Neon uniquement',lbl_interval_gifs:'Intervalle (GIFs)',lbl_interval_min:'Intervalle (min)',hint_interval_min:'0 = désactivé',lbl_duration:'Durée (sec)',lbl_tz:'Fuseau horaire',opt_random:'Aléatoire',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_tz_ce:'France / Espagne / Allemagne / Italie',opt_tz_uk:'Angleterre (UK) / Portugal',opt_tz_usa_e:'USA - Est (New York)',opt_tz_usa_c:'USA - Centre (Chicago)',opt_tz_usa_m:'USA - Montagnes (Denver)',opt_tz_usa_p:'USA - Pacifique (Los Angeles)',opt_tz_ee:'Grèce / Roumanie / Finlande',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_load_error:'Impossible de charger la config'},
-en:{title:'RecalBox DMD - Clock',h1:'Clock',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',lbl_enabled:'Enabled',lbl_theme:'Theme',lbl_neon_color:'Neon color',lbl_custom:'Custom',hint_neon:'Neon theme only',lbl_interval_gifs:'Interval (GIFs)',lbl_interval_min:'Interval (min)',hint_interval_min:'0 = disabled',lbl_duration:'Duration (sec)',lbl_tz:'Timezone',opt_random:'Random',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_tz_ce:'France / Spain / Germany / Italy',opt_tz_uk:'England (UK) / Portugal',opt_tz_usa_e:'USA - East (New York)',opt_tz_usa_c:'USA - Central (Chicago)',opt_tz_usa_m:'USA - Mountain (Denver)',opt_tz_usa_p:'USA - Pacific (Los Angeles)',opt_tz_ee:'Greece / Romania / Finland',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_load_error:'Unable to load config'},
-es:{title:'RecalBox DMD - Reloj',h1:'Reloj',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',lbl_enabled:'Activado',lbl_theme:'Tema',lbl_neon_color:'Color Neon',lbl_custom:'Personalizado',hint_neon:'Solo tema Neon',lbl_interval_gifs:'Intervalo (GIFs)',lbl_interval_min:'Intervalo (min)',hint_interval_min:'0 = desactivado',lbl_duration:'Duración (seg)',lbl_tz:'Zona horaria',opt_random:'Aleatorio',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_tz_ce:'Francia / España / Alemania / Italia',opt_tz_uk:'Inglaterra (UK) / Portugal',opt_tz_usa_e:'EE.UU. - Este (Nueva York)',opt_tz_usa_c:'EE.UU. - Centro (Chicago)',opt_tz_usa_m:'EE.UU. - Montañas (Denver)',opt_tz_usa_p:'EE.UU. - Pacífico (Los Ángeles)',opt_tz_ee:'Grecia / Rumanía / Finlandia',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_load_error:'No se pudo cargar la configuración'}
+fr:{title:'RecalBox DMD - Horloge',h1:'Horloge',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',lbl_enabled:'Activée',lbl_theme:'Thème',lbl_neon_color:'Couleur Neon',lbl_custom:'Personnalisée',hint_neon:'Thème Neon uniquement',lbl_interval_gifs:'Intervalle (GIFs)',lbl_interval_min:'Intervalle (min)',hint_interval_min:'0 = désactivé',lbl_duration:'Durée (sec)',lbl_tz:'Fuseau horaire',opt_random:'Aléatoire',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_tz_ce:'France / Espagne / Allemagne / Italie',opt_tz_uk:'Angleterre (UK) / Portugal',opt_tz_usa_e:'USA - Est (New York)',opt_tz_usa_c:'USA - Centre (Chicago)',opt_tz_usa_m:'USA - Montagnes (Denver)',opt_tz_usa_p:'USA - Pacifique (Los Angeles)',opt_tz_ee:'Grèce / Roumanie / Finlande',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_load_error:'Impossible de charger la config',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',...HELP_I18N.fr},
+en:{title:'RecalBox DMD - Clock',h1:'Clock',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',lbl_enabled:'Enabled',lbl_theme:'Theme',lbl_neon_color:'Neon color',lbl_custom:'Custom',hint_neon:'Neon theme only',lbl_interval_gifs:'Interval (GIFs)',lbl_interval_min:'Interval (min)',hint_interval_min:'0 = disabled',lbl_duration:'Duration (sec)',lbl_tz:'Timezone',opt_random:'Random',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_tz_ce:'France / Spain / Germany / Italy',opt_tz_uk:'England (UK) / Portugal',opt_tz_usa_e:'USA - East (New York)',opt_tz_usa_c:'USA - Central (Chicago)',opt_tz_usa_m:'USA - Mountain (Denver)',opt_tz_usa_p:'USA - Pacific (Los Angeles)',opt_tz_ee:'Greece / Romania / Finland',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_load_error:'Unable to load config',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',...HELP_I18N.en},
+es:{title:'RecalBox DMD - Reloj',h1:'Reloj',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',lbl_enabled:'Activado',lbl_theme:'Tema',lbl_neon_color:'Color Neon',lbl_custom:'Personalizado',hint_neon:'Solo tema Neon',lbl_interval_gifs:'Intervalo (GIFs)',lbl_interval_min:'Intervalo (min)',hint_interval_min:'0 = desactivado',lbl_duration:'Duración (seg)',lbl_tz:'Zona horaria',opt_random:'Aleatorio',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_tz_ce:'Francia / España / Alemania / Italia',opt_tz_uk:'Inglaterra (UK) / Portugal',opt_tz_usa_e:'EE.UU. - Este (Nueva York)',opt_tz_usa_c:'EE.UU. - Centro (Chicago)',opt_tz_usa_m:'EE.UU. - Montañas (Denver)',opt_tz_usa_p:'EE.UU. - Pacífico (Los Ángeles)',opt_tz_ee:'Grecia / Rumanía / Finlandia',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_load_error:'No se pudo cargar la configuración',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',...HELP_I18N.es}
 };
 let currentLang='fr';
 function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||PAGE_I18N.fr[k]||k;}
@@ -796,14 +1674,42 @@ function stripAccents(s){return s.normalize('NFD').replace(new RegExp('['+String
 function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(txt),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}
 function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
 function serialize(){return new URLSearchParams({clock_enabled:document.getElementById('clock_enabled').checked?'1':'0',clock_theme:document.getElementById('clock_theme').value,clock_interval:document.getElementById('clock_interval').value,clock_interval_min:document.getElementById('clock_interval_min').value,clock_duration:document.getElementById('clock_duration').value,clock_tz:document.getElementById('clock_tz').value,clock_neon_color:document.getElementById('clock_neon_color').value,clock_neon_color_enabled:document.getElementById('clock_neon_color_enabled').checked?'1':'0'});}
-function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:serialize(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK'))_formDirty=false;}).catch(()=>showMsg(tr('msg_net_error'),false));}
-function doReboot(){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});}
-function saveAndReboot(){saveConfig().then(()=>setTimeout(doReboot,400));}
-function dmdResume(){if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;fetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('msg_net_error'),false));}
-function loadConfig(){fetch('/load').then(r=>r.json()).then(d=>{document.getElementById('clock_enabled').checked=d.clock_enabled==='1';document.getElementById('clock_theme').value=d.clock_theme||'0';document.getElementById('clock_interval').value=d.clock_interval||'0';document.getElementById('clock_interval_min').value=d.clock_interval_min||'0';document.getElementById('clock_duration').value=d.clock_duration||'0';document.getElementById('clock_tz').value=d.clock_tz||'UTC0';document.getElementById('clock_neon_color').value=d.clock_neon_color||'#ff2878';document.getElementById('clock_neon_color_enabled').checked=d.clock_neon_color_enabled==='1';}).catch(()=>showMsg(tr('msg_load_error'),false));}
+// Brouillon localStorage -- voir le commentaire complet sur la page BASIC
+// (correctif "reglages perdus si on change de page", 2026-08-05).
+const DRAFT_KEY='dmd_draft_clock';
+const DRAFT_FIELDS=['clock_enabled','clock_theme','clock_interval','clock_interval_min','clock_duration','clock_tz','clock_neon_color','clock_neon_color_enabled'];
+function loadDraft(){try{const raw=localStorage.getItem(DRAFT_KEY);return raw?JSON.parse(raw):null;}catch(e){return null;}}
+function saveDraft(){const o={};DRAFT_FIELDS.forEach(id=>{const el=document.getElementById(id);if(!el)return;o[id]=(el.type==='checkbox')?el.checked:el.value;});localStorage.setItem(DRAFT_KEY,JSON.stringify(o));}
+function clearDraft(){localStorage.removeItem(DRAFT_KEY);}
+function checkEssentialFields(){return fetch('/load').then(r=>r.json()).then(d=>{const missing=[];if(!d.wifi_ssid)missing.push(tr('essential_wifi'));if(!d.playlist)missing.push(tr('essential_playlist'));if(!d.recalbox_ip)missing.push(tr('essential_ip'));if(!missing.length)return true;return confirm(tr('msg_essential_missing').replace('{fields}',missing.join(', ')));}).catch(()=>true);}
+function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:serialize(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK')){_formDirty=false;clearDraft();}}).catch(()=>showMsg(tr('msg_net_error'),false));}
+function doReboot(skipConfirm){checkEssentialFields().then(ok=>{if(!ok)return;if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});});}
+// skipConfirm=true (2026-07-29) : "Enreg. & Redemarrer" a deja un intitule
+// explicite -- redemander confirmation juste apres la sauvegarde est
+// redondant, contrairement au bouton "Redemarrer" seul.
+function saveAndReboot(){saveConfig().then(()=>setTimeout(()=>doReboot(true),400));}
+function dmdResume(){checkEssentialFields().then(ok=>{if(!ok)return;if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;fetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('msg_net_error'),false));});}
+// Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29) : aucun
+// moyen fiable de distinguer une vraie fermeture d'onglet/navigateur d'un
+// simple rafraichissement de page (habitude trop ancree pour l'utilisateur,
+// faux positifs trop frequents -- ni le JS ni le serveur ne peuvent
+// distinguer les deux cas, une connexion qui se ferme se ressemble dans
+// tous les cas).
+function loadConfig(){const draft=loadDraft();fetch('/load').then(r=>r.json()).then(d=>{
+  const g=(k,dv)=>(draft&&draft[k]!==undefined)?draft[k]:dv;
+  document.getElementById('clock_enabled').checked=g('clock_enabled',d.clock_enabled==='1');
+  document.getElementById('clock_theme').value=g('clock_theme',d.clock_theme||'0');
+  document.getElementById('clock_interval').value=g('clock_interval',d.clock_interval||'0');
+  document.getElementById('clock_interval_min').value=g('clock_interval_min',d.clock_interval_min||'0');
+  document.getElementById('clock_duration').value=g('clock_duration',d.clock_duration||'0');
+  document.getElementById('clock_tz').value=g('clock_tz',d.clock_tz||'UTC0');
+  document.getElementById('clock_neon_color').value=g('clock_neon_color',d.clock_neon_color||'#ff2878');
+  document.getElementById('clock_neon_color_enabled').checked=g('clock_neon_color_enabled',d.clock_neon_color_enabled==='1');
+  if(draft)_formDirty=true; // reboot/reprise doivent quand meme avertir : la config.ini reelle n'a pas ce brouillon
+}).catch(()=>showMsg(tr('msg_load_error'),false));}
 localStorage.setItem('dmd_last_section','clock');
-fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);loadConfig();}).catch(()=>{applyLang();loadConfig();});
-document.getElementById('clockForm').addEventListener('input',()=>{_formDirty=true;});
+fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}loadConfig();}).catch(()=>{applyLang();loadConfig();});
+document.getElementById('clockForm').addEventListener('input',()=>{_formDirty=true;saveDraft();});
 </script>
 </body>
 </html>
@@ -850,10 +1756,41 @@ h2{color:#8ab4f8;font-size:15px;margin:0 0 10px;border-left:3px solid #8ab4f8;pa
 .err{background:#6b0f0f;color:#ffcccc}
 #langSelect{position:absolute;top:10px;right:10px;width:auto;padding:6px 8px;font-size:13px;background:#16213e;color:#8ab4f8;border:1px solid #333;border-radius:4px}
 body{position:relative}
+#helpLink{position:absolute;top:14px;right:75px;font-size:13px;color:#8ab4f8;text-decoration:underline;cursor:pointer}
+.help-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.help-backdrop.show{display:flex}
+.help-box{background:#16213e;border-radius:8px;padding:20px;max-width:520px;max-height:85vh;overflow-y:auto;position:relative;text-align:left}
+.help-box h2{color:#ffd146;font-size:16px;margin:0 22px 10px 0}
+.help-box h3{color:#8ab4f8;font-size:14px;margin:14px 0 6px}
+.help-box p{font-size:13px;line-height:1.5;margin:0 0 8px}
+.help-box ul{margin:0 0 8px 18px;font-size:13px;line-height:1.5}
+.help-close{position:absolute;top:10px;right:14px;background:none;border:none;color:#aaa;font-size:22px;cursor:pointer;line-height:1}
 </style>
 </head>
 <body>
 <select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<span id="helpLink" onclick="showHelpModal()" data-i18n="help_link">Aide</span>
+<div id="helpBackdrop" class="help-backdrop" onclick="if(event.target===this)closeHelpModal()">
+<div class="help-box">
+<button class="help-close" onclick="closeHelpModal()">&times;</button>
+<h2 data-i18n="help_title">Bienvenue</h2>
+<p data-i18n="help_intro"></p>
+<h3 data-i18n="help_checklist_title"></h3>
+<ul>
+<li data-i18n="help_check_ip"></li>
+<li data-i18n="help_check_playlist"></li>
+<li data-i18n="help_check_wifi"></li>
+</ul>
+<p id="helpUrlReminder"></p>
+<h3 data-i18n="help_features_title"></h3>
+<ul>
+<li data-i18n="help_feat_playlists"></li>
+<li data-i18n="help_feat_clock"></li>
+<li data-i18n="help_feat_display"></li>
+<li data-i18n="help_feat_network"></li>
+</ul>
+</div>
+</div>
 <div class="topnav">
 <a href="/config/basic" data-i18n="nav_basic">&#x1F4A1; Affichage &amp; Playlists</a>
 <a href="/config/network" data-i18n="nav_network">&#x1F4F6; Wi-Fi &amp; BT</a>
@@ -889,27 +1826,38 @@ body{position:relative}
 </div>
 </div>
 <div class="btn-row">
-<button type="button" class="btn btn-reboot" onclick="doReboot()" data-i18n="btn_reboot">&#x1F504; Red&eacute;marrer</button>
+<button type="button" class="btn btn-reboot" onclick="doReboot()" data-i18n="btn_save_reboot">&#x1F504; Enreg. &amp; Red&eacute;marrer</button>
 <button type="button" class="btn btn-resume" onclick="dmdResume()" data-i18n="btn_resume">&#x25B6; Reprendre DMD</button>
 </div>
 <div id="msg" class="msg"></div>
 <script>
+const HELP_I18N={
+fr:{help_link:'Aide',help_title:'Bienvenue sur la configuration du DMD',help_intro:'Voici ce qu\'il reste à vérifier avant de sauvegarder, et un résumé de ce que permet cette interface.',help_checklist_title:'À vérifier avant de sauvegarder',help_check_ip:'IP Recalbox renseignée (page Wi-Fi & Bluetooth)',help_check_playlist:'Playlist par défaut renseignée (page Affichage & Playlists)',help_check_wifi:'Le Wi-Fi est déjà validé à ce stade — inutile d\'y retoucher, sauf si vous voulez le changer',help_url_reminder:'Cette page reste accessible à tout moment en tapant l\'IP du DMD dans un navigateur — actuellement {ip}',help_features_title:'Ce que permet cette interface',help_feat_playlists:'GIFs (page Médias) : ajouter des GIFs sur la carte SD (upload direct depuis le navigateur, création de dossiers) — les playlists qui référencent un dossier modifié sont mises à jour automatiquement',help_feat_clock:'Horloge (page Horloge) : thème, couleur néon, intervalle et durée d\'affichage, fuseau horaire',help_feat_display:'Affichage, luminosité et playlists (page Affichage & Playlists) : luminosité de l\'écran, choix entre démarrage silencieux (titre seul) ou normal (IP détectée, synchronisation de l\'heure, etc.), sélection de la playlist par défaut, et création/suppression de playlists à partir des dossiers de GIFs',help_feat_network:'Réseau (page Wi-Fi & Bluetooth) : IP Recalbox (connexion MQTT), Wi-Fi (réseau, mot de passe, IP statique)'},
+en:{help_link:'Help',help_title:'Welcome to the DMD configuration',help_intro:'Here is what\'s left to check before saving, and a summary of what this interface lets you do.',help_checklist_title:'To check before saving',help_check_ip:'Recalbox IP filled in (Wi-Fi & Bluetooth page)',help_check_playlist:'Default playlist filled in (Display & Playlists page)',help_check_wifi:'Wi-Fi is already validated at this stage — no need to touch it again, unless you want to change it',help_url_reminder:'This page stays accessible at any time by typing the DMD\'s IP in a browser — currently {ip}',help_features_title:'What this interface lets you do',help_feat_playlists:'GIFs (Media page): add GIFs to the SD card (direct upload from the browser, folder creation) — playlists referencing a modified folder are updated automatically',help_feat_clock:'Clock (Clock page): theme, custom neon color, display interval and duration, time zone',help_feat_display:'Display, brightness and playlists (Display & Playlists page): screen brightness, choice between silent startup (title only) or normal (detected IP, time sync, etc.), default playlist selection, and creating/deleting playlists from GIF folders',help_feat_network:'Network (Wi-Fi & Bluetooth page): Recalbox IP (MQTT connection), Wi-Fi (network, password, static IP)'},
+es:{help_link:'Ayuda',help_title:'Bienvenido a la configuración del DMD',help_intro:'Esto es lo que falta comprobar antes de guardar, y un resumen de lo que permite esta interfaz.',help_checklist_title:'A comprobar antes de guardar',help_check_ip:'IP de Recalbox indicada (página Wi-Fi y Bluetooth)',help_check_playlist:'Playlist por defecto indicada (página Pantalla y listas)',help_check_wifi:'El Wi-Fi ya está validado en esta etapa — no hace falta tocarlo, salvo que quiera cambiarlo',help_url_reminder:'Esta página sigue accesible en cualquier momento escribiendo la IP del DMD en un navegador — actualmente {ip}',help_features_title:'Qué permite esta interfaz',help_feat_playlists:'GIFs (página Medios): añadir GIFs a la tarjeta SD (subida directa desde el navegador, creación de carpetas) — las playlists que referencian una carpeta modificada se actualizan automáticamente',help_feat_clock:'Reloj (página Reloj): tema, color neón personalizado, intervalo y duración de visualización, zona horaria',help_feat_display:'Pantalla, brillo y listas (página Pantalla y listas): brillo de la pantalla, elección entre inicio silencioso (solo título) o normal (IP detectada, sincronización horaria, etc.), selección de la playlist por defecto, y creación/eliminación de playlists a partir de las carpetas de GIFs',help_feat_network:'Red (página Wi-Fi y Bluetooth): IP de Recalbox (conexión MQTT), Wi-Fi (red, contraseña, IP estática)'}
+};
+function showHelpModal(){
+  document.getElementById('helpBackdrop').classList.add('show');
+  const p=document.getElementById('helpUrlReminder');
+  if(p) p.textContent=((HELP_I18N[currentLang]&&HELP_I18N[currentLang].help_url_reminder)||HELP_I18N.fr.help_url_reminder).replace('{ip}',window.location.host);
+}
+function closeHelpModal(){document.getElementById('helpBackdrop').classList.remove('show');}
 const PAGE_I18N={
 fr:{title:'RecalBox DMD - Médias',h1:'Médias',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',
 sec_dirs:'&#x1F4C1; Dossiers (/gifs/)',desc_dirs:'Cochez des dossiers pour les supprimer.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',btn_delete_sel:'&#x1F5D1; Supprimer la sélection',
 sec_upload:'&#x1F4E4; Envoi GIF',desc_upload:'Ajoutez un fichier .gif directement depuis votre navigateur dans un dossier de /gifs/. Choisissez un dossier existant OU tapez un nouveau nom (créé automatiquement). &#x26A0;&#xFE0F; Pas fait pour transférer de nombreux fichiers (débit lent, risque d\'erreur d\'écriture) -- réservé à l\'ajout ponctuel de quelques fichiers. Pour un transfert consequent, retirez la carte SD et copiez-la depuis un PC.',placeholder_upload_dir:'ou nouveau dossier...',lbl_upload_file:'Fichiers .gif',btn_upload:'&#x1F4E4; Uploader',btn_stop:'&#x23F9; Arrêter',
-btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',
-net_error:'Erreur réseau',msg_deleting:'Suppression...',msg_select_folder:'Choisissez au moins un dossier',msg_confirm_delete_folders:'Supprimer ${0} ?',msg_specify_dir:'Précisez un dossier cible',msg_select_gif:'Choisissez un fichier GIF',msg_select_gif_files:'Choisissez des fichiers .gif',msg_preparing_folder:'Preparation du dossier...',msg_cannot_create_folder:'Impossible de creer le dossier: ${0}',msg_net_error_folder:'Erreur reseau (creation dossier)',msg_uploading:'Upload...',msg_attempt:'tentative ${0}/${1}',msg_stopped_by_user:'Arrete par l\'utilisateur (${0}/${1})',msg_upload_fail:'ECHEC',msg_failures:'Echecs: ${0}',msg_upload_result:'${0}/${1} fichier(s) uploade(s)',msg_upload_result_fail:' -- echecs: ${0}',msg_confirm_reboot:'Redemarrer l\'ESP32 ?',msg_rebooting:'Redemarrage...',msg_dmd_resumed:'DMD repris',msg_updating_playlists:'Mise a jour des playlists...',msg_folders_deleted_reboot:'Dossiers supprimes, ${0} playlist(s) mise(s) a jour -- redemarrage necessaire pour appliquer ces changements'},
+btn_reboot:'&#x1F504; Redémarrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',
+net_error:'Erreur réseau',msg_deleting:'Suppression...',msg_select_folder:'Choisissez au moins un dossier',msg_confirm_delete_folders:'Supprimer ${0} ?',msg_specify_dir:'Précisez un dossier cible',msg_select_gif:'Choisissez un fichier GIF',msg_select_gif_files:'Choisissez des fichiers .gif',msg_preparing_folder:'Preparation du dossier...',msg_cannot_create_folder:'Impossible de creer le dossier: ${0}',msg_net_error_folder:'Erreur reseau (creation dossier)',msg_uploading:'Upload...',msg_attempt:'tentative ${0}/${1}',msg_stopped_by_user:'Arrete par l\'utilisateur (${0}/${1})',msg_upload_fail:'ECHEC',msg_failures:'Echecs: ${0}',msg_upload_result:'${0}/${1} fichier(s) uploade(s)',msg_upload_result_fail:' -- echecs: ${0}',msg_confirm_reboot:'Redemarrer l\'ESP32 ?',msg_rebooting:'Redemarrage...',msg_dmd_resumed:'DMD repris',msg_updating_playlists:'Mise a jour des playlists...',msg_confirm_reboot_playlists:'Dossiers supprimes, ${0} playlist(s) mise(s) a jour. La suppression d\'un dossier lie a des playlists necessite un redemarrage du DMD pour etre prise en compte. Redemarrer maintenant ?',msg_retrying_failed:'Nouvelle tentative pour ${0} fichier(s) en echec...',msg_final_attempt:'tentative finale ${0}/${1}',msg_preparing_upload:'Preparation de l\'upload...',msg_rebooting_upload:'Redemarrage du DMD pour preparer la copie de fichiers, veuillez patienter...',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',...HELP_I18N.fr},
 en:{title:'RecalBox DMD - Media',h1:'Media',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',
 sec_dirs:'&#x1F4C1; Folders (/gifs/)',desc_dirs:'Check folders to delete them.',btn_select_all:'Select all',btn_select_none:'Select none',btn_delete_sel:'&#x1F5D1; Delete selection',
 sec_upload:'&#x1F4E4; GIF Upload',desc_upload:'Add a .gif file directly from your browser into a folder in /gifs/. Choose an existing folder OR type a new name (created automatically). &#x26A0;&#xFE0F; Not designed for transferring many files (slow throughput, risk of write errors) -- meant for occasionally adding a few files. For a large transfer, remove the SD card and copy from a PC instead.',placeholder_upload_dir:'or new folder...',lbl_upload_file:'.gif files',btn_upload:'&#x1F4E4; Upload',btn_stop:'&#x23F9; Stop',
-btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',
-net_error:'Network error',msg_deleting:'Deleting...',msg_select_folder:'Select at least one folder',msg_confirm_delete_folders:'Delete ${0}?',msg_specify_dir:'Please specify a target folder',msg_select_gif:'Select a GIF file',msg_select_gif_files:'Select .gif files',msg_preparing_folder:'Preparing folder...',msg_cannot_create_folder:'Unable to create folder: ${0}',msg_net_error_folder:'Network error (folder creation)',msg_uploading:'Uploading...',msg_attempt:'attempt ${0}/${1}',msg_stopped_by_user:'Stopped by user (${0}/${1})',msg_upload_fail:'FAILED',msg_failures:'Failures: ${0}',msg_upload_result:'${0}/${1} file(s) uploaded',msg_upload_result_fail:' -- failures: ${0}',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_updating_playlists:'Updating playlists...',msg_folders_deleted_reboot:'Folders deleted, ${0} playlist(s) updated -- reboot required to apply these changes'},
+btn_reboot:'&#x1F504; Reboot',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_resume:'&#x25B6; Resume DMD',
+net_error:'Network error',msg_deleting:'Deleting...',msg_select_folder:'Select at least one folder',msg_confirm_delete_folders:'Delete ${0}?',msg_specify_dir:'Please specify a target folder',msg_select_gif:'Select a GIF file',msg_select_gif_files:'Select .gif files',msg_preparing_folder:'Preparing folder...',msg_cannot_create_folder:'Unable to create folder: ${0}',msg_net_error_folder:'Network error (folder creation)',msg_uploading:'Uploading...',msg_attempt:'attempt ${0}/${1}',msg_stopped_by_user:'Stopped by user (${0}/${1})',msg_upload_fail:'FAILED',msg_failures:'Failures: ${0}',msg_upload_result:'${0}/${1} file(s) uploaded',msg_upload_result_fail:' -- failures: ${0}',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_updating_playlists:'Updating playlists...',msg_confirm_reboot_playlists:'Folders deleted, ${0} playlist(s) updated. Deleting a folder linked to playlists requires a DMD reboot to take effect. Reboot now?',msg_retrying_failed:'Retrying ${0} failed file(s)...',msg_final_attempt:'final attempt ${0}/${1}',msg_preparing_upload:'Preparing upload...',msg_rebooting_upload:'Rebooting the DMD to prepare the file copy, please wait...',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',...HELP_I18N.en},
 es:{title:'RecalBox DMD - Medios',h1:'Medios',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',
 sec_dirs:'&#x1F4C1; Carpetas (/gifs/)',desc_dirs:'Marque las carpetas para eliminarlas.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',btn_delete_sel:'&#x1F5D1; Eliminar selección',
 sec_upload:'&#x1F4E4; Subir GIF',desc_upload:'Añada un archivo .gif desde su navegador a una carpeta en /gifs/. Elija una carpeta existente O escriba un nombre nuevo (se crea automáticamente). &#x26A0;&#xFE0F; No pensado para transferir muchos archivos (velocidad lenta, riesgo de error de escritura) -- reservado para añadir algunos archivos puntualmente. Para una transferencia importante, retire la tarjeta SD y cópiela desde un PC.',placeholder_upload_dir:'o nueva carpeta...',lbl_upload_file:'Archivos .gif',btn_upload:'&#x1F4E4; Subir',btn_stop:'&#x23F9; Detener',
-btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',
-net_error:'Error de red',msg_deleting:'Eliminando...',msg_select_folder:'Elija al menos una carpeta',msg_confirm_delete_folders:'¿Eliminar ${0}?',msg_specify_dir:'Especifique una carpeta destino',msg_select_gif:'Seleccione un archivo GIF',msg_select_gif_files:'Seleccione archivos .gif',msg_preparing_folder:'Preparando carpeta...',msg_cannot_create_folder:'No se pudo crear la carpeta: ${0}',msg_net_error_folder:'Error de red (creación de carpeta)',msg_uploading:'Subiendo...',msg_attempt:'intento ${0}/${1}',msg_stopped_by_user:'Detenido por el usuario (${0}/${1})',msg_upload_fail:'ERROR',msg_failures:'Errores: ${0}',msg_upload_result:'${0}/${1} archivo(s) subido(s)',msg_upload_result_fail:' -- errores: ${0}',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_updating_playlists:'Actualizando listas...',msg_folders_deleted_reboot:'Carpetas eliminadas, ${0} lista(s) de reproduccion actualizada(s) -- es necesario reiniciar para aplicar estos cambios'}
+btn_reboot:'&#x1F504; Reiniciar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_resume:'&#x25B6; Reanudar DMD',
+net_error:'Error de red',msg_deleting:'Eliminando...',msg_select_folder:'Elija al menos una carpeta',msg_confirm_delete_folders:'¿Eliminar ${0}?',msg_specify_dir:'Especifique una carpeta destino',msg_select_gif:'Seleccione un archivo GIF',msg_select_gif_files:'Seleccione archivos .gif',msg_preparing_folder:'Preparando carpeta...',msg_cannot_create_folder:'No se pudo crear la carpeta: ${0}',msg_net_error_folder:'Error de red (creación de carpeta)',msg_uploading:'Subiendo...',msg_attempt:'intento ${0}/${1}',msg_stopped_by_user:'Detenido por el usuario (${0}/${1})',msg_upload_fail:'ERROR',msg_failures:'Errores: ${0}',msg_upload_result:'${0}/${1} archivo(s) subido(s)',msg_upload_result_fail:' -- errores: ${0}',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_updating_playlists:'Actualizando listas...',msg_confirm_reboot_playlists:'Carpetas eliminadas, ${0} lista(s) de reproduccion actualizada(s). Eliminar una carpeta vinculada a listas requiere reiniciar el DMD para aplicarse. ¿Reiniciar ahora?',msg_retrying_failed:'Reintentando ${0} archivo(s) fallido(s)...',msg_final_attempt:'intento final ${0}/${1}',msg_preparing_upload:'Preparando la subida...',msg_rebooting_upload:'Reiniciando el DMD para preparar la copia de archivos, por favor espere...',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',...HELP_I18N.es}
 };
 let currentLang='fr';
 function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||PAGE_I18N.fr[k]||k;}
@@ -946,8 +1894,12 @@ function queuedFetch(url,opts){
 }
 function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);queuedFetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(txt),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}
 function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
-function doReboot(skipConfirm){if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);queuedFetch('/reboot').catch(()=>{});}
-function dmdResume(){queuedFetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('net_error'),false));}
+function checkEssentialFields(){return queuedFetch('/load').then(r=>r.json()).then(d=>{const missing=[];if(!d.wifi_ssid)missing.push(tr('essential_wifi'));if(!d.playlist)missing.push(tr('essential_playlist'));if(!d.recalbox_ip)missing.push(tr('essential_ip'));if(!missing.length)return true;return confirm(tr('msg_essential_missing').replace('{fields}',missing.join(', ')));}).catch(()=>true);}
+function doReboot(skipConfirm){checkEssentialFields().then(ok=>{if(!ok)return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);queuedFetch('/reboot').catch(()=>{});});}
+function dmdResume(){checkEssentialFields().then(ok=>{if(!ok)return;queuedFetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('net_error'),false));});}
+// Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29, voir
+// page Affichage pour le detail) : aucun moyen fiable de distinguer une
+// vraie fermeture d'un simple rafraichissement de page.
 function selectAllDirs(v){document.querySelectorAll('#dirList input').forEach(i=>i.checked=v);}
 // v85 : plus de navigation dans un dossier (contenu individuel des GIF) ni
 // de statut cached/excluded -- decision utilisateur de retirer cette
@@ -971,8 +1923,43 @@ function renderDirs(dirs){
 // chaque chargement de page/rafraichissement) -- fusionnes en un seul
 // fetch partage pour reduire la pression heap qui contribuait au crash
 // abort() observe en test reel apres plusieurs operations consecutives.
-function loadDirs(){
-  return queuedFetch('/lsgifdirs').then(r=>r.json()).then(renderDirs).catch(()=>{});
+// B (plan cache_master_gifs, retour test reel 2026-08-01) -- retry (5
+// tentatives, 500ms d'ecart), meme raison et meme pattern que loadGenDirs()
+// (page Affichage, deja corrige le 2026-07-29 pour EXACTEMENT ce probleme) :
+// un simple fetch().catch(()=>{}) laissait la liste MEDIA vide en silence,
+// sans retenter, des qu'une seule requete /lsgifdirs echouait au chargement
+// de la page -- necessitait un F5 manuel pour reessayer. Cette fonction
+// n'avait jamais recu le meme correctif que loadGenDirs() a l'epoque.
+// Cache sessionStorage PARTAGE avec la page Affichage (meme cle,
+// 'dmd_gifdirs_cache') -- demande utilisateur 2026-08-02 : le va-et-vient
+// frequent entre Affichage et MEDIA redemandait /lsgifdirs a chaque fois,
+// avec le risque d'echec reseau observe en test reel. Affiche IMMEDIATEMENT
+// le contenu en cache si present (aucune attente reseau), PUIS rafraichit
+// en arriere-plan et met a jour le cache -- la liste se corrige donc
+// silencieusement si elle avait change entre-temps (creation/suppression de
+// dossier), sans jamais bloquer l'affichage initial sur le reseau.
+function readDirsCache(){
+  try{
+    const raw=sessionStorage.getItem('dmd_gifdirs_cache');
+    return raw?JSON.parse(raw):null;
+  }catch(e){return null;}
+}
+function writeDirsCache(dirs){
+  try{sessionStorage.setItem('dmd_gifdirs_cache',JSON.stringify(dirs));}catch(e){}
+}
+async function loadDirs(){
+  const cached=readDirsCache();
+  if(cached&&cached.length)renderDirs(cached);
+  for(let attempt=0;attempt<5;attempt++){
+    if(attempt>0)await new Promise(r=>setTimeout(r,500));
+    try{
+      const dirs=await(await queuedFetch('/lsgifdirs')).json();
+      if(!dirs.length&&attempt<4)continue;
+      renderDirs(dirs);
+      writeDirsCache(dirs);
+      return;
+    }catch(e){}
+  }
 }
 function loadUploadDirs(){return Promise.resolve();} // conserve pour compatibilite des appels existants -- loadDirs() peuple desormais aussi #uploadDir
 function deleteSelected(){
@@ -984,13 +1971,20 @@ function deleteSelected(){
     .then(r=>r.text()).then(t=>{
       // A.3 (plan cache_master_gifs) -- si la reponse indique qu'au moins une
       // playlist a ete mise a jour (lignes mortes retirees), un redemarrage
-      // est necessaire : la session de lecture EN COURS a deja son cache
-      // playlist (.idx) charge en RAM et ne serait pas corrigee a chaud.
-      // Rendu systematique plutot que laisse a l'initiative de l'utilisateur.
+      // est necessaire pour que la session de lecture EN COURS (deja son
+      // cache playlist .idx charge en RAM) soit corrigee -- mais laisse a
+      // l'utilisateur le choix du moment (demande utilisateur 2026-08-02,
+      // popup oui/non plutot qu'un redemarrage automatique impose). confirm()
+      // est bloquant : empeche aussi toute autre action pendant que cette
+      // decision est en attente (demande utilisateur : "info web... pour
+      // eviter une action utilisateur inappropriee").
       const m=t.match(/(\d+) playlist/);
       if(m){
-        showMsg(trTpl('msg_folders_deleted_reboot',m[1]),true);
-        setTimeout(()=>doReboot(true),1200);
+        if(confirm(trTpl('msg_confirm_reboot_playlists',m[1]))){
+          doReboot(true);
+        } else {
+          showMsg(t,true);loadDirs();loadUploadDirs();
+        }
       } else {
         showMsg(t,t.includes('OK'));loadDirs();loadUploadDirs();
       }
@@ -1006,13 +2000,48 @@ async function uploadGif(){
   if(!fileInput.files.length){showMsg(tr('msg_select_gif'),false);return;}
   const files=Array.from(fileInput.files).filter(f=>f.name.toLowerCase().endsWith('.gif'));
   if(!files.length){showMsg(tr('msg_select_gif_files'),false);return;}
+  const msgEl=document.getElementById('msg');
+  // Pre-vol reboot cible (v44, demande explicite utilisateur) : declenche
+  // UNIQUEMENT au clic sur Uploader (pas a l'ouverture de la page MEDIA) --
+  // si la playlist tourne depuis un moment, le heap est plafonne par la
+  // fragmentation setvbuf(4096) accumulee au fil des GIFs ouverts (cf.
+  // memoire projet) et un reboot cible (playlist sautee au prochain boot)
+  // redonne le maximum de heap disponible AVANT le premier octet d'upload,
+  // plutot que d'echouer en cours de route. Reponse JSON {"reboot":bool} :
+  // si true, la reponse HTTP a deja ete envoyee cote serveur et le reboot
+  // reel survient dans l'instant qui suit (requestReboot, RecalBox_DMD.ino).
+  // IMPORTANT (bug corrige 2026-08-03, retour test reel "DMD bloque, aucun
+  // affichage") : ne JAMAIS faire location.reload() ici -- les fichiers
+  // selectionnes par l'utilisateur (variable `files` ci-dessus, objets File
+  // du navigateur) ne survivent PAS a une navigation/rechargement de page,
+  // l'upload etait donc silencieusement abandonne sans aucune indication.
+  // On attend juste (poll sur /lang, endpoint leger qui ne re-arme pas le
+  // mode config) que le serveur reponde de nouveau, PUIS on continue cette
+  // meme fonction avec les memes fichiers deja en memoire -- aucune perte de
+  // selection, aucun reclic necessaire.
+  msgEl.className='msg ok';msgEl.style.display='block';msgEl.textContent=tr('msg_preparing_upload');
+  try{
+    const pr=await queuedFetch('/prepare-upload',{method:'POST'});
+    const pd=await pr.json();
+    if(pd.reboot){
+      msgEl.textContent=tr('msg_rebooting_upload');
+      await new Promise(resolve=>{
+        function poll(){
+          fetch('/lang',{cache:'no-store'}).then(function(r){
+            if(r.ok) resolve(); else setTimeout(poll,1500);
+          }).catch(function(){setTimeout(poll,1500);});
+        }
+        setTimeout(poll,1500);
+      });
+      msgEl.textContent=tr('msg_preparing_upload');
+    }
+  }catch(e){/* pas de reponse ou probleme reseau ponctuel -- poursuivre normalement, le garde heap d'UPLOAD_FILE_START reste la derniere protection */}
   _uploadStopRequested=false;
   const stopBtn=document.getElementById('uploadStopBtn');stopBtn.style.display='inline-block';
   const bar=document.getElementById('uploadProgress');bar.style.display='block';
   const barInner=document.getElementById('uploadProgressBar');
   const fileList=document.getElementById('uploadFileList');
-  const msgEl=document.getElementById('msg');
-  msgEl.className='msg ok';msgEl.style.display='block';msgEl.textContent=tr('msg_preparing_folder');
+  msgEl.textContent=tr('msg_preparing_folder');
   try{
     const cr=await queuedFetch('/create-folder',{method:'POST',body:new URLSearchParams({dir:dir}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
     const ct=await cr.text();
@@ -1027,31 +2056,88 @@ async function uploadGif(){
   }catch(e){stopBtn.style.display='none';showMsg(tr('msg_net_error_folder'),false);return;}
   msgEl.textContent=tr('msg_uploading');
   let okCount=0;const failed=[];const uploaded=[];
-  for(let i=0;i<files.length;i++){
-    if(_uploadStopRequested){fileList.textContent=trTpl('msg_stopped_by_user',i,files.length);break;}
-    const file=files[i];
-    const pct=Math.round(((i+1)/files.length)*100);
-    barInner.style.width=Math.max(pct,5)+'%';
-    fileList.textContent=file.name+' ('+(i+1)+'/'+files.length+')';
-    msgEl.textContent=tr('msg_uploading')+' '+file.name;
-    try{await queuedFetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:file.name+' ('+(i+1)+'/'+files.length+')',color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});}catch(e){}
-    let ok=false,lastErr='';
+  // B (plan fiabilisation upload, 2026-08-02) -- regroupement par paquets de
+  // 4 fichiers ESSAYE puis ABANDONNE (retour test reel) : ne reduisait pas
+  // la frequence du crash out-of-memory dans WebServer::_parseForm() (celui-
+  // ci se produit a CHAQUE fichier rencontre dans le corps multipart,
+  // regroupes ou non -- voir HTTP_UPLOAD_BUFLEN en tete de fichier pour la
+  // cause racine reelle et le correctif applique), pour une complexite/risque
+  // de regression superieurs (paquet plus gros = pression heap potentiellement
+  // accrue). Retour a l'envoi simple fichier par fichier -- reponse JSON du
+  // serveur ({ok,files:[{name,ok,err}]}) deja compatible avec un seul fichier
+  // par requete, aucun changement cote handleWebConfigUploadFile() necessaire.
+  // Detection d'echec plus rapide (2026-08-02, analyse .har navigateur) --
+  // sans ceci, un hoquet reseau/heap au milieu d'un transfert laisse le
+  // navigateur attendre le timeout TCP par defaut du systeme (15-70s+
+  // mesures dans le .har) avant meme de lancer une nouvelle tentative.
+  // AbortController a 12s ESSAYE PUIS REMONTE A 25s (retour test reel :
+  // 12s coupait des transferts LENTS MAIS QUI AURAIENT REUSSI -- observe
+  // jusqu'a ~11s pour un succes reel sous heap tendu, tres proche de
+  // l'ancienne limite -- plus court que le propre timeout serveur
+  // (webServer->client().setTimeout(15000) pendant l'upload), cette
+  // coupure prematuree cote client augmentait le nombre d'echecs par
+  // rapport au comportement d'origine (aucun timeout client du tout).
+  // 25s : marge confortable au-dessus des 15s serveur et des transferts
+  // lents deja observes, tout en restant nettement plus rapide que le
+  // pire cas mesure (72s) pour detecter un VRAI blocage. Factorisee
+  // (2026-08-02) pour etre reutilisee aussi par la passe de re-tentative
+  // finale ci-dessous.
+  async function uploadOneFile(file,label){
+    let ok=false;
     for(let attempt=0;attempt<3&&!ok;attempt++){
       if(attempt>0){
-        const attemptTxt=file.name+' ('+(i+1)+'/'+files.length+') - '+trTpl('msg_attempt',attempt+1,3);
+        const attemptTxt=label+' - '+trTpl('msg_attempt',attempt+1,3);
         fileList.textContent=attemptTxt;
         try{await queuedFetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:attemptTxt,color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});}catch(e){}
         await new Promise(r=>setTimeout(r,500));
       }
       const form=new FormData();form.append('dir',dir);form.append('file',file);
+      const ctrl=new AbortController();
+      const abortTimer=setTimeout(()=>ctrl.abort(),25000);
       try{
-        const r=await queuedFetch('/upload',{method:'POST',body:form});
-        const t=await r.text();
-        if(t.includes('OK')){ok=true;} else {lastErr=t;}
-      }catch(e){lastErr=tr('net_error');}
+        const r=await queuedFetch('/upload',{method:'POST',body:form,signal:ctrl.signal});
+        const j=await r.json();
+        if(j&&j.files&&j.files[0]&&j.files[0].ok)ok=true;
+      }catch(e){}
+      clearTimeout(abortTimer);
     }
+    return ok;
+  }
+  for(let i=0;i<files.length;i++){
+    if(_uploadStopRequested){fileList.textContent=trTpl('msg_stopped_by_user',i,files.length);break;}
+    const file=files[i];
+    const label=file.name+' ('+(i+1)+'/'+files.length+')';
+    barInner.style.width=Math.max(Math.round(((i+1)/files.length)*100),5)+'%';
+    fileList.textContent=label;
+    msgEl.textContent=tr('msg_uploading')+' '+file.name;
+    try{await queuedFetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:label,color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});}catch(e){}
+    const ok=await uploadOneFile(file,label);
     if(ok){okCount++;uploaded.push(file.name);fileList.textContent=file.name+' OK ('+okCount+'/'+files.length+')';}
     else {failed.push(file.name);fileList.textContent=file.name+' '+tr('msg_upload_fail');}
+  }
+  // Passe de re-tentative finale (demande utilisateur 2026-08-02, retour
+  // test reel sur un lot de 34 fichiers -- 13 echecs, concentres plutot en
+  // milieu/fin de lot, coherent avec une degradation progressive du tas au
+  // fil d'un long upload). Une pause de 1.5s puis une derniere serie de
+  // tentatives APRES la fin du lot principal laisse une chance au tas de se
+  // stabiliser un peu (plus de contention SD simultanee avec le reste du
+  // lot) avant de retenter uniquement les fichiers deja identifies en
+  // echec -- jamais un nouveau scan de /gifs/.
+  if (!_uploadStopRequested && failed.length) {
+    const retryList = failed.splice(0, failed.length);
+    msgEl.textContent = trTpl('msg_retrying_failed', retryList.length);
+    await new Promise(r=>setTimeout(r,1500));
+    for (let i = 0; i < retryList.length; i++) {
+      if (_uploadStopRequested) { failed.push(...retryList.slice(i)); break; }
+      const name = retryList[i];
+      const file = files.find(f=>f.name===name);
+      if (!file) { failed.push(name); continue; }
+      const label = name + ' (' + trTpl('msg_final_attempt', i+1, retryList.length) + ')';
+      fileList.textContent = label;
+      try{await queuedFetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:label,color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});}catch(e){}
+      const ok = await uploadOneFile(file, label);
+      if (ok) { okCount++; uploaded.push(file.name); } else { failed.push(name); }
+    }
   }
   stopBtn.style.display='none';
   if(uploaded.length){
@@ -1082,7 +2168,7 @@ localStorage.setItem('dmd_last_section','media');
 // comme la cause de net::ERR_INVALID_CHUNKED_ENCODING des le premier clic
 // sur un dossier si l'utilisateur cliquait pendant que ce lot initial
 // etait encore en cours.
-queuedFetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);}).catch(()=>{applyLang();});
+queuedFetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}}).catch(()=>{applyLang();});
 loadDirs();loadUploadDirs();
 </script>
 </body>
@@ -1218,6 +2304,7 @@ static String jsonEscape(const String &s)
 
 static void handleWebConfigLoad()
 {
+  unsigned long t0 = millis(); // DIAGNOSTIC TEMPORAIRE (2026-07-30) -- lenteur page rapportee hors generation
   int b = (screenBrightness * 100 + 127) / 255;
   String json = "{";
   json += "\"brightness\":\"" + String(b) + "\"";
@@ -1249,12 +2336,36 @@ static void handleWebConfigLoad()
   json += ",\"clock_duration\":\"" + String(clockDuration) + "\"";
   json += ",\"clock_tz\":\"" + jsonEscape(clockTimeZone) + "\"";
   json += "}";
+  Serial.println("[WEB] load: " + String(millis() - t0) + "ms"); // DIAGNOSTIC TEMPORAIRE
   webServer->send(200, "application/json", json);
+}
+
+// Lecture rapide (mutex non bloquant, hold time negligeable) de l'etat
+// "generation de playlist active ?" -- utilisee pour garder les handlers
+// listes ci-dessous en dehors de toute generation en cours, meme regle que
+// les autres handlers SD deja gardes (upload/creation-suppression de dossier/
+// suppression de playlist) : une ecriture/lecture SD concurrente avec
+// playlistGenTask() (qui peut tenir sdAccessMutex plusieurs secondes sur un
+// dossier lent) serait a risque.
+static bool plGenIsActive()
+{
+  bool a = false;
+  if (xSemaphoreTake(plGenStatusMutex, 0) == pdTRUE) { a = g_plGenStatus.active; xSemaphoreGive(plGenStatusMutex); }
+  return a;
 }
 
 static void handleWebConfigListPlaylists()
 {
+  unsigned long t0 = millis(); // DIAGNOSTIC TEMPORAIRE (2026-07-30) -- lenteur page rapportee hors generation, y compris hors upload
+  // Rafraichissement silencieux (pas une action utilisateur explicite) --
+  // renvoie une liste vide plutot qu'une erreur 409 pendant une generation.
+  if (plGenIsActive()) {
+    Serial.println("[WEB] lsplaylists: generation active, liste vide (" + String(millis() - t0) + "ms)"); // DIAGNOSTIC TEMPORAIRE
+    webServer->send(200, "application/json", "[]");
+    return;
+  }
   String json = "[";
+  int n = 0;
   File dir = SD.open("/playlists");
   if (dir && dir.isDirectory()) {
     bool first = true;
@@ -1265,7 +2376,7 @@ static void handleWebConfigListPlaylists()
       if (slash >= 0) name = name.substring(slash + 1);
       if (!entry.isDirectory() && name.endsWith(".txt")) {
         if (!first) json += ",";
-        json += "\"" + name + "\""; first = false;
+        json += "\"" + name + "\""; first = false; n++;
       }
       entry.close(); entry = dir.openNextFile();
       delay(1);
@@ -1273,12 +2384,41 @@ static void handleWebConfigListPlaylists()
     dir.close();
   }
   json += "]";
+  Serial.println("[WEB] lsplaylists: " + String(n) + " playlist(s) en " + String(millis() - t0) + "ms, maxalloc=" + String(ESP.getMaxAllocHeap())); // DIAGNOSTIC TEMPORAIRE
   webServer->send(200, "application/json", json);
 }
 
+// Chemin du fichier maitre interne (plan cache_master_gifs, simplification
+// 2026-08-01 -- voir commentaire de filterMasterIntoFile() plus bas pour
+// l'historique complet). Extension ".dat" (distincte de toute playlist
+// ".txt") : jamais confondu avec une playlist nulle part, MAIS desormais
+// tenu a jour AUTOMATIQUEMENT par deux mecanismes independants (plus de
+// bouton "Resynchroniser" manuel, retire avec tousSyncTask()) : (1) tout
+// upload web vers un dossier deja connu OU nouveau via
+// handleWebConfigAddToPlaylistsBatch() (cache_master_gifs.dat est toujours
+// une cible d'ajout inconditionnelle), (2) l'embarquement automatique d'un
+// dossier a sa premiere apparition dans une generation de playlist (voir
+// playlistGenTask() plus bas). Defini ici (avant sa premiere utilisation
+// dans ce fichier, handleWebConfigListGifDirs() juste en dessous).
+#define TOUS_MASTER_PATH "/playlists/cache_master_gifs.dat"
+
+// B (plan cache_master_gifs) -- RETIRE (2026-08-02, retour test reel) : le
+// compte de fichiers par dossier (scan de TOUS_MASTER_PATH ici +
+// /lsgifdircount a la coche) a ete retire a titre de test pour isoler sa
+// contribution eventuelle a la pression heap observee pendant cette session
+// (crash reel out-of-memory dans WebServer::_parseForm() pendant un upload,
+// voir changelog). Retour a la version simple (liste de noms uniquement),
+// tri alphabetique cote JS conserve (pur JS, sans cout heap firmware).
 static void handleWebConfigListGifDirs()
 {
+  unsigned long t0 = millis(); // DIAGNOSTIC TEMPORAIRE (2026-07-30)
+  if (plGenIsActive()) {
+    Serial.println("[WEB] lsgifdirs: generation active, liste vide (" + String(millis() - t0) + "ms)"); // DIAGNOSTIC TEMPORAIRE
+    webServer->send(200, "application/json", "[]");
+    return;
+  }
   String json = "[";
+  int n = 0;
   File dir = SD.open("/gifs");
   if (dir && dir.isDirectory()) {
     bool first = true;
@@ -1290,7 +2430,7 @@ static void handleWebConfigListGifDirs()
         if (slash >= 0) name = name.substring(slash + 1);
         if (!first) json += ",";
         json += "\"" + name + "\"";
-        first = false;
+        first = false; n++;
       }
       entry.close(); entry = dir.openNextFile();
       delay(1);
@@ -1298,6 +2438,7 @@ static void handleWebConfigListGifDirs()
     dir.close();
   }
   json += "]";
+  Serial.println("[WEB] lsgifdirs: " + String(n) + " dossier(s) en " + String(millis() - t0) + "ms, maxalloc=" + String(ESP.getMaxAllocHeap())); // DIAGNOSTIC TEMPORAIRE
   webServer->send(200, "application/json", json);
 }
 
@@ -1312,216 +2453,866 @@ static void handleWebConfigListGifDirs()
 // handleWebConfigDeletePlaylist().
 static void invalidatePlaylistRefCache();
 
-// Machine a etats non-bloquante de generation de playlist (remplace un scan
-// synchrone unique qui bloquait toute la requete HTTP -- donc toute la page
-// web -- pendant tout le scan : aucune progression visible cote navigateur,
-// seul le DMD recevait les messages "Scan: ..." directement depuis cette
-// fonction). POST /generate-playlist initialise l'etat et repond
-// immediatement ("STARTED") ; playlistGenStep() (appelee depuis loop(),
-// meme principe que l'ancien cacheBuilderStep() du cache MEDIA, abandonne en
-// v85 -- mais l'idee de machine a etats par petits pas reste valide) avance
-// le scan par petits pas ; GET /generate-playlist-status permet a la page
-// web de suivre une vraie progression en l'interrogeant en polling.
-// g_plGenActive sert aussi de garde pour bloquer les autres operations SD
-// concurrentes (upload, creation de dossier, suppression de playlist)
-// pendant la generation -- une ecriture simultanee sur la carte SD pendant
-// ce scan serait de toute facon a risque.
-static bool   g_plGenActive = false;
-static bool   g_plGenDone = false;
-static String g_plGenName;
-static String g_plGenDirsCsv;
-static int    g_plGenParseIdx = 0;
-static int    g_plGenDirIdx = 0;
-static int    g_plGenTotalDirs = 0;
-static String g_plGenCurDirName;
-static bool   g_plGenCurDirOpen = false;
-static File   g_plGenOutFile;
-static File   g_plGenCurDir;
-static String g_plGenBuf;
-static int    g_plGenTotalGifs = 0;
-static int    g_plGenCurDirGifs = 0;
-static unsigned long g_plGenLastDmdMs = 0;
-static String g_plGenResultMsg;
+// Machine a etats non-bloquante de generation de playlist, sur sa PROPRE
+// tache FreeRTOS (playlistGenTask(), 2026-07-28) -- remplace l'ancienne
+// version qui tournait sur loop() par petits pas bornes
+// (PLGEN_MAX_FILES_PER_STEP=1) : une lenteur SD localisee (confirmee en test
+// reel sur plusieurs dossiers distincts -- simple listing openNextFile(),
+// sans lecture de contenu, parfois plusieurs secondes par fichier, cause non
+// identifiee mais pas un bug de code) gelait quand meme loop() -- donc le
+// serveur web ET le bouton "Arreter" ET /reboot -- pendant toute la duree de
+// l'appel SD en cours, meme avec un lot de 1 fichier. Deplacer le scan sur sa
+// propre tache elimine le probleme a la racine : loop() (donc le WebServer
+// et la lecture GIF) ne depend plus jamais de la vitesse d'un appel SD
+// individuel de ce scan.
+//
+// POST /generate-playlist demarre la tache et repond immediatement
+// ("STARTED") ; GET /generate-playlist-status lit un instantane de
+// g_plGenStatus (struct definie dans RecalBox_DMD.ino avant #include
+// "web_config.h", meme raison que MqttCommand : web_config.h l'utilise avant
+// sa "vraie" position dans le fichier) sous plGenStatusMutex -- jamais de SD
+// dans la section critique, hold time toujours negligeable des 2 cotes ;
+// POST /generate-playlist-stop pose juste stopRequested, la tache se termine
+// proprement a son prochain point de controle (entre deux dossiers ou deux
+// fichiers).
+//
+// IMPORTANT -- sdAccessMutex protege tout acces SD partage entre cette tache
+// et loop() (lecture GIF a chaque frame, voir gifPlayFrameCompat() dans
+// RecalBox_DMD.ino) : SEULE cette tache peut l'attendre de facon bloquante
+// (portMAX_DELAY, utilise partout ci-dessous). loop()/les handlers HTTP ne
+// doivent JAMAIS l'attendre bloquant -- toujours xSemaphoreTake(sdAccessMutex,
+// 0) + degradation gracieuse si indisponible, sinon un scan lent regelerait
+// exactement le meme probleme, juste deplace vers la lecture GIF au lieu du
+// serveur web (voir le commentaire complet dans RecalBox_DMD.ino, juste avant
+// #include "web_config.h").
+//
+// Chaque appel SD individuel (un SD.open(), un openNextFile(), un print())
+// prend et rend sdAccessMutex separement -- jamais un lock tenu sur tout un
+// dossier ou plusieurs fichiers d'affilee : ca borne la fenetre de blocage
+// possible du thread principal a la duree d'un seul appel SD, jamais plus.
+//
+// Cette tache ne touche JAMAIS gif/display/currentMode directement (proprietes
+// de loop()) -- seulement g_plGenStatus. C'est loop() qui, periodiquement, lit
+// cet instantane et met a jour l'ecran DMD si le mode config est actif (voir
+// webDmdOverlayLine2()/RecalBox_DMD.ino, loop()).
 
-// Nombre max de fichiers traites par appel de playlistGenStep() -- borne le
-// cout par iteration de loop() (meme contrainte que CB_MAX_ENTRIES_PER_STEP,
-// cache MEDIA v76). Reduit a 1 (2026-07-28, test reel) : sur certains
-// dossiers, openNextFile() lui-meme (simple listing, sans lecture de
-// contenu) peut ponctuellement prendre plusieurs secondes par fichier
-// (meme classe de lenteur SD localisee que "Tous.txt" plus haut, mais ici
-// sur le listing plutot que le contenu) -- un lot de 5 pouvait alors geler
-// loop() (donc la page web ET le DMD) jusqu'a ~19s d'affilee. Un lot de 1
-// ne resout pas la lenteur intrinseque de ces entrees, mais limite le blocage
-// maximum par appel et rend la main a loop()/handleWebConfig() bien plus
-// souvent. Une elimination complete necessiterait de deplacer le scan sur
-// une tache FreeRTOS separee (comme mqttTask()) -- pas fait ici, discuter
-// avec l'utilisateur si le probleme persiste trop souvent en usage reel.
-#define PLGEN_MAX_FILES_PER_STEP 1
-
-// Le message DMD (webDmdPause()) expire et revient au message de fond apres
-// SD_OP_SUBMSG_EXPIRE_MS (5000ms, RecalBox_DMD.ino) sans nouvel appel --
-// observe en test reel (2026-07-28) sur un gros dossier ("Arcade") : n'etant
-// rappelee qu'une fois par CHANGEMENT de dossier, la progression disparaissait
-// du DMD des qu'un dossier prenait plus de 5s a scanner. Rafraichie ici toutes
-// les PLGEN_DMD_REFRESH_MS pendant le scan d'un dossier, marge large sous les
-// 5000ms d'expiration.
-#define PLGEN_DMD_REFRESH_MS 2000
-
-// Texte DMD compact : "Scan: <nom> (i/total) X/Y" pouvait depasser 30
-// caracteres (ex. "Scan: BEST_OF_TOP_30 (1/3) 0/30") -- largement au-dessus
-// de ce qu'un panneau 128px affiche sans defilement, et les mises a jour
-// frequentes (toutes les PLGEN_DMD_REFRESH_MS) interrompent le defilement
-// avant qu'il ait pu faire un tour complet (illisible en pratique, retour
-// utilisateur 2026-07-28). Retire le prefixe "Scan:" et l'index de dossier
-// (deja visible sur la page web, qui n'a pas cette contrainte de largeur),
-// et tronque le nom du dossier si besoin -- tient sur une ligne sans
-// defilement dans la grande majorite des cas.
-// Comptage du total cible par dossier RETIRE (2026-07-28, demande explicite
-// utilisateur) : necessitait un 2e listing complet du dossier avant de
-// pouvoir traiter le moindre fichier, doublant l'exposition aux lenteurs SD
-// localisees deja documentees (Vertical_DMD/Tous/Halloween) pour un gain
-// d'affichage juge trop couteux. Retour a un simple compte cumule.
-static String plGenDmdText()
+// Texte DMD compact -- fonction pure (pas de lecture de globals), utilisable
+// a la fois depuis playlistGenTask() et depuis loop() (overlay progression).
+// "Scan: <nom> (i/total) X/Y" pouvait depasser 30 caracteres, largement
+// au-dessus de ce qu'un panneau 128px affiche sans defilement, et les mises
+// a jour frequentes interrompaient le defilement avant un tour complet
+// (illisible en pratique, retour utilisateur 2026-07-28) -- nom tronque a 10
+// caracteres, pas de prefixe/index (deja visibles sur la page web). Comptage
+// du total cible par dossier retire (meme date, demande explicite) : un 2e
+// listing complet doublait l'exposition aux lenteurs SD deja documentees
+// pour un gain d'affichage juge trop couteux.
+String plGenDmdText(const String &dirName, int count)
 {
-  String n = g_plGenCurDirName;
+  String n = dirName;
   if (n.length() > 10) n = n.substring(0, 10) + "..";
-  return n + " " + String(g_plGenCurDirGifs);
+  return n + " " + String(count);
 }
 
-// Avance la generation d'un pas borne depuis loop(). Cout quasi nul quand
-// aucune generation n'est active (un seul if).
-void playlistGenStep()
-{
-  if (!g_plGenActive) return;
+// Forward declaration -- definie plus bas avec deleteFolderRecursive() (meme
+// fonction de suppression tolerante FAT32 lecture-seule), utilisee par
+// playlistGenTask() pour supprimer la playlist partielle en cas d'arret
+// demande par l'utilisateur.
+static bool forceDeleteFile(const String &path);
 
-  if (!g_plGenCurDirOpen) {
-    if (g_plGenParseIdx > (int)g_plGenDirsCsv.length()) {
-      // Plus de dossier a traiter : finalisation.
-      if (g_plGenBuf.length() > 0) { g_plGenOutFile.print(g_plGenBuf); g_plGenBuf = ""; }
-      g_plGenOutFile.close();
-      invalidatePlaylistRefCache();
-      g_plGenResultMsg = "OK: " + String(g_plGenTotalGifs) + " GIFs ajoutes dans la playlist " + g_plGenName + ".txt";
-      Serial.println("[WEB] " + g_plGenResultMsg);
-      webDmdPause("Playlist creee: " + String(g_plGenTotalGifs) + " GIFs", 0x07E0);
-      g_plGenActive = false;
-      g_plGenDone = true;
-      return;
+// Ecrit buf dans f en verifiant le nombre reel d'octets ecrits (2026-07-30) :
+// File::print() peut ecrire MOINS que demande sans lever d'erreur -- valeur
+// de retour jamais verifiee jusqu'ici dans tout ce fichier, a chaque flush
+// intermediaire de buffer (toutes les fonctions de scan/filtrage). Perte de
+// donnees SILENCIEUSE confirmee en test reel (2026-07-30) : 15 fichiers
+// consecutifs (meme prefixe, meme dossier) manquants dans _master_gifs.txt
+// apres un scan complet reussi sans aucune erreur signalee -- un seul flush
+// partiel explique exactement ce genre de trou contigu. Reessaie jusqu'a 3
+// fois la partie non ecrite (delay(2) entre tentatives, laisse une chance a
+// un hoquet SPI/SD transitoire de se resorber) avant d'abandonner avec un
+// avertissement explicite (perte de donnees rarissime mais au moins visible
+// au lieu de silencieuse).
+// Retourne false si une partie du buffer n'a pas pu etre ecrite meme apres
+// retries (2026-07-30) : permet a l'appelant de signaler le resultat comme
+// suspect (voir hadWriteLoss dans playlistGenTask()/filterMasterIntoFile())
+// plutot que de faire confiance a un fichier potentiellement troue en
+// silence.
+static bool writeBufChecked(File &f, const String &buf)
+{
+  size_t total = buf.length();
+  size_t offset = 0;
+  int attempts = 0;
+  while (offset < total && attempts < 3) {
+    // buf.substring(offset) SEULEMENT si necessaire (offset>0, cas de retry
+    // rarissime) -- BUG CORRIGE (2026-07-30) : appeler substring(0) sur
+    // CHAQUE tentative dupliquait inutilement tout le buffer (encore ~1000
+    // octets a allouer) juste pour appeler print(), en plus de buf lui-meme
+    // -- sous heap deja critique (confirme en test reel : maxalloc=8692 au
+    // demarrage de la tache, degrade ensuite), cette allocation supplementaire
+    // echouait silencieusement (String::substring() sur allocation ratee
+    // renvoie une chaine VIDE, pas une erreur) -- print("") renvoie alors 0,
+    // faussement interprete comme un echec d'ecriture SD alors que c'etait
+    // uniquement ce correctif lui-meme qui aggravait la pression heap.
+    size_t w = (offset == 0) ? f.print(buf) : f.print(buf.substring(offset));
+    if (w == 0) { attempts++; delay(2); continue; }
+    offset += w;
+  }
+  if (offset < total) {
+    Serial.println("[WEB] writeBufChecked: PERTE DE DONNEES -- " + String(total - offset) + "/" + String(total) + " octets non ecrits apres retries");
+    return false;
+  }
+  return true;
+}
+
+// Forward declarations -- definies plus bas dans ce fichier, mais utilisees
+// par playlistGenTask()/handleWebConfigGeneratePlaylist() ci-dessous.
+static bool fileContainsNeedle(File &f, const String &needle);
+static bool filterMasterIntoFile(const String &dirsCsv, File &outFile, int &linesWrittenOut, bool &hadWriteLossOut, String &errOut);
+static bool appendMatchingLines(const String &srcPath, const String &wantedCsv, const String &destPath, bool &hadWriteLossOut);
+
+// name : nom de la playlist a creer. cachedDirsCsv/uncachedDirsCsv (format
+// ",dir1,dir2,") : repartition decidee par handleWebConfigGeneratePlaylist()
+// selon la presence de chaque dossier dans TOUS_MASTER_PATH. fullMarker :
+// tous les dossiers demandes (cachedDirsCsv + uncachedDirsCsv), format
+// "dir1,dir2" sans virgule d'encadrement -- ecrit tel quel en tete du
+// fichier de sortie (marqueur "# FULL:", voir playlistGenTask()).
+struct PlaylistGenRequest { String name; String cachedDirsCsv; String uncachedDirsCsv; String fullMarker; };
+
+// Tourne du debut a la fin sur sa propre tache (creee a la demande, voir
+// handleWebConfigGeneratePlaylist()) -- plus besoin d'une borne "fichiers par
+// appel" (existait uniquement pour borner le cout par appel loop(), obsolete
+// des que ce n'est plus loop() qui l'appelle). Tache PERSISTANTE essayee puis
+// abandonnee le 2026-07-29 -- cf. commentaire au-dessus de la declaration de
+// playlistGenTaskHandle (RecalBox_DMD.ino) pour le detail de ce qui a ete
+// tente et pourquoi.
+// Coeur du scan (parse dirsCsv, ouvre chaque /gifs/<dossier>, ecrit les
+// chemins .gif trouves dans outFile deja ouvert) -- appelee par
+// playlistGenTask() UNIQUEMENT sur les dossiers pas encore couverts par le
+// fichier maitre interne (uncachedDirsCsv, voir plan cache_master_gifs) --
+// la portion deja couverte est desormais filtree depuis le fichier maitre
+// (filterMasterIntoFile(), quasi instantane) sans jamais toucher /gifs/.
+// Ne touche JAMAIS g_plGenStatus.active/resultMsg/done -- l'appelant garde
+// la responsabilite de les positionner, seul g_plGenStatus.curDirName/
+// dirIdx/curDirGifs/totalGifs (progression, deja affichee sur le DMD/la
+// page web) est mis a jour ici.
+static void scanFoldersToPlaylistFile(const String &dirsCsv, File &outFile,
+                                       int &totalGifsOut, bool &stoppedOut, bool &lowHeapAbortOut,
+                                       bool &hadWriteLossOut)
+{
+  int totalGifs = 0, dirIdx = 0, parseIdx = 0;
+  String buf;
+  bool stopped = false;
+  bool lowHeapAbort = false;
+  bool hadWriteLoss = false;
+
+  while (parseIdx <= (int)dirsCsv.length())
+  {
+    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+      stopped = g_plGenStatus.stopRequested;
+      xSemaphoreGive(plGenStatusMutex);
     }
-    int comma = g_plGenDirsCsv.indexOf(',', g_plGenParseIdx);
-    String dirName = (comma < 0) ? g_plGenDirsCsv.substring(g_plGenParseIdx) : g_plGenDirsCsv.substring(g_plGenParseIdx, comma);
+    if (stopped) break;
+
+    int comma = dirsCsv.indexOf(',', parseIdx);
+    String dirName = (comma < 0) ? dirsCsv.substring(parseIdx) : dirsCsv.substring(parseIdx, comma);
     dirName.trim();
-    g_plGenParseIdx = (comma < 0) ? (int)(g_plGenDirsCsv.length() + 1) : (comma + 1);
-    if (dirName.length() == 0) return; // segment vide (virgules successives) -- traite au step suivant
-    g_plGenDirIdx++;
-    g_plGenCurDirName = dirName;
-    g_plGenCurDirGifs = 0;
-    webDmdPause(plGenDmdText(), 0x07E0);
-    g_plGenLastDmdMs = millis();
-    g_plGenCurDir = SD.open(("/gifs/" + dirName).c_str());
-    g_plGenCurDirOpen = g_plGenCurDir && g_plGenCurDir.isDirectory();
-    if (!g_plGenCurDirOpen && g_plGenCurDir) g_plGenCurDir.close();
+    parseIdx = (comma < 0) ? (int)(dirsCsv.length() + 1) : (comma + 1);
+    if (dirName.length() == 0) continue; // segment vide (virgules successives)
+
+    dirIdx++;
+    int curDirGifs = 0;
+    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+      g_plGenStatus.curDirName = dirName;
+      g_plGenStatus.dirIdx = dirIdx;
+      g_plGenStatus.curDirGifs = 0;
+      xSemaphoreGive(plGenStatusMutex);
+    }
+
+    File dir;
+    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+      dir = SD.open(("/gifs/" + dirName).c_str());
+      xSemaphoreGive(sdAccessMutex);
+    }
+    bool dirOpen = dir && dir.isDirectory();
+    if (!dirOpen && dir) {
+      if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { dir.close(); xSemaphoreGive(sdAccessMutex); }
+    }
+
+    // Cache par dossier ESSAYE puis RETIRE le 2026-07-29 (mtime + cache
+    // centralise /playlists/<dossier>_dircache.txt, plusieurs iterations :
+    // dans le dossier lui-meme, puis centralise, puis RAM-only) -- 4 bugs
+    // reels trouves sur cette seule fonctionnalite (descripteurs simultanes,
+    // dossier modifie en cours d'enumeration, perte de donnees au flush,
+    // comptages erratifs), et le dernier test reel a confirme que meme la
+    // version RAM-only + tache creee a la demande (design d'origine)
+    // continuait a planter/donner des comptages faux -- donc le probleme
+    // n'etait pas la tache persistante, mais ce code de cache lui-meme.
+    // Abandonne : le gain reel ne couvrait de toute facon pas les gros
+    // dossiers lents (Arcade/Consoles/Halloween/Vertical_DMD, la vraie
+    // cible), un plafond RAM les excluant systematiquement. Remplace a
+    // terme par une approche filtrage-de-texte sur un TOUS.txt tenu a jour
+    // (voir discussion/plan a venir), qui evite completement l'enumeration
+    // repetee de /gifs/<dossier>.
+    while (dirOpen)
+    {
+      if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+        stopped = g_plGenStatus.stopRequested;
+        xSemaphoreGive(plGenStatusMutex);
+      }
+      // Garde-fou heap critique (2026-07-29, crash reel : abort() par
+      // allocation heap echouee, meme classe de bug deja documentee sur ce
+      // projet -- exceptions C++ desactivees -> abort() direct au lieu d'une
+      // exception rattrapable). maxalloc se degrade au fil d'un long scan ;
+      // sans ce garde, une allocation (String/File) finissait par echouer et
+      // faisait planter/redemarrer tout l'appareil. Traite comme un arret
+      // demande : sortie propre plutot qu'un crash.
+      // Seuil laisse a 4096 (2026-07-29) : hypothese revue -- maxalloc
+      // pendant un fonctionnement normal reussi se situe couramment entre
+      // 4500 et 9000, donc un seuil remonte a 8192 declencherait le
+      // garde-fou en permanence, meme sur un petit dossier (marge reelle
+      // entre succes/crash mesuree a seulement ~250 octets, pas plusieurs
+      // milliers). Suspicion actuelle : le crash vient d'une course avec
+      // mqttTask() (meme coeur, tentatives de connexion concurrentes) plutot
+      // que d'un heap simplement trop bas -- mqttTask() ne tente plus de
+      // connexion pendant une generation active (voir RecalBox_DMD.ino),
+      // teste en isolation avant de reconsiderer ce seuil.
+      if (!stopped && ESP.getMaxAllocHeap() < 4096) {
+        Serial.println("[WEB] playlistGenTask: heap critique (maxalloc=" + String(ESP.getMaxAllocHeap()) + "), arret propre du scan");
+        stopped = true;
+        lowHeapAbort = true;
+      }
+      if (stopped) {
+        if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { dir.close(); xSemaphoreGive(sdAccessMutex); }
+        break;
+      }
+
+      File f;
+      if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+        f = dir.openNextFile();
+        xSemaphoreGive(sdAccessMutex);
+      }
+      if (!f) {
+        if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { dir.close(); xSemaphoreGive(sdAccessMutex); }
+        dirOpen = false;
+        break;
+      }
+      if (!f.isDirectory()) {
+        String fname = String(f.name());
+        if (fname.endsWith(".gif")) {
+          buf += "/gifs/" + dirName + "/" + fname + "\n";
+          totalGifs++;
+          curDirGifs++;
+          // Seuil de flush reduit de 4000 a 1000 (2026-07-29) : reduit la
+          // taille de pic d'allocation transitoire pendant la concatenation
+          // (String::operator+= peut reallouer un buffer plus grand avant de
+          // copier), un contributeur plausible au heap critique ci-dessus
+          // sur un scan long.
+          if (buf.length() > 1000) {
+            if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { if (!writeBufChecked(outFile, buf)) hadWriteLoss = true; xSemaphoreGive(sdAccessMutex); }
+            buf = "";
+          }
+        }
+      }
+      f.close();
+
+      if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+        g_plGenStatus.curDirGifs = curDirGifs;
+        g_plGenStatus.totalGifs = totalGifs;
+        xSemaphoreGive(plGenStatusMutex);
+      }
+      vTaskDelay(1); // laisse tourner mqttTask()/l'idle task -- bonne conduite FreeRTOS, pas une borne de cout
+    }
+    if (stopped) break;
+  }
+
+  // Flush final du reliquat -- SEULEMENT si le scan s'est termine
+  // normalement (un arret/heap-critique doit laisser le fichier de sortie
+  // intact pour que l'appelant puisse decider de le supprimer ou non selon
+  // son propre contexte).
+  if (!stopped && buf.length() > 0) {
+    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { if (!writeBufChecked(outFile, buf)) hadWriteLoss = true; xSemaphoreGive(sdAccessMutex); }
+  }
+  totalGifsOut = totalGifs;
+  stoppedOut = stopped;
+  lowHeapAbortOut = lowHeapAbort;
+  hadWriteLossOut = hadWriteLoss;
+}
+
+void playlistGenTask(void *param)
+{
+  PlaylistGenRequest *req = (PlaylistGenRequest *)param;
+  String name = req->name;
+  String cachedDirsCsv = req->cachedDirsCsv;
+  String uncachedDirsCsv = req->uncachedDirsCsv;
+  String fullMarker = req->fullMarker;
+  delete req;
+
+  String outputPath = "/playlists/" + name + ".txt";
+  File outFile;
+  if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+    outFile = SD.open(outputPath.c_str(), FILE_WRITE);
+    xSemaphoreGive(sdAccessMutex);
+  }
+  if (!outFile) {
+    // Deja valide par handleWebConfigGeneratePlaylist() avant de lancer cette
+    // tache -- ne devrait pas arriver, protection quand meme.
+    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+      g_plGenStatus.resultMsg = "ERR: ecriture impossible (" + name + ".txt)";
+      g_plGenStatus.active = false;
+      g_plGenStatus.done = true;
+      xSemaphoreGive(plGenStatusMutex);
+    }
+    playlistGenTaskHandle = nullptr;
+    vTaskDelete(nullptr);
     return;
   }
 
-  int processed = 0;
-  while (processed < PLGEN_MAX_FILES_PER_STEP) {
-    File f = g_plGenCurDir.openNextFile();
-    if (!f) {
-      g_plGenCurDir.close();
-      g_plGenCurDirOpen = false;
-      break;
+  bool hadWriteLoss = false;
+
+  // Marqueur "# FULL:" (plan cache_master_gifs) -- ECRIT ICI et jamais avant
+  // (par handleWebConfigGeneratePlaylist()) : FILE_WRITE vaut "w" (voir
+  // FS.h), qui TRONQUE le fichier a l'ouverture -- un marqueur ecrit plus
+  // tot serait silencieusement efface des que cette tache rouvre
+  // outputPath ci-dessus. Toute selection DMD porte toujours sur des
+  // dossiers ENTIERS (jamais une selection fichier par fichier) : ce
+  // marqueur protege cette playlist d'un ajout automatique errone lors d'un
+  // futur upload vers un dossier dont seule une partie aurait ete demandee
+  // (voir handleWebConfigAddToPlaylistsBatch()).
+  if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+    String marker = "# FULL:" + fullMarker + "\n";
+    if (!writeBufChecked(outFile, marker)) hadWriteLoss = true;
+    xSemaphoreGive(sdAccessMutex);
+  }
+
+  // Portion "deja en cache" (generation hybride, plan cache_master_gifs) --
+  // quasi instantanee, ecrite en premier directement dans le fichier de
+  // sortie deja ouvert (pas de temp+rename separe ici : l'integrite globale
+  // du fichier est deja garantie par le mecanisme existant plus bas, qui
+  // supprime outputPath entierement en cas d'arret/heap-critique pendant la
+  // phase de scan qui suit).
+  int totalGifsFromCache = 0;
+  if (cachedDirsCsv.length() > 1) {
+    int linesWritten = 0;
+    bool cacheWriteLoss = false;
+    String err;
+    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+      filterMasterIntoFile(cachedDirsCsv, outFile, linesWritten, cacheWriteLoss, err);
+      xSemaphoreGive(sdAccessMutex);
     }
-    if (!f.isDirectory()) {
-      String fname = String(f.name());
-      if (fname.endsWith(".gif")) {
-        g_plGenBuf += "/gifs/" + g_plGenCurDirName + "/" + fname + "\n";
-        g_plGenTotalGifs++;
-        g_plGenCurDirGifs++;
-        if (g_plGenBuf.length() > 4000) { g_plGenOutFile.print(g_plGenBuf); g_plGenBuf = ""; }
+    if (cacheWriteLoss) hadWriteLoss = true;
+    totalGifsFromCache = linesWritten;
+  }
+
+  // Scan classique -- SEULEMENT sur les dossiers pas encore couverts par le
+  // fichier maitre.
+  int totalGifsScanned = 0;
+  bool stopped = false, lowHeapAbort = false, scanWriteLoss = false;
+  if (uncachedDirsCsv.length() > 1) {
+    scanFoldersToPlaylistFile(uncachedDirsCsv, outFile, totalGifsScanned, stopped, lowHeapAbort, scanWriteLoss);
+    if (scanWriteLoss) hadWriteLoss = true;
+  }
+
+  if (stopped)
+  {
+    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+      outFile.close();
+      // gere elle-meme SD.exists()/le cas lecture-seule FAT32 -- BUG CORRIGE
+      // (2026-07-28) : cet appel restait hors du mutex jusqu'ici, seul acces
+      // SD non protege de toute la tache, exactement sur le chemin declenche
+      // par le bouton Arreter -- crash reel observe (abort(), reboot) en
+      // test materiel, tres probablement du a cet acces concurrent non
+      // protege au bus SD/SPI pendant que l'autre tache lisait une frame GIF.
+      // Garde heap AJOUTEE (2026-07-30) : un second crash reel, meme
+      // signature exacte (abort()->lock_init_generic()->__sfp, confirme via
+      // addr2line), s'est reproduit ICI MEME malgre le mutex ci-dessus --
+      // maxalloc etait deja tombe a 5108 avant meme le debut du scan (arret
+      // demande apres 311 GIFs). Le mutex protege le BUS SD contre l'acces
+      // concurrent, mais forceDeleteFile() ouvre/renomme/supprime un fichier
+      // (donc alloue potentiellement un nouveau verrou libc via fopen()),
+      // sans le garde-fou heap deja present dans la boucle de scan
+      // (scanFoldersToPlaylistFile()) elle-meme. Si le heap est deja trop
+      // bas ICI, ne pas tenter le nettoyage -- le fichier partiel reste sur
+      // la SD, sera simplement ecrase par la prochaine tentative.
+      if (ESP.getMaxAllocHeap() >= 4096) {
+        forceDeleteFile(outputPath);
+      } else {
+        Serial.println("[WEB] playlistGenTask: heap trop bas pour nettoyer " + name + ".txt (fichier partiel laisse sur SD, maxalloc=" + String(ESP.getMaxAllocHeap()) + ")");
       }
+      xSemaphoreGive(sdAccessMutex);
     }
-    f.close();
-    processed++;
+    if (lowHeapAbort) {
+      Serial.println("[WEB] playlistGenTask: heap insuffisant, " + name + ".txt annulee/supprimee");
+    } else {
+      Serial.println("[WEB] playlistGenTask: arret demande, " + name + ".txt annulee/supprimee");
+    }
+    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+      g_plGenStatus.resultMsg = lowHeapAbort
+        ? "Memoire insuffisante, playlist supprimee. Redemarrez le DMD puis reessayez"
+        : "Generation annulee, playlist supprimee";
+      g_plGenStatus.active = false;
+      g_plGenStatus.done = true;
+      xSemaphoreGive(plGenStatusMutex);
+    }
   }
-  if (millis() - g_plGenLastDmdMs > PLGEN_DMD_REFRESH_MS) {
-    webDmdPause(plGenDmdText(), 0x07E0);
-    g_plGenLastDmdMs = millis();
+  else
+  {
+    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+      outFile.close();
+      xSemaphoreGive(sdAccessMutex);
+    }
+    // Pure RAM, pas de SD -- doit imperativement s'executer AVANT le flip
+    // active=false ci-dessous : c'est cet ordre (pas un mutex sur le cache
+    // lui-meme) qui garantit qu'un handler du thread principal voyant
+    // active=false ne peut lire ce cache qu'apres que cette tache ait fini
+    // de le toucher.
+    invalidatePlaylistRefCache();
+
+    // Embarquement automatique (plan cache_master_gifs) -- les dossiers
+    // nouvellement scannes ci-dessus sont "adoptes" par le fichier maitre :
+    // relit les lignes qui viennent d'etre ecrites dans outputPath (pas
+    // besoin de rescanner /gifs/ une seconde fois) et les ajoute
+    // (FILE_APPEND) a TOUS_MASTER_PATH, qui se cree tout seul au tout
+    // premier appel (bootstrap organique -- aucune capacite de bootstrap
+    // explicite n'est reintroduite cote firmware). Tout futur upload web
+    // vers ce dossier sera desormais suivi automatiquement par
+    // handleWebConfigAddToPlaylistsBatch(), sans action supplementaire.
+    int adoptedDirCount = 0;
+    if (uncachedDirsCsv.length() > 1) {
+      int cp = 1;
+      while (cp < (int)uncachedDirsCsv.length()) { int cc = uncachedDirsCsv.indexOf(',', cp); if (cc < 0) break; adoptedDirCount++; cp = cc + 1; }
+      bool adoptWriteLoss = false;
+      bool adoptOk = false;
+      size_t masterSizeAfter = 0;
+      if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
+        adoptOk = appendMatchingLines(outputPath, uncachedDirsCsv, TOUS_MASTER_PATH, adoptWriteLoss);
+        File chk = SD.open(TOUS_MASTER_PATH, FILE_READ);
+        if (chk) { masterSizeAfter = chk.size(); chk.close(); }
+        xSemaphoreGive(sdAccessMutex);
+      }
+      // DIAGNOSTIC TEMPORAIRE (2026-08-01, retour test reel : count "?" en
+      // permanence sur la page Affichage) -- confirme si l'embarquement a
+      // reellement ecrit quelque chose dans TOUS_MASTER_PATH.
+      Serial.println("[WEB] playlistGenTask: embarquement cache -- adoptOk=" + String(adoptOk ? "1" : "0") + " writeLoss=" + String(adoptWriteLoss ? "1" : "0") + " tailleCacheApres=" + String((unsigned long)masterSizeAfter) + " octets");
+      if (adoptWriteLoss) hadWriteLoss = true;
+    }
+
+    int totalGifs = totalGifsFromCache + totalGifsScanned;
+    bool hybrid = (cachedDirsCsv.length() > 1 && uncachedDirsCsv.length() > 1);
+    String resultMsg;
+    if (hybrid) {
+      resultMsg = "OK: " + String(totalGifs) + " GIFs (" + String(totalGifsFromCache) + " depuis le cache + " + String(totalGifsScanned) + " nouvellement scannes";
+      if (adoptedDirCount > 0) resultMsg += ", " + String(adoptedDirCount) + " dossier(s) ajoute(s) au cache";
+      resultMsg += ") dans la playlist " + name + ".txt";
+    } else {
+      resultMsg = "OK: " + String(totalGifs) + " GIFs ajoutes dans la playlist " + name + ".txt";
+      if (adoptedDirCount > 0) resultMsg += " (" + String(adoptedDirCount) + " dossier(s) ajoute(s) au cache)";
+    }
+    // hadWriteLoss : contrairement au fichier maitre interne (adopte via
+    // appendMatchingLines() ci-dessus), une playlist classique n'a pas de
+    // mecanisme de revalidation automatique -- seul un signal explicite
+    // permet a l'utilisateur de savoir qu'une regeneration est justifiee.
+    if (hadWriteLoss) resultMsg += " (ATTENTION: ecriture incomplete detectee, regenerez cette playlist pour verifier)";
+    Serial.println("[WEB] " + resultMsg);
+    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+      g_plGenStatus.resultMsg = resultMsg;
+      g_plGenStatus.active = false;
+      g_plGenStatus.done = true;
+      xSemaphoreGive(plGenStatusMutex);
+    }
   }
+
+  // DIAGNOSTIC TEMPORAIRE : marge de pile reellement utilisee (en mots de 4
+  // octets sur ESP32) -- valide que 4096 (voir xTaskCreatePinnedToCore() dans
+  // handleWebConfigGeneratePlaylist()) est suffisant sans etre dangereusement
+  // juste. A retirer une fois confirme sur quelques scans reels.
+  Serial.println("[WEB] playlistGenTask: marge de pile restante=" + String(uxTaskGetStackHighWaterMark(nullptr) * 4) + " octets");
+
+  playlistGenTaskHandle = nullptr;
+  vTaskDelete(nullptr);
+}
+
+// Coeur du filtrage de TOUS_MASTER_PATH, ECRIT DIRECTEMENT dans un File
+// deja ouvert (outFile) -- partage par filterPlaylistFromMaster()
+// (playlist entierement en cache, chemin synchrone avec son propre
+// temp+rename) et playlistGenTask() (portion "deja en cache" d'une
+// generation hybride, ecrite directement dans le fichier de sortie deja
+// proprietaire de la tache). Meme algorithme de lecture par blocs de 512
+// octets que handleWebConfigPlaylistDirs() (pending += buf, decoupage sur
+// '\n', report du reliquat, PLUS traitement de la derniere ligne sans '\n'
+// final -- piege facile a oublier en adaptant ce motif). Ne touche JAMAIS
+// /gifs/.
+static bool filterMasterIntoFile(const String &dirsCsv, File &outFile, int &linesWrittenOut, bool &hadWriteLossOut, String &errOut)
+{
+  linesWrittenOut = 0;
+  hadWriteLossOut = false;
+  File src = SD.open(TOUS_MASTER_PATH, FILE_READ);
+  if (!src) { errOut = "fichier maitre introuvable"; return false; }
+
+  // ",dir1,dir2," -- meme convention que "seen" dans handleWebConfigPlaylistDirs().
+  // reserve() : bug reel confirme en test materiel -- sans reservation
+  // prealable, String::operator+=() peut echouer SILENCIEUSEMENT sous heap
+  // critique (maxalloc=4596 observe) en pleine boucle de concatenation,
+  // faisant purement et simplement disparaitre un ou plusieurs dossiers de
+  // "wanted" SANS AUCUNE ERREUR VISIBLE -- 5 GIFs obtenus au lieu de ~11000
+  // attendus (tous les dossiers coches) sur ce test precis. Une seule
+  // grosse allocation en amont (au lieu de N petites reallocations
+  // incrementales, chacune un point de defaillance silencieux distinct) et
+  // une verification explicite de son succes transforment ce risque en
+  // echec net et immediat plutot qu'un resultat faux et muet.
+  String wanted = ",";
+  if (!wanted.reserve(dirsCsv.length() + 4)) {
+    src.close();
+    errOut = "memoire insuffisante (liste de dossiers)";
+    return false;
+  }
+  {
+    int start = 0;
+    while (true) {
+      int comma = dirsCsv.indexOf(',', start);
+      String d = (comma < 0) ? dirsCsv.substring(start) : dirsCsv.substring(start, comma);
+      d.trim();
+      if (d.length() > 0) wanted += d + ",";
+      if (comma < 0) break;
+      start = comma + 1;
+    }
+  }
+
+  int written = 0;
+  bool hadWriteLoss = false;
+  String outBuf;
+  const size_t BUFSZ = 512;
+  char buf[BUFSZ + 1];
+  String pending;
+  // reserve() (meme classe de bug que "wanted" plus haut) : pending ne
+  // depasse jamais vraiment BUFSZ + une ligne (il est retaille a son
+  // reliquat apres chaque bloc), donc une seule petite reservation en amont
+  // evite les N reallocations incrementales repetees (une par bloc lu,
+  // potentiellement des centaines sur un gros fichier maitre) qui sont
+  // sinon autant de points de defaillance silencieuse individuels sous heap
+  // critique -- une desynchronisation de pending corrompt le decoupage en
+  // lignes pour TOUT le reste du fichier, pas seulement la ligne courante.
+  pending.reserve(BUFSZ + 256);
+  int chunkCount = 0;
+  while (true) {
+    int n = src.read((uint8_t *)buf, BUFSZ);
+    if (n <= 0) break;
+    buf[n] = 0;
+    pending += buf;
+    int lineStart = 0;
+    while (true) {
+      int nl = pending.indexOf('\n', lineStart);
+      if (nl < 0) break;
+      String line = pending.substring(lineStart, nl);
+      line.trim();
+      // Segment dossier = meme extraction que handleWebConfigPlaylistDirs()
+      // (indexOf('/', 6) sur le chemin entier) -- jamais un test de
+      // sous-chaine naif : "Arcade" ne doit pas matcher dans "Arcade2".
+      if (line.startsWith("/gifs/")) {
+        int s2 = line.indexOf('/', 6);
+        if (s2 > 6) {
+          String dir = line.substring(6, s2);
+          if (wanted.indexOf("," + dir + ",") >= 0) {
+            outBuf += line + "\n";
+            written++;
+            if (outBuf.length() > 1000) { if (!writeBufChecked(outFile, outBuf)) hadWriteLoss = true; outBuf = ""; }
+          }
+        }
+      }
+      lineStart = nl + 1;
+    }
+    pending = pending.substring(lineStart); // reliquat (ligne a cheval sur 2 blocs) pour le prochain tour
+    if ((size_t)n < BUFSZ) break;
+    if (++chunkCount % 20 == 0) yield(); // watchdog-safe sur un tres gros fichier maitre (aucun autre point de cession dans cette boucle)
+  }
+  pending.trim();
+  if (pending.startsWith("/gifs/")) { // derniere ligne sans retour a la ligne final
+    int s2 = pending.indexOf('/', 6);
+    if (s2 > 6) {
+      String dir = pending.substring(6, s2);
+      if (wanted.indexOf("," + dir + ",") >= 0) { outBuf += pending + "\n"; written++; }
+    }
+  }
+  if (outBuf.length() > 0) { if (!writeBufChecked(outFile, outBuf)) hadWriteLoss = true; }
+  src.close();
+
+  linesWrittenOut = written;
+  hadWriteLossOut = hadWriteLoss;
+  return true;
+}
+
+// Filtre le fichier maitre interne (TOUS_MASTER_PATH) vers outputPath (via
+// filterMasterIntoFile() ci-dessus), en ecrivant d'abord le marqueur
+// "# FULL:" (voir handleWebConfigAddToPlaylistsBatch()) -- toute selection
+// DMD porte toujours sur des dossiers entiers. Chemin RAPIDE : dirsCsv est
+// entierement couvert par le cache -- tourne directement dans le thread
+// loop() (meme raison que handleWebConfigPlaylistDirs()/
+// handleWebConfigAddToPlaylistsBatch() qui font deja ca sans tache ni mutex
+// : aucune lenteur SD localisee possible sur un fichier texte). Ecrit
+// d'abord dans outputPath+".flt" puis remplace atomiquement
+// (forceDeleteFile + rename), jamais d'ecriture directe sur outputPath.
+static bool filterPlaylistFromMaster(const String &dirsCsv, const String &outputPath, const String &fullMarker,
+                                      int &linesWrittenOut, bool &hadWriteLossOut, String &errOut)
+{
+  String tmpPath = outputPath + ".flt";
+  if (SD.exists(tmpPath.c_str())) SD.remove(tmpPath.c_str());
+  File out = SD.open(tmpPath.c_str(), FILE_WRITE);
+  if (!out) { errOut = "ecriture impossible"; return false; }
+
+  bool hadWriteLoss = false;
+  String marker = "# FULL:" + fullMarker + "\n";
+  if (!writeBufChecked(out, marker)) hadWriteLoss = true;
+
+  int written = 0;
+  bool innerWriteLoss = false;
+  bool ok = filterMasterIntoFile(dirsCsv, out, written, innerWriteLoss, errOut);
+  if (innerWriteLoss) hadWriteLoss = true;
+  out.close();
+  if (!ok) { forceDeleteFile(tmpPath); return false; }
+
+  if (SD.exists(outputPath.c_str())) forceDeleteFile(outputPath);
+  SD.rename(tmpPath.c_str(), outputPath.c_str());
+
+  // Nettoyage des compagnons perimes -- meme pattern que handleWebConfigDeletePlaylist().
+  {
+    String base = outputPath.substring(outputPath.lastIndexOf('/') + 1);
+    int dot = base.lastIndexOf('.');
+    if (dot > 0) base = base.substring(0, dot);
+    const char *exts[] = {".cache", ".sig", ".idx"};
+    for (int i = 0; i < 3; i++) {
+      String p = "/playlists/" + base + exts[i];
+      if (SD.exists(p.c_str())) SD.remove(p.c_str());
+    }
+  }
+  invalidatePlaylistRefCache();
+
+  linesWrittenOut = written;
+  hadWriteLossOut = hadWriteLoss;
+  return true;
+}
+
+// B.2.c (plan cache_master_gifs) -- transfere (par ajout, FILE_APPEND) les
+// lignes de srcPath dont le dossier appartient a wantedCsv (",dir1,dir2,")
+// vers destPath. Utilise pour "adopter" dans TOUS_MASTER_PATH les dossiers
+// venant d'etre scannes pour la premiere fois (playlistGenTask()) -- evite
+// un second scan de /gifs/, il suffit de relire la playlist qui vient
+// elle-meme d'etre ecrite. Cree destPath s'il n'existe pas encore
+// (bootstrap organique du fichier maitre, premiere generation de playlist
+// jamais lancee sur cette carte). Ignore silencieusement toute ligne qui ne
+// commence pas par "/gifs/" (dont le marqueur "# FULL:" en tete de
+// srcPath).
+static bool appendMatchingLines(const String &srcPath, const String &wantedCsv, const String &destPath, bool &hadWriteLossOut)
+{
+  hadWriteLossOut = false;
+  File src = SD.open(srcPath.c_str(), FILE_READ);
+  if (!src) return false;
+  File dest = SD.open(destPath.c_str(), FILE_APPEND);
+  if (!dest) { src.close(); return false; }
+
+  bool hadWriteLoss = false;
+  String outBuf; outBuf.reserve(1200);
+  const size_t BUFSZ = 512;
+  char buf[BUFSZ + 1];
+  String pending; pending.reserve(BUFSZ + 256);
+  int chunkCount = 0;
+  while (true) {
+    int n = src.read((uint8_t *)buf, BUFSZ);
+    if (n <= 0) break;
+    buf[n] = 0;
+    pending += buf;
+    int lineStart = 0;
+    while (true) {
+      int nl = pending.indexOf('\n', lineStart);
+      if (nl < 0) break;
+      String line = pending.substring(lineStart, nl);
+      line.trim();
+      if (line.startsWith("/gifs/")) {
+        int s2 = line.indexOf('/', 6);
+        if (s2 > 6) {
+          String dir = line.substring(6, s2);
+          if (wantedCsv.indexOf("," + dir + ",") >= 0) { outBuf += line; outBuf += "\n"; }
+        }
+      }
+      lineStart = nl + 1;
+    }
+    pending = pending.substring(lineStart);
+    if (outBuf.length() > 1000) { if (!writeBufChecked(dest, outBuf)) hadWriteLoss = true; outBuf = ""; }
+    if ((size_t)n < BUFSZ) break;
+    if (++chunkCount % 20 == 0) yield();
+  }
+  pending.trim();
+  if (pending.startsWith("/gifs/")) {
+    int s2 = pending.indexOf('/', 6);
+    if (s2 > 6) {
+      String dir = pending.substring(6, s2);
+      if (wantedCsv.indexOf("," + dir + ",") >= 0) { outBuf += pending; outBuf += "\n"; }
+    }
+  }
+  if (outBuf.length() > 0) { if (!writeBufChecked(dest, outBuf)) hadWriteLoss = true; }
+  dest.close();
+  src.close();
+  hadWriteLossOut = hadWriteLoss;
+  return true;
 }
 
 static void handleWebConfigGeneratePlaylist()
 {
-  if (g_plGenActive) { webServer->send(409, "text/plain", "ERR: generation deja en cours"); return; }
+  bool alreadyActive = false;
+  if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+    alreadyActive = g_plGenStatus.active;
+    xSemaphoreGive(plGenStatusMutex);
+  }
+  if (alreadyActive) { webServer->send(409, "text/plain", "ERR: generation deja en cours"); return; }
   if (!webServer->hasArg("name") || !webServer->hasArg("dirs")) {
     webServer->send(400, "text/plain", "ERR: manque nom ou dirs"); return;
   }
   String name = webServer->arg("name");
-  String dirs = webServer->arg("dirs");
+  String dirsRaw = webServer->arg("dirs");
   String outputPath = "/playlists/" + name + ".txt";
+
+  // B.1 (plan cache_master_gifs) -- verification PAR DOSSIER (pas globale)
+  // de la presence dans le fichier maitre : cocher un dossier jamais mis en
+  // cache aux cotes de dossiers deja en cache produisait auparavant une
+  // playlist silencieusement incomplete (l'ancien test global -- "le
+  // fichier maitre existe-t-il ?" -- prenait le chemin rapide pour TOUT des
+  // qu'il existait, sans verifier que chaque dossier demande y etait
+  // reellement represente). cachedDirsCsv/uncachedDirsCsv au format
+  // ",dir1,dir2,". allDirsClean : tous les dossiers demandes, "dir1,dir2"
+  // sans virgule d'encadrement -- marqueur "# FULL:" ecrit tel quel.
+  String cachedDirsCsv = ",", uncachedDirsCsv = ",";
+  String allDirsClean;
+  {
+    File master = SD.exists(TOUS_MASTER_PATH) ? SD.open(TOUS_MASTER_PATH, FILE_READ) : File();
+    int start = 0;
+    while (true) {
+      int comma = dirsRaw.indexOf(',', start);
+      String d = (comma < 0) ? dirsRaw.substring(start) : dirsRaw.substring(start, comma);
+      d.trim();
+      if (d.length() > 0) {
+        if (allDirsClean.length() > 0) allDirsClean += ",";
+        allDirsClean += d;
+        bool inMaster = false;
+        if (master) { master.seek(0); inMaster = fileContainsNeedle(master, "/gifs/" + d + "/"); }
+        if (inMaster) cachedDirsCsv += d + ","; else uncachedDirsCsv += d + ",";
+      }
+      if (comma < 0) break;
+      start = comma + 1;
+    }
+    if (master) master.close();
+  }
+
+  // Chemin RAPIDE : tous les dossiers demandes sont deja couverts par le
+  // fichier maitre -- filtrage texte synchrone (tourne dans loop(), pas de
+  // tache), ne touche jamais /gifs/.
+  if (uncachedDirsCsv.length() <= 1) {
+    int linesWritten = 0;
+    bool hadWriteLoss = false;
+    String err;
+    bool ok = filterPlaylistFromMaster(cachedDirsCsv, outputPath, allDirsClean, linesWritten, hadWriteLoss, err);
+    if (ok) {
+      String msg = "OK: " + String(linesWritten) + " GIFs (generation rapide)";
+      if (hadWriteLoss) msg += " (ATTENTION: ecriture incomplete detectee, regenerez cette playlist pour verifier)";
+      Serial.println("[WEB] generate-playlist: " + msg + " -> " + name + ".txt");
+      webServer->send(200, "text/plain", msg);
+    } else {
+      Serial.println("[WEB] generate-playlist: ECHEC filtrage (" + err + ")");
+      webServer->send(500, "text/plain", "ERR: " + err);
+    }
+    return;
+  }
+
+  // Chemin hybride/complet (generation en tache de fond, avec progression) :
+  // au moins un dossier demande n'est pas encore dans le fichier maitre
+  // (soit il n'existe pas du tout -- bootstrap -- soit certains dossiers
+  // sont neufs). playlistGenTask() ecrit d'abord la portion cachedDirsCsv
+  // (quasi instantanee) puis scanne uniquement uncachedDirsCsv, avant
+  // d'adopter automatiquement ces derniers dans le fichier maitre.
   if (!SD.exists("/playlists")) SD.mkdir("/playlists");
   if (SD.exists(outputPath.c_str())) SD.remove(outputPath.c_str());
   File outf = SD.open(outputPath.c_str(), FILE_WRITE);
   if (!outf) { webServer->send(500, "text/plain", "ERR: ecriture impossible"); return; }
+  outf.close(); // validation d'ecriture seulement -- playlistGenTask() rouvre le fichier et ecrit le marqueur "# FULL:" en tout premier
 
-  g_plGenName = name;
-  g_plGenDirsCsv = dirs;
-  g_plGenParseIdx = 0;
-  g_plGenDirIdx = 0;
-  g_plGenTotalDirs = 1;
-  for (int i = 0; i < dirs.length(); i++) if (dirs.charAt(i) == ',') g_plGenTotalDirs++;
-  g_plGenCurDirName = "";
-  g_plGenCurDirOpen = false;
-  g_plGenOutFile = outf;
-  g_plGenBuf = "";
-  g_plGenTotalGifs = 0;
-  g_plGenCurDirGifs = 0;
-  g_plGenResultMsg = "";
-  g_plGenDone = false;
-  g_plGenActive = true;
-  Serial.println("[WEB] generate-playlist: demarrage " + name + ".txt, dirs=" + dirs);
+  int totalDirsToScan = 0;
+  { int cp = 1; while (cp < (int)uncachedDirsCsv.length()) { int cc = uncachedDirsCsv.indexOf(',', cp); if (cc < 0) break; totalDirsToScan++; cp = cc + 1; } }
+
+  if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+    g_plGenStatus = PlaylistGenStatus();
+    g_plGenStatus.active = true;
+    g_plGenStatus.totalDirs = totalDirsToScan;
+    xSemaphoreGive(plGenStatusMutex);
+  }
+
+  PlaylistGenRequest *req = new PlaylistGenRequest{ name, cachedDirsCsv, uncachedDirsCsv, allDirsClean };
+  Serial.println("[WEB] generate-playlist: creation tache, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap())); // DIAGNOSTIC TEMPORAIRE
+  // 4096 (pas 8192) : confirme en test reel (2026-07-28) que maxalloc peut
+  // descendre a ~8180 octets a ce point du fonctionnement normal (boot +
+  // navigation web) -- une pile de 8192 echouait de justesse (bloc contigu
+  // introuvable), laissant active bloque a true pour toujours avant l'ajout
+  // de la verification ci-dessous. 4096 correspond a la taille deja utilisee
+  // avec succes par mqttTask() dans ce meme environnement contraint ; marge
+  // reelle a confirmer via uxTaskGetStackHighWaterMark() (log en fin de
+  // tache, voir playlistGenTask()).
+  BaseType_t taskOk = xTaskCreatePinnedToCore(playlistGenTask, "playlistGen", 4096, req, 1, &playlistGenTaskHandle, 0);
+  if (taskOk != pdPASS) {
+    // xTaskCreatePinnedToCore() peut echouer (heap fragmente -- pile de 8 Ko
+    // = un bloc contigu a allouer, deja documente sur ce projet comme
+    // difficile a garantir) : SANS cette verification, g_plGenStatus.active
+    // restait bloque a true pour toujours (rien ne le repasse a false
+    // puisque la tache censee le faire n'a jamais demarre) -- symptome
+    // observe en test reel (2026-07-28) : "0" affiche indefiniment, aucune
+    // progression. delete req ici pour eviter la fuite (la tache qui aurait
+    // du le liberer n'existe pas).
+    delete req;
+    Serial.println("[WEB] generate-playlist: ECHEC creation tache (heap insuffisant ?)");
+    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+      g_plGenStatus.active = false;
+      g_plGenStatus.done = true;
+      g_plGenStatus.resultMsg = "ERR: impossible de demarrer la generation (heap insuffisant)";
+      xSemaphoreGive(plGenStatusMutex);
+    }
+    webServer->send(500, "text/plain", "ERR: impossible de demarrer la generation");
+    return;
+  }
+  Serial.println("[WEB] generate-playlist: demarrage " + name + ".txt, dirs=" + dirsRaw);
   webServer->send(200, "text/plain", "STARTED");
 }
 
 static void handleWebConfigGeneratePlaylistStatus()
 {
-  String json = "{\"active\":" + String(g_plGenActive ? "true" : "false");
-  json += ",\"done\":" + String(g_plGenDone ? "true" : "false");
-  json += ",\"dir\":\"" + jsonEscape(g_plGenCurDirName) + "\"";
-  json += ",\"dirIdx\":" + String(g_plGenDirIdx);
-  json += ",\"totalDirs\":" + String(g_plGenTotalDirs);
-  json += ",\"gifs\":" + String(g_plGenTotalGifs);
-  json += ",\"curDirGifs\":" + String(g_plGenCurDirGifs);
-  json += ",\"result\":\"" + jsonEscape(g_plGenResultMsg) + "\"}";
+  PlaylistGenStatus snap;
+  if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+    snap = g_plGenStatus;
+    xSemaphoreGive(plGenStatusMutex);
+  }
+  String json = "{\"active\":" + String(snap.active ? "true" : "false");
+  json += ",\"done\":" + String(snap.done ? "true" : "false");
+  json += ",\"dir\":\"" + jsonEscape(snap.curDirName) + "\"";
+  json += ",\"dirIdx\":" + String(snap.dirIdx);
+  json += ",\"totalDirs\":" + String(snap.totalDirs);
+  json += ",\"gifs\":" + String(snap.totalGifs);
+  json += ",\"curDirGifs\":" + String(snap.curDirGifs);
+  json += ",\"result\":\"" + jsonEscape(snap.resultMsg) + "\"}";
   webServer->send(200, "application/json", json);
 }
 
-// Forward declaration -- definie plus bas avec deleteFolderRecursive() (meme
-// fonction de suppression tolerante FAT32 lecture-seule), utilisee ici pour
-// supprimer la playlist partielle en cas d'arret demande par l'utilisateur.
-static bool forceDeleteFile(const String &path);
-
-// Arret demande par l'utilisateur (bouton "Arreter", meme principe que celui
-// de l'upload MEDIA) : la generation etant enterement synchrone avec loop()
-// (pas de tache separee), on peut fermer/nettoyer directement ici sans
-// risque de concurrence. Supprime la playlist PARTIELLE en cours de creation
-// (demande explicite -- un fichier incomplet ne doit jamais rester utilisable
-// tel quel) et reinitialise l'etat pour que le polling en cours (JS) detecte
-// la fin via son chemin normal (!active).
+// Arret demande par l'utilisateur (bouton "Arreter") : pose juste le drapeau,
+// ne touche plus AUCUN File -- playlistGenTask() est desormais la SEULE
+// proprietaire de g_plGenOutFile/du dossier en cours, elimine par construction
+// tout risque de double-fermeture/concurrence sur ces objets (au lieu de le
+// gerer par verrouillage). La tache se ferme/nettoie elle-meme a son prochain
+// point de controle ; le polling web deja en place detecte la fin via son
+// chemin normal (!active), sans changement JS necessaire.
 static void handleWebConfigGeneratePlaylistStop()
 {
-  if (!g_plGenActive) { webServer->send(200, "text/plain", "OK: rien a arreter"); return; }
-  if (g_plGenCurDirOpen && g_plGenCurDir) g_plGenCurDir.close();
-  if (g_plGenOutFile) g_plGenOutFile.close();
-  String path = "/playlists/" + g_plGenName + ".txt";
-  if (SD.exists(path.c_str())) forceDeleteFile(path);
-  g_plGenActive = false;
-  g_plGenCurDirOpen = false;
-  g_plGenDone = true;
-  g_plGenResultMsg = "Generation annulee, playlist supprimee";
-  Serial.println("[WEB] generate-playlist-stop: " + g_plGenName + ".txt annulee/supprimee");
-  webDmdPause("Generation annulee", 0xF800);
-  webServer->send(200, "text/plain", "OK: annule");
+  bool wasActive = false;
+  if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
+    wasActive = g_plGenStatus.active;
+    if (wasActive) g_plGenStatus.stopRequested = true;
+    xSemaphoreGive(plGenStatusMutex);
+  }
+  Serial.println(String("[WEB] generate-playlist-stop: ") + (wasActive ? "arret demande" : "rien a arreter"));
+  webServer->send(200, "text/plain", wasActive ? "OK: arret demande" : "OK: rien a arreter");
 }
+
 
 // Renvoie la liste (JSON) des dossiers distincts references par une playlist
 // existante -- utilise par la page web pour pre-cocher les cases du dossier
@@ -1529,6 +3320,7 @@ static void handleWebConfigGeneratePlaylistStop()
 // generee, plutot que de devoir tout re-cocher a la main.
 static void handleWebConfigPlaylistDirs()
 {
+  if (plGenIsActive()) { webServer->send(200, "application/json", "[]"); return; }
   if (!webServer->hasArg("name")) { webServer->send(400, "text/plain", "ERR: manque nom"); return; }
   String name = webServer->arg("name");
   int dotExt = name.lastIndexOf('.');
@@ -1546,6 +3338,18 @@ static void handleWebConfigPlaylistDirs()
   const size_t BUFSZ = 512;
   char buf[BUFSZ + 1];
   String pending;
+  // reserve() (2026-07-30) : bug reel confirme en test materiel -- sur une
+  // grosse playlist (ALL2.txt, ~11000 lignes/18 dossiers), reouverte pour
+  // modification, un SEUL dossier se retrouvait precoche au lieu de tous.
+  // Meme cause que "wanted" dans filterPlaylistFromMaster() : pending +=
+  // buf peut echouer silencieusement sous heap critique a l'un des
+  // (potentiellement) centaines de blocs lus -- une seule desynchronisation
+  // corrompt le decoupage en lignes pour TOUT le reste du fichier, faisant
+  // disparaitre la quasi-totalite des dossiers reconnus d'un coup. pending
+  // ne depasse jamais vraiment BUFSZ + une ligne (retaille a son reliquat
+  // apres chaque bloc) -- une seule petite reservation en amont evite les
+  // N reallocations incrementales, chacune un point de defaillance distinct.
+  pending.reserve(BUFSZ + 256);
   while (true) {
     int n = f.read((uint8_t *)buf, BUFSZ);
     if (n <= 0) break;
@@ -1592,7 +3396,7 @@ static void handleWebConfigPlaylistDirs()
 
 static void handleWebConfigDeletePlaylist()
 {
-  if (g_plGenActive) { webServer->send(409, "text/plain", "ERR: generation en cours"); return; }
+  if (plGenIsActive()) { webServer->send(409, "text/plain", "ERR: generation en cours"); return; }
   if (!webServer->hasArg("name")) { webServer->send(400, "text/plain", "ERR: manque nom"); return; }
   String name = webServer->arg("name");
   String base = name;
@@ -1707,6 +3511,7 @@ static void fileFindExistingPaths(File &f, int nCandidates, const String candida
 // fin de tout un lot d'upload.
 static void handleWebConfigAddToPlaylistsBatch()
 {
+  if (plGenIsActive()) { webServer->send(409, "text/plain", "ERR: generation de playlist en cours"); return; }
   unsigned long tFn0 = millis(); // DIAGNOSTIC TEMPORAIRE (68s constates en test reel 2026-07-28) -- a retirer une fois la cause trouvee
   if (!webServer->hasArg("dir") || !webServer->hasArg("files")) { webServer->send(200, "text/plain", "OK:0"); return; }
   String folder = webServer->arg("dir"); folder.trim();
@@ -1724,6 +3529,14 @@ static void handleWebConfigAddToPlaylistsBatch()
     unsigned long tScan0 = millis(); // DIAGNOSTIC TEMPORAIRE
     int plCount = 0;
     String needle = "/gifs/" + folder + "/";
+    // Fichier maitre interne (cache_master_gifs.dat, TOUS_MASTER_PATH) --
+    // reintroduit ici explicitement PAR NOM : son extension .dat (changee
+    // volontairement pour ne plus jamais etre confondu avec une playlist
+    // ailleurs, cf listing) le fait sortir du filtre ".txt" ci-dessous, qui
+    // l'aurait sinon exclu de ce scan et donc de la mise a jour automatique
+    // lors d'un upload.
+    String masterBase = String(TOUS_MASTER_PATH);
+    masterBase = masterBase.substring(masterBase.lastIndexOf('/') + 1);
     File plDir = SD.open("/playlists");
     if (plDir && plDir.isDirectory()) {
       File entry = plDir.openNextFile();
@@ -1731,16 +3544,55 @@ static void handleWebConfigAddToPlaylistsBatch()
         String name = String(entry.name());
         int slash = name.lastIndexOf('/');
         String base = (slash >= 0) ? name.substring(slash + 1) : name;
-        if (!entry.isDirectory() && base.endsWith(".txt")) {
+        bool isMaster = (base == masterBase);
+        if (!entry.isDirectory() && (base.endsWith(".txt") || isMaster)) {
           plCount++;
           unsigned long tEntry0 = millis(); // DIAGNOSTIC TEMPORAIRE
-          // entry est deja un handle ouvert sur ce fichier precis (obtenu par
-          // iteration via openNextFile(), pas par nom) -- pas besoin de le
-          // rouvrir. fileContainsNeedle() lit par blocs fixes (voir plus haut) :
-          // evite de charger tout le fichier en memoire, cause reelle des
-          // blocages 40-44s mesures en test reel sur "Tous"/"gaming" (l'ancienne
-          // hypothese "recherche par nom" a ete infirmee par un test dedie).
-          bool found = fileContainsNeedle(entry, needle);
+          bool found;
+          if (isMaster) {
+            // B (plan cache_master_gifs) -- cache_master_gifs.dat est cense
+            // contenir TOUT /gifs/ par construction : il doit toujours etre
+            // une cible d'ajout, meme pour un dossier flambant neuf qu'il ne
+            // referencait pas encore (contrairement a une playlist
+            // utilisateur, ou "n'ajouter que si elle reference deja ce
+            // dossier" respecte une selection volontaire).
+            found = true;
+          } else {
+            // Marqueur "# FULL:dossier1,dossier2" (plan cache_master_gifs) --
+            // playlist "hybride" (dossiers entiers + selection personnalisee
+            // de fichiers dans d'autres dossiers, voir outil PC) : sans ce
+            // marqueur, fileContainsNeedle() (juste "cette playlist
+            // reference-t-elle AU MOINS UNE ligne de ce dossier ?") ajouterait
+            // a tort un nouveau fichier a une playlist qui n'a jamais demande
+            // la totalite de ce dossier. Ne lit que la premiere ligne (peu
+            // couteux) ; playlist "ancien style" sans marqueur -> comportement
+            // inchange (fileContainsNeedle() sur tout le fichier).
+            String firstLine;
+            entry.seek(0);
+            char peekBuf[513];
+            int pn = entry.read((uint8_t *)peekBuf, sizeof(peekBuf) - 1);
+            if (pn > 0) {
+              peekBuf[pn] = 0;
+              String chunk = String(peekBuf);
+              int nl = chunk.indexOf('\n');
+              firstLine = (nl >= 0) ? chunk.substring(0, nl) : chunk;
+              firstLine.trim();
+            }
+            if (firstLine.startsWith("# FULL:")) {
+              String listCsv = "," + firstLine.substring(7) + ",";
+              found = listCsv.indexOf("," + folder + ",") >= 0;
+            } else {
+              entry.seek(0);
+              // entry est deja un handle ouvert sur ce fichier precis (obtenu
+              // par iteration via openNextFile(), pas par nom) -- pas besoin
+              // de le rouvrir. fileContainsNeedle() lit par blocs fixes (voir
+              // plus haut) : evite de charger tout le fichier en memoire,
+              // cause reelle des blocages 40-44s mesures en test reel sur
+              // "Tous"/"gaming" (l'ancienne hypothese "recherche par nom" a
+              // ete infirmee par un test dedie).
+              found = fileContainsNeedle(entry, needle);
+            }
+          }
           Serial.println("[WEB] plscan " + base + " " + String(millis() - tEntry0) + "ms found=" + String(found ? "1" : "0")); // DIAGNOSTIC TEMPORAIRE
           if (found) {
             if (g_plRefCachePlaylists.length() > 0) g_plRefCachePlaylists += ",";
@@ -1818,7 +3670,7 @@ static void handleWebConfigAddToPlaylistsBatch()
 // dossier existe deja quand l'upload demarre vraiment.
 static void handleWebConfigCreateFolder()
 {
-  if (g_plGenActive) { webServer->send(409, "text/plain", "ERR: generation de playlist en cours"); return; }
+  if (plGenIsActive()) { webServer->send(409, "text/plain", "ERR: generation de playlist en cours"); return; }
   if (!webServer->hasArg("dir")) { webServer->send(400, "text/plain", "ERR: dossier manquant"); return; }
   String dirName = webServer->arg("dir"); dirName.trim();
   if (dirName.length() == 0) { webServer->send(400, "text/plain", "ERR: dossier manquant"); return; }
@@ -1843,37 +3695,80 @@ static void handleWebConfigCreateFolder()
 
 static void handleWebConfigUpload()
 {
-  if (uploadFile) { uploadFile.close(); uploadFile = File(); }
-  if (uploadSuccess) {
-    uploadSuccess = false;
-    String msg = "OK: fichier uploade dans /gifs/" + uploadDir;
-    Serial.println("[WEB] " + msg);
-    webServer->send(200, "text/plain", msg);
-  } else {
+  if (uploadFile) { uploadFile.close(); uploadFile = File(); } // filet de securite -- deja ferme normalement a UPLOAD_FILE_END
+  String results = uploadBatchResults;
+  int okCount = uploadBatchOkCount;
+  // Remis a zero ICI (pas au prochain UPLOAD_FILE_START) : cette requete
+  // /upload est entierement terminee, la PROCHAINE sera une requete HTTP
+  // independante (nouvelle poignee de main TCP, cf. commentaire pres des
+  // variables globales) qui doit repartir d'un accumulateur vide.
+  uploadBatchResults = "";
+  uploadBatchOkCount = 0;
+  if (results.length() == 0) {
     // Ne JAMAIS appeler webServer->send() depuis handleWebConfigUploadFile()
     // (callback UPLOAD_FILE_*) : le client est encore en train d'envoyer le
     // corps multipart a ce moment-la, et une reponse prematuree casse la
     // connexion HTTP en cours (vu cote navigateur comme une erreur reseau).
     // Seul ce handler, appele une fois le corps entierement consomme, a le
-    // droit d'envoyer une reponse.
+    // droit d'envoyer une reponse. Ici : aucun fichier n'a meme atteint
+    // UPLOAD_FILE_END (ex. heap critique des le tout debut de la requete).
     String msg = uploadErrorMsg.length() ? uploadErrorMsg : "ERR: aucun fichier recu";
     uploadErrorMsg = "";
     webServer->send(400, "text/plain", msg);
+    return;
   }
+  String json = "{\"ok\":" + String(okCount) + ",\"files\":[" + results + "]}";
+  Serial.println("[WEB] upload batch: " + String(okCount) + " fichier(s) reussi(s) sur cette requete");
+  webServer->send(200, "application/json", json);
 }
 
 static void handleWebConfigUploadFile()
 {
   HTTPUpload &upload = webServer->upload();
   if (upload.status == UPLOAD_FILE_START) {
-    if (g_plGenActive) { uploadErrorMsg = "ERR: generation de playlist en cours"; return; }
+    // Reengage le mode config si necessaire (demande utilisateur 2026-08-02,
+    // retour test reel) : apres un crash+reboot en pleine copie, le
+    // navigateur relance l'upload tout seul (retry cote JS) SANS recharger
+    // de page au prealable -- sur ce boot frais, g_sdOpInProgress est encore
+    // false, donc la lecture GIF continue en fond ET MQTT tente de se
+    // connecter (bloque uniquement par g_sdOpInProgress, voir mqttTask()
+    // dans RecalBox_DMD.ino) pendant l'upload, aggravant la pression heap
+    // deja critique. Le forcer ICI, avant meme le premier octet ecrit,
+    // garantit le meme etat "config" qu'un upload demarre normalement
+    // depuis la page MEDIA deja chargee.
+    // Pause inline (PAS triggerWebConfigMode()) : ce dernier peut desormais
+    // declencher un reboot cible (v42, voir plus bas) qui envoie sa propre
+    // reponse HTTP -- inacceptable ici, le client est encore en train
+    // d'envoyer le corps multipart (meme regle que le reste de ce handler,
+    // cf. commentaire de handleWebConfigUpload() : jamais de send()
+    // premature depuis un callback UPLOAD_FILE_*). En pratique le reboot
+    // aurait de toute facon deja eu lieu au chargement de la page MEDIA
+    // elle-meme si le heap etait plafonne -- ce chemin ne sert que le cas
+    // de reprise auto post-crash sur un boot frais, ou le heap est encore
+    // largement suffisant.
+    if (!g_sdOpInProgress) {
+      // Repli 0.0.0.0 + clearFirstBoot() retire : memes corrections que
+      // triggerWebConfigModeSoft() (bug corrige 2026-08-05) -- duplicata
+      // volontaire (voir commentaire au-dessus, PAS triggerWebConfigMode()
+      // ici a cause du reboot cible qu'il peut declencher).
+      String ip = WiFi.localIP().toString();
+      if (ip == "0.0.0.0") ip = WiFi.softAPIP().toString();
+      if (ip == "0.0.0.0") ip = "192.168.4.1";
+      String url = "http://" + ip;
+      webDmdSetMainMsg("WEB DMD CONFIG");
+      webDmdPause(url, 0xFFE0);
+    }
+    uploadCurName = upload.filename;
+    { int p = uploadCurName.lastIndexOf('/'); if (p >= 0) uploadCurName = uploadCurName.substring(p + 1); }
+    { int p = uploadCurName.lastIndexOf('\\'); if (p >= 0) uploadCurName = uploadCurName.substring(p + 1); }
+    if (plGenIsActive()) { uploadErrorMsg = "ERR: generation de playlist en cours"; return; }
     // Timeout client elargi (defaut lib WebServer ~3s) le temps de l'upload :
     // les ecritures SD sous charge peuvent le depasser facilement -> la lib
     // coupe alors la connexion, vu cote navigateur comme ERR_CONNECTION_
     // RESET/TIMED_OUT. Remis a une valeur courte des la fin/l'abandon de
-    // l'upload.
+    // chaque fichier (plusieurs fichiers possibles dans la meme requete,
+    // voir commentaire pres des variables globales).
     webServer->client().setTimeout(15000);
-    uploadSuccess = false;
     uploadErrorMsg = "";
     uploadDir = webServer->arg("dir");
     uploadDir.trim();
@@ -1881,11 +3776,27 @@ static void handleWebConfigUploadFile()
       uploadErrorMsg = "ERR: dossier cible manquant";
       return;
     }
-    String filename = upload.filename;
-    { int p = filename.lastIndexOf('/'); if (p >= 0) filename = filename.substring(p + 1); }
-    { int p = filename.lastIndexOf('\\'); if (p >= 0) filename = filename.substring(p + 1); }
-    if (filename.length() == 0) { uploadErrorMsg = "ERR: nom fichier invalide"; return; }
-    String path = "/gifs/" + uploadDir + "/" + filename;
+    if (uploadCurName.length() == 0) { uploadErrorMsg = "ERR: nom fichier invalide"; return; }
+    // Garde heap critique (reintroduite v42 -- perdue lors de la refonte
+    // multi-fichiers, voir v91 historique + crash reel v41) : sans ce garde,
+    // un heap deja au plus bas au moment du SD.open() plus bas peut faire
+    // echouer l'allocation interne du mutex de flux FILE* (newlib) et
+    // declencher un abort() direct -- PAS une exception C++, donc jamais
+    // rattrapable par le try/catch de handleWebConfig(). Retry-apres-delai
+    // pour ne pas refuser un creux transitoire (cf. v91).
+    if (ESP.getMaxAllocHeap() < 6000) {
+      unsigned long maBefore = ESP.getMaxAllocHeap();
+      delay(10);
+      unsigned long maAfter = ESP.getMaxAllocHeap();
+      Serial.println("[WEB] Upload heap critique initial maxalloc=" + String(maBefore) + ", apres delay(10) maxalloc=" + String(maAfter));
+      if (maAfter < 6000) {
+        uploadErrorMsg = "ERR: heap critique, reessayez";
+        Serial.println("[WEB] Upload refuse (heap critique, maxalloc=" + String(maAfter) + ")");
+        return;
+      }
+      Serial.println("[WEB] Upload : creux transitoire resorbe, poursuite normale");
+    }
+    String path = "/gifs/" + uploadDir + "/" + uploadCurName;
     String dirPath = "/gifs/" + uploadDir;
     if (!SD.exists(dirPath.c_str())) {
       // Le JS appelle /create-folder avant le premier fichier -- ce cas ne
@@ -1921,20 +3832,27 @@ static void handleWebConfigUploadFile()
     }
   } else if (upload.status == UPLOAD_FILE_END) {
     webServer->client().setTimeout(3000);
+    // Accumule le resultat de CETTE part (fichier) dans uploadBatchResults --
+    // handleWebConfigUpload() (une seule fois, apres la DERNIERE part de la
+    // requete) construit la reponse JSON finale a partir de cet accumulateur.
+    if (uploadBatchResults.length() > 0) uploadBatchResults += ",";
     if (uploadFile) {
       uploadFile.close();
       uploadFile = File();
-      uploadSuccess = true;
       unsigned long dt = millis() - uploadStartMs;
-      Serial.println("[WEB] Upload done: " + String(uploadTotalBytes) + " bytes in " + String(dt) + "ms");
-      // Mise a jour des playlists PLUS appelee ici par fichier -- le JS
-      // (uploadGif()) appelle /add-to-playlists-batch UNE SEULE FOIS a la
-      // fin de tout le lot, avec la liste des fichiers uploades avec succes.
+      Serial.println("[WEB] Upload done: " + uploadCurName + " " + String(uploadTotalBytes) + " bytes in " + String(dt) + "ms");
+      uploadBatchResults += "{\"name\":\"" + jsonEscape(uploadCurName) + "\",\"ok\":true}";
+      uploadBatchOkCount++;
+    } else {
+      String reason = uploadErrorMsg.length() ? uploadErrorMsg : "ERR: echec";
+      Serial.println("[WEB] Upload FAIL: " + uploadCurName + " (" + reason + ")");
+      uploadBatchResults += "{\"name\":\"" + jsonEscape(uploadCurName) + "\",\"ok\":false,\"err\":\"" + jsonEscape(reason) + "\"}";
     }
+    uploadErrorMsg = "";
   } else if (upload.status == UPLOAD_FILE_ABORTED) {
     webServer->client().setTimeout(3000);
     if (uploadFile) { uploadFile.close(); uploadFile = File(); }
-    Serial.println("[WEB] Upload aborted");
+    Serial.println("[WEB] Upload aborted: " + uploadCurName);
   }
 }
 
@@ -1982,6 +3900,17 @@ static void handleWebConfigSave()
   File f = SD.open("/config.ini", FILE_WRITE);
   if (!f) { webServer->send(500, "text/plain", "ERR: SD write failed"); return; }
   f.println("# Info"); f.println("info=" + String(showInfo ? "1" : "0"));
+  // language= re-ecrit ici avec la valeur RAM courante (uiLanguage, chargee
+  // au boot depuis config.ini puis mise a jour immediatement par
+  // handleWebConfigSaveLanguage() a chaque changement de langue) -- bug
+  // corrige 2026-08-05, signale par l'utilisateur : cette cle n'etait
+  // JAMAIS re-emise par cette reecriture complete de config.ini (utilisee
+  // par les pages BASIC/NETWORK/CLOCK/MEDIA), donc silencieusement perdue
+  // des la 1ere sauvegarde depuis l'une de ces pages, meme si elle avait ete
+  // correctement ecrite par l'outil PC juste avant. handleWebConfigSaveAP()
+  // (page AP) n'est PAS concernee : elle patche cle par cle via
+  // writeConfigFlag(), qui preserve deja les cles non touchees.
+  f.println("language=" + uiLanguage);
   f.println(); f.println("# Affichage"); f.println("brightness=" + String(b));
   f.println(); f.println("# Playlist"); f.println("playlist=" + playlistName); f.println("random=" + String(playlistRandom ? "1" : "0"));
   f.println(); f.println("# Wi-Fi & Bluetooth");
@@ -2003,7 +3932,20 @@ static void handleWebConfigSave()
     f.println("CLOCK_COLOR=");
   }
   f.println("TZ=" + clockTimeZone);
-  f.println(); f.println("first_boot=0");
+  f.println();
+  // first_boot ne passe a 0 QUE si la config est reellement complete
+  // (playlist par defaut ET IP Recalbox renseignees) -- bug corrige
+  // 2026-08-05, demande utilisateur (etape 3 de la logique cible) :
+  // auparavant ecrit inconditionnellement ici, meme depuis une simple
+  // sauvegarde de la page CLOCK sans jamais avoir renseigne playlist/IP.
+  // Si la config reste incomplete, g_firstBoot garde sa valeur courante
+  // (jamais remis a true ici : une fois la config complete atteinte au
+  // moins une fois, elle ne "redevient" pas premier demarrage si un
+  // champ est efface plus tard -- needWebConfigMode, setup(), continue
+  // de toute facon a re-proposer le mode config tant que playlist/IP
+  // sont vides, independamment de first_boot).
+  if (playlistName.length() > 0 && recalboxIP.length() > 0) g_firstBoot = false;
+  f.println("first_boot=" + String(g_firstBoot ? "1" : "0"));
   f.close();
   Serial.println("[WEB] config.ini saved (brightness=" + String(b) + "%)");
   webServer->send(200, "text/plain", "OK");
@@ -2069,30 +4011,8 @@ static bool deleteFolderRecursive(const String &path)
   return allOk;
 }
 
-// Ecrit buf dans f avec retries (jusqu'a 3, delay(2) entre tentatives) si
-// print() renvoie moins d'octets que prevu -- un SD.print() partiel est une
-// perte de donnees SILENCIEUSE si on ne verifie pas son retour (confirme en
-// test reel 2026-07-30 sur la branche dev/tous-txt-filter : fichiers manquants
-// sans aucune erreur signalee). Retourne false si une partie du buffer n'a
-// pas pu etre ecrite meme apres retries (log explicite dans ce cas).
-static bool writeBufChecked(File &f, const String &buf)
-{
-  size_t total = buf.length();
-  size_t offset = 0;
-  int attempts = 0;
-  while (offset < total && attempts < 3) {
-    size_t w = (offset == 0) ? f.print(buf) : f.print(buf.substring(offset));
-    if (w == 0) { attempts++; delay(2); continue; }
-    offset += w;
-  }
-  if (offset < total) {
-    Serial.println("[WEB] writeBufChecked: PERTE DE DONNEES -- " + String(total - offset) + "/" + String(total) + " octets non ecrits apres retries");
-    return false;
-  }
-  return true;
-}
-
-// A.1 (plan cache_master_gifs) -- Nettoie une playlist des lignes qui
+// A.1 (plan cache_master_gifs, portee ici depuis master 2026-08-02 pour
+// tester Parties A/B/C ensemble) -- Nettoie une playlist des lignes qui
 // referencent un dossier venant d'etre supprime. Sans cela, rien ne met a
 // jour les playlists existantes quand un dossier qu'elles referencent
 // disparait : openNextGif() (RecalBox_DMD.ino) n'a aucune tolerance aux
@@ -2195,7 +4115,7 @@ static bool stripDeletedFoldersFromPlaylist(const String &plBaseName, const Stri
 
 static void handleWebConfigDeleteFolders()
 {
-  if (g_plGenActive) { webServer->send(409, "text/plain", "ERR: generation de playlist en cours"); return; }
+  if (plGenIsActive()) { webServer->send(409, "text/plain", "ERR: generation de playlist en cours"); return; }
   if (!webServer->hasArg("dirs")) { webServer->send(400, "text/plain", "ERR: missing dirs"); return; }
   String dirs = webServer->arg("dirs");
   int count = 0, fail = 0, start = 0;
@@ -2223,8 +4143,14 @@ static void handleWebConfigDeleteFolders()
 
   // A.2 -- nettoie toutes les playlists existantes des lignes qui
   // referencaient un des dossiers effectivement supprimes ci-dessus.
+  // cache_master_gifs.dat (TOUS_MASTER_PATH) est intentionnellement exclu :
+  // il n'est jamais lu playlist par playlist pendant la lecture DMD, son
+  // eventuel contenu perime pour ce dossier sera simplement ignore/reecrit
+  // a la prochaine generation qui le concerne.
   int plModified = 0, totalLinesRemoved = 0;
   if (deletedNamesCsv.length() > 1) {
+    String masterBase = String(TOUS_MASTER_PATH);
+    masterBase = masterBase.substring(masterBase.lastIndexOf('/') + 1);
     File plDir = SD.open("/playlists");
     if (plDir && plDir.isDirectory()) {
       File entry = plDir.openNextFile();
@@ -2234,7 +4160,7 @@ static void handleWebConfigDeleteFolders()
         entry.close();
         int slash = name.lastIndexOf('/');
         String base = (slash >= 0) ? name.substring(slash + 1) : name;
-        if (!isDirEntry && base.endsWith(".txt")) {
+        if (!isDirEntry && base.endsWith(".txt") && base != masterBase) {
           String plBaseName = base.substring(0, base.length() - 4);
           int linesRemoved = 0;
           if (stripDeletedFoldersFromPlaylist(plBaseName, deletedNamesCsv, linesRemoved)) {
@@ -2264,10 +4190,10 @@ static void handleWebConfigDeleteFolders()
 // handleWebConfigAddToPlaylistsBatch()//add-to-playlists-batch (cache
 // g_plRefCache* + lecture bufferisee, voir plus haut).
 
-// Forward declaration : definie plus bas (juste avant handleWebConfigRoot,
-// qui l'utilise aussi), mais appelee ici par handleDmdOpen() -- sans cette
-// declaration, erreur de compilation "not declared in this scope".
-static void triggerWebConfigMode(const String &msg);
+// Forward declaration : definie plus bas, mais appelee ici par
+// handleDmdOpen() -- sans cette declaration, erreur de compilation "not
+// declared in this scope".
+static void triggerWebConfigModeSoft(const String &msg);
 
 static void handleDmdPause()
 {
@@ -2293,7 +4219,7 @@ static void handleDmdOpen()
   if (!webServer->hasArg("msg")) { webServer->send(400, "text/plain", "ERR: missing msg"); return; }
   String msg = webServer->arg("msg");
   String full = msg + " " + WiFi.localIP().toString();
-  triggerWebConfigMode(msg);
+  triggerWebConfigModeSoft(msg);
   webServer->send(200, "text/plain", "OK " + full);
 }
 
@@ -2318,7 +4244,12 @@ static void handleWebConfigScanWiFi()
 
 static void handleWebConfigLang()
 {
-  webServer->send(200, "application/json", "{\"language\":\"" + uiLanguage + "\"}");
+  // "first_boot" ajoute (2026-08-05, demande utilisateur) : deja
+  // l'endpoint appele au bootstrap de CHAQUE page (fetch('/lang'), meme
+  // script sur les 5 pages) -- reutilise pour exposer cet etat au JS sans
+  // aller-retour reseau supplementaire (declenche la modale d'accueil
+  // premier demarrage, voir showHelpModal() cote JS de chaque page).
+  webServer->send(200, "application/json", "{\"language\":\"" + uiLanguage + "\",\"first_boot\":\"" + String(g_firstBoot ? "1" : "0") + "\"}");
 }
 
 static void handleWebConfigSaveLanguage()
@@ -2358,14 +4289,34 @@ static void handleWebConfigSaveAP()
   writeConfigFlag("wifi_password", wifiPassword);
   writeConfigFlag("wifi_static_enabled", wifiStaticEnabled ? "1" : "0");
   writeConfigFlag("wifi_static_ip", wifiStaticIP);
-  writeConfigFlag("first_boot", "0");
+  // NE PAS ecrire first_boot ici (bug corrige 2026-08-05) : cette page
+  // ne couvre que la 1ere des 2 phases du premier demarrage (WiFi).
+  // first_boot ne passe a 0 QUE dans handleWebConfigSave() (page BASIC/
+  // NETWORK/CLOCK/MEDIA), et seulement si la sauvegarde laisse playlist
+  // ET recalbox_ip non vides -- jamais ici, jamais par le simple fait
+  // d'ouvrir une page (voir triggerWebConfigModeSoft()). L'ecrire ici
+  // desactivait a tort tout le parcours "premier demarrage" des la 1ere
+  // phase -- au reboot suivant (WiFi maintenant connecte), l'ecran
+  // d'invitation a terminer la config (voir needWebConfigMode dans
+  // setup()) etait silencieusement saute.
   Serial.println("[WEB] AP save: fichier ecrit avec SSID=" + wifiSSID + " -> reboot");
   webServer->send(200, "text/plain", "OK");
   delay(1000);
   ESP.restart();
 }
 
-static void triggerWebConfigMode(const String &msg)
+// Pause simple, SANS jamais rebooter -- utilisee par TOUTES les pages de
+// config (Root/BASIC/NETWORK/CLOCK/MEDIA/handleDmdOpen) et par
+// UPLOAD_FILE_START. Le reboot cible (v42/v43) a ete restreint (v44,
+// demande explicite utilisateur) au seul point ou il est reellement prouve
+// necessaire : le clic sur "Uploader" (voir handleWebConfigPrepareUpload()
+// plus bas), pas l'ouverture de n'importe quelle page. Aucune preuve que
+// l'ecriture de playlists (generation BASIC, ou l'ajout aux playlists en
+// fin d'upload, /add-to-playlists-batch -- confirme sans souci meme en fin
+// de lot d'upload par l'utilisateur) souffre du meme plafond heap que
+// l'ecriture GIF volumineuse de l'upload -- perimetre volontairement
+// restreint, a elargir seulement si un echec reel est constate ailleurs.
+static void triggerWebConfigModeSoft(const String &msg)
 {
   // "http://" explicite (2026-07-30, demande utilisateur) : certains
   // navigateurs (Firefox "HTTPS-First", Edge) tentent une connexion HTTPS
@@ -2376,21 +4327,151 @@ static void triggerWebConfigMode(const String &msg)
   // requete). En affichant l'URL complete avec schema, un utilisateur qui
   // COPIE/RETAPE exactement ce qui est affiche evite le declenchement de ce
   // mecanisme, sans reglage navigateur particulier.
-  String url = "http://" + WiFi.localIP().toString();
-  clearFirstBoot();
+  //
+  // Repli 0.0.0.0 (bug corrige 2026-08-05) : WiFi.localIP() est vide en
+  // mode AP pur -- cette fonction est appelee par TOUS les handlers de
+  // page, y compris la racine "/" servie par la page AP elle-meme, donc
+  // s'execute aussi a ce moment-la. Meme repli que partout ailleurs dans
+  // ce fichier.
+  String ip = WiFi.localIP().toString();
+  if (ip == "0.0.0.0") ip = WiFi.softAPIP().toString();
+  if (ip == "0.0.0.0") ip = "192.168.4.1";
+  String url = "http://" + ip;
+  // clearFirstBoot() retire d'ici (bug corrige 2026-08-05, demande
+  // utilisateur -- etape 3 de la logique cible) : le simple AFFICHAGE
+  // d'une page ne doit plus jamais effacer first_boot, seule une
+  // sauvegarde reellement complete (handleWebConfigSave()) le fait
+  // desormais.
   webDmdSetMainMsg(msg);
   webDmdPause(url, 0xFFE0);
 }
 
+// Pre-vol AJAX (v44) appele par le JS de la page MEDIA juste avant de
+// demarrer la boucle d'upload (clic sur "Uploader", avant le 1er fichier).
+// Remplace l'ancien reboot systematique a l'ouverture de la page MEDIA
+// (v42/v43) -- demande explicite utilisateur : ouvrir MEDIA pour juste
+// supprimer un dossier ne justifie pas un reboot, seul le fait de
+// reellement lancer un upload le justifie (ecriture SD volumineuse, buffer
+// setvbuf(4096) alloue par SD.open() jamais recycle proprement, cf. v42/v43
+// pour le detail complet). Reponse JSON (pas de page HTML complete, cet
+// appel part d'une page deja chargee) : {"reboot":true} si un reboot cible
+// vient d'etre declenche (le JS doit alors afficher un message d'attente et
+// recharger la page une fois l'ESP32 revenu, cf. uploadGif() page MEDIA),
+// {"reboot":false} sinon (le JS peut demarrer l'upload immediatement).
+static void handleWebConfigPrepareUpload()
+{
+  if (g_playlistStartedThisBoot) {
+    Serial.println("[WEB] prepare-upload: playlist deja active -> reboot cible mode config");
+    writeConfigFlag("force_config_boot", "1");
+    webServer->send(200, "application/json", "{\"reboot\":true}");
+    requestReboot = true;
+    return;
+  }
+  webServer->send(200, "application/json", "{\"reboot\":false}");
+}
+
 static void sendGzipHtml(const uint8_t *content, size_t len)
 {
-  webServer->sendHeader("Content-Encoding", "gzip");
-  webServer->send_P(200, "text/html", reinterpret_cast<PGM_P>(content), len);
+  // TCP_NODELAY (2026-08-03, test reel iOS Safari : "connexion reseau
+  // perdue" a repetition sur TOUTES les pages, meme la plus legere -- MENU,
+  // 6.7 Ko gzip -- alors que le log serie confirme que la requete atteint
+  // bien le serveur a chaque fois (triggerWebConfigModeSoft() s'execute) et
+  // que le garde heap juste en dessous ne se declenche pas (maxalloc>4096)
+  // -- la coupure n'est donc pas expliquee par le garde-fou existant).
+  // Hypothese testee : l'algorithme de Nagle (actif par defaut sur les
+  // sockets ESP32) retarde l'envoi de petits paquets en attendant soit un
+  // ACK, soit assez de donnees a grouper -- combine au mode economie
+  // d'energie WiFi des telephones (radio en veille entre paquets,
+  // contrairement a un PC), l'attente peut depasser le delai de patience de
+  // Safari mobile (plus impatient qu'un navigateur desktop), qui abandonne
+  // la connexion en cours de transfert. setNoDelay(true) desactive Nagle --
+  // fix standard, faible risque, deja largement documente pour cette classe
+  // de probleme "ESP32 WebServer marche en desktop, coupe sur mobile".
+  webServer->client().setNoDelay(true);
+  // v50 (2026-08-03) -- webServer->client().setTimeout(3000) ESSAYE puis
+  // ABANDONNE : verifie sans effet par lecture du code source de la lib
+  // reseau (NetworkClient.cpp) -- write() envoie via send(..., MSG_DONTWAIT),
+  // qui ignore purement et simplement SO_SNDTIMEO/notre setTimeout(). Le vrai
+  // blocage observe (10-25s, escalade) vient d'une boucle de retry codee en
+  // dur dans la bibliotheque (10 tentatives x select() 1s, compteur RESET a
+  // 10 des qu'un seul octet passe) -- non configurable depuis ce sketch. Fix
+  // retenu a la place, plus bas : decoupage manuel de l'envoi (voir
+  // commentaire avant la boucle).
+  // Garde-fou heap (2026-07-29, ERR_EMPTY_RESPONSE reel en test materiel) :
+  // envoyer une page complete (plusieurs Ko gzip) peut echouer si le heap
+  // est deja tres sollicite par un long scan playlistGenTask() en cours --
+  // la connexion se fermait alors sans aucune donnee envoyee (vu cote
+  // navigateur comme une page vide, ERR_EMPTY_RESPONSE, sur plusieurs
+  // navigateurs differents -- pas un souci cote client). Repli sur une
+  // reponse texte minimaliste (bien moins gourmande a envoyer, donc bien
+  // plus susceptible de reussir meme sous pression heap) plutot que de
+  // risquer le meme echec silencieux.
+  // Seuil corrige de 8192 a 4096 (2026-07-29, meme erreur que pour le
+  // garde-fou du scan) : maxalloc se situe couramment entre 4500 et 9000 en
+  // fonctionnement tout a fait normal (meme sans generation active) --
+  // 8192 declenchait ce message quasi en permanence, meme entre 2 pages ou
+  // sur le simple menu. 4096 correspond a la valeur deja validee sans souci
+  // par le garde-fou du scan lui-meme.
+  if (ESP.getMaxAllocHeap() < 4096) {
+    // Message volontairement generique (2026-07-29) : la cause reelle du
+    // heap bas n'est pas forcement une generation de playlist en cours
+    // (retour utilisateur : message trompeur affiche hors de tout scan) --
+    // ne pas presumer d'une cause precise qui peut etre fausse.
+    Serial.println("[WEB] sendGzipHtml: repli memoire faible, maxalloc=" + String(ESP.getMaxAllocHeap()) + " libre=" + String(ESP.getFreeHeap())); // DIAGNOSTIC TEMPORAIRE (2026-07-30) -- lenteur page rapportee hors generation
+    webServer->send(200, "text/plain", "Memoire faible, reessayez dans quelques secondes");
+    return;
+  }
+  // Envoi manuel par petits blocs avec abandon rapide (v50, 2026-08-03) --
+  // cause racine confirmee par l'instrumentation v48/v49 (test reel iOS) +
+  // lecture du code source de la lib reseau : send_P() remet toute la page
+  // en UN SEUL appel write() a la bibliotheque -- si la connexion delivre au
+  // compte-goutte, le compteur de retry interne (10 tentatives x 1s) se
+  // RESET a chaque octet qui passe, pouvant etirer un seul appel a 18-25s+
+  // (mesure en test reel) avant que Safari, bien moins patient, n'ait deja
+  // abandonne de son cote. En decoupant nous-memes l'envoi et en verifiant
+  // le retour de CHAQUE write(), un bloc qui echoue COMPLETEMENT (write()
+  // renvoie moins que demande -- ses 10 tentatives internes deja epuisees
+  // SANS le moindre progres sur ce bloc precis) est detecte des ce premier
+  // bloc perdu : la connexion est alors coupee proprement plutot que de
+  // laisser la bibliotheque s'acharner sur le reste de la page. Plafonne le
+  // pire cas a ~10s (un seul bloc bloque) au lieu de 18-25s (tout le buffer).
+  // En-tete HTTP construit a la main (sendHeader()/_prepareHeader() internes
+  // a la lib ne sont pas accessibles hors de send()/send_P()) -- volontairement
+  // minimal (Content-Type/Content-Encoding/Content-Length/Connection: close),
+  // rien d'autre n'est utilise par ce firmware (pas de CORS, pas d'en-tete
+  // additionnel a ce stade).
+  unsigned long tSendStart = millis();
+  Serial.println("[WEB] sendGzipHtml: envoi " + String(len) + " octets par blocs, maxalloc=" + String(ESP.getMaxAllocHeap()) + " libre=" + String(ESP.getFreeHeap()));
+  {
+    String header = webServer->version() + " 200 " + WebServer::responseCodeToString(200) + "\r\n";
+    header += "Content-Type: text/html\r\n";
+    header += "Content-Encoding: gzip\r\n";
+    header += "Content-Length: " + String(len) + "\r\n";
+    header += "Connection: close\r\n\r\n";
+    webServer->sendContent(header);
+  }
+  const size_t CHUNK_SIZE = 1024;
+  size_t sentTotal = 0;
+  bool stalled = false;
+  while (sentTotal < len)
+  {
+    size_t toSend = (len - sentTotal < CHUNK_SIZE) ? (len - sentTotal) : CHUNK_SIZE;
+    size_t written = webServer->client().write(content + sentTotal, toSend);
+    if (written < toSend)
+    {
+      Serial.println("[WEB] sendGzipHtml: bloc bloque a " + String(sentTotal) + "/" + String(len) + " octets -- connexion coupee");
+      webServer->client().stop();
+      stalled = true;
+      break;
+    }
+    sentTotal += written;
+  }
+  Serial.println("[WEB] sendGzipHtml: " + String(stalled ? "abandon" : "termine") + " en " + String(millis() - tSendStart) + "ms (" + String(sentTotal) + "/" + String(len) + " octets)");
 }
 
 static void handleWebConfigRoot()
 {
-  triggerWebConfigMode("WEB DMD CONFIG");
+  triggerWebConfigModeSoft("WEB DMD CONFIG");
   if (WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA) {
     sendGzipHtml(WEB_CONFIG_AP_HTML_GZ, WEB_CONFIG_AP_HTML_GZ_LEN);
   } else {
@@ -2400,25 +4481,25 @@ static void handleWebConfigRoot()
 
 static void handleWebConfigBasicPage()
 {
-  triggerWebConfigMode("WEB DMD CONFIG");
+  triggerWebConfigModeSoft("WEB DMD CONFIG");
   sendGzipHtml(WEB_CONFIG_BASIC_HTML_GZ, WEB_CONFIG_BASIC_HTML_GZ_LEN);
 }
 
 static void handleWebConfigNetworkPage()
 {
-  triggerWebConfigMode("WEB DMD CONFIG");
+  triggerWebConfigModeSoft("WEB DMD CONFIG");
   sendGzipHtml(WEB_CONFIG_NETWORK_HTML_GZ, WEB_CONFIG_NETWORK_HTML_GZ_LEN);
 }
 
 static void handleWebConfigClockPage()
 {
-  triggerWebConfigMode("WEB DMD CONFIG");
+  triggerWebConfigModeSoft("WEB DMD CONFIG");
   sendGzipHtml(WEB_CONFIG_CLOCK_HTML_GZ, WEB_CONFIG_CLOCK_HTML_GZ_LEN);
 }
 
 static void handleWebConfigMediaPage()
 {
-  triggerWebConfigMode("WEB DMD CONFIG");
+  triggerWebConfigModeSoft("WEB DMD CONFIG");
   sendGzipHtml(WEB_CONFIG_MEDIA_HTML_GZ, WEB_CONFIG_MEDIA_HTML_GZ_LEN);
 }
 
@@ -2439,11 +4520,18 @@ void setupWebConfig()
   webServer->on("/generate-playlist-stop", HTTP_POST, handleWebConfigGeneratePlaylistStop);
   webServer->on("/playlist-dirs", handleWebConfigPlaylistDirs);
   webServer->on("/delete-playlist", HTTP_POST, handleWebConfigDeletePlaylist);
+  webServer->on("/prepare-upload", HTTP_POST, handleWebConfigPrepareUpload);
   webServer->on("/upload", HTTP_POST, handleWebConfigUpload, handleWebConfigUploadFile);
   webServer->on("/create-folder", HTTP_POST, handleWebConfigCreateFolder);
   webServer->on("/delete-folders", HTTP_POST, handleWebConfigDeleteFolders);
   webServer->on("/scan-wifi", handleWebConfigScanWiFi);
   webServer->on("/save-ap", HTTP_POST, handleWebConfigSaveAP);
+  // Firefox/Edge demandent systematiquement /favicon.ico au chargement de
+  // toute page (Chrome aussi, mais semble plus tolerant) -- sans route
+  // dediee, cette requete tombe sur le 404 par defaut de la lib WebServer,
+  // point d'incertitude ecarte ici a peu de frais (2026-07-30, lenteur page
+  // rapportee, plus marquee sur Firefox/Edge que Chrome).
+  webServer->on("/favicon.ico", []() { webServer->send(204); });
   webServer->on("/lang", handleWebConfigLang);
   webServer->on("/save-language", HTTP_POST, handleWebConfigSaveLanguage);
   webServer->on("/add-to-playlists-batch", HTTP_POST, handleWebConfigAddToPlaylistsBatch);
@@ -2454,8 +4542,38 @@ void setupWebConfig()
   webServer->on("/reboot", handleWebConfigReboot);
   webServer->begin();
   Serial.println("[WEB] Interface config sur http://" + WiFi.localIP().toString());
+  // DIAGNOSTIC TEMPORAIRE (2026-08-02) -- verifie que la redefinition de
+  // HTTP_UPLOAD_BUFLEN (voir tout en haut de web_config.h) est bien prise en
+  // compte par la bibliotheque WebServer (sizeof(HTTPUpload) doit refleter
+  // ~512+quelques octets de champs String/enum, pas ~1436+).
+  Serial.println("[WEB] sizeof(HTTPUpload)=" + String(sizeof(HTTPUpload)) + " HTTP_UPLOAD_BUFLEN=" + String(HTTP_UPLOAD_BUFLEN));
 }
 
-void handleWebConfig() { if (webServer) webServer->handleClient(); }
+// Fiabilisation upload (2026-08-02) -- tentative d'interception de
+// l'exception std::bad_alloc levee par operator new() quand
+// WebServer::_parseForm() echoue a allouer un HTTPUpload sous heap
+// fragmente (voir HTTP_UPLOAD_BUFLEN en tete de fichier -- cause confirmee
+// par plusieurs backtraces decodees, mais la reduction seule du buffer ne
+// suffit pas a l'eliminer). Les exceptions C++ SONT compilees dans ce
+// build (confirme : la trace de crash passe par __cxa_throw, jamais genere
+// si -fno-exceptions) -- un try/catch ICI, autour de TOUT handleClient(),
+// devrait rattraper l'exception avant qu'elle n'atteigne std::terminate()/
+// abort() et ne redemarre tout l'appareil. Risque assume, non verifie
+// avant ce commit : la bibliotheque WebServer n'est pas concue pour etre
+// interrompue en cours de route par une exception -- son etat interne
+// (_currentClient/_currentUpload prives) pourrait rester incoherent pour
+// l'appel suivant. Mais le pire cas resterait probablement moins grave
+// qu'un reboot complet (perte de la session de lecture en cours), donc
+// teste malgre l'incertitude.
+void handleWebConfig() {
+  if (!webServer) return;
+  try {
+    webServer->handleClient();
+  } catch (std::exception &e) {
+    Serial.println(String("[WEB] EXCEPTION rattrapee dans handleClient() (probablement heap critique) : ") + e.what());
+  } catch (...) {
+    Serial.println("[WEB] EXCEPTION inconnue rattrapee dans handleClient()");
+  }
+}
 
 #endif

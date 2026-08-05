@@ -1,7 +1,253 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v36
+// Version actuelle : v52
+//
+// v52 - 2026-08-05 - safe-modify - Fusion dev/tous-txt-filter -> master
+//   (demande explicite utilisateur), tests materiel confirmes OK par
+//   l'utilisateur pour ce lot. RETRO_VERSION (splash boot, ecran physique)
+//   passee de "Raw565 Ed. dev12" a "Raw565 Ed. v12" -- retire le prefixe
+//   "dev" devenu inexact une fois sur master (meme demande explicite).
+//
+// v51 - 2026-08-05 - safe-modify - Refonte complete premier demarrage/AP/
+//   mode config (plan valide en mode Plan, voir memoire projet) + 2
+//   indicateurs visuels DMD. Resume :
+//   1. setupWiFiFromConfig() : repli AP sur echec WiFi ne se declenche plus
+//      que si g_firstBoot est vrai (WiFi injoignable + config deja complete
+//      => demarrage normal, plus de reboot force en AP).
+//   2. setup() : needWebConfigMode = (playlist vide) || (IP Recalbox vide)
+//      || g_firstBoot, remplace les usages isoles de g_firstBoot (recalboxIP
+//      n'etait auparavant jamais teste comme declencheur du mode config).
+//   3. Bug ecran "DMD WEB CONFIG"+"0.0.0.0" en mode AP pur corrige (repli
+//      0.0.0.0->softAPIP()->192.168.4.1 ajoute a triggerWebConfigModeSoft()
+//      et son duplicata inline upload).
+//   4. Indicateur rouge clignotant "No wifi, No Recalbox" (WiFi injoignable,
+//      1ere tentative puis toutes les 60s) et indicateur orange clignotant
+//      "RecalBox non connectee" (WiFi OK mais mqttClient.state()==-2) --
+//      tous deux : image de secours default.raw565, affichage temporise 7s
+//      puis reprise automatique de la playlist, place entre 2 GIFs (jamais
+//      en coupant une animation en cours).
+//   Voir web_config.h v51 pour le volet interface web (first_boot n'est plus
+//   efface par un simple affichage de page, modale d'aide, alerte champs
+//   essentiels vides, brouillon localStorage multi-pages, fix language=).
+//   Compilation via compile.ps1 : OK (64% flash, 28% RAM). Test materiel
+//   reel EN COURS (2026-08-05) : messages d'alerte web + DMD + modale
+//   d'aide confirmes OK par l'utilisateur ; reste du parcours (AP/premier
+//   demarrage complet, coupure WiFi/MQTT reelle prolongee) PAS ENCORE
+//   teste.
+//
+// v50 - 2026-08-03 - safe-modify - Bug reel confirme (retour utilisateur,
+//   suite au fix v47) : "Reprendre DMD" alors que RB est en mode clip/demo
+//   ne reprenait jamais la playlist -- RB annonce son passage en demo UNE
+//   SEULE FOIS (CMD_DEFAULT/CMD_STARTCLIP), pas a chaque nouveau clip, donc
+//   v47 (qui affiche l'ecran d'attente et attend un nouveau message MQTT)
+//   restait bloque indefiniment dans ce cas precis. Fix : nouveau
+//   g_lastMqttWasDefault, memorise le dernier contenu REELLEMENT affiche via
+//   MQTT avant l'ouverture du mode config (true=playlist/demo via
+//   CMD_DEFAULT/CMD_STARTCLIP, false=system/jeu precis via
+//   CMD_SYSTEM/CMD_GAME/CMD_RESUMESYS). webDmdResume() reprend directement
+//   la playlist si le dernier etat connu etait deja la playlist (encore
+//   valide, RB ne va rien renvoyer de plus), affiche l'ecran d'attente
+//   uniquement si c'etait un system/jeu precis (potentiellement perime).
+//   Compilation via compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
+//
+// v49 - 2026-08-03 - safe-modify - Regression du fix v46 confirmee en test
+//   reel (retour utilisateur : ca fonctionne mais le delai d'affichage de
+//   5-10s de l'ecran "RecalBox connectee" n'est plus respecte, bascule
+//   immediate sur playlist) -- v46 avait retire "default" du filtrage de la
+//   fenetre de grace pour corriger le blocage indefini quand RB est deja en
+//   demo a la connexion, mais du coup un "default" arrivant tres tot (RB
+//   deja en demo) s'applique desormais instantanement, sans laisser voir
+//   l'ecran de confirmation. Fix : nouveau delai minimum d'affichage
+//   MQTT_WAITING_MIN_DISPLAY_MS (7000ms) distinct de la fenetre de grace
+//   (1.5s, toujours utilisee pour system/game) -- si un CMD_DEFAULT arrive
+//   pendant ce delai, l'action n'est PLUS ignoree (regression v46) ni
+//   appliquee tout de suite (bug remonte) : elle est MEMORISEE
+//   (g_mqttDefaultPendingAfterMinDisplay) et appliquee automatiquement des
+//   que le delai est ecoule (nouveau bloc dans loop()), jamais perdue. Un
+//   vrai system/game recu entre-temps annule cette action differee (plus
+//   specifique qu'un simple retour a la playlist). Compilation via
+//   compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
+//
+// v48 - 2026-08-03 - safe-modify - Incoherence corrigee par cohorte avec v46
+//   (retour utilisateur : RB deja en mode demo/clip a la connexion, jamais
+//   bascule sur playlist meme apres plusieurs clips lances) : CMD_STARTCLIP
+//   et CMD_RESUMESYS ne remettaient pas g_mqttConnectedScreenUntilMs a 0
+//   contrairement aux autres commandes qui peuvent quitter l'ecran d'attente
+//   (CMD_STOP/CMD_DEFAULT/CMD_SYSTEM/CMD_GAME, v45/v46) -- ajoute par
+//   coherence. Analyse du code n'a PAS trouve d'autre chemin expliquant le
+//   symptome exact rapporte (CMD_STARTCLIP appelle deja resumePlaylist()
+//   sans condition hors g_sdOpInProgress ; le repli "fallback default.raw565"
+//   du mode CMD_GAME lent ne definit ni MODE_PNG ni currentPngPath=
+//   DEFAULT_RAW565_PATH, donc ne peut pas a lui seul reactiver le
+//   clignotement) -- log serie reel necessaire pour la suite. Compilation
+//   via compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
+//
+// v47 - 2026-08-03 - safe-modify - Demande explicite utilisateur : "Reprendre
+//   DMD" (webDmdResume(), bouton web) forcait systematiquement resumePlaylist()
+//   meme si la Recalbox etait deja connectee via MQTT -- coupant un contenu
+//   RB legitime (partie en cours) au profit de la playlist locale, corrige
+//   seulement au prochain evenement MQTT reel. Fix : si mqttClient.connected(),
+//   laisse RB reprendre la main (meme traitement que CMD_WAITING_MQTT --
+//   image de secours + texte en attendant le prochain vrai message) au lieu
+//   de forcer la playlist. Playlist forcee uniquement si MQTT n'est PAS
+//   connecte (aucune autre source de contenu). Compilation via compile.ps1 :
+//   OK. PAS ENCORE teste sur materiel reel.
+//
+// v46 - 2026-08-03 - safe-modify - Bug reel confirme (retour utilisateur) :
+//   la detection clip/demo ne fonctionnait pas si la Recalbox etait DEJA en
+//   mode demo au moment ou le firmware se connecte a MQTT et affiche l'ecran
+//   d'attente -- son message "marquee/cmd/default" arrive alors quasi
+//   instantanement (comme un retenu), dans la fenetre de grace de 1.5s
+//   (MQTT_WAITING_GRACE_MS, voir v15/v16), et etait ignore a tort. Sans la
+//   reprise auto par delai (retiree en v45), l'ecran d'attente restait donc
+//   bloque indefiniment dans ce cas precis. Fix : "default" retire du filtre
+//   de la fenetre de grace (system/game restent filtres, seuls a risquer
+//   d'afficher un jeu perime) -- voir commentaire complet dans
+//   onMqttMessage(). Compilation via compile.ps1 : OK. PAS ENCORE teste sur
+//   materiel reel.
+//
+// v45 - 2026-08-03 - safe-modify - 3 bugs confirmes en test reel sur l'ecran
+//   "RecalBox connectee" (drawRecalboxConnectedOverlay(), CMD_WAITING_MQTT) :
+//   (1) le clignotement noircissait un bandeau plein (fillRect(...,0)) au
+//   lieu de laisser voir l'image de fond pendant la phase "invisible" --
+//   corrige en redessinant la bande depuis le cache RAM defaultRaw565Buf
+//   (deja charge a cet instant par CMD_WAITING_MQTT) au lieu de noircir.
+//   (2) texte positionne pres du bas (y=24 fixe, hauteur panneau=32) au lieu
+//   d'etre centre verticalement -- corrige (textY=(RAW565_H-8)/2).
+//   (3) bascule vers la playlist auto au bout de MQTT_CONNECTED_SCREEN_MS
+//   (10s) meme si la Recalbox reste connectee -- confirme par l'utilisateur
+//   comme un vrai bug de conception, pas juste un delai trop court : la
+//   logique voulue est d'attendre INDEFINIMENT un vrai message MQTT tant que
+//   la Recalbox est allumee, c'est ELLE qui decide quand revenir a la
+//   playlist (CMD_DEFAULT, pont marquee sur veille/lecture d'un clip),
+//   jamais un delai arbitraire cote DMD. MQTT_CONNECTED_SCREEN_MS et le bloc
+//   de reprise auto par delai retires entierement de loop() ;
+//   g_mqttConnectedScreenUntilMs devient un simple drapeau "ecran d'attente
+//   actif" (pose a CMD_WAITING_MQTT, remis a 0 par CMD_STOP/CMD_DEFAULT/
+//   CMD_SYSTEM/CMD_GAME) utilise uniquement pour piloter le clignotement.
+//   Compilation via compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
+//
+// v44 - 2026-08-03 - safe-modify - Demande explicite utilisateur : version
+//   affichee au splash boot (RETRO_VERSION, ecran physique) passee de
+//   "Raw565 Ed. dev_pl" a "Raw565 Ed. dev12" -- distinct du numero de
+//   version safe-modify interne de ce fichier.
+//
+// v43 - 2026-08-03 - safe-modify - Suite de v42 (question utilisateur :
+//   "Reprendre DMD" apres une copie relance la playlist ET MQTT, mais sans
+//   les 3 caches sautes -- est-ce un probleme ?). Reponse : pas pour la
+//   playlist (aucune dependance), mais sysDefaultType()/sysDefaultSlowFlag()/
+//   findInGamesCache() renvoyaient silencieusement '?'/'N' en permanence
+//   pour tout systeme/jeu si le cache n'avait jamais ete charge -- pas un
+//   crash (replis existants sur PNG/GIF), mais des icones systeme/jeu plus
+//   lentes/potentiellement mal choisies jusqu'au prochain reboot complet.
+//   Choix retenu (vs forcer un reboot complet a "Reprendre DMD", qui aurait
+//   annule tout l'interet du reboot cible rapide) : chargement PARESSEUX,
+//   meme principe deja utilise par ensureDefaultRaw565Cached() -- nouveaux
+//   sysCacheLoadAttempted/gamesCacheLoadAttempted, nouvelles
+//   ensureSysDefaultCacheLoaded()/ensureGamesIndexLoaded() appelees en tete
+//   de sysDefaultType()/sysDefaultSlowFlag()/findInGamesCache(), rechargent
+//   le .dat/.bin existant (jamais buildSysDefaultCache(), scan recursif
+//   trop long pour un chemin pouvant etre atteint en plein evenement MQTT)
+//   une seule fois au premier vrai besoin si jamais charge au boot. Sur un
+//   boot normal, les deux flags sont mis a true juste apres le chargement
+//   eager habituel dans setup() -- aucun changement de comportement/cout
+//   sur le chemin de boot normal. Compilation via compile.ps1 : OK. PAS
+//   ENCORE teste sur materiel reel.
+//
+// v42 - 2026-08-02 - safe-modify - Demande explicite utilisateur : sur un
+//   boot "reboot cible mode config" (g_skipPlaylistForConfig), sauter le
+//   chargement des 3 caches lies a l'affichage GIF/MQTT (cache systemes
+//   systems_cache.dat, image de secours default.raw565, cache jeux
+//   games_cache.bin) -- aucun des trois n'est utilise pendant le mode
+//   config (MQTT bloque par g_sdOpInProgress, aucun GIF ouvert), et ce boot
+//   n'a qu'un seul but : liberer le heap au plus vite pour demarrer une
+//   copie. force_config_boot desormais lu des le premier passage de lecture
+//   de config.ini (avant ces 3 chargements), pas seulement dans
+//   loadConfig() (appelee apres) qui le relit de toute facon sans effet de
+//   bord (aucune ecriture entre les deux lectures). L'index playlist (.idx)
+//   reste charge sur ce chemin (cout negligeable, ~7ms) pour que "Reprendre
+//   DMD" continue de fonctionner pour la lecture playlist simple -- les 3
+//   caches sautes ne servent qu'aux evenements MQTT systeme/jeu, qui ne
+//   peuvent de toute facon pas survenir avant un reboot complet normal.
+//   Compilation via compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
+//
+// v41 - 2026-08-02 - safe-modify - Reintroduction du reboot cible mode
+//   config (g_skipPlaylistForConfig/force_config_boot/g_playlistStartedThisBoot),
+//   retire en v37 (commit "v93") sur la foi d'une comparaison qui ne portait
+//   pas sur ce symptome precis. Cause reelle (memoire projet, deja
+//   documentee) : chaque SD.open() d'un GIF alloue en interne un buffer
+//   setvbuf(4096) jamais recycle proprement -- apres quelques dizaines de
+//   GIFs, ESP.getMaxAllocHeap() plafonne durablement vers 4500-5300 octets,
+//   quel que soit le temps ecoule ensuite. Confirme en test reel 2026-08-02 :
+//   avec le garde heap<6000 de l'upload (web_config.h v42) seul, ce plafond
+//   bloquait ~99% des uploads des que la playlist avait tourne un moment.
+//   `requestReboot` (variable + check dans loop()) etait deja reste en place,
+//   orphelin, depuis le retrait v37 -- reutilise tel quel. Bloc de boot
+//   dedie replace a l'identique de l'ancienne implementation (juste avant le
+//   check playlistName.length()==0), `g_playlistStartedThisBoot=true` pose
+//   au premier openNextGif() de boot. Le chantier de fond (remplacer
+//   SD.open() par fopen()/setvbuf() statique pour la lecture GIF) est traite
+//   separement sur une branche dev dediee -- ce reboot reste le contournement
+//   en attendant. Compilation via compile.ps1 : OK. PAS ENCORE teste sur
+//   materiel reel.
+//
+// v40 - 2026-08-01 - safe-modify - Partie C du plan "cache_master_gifs" :
+//   renommage automatique de l'etiquette de volume SD au boot vers
+//   "RecalBoxDMD" (11 caracteres, limite FAT classique) si elle ne
+//   correspond pas deja -- f_getlabel()/f_setlabel() (API FatFs bas
+//   niveau, deja compilees dans ce core), juste apres SD.begin() reussi.
+//   Non bloquant en cas d'echec (carte protegee en ecriture, etc.), log
+//   uniquement. #include "ff.h" ajoute. Compilation via compile.ps1 : OK
+//   (0 erreur, 63% flash, 29% RAM). PAS ENCORE teste sur materiel reel.
+//
+// v39 - 2026-08-01 - safe-modify - Partie B du plan "cache_master_gifs" :
+//   struct PlaylistGenStatus, retrait des champs isResync/foldersChanged/
+//   linesAdded/linesRemoved (ajoutes pour tousSyncTask(), lui-meme retire
+//   entierement cote web_config.h -- voir son changelog v32 pour le detail
+//   complet du chantier). Compilation via compile.ps1 : OK (0 erreur, 63%
+//   flash, 29% RAM). PAS ENCORE teste sur materiel reel.
+//
+// v38 - 2026-07-30 - safe-modify - Demande utilisateur : version affichee au
+//   splash boot (RETRO_VERSION) passee de "Raw565 Ed. dev11" a "Raw565 Ed.
+//   dev_pl" (branche dev/tous-txt-filter). "Raw565 Ed. dev_playlist" ne
+//   rentrait pas (23 caracteres = 138px, ecran raw565 = 128px de large) --
+//   abrege en gardant "Ed." (demande explicite) plutot que de le retirer.
+//
+// v37 - 2026-07-28 - safe-modify - Resynchronisation de cet historique,
+//   reste fige sur v36 pendant plusieurs sessions alors que le code a
+//   beaucoup change entre-temps (suivi fait via les commits git, pas ce
+//   changelog -- v36 ci-dessous decrit un etat depuis longtemps obsolete,
+//   source de confusion si lu sans le git log). Recap des changements reels
+//   depuis v36, dans l'ordre :
+//   - Mecanisme de reboot cible mode config (reintroduit en v36) RETIRE A
+//     NOUVEAU et definitivement (commit git "v93") : comparaison avec
+//     l'ancienne version fonctionnelle RecalBox_DMDv10_scriptsRB (flashee,
+//     testee, fonctionne SANS ce reboot ni garde heap) a montre que le vrai
+//     probleme etait ailleurs (voir points suivants) -- g_skipPlaylistForConfig/
+//     g_playlistStartedThisBoot/sendRebootingPage/requestReboot supprimes.
+//   - Cause racine reelle des blocages "generation de playlist" trouvee :
+//     f.readString() chargeant tout le fichier en memoire (jusqu'a 40-44s de
+//     blocage ET un resultat FAUX sur une grosse playlist, heap fragmente) --
+//     remplace par une lecture en blocs fixes de 512 octets partout.
+//   - Generation de playlist transformee en machine a etats non bloquante
+//     avec vraie progression web (polling), page verrouillee pendant la
+//     generation, bouton Arreter, edition d'une playlist existante par
+//     pre-cochage des dossiers.
+//   - Ecran "RecalBox connectee" (texte fr/en/es superpose a l'image de
+//     secours default.raw565) + reprise automatique de la playlist apres 5s
+//     au lieu d'attendre indefiniment le 1er message MQTT reel (commit git
+//     "v94", fusionne sur master, valide sur materiel reel).
+//   - BRANCHE DEV (ce fichier) : la machine a etats de generation de playlist
+//     est deplacee sur sa propre tache FreeRTOS (playlistGenTask(), mirroir
+//     de mqttTask()) -- une lenteur SD localisee (confirmee sur plusieurs
+//     dossiers reels, simple listing sans lecture de contenu) ne bloque plus
+//     loop() (donc le serveur web/le bouton Arreter/reboot) pendant le scan.
+//     sdAccessMutex protege les acces SD partages avec la lecture GIF
+//     (gifPlayFrameCompat()/openNextGif(), tentative NON bloquante + repli
+//     gracieux cote loop() -- seule la tache de fond peut attendre bloquant).
+//     Voir le commentaire complet pres de PlaylistGenStatus, juste avant
+//     #include "web_config.h". PAS ENCORE teste sur materiel reel.
 //
 // v36 - 2026-07-27 - safe-modify - BRANCHE DEV : reintroduction du reboot
 //   cible mode config (retire en v35), SYSTEMATIQUE cette fois (toutes les
@@ -542,6 +788,7 @@ typedef uint8_t BitOrder; // Workaround: Adafruit_BusIO attend BitOrder (AVR) ma
 #include <time.h>
 #include "hal/brownout_ll.h"
 #include "nvs_flash.h"
+#include "ff.h" // Partie C (plan cache_master_gifs) -- f_getlabel()/f_setlabel(), renommage etiquette volume SD au boot
 #include "clock_themes.h"
 
 // Declarations anticipees: web_config.h (inclus juste apres) utilise ces
@@ -553,6 +800,57 @@ bool parseIP(const String &s, IPAddress &ip);
 bool applyStaticIP();
 void writeConfigFlag(const String &key, const String &value);
 
+// Generation de playlist -- tache FreeRTOS dediee (playlistGenTask(), definie
+// dans web_config.h) + primitives de synchronisation avec loop()/les handlers
+// HTTP. Meme principe que MqttCommand/mqttCmdMutex/pendingCmd (mqttTask())
+// plus bas dans ce fichier : la tache ne touche JAMAIS gif/display/
+// currentMode directement, seulement ce statut partage sous mutex.
+//
+// Deux mutex, deux strategies d'attente DIFFERENTES -- point critique de
+// conception (2026-07-28) : le mutex interne de la lib SD/FS (esp32 core
+// 3.3.11, vfs_api.cpp) NE protege PAS File::read/seek/close/openNextFile,
+// utilisees a la fois par le scan ET par la lecture de chaque frame GIF
+// (gifPlayFrameCompat(), tourne sur loop() a chaque frame). Un mutex
+// classique bloquant des 2 cotes ne reglerait rien : si la tache de fond le
+// tient plusieurs secondes (la lenteur SD localisee qu'on cherche justement
+// a isoler) et que loop() attend ce meme mutex pour lire la frame GIF
+// suivante, loop() -- donc le serveur web -- resterait bloque exactement
+// comme avant, juste deplace. Regle stricte : sdAccessMutex ne doit JAMAIS
+// etre attendu de facon bloquante depuis loop()/un handler HTTP (toujours
+// xSemaphoreTake(sdAccessMutex, 0) + degradation gracieuse si indisponible) ;
+// seule playlistGenTask() peut l'attendre bloquant. plGenStatusMutex ne
+// protege que de simples champs (jamais de SD dans la section critique),
+// hold time toujours negligeable des 2 cotes.
+struct PlaylistGenStatus
+{
+  bool   active = false;
+  bool   done = false;
+  String curDirName;
+  int    dirIdx = 0;
+  int    totalDirs = 0;
+  int    totalGifs = 0;
+  int    curDirGifs = 0;
+  String resultMsg;
+  bool   stopRequested = false;
+};
+SemaphoreHandle_t plGenStatusMutex     = nullptr; // garde g_plGenStatus
+PlaylistGenStatus g_plGenStatus;
+SemaphoreHandle_t sdAccessMutex        = nullptr; // garde tout acces SD partage entre playlistGenTask() et loop()
+TaskHandle_t      playlistGenTaskHandle = nullptr; // diagnostic uniquement -- ne jamais l'utiliser comme "scan actif ?" (voir g_plGenStatus.active)
+
+// Tache PERSISTANTE (2026-07-29) essayee puis ABANDONNEE le meme jour :
+// corrigeait bien un abort() reel (fopen()->lock_init_generic()) apparaissant
+// apres une dizaine de generations separees dans la meme session, mais son
+// cout heap permanent (~5 Ko, pile+TCB reserves des le boot au lieu de
+// seulement pendant une generation) a cause en test reel un ralentissement/
+// non-peuplement reproductible de la page de config (liste de dossiers vide
+// alors que l'endpoint direct /lsgifdirs repondait correctement -- donc pas
+// un blocage serveur, plutot une degradation generale de reactivite),
+// persistant apres redemarrage complet du DMD. Retour a la creation par
+// demande ci-dessous ; le crash rare qu'elle visait a corriger sera traite
+// autrement par la future refonte TOUS.txt/diff (bien moins d'invocations de
+// tache de fond attendues).
+
 #include "web_config.h"
 
 // --------------------------------------------------
@@ -563,9 +861,37 @@ static char (*sysCacheKeys)[32] = nullptr; // SYS_CACHE_MAX x 32 (heap)
 static char *sysCacheVals = nullptr;       // SYS_CACHE_MAX (heap)
 static char *sysCacheSlowVals = nullptr;   // SYS_CACHE_MAX (heap)
 static int  sysCacheCount = 0;
+// v43 -- chargement paresseux (demande explicite utilisateur, 2026-08-03) :
+// sur un boot "reboot cible mode config" (g_skipPlaylistForConfig), ce
+// cache est deliberement saute au demarrage (voir setup()) car inutile
+// pendant la copie -- mais si l'utilisateur clique "Reprendre DMD" ensuite
+// et que MQTT se reconnecte reellement, sysDefaultType()/sysDefaultSlowFlag()
+// ont quand meme besoin d'un cache valide pour les icones systeme/jeu.
+// sysCacheLoadAttempted distingue "jamais tente" (charger a la demande, une
+// seule fois) de "deja tente, cache vide car fichier absent" (ne pas
+// retenter a chaque appel -- couteux, appele tres frequemment). Sur un boot
+// normal, mis a true juste apres le chargement eager habituel dans setup().
+static bool sysCacheLoadAttempted = false;
+
+static void ensureSysDefaultCacheLoaded()
+{
+  if (sysCacheLoadAttempted) return;
+  sysCacheLoadAttempted = true;
+  // Uniquement loadSysDefaultCache() (lecture rapide du .dat existant) --
+  // JAMAIS buildSysDefaultCache() ici (scan recursif complet, potentiellement
+  // long) : ce chemin peut etre atteint en plein traitement d'un evenement
+  // MQTT temps reel, un scan long y serait inapproprie. Le .dat existe deja
+  // forcement si ce boot fait suite a un boot normal anterieur (seul cas
+  // realiste pour atteindre ce chemin).
+  if (loadSysDefaultCache())
+    Serial.println("[CACHE] charge a la demande (post-copie): " + String(sysCacheCount) + " systemes");
+  else
+    Serial.println("[CACHE] charge a la demande: /systems_cache.dat absent");
+}
 
 char sysDefaultType(const String &sysName)
 {
+  ensureSysDefaultCacheLoaded();
   for (int i = 0; i < sysCacheCount; i++)
     if (sysName == sysCacheKeys[i]) return sysCacheVals[i];
   return '?';
@@ -573,6 +899,7 @@ char sysDefaultType(const String &sysName)
 
 char sysDefaultSlowFlag(const String &sysName)
 {
+  ensureSysDefaultCacheLoaded();
   for (int i = 0; i < sysCacheCount; i++)
     if (sysName == sysCacheKeys[i]) return sysCacheSlowVals[i];
   return 'N';
@@ -820,6 +1147,24 @@ bool loadGamesIndex()
   return gamesIdxCount > 0;
 }
 
+// v43 -- chargement paresseux (meme principe et meme justification que
+// ensureSysDefaultCacheLoaded() ci-dessus) : sur un boot "reboot cible mode
+// config", ce cache est saute au demarrage -- rechargement automatique, une
+// seule fois, au premier vrai besoin (findInGamesCache(), typiquement un
+// evenement MQTT CMD_GAME apres "Reprendre DMD"). Sur un boot normal, mis a
+// true juste apres le chargement eager habituel dans setup().
+static bool gamesCacheLoadAttempted = false;
+
+static void ensureGamesIndexLoaded()
+{
+  if (gamesCacheLoadAttempted) return;
+  gamesCacheLoadAttempted = true;
+  if (!loadGamesIndex())
+    Serial.println("[GCACHE] charge a la demande: " + gamesCacheFile + " absent");
+  else
+    Serial.println("[GCACHE] charge a la demande (post-copie): " + String(gamesIdxCount) + " systemes");
+}
+
 // Charge la table bigramme du systeme en heap (une seule lecture SD)
 bool loadBigramTable(const String &sysName)
 {
@@ -927,6 +1272,7 @@ static inline bool sysIsSlow(const String &sysName)
 
 char findInGamesCache(const String &sysName, const String &gameName)
 {
+  ensureGamesIndexLoaded();
   if (gamesIdxCount == 0) return '?';
 
   int    bi          = bigramIndex(gameName);
@@ -1110,6 +1456,22 @@ unsigned long g_sdOpLastScroll1 = 0;
 bool     g_configDmdDirty = false;
 bool     g_firstBoot = true;
 bool     g_forceApRecovery = false; // force_ap_recovery: demande via marquee/cmd/wifi_recovery
+// v41 -- REINTRODUITS (retires en v37/commit "v93") : le plancher heap
+// ~4596 octets du au buffer setvbuf(4096) alloue par SD.open() (voir memoire
+// projet, "fuite ~4200 octets/GIF") est reapparu en test reel (upload MEDIA
+// bloque presque a 100%, 2026-08-02) -- retire a l'epoque par comparaison
+// avec RecalBox_DMDv10_scriptsRB qui n'en a jamais eu besoin, mais cette
+// comparaison ne concernait pas ce symptome precis (elle portait sur le
+// nombre de requetes HTTP par upload). La cause racine (setvbuf non statique
+// dans la lib FS) n'a jamais ete corrigee -- ce reboot cible reste le seul
+// contournement valide sur ce firmware en attendant le futur chantier
+// fopen()/setvbuf statique (branche dev separee).
+bool     g_skipPlaylistForConfig = false; // force_config_boot (config.ini) : ce boot doit sauter
+  // directement en mode config sans jamais lancer la playlist/ouvrir de GIF --
+  // consomme (remis a "0" dans config.ini) des lecture dans loadConfig().
+bool     g_playlistStartedThisBoot = false; // true des que la playlist/le 1er GIF a reellement
+  // demarre ce boot -- sert a triggerWebConfigMode() (web_config.h) pour savoir si un reboot
+  // "propre" (sans playlist) apporterait un vrai gain de heap avant d'entrer en mode config.
 String   uiLanguage = "fr"; // language: fr/en/es -- transmis par l'outil Windows via config.ini,
                              // pilote les bannieres informatives DMD + pages web (voir trOpenBrowserAt() etc.)
 
@@ -1201,13 +1563,92 @@ const unsigned long MQTT_OFFLINE_FALLBACK_MS = 60000;
 const unsigned long MQTT_WAITING_GRACE_MS = 1500;
 unsigned long g_mqttWaitingUntilMs = 0;
 
-// Duree d'affichage FIXE de l'ecran "RecalBox connectee" (CMD_WAITING_MQTT)
-// avant reprise automatique de la playlist -- demande utilisateur
-// (2026-07-28) : ne plus attendre indefiniment le premier message MQTT reel
-// (system/game), reprendre la playlist au bout de ce delai si rien d'autre
-// n'a pris la main sur l'affichage entre-temps.
-const unsigned long MQTT_CONNECTED_SCREEN_MS = 5000;
+// Drapeau "ecran d'attente RecalBox connectee actif" (CMD_WAITING_MQTT) --
+// pose (non-zero) a l'affichage de l'image de secours + texte, remis a 0 des
+// qu'un vrai contenu MQTT prend la main (CMD_DEFAULT/CMD_SYSTEM/CMD_GAME/
+// CMD_STOP). Sert uniquement a piloter le clignotement du texte (voir
+// loop()). PLUS d'expiration par delai fixe (retiree v45, 2026-08-03,
+// demande explicite utilisateur) : la logique voulue est d'attendre
+// INDEFINIMENT tant que la Recalbox reste connectee -- c'est elle seule qui
+// decide quand revenir a la playlist (CMD_DEFAULT, pont marquee sur
+// veille/lecture d'un clip), jamais un delai arbitraire cote DMD.
 unsigned long g_mqttConnectedScreenUntilMs = 0;
+
+// Indicateur "No wifi, No Recalbox" (2026-08-05, demande utilisateur) --
+// affiche brievement l'image de secours + texte rouge clignotant quand le
+// WiFi lui-meme reste injoignable alors qu'un SSID est configure (voir
+// mqttTask()/setupWiFiFromConfig() : sur un appareil deja entierement
+// configure, first_boot=0, le repli AP a ete retire pour ce cas -- cet
+// indicateur compense l'absence totale de feedback visuel qui en
+// resultait). Contrairement a g_mqttConnectedScreenUntilMs (attente
+// INDEFINIE d'un vrai message MQTT), ceci est un ecran TEMPORISE et
+// auto-resolutif : aucun message externe ne viendra jamais tant que le
+// WiFi est down, donc pas de sens a attendre indefiniment.
+// g_noWifiRecalboxPending : demande posee par mqttTask() (tache de fond),
+// consommee par loop() au prochain point sur qui ne coupe pas une
+// animation en cours (entre deux GIFs, voir case MODE_PLAYLIST).
+bool g_noWifiRecalboxPending = false;
+// g_noWifiRecalboxScreenActive : ecran actuellement affiche, pilote le
+// clignotement (voir loop()) -- remis a false soit par l'expiration du
+// delai (voir g_noWifiRecalboxUntilMs), soit si un vrai contenu MQTT
+// reprend la main entre-temps (memes points de reset que
+// g_mqttConnectedScreenUntilMs=0).
+bool g_noWifiRecalboxScreenActive = false;
+unsigned long g_noWifiRecalboxUntilMs = 0;
+// Duree d'affichage fixe avant retour automatique a la playlist -- valeur
+// reprise de MQTT_WAITING_MIN_DISPLAY_MS (7000ms, voir plus bas) mais
+// mecanisme different (auto-resolutif, pas juste un delai minimum avant
+// interruption) : declaree separement plutot que de reutiliser cette
+// constante existante, qui garde sa propre semantique.
+const unsigned long NO_WIFI_ALERT_DISPLAY_MS = 7000;
+
+// Indicateur "RecalBox non connectee" (2026-08-05, demande utilisateur --
+// meme principe que l'indicateur "No wifi, No Recalbox" ci-dessus, en
+// parallele) : WiFi OK mais la connexion MQTT elle-meme echoue avec
+// mqttClient.state()==-2 (MQTT_CONNECT_FAILED, PubSubClient -- echec de
+// connexion TCP au broker, ex. Recalbox eteinte/injoignable alors que le
+// WiFi fonctionne). Texte orange clignotant, TRADUIT (contrairement a
+// "No wifi, No Recalbox" -- celui-ci reprend le meme registre que
+// trRecalboxConnected(), deja traduit). Meme duree d'affichage
+// (NO_WIFI_ALERT_DISPLAY_MS, 7s) et memes points de reset que
+// l'indicateur WiFi. Frequence de reaffichage suivie par horodatage
+// (lastRecalboxDisconnectedAlertMs, dans mqttTask()) plutot que par
+// comptage d'iterations : la boucle d'echec MQTT tourne a un rythme
+// different (MQTT_RETRY_MS=15s, pas 1s) de la boucle WiFi-down, un simple
+// modulo sur le nombre de tentatives ne donnerait pas 60s reels ici.
+bool g_recalboxDisconnectedPending = false;
+bool g_recalboxDisconnectedScreenActive = false;
+unsigned long g_recalboxDisconnectedUntilMs = 0;
+
+// Dernier etat MQTT reellement affiche (v50, 2026-08-03, bug reel confirme :
+// apres "Reprendre DMD" alors que RB est en mode clip, la playlist ne
+// reprenait jamais) -- RB annonce son passage en demo/clip UNE FOIS
+// (CMD_DEFAULT/CMD_STARTCLIP), pas a chaque nouveau clip -- le fix v47
+// (webDmdResume() attend un nouveau message MQTT au lieu de forcer la
+// playlist) restait donc bloque indefiniment sur l'ecran d'attente dans ce
+// cas precis, RB n'ayant plus rien de neuf a annoncer. true = le dernier
+// contenu REEL affiche via MQTT etait la playlist/l'ecran d'attente
+// (CMD_DEFAULT/CMD_STARTCLIP) ; false = un system/jeu precis
+// (CMD_SYSTEM/CMD_GAME/CMD_RESUMESYS). webDmdResume() s'en sert : si true,
+// reprend directement la playlist (etat encore valide, pas besoin d'attendre
+// RB) ; si false, affiche l'ecran d'attente comme avant (un jeu/systeme
+// precis pourrait etre perime, mieux vaut attendre une confirmation fraiche).
+bool g_lastMqttWasDefault = true;
+
+// Delai minimum d'affichage de l'ecran "RecalBox connectee" (v49,
+// 2026-08-03, demande explicite utilisateur) : un "default" arrivant tres
+// tot (RB deja en mode demo/clip a la connexion, cf. v46 -- desormais honore
+// au lieu d'etre ignore) faisait basculer sur la playlist QUASI INSTANTANEMENT,
+// sans laisser le temps de voir l'ecran de confirmation. Contrairement a
+// MQTT_WAITING_GRACE_MS (1.5s, anti-retenu-perime pour system/game -- un
+// "default" trop tot n'est PLUS ignore mais DIFFERE) : si un CMD_DEFAULT
+// arrive avant ce delai, l'action (resumePlaylist()) est memorisee et
+// appliquee automatiquement des que le delai est ecoule (voir loop()),
+// jamais perdue -- contrairement a l'ancien filtrage qui pouvait bloquer
+// indefiniment si aucun autre message ne suivait.
+const unsigned long MQTT_WAITING_MIN_DISPLAY_MS = 7000;
+unsigned long g_mqttWaitingMinDisplayUntilMs = 0;
+bool          g_mqttDefaultPendingAfterMinDisplay = false;
 
 WiFiClient   wifiClientMqtt;
 PubSubClient mqttClient(wifiClientMqtt);
@@ -1435,7 +1876,15 @@ static const int RAW565_H = PANEL_RES_Y;               // 32
 // ============================================
 // safe-modify â€” Historique des modifications
 // ============================================
-// Version actuelle : v3
+// Version actuelle : v4
+//
+// v4 - 2026-07-28 - BRANCHE DEV : gifPlayFrameCompat()/openNextGif() (lecture
+//   de frame/transition entre GIFs) protegees par une tentative NON bloquante
+//   de sdAccessMutex -- une generation de playlist tourne desormais sur sa
+//   propre tache FreeRTOS et peut tenir ce mutex plusieurs secondes sur un
+//   dossier a lenteur SD localisee ; loop() ne doit jamais l'attendre de
+//   facon bloquante (degrade gracieusement : frame maintenue a l'identique /
+//   nouvelle tentative au tour suivant). Voir web_config.h (playlistGenTask()).
 //
 // v3 - 2026-06-29 - Correction freeze playlist: skipRawPack dans openGif()
 // v2 â€” 2026-06-24 â€” Ajout sous-dossiers alphabÃ©tiques pour rÃ©soudre le ralentissement FAT32 sur 800+ fichiers (flag L). alphaSubdirPath() insÃ¨re un sous-dossier A..Z/# dans le chemin. drawRaw565() et openGif() tentent le sous-dossier en prioritÃ©.
@@ -2043,21 +2492,45 @@ static void drawGifRaw565Frame(uint32_t frameIndex)
   for (uint32_t y = 0; y < RAW565_GIF_H; y++)
     display->drawRGBBitmap(0, (int)y, gifRawFrameBuf + (size_t)y * RAW565_GIF_W, RAW565_GIF_W, 1);
 }
+// Lit/dessine une frame -- tourne sur loop() a CHAQUE frame affichee, donc
+// c'est le point de contention le plus frequent avec playlistGenTask() (qui
+// peut tenir sdAccessMutex plusieurs secondes sur un dossier a lenteur SD
+// localisee). Tentative NON BLOQUANTE uniquement (voir le commentaire complet
+// dans RecalBox_DMD.ino juste avant #include "web_config.h") : si le mutex
+// est pris, on ne bloque jamais loop() pour l'attendre -- la frame courante
+// reste affichee telle quelle quelques ms, puis loop() retente. Ne JAMAIS
+// retourner false dans ce cas (serait interprete comme "GIF termine" par
+// l'appelant et sauterait au suivant).
 static bool gifPlayFrameCompat(bool first, int *pDelayMs)
 {
+  if (xSemaphoreTake(sdAccessMutex, 0) != pdTRUE)
+  {
+    *pDelayMs = 5;
+    return true;
+  }
+  bool ok;
   if (gifRawPackMode)
   {
     if (first) gifRawFrameIndex = 0;
-    if (gifRawFrameIndex >= gifRawFrameCount) return false;
-
-    uint16_t ms = gifRawReadDelayMs(gifRawFrameIndex);
-    *pDelayMs = (int)ms;
-
-    drawGifRaw565Frame(gifRawFrameIndex);
-    gifRawFrameIndex++;
-    return true;
+    if (gifRawFrameIndex >= gifRawFrameCount)
+    {
+      ok = false;
+    }
+    else
+    {
+      uint16_t ms = gifRawReadDelayMs(gifRawFrameIndex);
+      *pDelayMs = (int)ms;
+      drawGifRaw565Frame(gifRawFrameIndex);
+      gifRawFrameIndex++;
+      ok = true;
+    }
   }
-  return gif.playFrame(first, pDelayMs);
+  else
+  {
+    ok = gif.playFrame(first, pDelayMs);
+  }
+  xSemaphoreGive(sdAccessMutex);
+  return ok;
 }
 
 static void gifResetCompat()
@@ -2344,10 +2817,24 @@ String getNextGif(){if(gifCount<=0)return "";return playlistRandom?getNextGifRan
 
 void openNextGif()
 {
+  // Transition entre 2 GIFs (moins frequente qu'une frame, mais touche
+  // encore la SD -- getNextGif()/openGif()). Meme regle de non-blocage que
+  // gifPlayFrameCompat() : si playlistGenTask() tient sdAccessMutex, on ne
+  // bascule pas en ecran noir pour rien -- on redemande ce meme GIF au
+  // prochain tour de loop() via requestNextGif (deja verifie une fois par
+  // iteration, voir loop()).
+  if (xSemaphoreTake(sdAccessMutex, 0) != pdTRUE)
+  {
+    requestNextGif = true;
+    return;
+  }
   String next=(nextGifPath.length()>0)?nextGifPath:getNextGif(); nextGifPath="";
-  if(next.length()==0||!openGif(next,false,true,true))
+  bool ok = (next.length()>0) && openGif(next,false,true,true);
+  if (ok) nextGifPath=getNextGif();
+  xSemaphoreGive(sdAccessMutex);
+  if (!ok)
   {gifOpened=false;currentMode=MODE_BLACK;display->clearScreen();return;}
-  currentMode=MODE_PLAYLIST; nextGifPath=getNextGif();
+  currentMode=MODE_PLAYLIST;
 }
 
 void resumePlaylist()
@@ -2381,11 +2868,26 @@ void webDmdPause(const String &msg, uint16_t color)
   currentMode = MODE_CONFIG;
 
   // Dessiner directement la ligne 2 (permet les progressions depuis les handlers HTTP bloquants)
+  webDmdOverlayLine2(msg, color);
+}
+
+// Dessine uniquement la ligne 2 (progression) -- SANS fermer gif/changer de
+// mode, contrairement a webDmdPause() complet. Utilisee par loop() pour
+// afficher la progression de playlistGenTask() (2026-07-28) : la tache ne
+// touche jamais gif/display elle-meme (voir commentaire pres de
+// PlaylistGenStatus, juste avant #include "web_config.h"), donc c'est loop()
+// qui lit son instantane et appelle ceci -- UNIQUEMENT si currentMode vaut
+// deja MODE_CONFIG, jamais pour l'y forcer. Corrige au passage un petit bug
+// existant : l'ancien webDmdPause() periodique re-coupait une reprise DMD
+// faite par l'utilisateur pendant un scan (il fermait gif/repassait en
+// MODE_CONFIG a chaque rafraichissement) -- cette version ne touche plus rien
+// d'autre que la ligne de texte.
+void webDmdOverlayLine2(const String &msg, uint16_t color)
+{
   display->fillRect(0, 24, 128, 8, 0);
   display->setTextColor(color);
   display->setCursor(1, 24);
   display->print(msg);
-
   Serial.println("[WEB] DMD pause: " + msg);
 }
 
@@ -2421,8 +2923,7 @@ void webDmdSetMainMsg(const String &msg)
 void webDmdResume()
 {
   // Ne redemarre plus l'ESP32 : on quitte simplement le mode config (les
-  // ecrans/handlers HTTP restent actifs) et on reprend l'affichage normal,
-  // comme le fait deja resumePlaylist() pour les commandes MQTT CMD_DEFAULT.
+  // ecrans/handlers HTTP restent actifs) et on reprend l'affichage normal.
   // g_sdOpInProgress doit etre remis a false explicitement ici -- avant, un
   // ESP.restart() le remettait a zero gratuitement au boot ; les handlers
   // MQTT (CMD_STOP/CMD_DEFAULT/CMD_SYSTEM/CMD_GAME) l'utilisent pour ignorer
@@ -2430,10 +2931,46 @@ void webDmdResume()
   // bloquerait ces commandes indefiniment apres un "Reprendre DMD".
   Serial.println("[WEB] DMD resume -> retour a l'affichage normal (sans reboot)");
   g_sdOpInProgress = false;
-  resumePlaylist();
+  // Demande explicite utilisateur (2026-08-03) : si la Recalbox est deja
+  // connectee (MQTT actif), lui laisser reprendre la main plutot que de
+  // forcer la playlist -- pendant tout le temps ou le mode config etait
+  // actif, les vrais evenements MQTT (system/game) arrivaient bien mais
+  // etaient ignores (voir "X ignored (web open)" dans les handlers).
+  // v50 -- bug reel confirme (Reprendre DMD alors que RB est en mode
+  // clip/demo : plus jamais de reprise playlist) : RB annonce son passage en
+  // demo UNE SEULE FOIS (CMD_DEFAULT/CMD_STARTCLIP), pas a chaque nouveau
+  // clip -- attendre un nouveau message ici bloquait donc indefiniment sur
+  // l'ecran d'attente, RB n'ayant plus rien de neuf a annoncer. Fix : utilise
+  // g_lastMqttWasDefault (dernier contenu REELLEMENT affiche avant l'ouverture
+  // du mode config) pour decider. Si le dernier etat connu etait deja la
+  // playlist/l'ecran d'attente (RB en demo), reprend directement la playlist
+  // -- cet etat reste valide, pas besoin d'attendre RB. Si c'etait un
+  // system/jeu precis, affiche l'ecran d'attente comme avant (pourrait etre
+  // perime, mieux vaut attendre une confirmation fraiche -- partie en cours
+  // par ex.). Si MQTT n'est PAS connecte (Recalbox injoignable), aucune
+  // autre source de contenu -- comportement inchange, reprend la playlist.
+  if (mqttClient.connected() && !g_lastMqttWasDefault)
+  {
+    if (mqttCmdMutex != nullptr && xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(100)) == pdTRUE)
+    {
+      pendingCmd = MqttCommand(MqttCommand::CMD_WAITING_MQTT, "");
+      g_mqttWaitingUntilMs = millis() + MQTT_WAITING_GRACE_MS;
+      xSemaphoreGive(mqttCmdMutex);
+    }
+  }
+  else
+  {
+    resumePlaylist();
+  }
 }
 
-// Marque first_boot=0 dans config.ini (appele quand page web ouverte)
+// Marque first_boot=0 dans config.ini. PLUS APPELEE AUTOMATIQUEMENT depuis
+// le 2026-08-05 (bug corrige, demande utilisateur -- etape 3 de la logique
+// cible) : le simple affichage d'une page ne doit plus effacer first_boot,
+// seule une sauvegarde reellement complete (playlist + IP Recalbox,
+// handleWebConfigSave() dans web_config.h) le fait desormais. Conservee
+// definie (plus aucun appelant actuel) au cas ou un declenchement manuel
+// explicite serait utile plus tard -- cout nul.
 void clearFirstBoot()
 {
   if (!g_firstBoot) return;
@@ -2522,6 +3059,154 @@ String trRecalboxConnected()
   return "RecalBox connectee";
 }
 
+// Texte de l'indicateur "RecalBox non connectee" (2026-08-05, demande
+// utilisateur) -- WiFi OK mais mqttClient.state()==-2, voir declaration
+// de g_recalboxDisconnectedPending.
+String trRecalboxDisconnected()
+{
+  if (uiLanguage == "en") return "RecalBox not connected";
+  if (uiLanguage == "es") return "RecalBox no conectada";
+  return "RecalBox non connectee";
+}
+
+// Dessine (visible=true) ou efface (visible=false) le texte "RecalBox
+// connectee", centre horizontalement ET verticalement, avec la meme ombre
+// noir/blanc qu'avant -- clignotant pendant tout l'affichage (voir loop(),
+// toggle periodique). Centre horizontal calcule dynamiquement (largeur
+// variable selon la langue) plutot qu'une position fixe.
+void drawRecalboxConnectedOverlay(bool visible)
+{
+  // Texte ~8px de haut (setTextSize(1)) -- centre verticalement sur la
+  // hauteur du panneau plutot qu'une position fixe pres du bas (bug remonte
+  // en test reel 2026-08-03 : texte pas centre dans l'image).
+  const int textY = (RAW565_H - 8) / 2;
+  // Efface l'ancien texte en redessinant la bande de fond depuis le cache
+  // RAM de l'image de secours, PAS en la noircissant (bug remonte en test
+  // reel 2026-08-03 : un bandeau noir opaque masquait le GIF/image de fond
+  // pendant la phase "invisible" du clignotement). Repli sur fillRect
+  // uniquement si le cache n'est pour une raison quelconque pas disponible
+  // a cet instant (ne devrait pas arriver : CMD_WAITING_MQTT appelle deja
+  // drawDefaultRaw565Cached() avant le premier appel a cette fonction).
+  if (defaultRaw565Cached && defaultRaw565Buf) {
+    for (int y = textY; y < textY + 8 && y < RAW565_H; y++)
+      display->drawRGBBitmap(0, y, defaultRaw565Buf + (size_t)y * RAW565_W, RAW565_W, 1);
+  } else {
+    display->fillRect(0, textY, RAW565_W, 8, 0);
+  }
+  if (!visible) return;
+  display->setTextWrap(false);
+  display->setTextSize(1);
+  String txt = trRecalboxConnected();
+  int textW = txt.length() * 6; // taille 1 = 6px/caractere
+  int x = (RAW565_W - textW) / 2;
+  if (x < 0) x = 0;
+  display->setTextColor(display->color565(0, 0, 0));
+  display->setCursor(x + 1, textY + 1);
+  display->print(txt);
+  display->setTextColor(display->color565(255, 255, 255));
+  display->setCursor(x, textY);
+  display->print(txt);
+}
+
+// Dessine (visible=true) ou efface (visible=false) le texte rouge
+// clignotant "No wifi, No Recalbox" -- meme structure que
+// drawRecalboxConnectedOverlay() ci-dessus (restauration du fond depuis
+// le cache RAM de l'image de secours, centrage horizontal/vertical, ombre
+// noire) mais texte fixe non traduit (2026-08-05, demande utilisateur --
+// meme convention que les libellés techniques courts de ce fichier,
+// jamais traduits : "WIFI OK", "NTP", etc.) et couleur rouge au lieu de
+// blanc, pour signaler une situation anormale (WiFi injoignable) plutot
+// qu'un etat normal d'attente.
+void drawNoWifiNoRecalboxOverlay(bool visible)
+{
+  const int textY = (RAW565_H - 8) / 2;
+  if (defaultRaw565Cached && defaultRaw565Buf) {
+    for (int y = textY; y < textY + 8 && y < RAW565_H; y++)
+      display->drawRGBBitmap(0, y, defaultRaw565Buf + (size_t)y * RAW565_W, RAW565_W, 1);
+  } else {
+    display->fillRect(0, textY, RAW565_W, 8, 0);
+  }
+  if (!visible) return;
+  display->setTextWrap(false);
+  display->setTextSize(1);
+  const char *txt = "No wifi, No Recalbox";
+  int textW = (int)strlen(txt) * 6; // taille 1 = 6px/caractere
+  int x = (RAW565_W - textW) / 2;
+  if (x < 0) x = 0;
+  display->setTextColor(display->color565(0, 0, 0));
+  display->setCursor(x + 1, textY + 1);
+  display->print(txt);
+  display->setTextColor(display->color565(255, 0, 0));
+  display->setCursor(x, textY);
+  display->print(txt);
+}
+
+// Declenche l'affichage de l'alerte "No wifi, No Recalbox" (image de
+// secours + texte rouge clignotant, 7s puis retour auto a la playlist --
+// voir g_noWifiRecalboxScreenActive/g_noWifiRecalboxUntilMs et le bloc
+// loop() qui pilote le clignotement + l'auto-resolution). Appelee depuis
+// loop() a un point ou rien d'important n'est en train de jouer (entre
+// deux GIFs en MODE_PLAYLIST, ou immediatement si aucune playlist n'est
+// active) -- jamais depuis mqttTask() (tache de fond, pas de dessin direct
+// hors thread principal, meme regle que le reste de ce fichier).
+void showNoWifiRecalboxAlert()
+{
+  gif.close(); gifOpened=false; currentPngPath=String(DEFAULT_RAW565_PATH); pngDrawn=true;
+  display->clearScreen();
+  bool okDraw = drawDefaultRaw565Cached();
+  currentMode = okDraw ? MODE_PNG : MODE_BLACK;
+  if (okDraw) drawNoWifiNoRecalboxOverlay(true);
+  g_noWifiRecalboxScreenActive = true;
+  g_noWifiRecalboxUntilMs = millis() + NO_WIFI_ALERT_DISPLAY_MS;
+  g_noWifiRecalboxPending = false;
+  Serial.println("[WIFI] No wifi, No Recalbox -- alerte affichee");
+}
+
+// Dessine (visible=true) ou efface (visible=false) le texte orange
+// clignotant "RecalBox non connectee" -- meme structure que
+// drawRecalboxConnectedOverlay()/drawNoWifiNoRecalboxOverlay() (restauration
+// du fond depuis le cache RAM de l'image de secours, centrage, ombre
+// noire), texte TRADUIT (trRecalboxDisconnected()) et couleur orange.
+void drawRecalboxDisconnectedOverlay(bool visible)
+{
+  const int textY = (RAW565_H - 8) / 2;
+  if (defaultRaw565Cached && defaultRaw565Buf) {
+    for (int y = textY; y < textY + 8 && y < RAW565_H; y++)
+      display->drawRGBBitmap(0, y, defaultRaw565Buf + (size_t)y * RAW565_W, RAW565_W, 1);
+  } else {
+    display->fillRect(0, textY, RAW565_W, 8, 0);
+  }
+  if (!visible) return;
+  display->setTextWrap(false);
+  display->setTextSize(1);
+  String txt = trRecalboxDisconnected();
+  int textW = txt.length() * 6; // taille 1 = 6px/caractere
+  int x = (RAW565_W - textW) / 2;
+  if (x < 0) x = 0;
+  display->setTextColor(display->color565(0, 0, 0));
+  display->setCursor(x + 1, textY + 1);
+  display->print(txt);
+  display->setTextColor(display->color565(255, 140, 0));
+  display->setCursor(x, textY);
+  display->print(txt);
+}
+
+// Declenche l'affichage de l'alerte "RecalBox non connectee" -- meme
+// mecanisme que showNoWifiRecalboxAlert() (voir son commentaire), drapeau
+// et duree d'affichage dedies.
+void showRecalboxDisconnectedAlert()
+{
+  gif.close(); gifOpened=false; currentPngPath=String(DEFAULT_RAW565_PATH); pngDrawn=true;
+  display->clearScreen();
+  bool okDraw = drawDefaultRaw565Cached();
+  currentMode = okDraw ? MODE_PNG : MODE_BLACK;
+  if (okDraw) drawRecalboxDisconnectedOverlay(true);
+  g_recalboxDisconnectedScreenActive = true;
+  g_recalboxDisconnectedUntilMs = millis() + NO_WIFI_ALERT_DISPLAY_MS;
+  g_recalboxDisconnectedPending = false;
+  Serial.println("[MQTT] RecalBox non connectee -- alerte affichee");
+}
+
 String trOpenUrl(const String &ip)
 {
   if (uiLanguage == "en") return "Open http://" + ip;
@@ -2577,12 +3262,43 @@ void processPendingMqttCommand()
   {
   case MqttCommand::CMD_STOP:
     if(currentMode==MODE_PLAYLIST||g_sdOpInProgress){Serial.println("[MQTT] stop ignored");break;}
+    g_mqttConnectedScreenUntilMs = 0;
+    // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
+    // contenu MQTT reprend la main, plus besoin d'attendre son
+    // expiration ni de laisser une demande en attente perimee.
+    g_noWifiRecalboxScreenActive = false;
+    g_noWifiRecalboxPending = false;
+    g_recalboxDisconnectedScreenActive = false;
+    g_recalboxDisconnectedPending = false;
+    g_mqttDefaultPendingAfterMinDisplay = false;
     gif.close();gifOpened=false;currentPngPath="";pngDrawn=false;
     currentMode=MODE_BLACK;display->clearScreen();
     break;
 
   case MqttCommand::CMD_DEFAULT:
     if (g_sdOpInProgress) { Serial.println("[MQTT] default ignored (web open)"); break; }
+    g_lastMqttWasDefault = true; // v50 -- pose ici, avant meme le differe eventuel : RB a bien annonce "default"
+    // Delai minimum d'affichage de l'ecran "RecalBox connectee" (v49) : si
+    // ce default arrive PENDANT que cet ecran est encore affiche ET avant le
+    // delai minimum, on ne bascule pas tout de suite -- on memorise l'action
+    // pour l'appliquer automatiquement une fois le delai ecoule (voir
+    // loop()), au lieu de l'ignorer (ancien bug) ou de basculer trop tot
+    // (regression du fix v46).
+    if (g_mqttConnectedScreenUntilMs != 0 && millis() < g_mqttWaitingMinDisplayUntilMs)
+    {
+      Serial.println("[MQTT] default recu pendant l'ecran de connexion -- differe jusqu'au delai minimum");
+      g_mqttDefaultPendingAfterMinDisplay = true;
+      break;
+    }
+    g_mqttConnectedScreenUntilMs = 0;
+    // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
+    // contenu MQTT reprend la main, plus besoin d'attendre son
+    // expiration ni de laisser une demande en attente perimee.
+    g_noWifiRecalboxScreenActive = false;
+    g_noWifiRecalboxPending = false;
+    g_recalboxDisconnectedScreenActive = false;
+    g_recalboxDisconnectedPending = false;
+    g_mqttDefaultPendingAfterMinDisplay = false;
     resumePlaylist();
     break;
 
@@ -2612,25 +3328,34 @@ void processPendingMqttCommand()
         // Texte superpose (demande utilisateur) -- pngDrawn=true fait sauter
         // le redessin dans loop(), donc ce texte reste affiche par-dessus
         // l'image tant que rien d'autre ne prend la main sur l'affichage.
-        display->setTextWrap(false);
-        display->setTextSize(1);
-        display->setTextColor(display->color565(0, 0, 0));
-        display->setCursor(1, 25);
-        display->print(trRecalboxConnected());
-        display->setTextColor(display->color565(255, 255, 255));
-        display->setCursor(0, 24);
-        display->print(trRecalboxConnected());
+        // Le clignotement (loop()) prend le relais juste apres.
+        drawRecalboxConnectedOverlay(true);
       }
-      // Reprise automatique de la playlist apres un delai fixe (demande
-      // utilisateur) -- ne plus attendre indefiniment le 1er message MQTT
-      // reel (system/game). Verifie dans loop() (voir plus bas) ; sans effet
-      // si un vrai media a deja pris la main sur l'affichage entre-temps.
-      g_mqttConnectedScreenUntilMs = millis() + MQTT_CONNECTED_SCREEN_MS;
+      // Drapeau "ecran d'attente actif" (pilote uniquement le clignotement,
+      // voir loop()) -- plus d'expiration par delai, on attend indefiniment
+      // le prochain vrai message MQTT (v45, voir commentaire pres de la
+      // declaration de g_mqttConnectedScreenUntilMs).
+      g_mqttConnectedScreenUntilMs = 1;
+      // Delai minimum d'affichage (v49) : reinitialise a chaque nouvel
+      // affichage de cet ecran -- voir declaration de
+      // MQTT_WAITING_MIN_DISPLAY_MS pour le detail complet.
+      g_mqttWaitingMinDisplayUntilMs = millis() + MQTT_WAITING_MIN_DISPLAY_MS;
+      g_mqttDefaultPendingAfterMinDisplay = false;
     }
     break;
 
   case MqttCommand::CMD_SYSTEM:
     if (g_sdOpInProgress) { Serial.println("[MQTT] system ignored (web open)"); break; }
+    g_mqttConnectedScreenUntilMs = 0;
+    // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
+    // contenu MQTT reprend la main, plus besoin d'attendre son
+    // expiration ni de laisser une demande en attente perimee.
+    g_noWifiRecalboxScreenActive = false;
+    g_noWifiRecalboxPending = false;
+    g_recalboxDisconnectedScreenActive = false;
+    g_recalboxDisconnectedPending = false;
+    g_mqttDefaultPendingAfterMinDisplay = false; // un vrai system prend le pas sur un default differe (v49)
+    g_lastMqttWasDefault = false; // v50
     gif.close();gifOpened=false;pngDrawn=false;currentPngPath="";
     currentMode=MODE_BLACK;
     if(nextGifFile){nextGifFile.close();nextGifFile=File();nextGifPath="";}
@@ -2641,6 +3366,16 @@ void processPendingMqttCommand()
 
   case MqttCommand::CMD_GAME:
     if (g_sdOpInProgress) { Serial.println("[MQTT] game ignored (web open)"); break; }
+    g_mqttConnectedScreenUntilMs = 0;
+    // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
+    // contenu MQTT reprend la main, plus besoin d'attendre son
+    // expiration ni de laisser une demande en attente perimee.
+    g_noWifiRecalboxScreenActive = false;
+    g_noWifiRecalboxPending = false;
+    g_recalboxDisconnectedScreenActive = false;
+    g_recalboxDisconnectedPending = false;
+    g_mqttDefaultPendingAfterMinDisplay = false; // un vrai jeu prend le pas sur un default differe (v49)
+    g_lastMqttWasDefault = false; // v50
   {
     int slash=cmd.arg.indexOf('/');
     String sysName=(slash>=0)?cmd.arg.substring(0,slash):cmd.arg;
@@ -2975,12 +3710,32 @@ void processPendingMqttCommand()
 
   case MqttCommand::CMD_STARTCLIP:
     if (g_sdOpInProgress) { Serial.println("[MQTT] startclip ignored"); break; }
+    g_mqttConnectedScreenUntilMs = 0;
+    // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
+    // contenu MQTT reprend la main, plus besoin d'attendre son
+    // expiration ni de laisser une demande en attente perimee.
+    g_noWifiRecalboxScreenActive = false;
+    g_noWifiRecalboxPending = false;
+    g_recalboxDisconnectedScreenActive = false;
+    g_recalboxDisconnectedPending = false;
+    g_mqttDefaultPendingAfterMinDisplay = false;
+    g_lastMqttWasDefault = true; // v50
     Serial.println("[MQTT] startgameclip -> playlist");
     resumePlaylist();
     break;
 
   case MqttCommand::CMD_RESUMESYS:
     if (g_sdOpInProgress) { Serial.println("[MQTT] resumesys ignored"); break; }
+    g_mqttConnectedScreenUntilMs = 0;
+    // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
+    // contenu MQTT reprend la main, plus besoin d'attendre son
+    // expiration ni de laisser une demande en attente perimee.
+    g_noWifiRecalboxScreenActive = false;
+    g_noWifiRecalboxPending = false;
+    g_recalboxDisconnectedScreenActive = false;
+    g_recalboxDisconnectedPending = false;
+    g_mqttDefaultPendingAfterMinDisplay = false;
+    g_lastMqttWasDefault = false; // v50
     Serial.println("[MQTT] resumesys -> "+cmd.arg);
     gif.close();gifOpened=false;pngDrawn=false;currentPngPath="";
     currentMode=MODE_BLACK;
@@ -3001,7 +3756,14 @@ void processPendingMqttCommand()
     // Ligne 2 : message complet (defile automatiquement si >128px, cf boucle
     // de rendu MODE_CONFIG) plutot que la seule IP -- plus clair pour
     // l'utilisateur qui regarde l'ecran du DMD sans autre contexte.
-    webDmdPause(trOpenBrowserAt(WiFi.localIP().toString()), 0xFFE0);
+    // Repli 0.0.0.0 (bug corrige 2026-08-05, seul site du fichier qui ne
+    // l'avait pas) : WiFi.localIP() est vide en mode AP pur.
+    {
+      String ip = WiFi.localIP().toString();
+      if (ip == "0.0.0.0") ip = WiFi.softAPIP().toString();
+      if (ip == "0.0.0.0") ip = "192.168.4.1";
+      webDmdPause(trOpenBrowserAt(ip), 0xFFE0);
+    }
     break;
 
   case MqttCommand::CMD_WIFI_RECOVERY:
@@ -3058,13 +3820,24 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
   // "system=lastplayed" publie par le pont marquee lors d'une session
   // precedente) arrive quasi instantanement a la connexion et ecraserait
   // sinon l'image de secours avant meme qu'elle soit visible. On ignore
-  // uniquement default/system/game pendant cette fenetre tres courte (1.5s) --
+  // uniquement system/game pendant cette fenetre tres courte (1.5s) --
   // stop/show_config/wifi_recovery/reboot restent des actions explicites,
-  // jamais suppriemees.
+  // jamais supprimees.
+  // "default" RETIRE de ce filtre (v45, 2026-08-03, bug reel confirme :
+  // detection clip/demo ne fonctionnait pas si RB etait DEJA en mode demo au
+  // moment de la connexion MQTT -- son message "default" arrive alors lui
+  // aussi quasi instantanement, dans cette meme fenetre, et etait ignore a
+  // tort comme s'il s'agissait d'un retenu perime). Contrairement a
+  // system/game (qui peuvent afficher un JEU perime/faux), "default" ne
+  // presente aucun risque a etre honore immediatement, retenu ou frais : il
+  // reflete toujours le DERNIER etat connu reel de RB (veille/demo), jamais
+  // "faux" en soi -- et depuis le retrait de la reprise auto par delai (v45
+  // egalement), c'est desormais le SEUL moyen de sortir de l'ecran d'attente
+  // si RB est deja en demo a la connexion.
   bool inWaitingGrace = (millis() < g_mqttWaitingUntilMs);
 
   if     (t=="marquee/cmd/stop")    pendingCmd=MqttCommand(MqttCommand::CMD_STOP,"");
-  else if(t=="marquee/cmd/default") { if(!inWaitingGrace) pendingCmd=MqttCommand(MqttCommand::CMD_DEFAULT,""); }
+  else if(t=="marquee/cmd/default") pendingCmd=MqttCommand(MqttCommand::CMD_DEFAULT,"");
   else if(t=="marquee/cmd/system")  { if(!inWaitingGrace) {lastSysName=msg;pendingCmd=MqttCommand(MqttCommand::CMD_SYSTEM,msg);} }
   else if(t=="marquee/cmd/game")    { if(!inWaitingGrace) pendingCmd=MqttCommand(MqttCommand::CMD_GAME,msg); }
   else if(t=="marquee/cmd/show_config") pendingCmd=MqttCommand(MqttCommand::CMD_SHOW_CONFIG,"");
@@ -3096,14 +3869,49 @@ void mqttTask(void *param)
   (void)param;
   vTaskDelay(pdMS_TO_TICKS(MQTT_START_DELAY_MS));
   unsigned long lastMqttConnectedMs=millis();
+  // Compteur de cycles consecutifs "WiFi non connecte" (2026-08-05, demande
+  // utilisateur) -- pilote l'alerte "No wifi, No Recalbox" (voir
+  // showNoWifiRecalboxAlert()). Uniquement le WiFi lui-meme : ne compte PAS
+  // les echecs mqttClient.connect() quand le WiFi est OK (ce cas garde son
+  // traitement existant, ecran "RecalBox connectee" une fois reellement
+  // connecte -- pas d'alerte rouge si le WiFi fonctionne).
+  unsigned long wifiDownStreak = 0;
+  // Horodatage du dernier affichage de l'alerte "RecalBox non connectee"
+  // (2026-08-05, demande utilisateur) -- WiFi OK mais mqttClient.state()==-2
+  // (MQTT_CONNECT_FAILED). Base sur le temps ecoule (pas un compteur
+  // d'iterations comme wifiDownStreak) car cette branche tourne au rythme
+  // de MQTT_RETRY_MS (15s), different du 1s de la boucle WiFi-down.
+  unsigned long lastRecalboxDisconnectedAlertMs = 0;
 
   for(;;)
   {
     if(!wifiEnabled||recalboxIP.length()==0){vTaskDelay(pdMS_TO_TICKS(2000));continue;}
-    if(WiFi.status()!=WL_CONNECTED){vTaskDelay(pdMS_TO_TICKS(1000));continue;}
+    if(WiFi.status()!=WL_CONNECTED){
+      wifiDownStreak++;
+      // Cette branche boucle a ~1/s (vTaskDelay 1000ms ci-dessous) : la
+      // 1ere fois (~1s apres la coupure) puis toutes les ~60 iterations
+      // (~60s) tant que ca persiste. Pas de dessin direct depuis cette
+      // tache de fond (voir showNoWifiRecalboxAlert(), appelee depuis
+      // loop() uniquement) -- juste une demande best-effort.
+      if (!g_sdOpInProgress && (wifiDownStreak==1 || wifiDownStreak % 60 == 0)) {
+        g_noWifiRecalboxPending = true;
+      }
+      vTaskDelay(pdMS_TO_TICKS(1000));continue;
+    }
+    wifiDownStreak = 0;
 
     // En mode config web : ne pas tenter de connexion MQTT (garde les sockets libres pour HTTP)
-    if(g_sdOpInProgress) { if(mqttClient.connected()) mqttClient.loop(); vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
+    // Idem pendant une generation de playlist (2026-07-29, test en cours) :
+    // playlistGenTask() tourne sur le meme coeur que cette tache -- une
+    // tentative de (re)connexion MQTT ici (allocations pour le TCP/DNS)
+    // pourrait etre le facteur qui fait basculer le heap sous ce dont
+    // openNextFile() a besoin au mauvais moment, cause suspectee du crash
+    // reel observe sur ce meme materiel. Ne saute que la TENTATIVE de
+    // connexion -- .loop() reste actif si deja connecte, donc une commande
+    // (ex. reboot) recue avant le debut du scan continue d'etre traitee.
+    bool plGenActiveNow = false;
+    if (xSemaphoreTake(plGenStatusMutex, 0) == pdTRUE) { plGenActiveNow = g_plGenStatus.active; xSemaphoreGive(plGenStatusMutex); }
+    if(g_sdOpInProgress || plGenActiveNow) { if(mqttClient.connected()) mqttClient.loop(); vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
 
     if(!mqttClient.connected())
     {
@@ -3112,6 +3920,7 @@ void mqttTask(void *param)
       {
         Serial.println("[MQTT] connected");
         lastMqttConnectedMs=millis();
+        lastRecalboxDisconnectedAlertMs=0; // reautorise l'alerte immediate en cas de future deconnexion
         mqttClient.subscribe("marquee/cmd/stop");
         mqttClient.subscribe("marquee/cmd/default");
         mqttClient.subscribe("marquee/cmd/system");
@@ -3149,6 +3958,17 @@ void mqttTask(void *param)
       {
         Serial.println("[MQTT] failed rc="+String(mqttClient.state()));
         unsigned long now=millis();
+        // Alerte "RecalBox non connectee" (2026-08-05, demande utilisateur)
+        // -- uniquement rc==-2 (MQTT_CONNECT_FAILED, echec de connexion TCP
+        // au broker) : WiFi deja confirme OK a ce point (garde plus haut
+        // dans la boucle), donc ce n'est PAS un probleme WiFi (pas
+        // d'alerte "No wifi, No Recalbox" ici, voir wifiDownStreak). 1ere
+        // fois, puis toutes les 60s tant que ca persiste.
+        if (mqttClient.state() == -2 && !g_sdOpInProgress
+            && (lastRecalboxDisconnectedAlertMs == 0 || (now - lastRecalboxDisconnectedAlertMs) >= 60000UL)) {
+          g_recalboxDisconnectedPending = true;
+          lastRecalboxDisconnectedAlertMs = now;
+        }
         if((now-lastMqttConnectedMs)>=MQTT_OFFLINE_FALLBACK_MS)
         {
           if(currentMode!=MODE_PLAYLIST&&gifCount>0&&!g_sdOpInProgress)
@@ -3329,20 +4149,35 @@ void setupWiFiFromConfig()
     }
   }
   else{
-    Serial.println("[WIFI] failed -> AP fallback");
-    WiFi.mode(WIFI_AP);
-    WiFi.softAP("RecalBox-DMD-Config");
-    delay(1000);
-    String apIP = WiFi.softAPIP().toString();
-    if (apIP == "0.0.0.0") apIP = "192.168.4.1";
-    // Mode config avec message AP
-    g_sdOpMsg = trConnectWifiMsg();
-    g_sdOpSubMsg = trOpenUrl(apIP);
-    g_sdOpSubMsgColor = 0xFFE0;
-    g_sdOpInProgress = true;
-    currentMode = MODE_CONFIG;
-    g_configDmdDirty = true;
-    Serial.println("[WIFI] AP fallback -> http://" + apIP);
+    // Repli AP uniquement si le parcours "premier demarrage" n'est pas
+    // encore termine (bug corrige 2026-08-05, demande utilisateur --
+    // logique cible en 3 etapes) : un appareil DEJA entierement
+    // configure (first_boot=0) dont le WiFi devient temporairement
+    // injoignable (routeur eteint, coupure passagere) ne doit PAS etre
+    // renvoye en mode AP/config -- il continue de demarrer normalement
+    // (playlist locale), maintainWiFi() se chargeant de reessayer la
+    // reconnexion en tache de fond sans reboot ni ecran force. Le repli
+    // AP reste le comportement voulu tant que g_firstBoot est vrai
+    // (identifiants WiFi eventuellement faux saisis lors de la phase 1,
+    // il faut pouvoir les ressaisir).
+    if (g_firstBoot) {
+      Serial.println("[WIFI] failed -> AP fallback");
+      WiFi.mode(WIFI_AP);
+      WiFi.softAP("RecalBox-DMD-Config");
+      delay(1000);
+      String apIP = WiFi.softAPIP().toString();
+      if (apIP == "0.0.0.0") apIP = "192.168.4.1";
+      // Mode config avec message AP
+      g_sdOpMsg = trConnectWifiMsg();
+      g_sdOpSubMsg = trOpenUrl(apIP);
+      g_sdOpSubMsgColor = 0xFFE0;
+      g_sdOpInProgress = true;
+      currentMode = MODE_CONFIG;
+      g_configDmdDirty = true;
+      Serial.println("[WIFI] AP fallback -> http://" + apIP);
+    } else {
+      Serial.println("[WIFI] failed, first_boot=0 -> pas de repli AP, demarrage normal (maintainWiFi() reessaiera)");
+    }
   }
 }
 
@@ -3402,6 +4237,7 @@ void loadConfig()
     else if(key=="mqtt_event_topic"   &&value.length())  mqttEventTopic   =value;
     else if(key=="first_boot")                           g_firstBoot      =(value!="0");
     else if(key=="force_ap_recovery")                    g_forceApRecovery=(value!="0");
+    else if(key=="force_config_boot")                    g_skipPlaylistForConfig=(value!="0");
     else if(key=="language" && (value=="fr"||value=="en"||value=="es")) uiLanguage=value;
   }
   cfg.close();
@@ -3495,7 +4331,7 @@ int buildOffsetIndex()
 // --------------------------------------------------
 // Splash screen â€” version au dÃ©marrage (info=1 uniquement)
 // --------------------------------------------------
-#define RETRO_VERSION "Raw565 Ed. v11"
+#define RETRO_VERSION "Raw565 Ed. v12"
 
 void showSplashScreen()
 {
@@ -3519,8 +4355,8 @@ void showSplashScreen()
   display->setTextColor(blue);  display->print("Box");
   display->setTextColor(green); display->print("DMD");
 
-  // Ligne 2 : version centrée ("Raw565 Ed. v10" = 14 x 6 = 84px -> x = (128-84)/2 = 22)
-  display->setCursor(22, 21);
+  // Ligne 2 : version centrée ("Raw565 Ed. dev_pl" = 17 x 6 = 102px -> x = (128-102)/2 = 13)
+  display->setCursor(13, 21);
   display->setTextColor(white);
   display->print(RETRO_VERSION);
 
@@ -3848,7 +4684,38 @@ void setup()
     showMessage("SD ERROR","NO CARD",display->color565(255,0,0));
     while(1){delay(100);yield();}
   }
-  
+
+  // Partie C (plan cache_master_gifs) -- renomme l'etiquette de volume FAT
+  // en "RecalBoxDMD" si elle ne correspond pas deja (carte deplacee
+  // frequemment entre le DMD et un PC pour inspection : une etiquette
+  // reconnaissable facilite son identification parmi d'autres lecteurs
+  // amovibles). f_getlabel()/f_setlabel() (API FatFs bas niveau, deja
+  // compilees dans ce core ESP32 -- CONFIG_FATFS_USE_LABEL=y) operent sur
+  // le chemin FatFs "0:", distinct du chemin VFS "/sdcard" utilise par
+  // SD.begin() -- le volume est deja monte a ce point, aucun demontage/
+  // remontage necessaire. Limite FAT classique : 11 caracteres exactement
+  // ("RecalBox_DMD", 12, ne rentre pas -- "RecalBoxDMD" retenu, coherent
+  // avec le nom de fichier de l'outil PC RecalBoxDMD_tool.py, lui non plus
+  // sans underscore entre "Box" et "DMD"). Non bloquant : une erreur
+  // quelconque (carte protegee en ecriture, etc.) est juste loguee, ne doit
+  // jamais retarder/interrompre le boot.
+  {
+    char label[34];
+    FRESULT flr = f_getlabel("0:", label, NULL);
+    String current = (flr == FR_OK) ? String(label) : String("");
+    current.trim();
+    current.toUpperCase();
+    if (current != "RECALBOXDMD") {
+      FRESULT fsr = f_setlabel("0:RecalBoxDMD");
+      if (fsr == FR_OK) {
+        Serial.println("[SD] Etiquette renommee: " + current + " -> RecalBoxDMD");
+      } else {
+        Serial.println("[SD] Echec renommage etiquette (code FatFs " + String((int)fsr) + "), etiquette actuelle: " + current);
+      }
+    } else {
+      Serial.println("[SD] Etiquette deja correcte (RecalBoxDMD)");
+    }
+  }
 
   gif.begin(LITTLE_ENDIAN_PIXELS);
 
@@ -3881,6 +4748,16 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
         else if(line.startsWith("CLOCK_INTERVAL_MIN="))clockIntervalMin=line.substring(line.indexOf('=')+1).toInt();
         else if(line.startsWith("CLOCK_DURATION="))clockDuration=line.substring(line.indexOf('=')+1).toInt();
         else if(line.startsWith("TZ=")){clockTimeZone=line.substring(line.indexOf('=')+1);clockTimeZone.trim();}
+        // Lu ICI (v45, demande explicite utilisateur), AVANT loadConfig() --
+        // les 3 caches ci-dessous (systemes, default.raw565, jeux) ne servent
+        // qu'a l'affichage GIF/MQTT (icones systeme/jeu, image de secours) --
+        // JAMAIS utilises pendant le mode config (MQTT bloque par
+        // g_sdOpInProgress, aucun GIF ouvert). Sur un boot "reboot cible" dont
+        // le seul but est de liberer le heap au plus vite pour un upload, les
+        // charger coute du temps ET de la RAM pour rien. loadConfig() (plus
+        // bas) relit aussi cette cle -- lecture redondante mais harmless,
+        // aucune ecriture entre les deux.
+        else if(line.startsWith("force_config_boot="))g_skipPlaylistForConfig=(line.substring(line.indexOf('=')+1).toInt()!=0);
       }
       cfg.close();
     }
@@ -3891,6 +4768,7 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
 
   // Charge le cache systÃ¨mes (systems_cache.dat). Si absent, on ne rescanner
   // que si l'utilisateur a info=1. Le script Python Ã©crit dÃ©jÃ  ce fichier.
+  if (!g_skipPlaylistForConfig) {
   if(!loadSysDefaultCache()){
     if(showInfo)showMessage("MARQUEE","Indexation...",display->color565(100,100,255));
     buildSysDefaultCache();
@@ -3903,16 +4781,25 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
   ensureDefaultRaw565Cached();
   if (defaultRaw565Cached) Serial.println("[CACHE] default.raw565 en RAM");
   else                     Serial.println("[CACHE] default.raw565 absent");
+  sysCacheLoadAttempted = true;
+  } else {
+    Serial.println("[CACHE] reboot cible mode config -- caches systemes/default.raw565 sautes");
+  }
 
   loadConfig();
 
   // Pour les systÃ¨mes flags 'L' (lents), games_cache.bin est court-circuitÃ©
   // dans findInGamesCache(). Inutile de le charger pour ces systÃ¨mes.
   // On le charge quand mÃªme pour les systÃ¨mes 'N' qui en ont besoin.
+  if (!g_skipPlaylistForConfig) {
   if(!loadGamesIndex())
     Serial.println("[GCACHE] "+gamesCacheFile+" absent");
   else
     Serial.println("[GCACHE] OK - "+String(gamesIdxCount)+" systemes");
+  gamesCacheLoadAttempted = true;
+  } else {
+    Serial.println("[GCACHE] reboot cible mode config -- cache jeux saute");
+  }
   Serial.println("[BOOT] apres chargement caches, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
 
   // Boot silencieux (info=0): le titre (splash) reste affiche, le sablier coin
@@ -3941,24 +4828,44 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
   initNTP();
   Serial.println("[BOOT] apres initNTP, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
 
-  // Premier demarrage : inviter l'utilisateur a ouvrir la page web
-  if (g_firstBoot) {
+  // Entree en mode web config : condition unique (bug corrige 2026-08-05,
+  // demande utilisateur -- logique cible en 3 etapes) combinant les 3
+  // raisons reelles d'y entrer, la ou elles etaient auparavant eparpillees
+  // et incompletes (g_firstBoot seul court-circuitait TOUT le reste via
+  // goto, empechant le test playlistName de jamais s'executer tant qu'il
+  // etait vrai ; recalboxIP n'etait lui jamais teste comme condition
+  // d'entree nulle part dans ce fichier).
+  bool needWebConfigMode = (playlistName.length()==0) || (recalboxIP.length()==0) || g_firstBoot;
+
+  // Invite l'utilisateur a ouvrir la page web. Message choisi selon
+  // l'etat REEL de connexion (bug corrige 2026-08-05) : ce bloc s'execute
+  // apres CHAQUE appel a setupWiFiFromConfig() ci-dessus, donc aussi bien
+  // juste apres un repli AP (WiFi.status()!=WL_CONNECTED, deja invite a
+  // rejoindre RecalBox-DMD-Config par setupWiFiFromConfig() lui-meme --
+  // meme message ici, coherent) QUE juste apres une VRAIE connexion STA
+  // reussie (playlist/IP Recalbox manquantes, ou 2e phase du 1er
+  // demarrage) -- dans ce dernier cas, "Connectez-vous au WiFi
+  // RecalBox-DMD-Config" etait un contresens (ce reseau AP n'existe plus
+  // a ce stade, le DMD est deja sur le reseau reel) : utilise le meme
+  // message que les autres ecrans "page de configuration" du fichier.
+  if (needWebConfigMode) {
     String ip = WiFi.localIP().toString();
     if (ip == "0.0.0.0") ip = WiFi.softAPIP().toString();
     if (ip == "0.0.0.0") ip = "192.168.4.1";
-    g_sdOpMsg = trConnectWifiMsg();
+    g_sdOpMsg = (WiFi.status() == WL_CONNECTED) ? trConfigPageMsg() : trConnectWifiMsg();
     g_sdOpSubMsg = trOpenUrl(ip);
     g_sdOpSubMsgColor = 0x07E0;
     g_sdOpInProgress = true;
     currentMode = MODE_CONFIG;
     g_configDmdDirty = true;
-    Serial.println("[BOOT] First boot - ouvrir http://" + ip);
+    Serial.println("[BOOT] Mode web config - ouvrir http://" + ip);
   }
 
   mqttCmdMutex=xSemaphoreCreateMutex();
   pendingCmd=MqttCommand(MqttCommand::CMD_NONE,"");
-
-  if (g_firstBoot) {
+  plGenStatusMutex=xSemaphoreCreateMutex();
+  sdAccessMutex=xSemaphoreCreateMutex();
+  if (needWebConfigMode) {
     goto start_mqtt_task;
   }
 
@@ -3973,19 +4880,62 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
     goto start_mqtt_task;
   }
 
-  if(playlistName.length()==0){
-    String ip = WiFi.localIP().toString();
-    if (ip == "0.0.0.0") ip = WiFi.softAPIP().toString();
-    if (ip == "0.0.0.0") ip = "192.168.4.1";
-    g_sdOpMsg = trConfigPageMsg();
-    g_sdOpSubMsg = trOpenUrl(ip);
-    g_sdOpSubMsgColor = 0x07E0;
-    g_sdOpInProgress = true;
-    currentMode = MODE_CONFIG;
-    g_configDmdDirty = true;
-    Serial.println("[BOOT] No playlist -> config mode sur http://" + ip);
+  if (g_skipPlaylistForConfig) {
+    // Reboot demande par triggerWebConfigMode() (web_config.h) pour repartir
+    // en mode config avec un maximum de heap disponible -- ne JAMAIS lancer
+    // la playlist/ouvrir de GIF sur ce boot precis (chaque GIF ouvert perd
+    // durablement quelques Ko de heap via le buffer setvbuf(4096) alloue par
+    // SD.open(), jamais recupere avant reboot -- et meme mettre en pause UN
+    // SEUL GIF deja ouvert fragmente fortement le heap, confirme en test reel
+    // 2026-07-27 puis reconfirme 2026-08-02). Flag consomme immediatement
+    // (config.ini remis a "0") pour qu'un reboot normal ulterieur
+    // ("Redemarrer") reparte bien en boot playlist standard, pas en boucle
+    // sur ce chemin.
+    writeConfigFlag("force_config_boot", "0");
+    // Charge quand meme l'index playlist (gifCount), SANS jamais ouvrir de
+    // GIF ni dessiner l'ecran playlist (showPlaylistInfoScreen()) -- lecture
+    // seule d'un fichier .idx deja existant, cout heap negligeable (~7ms
+    // mesures en conditions reelles). Sans ca, "Reprendre DMD" (resumePlaylist(),
+    // qui ne fait rien si gifCount==0) laissait un ecran noir en sortie de
+    // config -- gifCount ne serait sinon jamais initialise sur ce chemin.
+    // Si le cache playlist est perime (signature differente), gifCount reste
+    // a 0 pour ce boot precis (limite acceptee : cas rare, un vrai reboot
+    // normal ulterieur reconstruira le cache comme d'habitude).
+    if (playlistName.length() > 0) {
+      uint32_t curSig = computeFileHash(playlistSourcePath);
+      uint32_t savSig = readSavedSignature();
+      if (curSig && curSig == savSig) {
+        if (idxFileHandle) idxFileHandle.close();
+        idxFileHandle = SD.open(playlistIdxPath, FILE_READ);
+        if (idxFileHandle) {
+          size_t idxSize = idxFileHandle.size();
+          gifCount = (idxSize >= 4) ? (int)(idxSize / 4) : 0;
+          if (!playlistRandom) {
+            if (seqPlaylistFile) seqPlaylistFile.close();
+            seqPlaylistFile = SD.open(playlistCachePath, FILE_READ);
+            playIndex = 0;
+          }
+        }
+      }
+    }
+    {
+      String ip = WiFi.localIP().toString();
+      g_sdOpMsg = trConfigPageMsg();
+      g_sdOpSubMsg = trOpenUrl(ip);
+      g_sdOpSubMsgColor = 0x07E0;
+      g_sdOpInProgress = true;
+      currentMode = MODE_CONFIG;
+      g_configDmdDirty = true;
+      Serial.println("[BOOT] Reboot cible mode config (heap max) -> http://" + ip + " gifCount=" + String(gifCount));
+    }
     goto start_mqtt_task;
   }
+
+  // Bloc "if(playlistName.length()==0)" retire (bug corrige 2026-08-05) :
+  // entierement redondant avec needWebConfigMode ci-dessus, qui couvre
+  // deja ce cas (et goto start_mqtt_task AVANT ce point si vrai) --
+  // playlistName ne change jamais entre les deux, ce bloc ne pouvait
+  // donc plus jamais s'executer.
 
   {
     Serial.println("[PLAYLIST] sig compute start t=" + String(millis()));
@@ -4060,6 +5010,7 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
       Serial.println("[BOOT] Playlist empty -> config mode sur http://" + ip);
       goto start_mqtt_task;
     }
+    g_playlistStartedThisBoot = true;
     playIndex=0;lastRandomIndex=-1;currentMode=MODE_PLAYLIST;openNextGif();
     Serial.println("[BOOT] apres 1er openNextGif, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
   }
@@ -4078,17 +5029,134 @@ start_mqtt_task:
 // --------------------------------------------------
 void loop()
 {
-  handleWebConfig(); playlistGenStep(); maintainWiFi(); maintainApRecovery(); processPendingMqttCommand();
-  // Reprise auto de la playlist apres l'ecran "RecalBox connectee" (voir
-  // CMD_WAITING_MQTT) -- sans effet si un vrai media (system/game) a deja
-  // pris la main sur l'affichage entre-temps (currentPngPath change).
-  if (g_mqttConnectedScreenUntilMs != 0 && millis() >= g_mqttConnectedScreenUntilMs)
+  handleWebConfig(); maintainWiFi(); maintainApRecovery(); processPendingMqttCommand();
+  // Alerte "No wifi, No Recalbox" (2026-08-05, demande utilisateur) --
+  // repli ici pour le cas ou la demande (g_noWifiRecalboxPending, posee
+  // par mqttTask()) survient alors qu'aucune playlist n'est en cours de
+  // lecture (MODE_BLACK, aucun GIF charge, etc.) : rien a proteger d'une
+  // coupure en plein milieu dans ce cas, applique immediatement. Si une
+  // playlist tourne (MODE_PLAYLIST), c'est plutot le case MODE_PLAYLIST
+  // ci-dessous (entre deux GIFs) qui consomme cette demande.
+  if (g_noWifiRecalboxPending && currentMode != MODE_PLAYLIST) {
+    showNoWifiRecalboxAlert();
+  }
+  // Idem pour "RecalBox non connectee" (2026-08-05) -- meme repli hors
+  // MODE_PLAYLIST, voir commentaire ci-dessus.
+  if (g_recalboxDisconnectedPending && currentMode != MODE_PLAYLIST) {
+    showRecalboxDisconnectedAlert();
+  }
+  // Application differee d'un "default" recu trop tot (v49, 2026-08-03,
+  // demande explicite utilisateur) : voir CMD_DEFAULT/declaration de
+  // MQTT_WAITING_MIN_DISPLAY_MS pour le detail complet -- ici, on se
+  // contente d'appliquer l'action memorisee des que le delai minimum
+  // d'affichage de l'ecran "RecalBox connectee" est ecoule.
+  if (g_mqttDefaultPendingAfterMinDisplay && millis() >= g_mqttWaitingMinDisplayUntilMs)
   {
+    g_mqttDefaultPendingAfterMinDisplay = false;
     g_mqttConnectedScreenUntilMs = 0;
-    if (currentMode == MODE_PNG && currentPngPath == String(DEFAULT_RAW565_PATH) && !g_sdOpInProgress)
+    // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
+    // contenu MQTT reprend la main, plus besoin d'attendre son
+    // expiration ni de laisser une demande en attente perimee.
+    g_noWifiRecalboxScreenActive = false;
+    g_noWifiRecalboxPending = false;
+    g_recalboxDisconnectedScreenActive = false;
+    g_recalboxDisconnectedPending = false;
+    Serial.println("[MQTT] default differe applique -> reprise playlist");
+    resumePlaylist();
+  }
+  // Clignotement du texte "RecalBox connectee" pendant tout l'affichage
+  // (demande utilisateur 2026-07-29) -- sans effet si un vrai media a deja
+  // pris la main. Toggle simple ~2 fois/seconde, pas de garde-fou de cout
+  // necessaire (juste un redessin de bande + eventuellement 2 print, deja
+  // fait a chaque CMD_WAITING_MQTT).
+  // v45 (2026-08-03) -- reprise automatique de la playlist par delai fixe
+  // RETIREE (demande explicite utilisateur, comportement confirme errone en
+  // test reel) : la logique voulue est d'attendre INDEFINIMENT un vrai
+  // message MQTT tant que la Recalbox reste connectee -- c'est elle qui
+  // decide quand revenir a la playlist (CMD_DEFAULT, pont marquee sur
+  // veille/lecture d'un clip), jamais un delai arbitraire cote DMD.
+  // g_mqttConnectedScreenUntilMs n'est plus un horodatage d'expiration mais
+  // un simple drapeau "ecran d'attente actif" (pose a CMD_WAITING_MQTT,
+  // remis a 0 des qu'un vrai contenu prend la main : CMD_DEFAULT/CMD_SYSTEM/
+  // CMD_GAME/CMD_STOP) -- utilise uniquement pour piloter ce clignotement.
+  if (g_mqttConnectedScreenUntilMs != 0 && currentMode == MODE_PNG && currentPngPath == String(DEFAULT_RAW565_PATH) && !g_sdOpInProgress)
+  {
+    static unsigned long lastBlinkMs = 0;
+    static bool blinkVisible = true;
+    if (millis() - lastBlinkMs > 400)
     {
-      Serial.println("[MQTT] fin ecran connexion -> reprise playlist");
+      blinkVisible = !blinkVisible;
+      drawRecalboxConnectedOverlay(blinkVisible);
+      lastBlinkMs = millis();
+    }
+  }
+  // Clignotement + auto-resolution de l'alerte "No wifi, No Recalbox"
+  // (2026-08-05, demande utilisateur) -- bloc jumeau du precedent mais
+  // drapeau/duree distincts (voir declaration de g_noWifiRecalboxScreenActive) :
+  // ecran TEMPORISE (7s, NO_WIFI_ALERT_DISPLAY_MS), pas d'attente indefinie
+  // d'un message externe qui ne viendra jamais tant que le WiFi est down.
+  if (g_noWifiRecalboxScreenActive && currentMode == MODE_PNG && currentPngPath == String(DEFAULT_RAW565_PATH) && !g_sdOpInProgress)
+  {
+    static unsigned long lastNoWifiBlinkMs = 0;
+    static bool noWifiBlinkVisible = true;
+    if (millis() - lastNoWifiBlinkMs > 400)
+    {
+      noWifiBlinkVisible = !noWifiBlinkVisible;
+      drawNoWifiNoRecalboxOverlay(noWifiBlinkVisible);
+      lastNoWifiBlinkMs = millis();
+    }
+    if (millis() >= g_noWifiRecalboxUntilMs)
+    {
+      g_noWifiRecalboxScreenActive = false;
+      Serial.println("[WIFI] No wifi, No Recalbox -- delai ecoule, reprise playlist");
       resumePlaylist();
+    }
+  }
+  // Clignotement + auto-resolution de l'alerte "RecalBox non connectee"
+  // (2026-08-05, demande utilisateur) -- bloc jumeau du precedent (WiFi
+  // OK mais mqttClient.state()==-2, drapeau/duree distincts).
+  if (g_recalboxDisconnectedScreenActive && currentMode == MODE_PNG && currentPngPath == String(DEFAULT_RAW565_PATH) && !g_sdOpInProgress)
+  {
+    static unsigned long lastRecalboxDiscBlinkMs = 0;
+    static bool recalboxDiscBlinkVisible = true;
+    if (millis() - lastRecalboxDiscBlinkMs > 400)
+    {
+      recalboxDiscBlinkVisible = !recalboxDiscBlinkVisible;
+      drawRecalboxDisconnectedOverlay(recalboxDiscBlinkVisible);
+      lastRecalboxDiscBlinkMs = millis();
+    }
+    if (millis() >= g_recalboxDisconnectedUntilMs)
+    {
+      g_recalboxDisconnectedScreenActive = false;
+      Serial.println("[MQTT] RecalBox non connectee -- delai ecoule, reprise playlist");
+      resumePlaylist();
+    }
+  }
+  // Progression de playlistGenTask() affichee sur le DMD (voir
+  // PlaylistGenStatus/webDmdOverlayLine2(), web_config.h) -- uniquement si le
+  // mode config est DEJA actif (jamais pour l'imposer : la tache elle-meme
+  // ne touche jamais gif/display/currentMode -- voir le commentaire complet
+  // pres de PlaylistGenStatus, juste avant #include "web_config.h"). Si
+  // l'utilisateur a repris le DMD pendant le scan (currentMode != MODE_CONFIG),
+  // on ne touche a rien -- la lecture GIF continue sans interference.
+  // Throttle 2s, large marge sous les 5000ms d'expiration du message DMD
+  // (SD_OP_SUBMSG_EXPIRE_MS).
+  {
+    static unsigned long lastPlGenDmdMs = 0;
+    if (millis() - lastPlGenDmdMs > 2000)
+    {
+      bool active = false; String dirName; int gifs = 0;
+      if (xSemaphoreTake(plGenStatusMutex, 0) == pdTRUE) {
+        active = g_plGenStatus.active;
+        dirName = g_plGenStatus.curDirName;
+        gifs = g_plGenStatus.curDirGifs;
+        xSemaphoreGive(plGenStatusMutex);
+      }
+      if (active && currentMode == MODE_CONFIG)
+      {
+        webDmdOverlayLine2(plGenDmdText(dirName, gifs), 0x07E0);
+      }
+      lastPlGenDmdMs = millis();
     }
   }
   if(requestNextGif&&!g_sdOpInProgress){requestNextGif=false;openNextGif();}
@@ -4101,6 +5169,24 @@ void loop()
     {
       int fd=0; bool frameOk=gifPlayFrameCompat(false,&fd);
       if(!frameOk){
+        // Alerte "No wifi, No Recalbox" (2026-08-05, demande utilisateur) :
+        // le GIF courant vient de se terminer naturellement (frameOk==false)
+        // -- point d'insertion volontairement choisi ICI, AVANT openNextGif(),
+        // pour ne jamais couper une animation en plein milieu. L'alerte
+        // affichee prend la main pour 7s (voir showNoWifiRecalboxAlert()),
+        // puis resumePlaylist() (appele automatiquement dans loop() a
+        // l'expiration du delai) enchaine sur le GIF suivant normalement --
+        // la rotation reprend sans perte de position.
+        if (g_noWifiRecalboxPending) {
+          showNoWifiRecalboxAlert();
+          break;
+        }
+        // Idem pour "RecalBox non connectee" (2026-08-05) -- meme
+        // placement entre deux GIFs.
+        if (g_recalboxDisconnectedPending) {
+          showRecalboxDisconnectedAlert();
+          break;
+        }
         if(clockEnabled) clockGifCounter++;
         openNextGif();
         if(clockEnabled && clockIntervalMin <= 0)
@@ -4120,7 +5206,13 @@ void loop()
       if(nextGifPath.length()==0)nextGifPath=getNextGif();
       unsigned long t=millis();
       while((long)(millis()-t)<fd){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(0);}
-      if(nextGifPath.length()>0&&!nextGifFile)nextGifFile=SD.open(nextGifPath.c_str());
+      // Pre-chargement opportuniste (deja optionnel avant : ne fait rien si
+      // nextGifFile est deja pris). Non bloquant sur sdAccessMutex -- une
+      // tentative ratee est sans consequence, retentee au prochain tour.
+      if(nextGifPath.length()>0&&!nextGifFile&&xSemaphoreTake(sdAccessMutex,0)==pdTRUE){
+        nextGifFile=SD.open(nextGifPath.c_str());
+        xSemaphoreGive(sdAccessMutex);
+      }
     }
     break;
 
