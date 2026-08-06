@@ -8,6 +8,16 @@
 //   l'utilisateur pour ce lot. RETRO_VERSION (splash boot, ecran physique)
 //   passee de "Raw565 Ed. dev12" a "Raw565 Ed. v12" -- retire le prefixe
 //   "dev" devenu inexact une fois sur master (meme demande explicite).
+//   Suite immediate (meme jour, meme v52) : demande explicite utilisateur
+//   "limiter l'affichage des images d'alerte de connexion recalbox a 3
+//   fois (initial, 60s, 120s)". Les indicateurs rouge "No wifi, No
+//   Recalbox" et orange "RecalBox non connectee" (v51) se repetaient
+//   indefiniment toutes les 60s tant que le probleme persistait --
+//   plafonnes desormais a 3 occurrences par episode de coupure via 2
+//   nouveaux compteurs locaux (wifiAlertCount/recalboxDisconnectedAlertCount,
+//   mqttTask()), remis a 0 des que la connexion revient (une nouvelle
+//   coupure ulterieure redeclenche donc bien 3 affichages a son tour).
+//   Compilation via compile.ps1 : OK. PAS ENCORE teste sur materiel reel.
 //
 // v51 - 2026-08-05 - safe-modify - Refonte complete premier demarrage/AP/
 //   mode config (plan valide en mode Plan, voir memoire projet) + 2
@@ -3882,6 +3892,17 @@ void mqttTask(void *param)
   // d'iterations comme wifiDownStreak) car cette branche tourne au rythme
   // de MQTT_RETRY_MS (15s), different du 1s de la boucle WiFi-down.
   unsigned long lastRecalboxDisconnectedAlertMs = 0;
+  // Plafond a 3 affichages par episode de coupure (2026-08-05, demande
+  // utilisateur : "limiter l'affichage des images d'alerte de connexion
+  // recalbox a 3 fois (initial, 60s, 120s)") -- auparavant repete
+  // indefiniment toutes les 60s tant que le probleme persistait. Remis a 0
+  // des que la connexion revient (memes points que les compteurs
+  // ci-dessus), donc une NOUVELLE coupure ulterieure redeclenche bien 3
+  // affichages a son tour -- seule la repetition SANS FIN au sein d'une
+  // meme coupure prolongee est supprimee.
+  int wifiAlertCount = 0;
+  int recalboxDisconnectedAlertCount = 0;
+  const int MAX_CONNECTION_ALERT_COUNT = 3;
 
   for(;;)
   {
@@ -3893,12 +3914,15 @@ void mqttTask(void *param)
       // (~60s) tant que ca persiste. Pas de dessin direct depuis cette
       // tache de fond (voir showNoWifiRecalboxAlert(), appelee depuis
       // loop() uniquement) -- juste une demande best-effort.
-      if (!g_sdOpInProgress && (wifiDownStreak==1 || wifiDownStreak % 60 == 0)) {
+      if (!g_sdOpInProgress && wifiAlertCount < MAX_CONNECTION_ALERT_COUNT
+          && (wifiDownStreak==1 || wifiDownStreak % 60 == 0)) {
         g_noWifiRecalboxPending = true;
+        wifiAlertCount++;
       }
       vTaskDelay(pdMS_TO_TICKS(1000));continue;
     }
     wifiDownStreak = 0;
+    wifiAlertCount = 0;
 
     // En mode config web : ne pas tenter de connexion MQTT (garde les sockets libres pour HTTP)
     // Idem pendant une generation de playlist (2026-07-29, test en cours) :
@@ -3921,6 +3945,7 @@ void mqttTask(void *param)
         Serial.println("[MQTT] connected");
         lastMqttConnectedMs=millis();
         lastRecalboxDisconnectedAlertMs=0; // reautorise l'alerte immediate en cas de future deconnexion
+        recalboxDisconnectedAlertCount=0;
         mqttClient.subscribe("marquee/cmd/stop");
         mqttClient.subscribe("marquee/cmd/default");
         mqttClient.subscribe("marquee/cmd/system");
@@ -3965,9 +3990,11 @@ void mqttTask(void *param)
         // d'alerte "No wifi, No Recalbox" ici, voir wifiDownStreak). 1ere
         // fois, puis toutes les 60s tant que ca persiste.
         if (mqttClient.state() == -2 && !g_sdOpInProgress
+            && recalboxDisconnectedAlertCount < MAX_CONNECTION_ALERT_COUNT
             && (lastRecalboxDisconnectedAlertMs == 0 || (now - lastRecalboxDisconnectedAlertMs) >= 60000UL)) {
           g_recalboxDisconnectedPending = true;
           lastRecalboxDisconnectedAlertMs = now;
+          recalboxDisconnectedAlertCount++;
         }
         if((now-lastMqttConnectedMs)>=MQTT_OFFLINE_FALLBACK_MS)
         {
