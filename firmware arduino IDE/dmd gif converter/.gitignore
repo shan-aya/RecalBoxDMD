@@ -1,0 +1,13 @@
+# Historique local safe-modify (.bak horodates) -- redondant avec git
+# desormais, jamais partage.
+_backups/
+
+# Cache Python
+__pycache__/
+*.pyc
+
+# Preferences utilisateur locales (langue/theme/etat UI courant) --
+# personnelles a chaque poste, ne doivent jamais etre commitees ni
+# partagees avec un autre utilisateur (meme principe que
+# RecalBox_DMD/tools/RecalBoxDMD_prefs.json).
+config.json
