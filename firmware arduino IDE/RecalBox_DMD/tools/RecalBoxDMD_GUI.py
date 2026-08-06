@@ -2025,6 +2025,26 @@ class RetroBoxLEDGui:
             pass
 
         self._log_q: "queue.Queue[str]" = queue.Queue()
+        # Redirection PERMANENTE et GLOBALE de stdout/stderr vers ce meme
+        # log (2026-08-05, bug signale par l'utilisateur : progression de
+        # copie/extraction visible dans un terminal externe, "c'est pas
+        # voulu"). Jusqu'ici, chaque worker (~12 sites) faisait lui-meme un
+        # swap temporaire sys.stdout=QueueWriter(...)/restore en fin de
+        # fonction -- fragile par construction : tout nouveau code qui
+        # print() en dehors de ce motif (ou tout thread annexe demarre sans
+        # passer par ce swap) fuit directement vers la console attachee au
+        # process. En dev (lance via python.exe depuis un terminal), ce
+        # terminal existe deja ; sur l'executable PyInstaller,
+        # RecalBoxDMD_GUI.spec avait console=True (corrige en meme temps,
+        # console=False) -- dans les deux cas, un vrai terminal recevait
+        # cette sortie au lieu du panneau Logs de l'appli. Redirection ici,
+        # une seule fois, avant la creation du moindre thread de travail :
+        # rend tous les swaps locaux existants inoffensifs (ils permutent
+        # desormais entre deux QueueWriter differents pointant vers la MEME
+        # file, sans jamais revenir a un vrai flux console) et couvre aussi
+        # tout code futur qui oublierait ce motif.
+        sys.stdout = QueueWriter(self._log_q)  # type: ignore[assignment]
+        sys.stderr = QueueWriter(self._log_q)  # type: ignore[assignment]
         self._worker: Optional[threading.Thread] = None
         # Suivi generique des threads d'arriere-plan secondaires
         # (comparaison finale Mode 8, retry flash Mode 6, nettoyage avant
@@ -4020,6 +4040,10 @@ class RetroBoxLEDGui:
         controls = tk.Frame(parent, bg="#F3F3F3", bd=0)
         controls.pack(fill="x", padx=10, pady=(10, 6))
 
+        # width=10 fixe : meme correctif/meme raison que _build_progress_frame
+        # (2026-08-05, demande utilisateur -- boutons non uniformes, visible
+        # simultanement avec ceux du cadre Progression sur l'onglet Logs).
+        BTN_W = 10
         self.btn_pause = tk.Button(
             controls,
             text=ui["btn_pause"],
@@ -4028,7 +4052,7 @@ class RetroBoxLEDGui:
             fg="black",
             bd=2,
             relief="solid",
-            padx=10,
+            width=BTN_W,
             pady=4,
             font=("TkDefaultFont", 10, "bold"),
         )
@@ -4042,7 +4066,7 @@ class RetroBoxLEDGui:
             fg="black",
             bd=2,
             relief="solid",
-            padx=10,
+            width=BTN_W,
             pady=4,
             font=("TkDefaultFont", 10, "bold"),
         )
@@ -4056,7 +4080,7 @@ class RetroBoxLEDGui:
             fg="black",
             bd=2,
             relief="solid",
-            padx=10,
+            width=BTN_W,
             pady=4,
             font=("TkDefaultFont", 10, "bold"),
         )
@@ -4070,7 +4094,7 @@ class RetroBoxLEDGui:
             fg="white",
             bd=2,
             relief="solid",
-            padx=10,
+            width=BTN_W,
             pady=4,
             font=("TkDefaultFont", 10, "bold"),
         )
@@ -6219,6 +6243,14 @@ class RetroBoxLEDGui:
         controls = tk.Frame(frm, bg="#F3F3F3")
         controls.grid(row=3, column=0, columnspan=2, sticky="we", pady=(10, 0))
 
+        # width=10 fixe (2026-08-05, demande utilisateur : boutons non
+        # uniformes) -- en caracteres (unite Tk pour un Button texte, pas
+        # des pixels), suffisant pour la plus longue traduction des 4
+        # libelles sur les 3 langues ("Reanudar", 8 caracteres) + marge.
+        # Sans cette largeur fixe, chaque bouton se dimensionne sur son
+        # propre texte (ex. "Pause" vs "Reprise"/"Resume"/"Reanudar"),
+        # visiblement inegal cote a cote.
+        BTN_W = 10
         self.btn_pause_progress = tk.Button(
             controls,
             text=ui["btn_pause"],
@@ -6227,7 +6259,7 @@ class RetroBoxLEDGui:
             fg="black",
             bd=2,
             relief="solid",
-            padx=10,
+            width=BTN_W,
             pady=4,
             font=("TkDefaultFont", 10, "bold"),
         )
@@ -6241,7 +6273,7 @@ class RetroBoxLEDGui:
             fg="black",
             bd=2,
             relief="solid",
-            padx=10,
+            width=BTN_W,
             pady=4,
             font=("TkDefaultFont", 10, "bold"),
         )
@@ -6255,7 +6287,7 @@ class RetroBoxLEDGui:
             fg="black",
             bd=2,
             relief="solid",
-            padx=10,
+            width=BTN_W,
             pady=4,
             font=("TkDefaultFont", 10, "bold"),
         )
@@ -6269,7 +6301,7 @@ class RetroBoxLEDGui:
             fg="white",
             bd=2,
             relief="solid",
-            padx=10,
+            width=BTN_W,
             pady=4,
             font=("TkDefaultFont", 10, "bold"),
         )
@@ -6306,11 +6338,23 @@ class RetroBoxLEDGui:
         if kind == "copy_sd":
             # Copie SD : titre fixe, ligne 2 = fichier en cours
             self.progress_var.set("Copie SD")
+            # Tronque la ligne COMPLETE (prefixe "idx/total " inclus), pas
+            # seulement le nom de fichier -- bug corrige 2026-08-05 (demande
+            # utilisateur : cette ligne "pousse" la barre du haut et la
+            # barre de progression). Le prefixe grandit avec le nombre
+            # total de fichiers ("2842/2842 " = 10 caracteres, jamais compte
+            # dans l'ancienne limite de 55 appliquee au seul nom de fichier)
+            # -- sur un gros lot (banque de GIFs, ~2800 fichiers), le texte
+            # complet depassait la largeur fixe de la colonne (minsize=420),
+            # forcant la colonne (et donc la barre de progression juste a
+            # cote, en colonne 1) a s'elargir.
+            prefix = f"{idx}/{total} "
             shown = label or ""
-            max_len = 55
-            if len(shown) > max_len:
-                shown = shown[: max_len - 1] + "…"
-            self.progress_sub_var.set(f"{idx}/{total} {shown}")
+            max_total_len = 55
+            max_shown_len = max(0, max_total_len - len(prefix))
+            if len(shown) > max_shown_len:
+                shown = shown[: max(0, max_shown_len - 1)] + "…"
+            self.progress_sub_var.set(prefix + shown)
             return
 
         if kind == "extraction_imgs":
