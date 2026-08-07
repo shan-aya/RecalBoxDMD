@@ -2,7 +2,33 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v40
+# Version actuelle : v42
+#
+# v42 — 2026-08-07 — safe-modify — Fix bug signale par l'utilisateur : le
+#      cadre Progression (partage, sous le Notebook) semblait "disparu" en
+#      Mode 3/8 de l'onglet Avance. Cause reelle identifiee par
+#      l'utilisateur : _on_pipeline_finished() appelle
+#      _start_mode6_blinking() (revele le cadre "copie SD",
+#      _mode6_ui_frame_adv) sans condition de mode -- sauf Mode 8, deja
+#      protege par un "return" specifique. Une fois revele par un Mode
+#      1/6/7 anterieur dans la MEME session, rien ne le masquait en
+#      changeant de mode ensuite : il restait visible et repoussait le
+#      panneau specifique de Mode 3/8 (droite/bas de "outer") hors de la
+#      zone allouee a l'onglet, jusqu'a chevaucher le cadre Progression en
+#      dessous (fenetre fixe 1100x750, non redimensionnable -- rien ne
+#      contient ce debordement). Fix : _on_mode_changed() masque
+#      explicitement _mode6_ui_frame_adv en entrant en Mode 3 ou Mode 8 --
+#      ces 2 modes (extraction seule / verification) ne produisent de
+#      toute facon rien de pret a copier sur la carte SD.
+#
+# v41 — 2026-08-06 — safe-modify — Fix bug signale par l'utilisateur :
+#      _pipeline_mode_2 (Mode 2) videait tout le contenu de sd_dir/systems/
+#      (sauf _defaults) avant de relancer l'extraction, effacant au passage
+#      les dossiers systemes deja presents dans le dossier temporaire (ex:
+#      conversions GIF/raw565pack deja faites a la main). Retire ce
+#      nettoyage prealable -- l'extraction ajoute/ecrase uniquement les
+#      fichiers qu'elle produit elle-meme, le reste du contenu existant de
+#      systems/ n'est plus jamais efface par le Mode 2.
 #
 # v40 — 2026-07-23 — safe-modify — Mode 1 (_pipeline_mode_1) : utilise
 #      desormais toolkit.install_recalbox_scripts() au lieu de
@@ -5676,6 +5702,19 @@ class RetroBoxLEDGui:
             if hasattr(self, "_mode3_profile_frame"):
                 self._mode3_profile_frame.pack_forget()
 
+        # Mode 3/8 : masquer le cadre "copie SD" (_mode6_ui_frame_adv) s'il
+        # est reste visible d'un traitement precedent dans cette session
+        # (Mode 1/6/7, via _start_mode6_blinking()) -- rien ne le masquait
+        # jusqu'ici en changeant de mode, alors que Mode 3 (extraction
+        # seule) et Mode 8 (verification) ne produisent rien de pret a
+        # copier sur la carte SD. Sa presence repoussait le panneau
+        # specifique du mode hors de la zone visible de l'onglet, jusqu'a
+        # chevaucher le cadre Progression partage en dessous (bug "cadre
+        # Progression disparu" signale par l'utilisateur).
+        if mode in ("3", "8"):
+            if hasattr(self, "_mode6_ui_frame_adv"):
+                self._mode6_ui_frame_adv.pack_forget()
+
         # Mode 2 : afficher le bouton "Image de secours" (partage avec le
         # Main), puisque Mode 2 telecharge justement systems/_defaults/.
         # Empaquete juste sous "Details du mode selectionne" (pas ancre en
@@ -7668,21 +7707,15 @@ class RetroBoxLEDGui:
         sd_dir.mkdir(parents=True, exist_ok=True)
         toolkit.prepare_sd_card(sd_dir, interactive=False)
 
+        # v41 : ne vide plus systems/ avant l'extraction (ni "_defaults", ni
+        # le reste) -- un nettoyage prealable effacait les dossiers systemes
+        # deja presents dans le dossier temporaire (ex: conversions
+        # GIF/raw565pack deja faites a la main par l'utilisateur), meme
+        # probleme que celui deja corrige pour "_defaults" en v26
+        # (RecalBoxDMD_tool.py). run_extraction() ajoute/ecrase uniquement
+        # les fichiers qu'elle produit elle-meme ; tout le reste du contenu
+        # existant de systems/ est desormais preserve.
         systems_out = sd_dir / "systems"
-        if systems_out.exists():
-            # Ne vide pas "_defaults" : le choix overwrite/skip de
-            # l'utilisateur (self._mode2_overwrite_existing, decide sur le
-            # thread principal avant de lancer ce worker) doit s'appliquer
-            # aux fichiers qui s'y trouvent deja -- un rmtree global les
-            # aurait supprimes avant meme que download_defaults() ne
-            # puisse decider de les conserver.
-            for item in systems_out.iterdir():
-                if item.name == "_defaults":
-                    continue
-                if item.is_dir():
-                    shutil.rmtree(item)
-                else:
-                    item.unlink()
         systems_out.mkdir(parents=True, exist_ok=True)
 
         tag_configs = [("logo", "")]
