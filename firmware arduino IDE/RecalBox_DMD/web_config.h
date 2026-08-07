@@ -3,7 +3,24 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v52
+// Version actuelle : v53
+//
+// v53 — 2026-08-07 — safe-modify — Fix bug signale par l'utilisateur suite
+//   au test reel du v52 : l'overlay "Chargement en cours..." ne s'affichait
+//   que sur la page Playlist, et meme la, juste avant la fin du chargement
+//   au lieu de juste apres le clic sur l'onglet -- laissant plusieurs
+//   secondes de blanc/vide faisant penser a un crash. Cause : ce sont 6
+//   pages HTML separees avec navigation classique (<a href="/config/...">),
+//   pas une SPA -- "premier element du <body>" ne s'affiche que quand le
+//   navigateur commence a peindre le NOUVEAU document, ce qui depend du
+//   temps de transfert reseau de cette page, jamais du moment du clic.
+//   Fix : nouvelle fonction showPageLoadingOverlay() + onclick sur tous
+//   les liens de navigation interne des 6 pages (menu + basic/network/
+//   clock/media) -- affichage instantane sur la page SOURCE (deja
+//   chargee), independant du reseau, avant que la navigation ne parte.
+//   Le mecanisme existant (masquage via hidePageLoadingOverlay() en fin
+//   de bootstrap sur la page de destination) reste inchange.
+//   PAS ENCORE teste sur mobile reel.
 //
 // v52 — 2026-08-05 — safe-modify — Overlay "Chargement en cours..." sur les
 //   6 pages (demande utilisateur : ~3s d'attente sur mobile avant
@@ -729,10 +746,10 @@ body{position:relative}
 <div class="section">
 <a id="continueLink" class="continue" href="#"></a>
 <div class="menu">
-<a class="btn" href="/config/basic" data-i18n="menu_basic">&#x1F4A1; Affichage &amp; Playlists</a>
-<a class="btn" href="/config/network" data-i18n="menu_network">&#x1F4F6; Wi-Fi &amp; Bluetooth</a>
-<a class="btn" href="/config/clock" data-i18n="menu_clock">&#x23F0; Horloge</a>
-<a class="btn" href="/config/media" data-i18n="menu_media">&#x1F4BF; M&eacute;dias</a>
+<a class="btn" href="/config/basic" onclick="showPageLoadingOverlay()" data-i18n="menu_basic">&#x1F4A1; Affichage &amp; Playlists</a>
+<a class="btn" href="/config/network" onclick="showPageLoadingOverlay()" data-i18n="menu_network">&#x1F4F6; Wi-Fi &amp; Bluetooth</a>
+<a class="btn" href="/config/clock" onclick="showPageLoadingOverlay()" data-i18n="menu_clock">&#x23F0; Horloge</a>
+<a class="btn" href="/config/media" onclick="showPageLoadingOverlay()" data-i18n="menu_media">&#x1F4BF; M&eacute;dias</a>
 </div>
 <div class="small" data-i18n="small_hint">Page fractionn&eacute;e pour un chargement rapide et fiable sur ESP32.</div>
 </div>
@@ -761,6 +778,7 @@ let currentLang='fr';
 // le reste du transfert (page + donnees /lang, /load) prend encore du
 // temps -- masque via hidePageLoadingOverlay(), appelee en toute fin de
 // la chaine de bootstrap (succes ET echec, voir .finally() plus bas).
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
 function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
 function tr(k){return (MENU_I18N[currentLang]&&MENU_I18N[currentLang][k])||MENU_I18N.fr[k]||k;}
 function applyLang(backendLang){
@@ -783,7 +801,7 @@ const SECTIONS={basic:{url:'/config/basic',key:'cont_basic'},network:{url:'/conf
 function updateContinueLink(){
   const last=localStorage.getItem('dmd_last_section');
   const a=document.getElementById('continueLink');
-  if(last&&SECTIONS[last]){a.href=SECTIONS[last].url;a.innerHTML=tr(SECTIONS[last].key);a.style.display='block';}
+  if(last&&SECTIONS[last]){a.href=SECTIONS[last].url;a.onclick=showPageLoadingOverlay;a.innerHTML=tr(SECTIONS[last].key);a.style.display='block';}
   else{a.style.display='none';}
 }
 fetch('/lang').then(function(r){return r.json();}).then(function(d){applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}}).catch(function(){applyLang();}).finally(hidePageLoadingOverlay);
@@ -875,10 +893,10 @@ body{position:relative}
 </div>
 </div>
 <div class="topnav">
-<a href="/config/basic" class="active" data-i18n="nav_basic">&#x1F4A1; Affichage &amp; Playlists</a>
-<a href="/config/network" data-i18n="nav_network">&#x1F4F6; Wi-Fi &amp; BT</a>
-<a href="/config/clock" data-i18n="nav_clock">&#x23F0; Horloge</a>
-<a href="/config/media" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
+<a href="/config/basic" onclick="showPageLoadingOverlay()" class="active" data-i18n="nav_basic">&#x1F4A1; Affichage &amp; Playlists</a>
+<a href="/config/network" onclick="showPageLoadingOverlay()" data-i18n="nav_network">&#x1F4F6; Wi-Fi &amp; BT</a>
+<a href="/config/clock" onclick="showPageLoadingOverlay()" data-i18n="nav_clock">&#x23F0; Horloge</a>
+<a href="/config/media" onclick="showPageLoadingOverlay()" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
 </div>
 <h1 data-i18n="h1">Affichage &amp; Playlists</h1>
 <form id="basicForm" onsubmit="saveConfig(event)">
@@ -939,6 +957,7 @@ let currentLang='fr';
 // le reste du transfert (page + donnees /lang, /load) prend encore du
 // temps -- masque via hidePageLoadingOverlay(), appelee en toute fin de
 // la chaine de bootstrap (succes ET echec, voir .finally() plus bas).
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
 function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
 let _plNameAutoFilled=false; // suivi de la suggestion auto de nom (voir updatePlaylistNameSuggestion())
 function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||PAGE_I18N.fr[k]||k;}
@@ -1424,10 +1443,10 @@ body{position:relative}
 </div>
 </div>
 <div class="topnav">
-<a href="/config/basic" data-i18n="nav_basic">&#x1F4A1; Affichage &amp; Playlists</a>
-<a href="/config/network" class="active" data-i18n="nav_network">&#x1F4F6; Wi-Fi &amp; BT</a>
-<a href="/config/clock" data-i18n="nav_clock">&#x23F0; Horloge</a>
-<a href="/config/media" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
+<a href="/config/basic" onclick="showPageLoadingOverlay()" data-i18n="nav_basic">&#x1F4A1; Affichage &amp; Playlists</a>
+<a href="/config/network" onclick="showPageLoadingOverlay()" class="active" data-i18n="nav_network">&#x1F4F6; Wi-Fi &amp; BT</a>
+<a href="/config/clock" onclick="showPageLoadingOverlay()" data-i18n="nav_clock">&#x23F0; Horloge</a>
+<a href="/config/media" onclick="showPageLoadingOverlay()" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
 </div>
 <h1 data-i18n="h1">Wi-Fi &amp; Bluetooth</h1>
 <form id="networkForm" onsubmit="saveConfig(event)">
@@ -1485,6 +1504,7 @@ let currentLang='fr';
 // le reste du transfert (page + donnees /lang, /load) prend encore du
 // temps -- masque via hidePageLoadingOverlay(), appelee en toute fin de
 // la chaine de bootstrap (succes ET echec, voir .finally() plus bas).
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
 function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
 function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||PAGE_I18N.fr[k]||k;}
 function applyLang(backendLang){
@@ -1636,10 +1656,10 @@ body{position:relative}
 </div>
 </div>
 <div class="topnav">
-<a href="/config/basic" data-i18n="nav_basic">&#x1F4A1; Affichage &amp; Playlists</a>
-<a href="/config/network" data-i18n="nav_network">&#x1F4F6; Wi-Fi &amp; BT</a>
-<a href="/config/clock" class="active" data-i18n="nav_clock">&#x23F0; Horloge</a>
-<a href="/config/media" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
+<a href="/config/basic" onclick="showPageLoadingOverlay()" data-i18n="nav_basic">&#x1F4A1; Affichage &amp; Playlists</a>
+<a href="/config/network" onclick="showPageLoadingOverlay()" data-i18n="nav_network">&#x1F4F6; Wi-Fi &amp; BT</a>
+<a href="/config/clock" onclick="showPageLoadingOverlay()" class="active" data-i18n="nav_clock">&#x23F0; Horloge</a>
+<a href="/config/media" onclick="showPageLoadingOverlay()" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
 </div>
 <h1 data-i18n="h1">Horloge</h1>
 <form id="clockForm" onsubmit="saveConfig(event)">
@@ -1711,6 +1731,7 @@ let currentLang='fr';
 // le reste du transfert (page + donnees /lang, /load) prend encore du
 // temps -- masque via hidePageLoadingOverlay(), appelee en toute fin de
 // la chaine de bootstrap (succes ET echec, voir .finally() plus bas).
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
 function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
 function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||PAGE_I18N.fr[k]||k;}
 function applyLang(backendLang){
@@ -1859,10 +1880,10 @@ body{position:relative}
 </div>
 </div>
 <div class="topnav">
-<a href="/config/basic" data-i18n="nav_basic">&#x1F4A1; Affichage &amp; Playlists</a>
-<a href="/config/network" data-i18n="nav_network">&#x1F4F6; Wi-Fi &amp; BT</a>
-<a href="/config/clock" data-i18n="nav_clock">&#x23F0; Horloge</a>
-<a href="/config/media" class="active" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
+<a href="/config/basic" onclick="showPageLoadingOverlay()" data-i18n="nav_basic">&#x1F4A1; Affichage &amp; Playlists</a>
+<a href="/config/network" onclick="showPageLoadingOverlay()" data-i18n="nav_network">&#x1F4F6; Wi-Fi &amp; BT</a>
+<a href="/config/clock" onclick="showPageLoadingOverlay()" data-i18n="nav_clock">&#x23F0; Horloge</a>
+<a href="/config/media" onclick="showPageLoadingOverlay()" class="active" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
 </div>
 <h1 data-i18n="h1">M&eacute;dias</h1>
 <div class="section">
@@ -1934,6 +1955,7 @@ let currentLang='fr';
 // le reste du transfert (page + donnees /lang, /load) prend encore du
 // temps -- masque via hidePageLoadingOverlay(), appelee en toute fin de
 // la chaine de bootstrap (succes ET echec, voir .finally() plus bas).
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
 function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
 function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||PAGE_I18N.fr[k]||k;}
 function trTpl(k){const args=[].slice.call(arguments,1);let s=tr(k);args.forEach((v,i)=>{s=s.split('${'+i+'}').join(v);});return s;}
@@ -2319,6 +2341,7 @@ let currentLang='fr';
 // le reste du transfert (page + donnees /lang, /load) prend encore du
 // temps -- masque via hidePageLoadingOverlay(), appelee en toute fin de
 // la chaine de bootstrap (succes ET echec, voir .finally() plus bas).
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
 function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
 function tr(k){return (AP_I18N[currentLang]&&AP_I18N[currentLang][k])||AP_I18N.fr[k]||k;}
 function applyLang(backendLang){

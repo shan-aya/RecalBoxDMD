@@ -1,7 +1,45 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v52
+// Version actuelle : v54
+//
+// v54 - 2026-08-07 - safe-modify - Refonte demandee des 3 indicateurs DMD
+//   (vert "RecalBox connectee", orange "RecalBox hors ligne", rouge
+//   desormais traduit) suite au constat que meme le texte raccourci v53
+//   restait contraignant sur 1 seule ligne :
+//   - Passage sur 2 lignes centrees (nouvelle fonction partagee
+//     drawTwoLineCenteredOverlay(), remplace la logique dupliquee dans
+//     les 3 fonctions de dessin) avec police ADAPTATIVE : taille 2
+//     (12px/caractere, plus lisible) si les 2 lignes tiennent dans
+//     RAW565_W=128px, repli automatique sur taille 1 (6px/caractere)
+//     sinon -- calcule independamment par alerte/langue.
+//   - Symbole ASCII d'humeur ajoute en fin de 2e ligne (demande
+//     utilisateur) : ":)" vert, ":/" orange (interrogatif/pas
+//     convaincu), ":(" rouge -- pas de gras (double-dessin ombre noire
+//     existant conserve tel quel, pas de passes supplementaires).
+//   - Alerte rouge "No wifi, No Recalbox" : etait volontairement fixe/
+//     non traduite depuis le 2026-08-05 (v52) -- demande utilisateur de
+//     la traduire desormais que la place sur 2 lignes le permet.
+//     Nouvelle trNoWifiNoRecalbox(). FR "Pas de wifi"/"Pas de Recalbox",
+//     EN "No wifi"/"No Recalbox", ES "Sin wifi"/"Sin Recalbox".
+//   - trRecalboxConnected()/trRecalboxDisconnected() changent de
+//     signature (String&,String& en sortie au lieu d'un retour String
+//     unique) pour porter les 2 lignes.
+//   PAS ENCORE teste sur materiel reel (notamment le cas taille 2 sur
+//   2 lignes qui remplit exactement les 32px de hauteur de l'ecran sans
+//   marge pour l'ombre du bas -- devrait etre clippe silencieusement par
+//   la lib d'affichage, a verifier visuellement).
+//
+// v53 - 2026-08-07 - safe-modify - Texte de l'alerte orange "RecalBox non
+//   connectee"/"not connected"/"no conectada" (v52) depassait la largeur
+//   de l'ecran DMD (RAW565_W=128px, budget 21 caracteres a taille de
+//   police 1/6px-car) sur les 3 langues : FR 23 car., EN 23 car., ES 22
+//   car. -- toutes en debordement, pas seulement le francais (bug
+//   signale par l'utilisateur sur le FR, verifie ensuite sur les 3).
+//   trRecalboxDisconnected() raccourci : "RecalBox deconnectee" (FR, 20
+//   car.), "RecalBox offline" (EN, 17 car.), "RecalBox offline" (ES,
+//   17 car. -- terme technique repris tel quel, "disconnected"/
+//   "desconectada" restent trop longs meme seuls).
 //
 // v52 - 2026-08-05 - safe-modify - Fusion dev/tous-txt-filter -> master
 //   (demande explicite utilisateur), tests materiel confirmes OK par
@@ -3062,21 +3100,80 @@ String trConnectWifiMsg()
 
 // Texte superpose a l'image de secours (default.raw565) affichee a la
 // connexion MQTT (CMD_WAITING_MQTT) -- demande utilisateur (2026-07-28).
-String trRecalboxConnected()
+// Sur 2 lignes depuis v54 (l1/l2 en sortie) -- voir changelog.
+void trRecalboxConnected(String &l1, String &l2)
 {
-  if (uiLanguage == "en") return "RecalBox connected";
-  if (uiLanguage == "es") return "RecalBox conectada";
-  return "RecalBox connectee";
+  l1 = "RecalBox";
+  if (uiLanguage == "en") { l2 = "connected :)"; return; }
+  if (uiLanguage == "es") { l2 = "conectada :)"; return; }
+  l2 = "connectee :)";
 }
 
 // Texte de l'indicateur "RecalBox non connectee" (2026-08-05, demande
 // utilisateur) -- WiFi OK mais mqttClient.state()==-2, voir declaration
-// de g_recalboxDisconnectedPending.
-String trRecalboxDisconnected()
+// de g_recalboxDisconnectedPending. Sur 2 lignes depuis v54 (l1/l2 en
+// sortie, symbole ":/" -- voir changelog).
+void trRecalboxDisconnected(String &l1, String &l2)
 {
-  if (uiLanguage == "en") return "RecalBox not connected";
-  if (uiLanguage == "es") return "RecalBox no conectada";
-  return "RecalBox non connectee";
+  l1 = "RecalBox";
+  if (uiLanguage == "en") { l2 = "offline :/"; return; }
+  if (uiLanguage == "es") { l2 = "offline :/"; return; }
+  l2 = "hors ligne :/";
+}
+
+// Texte de l'alerte "No wifi, No Recalbox" -- desormais traduit depuis
+// v54 (etait volontairement fixe non traduit depuis le 2026-08-05, voir
+// changelog) : symbole ":(" en fin de 2e ligne.
+void trNoWifiNoRecalbox(String &l1, String &l2)
+{
+  if (uiLanguage == "en") { l1 = "No wifi"; l2 = "No Recalbox :("; return; }
+  if (uiLanguage == "es") { l1 = "Sin wifi"; l2 = "Sin Recalbox :("; return; }
+  l1 = "Pas de wifi";
+  l2 = "Pas de Recalbox :(";
+}
+
+// Dessine (visible=true) ou efface (visible=false) un texte sur 2 lignes
+// centrees horizontalement/verticalement, avec police ADAPTATIVE (taille
+// 2, plus lisible, si les 2 lignes tiennent dans RAW565_W ; repli taille
+// 1 sinon) et la meme ombre noire que l'ancien rendu 1 ligne. Restaure le
+// fond depuis le cache RAM de l'image de secours (PAS un bandeau noir --
+// bug remonte en test reel 2026-08-03, voir ancien commentaire), sur la
+// hauteur totale du bloc de 2 lignes desormais (au lieu d'une seule).
+// Remplace la logique dupliquee des 3 fonctions de dessin (2026-08-07,
+// demande utilisateur -- alertes de connexion sur 2 lignes + symboles).
+void drawTwoLineCenteredOverlay(bool visible, const String &line1, const String &line2, uint16_t color)
+{
+  int size = 2;
+  if ((int)line1.length() * 12 > RAW565_W || (int)line2.length() * 12 > RAW565_W) size = 1;
+  const int charW = 6 * size;
+  const int lineH = 8 * size;
+  const int blockH = lineH * 2;
+  const int textY0 = (RAW565_H - blockH) / 2;
+
+  if (defaultRaw565Cached && defaultRaw565Buf) {
+    for (int y = textY0; y < textY0 + blockH && y < RAW565_H; y++)
+      display->drawRGBBitmap(0, y, defaultRaw565Buf + (size_t)y * RAW565_W, RAW565_W, 1);
+  } else {
+    display->fillRect(0, textY0, RAW565_W, blockH, 0);
+  }
+  if (!visible) return;
+
+  display->setTextWrap(false);
+  display->setTextSize(size);
+  const String *lines[2] = {&line1, &line2};
+  for (int i = 0; i < 2; i++) {
+    const String &txt = *lines[i];
+    int textW = (int)txt.length() * charW;
+    int x = (RAW565_W - textW) / 2;
+    if (x < 0) x = 0;
+    int y = textY0 + i * lineH;
+    display->setTextColor(display->color565(0, 0, 0));
+    display->setCursor(x + 1, y + 1);
+    display->print(txt);
+    display->setTextColor(color);
+    display->setCursor(x, y);
+    display->print(txt);
+  }
 }
 
 // Dessine (visible=true) ou efface (visible=false) le texte "RecalBox
@@ -3086,36 +3183,9 @@ String trRecalboxDisconnected()
 // variable selon la langue) plutot qu'une position fixe.
 void drawRecalboxConnectedOverlay(bool visible)
 {
-  // Texte ~8px de haut (setTextSize(1)) -- centre verticalement sur la
-  // hauteur du panneau plutot qu'une position fixe pres du bas (bug remonte
-  // en test reel 2026-08-03 : texte pas centre dans l'image).
-  const int textY = (RAW565_H - 8) / 2;
-  // Efface l'ancien texte en redessinant la bande de fond depuis le cache
-  // RAM de l'image de secours, PAS en la noircissant (bug remonte en test
-  // reel 2026-08-03 : un bandeau noir opaque masquait le GIF/image de fond
-  // pendant la phase "invisible" du clignotement). Repli sur fillRect
-  // uniquement si le cache n'est pour une raison quelconque pas disponible
-  // a cet instant (ne devrait pas arriver : CMD_WAITING_MQTT appelle deja
-  // drawDefaultRaw565Cached() avant le premier appel a cette fonction).
-  if (defaultRaw565Cached && defaultRaw565Buf) {
-    for (int y = textY; y < textY + 8 && y < RAW565_H; y++)
-      display->drawRGBBitmap(0, y, defaultRaw565Buf + (size_t)y * RAW565_W, RAW565_W, 1);
-  } else {
-    display->fillRect(0, textY, RAW565_W, 8, 0);
-  }
-  if (!visible) return;
-  display->setTextWrap(false);
-  display->setTextSize(1);
-  String txt = trRecalboxConnected();
-  int textW = txt.length() * 6; // taille 1 = 6px/caractere
-  int x = (RAW565_W - textW) / 2;
-  if (x < 0) x = 0;
-  display->setTextColor(display->color565(0, 0, 0));
-  display->setCursor(x + 1, textY + 1);
-  display->print(txt);
-  display->setTextColor(display->color565(255, 255, 255));
-  display->setCursor(x, textY);
-  display->print(txt);
+  String l1, l2;
+  trRecalboxConnected(l1, l2);
+  drawTwoLineCenteredOverlay(visible, l1, l2, display->color565(255, 255, 255));
 }
 
 // Dessine (visible=true) ou efface (visible=false) le texte rouge
@@ -3129,26 +3199,9 @@ void drawRecalboxConnectedOverlay(bool visible)
 // qu'un etat normal d'attente.
 void drawNoWifiNoRecalboxOverlay(bool visible)
 {
-  const int textY = (RAW565_H - 8) / 2;
-  if (defaultRaw565Cached && defaultRaw565Buf) {
-    for (int y = textY; y < textY + 8 && y < RAW565_H; y++)
-      display->drawRGBBitmap(0, y, defaultRaw565Buf + (size_t)y * RAW565_W, RAW565_W, 1);
-  } else {
-    display->fillRect(0, textY, RAW565_W, 8, 0);
-  }
-  if (!visible) return;
-  display->setTextWrap(false);
-  display->setTextSize(1);
-  const char *txt = "No wifi, No Recalbox";
-  int textW = (int)strlen(txt) * 6; // taille 1 = 6px/caractere
-  int x = (RAW565_W - textW) / 2;
-  if (x < 0) x = 0;
-  display->setTextColor(display->color565(0, 0, 0));
-  display->setCursor(x + 1, textY + 1);
-  display->print(txt);
-  display->setTextColor(display->color565(255, 0, 0));
-  display->setCursor(x, textY);
-  display->print(txt);
+  String l1, l2;
+  trNoWifiNoRecalbox(l1, l2);
+  drawTwoLineCenteredOverlay(visible, l1, l2, display->color565(255, 0, 0));
 }
 
 // Declenche l'affichage de l'alerte "No wifi, No Recalbox" (image de
@@ -3179,26 +3232,9 @@ void showNoWifiRecalboxAlert()
 // noire), texte TRADUIT (trRecalboxDisconnected()) et couleur orange.
 void drawRecalboxDisconnectedOverlay(bool visible)
 {
-  const int textY = (RAW565_H - 8) / 2;
-  if (defaultRaw565Cached && defaultRaw565Buf) {
-    for (int y = textY; y < textY + 8 && y < RAW565_H; y++)
-      display->drawRGBBitmap(0, y, defaultRaw565Buf + (size_t)y * RAW565_W, RAW565_W, 1);
-  } else {
-    display->fillRect(0, textY, RAW565_W, 8, 0);
-  }
-  if (!visible) return;
-  display->setTextWrap(false);
-  display->setTextSize(1);
-  String txt = trRecalboxDisconnected();
-  int textW = txt.length() * 6; // taille 1 = 6px/caractere
-  int x = (RAW565_W - textW) / 2;
-  if (x < 0) x = 0;
-  display->setTextColor(display->color565(0, 0, 0));
-  display->setCursor(x + 1, textY + 1);
-  display->print(txt);
-  display->setTextColor(display->color565(255, 140, 0));
-  display->setCursor(x, textY);
-  display->print(txt);
+  String l1, l2;
+  trRecalboxDisconnected(l1, l2);
+  drawTwoLineCenteredOverlay(visible, l1, l2, display->color565(255, 140, 0));
 }
 
 // Declenche l'affichage de l'alerte "RecalBox non connectee" -- meme
