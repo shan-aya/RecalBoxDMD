@@ -25,8 +25,10 @@ LAST_SYSTEM=""
 LAST_ROM=""
 IN_GAME=0
 BOOT_TIME=0
+PREV_EVENT=""
 
 while true; do
+    PREV_EVENT="$event"
     event=$(mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 \
         -t "Recalbox/EmulationStation/Event" -C 1 2>/dev/null | tr -d '\r')
 
@@ -82,7 +84,15 @@ while true; do
                         send_mqtt_retain "system" "$system"
                     fi
                 else
-                    rom=$(basename "$game_path" | sed 's/\.[^.]*$//')
+                    # 2026-08-09 : "s/ //g" ajoute -- l'outil PC (sanitize_filename(),
+                    # RecalBoxDMD_tool.py) retire tous les espaces du nom de ROM en
+                    # ecrivant les fichiers sur la carte SD DMD (ex: "Zynaps (Europe).zip"
+                    # -> "Zynaps(Europe).raw565pack"), mais ce script envoyait le nom AVEC
+                    # ses espaces d'origine -- flag "?" (fallback) sur le DMD pour tout jeu
+                    # dont le nom de ROM contient un espace, meme si le fichier converti
+                    # existe bel et bien sur la carte SD, juste sous un nom legerement
+                    # different. Meme fix applique au bloc rungame plus bas.
+                    rom=$(basename "$game_path" | sed 's/\.[^.]*$//; s/ //g')
                     if [ -n "$system" ] && [ -n "$rom" ]; then
                         if [ "$rom" != "$LAST_ROM" ] || [ "$system" != "$LAST_SYSTEM" ]; then
                             LAST_SYSTEM="$system"
@@ -110,7 +120,9 @@ while true; do
             IN_GAME=1
             system_raw=$(read_state "SystemId")
             game_path=$(read_state "GamePath")
-            rom=$(basename "$game_path" | sed 's/\.[^.]*$//')
+            # "s/ //g" : voir commentaire du meme fix dans le bloc
+            # gamelistbrowsing/systembrowsing plus haut (2026-08-09).
+            rom=$(basename "$game_path" | sed 's/\.[^.]*$//; s/ //g')
             system=$(normalize_system "$system_raw")
 
             echo "$(date '+%H:%M:%S') GAME sys=$system rom=$rom" >> "$LOG"
@@ -163,7 +175,24 @@ while true; do
             fi
             ;;
 
+        # Mode demo/veille EmulationStation (defilement automatique de clips
+        # video) : ES ne publie ni "sleep" ni "wakeup" pour ce mode, juste
+        # "startgameclip" en boucle toutes les ~30s -- sans ce cas, le DMD ne
+        # repassait jamais en playlist pendant la demo (tombait dans le *)
+        # ci-dessous, ignore). PREV_EVENT evite de renvoyer "default" a
+        # chaque repetition (juste au moment ou on ENTRE en mode demo).
+        startgameclip)
+            if [ "$PREV_EVENT" != "startgameclip" ]; then
+                echo "$(date '+%H:%M:%S') DEMO/VEILLE -> playlist" >> "$LOG"
+                send_mqtt_retain "default" "1"
+            fi
+            ;;
+
+        stopgameclip)
+            ;;
+
         *)
+            # Event inconnu ou vide
             ;;
     esac
 done
