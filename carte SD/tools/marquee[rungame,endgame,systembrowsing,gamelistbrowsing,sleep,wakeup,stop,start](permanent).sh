@@ -5,39 +5,30 @@ read_state() {
     grep "^${1}=" "/tmp/es_state.inf" 2>/dev/null | cut -d= -f2- | tr -d '\r\n '
 }
 
-send_mqtt() {
-    mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd/${1}" -m "$2" 2>/dev/null
-    echo "$(date '+%H:%M:%S') SEND marquee/cmd/${1} = $2" >> "$LOG"
+send_mqtt_retain() {
+    mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -r -t "marquee/cmd/${1}" -m "$2" 2>/dev/null
+    echo "$(date '+%H:%M:%S') SEND(R) marquee/cmd/${1} = $2" >> "$LOG"
 }
 
 normalize_system() {
     local sys="$1"
     case "$sys" in
-        #fbneo|fba|neogeo)  echo "neogeo" ;;
-        #mame*)             echo "mame" ;;
-        #mastersystem)      echo "mastersystem" ;;
-        #megadrive|genesis) echo "megadrive" ;;
-        #snes|sfc)          echo "snes" ;;
-        #nes|fds)           echo "nes" ;;
-        #gb)                echo "gb" ;;
-        #gbc)               echo "gbc" ;;
-        #gba)               echo "gba" ;;
-        #psx)               echo "psx" ;;
-        #n64)               echo "n64" ;;
-        *)                 echo "$sys" ;;
+        *) echo "$sys" ;;
     esac
 }
 
 echo "$(date) - Marquee bridge started" >> "$LOG"
 
-# Lancer la playlist au démarrage
-send_mqtt "default" "1"
+send_mqtt_retain "default" "1"
 
 LAST_SYSTEM=""
 LAST_ROM=""
 IN_GAME=0
+BOOT_TIME=0
+PREV_EVENT=""
 
 while true; do
+    PREV_EVENT="$event"
     event=$(mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 \
         -t "Recalbox/EmulationStation/Event" -C 1 2>/dev/null | tr -d '\r')
 
@@ -48,24 +39,37 @@ while true; do
         start)
             IN_GAME=0
             LAST_ROM=""
+            LAST_SYSTEM=""
+            BOOT_TIME=$(date +%s)
+            send_mqtt_retain "default" "1"
+
+            # Attendre la fin de la rafale automatique de boot
+            sleep 5
+
+            # Lire le vrai système affiché
             system_raw=$(read_state "SystemId")
             system=$(normalize_system "$system_raw")
+            echo "$(date '+%H:%M:%S') BOOT settle -> sys=$system" >> "$LOG"
             if [ -n "$system" ]; then
                 LAST_SYSTEM="$system"
-                send_mqtt "system" "$system"
-            else
-                send_mqtt "default" "1"
+                send_mqtt_retain "system" "$system"
             fi
             ;;
 
         gamelistbrowsing|systembrowsing)
+            # Ignorer la rafale pendant les 10s après le boot
+            now=$(date +%s)
+            if [ "$BOOT_TIME" -gt 0 ] && [ $((now - BOOT_TIME)) -lt 10 ]; then
+                echo "$(date '+%H:%M:%S') BROWSE ignored (boot settle)" >> "$LOG"
+                continue
+            fi
+
             system_raw=$(read_state "SystemId")
             system=$(normalize_system "$system_raw")
             game_path=$(read_state "GamePath")
 
             echo "$(date '+%H:%M:%S') BROWSE raw=$system_raw norm=$system game=$game_path in_game=$IN_GAME" >> "$LOG"
 
-            # Si on est en jeu, ignorer
             if [ "$IN_GAME" -eq 1 ]; then
                 echo "$(date '+%H:%M:%S') BROWSE ignored (in game)" >> "$LOG"
                 continue
@@ -77,15 +81,23 @@ while true; do
                     if [ "$system" != "$LAST_SYSTEM" ] || [ -n "$LAST_ROM" ]; then
                         LAST_SYSTEM="$system"
                         LAST_ROM=""
-                        send_mqtt "system" "$system"
+                        send_mqtt_retain "system" "$system"
                     fi
                 else
-                    rom=$(basename "$game_path" | sed 's/\.[^.]*$//')
+                    # 2026-08-09 : "s/ //g" ajoute -- l'outil PC (sanitize_filename(),
+                    # RecalBoxDMD_tool.py) retire tous les espaces du nom de ROM en
+                    # ecrivant les fichiers sur la carte SD DMD (ex: "Zynaps (Europe).zip"
+                    # -> "Zynaps(Europe).raw565pack"), mais ce script envoyait le nom AVEC
+                    # ses espaces d'origine -- flag "?" (fallback) sur le DMD pour tout jeu
+                    # dont le nom de ROM contient un espace, meme si le fichier converti
+                    # existe bel et bien sur la carte SD, juste sous un nom legerement
+                    # different. Meme fix applique au bloc rungame plus bas.
+                    rom=$(basename "$game_path" | sed 's/\.[^.]*$//; s/ //g')
                     if [ -n "$system" ] && [ -n "$rom" ]; then
                         if [ "$rom" != "$LAST_ROM" ] || [ "$system" != "$LAST_SYSTEM" ]; then
                             LAST_SYSTEM="$system"
                             LAST_ROM="$rom"
-                            send_mqtt "game" "${system}/${rom}"
+                            send_mqtt_retain "game" "${system}/${rom}"
                         else
                             echo "$(date '+%H:%M:%S') BROWSE skipped (same game)" >> "$LOG"
                         fi
@@ -95,7 +107,7 @@ while true; do
                 if [ "$system" != "$LAST_SYSTEM" ] || [ -n "$LAST_ROM" ]; then
                     LAST_SYSTEM="$system"
                     LAST_ROM=""
-                    send_mqtt "system" "$system"
+                    send_mqtt_retain "system" "$system"
                 else
                     echo "$(date '+%H:%M:%S') BROWSE skipped (same system)" >> "$LOG"
                 fi
@@ -108,7 +120,9 @@ while true; do
             IN_GAME=1
             system_raw=$(read_state "SystemId")
             game_path=$(read_state "GamePath")
-            rom=$(basename "$game_path" | sed 's/\.[^.]*$//')
+            # "s/ //g" : voir commentaire du meme fix dans le bloc
+            # gamelistbrowsing/systembrowsing plus haut (2026-08-09).
+            rom=$(basename "$game_path" | sed 's/\.[^.]*$//; s/ //g')
             system=$(normalize_system "$system_raw")
 
             echo "$(date '+%H:%M:%S') GAME sys=$system rom=$rom" >> "$LOG"
@@ -116,7 +130,7 @@ while true; do
             if [ -n "$system" ] && [ -n "$rom" ]; then
                 LAST_SYSTEM="$system"
                 LAST_ROM="$rom"
-                send_mqtt "game" "${system}/${rom}"
+                send_mqtt_retain "game" "${system}/${rom}"
             fi
             ;;
 
@@ -130,38 +144,51 @@ while true; do
 
             if [ -n "$system" ]; then
                 LAST_SYSTEM="$system"
-                send_mqtt "system" "$system"
+                send_mqtt_retain "system" "$system"
             fi
             ;;
 
-        # Arrêt de l'interface (extinction ou reboot) → playlist
         stop)
             echo "$(date '+%H:%M:%S') STOP -> playlist" >> "$LOG"
             IN_GAME=0
             LAST_ROM=""
-            send_mqtt "default" "1"
+            send_mqtt_retain "default" "1"
             sleep 2
             ;;
 
-        # Démarrage de l'économiseur d'écran → playlist
         sleep)
             echo "$(date '+%H:%M:%S') SLEEP -> playlist" >> "$LOG"
-            send_mqtt "default" "1"
+            send_mqtt_retain "default" "1"
             ;;
 
-        # Sortie de l'économiseur d'écran → reafficher jeu ou systeme
         wakeup)
             echo "$(date '+%H:%M:%S') WAKEUP -> reaffiche last" >> "$LOG"
             if [ -n "$LAST_ROM" ] && [ -n "$LAST_SYSTEM" ]; then
                 echo "$(date '+%H:%M:%S') WAKEUP -> jeu $LAST_SYSTEM/$LAST_ROM" >> "$LOG"
-                send_mqtt "game" "${LAST_SYSTEM}/${LAST_ROM}"
+                send_mqtt_retain "game" "${LAST_SYSTEM}/${LAST_ROM}"
             elif [ -n "$LAST_SYSTEM" ]; then
                 echo "$(date '+%H:%M:%S') WAKEUP -> systeme $LAST_SYSTEM" >> "$LOG"
-                send_mqtt "system" "$LAST_SYSTEM"
+                send_mqtt_retain "system" "$LAST_SYSTEM"
             else
                 echo "$(date '+%H:%M:%S') WAKEUP -> playlist (rien de connu)" >> "$LOG"
-                send_mqtt "default" "1"
+                send_mqtt_retain "default" "1"
             fi
+            ;;
+
+        # Mode demo/veille EmulationStation (defilement automatique de clips
+        # video) : ES ne publie ni "sleep" ni "wakeup" pour ce mode, juste
+        # "startgameclip" en boucle toutes les ~30s -- sans ce cas, le DMD ne
+        # repassait jamais en playlist pendant la demo (tombait dans le *)
+        # ci-dessous, ignore). PREV_EVENT evite de renvoyer "default" a
+        # chaque repetition (juste au moment ou on ENTRE en mode demo).
+        startgameclip)
+            if [ "$PREV_EVENT" != "startgameclip" ]; then
+                echo "$(date '+%H:%M:%S') DEMO/VEILLE -> playlist" >> "$LOG"
+                send_mqtt_retain "default" "1"
+            fi
+            ;;
+
+        stopgameclip)
             ;;
 
         *)
