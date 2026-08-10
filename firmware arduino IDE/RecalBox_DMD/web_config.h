@@ -3,7 +3,38 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v53
+// Version actuelle : v54
+//
+// v54 — 2026-08-10 — safe-modify — Retour de la generation de playlist a
+//   une machine a etats dans loop() (playlistGenStep()), retire de sa tache
+//   FreeRTOS dediee (playlistGenTask(), introduite v31/2026-07-29). Cause :
+//   bissection sur materiel reel (voir memoire projet, plusieurs heures de
+//   diagnostic) a identifie cette architecture (playlistGenTask() ET
+//   sdAccessMutex, pris a CHAQUE frame GIF affichee meme hors generation)
+//   comme le point de bascule d'un deadlock mqttTask/LWIP touchant le
+//   fonctionnement NORMAL du DMD (MQTT + affichage GIF continu, pas
+//   seulement pendant une generation) -- mecanisme exact non elucide malgre
+//   investigation poussee (rien dans ce code ne s'executait pourtant
+//   pendant les scenarios qui plantaient), mais la disparition du crash a
+//   la revert de cette architecture est reproductible sur plusieurs tests
+//   intensifs. Priorite utilisateur explicite : fiabilite MQTT/affichage
+//   (coeur du projet) avant confort de generation de playlist (bonus).
+//   Toute la logique metier (generation hybride cache+scan, marqueur FULL,
+//   embarquement automatique dans le fichier maitre, garde-fous heap,
+//   detection de perte d'ecriture) preservee a l'identique -- seul le
+//   mecanisme d'execution change (etapes bornees a
+//   PLGEN_MAX_FILES_PER_STEP=20 fichiers par appel de loop(), au lieu d'une
+//   tache separee). playlistGenTask()/scanFoldersToPlaylistFile()/
+//   PlaylistGenRequest retires, remplaces par playlistGenStep()/
+//   PlGenScanState (nouvel etat persistant g_plGenScan). sdAccessMutex ET
+//   plGenStatusMutex retires entierement (plus aucun acces concurrent
+//   possible, tout tourne desormais dans loop()) -- voir aussi
+//   RecalBox_DMD.ino (gifPlayFrameCompat()/openNextGif(), revenus a leur
+//   forme d'origine sans mutex). Compromis assume : l'affichage GIF/le
+//   serveur web peuvent etre legerement moins fluides pendant une
+//   generation ACTIVE (action rare, declenchee manuellement) qu'avec la
+//   tache dediee -- comportement acceptable et explicitement valide par
+//   l'utilisateur. Pas encore teste sur materiel reel.
 //
 // v53 — 2026-08-07 — safe-modify — Fix bug signale par l'utilisateur suite
 //   au test reel du v52 : l'overlay "Chargement en cours..." ne s'affichait
@@ -2450,18 +2481,18 @@ static void handleWebConfigLoad()
   webServer->send(200, "application/json", json);
 }
 
-// Lecture rapide (mutex non bloquant, hold time negligeable) de l'etat
-// "generation de playlist active ?" -- utilisee pour garder les handlers
-// listes ci-dessous en dehors de toute generation en cours, meme regle que
-// les autres handlers SD deja gardes (upload/creation-suppression de dossier/
-// suppression de playlist) : une ecriture/lecture SD concurrente avec
-// playlistGenTask() (qui peut tenir sdAccessMutex plusieurs secondes sur un
-// dossier lent) serait a risque.
+// Lecture de l'etat "generation de playlist active ?" -- utilisee pour
+// garder les handlers listes ci-dessous en dehors de toute generation en
+// cours, meme regle que les autres handlers SD deja gardes (upload/
+// creation-suppression de dossier/suppression de playlist) : une
+// ecriture/lecture SD concurrente avec playlistGenStep() (meme contexte
+// d'execution que ces handlers, mais au milieu d'un lot de fichiers en
+// cours) serait a risque.
 static bool plGenIsActive()
 {
-  bool a = false;
-  if (xSemaphoreTake(plGenStatusMutex, 0) == pdTRUE) { a = g_plGenStatus.active; xSemaphoreGive(plGenStatusMutex); }
-  return a;
+  // plGenStatusMutex retire (2026-08-10) : plus d'acces concurrent
+  // possible, tout tourne desormais dans loop() (voir playlistGenStep()).
+  return g_plGenStatus.active;
 }
 
 static void handleWebConfigListPlaylists()
@@ -2563,48 +2594,49 @@ static void handleWebConfigListGifDirs()
 // handleWebConfigDeletePlaylist().
 static void invalidatePlaylistRefCache();
 
-// Machine a etats non-bloquante de generation de playlist, sur sa PROPRE
-// tache FreeRTOS (playlistGenTask(), 2026-07-28) -- remplace l'ancienne
-// version qui tournait sur loop() par petits pas bornes
-// (PLGEN_MAX_FILES_PER_STEP=1) : une lenteur SD localisee (confirmee en test
-// reel sur plusieurs dossiers distincts -- simple listing openNextFile(),
-// sans lecture de contenu, parfois plusieurs secondes par fichier, cause non
-// identifiee mais pas un bug de code) gelait quand meme loop() -- donc le
-// serveur web ET le bouton "Arreter" ET /reboot -- pendant toute la duree de
-// l'appel SD en cours, meme avec un lot de 1 fichier. Deplacer le scan sur sa
-// propre tache elimine le probleme a la racine : loop() (donc le WebServer
-// et la lecture GIF) ne depend plus jamais de la vitesse d'un appel SD
-// individuel de ce scan.
+// Machine a etats non-bloquante de generation de playlist, appelee depuis
+// loop() par petits pas bornes (PLGEN_MAX_FILES_PER_STEP=20, voir
+// playlistGenStep()) -- ARCHITECTURE ACTUELLE depuis le 2026-08-10.
 //
-// POST /generate-playlist demarre la tache et repond immediatement
-// ("STARTED") ; GET /generate-playlist-status lit un instantane de
-// g_plGenStatus (struct definie dans RecalBox_DMD.ino avant #include
-// "web_config.h", meme raison que MqttCommand : web_config.h l'utilise avant
-// sa "vraie" position dans le fichier) sous plGenStatusMutex -- jamais de SD
-// dans la section critique, hold time toujours negligeable des 2 cotes ;
-// POST /generate-playlist-stop pose juste stopRequested, la tache se termine
-// proprement a son prochain point de controle (entre deux dossiers ou deux
-// fichiers).
+// Historique (pour comprendre pourquoi ce n'est PAS une tache FreeRTOS
+// dediee, contrairement a ce qu'on pourrait attendre d'un scan potentiellement
+// long) : entre le 2026-07-30 et le 2026-08-10, cette generation tournait sur
+// sa propre tache FreeRTOS (playlistGenTask()), protegee par 2 mutex
+// (sdAccessMutex partage avec gifPlayFrameCompat()/openNextGif(), pris a
+// CHAQUE frame affichee ; plGenStatusMutex pour ce statut). Cette architecture
+// a ete identifiee par bissection sur materiel reel (voir memoire projet)
+// comme le point de bascule d'un deadlock mqttTask/LWIP touchant le
+// fonctionnement NORMAL du DMD (MQTT + affichage GIF continu, pas seulement
+// pendant une generation) -- mecanisme exact non elucide malgre une
+// investigation poussee (aucune fonction de cette zone ne s'executait
+// pourtant pendant les scenarios qui plantaient). Priorite utilisateur
+// explicite : fiabilite MQTT/affichage (coeur du projet) avant confort de
+// generation de playlist (bonus) -- retour a une machine a etats dans
+// loop(), plus aucun mutex, plus aucune tache dediee.
 //
-// IMPORTANT -- sdAccessMutex protege tout acces SD partage entre cette tache
-// et loop() (lecture GIF a chaque frame, voir gifPlayFrameCompat() dans
-// RecalBox_DMD.ino) : SEULE cette tache peut l'attendre de facon bloquante
-// (portMAX_DELAY, utilise partout ci-dessous). loop()/les handlers HTTP ne
-// doivent JAMAIS l'attendre bloquant -- toujours xSemaphoreTake(sdAccessMutex,
-// 0) + degradation gracieuse si indisponible, sinon un scan lent regelerait
-// exactement le meme probleme, juste deplace vers la lecture GIF au lieu du
-// serveur web (voir le commentaire complet dans RecalBox_DMD.ino, juste avant
-// #include "web_config.h").
+// Compromis assume : pendant une generation ACTIVE (action rare, declenchee
+// manuellement), l'affichage GIF/le serveur web peuvent etre legerement
+// moins fluides qu'avec la tache dediee (chaque appel de playlistGenStep()
+// traite jusqu'a PLGEN_MAX_FILES_PER_STEP fichiers avant de rendre la main a
+// loop(), donc un cout borne mais non nul par iteration -- contrairement au
+// fonctionnement normal hors generation, ou le cout est litteralement nul,
+// un seul if).
 //
-// Chaque appel SD individuel (un SD.open(), un openNextFile(), un print())
-// prend et rend sdAccessMutex separement -- jamais un lock tenu sur tout un
-// dossier ou plusieurs fichiers d'affilee : ca borne la fenetre de blocage
-// possible du thread principal a la duree d'un seul appel SD, jamais plus.
+// POST /generate-playlist initialise g_plGenScan/g_plGenStatus et repond
+// immediatement ("STARTED") ; playlistGenStep() (appelee depuis loop() a
+// chaque iteration) prend le relais des le prochain tour. GET
+// /generate-playlist-status lit g_plGenStatus (struct definie dans
+// RecalBox_DMD.ino avant #include "web_config.h", meme raison que
+// MqttCommand : web_config.h l'utilise avant sa "vraie" position dans le
+// fichier) -- lecture directe, aucun mutex necessaire (playlistGenStep()
+// tourne dans le meme contexte d'execution, loop(), que ce handler HTTP).
+// POST /generate-playlist-stop pose juste stopRequested, playlistGenStep()
+// se termine proprement a son prochain appel.
 //
-// Cette tache ne touche JAMAIS gif/display/currentMode directement (proprietes
-// de loop()) -- seulement g_plGenStatus. C'est loop() qui, periodiquement, lit
-// cet instantane et met a jour l'ecran DMD si le mode config est actif (voir
-// webDmdOverlayLine2()/RecalBox_DMD.ino, loop()).
+// playlistGenStep() ne touche JAMAIS gif/display/currentMode directement
+// (proprietes de loop()) -- seulement g_plGenStatus. C'est loop() qui,
+// periodiquement, lit cet instantane et met a jour l'ecran DMD si le mode
+// config est actif (voir webDmdOverlayLine2()/RecalBox_DMD.ino, loop()).
 
 // Texte DMD compact -- fonction pure (pas de lecture de globals), utilisable
 // a la fois depuis playlistGenTask() et depuis loop() (overlay progression).
@@ -2679,365 +2711,227 @@ static bool fileContainsNeedle(File &f, const String &needle);
 static bool filterMasterIntoFile(const String &dirsCsv, File &outFile, int &linesWrittenOut, bool &hadWriteLossOut, String &errOut);
 static bool appendMatchingLines(const String &srcPath, const String &wantedCsv, const String &destPath, bool &hadWriteLossOut);
 
-// name : nom de la playlist a creer. cachedDirsCsv/uncachedDirsCsv (format
-// ",dir1,dir2,") : repartition decidee par handleWebConfigGeneratePlaylist()
-// selon la presence de chaque dossier dans TOUS_MASTER_PATH. fullMarker :
-// tous les dossiers demandes (cachedDirsCsv + uncachedDirsCsv), format
-// "dir1,dir2" sans virgule d'encadrement -- ecrit tel quel en tete du
-// fichier de sortie (marqueur "# FULL:", voir playlistGenTask()).
-struct PlaylistGenRequest { String name; String cachedDirsCsv; String uncachedDirsCsv; String fullMarker; };
-
-// Tourne du debut a la fin sur sa propre tache (creee a la demande, voir
-// handleWebConfigGeneratePlaylist()) -- plus besoin d'une borne "fichiers par
-// appel" (existait uniquement pour borner le cout par appel loop(), obsolete
-// des que ce n'est plus loop() qui l'appelle). Tache PERSISTANTE essayee puis
-// abandonnee le 2026-07-29 -- cf. commentaire au-dessus de la declaration de
-// playlistGenTaskHandle (RecalBox_DMD.ino) pour le detail de ce qui a ete
-// tente et pourquoi.
-// Coeur du scan (parse dirsCsv, ouvre chaque /gifs/<dossier>, ecrit les
-// chemins .gif trouves dans outFile deja ouvert) -- appelee par
-// playlistGenTask() UNIQUEMENT sur les dossiers pas encore couverts par le
-// fichier maitre interne (uncachedDirsCsv, voir plan cache_master_gifs) --
-// la portion deja couverte est desormais filtree depuis le fichier maitre
-// (filterMasterIntoFile(), quasi instantane) sans jamais toucher /gifs/.
-// Ne touche JAMAIS g_plGenStatus.active/resultMsg/done -- l'appelant garde
-// la responsabilite de les positionner, seul g_plGenStatus.curDirName/
-// dirIdx/curDirGifs/totalGifs (progression, deja affichee sur le DMD/la
-// page web) est mis a jour ici.
-static void scanFoldersToPlaylistFile(const String &dirsCsv, File &outFile,
-                                       int &totalGifsOut, bool &stoppedOut, bool &lowHeapAbortOut,
-                                       bool &hadWriteLossOut)
+// ETAT PERSISTANT (2026-08-10, retour a l'architecture non-tache -- voir
+// changelog v54) : porte la generation "hybride" (cache+scan) d'un appel de
+// playlistGenStep() a l'autre puisqu'il n'y a plus de pile de tache dediee
+// pour le faire. Remplace l'ancien PlaylistGenRequest (retire) + les
+// variables locales de l'ancienne playlistGenTask()/scanFoldersToPlaylistFile().
+// name/cachedDirsCsv/uncachedDirsCsv/fullMarker : meme sens qu'avant (voir
+// handleWebConfigGeneratePlaylist() -- repartition decidee selon la
+// presence de chaque dossier dans TOUS_MASTER_PATH ; fullMarker ecrit tel
+// quel en tete du fichier de sortie, marqueur "# FULL:"). Un seul champ
+// "phase" pilote la progression -- pas de mutex necessaire : playlistGenStep()
+// tourne exclusivement dans loop() (meme contexte d'execution que
+// gifPlayFrameCompat()/openNextGif()), donc plus aucun acces SD concurrent
+// entre 2 threads (voir aussi sdAccessMutex, retire -- RecalBox_DMD.ino).
+enum PlGenPhase { PLGEN_PHASE_IDLE, PLGEN_PHASE_CACHE, PLGEN_PHASE_SCAN };
+struct PlGenScanState
 {
-  int totalGifs = 0, dirIdx = 0, parseIdx = 0;
+  PlGenPhase phase = PLGEN_PHASE_IDLE;
+  String name;
+  String cachedDirsCsv;
+  String uncachedDirsCsv;
+  String fullMarker;
+  File   outFile;
+  bool   hadWriteLoss = false;
+  int    totalGifsFromCache = 0;
+  int    totalGifsScanned = 0;
+  // Position courante dans la phase scan
+  int    parseIdx = 0;
+  int    dirIdx = 0;
+  String curDirName;
+  File   curDir;
+  bool   dirOpen = false;
   String buf;
-  bool stopped = false;
-  bool lowHeapAbort = false;
-  bool hadWriteLoss = false;
+  int    curDirGifs = 0;
+};
+static PlGenScanState g_plGenScan;
 
-  while (parseIdx <= (int)dirsCsv.length())
-  {
-    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
-      stopped = g_plGenStatus.stopRequested;
-      xSemaphoreGive(plGenStatusMutex);
-    }
-    if (stopped) break;
+// Meme ordre de grandeur que l'ancienne playlistGenStep() (v94, avant la
+// tache dediee) -- borne le cout d'un appel pour ne jamais bloquer loop()
+// (donc l'affichage GIF/MQTT) plus de quelques millisecondes d'affilee.
+static const int PLGEN_MAX_FILES_PER_STEP = 20;
 
-    int comma = dirsCsv.indexOf(',', parseIdx);
-    String dirName = (comma < 0) ? dirsCsv.substring(parseIdx) : dirsCsv.substring(parseIdx, comma);
-    dirName.trim();
-    parseIdx = (comma < 0) ? (int)(dirsCsv.length() + 1) : (comma + 1);
-    if (dirName.length() == 0) continue; // segment vide (virgules successives)
-
-    dirIdx++;
-    int curDirGifs = 0;
-    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
-      g_plGenStatus.curDirName = dirName;
-      g_plGenStatus.dirIdx = dirIdx;
-      g_plGenStatus.curDirGifs = 0;
-      xSemaphoreGive(plGenStatusMutex);
-    }
-
-    File dir;
-    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
-      dir = SD.open(("/gifs/" + dirName).c_str());
-      xSemaphoreGive(sdAccessMutex);
-    }
-    bool dirOpen = dir && dir.isDirectory();
-    if (!dirOpen && dir) {
-      if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { dir.close(); xSemaphoreGive(sdAccessMutex); }
-    }
-
-    // Cache par dossier ESSAYE puis RETIRE le 2026-07-29 (mtime + cache
-    // centralise /playlists/<dossier>_dircache.txt, plusieurs iterations :
-    // dans le dossier lui-meme, puis centralise, puis RAM-only) -- 4 bugs
-    // reels trouves sur cette seule fonctionnalite (descripteurs simultanes,
-    // dossier modifie en cours d'enumeration, perte de donnees au flush,
-    // comptages erratifs), et le dernier test reel a confirme que meme la
-    // version RAM-only + tache creee a la demande (design d'origine)
-    // continuait a planter/donner des comptages faux -- donc le probleme
-    // n'etait pas la tache persistante, mais ce code de cache lui-meme.
-    // Abandonne : le gain reel ne couvrait de toute facon pas les gros
-    // dossiers lents (Arcade/Consoles/Halloween/Vertical_DMD, la vraie
-    // cible), un plafond RAM les excluant systematiquement. Remplace a
-    // terme par une approche filtrage-de-texte sur un TOUS.txt tenu a jour
-    // (voir discussion/plan a venir), qui evite completement l'enumeration
-    // repetee de /gifs/<dossier>.
-    while (dirOpen)
-    {
-      if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
-        stopped = g_plGenStatus.stopRequested;
-        xSemaphoreGive(plGenStatusMutex);
-      }
-      // Garde-fou heap critique (2026-07-29, crash reel : abort() par
-      // allocation heap echouee, meme classe de bug deja documentee sur ce
-      // projet -- exceptions C++ desactivees -> abort() direct au lieu d'une
-      // exception rattrapable). maxalloc se degrade au fil d'un long scan ;
-      // sans ce garde, une allocation (String/File) finissait par echouer et
-      // faisait planter/redemarrer tout l'appareil. Traite comme un arret
-      // demande : sortie propre plutot qu'un crash.
-      // Seuil laisse a 4096 (2026-07-29) : hypothese revue -- maxalloc
-      // pendant un fonctionnement normal reussi se situe couramment entre
-      // 4500 et 9000, donc un seuil remonte a 8192 declencherait le
-      // garde-fou en permanence, meme sur un petit dossier (marge reelle
-      // entre succes/crash mesuree a seulement ~250 octets, pas plusieurs
-      // milliers). Suspicion actuelle : le crash vient d'une course avec
-      // mqttTask() (meme coeur, tentatives de connexion concurrentes) plutot
-      // que d'un heap simplement trop bas -- mqttTask() ne tente plus de
-      // connexion pendant une generation active (voir RecalBox_DMD.ino),
-      // teste en isolation avant de reconsiderer ce seuil.
-      if (!stopped && ESP.getMaxAllocHeap() < 4096) {
-        Serial.println("[WEB] playlistGenTask: heap critique (maxalloc=" + String(ESP.getMaxAllocHeap()) + "), arret propre du scan");
-        stopped = true;
-        lowHeapAbort = true;
-      }
-      if (stopped) {
-        if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { dir.close(); xSemaphoreGive(sdAccessMutex); }
-        break;
-      }
-
-      File f;
-      if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
-        f = dir.openNextFile();
-        xSemaphoreGive(sdAccessMutex);
-      }
-      if (!f) {
-        if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { dir.close(); xSemaphoreGive(sdAccessMutex); }
-        dirOpen = false;
-        break;
-      }
-      if (!f.isDirectory()) {
-        String fname = String(f.name());
-        if (fname.endsWith(".gif")) {
-          buf += "/gifs/" + dirName + "/" + fname + "\n";
-          totalGifs++;
-          curDirGifs++;
-          // Seuil de flush reduit de 4000 a 1000 (2026-07-29) : reduit la
-          // taille de pic d'allocation transitoire pendant la concatenation
-          // (String::operator+= peut reallouer un buffer plus grand avant de
-          // copier), un contributeur plausible au heap critique ci-dessus
-          // sur un scan long.
-          if (buf.length() > 1000) {
-            if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { if (!writeBufChecked(outFile, buf)) hadWriteLoss = true; xSemaphoreGive(sdAccessMutex); }
-            buf = "";
-          }
-        }
-      }
-      f.close();
-
-      if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
-        g_plGenStatus.curDirGifs = curDirGifs;
-        g_plGenStatus.totalGifs = totalGifs;
-        xSemaphoreGive(plGenStatusMutex);
-      }
-      vTaskDelay(1); // laisse tourner mqttTask()/l'idle task -- bonne conduite FreeRTOS, pas une borne de cout
-    }
-    if (stopped) break;
+// Finalise une generation arretee (bouton Arreter ou heap critique) --
+// meme comportement qu'avant (fichier partiel supprime si le heap le
+// permet, sinon laisse sur la SD).
+static void plGenFinalizeStopped(bool lowHeapAbort)
+{
+  if (g_plGenScan.dirOpen) { g_plGenScan.curDir.close(); g_plGenScan.dirOpen = false; }
+  if (g_plGenScan.outFile) g_plGenScan.outFile.close();
+  String outputPath = "/playlists/" + g_plGenScan.name + ".txt";
+  if (ESP.getMaxAllocHeap() >= 4096) {
+    forceDeleteFile(outputPath);
+  } else {
+    Serial.println("[WEB] playlistGenStep: heap trop bas pour nettoyer " + g_plGenScan.name + ".txt (fichier partiel laisse sur SD, maxalloc=" + String(ESP.getMaxAllocHeap()) + ")");
   }
-
-  // Flush final du reliquat -- SEULEMENT si le scan s'est termine
-  // normalement (un arret/heap-critique doit laisser le fichier de sortie
-  // intact pour que l'appelant puisse decider de le supprimer ou non selon
-  // son propre contexte).
-  if (!stopped && buf.length() > 0) {
-    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) { if (!writeBufChecked(outFile, buf)) hadWriteLoss = true; xSemaphoreGive(sdAccessMutex); }
+  if (lowHeapAbort) {
+    Serial.println("[WEB] playlistGenStep: heap insuffisant, " + g_plGenScan.name + ".txt annulee/supprimee");
+  } else {
+    Serial.println("[WEB] playlistGenStep: arret demande, " + g_plGenScan.name + ".txt annulee/supprimee");
   }
-  totalGifsOut = totalGifs;
-  stoppedOut = stopped;
-  lowHeapAbortOut = lowHeapAbort;
-  hadWriteLossOut = hadWriteLoss;
+  g_plGenStatus.resultMsg = lowHeapAbort
+    ? "Memoire insuffisante, playlist supprimee. Redemarrez le DMD puis reessayez"
+    : "Generation annulee, playlist supprimee";
+  g_plGenStatus.active = false;
+  g_plGenStatus.done = true;
+  g_plGenScan.phase = PLGEN_PHASE_IDLE;
 }
 
-void playlistGenTask(void *param)
+// Finalise une generation reussie -- meme logique qu'avant (embarquement
+// automatique dans le fichier maitre, message hybride/simple).
+static void plGenFinalizeOk()
 {
-  PlaylistGenRequest *req = (PlaylistGenRequest *)param;
-  String name = req->name;
-  String cachedDirsCsv = req->cachedDirsCsv;
-  String uncachedDirsCsv = req->uncachedDirsCsv;
-  String fullMarker = req->fullMarker;
-  delete req;
-
-  String outputPath = "/playlists/" + name + ".txt";
-  File outFile;
-  if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
-    outFile = SD.open(outputPath.c_str(), FILE_WRITE);
-    xSemaphoreGive(sdAccessMutex);
+  // Flush final du reliquat (dernier bloc accumule sous le seuil de 1000
+  // caracteres) -- meme comportement que l'ancien "flush final" en fin de
+  // scanFoldersToPlaylistFile().
+  if (g_plGenScan.buf.length() > 0) {
+    if (!writeBufChecked(g_plGenScan.outFile, g_plGenScan.buf)) g_plGenScan.hadWriteLoss = true;
+    g_plGenScan.buf = "";
   }
-  if (!outFile) {
-    // Deja valide par handleWebConfigGeneratePlaylist() avant de lancer cette
-    // tache -- ne devrait pas arriver, protection quand meme.
-    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
-      g_plGenStatus.resultMsg = "ERR: ecriture impossible (" + name + ".txt)";
-      g_plGenStatus.active = false;
-      g_plGenStatus.done = true;
-      xSemaphoreGive(plGenStatusMutex);
-    }
-    playlistGenTaskHandle = nullptr;
-    vTaskDelete(nullptr);
+  if (g_plGenScan.outFile) g_plGenScan.outFile.close();
+  // Pure RAM, pas de SD -- doit imperativement s'executer AVANT le flip
+  // active=false ci-dessous : cet ordre garantit qu'un handler HTTP voyant
+  // active=false ne peut lire ce cache qu'apres qu'il ait ete invalide.
+  invalidatePlaylistRefCache();
+
+  String outputPath = "/playlists/" + g_plGenScan.name + ".txt";
+  int adoptedDirCount = 0;
+  if (g_plGenScan.uncachedDirsCsv.length() > 1) {
+    int cp = 1;
+    while (cp < (int)g_plGenScan.uncachedDirsCsv.length()) { int cc = g_plGenScan.uncachedDirsCsv.indexOf(',', cp); if (cc < 0) break; adoptedDirCount++; cp = cc + 1; }
+    bool adoptWriteLoss = false;
+    bool adoptOk = appendMatchingLines(outputPath, g_plGenScan.uncachedDirsCsv, TOUS_MASTER_PATH, adoptWriteLoss);
+    size_t masterSizeAfter = 0;
+    File chk = SD.open(TOUS_MASTER_PATH, FILE_READ);
+    if (chk) { masterSizeAfter = chk.size(); chk.close(); }
+    Serial.println("[WEB] playlistGenStep: embarquement cache -- adoptOk=" + String(adoptOk ? "1" : "0") + " writeLoss=" + String(adoptWriteLoss ? "1" : "0") + " tailleCacheApres=" + String((unsigned long)masterSizeAfter) + " octets");
+    if (adoptWriteLoss) g_plGenScan.hadWriteLoss = true;
+  }
+
+  int totalGifs = g_plGenScan.totalGifsFromCache + g_plGenScan.totalGifsScanned;
+  bool hybrid = (g_plGenScan.cachedDirsCsv.length() > 1 && g_plGenScan.uncachedDirsCsv.length() > 1);
+  String resultMsg;
+  if (hybrid) {
+    resultMsg = "OK: " + String(totalGifs) + " GIFs (" + String(g_plGenScan.totalGifsFromCache) + " depuis le cache + " + String(g_plGenScan.totalGifsScanned) + " nouvellement scannes";
+    if (adoptedDirCount > 0) resultMsg += ", " + String(adoptedDirCount) + " dossier(s) ajoute(s) au cache";
+    resultMsg += ") dans la playlist " + g_plGenScan.name + ".txt";
+  } else {
+    resultMsg = "OK: " + String(totalGifs) + " GIFs ajoutes dans la playlist " + g_plGenScan.name + ".txt";
+    if (adoptedDirCount > 0) resultMsg += " (" + String(adoptedDirCount) + " dossier(s) ajoute(s) au cache)";
+  }
+  if (g_plGenScan.hadWriteLoss) resultMsg += " (ATTENTION: ecriture incomplete detectee, regenerez cette playlist pour verifier)";
+  Serial.println("[WEB] " + resultMsg);
+  g_plGenStatus.resultMsg = resultMsg;
+  g_plGenStatus.active = false;
+  g_plGenStatus.done = true;
+  g_plGenScan.phase = PLGEN_PHASE_IDLE;
+}
+
+// Avance la generation d'un pas borne, appelee depuis loop() a CHAQUE
+// iteration -- cout quasi nul quand aucune generation n'est active (un seul
+// if). Remplace playlistGenTask() (tache FreeRTOS dediee, 2026-07-30 ->
+// 2026-08-10) : la tache (et sdAccessMutex, le mutex qu'elle partageait avec
+// gifPlayFrameCompat()/openNextGif()) a ete identifiee par bissection sur
+// materiel reel comme le point de bascule d'un deadlock mqttTask/LWIP qui
+// touchait le fonctionnement normal (MQTT + affichage GIF continu) --
+// mecanisme exact non elucide malgre une investigation poussee, mais la
+// disparition du crash a la revert de cette architecture est reproductible.
+// Priorite utilisateur explicite : fiabilite MQTT/affichage > generation de
+// playlist non-bloquante -- voir memoire projet. Toute la logique metier
+// (generation hybride cache+scan, marqueur FULL, embarquement automatique,
+// garde-fous heap, detection perte d'ecriture) est preservee a l'identique,
+// seul le mecanisme d'execution change (etapes bornees depuis loop() au lieu
+// d'une tache separee).
+void playlistGenStep()
+{
+  if (!g_plGenStatus.active) return;
+
+  if (g_plGenStatus.stopRequested)
+  {
+    plGenFinalizeStopped(false);
+    return;
+  }
+  // Garde-fou heap critique (2026-07-29, crash reel : abort() par allocation
+  // heap echouee) -- conserve a l'identique, verifie une fois par appel
+  // (au lieu d'une fois par fichier dans l'ancienne version tache) puisque
+  // chaque appel est deja borne a PLGEN_MAX_FILES_PER_STEP fichiers.
+  if (ESP.getMaxAllocHeap() < 4096)
+  {
+    Serial.println("[WEB] playlistGenStep: heap critique (maxalloc=" + String(ESP.getMaxAllocHeap()) + "), arret propre du scan");
+    plGenFinalizeStopped(true);
     return;
   }
 
-  bool hadWriteLoss = false;
-
-  // Marqueur "# FULL:" (plan cache_master_gifs) -- ECRIT ICI et jamais avant
-  // (par handleWebConfigGeneratePlaylist()) : FILE_WRITE vaut "w" (voir
-  // FS.h), qui TRONQUE le fichier a l'ouverture -- un marqueur ecrit plus
-  // tot serait silencieusement efface des que cette tache rouvre
-  // outputPath ci-dessus. Toute selection DMD porte toujours sur des
-  // dossiers ENTIERS (jamais une selection fichier par fichier) : ce
-  // marqueur protege cette playlist d'un ajout automatique errone lors d'un
-  // futur upload vers un dossier dont seule une partie aurait ete demandee
-  // (voir handleWebConfigAddToPlaylistsBatch()).
-  if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
-    String marker = "# FULL:" + fullMarker + "\n";
-    if (!writeBufChecked(outFile, marker)) hadWriteLoss = true;
-    xSemaphoreGive(sdAccessMutex);
-  }
-
-  // Portion "deja en cache" (generation hybride, plan cache_master_gifs) --
-  // quasi instantanee, ecrite en premier directement dans le fichier de
-  // sortie deja ouvert (pas de temp+rename separe ici : l'integrite globale
-  // du fichier est deja garantie par le mecanisme existant plus bas, qui
-  // supprime outputPath entierement en cas d'arret/heap-critique pendant la
-  // phase de scan qui suit).
-  int totalGifsFromCache = 0;
-  if (cachedDirsCsv.length() > 1) {
-    int linesWritten = 0;
-    bool cacheWriteLoss = false;
-    String err;
-    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
-      filterMasterIntoFile(cachedDirsCsv, outFile, linesWritten, cacheWriteLoss, err);
-      xSemaphoreGive(sdAccessMutex);
-    }
-    if (cacheWriteLoss) hadWriteLoss = true;
-    totalGifsFromCache = linesWritten;
-  }
-
-  // Scan classique -- SEULEMENT sur les dossiers pas encore couverts par le
-  // fichier maitre.
-  int totalGifsScanned = 0;
-  bool stopped = false, lowHeapAbort = false, scanWriteLoss = false;
-  if (uncachedDirsCsv.length() > 1) {
-    scanFoldersToPlaylistFile(uncachedDirsCsv, outFile, totalGifsScanned, stopped, lowHeapAbort, scanWriteLoss);
-    if (scanWriteLoss) hadWriteLoss = true;
-  }
-
-  if (stopped)
+  if (g_plGenScan.phase == PLGEN_PHASE_CACHE)
   {
-    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
-      outFile.close();
-      // gere elle-meme SD.exists()/le cas lecture-seule FAT32 -- BUG CORRIGE
-      // (2026-07-28) : cet appel restait hors du mutex jusqu'ici, seul acces
-      // SD non protege de toute la tache, exactement sur le chemin declenche
-      // par le bouton Arreter -- crash reel observe (abort(), reboot) en
-      // test materiel, tres probablement du a cet acces concurrent non
-      // protege au bus SD/SPI pendant que l'autre tache lisait une frame GIF.
-      // Garde heap AJOUTEE (2026-07-30) : un second crash reel, meme
-      // signature exacte (abort()->lock_init_generic()->__sfp, confirme via
-      // addr2line), s'est reproduit ICI MEME malgre le mutex ci-dessus --
-      // maxalloc etait deja tombe a 5108 avant meme le debut du scan (arret
-      // demande apres 311 GIFs). Le mutex protege le BUS SD contre l'acces
-      // concurrent, mais forceDeleteFile() ouvre/renomme/supprime un fichier
-      // (donc alloue potentiellement un nouveau verrou libc via fopen()),
-      // sans le garde-fou heap deja present dans la boucle de scan
-      // (scanFoldersToPlaylistFile()) elle-meme. Si le heap est deja trop
-      // bas ICI, ne pas tenter le nettoyage -- le fichier partiel reste sur
-      // la SD, sera simplement ecrase par la prochaine tentative.
-      if (ESP.getMaxAllocHeap() >= 4096) {
-        forceDeleteFile(outputPath);
-      } else {
-        Serial.println("[WEB] playlistGenTask: heap trop bas pour nettoyer " + name + ".txt (fichier partiel laisse sur SD, maxalloc=" + String(ESP.getMaxAllocHeap()) + ")");
-      }
-      xSemaphoreGive(sdAccessMutex);
+    // Portion "deja en cache" (generation hybride, plan cache_master_gifs) --
+    // quasi instantanee (filtrage texte, ne touche jamais /gifs/), traitee
+    // en un seul appel comme avant.
+    String marker = "# FULL:" + g_plGenScan.fullMarker + "\n";
+    if (!writeBufChecked(g_plGenScan.outFile, marker)) g_plGenScan.hadWriteLoss = true;
+    if (g_plGenScan.cachedDirsCsv.length() > 1) {
+      int linesWritten = 0;
+      bool cacheWriteLoss = false;
+      String err;
+      filterMasterIntoFile(g_plGenScan.cachedDirsCsv, g_plGenScan.outFile, linesWritten, cacheWriteLoss, err);
+      if (cacheWriteLoss) g_plGenScan.hadWriteLoss = true;
+      g_plGenScan.totalGifsFromCache = linesWritten;
     }
-    if (lowHeapAbort) {
-      Serial.println("[WEB] playlistGenTask: heap insuffisant, " + name + ".txt annulee/supprimee");
-    } else {
-      Serial.println("[WEB] playlistGenTask: arret demande, " + name + ".txt annulee/supprimee");
-    }
-    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
-      g_plGenStatus.resultMsg = lowHeapAbort
-        ? "Memoire insuffisante, playlist supprimee. Redemarrez le DMD puis reessayez"
-        : "Generation annulee, playlist supprimee";
-      g_plGenStatus.active = false;
-      g_plGenStatus.done = true;
-      xSemaphoreGive(plGenStatusMutex);
-    }
+    if (g_plGenScan.uncachedDirsCsv.length() <= 1) { plGenFinalizeOk(); return; }
+    g_plGenScan.phase = PLGEN_PHASE_SCAN;
+    return; // laisse le scan commencer au prochain appel
   }
-  else
+
+  // Phase scan -- SEULEMENT sur les dossiers pas encore couverts par le
+  // fichier maitre, par blocs bornes a PLGEN_MAX_FILES_PER_STEP fichiers.
+  int processed = 0;
+  while (processed < PLGEN_MAX_FILES_PER_STEP)
   {
-    if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
-      outFile.close();
-      xSemaphoreGive(sdAccessMutex);
-    }
-    // Pure RAM, pas de SD -- doit imperativement s'executer AVANT le flip
-    // active=false ci-dessous : c'est cet ordre (pas un mutex sur le cache
-    // lui-meme) qui garantit qu'un handler du thread principal voyant
-    // active=false ne peut lire ce cache qu'apres que cette tache ait fini
-    // de le toucher.
-    invalidatePlaylistRefCache();
+    if (!g_plGenScan.dirOpen)
+    {
+      if (g_plGenScan.parseIdx > (int)g_plGenScan.uncachedDirsCsv.length()) { plGenFinalizeOk(); return; }
+      int comma = g_plGenScan.uncachedDirsCsv.indexOf(',', g_plGenScan.parseIdx);
+      String dirName = (comma < 0) ? g_plGenScan.uncachedDirsCsv.substring(g_plGenScan.parseIdx) : g_plGenScan.uncachedDirsCsv.substring(g_plGenScan.parseIdx, comma);
+      dirName.trim();
+      g_plGenScan.parseIdx = (comma < 0) ? (int)(g_plGenScan.uncachedDirsCsv.length() + 1) : (comma + 1);
+      if (dirName.length() == 0) continue; // segment vide (virgules successives)
 
-    // Embarquement automatique (plan cache_master_gifs) -- les dossiers
-    // nouvellement scannes ci-dessus sont "adoptes" par le fichier maitre :
-    // relit les lignes qui viennent d'etre ecrites dans outputPath (pas
-    // besoin de rescanner /gifs/ une seconde fois) et les ajoute
-    // (FILE_APPEND) a TOUS_MASTER_PATH, qui se cree tout seul au tout
-    // premier appel (bootstrap organique -- aucune capacite de bootstrap
-    // explicite n'est reintroduite cote firmware). Tout futur upload web
-    // vers ce dossier sera desormais suivi automatiquement par
-    // handleWebConfigAddToPlaylistsBatch(), sans action supplementaire.
-    int adoptedDirCount = 0;
-    if (uncachedDirsCsv.length() > 1) {
-      int cp = 1;
-      while (cp < (int)uncachedDirsCsv.length()) { int cc = uncachedDirsCsv.indexOf(',', cp); if (cc < 0) break; adoptedDirCount++; cp = cc + 1; }
-      bool adoptWriteLoss = false;
-      bool adoptOk = false;
-      size_t masterSizeAfter = 0;
-      if (xSemaphoreTake(sdAccessMutex, portMAX_DELAY) == pdTRUE) {
-        adoptOk = appendMatchingLines(outputPath, uncachedDirsCsv, TOUS_MASTER_PATH, adoptWriteLoss);
-        File chk = SD.open(TOUS_MASTER_PATH, FILE_READ);
-        if (chk) { masterSizeAfter = chk.size(); chk.close(); }
-        xSemaphoreGive(sdAccessMutex);
+      g_plGenScan.dirIdx++;
+      g_plGenScan.curDirName = dirName;
+      g_plGenScan.curDirGifs = 0;
+      g_plGenStatus.curDirName = dirName;
+      g_plGenStatus.dirIdx = g_plGenScan.dirIdx;
+      g_plGenStatus.curDirGifs = 0;
+
+      g_plGenScan.curDir = SD.open(("/gifs/" + dirName).c_str());
+      g_plGenScan.dirOpen = g_plGenScan.curDir && g_plGenScan.curDir.isDirectory();
+      if (!g_plGenScan.dirOpen && g_plGenScan.curDir) g_plGenScan.curDir.close();
+      continue; // reprend la boucle -- ouvre le fichier ou passe au dossier suivant au prochain tour
+    }
+
+    File f = g_plGenScan.curDir.openNextFile();
+    if (!f) { g_plGenScan.curDir.close(); g_plGenScan.dirOpen = false; continue; }
+    if (!f.isDirectory()) {
+      String fname = String(f.name());
+      if (fname.endsWith(".gif")) {
+        g_plGenScan.buf += "/gifs/" + g_plGenScan.curDirName + "/" + fname + "\n";
+        g_plGenScan.totalGifsScanned++;
+        g_plGenScan.curDirGifs++;
+        if (g_plGenScan.buf.length() > 1000) {
+          if (!writeBufChecked(g_plGenScan.outFile, g_plGenScan.buf)) g_plGenScan.hadWriteLoss = true;
+          g_plGenScan.buf = "";
+        }
       }
-      // DIAGNOSTIC TEMPORAIRE (2026-08-01, retour test reel : count "?" en
-      // permanence sur la page Affichage) -- confirme si l'embarquement a
-      // reellement ecrit quelque chose dans TOUS_MASTER_PATH.
-      Serial.println("[WEB] playlistGenTask: embarquement cache -- adoptOk=" + String(adoptOk ? "1" : "0") + " writeLoss=" + String(adoptWriteLoss ? "1" : "0") + " tailleCacheApres=" + String((unsigned long)masterSizeAfter) + " octets");
-      if (adoptWriteLoss) hadWriteLoss = true;
     }
-
-    int totalGifs = totalGifsFromCache + totalGifsScanned;
-    bool hybrid = (cachedDirsCsv.length() > 1 && uncachedDirsCsv.length() > 1);
-    String resultMsg;
-    if (hybrid) {
-      resultMsg = "OK: " + String(totalGifs) + " GIFs (" + String(totalGifsFromCache) + " depuis le cache + " + String(totalGifsScanned) + " nouvellement scannes";
-      if (adoptedDirCount > 0) resultMsg += ", " + String(adoptedDirCount) + " dossier(s) ajoute(s) au cache";
-      resultMsg += ") dans la playlist " + name + ".txt";
-    } else {
-      resultMsg = "OK: " + String(totalGifs) + " GIFs ajoutes dans la playlist " + name + ".txt";
-      if (adoptedDirCount > 0) resultMsg += " (" + String(adoptedDirCount) + " dossier(s) ajoute(s) au cache)";
-    }
-    // hadWriteLoss : contrairement au fichier maitre interne (adopte via
-    // appendMatchingLines() ci-dessus), une playlist classique n'a pas de
-    // mecanisme de revalidation automatique -- seul un signal explicite
-    // permet a l'utilisateur de savoir qu'une regeneration est justifiee.
-    if (hadWriteLoss) resultMsg += " (ATTENTION: ecriture incomplete detectee, regenerez cette playlist pour verifier)";
-    Serial.println("[WEB] " + resultMsg);
-    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
-      g_plGenStatus.resultMsg = resultMsg;
-      g_plGenStatus.active = false;
-      g_plGenStatus.done = true;
-      xSemaphoreGive(plGenStatusMutex);
-    }
+    f.close();
+    g_plGenStatus.curDirGifs = g_plGenScan.curDirGifs;
+    g_plGenStatus.totalGifs = g_plGenScan.totalGifsFromCache + g_plGenScan.totalGifsScanned;
+    processed++;
   }
-
-  // DIAGNOSTIC TEMPORAIRE : marge de pile reellement utilisee (en mots de 4
-  // octets sur ESP32) -- valide que 4096 (voir xTaskCreatePinnedToCore() dans
-  // handleWebConfigGeneratePlaylist()) est suffisant sans etre dangereusement
-  // juste. A retirer une fois confirme sur quelques scans reels.
-  Serial.println("[WEB] playlistGenTask: marge de pile restante=" + String(uxTaskGetStackHighWaterMark(nullptr) * 4) + " octets");
-
-  playlistGenTaskHandle = nullptr;
-  vTaskDelete(nullptr);
+  // Fin du lot borne -- laisse loop() continuer (MQTT/affichage GIF),
+  // playlistGenStep() sera rappelee au prochain tour pour continuer
+  // exactement ou elle s'est arretee (curDir reste ouvert entre 2 appels).
 }
 
 // Coeur du filtrage de TOUS_MASTER_PATH, ECRIT DIRECTEMENT dans un File
@@ -3265,11 +3159,9 @@ static bool appendMatchingLines(const String &srcPath, const String &wantedCsv, 
 
 static void handleWebConfigGeneratePlaylist()
 {
-  bool alreadyActive = false;
-  if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
-    alreadyActive = g_plGenStatus.active;
-    xSemaphoreGive(plGenStatusMutex);
-  }
+  // plGenStatusMutex retire (2026-08-10) : plus d'acces concurrent
+  // possible, tout tourne desormais dans loop() (voir playlistGenStep()).
+  bool alreadyActive = g_plGenStatus.active;
   if (alreadyActive) { webServer->send(409, "text/plain", "ERR: generation deja en cours"); return; }
   if (!webServer->hasArg("name") || !webServer->hasArg("dirs")) {
     webServer->send(400, "text/plain", "ERR: manque nom ou dirs"); return;
@@ -3339,60 +3231,44 @@ static void handleWebConfigGeneratePlaylist()
   if (SD.exists(outputPath.c_str())) SD.remove(outputPath.c_str());
   File outf = SD.open(outputPath.c_str(), FILE_WRITE);
   if (!outf) { webServer->send(500, "text/plain", "ERR: ecriture impossible"); return; }
-  outf.close(); // validation d'ecriture seulement -- playlistGenTask() rouvre le fichier et ecrit le marqueur "# FULL:" en tout premier
+  // Reste ouvert -- porte par g_plGenScan.outFile, playlistGenStep() ecrit
+  // le marqueur "# FULL:" au tout premier pas (2026-08-10) : plus de
+  // fermeture/reouverture, meme handle garde jusqu'a la fin de la
+  // generation (ancien commentaire "playlistGenTask() rouvre le fichier"
+  // obsolete depuis le retrait de la tache dediee).
 
   int totalDirsToScan = 0;
   { int cp = 1; while (cp < (int)uncachedDirsCsv.length()) { int cc = uncachedDirsCsv.indexOf(',', cp); if (cc < 0) break; totalDirsToScan++; cp = cc + 1; } }
 
-  if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
-    g_plGenStatus = PlaylistGenStatus();
-    g_plGenStatus.active = true;
-    g_plGenStatus.totalDirs = totalDirsToScan;
-    xSemaphoreGive(plGenStatusMutex);
-  }
+  // Initialise l'etat persistant -- playlistGenStep() (appelee depuis
+  // loop() a chaque iteration) prend le relais au prochain tour, plus de
+  // tache FreeRTOS a creer ni de mutex a prendre (2026-08-10, voir
+  // changelog v54 : la tache dediee et sdAccessMutex ont ete identifies par
+  // bissection materielle comme le point de bascule d'un deadlock
+  // mqttTask/LWIP touchant le fonctionnement normal MQTT/affichage GIF --
+  // priorite utilisateur explicite : fiabilite avant confort de generation).
+  g_plGenStatus = PlaylistGenStatus();
+  g_plGenStatus.active = true;
+  g_plGenStatus.totalDirs = totalDirsToScan;
 
-  PlaylistGenRequest *req = new PlaylistGenRequest{ name, cachedDirsCsv, uncachedDirsCsv, allDirsClean };
-  Serial.println("[WEB] generate-playlist: creation tache, heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap())); // DIAGNOSTIC TEMPORAIRE
-  // 4096 (pas 8192) : confirme en test reel (2026-07-28) que maxalloc peut
-  // descendre a ~8180 octets a ce point du fonctionnement normal (boot +
-  // navigation web) -- une pile de 8192 echouait de justesse (bloc contigu
-  // introuvable), laissant active bloque a true pour toujours avant l'ajout
-  // de la verification ci-dessous. 4096 correspond a la taille deja utilisee
-  // avec succes par mqttTask() dans ce meme environnement contraint ; marge
-  // reelle a confirmer via uxTaskGetStackHighWaterMark() (log en fin de
-  // tache, voir playlistGenTask()).
-  BaseType_t taskOk = xTaskCreatePinnedToCore(playlistGenTask, "playlistGen", 4096, req, 1, &playlistGenTaskHandle, 0);
-  if (taskOk != pdPASS) {
-    // xTaskCreatePinnedToCore() peut echouer (heap fragmente -- pile de 8 Ko
-    // = un bloc contigu a allouer, deja documente sur ce projet comme
-    // difficile a garantir) : SANS cette verification, g_plGenStatus.active
-    // restait bloque a true pour toujours (rien ne le repasse a false
-    // puisque la tache censee le faire n'a jamais demarre) -- symptome
-    // observe en test reel (2026-07-28) : "0" affiche indefiniment, aucune
-    // progression. delete req ici pour eviter la fuite (la tache qui aurait
-    // du le liberer n'existe pas).
-    delete req;
-    Serial.println("[WEB] generate-playlist: ECHEC creation tache (heap insuffisant ?)");
-    if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
-      g_plGenStatus.active = false;
-      g_plGenStatus.done = true;
-      g_plGenStatus.resultMsg = "ERR: impossible de demarrer la generation (heap insuffisant)";
-      xSemaphoreGive(plGenStatusMutex);
-    }
-    webServer->send(500, "text/plain", "ERR: impossible de demarrer la generation");
-    return;
-  }
-  Serial.println("[WEB] generate-playlist: demarrage " + name + ".txt, dirs=" + dirsRaw);
+  g_plGenScan = PlGenScanState();
+  g_plGenScan.name = name;
+  g_plGenScan.cachedDirsCsv = cachedDirsCsv;
+  g_plGenScan.uncachedDirsCsv = uncachedDirsCsv;
+  g_plGenScan.fullMarker = allDirsClean;
+  g_plGenScan.outFile = outf;
+  g_plGenScan.phase = PLGEN_PHASE_CACHE;
+
+  Serial.println("[WEB] generate-playlist: demarrage " + name + ".txt, dirs=" + dirsRaw + ", heap libre=" + String(ESP.getFreeHeap()) + " maxalloc=" + String(ESP.getMaxAllocHeap()));
   webServer->send(200, "text/plain", "STARTED");
 }
 
 static void handleWebConfigGeneratePlaylistStatus()
 {
-  PlaylistGenStatus snap;
-  if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
-    snap = g_plGenStatus;
-    xSemaphoreGive(plGenStatusMutex);
-  }
+  // plGenStatusMutex retire (2026-08-10) : plus d'acces concurrent possible,
+  // playlistGenStep() tourne exclusivement dans loop(), meme contexte que
+  // ce handler HTTP (lui-meme appele depuis loop() via handleWebConfig()).
+  PlaylistGenStatus snap = g_plGenStatus;
   String json = "{\"active\":" + String(snap.active ? "true" : "false");
   json += ",\"done\":" + String(snap.done ? "true" : "false");
   json += ",\"dir\":\"" + jsonEscape(snap.curDirName) + "\"";
@@ -3405,20 +3281,17 @@ static void handleWebConfigGeneratePlaylistStatus()
 }
 
 // Arret demande par l'utilisateur (bouton "Arreter") : pose juste le drapeau,
-// ne touche plus AUCUN File -- playlistGenTask() est desormais la SEULE
-// proprietaire de g_plGenOutFile/du dossier en cours, elimine par construction
-// tout risque de double-fermeture/concurrence sur ces objets (au lieu de le
-// gerer par verrouillage). La tache se ferme/nettoie elle-meme a son prochain
-// point de controle ; le polling web deja en place detecte la fin via son
-// chemin normal (!active), sans changement JS necessaire.
+// ne touche plus AUCUN File -- playlistGenStep() (2026-08-10, plus de tache
+// dediee) reste la SEULE proprietaire de g_plGenScan.outFile/du dossier en
+// cours, meme contexte d'execution (loop()) que ce handler HTTP -- elimine
+// par construction tout risque de double-fermeture/concurrence. Le nettoyage
+// se fait au prochain appel de playlistGenStep() ; le polling web deja en
+// place detecte la fin via son chemin normal (!active), sans changement JS
+// necessaire.
 static void handleWebConfigGeneratePlaylistStop()
 {
-  bool wasActive = false;
-  if (xSemaphoreTake(plGenStatusMutex, portMAX_DELAY) == pdTRUE) {
-    wasActive = g_plGenStatus.active;
-    if (wasActive) g_plGenStatus.stopRequested = true;
-    xSemaphoreGive(plGenStatusMutex);
-  }
+  bool wasActive = g_plGenStatus.active;
+  if (wasActive) g_plGenStatus.stopRequested = true;
   Serial.println(String("[WEB] generate-playlist-stop: ") + (wasActive ? "arret demande" : "rien a arreter"));
   webServer->send(200, "text/plain", wasActive ? "OK: arret demande" : "OK: rien a arreter");
 }

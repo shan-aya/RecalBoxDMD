@@ -1,7 +1,292 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v54
+// Version actuelle : v68
+//
+// v68 - 2026-08-10 - safe-modify - Suite de v67 : test reel confirme une
+//   AMELIORATION MAJEURE (2 tests intensifs consecutifs sans incident sur
+//   3do et amiga600) mais PAS une elimination totale -- un incident isole
+//   de gel silencieux ~5min13s (avec auto-recuperation, sans reboot) sur
+//   amiga600. Demande explicite utilisateur : continuer a eliminer le
+//   DECLENCHEMENT du gel (le mecanisme bas niveau lui-meme restant hors de
+//   portee), meme au detriment d'autres fonctionnalites. Piste identifiee
+//   des le debut de la session (jamais pleinement testee) : WiFi.
+//   setAutoReconnect(true) demarre une tache interne au driver WiFi,
+//   opaque et hors controle applicatif, 2e candidat de collision LWIP avec
+//   mqttTask en plus de playlistGenTask() (deja elimine en v67). Fix :
+//   setAutoReconnect() passe a false (setupWiFiFromConfig()) --
+//   maintainWiFi() (deja en place, appelee a chaque loop(), cooldown 5s,
+//   reapplique l'IP fixe) devient la SEULE source de reconnexion WiFi,
+//   entierement sous controle applicatif. Commentaire de
+//   MQTT_WIFI_SETTLE_MS (mqttTask()) mis a jour pour refleter que la
+//   mitigation vise desormais la fenetre de reconnexion de maintainWiFi(),
+//   plus le driver. Compromis assume : reconnexion potentiellement un peu
+//   moins reactive dans certains cas limites que le driver interne
+//   n'aurait pu gerer. Pas encore teste sur materiel reel.
+//
+// v67 - 2026-08-10 - safe-modify - Correctif final de la session de
+//   diagnostic mqttTask/LWIP : v65/v66 (ci-dessous) ciblaient sdAccessMutex/
+//   plGenStatusMutex dans CE fichier (.ino) mais se sont averes
+//   INSUFFISANTS en test reel -- bissection par FICHIER a ensuite montre
+//   que la regression vit dans web_config.h, pas ici (voir memoire projet
+//   pour le detail complet de la bissection). Root cause : playlistGenTask()
+//   (tache FreeRTOS dediee pour la generation de playlist, introduite
+//   2026-07-30) et sdAccessMutex (partage avec gifPlayFrameCompat()/
+//   openNextGif() dans ce fichier). Fix retenu (approuve par l'utilisateur,
+//   priorite explicite : fiabilite MQTT/affichage avant confort de
+//   generation de playlist) : RETOUR de la generation de playlist a une
+//   machine a etats dans loop() (playlistGenStep(), voir web_config.h v54)
+//   au lieu d'une tache dediee. Consequence directe sur ce fichier :
+//   - gifPlayFrameCompat()/openNextGif() : sdAccessMutex retire ENTIEREMENT
+//     (plus juste "conditionnel" comme en v65) -- retour a leur forme
+//     d'origine, plus aucune operation FreeRTOS bas niveau sur ce chemin
+//     hors generation.
+//   - loop() : appel a playlistGenStep() reintroduit (retire en meme temps
+//     que playlistGenTask() avait ete ajoutee), meme position qu'a
+//     l'origine (avant handleWebConfig()).
+//   - sdAccessMutex ET plGenStatusMutex retires entierement (declaration,
+//     creation dans setup(), tous les xSemaphoreTake/Give) : plus aucun
+//     acces concurrent a proteger, playlistGenStep() tourne exclusivement
+//     dans loop(), meme contexte d'execution que gifPlayFrameCompat()/
+//     openNextGif()/les handlers HTTP.
+//   - playlistGenTaskHandle retire (plus de tache a pointer).
+//   Pas encore teste sur materiel reel -- verification prioritaire : la
+//   meme rafale MQTT intensive (3do + amiga600/Zyconix 525f + Zool2 55f)
+//   qui faisait planter v52/v64/v65/v66 de facon fiable.
+//
+// v66 - 2026-08-10 - safe-modify - v65 CONFIRME INSUFFISANT en test reel
+//   (freeze 3do reproduit a l'identique malgre le fix gifPlayFrameCompat()/
+//   openNextGif()). Candidat suivant du meme commit "v95/4c663fb" : dans
+//   mqttTask(), un xSemaphoreTake(plGenStatusMutex,0)/Give tournait SANS
+//   AUCUNE CONDITION a CHAQUE iteration de la boucle (~50 fois/seconde en
+//   regime normal, meme sans playlistGenTask() actif) -- juste avant les
+//   operations socket/LWIP de mqttTask lui-meme, candidat plus direct que
+//   le precedent (c'est la MEME tache qui se bloque dans LWIP). Fix
+//   identique : lecture non protegee de g_plGenStatus.active, mutex retire
+//   entierement de ce point (plus jamais pris ici, meme si active=true --
+//   le check g_sdOpInProgress||plGenActiveNow n'a de toute facon besoin
+//   que d'un indice approximatif, pas d'une lecture strictement a jour).
+//   Pas encore teste sur materiel reel.
+//
+// v65 - 2026-08-10 - safe-modify - Correctif cible suite a la regression
+//   bissectee au commit git "v95/4c663fb" (30 juillet, introduction de
+//   sdAccessMutex) : gifPlayFrameCompat() (tourne a CHAQUE frame affichee)
+//   et openNextGif() (chaque transition entre 2 GIFs) prenaient
+//   systematiquement sdAccessMutex (xSemaphoreTake/Give), meme quand
+//   playlistGenTask() n'a jamais tourne (99% du temps reel) -- des
+//   milliers d'operations FreeRTOS bas niveau par minute sur le chemin le
+//   plus chaud du firmware, sur le meme coeur que mqttTask(), augmentant
+//   la probabilite de collision avec son propre verrou LWIP interne
+//   (voir memoire projet, deadlock mqttTask/LWIP deja documente et
+//   reproduit systematiquement via rafale MQTT ciblee). Fix : lecture NON
+//   PROTEGEE de g_plGenStatus.active en pre-check rapide (meme convention
+//   que g_sdOpInProgress ailleurs dans ce fichier) -- sdAccessMutex n'est
+//   desormais pris QUE si une generation semble reellement en cours.
+//   Risque residuel accepte : une frame rare non protegee pendant la
+//   fenetre de demarrage d'un scan, tres inferieur au cout systematique
+//   actuel. Pas encore teste sur materiel reel.
+//
+// v64 - 2026-08-09 - safe-modify - Suite du diagnostic 3do : le crash
+//   mqttTask/LWIP reproduit en rafale MQTT ciblee (BattleSport ->
+//   CaptainQuazar -> Cyberia, tous 1 frame, flag N/FAST) a ete confirme
+//   sur v63 (ELF SHA different du build precedent, lignes [DIAG]
+//   presentes -- donc vrai test v63, pas un ancien binaire). Utilisateur a
+//   refute l'hypothese "jamais teste aussi vite avant" (defilements
+//   longs deja pratiques historiquement lors des sessions de resolution
+//   de lenteur d'affichage) -- mes changements du jour (v60-v63) restent
+//   donc suspects. Les 2 lignes [DIAG] (v63, Serial.println() inconditionnel
+//   + concatenation String, dans le chemin chaud CMD_GAME) regatees
+//   derriere CMD_GAME_DEBUG_LOGS (desactivees par defaut) pour ecarter cet
+//   overhead comme confondeur -- garde-fou heap (v60-v62) et
+//   reordonnancement loop() (v62) CONSERVES pour ce test (a re-tester sans
+//   eux si le crash persiste malgre le retrait des logs). Pas encore
+//   teste sur materiel reel.
+//
+// v63 - 2026-08-09 - safe-modify - DIAGNOSTIC TEMPORAIRE (demande
+//   utilisateur : determiner si seuls les systemes flag L sont impactes
+//   par les crashs/gels raw565pack, ou tout raw565pack quel que soit le
+//   flag systeme). Ajout de 4 Serial.println("[DIAG] ...") TOUJOURS
+//   VISIBLES (pas gates par CMD_GAME_DEBUG_LOGS) dans processPendingMqttCommand()
+//   CMD_GAME : slowFlag/isSlow a l'entree, sysT sur le chemin FAST, cached
+//   et sysT sur le chemin SLOW. Objectif : confirmer directement dans le
+//   log serie, pour chaque jeu teste, son flag reel (L/N) et son type
+//   (g/p/B) sans avoir a activer tout CMD_GAME_DEBUG_LOGS (trop verbeux).
+//   A RETIRER (ou regater derriere CMD_GAME_DEBUG_LOGS) une fois
+//   l'investigation terminee -- pas un correctif fonctionnel.
+//
+// v62 - 2026-08-09 - safe-modify - Suite de v61, deux corrections
+//   distinctes issues de tests reels utilisateur le meme jour :
+//   1) Blocage confirme et reproduit plusieurs fois (Zool2 55 frames, puis
+//      ZakMcKracken 87 frames) : ecran DMD fige sur un raw565pack, PLUS
+//      AUCUN changement de jeu traite/logue, alors que mqttTask() continue
+//      des cycles connecting/connected toutes les ~89s+10s (log tres
+//      regulier). Analyse : loop() (ligne 5410) appelait handleWebConfig()
+//      (webServer->handleClient(), passe par la couche socket LWIP) AVANT
+//      processPendingMqttCommand() -- si handleWebConfig() se bloque sur
+//      un verrou LWIP bas niveau retenu ailleurs (meme famille que le
+//      deadlock mqttTask/LWIP deja documente, backtrace decode
+//      anterieurement : sys_mutex_lock/xQueueSemaphoreTake), TOUTE
+//      l'iteration de loop() reste bloquee avec lui, y compris
+//      processPendingMqttCommand() -- pendingCmd (un seul slot) se fait
+//      alors ecraser silencieusement par chaque nouveau message MQTT recu
+//      entre-temps, sans jamais etre traite ni logue. Fix : appel de
+//      processPendingMqttCommand() deplace en TOUT PREMIER dans loop(),
+//      avant handleWebConfig(). Ne resout pas la cause racine (verrou hors
+//      de portee du code applicatif) mais garantit que la commande en
+//      attente AU DEBUT de chaque iteration est bien consommee avant tout
+//      risque de blocage sur la partie web.
+//   2) Nouveau crash confirme (abort() std::terminate/make_shared<VFSFileImpl>,
+//      backtrace decode) sur 3 changements de jeu tres rapproches (moins
+//      de 700ms) -- PAS dans le chemin protege par le garde-fou v60/v61
+//      (dispatch 'B'/'g'/'p') mais dans le dessin du MASK SYSTEME
+//      (drawRaw565(maskBase+".raw565"), appele plus tot dans CMD_GAME,
+//      avant meme la logique de type de jeu). Le garde-fou v60/v61 ne
+//      couvrait qu'UN site d'appel parmi plusieurs. Fix : garde-fou
+//      CENTRALISE directement dans drawRaw565() (verifie une seule fois,
+//      protege TOUS les appelants -- mask systeme, repli 'B', repli 'g')
+//      au lieu de dupliquer la verification a chaque site d'appel.
+//   Pas encore teste sur materiel reel.
+//
+// v61 - 2026-08-09 - safe-modify - Bug confirme par test reel utilisateur
+//   sur v60 : "il n'y a plus jamais de rawpack de lu" -- log serie montre
+//   des dizaines de CMD_GAME sur amiga600 sans UNE SEULE ligne "[GIF] open
+//   OK raw565pack", et rien d'autre non plus (ni raw565 ni defaut) --
+//   silence total. Cause : le seuil v60 (8500) etait mal calibre. Le
+//   plancher NORMAL de ESP.getMaxAllocHeap() en fonctionnement sain
+//   tourne en continu autour de 4596-5876 (deja documente ailleurs dans
+//   ce projet, du au setvbuf(4096) de SD.open() -- PAS une anomalie),
+//   donc maxalloc<8500 etait vrai quasi en permanence : le garde-fou
+//   interceptait SYSTEMATIQUEMENT avant meme d'essayer le raw565pack.
+//   Fix : seuil CMD_GAME_MIN_HEAP_FOR_FILE_OPEN abaisse a 3000 (sous ce
+//   plancher normal, pour ne plus intercepter le fonctionnement sain).
+//   Egalement : les 2 lignes de log du declenchement du garde-fou (avant
+//   caches derriere CMD_GAME_DEBUG_LOGS=false, donc silencieuses --
+//   explique pourquoi le bug ci-dessus etait invisible dans les logs)
+//   rendues TOUJOURS visibles (evenement rare/exceptionnel, pas du spam
+//   par jeu) pour rester diagnosticable a l'avenir sans activer tous les
+//   logs verbeux. Pas encore teste sur materiel reel.
+//
+// v60 - 2026-08-09 - safe-modify - Demande utilisateur suite a plusieurs
+//   crashs reels confirmes (abort() dans lock_init_generic lors d'un
+//   SD.open() en heap tres bas, sur amiga600/Zork* entre autres) :
+//   garde-fou heap bas dans le chemin lent CMD_GAME, MAIS le repli ne se
+//   declenche QUE si ESP.getMaxAllocHeap() < CMD_GAME_MIN_HEAP_FOR_FILE_OPEN
+//   (8500 octets) -- jamais systematiquement sur un flag systeme 'B'.
+//   Comportement normal (heap suffisant) inchange : 'B' suit toujours le
+//   chemin 'g' (raw565pack via openGif() en premier). Si heap bas :
+//   - flag 'B' -> tente drawRaw565(gameBase+".raw565") directement (une
+//     seule lecture SD de 8192 octets, sans .meta ni cache de delais,
+//     donc moins couteux que raw565pack) avant d'abandonner ;
+//   - flag 'g'/'p' purs, ou 'B' sans .raw565 propre a ce jeu -> repli
+//     direct sur drawDefaultRaw565Cached() (zero allocation, deja en RAM)
+//     au lieu de tenter l'ouverture et risquer l'abort().
+//   Pas encore teste sur materiel reel.
+//
+// v59 - 2026-08-09 - safe-modify - Demande utilisateur : rendre desactivables
+//   les logs verbeux de CMD_GAME (19 Serial.println, la plupart avec
+//   plusieurs concatenations de String Arduino, tournant a CHAQUE
+//   changement de jeu sur les systemes lents) -- piste de test pour la
+//   fragmentation heap observee (concatenation String = plusieurs
+//   malloc/free de tailles variees par appel, cause classique documentee
+//   de fragmentation sur ESP32/Arduino). Nouveau const bool
+//   CMD_GAME_DEBUG_LOGS (desactive par defaut) enveloppe les 19 lignes.
+//   Pas une correction confirmee -- un test pour isoler si la
+//   fragmentation vient de la ou d'ailleurs. Repasser a true pour
+//   retrouver le detail complet si besoin de redeboguer le flux
+//   CMD_GAME.
+//
+// v58 - 2026-08-09 - safe-modify - Mitigation (pas un vrai fix -- cause
+//   racine hors de portee du code applicatif) du deadlock mqttTask deja
+//   documente (backtrace decode via addr2line a 2 reprises : blocage
+//   dans PubSubClient::connect() -> appels LWIP internes ->
+//   xQueueGenericSend/vPortExitCritical, jamais debloque avant le
+//   watchdog -> abort()+reboot). Confirme une 3e fois par l'utilisateur,
+//   cette fois sans watchdog : gel de ~101s de TOUT l'appareil (pas
+//   seulement MQTT -- l'allocateur heap ESP32 utilise un verrou global
+//   partage entre les 2 coeurs, un deadlock LWIP cote mqttTask peut donc
+//   geler toute allocation memoire cote loop(), meme sur l'autre coeur),
+//   suivi d'une recuperation automatique (alerte orange "RecalBox non
+//   connectee" affichee une fois mqttClient.connect() enfin debloque en
+//   echec, puis reprise normale).
+//   mqttTask() n'attend desormais plus AU MOINS MQTT_WIFI_SETTLE_MS
+//   (1.5s) apres une transition WiFi deconnecte->connecte avant de
+//   tenter mqttClient.connect() -- reduit la fenetre de collision avec
+//   la tache interne du driver WiFi (WiFi.setAutoReconnect(true)), qui
+//   peut encore manipuler la pile socket juste apres une reconnexion.
+//   Piste, pas une certitude : l'incident du log fourni par l'utilisateur
+//   n'a PAS de reconnexion WiFi visible juste avant (WiFi deja stable
+//   depuis longtemps) -- ce fix ne couvre donc pas forcement CE cas
+//   precis, mais reduit un risque reel identifiable sans pretendre
+//   corriger la cause profonde (verrou LWIP bas niveau).
+//   PAS ENCORE teste sur materiel reel.
+//
+// v57 - 2026-08-09 - safe-modify - 2 bugs/retours sur le v56 (ecran "mode
+//   secours AP") apres test reel :
+//   1. Le SSID/IP ne ressortait PAS en blanc malgre le mecanisme deja en
+//      place (g_sdOpSubMsgWhiteFrom) -- bug reel : le global n'etait
+//      JAMAIS positionne aux 2 sites qui construisent g_sdOpSubMsg dans
+//      maintainApRecovery()/setupWiFiFromConfig(), restait donc a sa
+//      valeur par defaut -1 (comportement 1-couleur inchange). Fix :
+//      calcule desormais la longueur du prefixe (trJoinWifi(ssid).length()
+//      - ssid.length(), meme principe pour trOpenInBrowser()) et
+//      positionne g_sdOpSubMsgWhiteFrom aux 2 sites.
+//   2. Demande utilisateur : pause sur le SSID/IP une fois entierement
+//      revele par le defilement (au lieu de reduire la vitesse partout,
+//      qui aurait retarde tout le message y compris le prefixe). Nouveau
+//      g_sdOpSubMsgPauseUntil : des que le defilement de la ligne 2
+//      atteint la position ou la fin de la chaine (donc le SSID/IP en
+//      blanc) est entierement visible a l'ecran, pause ~1.8s avant de
+//      reprendre le defilement -- laisse le temps de lire sans repasser
+//      par une vitesse plus lente sur tout le message.
+//   3. Demande utilisateur : le SSID doit toujours s'afficher en premier
+//      (avant l'IP). Bug reel trouve : le minuteur d'alternance
+//      comparait millis() ABSOLU (temps ecoule depuis le tout premier
+//      boot) a "lastToggle", initialise a 0 -- si le boot avant d'entrer
+//      en mode secours prend deja plus de 6s (frequent), le tout 1er
+//      basculement se declenchait quasi immediatement, montrant l'IP en
+//      premier au lieu du SSID. Fix : minuteur desormais base sur
+//      "elapsed" (temps ecoule DEPUIS l'entree en mode secours), garantit
+//      une vraie fenetre de 6s de SSID avant le 1er basculement.
+//
+// v56 - 2026-08-09 - safe-modify - Suite immediate du v55 (ecran "mode
+//   secours AP"), retour utilisateur apres relecture -- meme en corrigeant
+//   le reset intempestif du defilement, la ligne 2 restait trop lente pour
+//   parcourir tout le prefixe + SSID/IP dans la fenetre de 6s entre 2
+//   bascules ("ca coupe la fin des messages avant qu'ils soient complets").
+//   2 changements demandes :
+//   1. Vitesse de defilement x4 (1px -> 4px par tick de 100ms, lignes 1 ET
+//      2 de MODE_CONFIG) -- calcule pour que le message le plus long
+//      ("Ouvrez dans un navigateur http://192.168.4.1") ait le temps de
+//      reveler completement le SSID/IP en ~3.4s au lieu de ~13.6s, avec
+//      marge dans la fenetre de 6s.
+//   2. Le SSID/IP ressort desormais en BLANC (0xFFFF) plutot que la meme
+//      couleur que le prefixe d'instruction -- nouveau global
+//      g_sdOpSubMsgWhiteFrom (index a partir duquel basculer en blanc,
+//      -1 = desactive/comportement inchange pour tous les autres ecrans
+//      MODE_CONFIG) + nouvelle fonction partagee drawSdOpSubMsgAt(x),
+//      utilisee par webDmdForceRedraw() ET le bloc de defilement de
+//      loop() pour ne pas dupliquer la logique 2-couleurs. Seul
+//      maintainApRecovery() positionne ce nouveau global -- jamais de
+//      fuite vers les autres ecrans (la sortie du mode secours AP passe
+//      toujours par un ESP.restart(), qui reinitialise ce global a -1).
+//   PAS ENCORE teste sur materiel reel.
+//
+// v55 - 2026-08-08 - safe-modify - Fix bug signale par l'utilisateur sur
+//   l'ecran "mode secours AP" (maintainApRecovery(), declenche par le
+//   script Recalbox "WiFi Recovery DMD") : "sursaut" du defilement de la
+//   ligne 2, SSID/IP jamais visibles, mots qui semblent se melanger.
+//   Cause reelle (tracee par lecture du code, pas testee sur materiel) :
+//   la mise a jour du compte a rebours (ligne 1, CHAQUE SECONDE) passait
+//   par g_configDmdDirty=true -> webDmdForceRedraw(), qui remet aussi a
+//   zero le defilement de la ligne 2 (g_sdOpScrollOffset) -- alors que
+//   seule la ligne 1 avait change. Le SSID/l'IP, situes en fin de chaine
+//   apres un long prefixe ("Rejoignez le wifi "/"Ouvrez dans un
+//   navigateur "), n'avaient donc jamais le temps de defiler jusqu'a
+//   l'ecran avant d'etre remis a zero la seconde suivante. Fix : la mise
+//   a jour du countdown redessine desormais directement la ligne 1 seule
+//   (meme rendu que webDmdForceRedraw() pour cette ligne), sans toucher
+//   a g_configDmdDirty ni a l'etat de defilement de la ligne 2.
+//   PAS ENCORE teste sur materiel reel.
 //
 // v54 - 2026-08-07 - safe-modify - Refonte demandee des 3 indicateurs DMD
 //   (vert "RecalBox connectee", orange "RecalBox hors ligne", rouge
@@ -848,27 +1133,24 @@ bool parseIP(const String &s, IPAddress &ip);
 bool applyStaticIP();
 void writeConfigFlag(const String &key, const String &value);
 
-// Generation de playlist -- tache FreeRTOS dediee (playlistGenTask(), definie
-// dans web_config.h) + primitives de synchronisation avec loop()/les handlers
-// HTTP. Meme principe que MqttCommand/mqttCmdMutex/pendingCmd (mqttTask())
-// plus bas dans ce fichier : la tache ne touche JAMAIS gif/display/
-// currentMode directement, seulement ce statut partage sous mutex.
-//
-// Deux mutex, deux strategies d'attente DIFFERENTES -- point critique de
-// conception (2026-07-28) : le mutex interne de la lib SD/FS (esp32 core
-// 3.3.11, vfs_api.cpp) NE protege PAS File::read/seek/close/openNextFile,
-// utilisees a la fois par le scan ET par la lecture de chaque frame GIF
-// (gifPlayFrameCompat(), tourne sur loop() a chaque frame). Un mutex
-// classique bloquant des 2 cotes ne reglerait rien : si la tache de fond le
-// tient plusieurs secondes (la lenteur SD localisee qu'on cherche justement
-// a isoler) et que loop() attend ce meme mutex pour lire la frame GIF
-// suivante, loop() -- donc le serveur web -- resterait bloque exactement
-// comme avant, juste deplace. Regle stricte : sdAccessMutex ne doit JAMAIS
-// etre attendu de facon bloquante depuis loop()/un handler HTTP (toujours
-// xSemaphoreTake(sdAccessMutex, 0) + degradation gracieuse si indisponible) ;
-// seule playlistGenTask() peut l'attendre bloquant. plGenStatusMutex ne
-// protege que de simples champs (jamais de SD dans la section critique),
-// hold time toujours negligeable des 2 cotes.
+// Generation de playlist -- machine a etats a pas bornes (playlistGenStep(),
+// definie dans web_config.h), appelee depuis loop() a chaque iteration
+// (2026-08-10, RETOUR a cette architecture -- voir changelog v67 complet en
+// tete de fichier). ANCIENNEMENT une tache FreeRTOS dediee (playlistGenTask(),
+// introduite le 2026-07-30, "v95" de l'historique projet) protegee par 2
+// mutex (sdAccessMutex partage avec gifPlayFrameCompat()/openNextGif(),
+// plGenStatusMutex pour ce statut) -- cette tache (et sdAccessMutex, pris a
+// CHAQUE frame affichee meme hors generation) a ete identifiee par
+// bissection sur materiel reel comme le point de bascule d'un deadlock
+// mqttTask/LWIP touchant le fonctionnement NORMAL (MQTT + affichage GIF
+// continu, mecanisme exact non elucide malgre investigation poussee -- voir
+// memoire projet). playlistGenStep() tourne desormais exclusivement dans
+// loop(), meme contexte d'execution que gifPlayFrameCompat()/openNextGif()/
+// les handlers HTTP -- plus aucun acces SD concurrent entre 2 threads,
+// aucun mutex necessaire. Priorite utilisateur explicite : fiabilite
+// MQTT/affichage (coeur du projet) avant confort de generation de playlist
+// (bonus, potentiellement un peu moins fluide pendant une generation active
+// -- compromis assume).
 struct PlaylistGenStatus
 {
   bool   active = false;
@@ -881,23 +1163,7 @@ struct PlaylistGenStatus
   String resultMsg;
   bool   stopRequested = false;
 };
-SemaphoreHandle_t plGenStatusMutex     = nullptr; // garde g_plGenStatus
 PlaylistGenStatus g_plGenStatus;
-SemaphoreHandle_t sdAccessMutex        = nullptr; // garde tout acces SD partage entre playlistGenTask() et loop()
-TaskHandle_t      playlistGenTaskHandle = nullptr; // diagnostic uniquement -- ne jamais l'utiliser comme "scan actif ?" (voir g_plGenStatus.active)
-
-// Tache PERSISTANTE (2026-07-29) essayee puis ABANDONNEE le meme jour :
-// corrigeait bien un abort() reel (fopen()->lock_init_generic()) apparaissant
-// apres une dizaine de generations separees dans la meme session, mais son
-// cout heap permanent (~5 Ko, pile+TCB reserves des le boot au lieu de
-// seulement pendant une generation) a cause en test reel un ralentissement/
-// non-peuplement reproductible de la page de config (liste de dossiers vide
-// alors que l'endpoint direct /lsgifdirs repondait correctement -- donc pas
-// un blocage serveur, plutot une degradation generale de reactivite),
-// persistant apres redemarrage complet du DMD. Retour a la creation par
-// demande ci-dessous ; le crash rare qu'elle visait a corriger sera traite
-// autrement par la future refonte TOUS.txt/diff (bien moins d'invocations de
-// tache de fond attendues).
 
 #include "web_config.h"
 
@@ -1483,6 +1749,24 @@ bool g_sdOpInProgress = false;
 String   g_sdOpMsg       = "";
 String   g_sdOpSubMsg    = "";
 uint16_t g_sdOpSubMsgColor = 0xFFFF;
+// Index (nombre de caracteres) a partir duquel g_sdOpSubMsg doit etre
+// dessine en blanc plutot que g_sdOpSubMsgColor -- -1 = desactive (toute
+// la ligne dans g_sdOpSubMsgColor, comportement historique). Utilise
+// uniquement par maintainApRecovery() (2026-08-09, demande utilisateur :
+// faire ressortir le SSID/l'IP du prefixe d'instruction) -- jamais
+// touche par les autres sites qui assignent g_sdOpSubMsg (webDmdPause(),
+// CMD_SHOW_CONFIG, etc.), sans risque de fuite d'etat entre l'ecran AP
+// secours et les autres : la sortie de ce mode passe toujours par un
+// ESP.restart() (jamais de retour normal a MODE_CONFIG "classique" sans
+// reboot complet, qui reinitialise ce global a -1).
+int      g_sdOpSubMsgWhiteFrom = -1;
+// Horodatage (millis()) jusqu'auquel le defilement de la ligne 2 doit
+// rester en pause -- 0 = pas de pause en cours. Positionne des que le
+// defilement revele entierement la fin de la chaine (le SSID/IP, voir
+// g_sdOpSubMsgWhiteFrom) pour laisser le temps de la lire (2026-08-09,
+// demande utilisateur). Reinitialise a 0 par webDmdForceRedraw() a
+// chaque nouveau message.
+unsigned long g_sdOpSubMsgPauseUntil = 0;
 // Message "de fond" (ex: IP du DMD, pose par triggerWebConfigMode()) a
 // reafficher automatiquement quand un message de statut transitoire
 // (ex: "Mise en cache...", "OK", erreurs -- via webDmdPause()) reste
@@ -1985,6 +2269,22 @@ static String alphaSubdirPath(const String &path)
 
 static uint16_t *raw565FullBuf = nullptr;
 
+// Garde-fou heap bas avant ouverture fichier dans le chemin lent CMD_GAME
+// (raw565pack/.gif/.png/.raw565 sur /systems/...) -- 2026-08-09, voir
+// v60/v61/v62. v60 utilisait 8500 (marge vs buffer de frame raw565(pack),
+// 8192 octets) -- MAUVAIS calibrage confirme en test reel (log
+// utilisateur) : le plancher NORMAL de ESP.getMaxAllocHeap() en
+// fonctionnement sain tourne en continu autour de 4596-5876 (deja
+// documente ailleurs dans ce projet, du au setvbuf(4096) de SD.open()),
+// donc maxalloc<8500 etait vrai quasi en permanence -- le garde-fou
+// interceptait SYSTEMATIQUEMENT, empechant tout raw565pack de se charger
+// ("plus jamais de rawpack lu"). Seuil abaisse a 3000 (sous ce plancher
+// normal) en v61. Deplacee ici (avant drawRaw565()) en v62 pour que
+// drawRaw565() puisse l'utiliser directement (garde-fou centralise,
+// couvre tous ses appelants -- voir changelog v62 complet en tete de
+// fichier).
+const unsigned long CMD_GAME_MIN_HEAP_FOR_FILE_OPEN = 3000;
+
 // Cache RAM du fallback /systems/_defaults/default.raw565 (8KB)
 static uint16_t *defaultRaw565Buf = nullptr;
 static bool defaultRaw565Cached = false;
@@ -2029,6 +2329,24 @@ static bool drawDefaultRaw565Cached()
 
 static bool drawRaw565(const String &rawPath)
 {
+  // Garde-fou heap bas (2026-08-09, v62) -- CENTRALISE ici plutot qu'au
+  // niveau de chaque appelant : un crash reel confirme (abort() dans
+  // make_shared<VFSFileImpl>, RecalBox_DMD.ino:2197 avant ce fix) est
+  // survenu via l'appel PAR LE MASK SYSTEME (CMD_GAME, "maskRaw565" avant
+  // meme la logique 'B'/'g'/'p' plus bas dans la meme fonction) -- un site
+  // d'appel non couvert par le garde-fou v60/v61 (qui ne protegeait que le
+  // dispatch 'B'/'g'/'p'). drawRaw565() a plusieurs appelants (mask
+  // systeme, repli 'B', repli 'g' apres echec raw565pack) -- verifier ici,
+  // une seule fois, protege TOUS les appelants au lieu de dupliquer la
+  // verification a chaque site (et d'en oublier). Tous les appelants
+  // existants geraient deja un retour false gracieusement (voir leurs
+  // branches "else" respectives), donc aucun changement de comportement
+  // cote appelant necessaire.
+  if (ESP.getMaxAllocHeap() < CMD_GAME_MIN_HEAP_FOR_FILE_OPEN) {
+    Serial.println("[PNG-RAW] drawRaw565 heap trop bas (maxalloc=" + String(ESP.getMaxAllocHeap())
+                   + ") -> abandon avant open t=" + String(millis()));
+    return false;
+  }
   // Essayer d'abord le chemin avec sous-dossier alphabÃ©tique
   String subPath = alphaSubdirPath(rawPath);
   File f = SD.open(subPath.c_str(), FILE_READ);
@@ -2549,13 +2867,14 @@ static void drawGifRaw565Frame(uint32_t frameIndex)
 // reste affichee telle quelle quelques ms, puis loop() retente. Ne JAMAIS
 // retourner false dans ce cas (serait interprete comme "GIF termine" par
 // l'appelant et sauterait au suivant).
+// sdAccessMutex retire entierement (2026-08-10, voir changelog v67 en tete
+// de fichier) : playlistGenStep() tourne desormais dans loop(), meme
+// contexte d'execution que cette fonction -- plus aucun acces SD concurrent
+// entre 2 threads a proteger. Retour a la forme d'origine (avant le
+// 2026-07-30, ancienne architecture "tache dediee" identifiee par
+// bissection materielle comme cause d'un deadlock mqttTask/LWIP).
 static bool gifPlayFrameCompat(bool first, int *pDelayMs)
 {
-  if (xSemaphoreTake(sdAccessMutex, 0) != pdTRUE)
-  {
-    *pDelayMs = 5;
-    return true;
-  }
   bool ok;
   if (gifRawPackMode)
   {
@@ -2577,7 +2896,6 @@ static bool gifPlayFrameCompat(bool first, int *pDelayMs)
   {
     ok = gif.playFrame(first, pDelayMs);
   }
-  xSemaphoreGive(sdAccessMutex);
   return ok;
 }
 
@@ -2863,23 +3181,13 @@ String getNextGifRandom()
 
 String getNextGif(){if(gifCount<=0)return "";return playlistRandom?getNextGifRandom():getNextGifSequential();}
 
+// sdAccessMutex retire entierement (2026-08-10) : meme raison que
+// gifPlayFrameCompat(), voir son commentaire complet.
 void openNextGif()
 {
-  // Transition entre 2 GIFs (moins frequente qu'une frame, mais touche
-  // encore la SD -- getNextGif()/openGif()). Meme regle de non-blocage que
-  // gifPlayFrameCompat() : si playlistGenTask() tient sdAccessMutex, on ne
-  // bascule pas en ecran noir pour rien -- on redemande ce meme GIF au
-  // prochain tour de loop() via requestNextGif (deja verifie une fois par
-  // iteration, voir loop()).
-  if (xSemaphoreTake(sdAccessMutex, 0) != pdTRUE)
-  {
-    requestNextGif = true;
-    return;
-  }
   String next=(nextGifPath.length()>0)?nextGifPath:getNextGif(); nextGifPath="";
   bool ok = (next.length()>0) && openGif(next,false,true,true);
   if (ok) nextGifPath=getNextGif();
-  xSemaphoreGive(sdAccessMutex);
   if (!ok)
   {gifOpened=false;currentMode=MODE_BLACK;display->clearScreen();return;}
   currentMode=MODE_PLAYLIST;
@@ -2939,6 +3247,30 @@ void webDmdOverlayLine2(const String &msg, uint16_t color)
   Serial.println("[WEB] DMD pause: " + msg);
 }
 
+// Dessine g_sdOpSubMsg (ligne 2, MODE_CONFIG) avec le cursor X donne --
+// factorise le rendu simple/2-couleurs pour eviter de le dupliquer entre
+// webDmdForceRedraw() (redessin complet) et le bloc de defilement de
+// loop() (2026-08-09, demande utilisateur : faire ressortir le SSID/IP
+// du prefixe d'instruction sur l'ecran WiFi de secours -- voir
+// g_sdOpSubMsgWhiteFrom).
+void drawSdOpSubMsgAt(int x)
+{
+  if (g_sdOpSubMsgWhiteFrom >= 0 && g_sdOpSubMsgWhiteFrom < (int)g_sdOpSubMsg.length()) {
+    String prefix = g_sdOpSubMsg.substring(0, g_sdOpSubMsgWhiteFrom);
+    String value = g_sdOpSubMsg.substring(g_sdOpSubMsgWhiteFrom);
+    display->setTextColor(g_sdOpSubMsgColor);
+    display->setCursor(x, 24);
+    display->print(prefix);
+    display->setTextColor(0xFFFF); // blanc, fait ressortir le SSID/l'IP
+    display->setCursor(x + (int)prefix.length() * 6, 24);
+    display->print(value);
+  } else {
+    display->setTextColor(g_sdOpSubMsgColor);
+    display->setCursor(x, 24);
+    display->print(g_sdOpSubMsg);
+  }
+}
+
 // Redessine immediatement l'ecran MODE_CONFIG (les 2 lignes) a partir de
 // g_sdOpMsg/g_sdOpSubMsg -- factorise depuis loop() pour pouvoir aussi etre
 // appelee depuis un contexte bloquant hors boucle normale si besoin.
@@ -2947,6 +3279,7 @@ void webDmdForceRedraw()
   g_configDmdDirty = false;
   g_sdOpScrollOffset = 0;
   g_sdOpScrollOffset1 = 0;
+  g_sdOpSubMsgPauseUntil = 0;
   display->clearScreen();
   display->setTextWrap(false);
   display->setTextSize(1);
@@ -2954,9 +3287,7 @@ void webDmdForceRedraw()
   display->setCursor(1, 4);
   display->print(g_sdOpMsg);
   display->fillRect(0, 24, 128, 8, 0);
-  display->setTextColor(g_sdOpSubMsgColor);
-  display->setCursor(1, 24);
-  display->print(g_sdOpSubMsg);
+  drawSdOpSubMsgAt(1);
 }
 
 void webDmdSetMainMsg(const String &msg)
@@ -3288,6 +3619,21 @@ String trOpenInBrowser(const String &url)
 // --------------------------------------------------
 // MQTT command processing
 // --------------------------------------------------
+// Debug verbeux de CMD_GAME (2026-08-09, demande utilisateur) : desactive
+// par defaut pour tester si cela reduit la fragmentation heap observee
+// (plusieurs abort() dans lock_init_generic lors d'ouvertures de fichier
+// -- piste : les nombreuses concatenations de String Arduino dans ces
+// logs, qui tournent a CHAQUE changement de jeu, pourraient contribuer a
+// la fragmentation sur une session avec beaucoup de changements rapides
+// -- pas confirme, juste teste). Repasser a true pour retrouver le detail
+// complet si besoin de deboguer a nouveau le flux CMD_GAME.
+const bool CMD_GAME_DEBUG_LOGS = false;
+
+// CMD_GAME_MIN_HEAP_FOR_FILE_OPEN deplacee plus haut dans le fichier en
+// v62 (avant drawRaw565(), qui en depend desormais -- garde-fou
+// centralise) -- voir sa declaration/changelog complet juste avant
+// drawDefaultRaw565Cached().
+
 bool hasPendingMqttCommand()
 {
   if(mqttCmdMutex==nullptr) return false;
@@ -3436,8 +3782,13 @@ void processPendingMqttCommand()
     bool needDrawMask = false;
     bool maskDrawn = false;
 
-    // Debug gÃ©nÃ©ral (doit s'afficher pour PS2 aussi)
-    Serial.println("[CMD_GAME] enter sys=" + sysName
+    // [DIAG-TEMP 2026-08-09] Regate derriere CMD_GAME_DEBUG_LOGS (2026-08-09,
+    // suite) -- suspect comme confondeur possible du test 3do (overhead de
+    // concatenation String + UART ajoute dans le chemin chaud, hypothese a
+    // ecarter). Protocole : retester IDENTIQUE avec ce garde actif (donc ces
+    // lignes desactivees) pour isoler si mes changements du jour influencent
+    // le declenchement du crash mqttTask/LWIP.
+    if (CMD_GAME_DEBUG_LOGS) Serial.println("[DIAG] enter sys=" + sysName
                    + " rom=" + romName
                    + " slowFlag=" + String(slowFlag)
                    + " isSlow=" + String(isSlow)
@@ -3450,6 +3801,8 @@ void processPendingMqttCommand()
       String gamePng = gameBase + ".png";
       String gameGif = gameBase + ".gif";
       char sysT = sysDefaultType(sysName);
+      // [DIAG-TEMP]
+      if (CMD_GAME_DEBUG_LOGS) Serial.println("[DIAG] FAST path sysT=" + String(sysT));
 
       display->clearScreen();
 
@@ -3485,7 +3838,7 @@ void processPendingMqttCommand()
 
       // fallback : default.png/default.raw
       String defPng = "/systems/_defaults/default.png";
-      Serial.println("[CMD_GAME] fast fallback -> " + defPng);
+      if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] fast fallback -> " + defPng);
       display->clearScreen();
       if(drawPng(defPng))
       {
@@ -3571,13 +3924,15 @@ void processPendingMqttCommand()
       preloadBigram(sysName, romName);
       char cached=findInGamesCache(sysName, romName);
 
-      // DEBUG pour comprendre pourquoi le jeu n'est pas affichÃ© (vs mask)
-      Serial.println("[CMD_GAME] debug sys=" + sysName
+      // DEBUG pour comprendre pourquoi le jeu n'est pas affichÃ© (vs mask) -- voir CMD_GAME_DEBUG_LOGS
+      if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] debug sys=" + sysName
                    + " rom=" + romName
                    + " cached=" + String(cached)
                    + " isSlow=" + String(isSlow)
                    + " gameBase=" + gameBase
                    + " slowFlag=" + String(slowFlag));
+      // [DIAG-TEMP]
+      if (CMD_GAME_DEBUG_LOGS) Serial.println("[DIAG] SLOW path cached=" + String(cached));
 
       // NE PAS clearScreen ici: le mask doit rester visible pendant le chargement.
       // En mode lent, on force le type d'affichage selon le flag systÃ¨me:
@@ -3585,18 +3940,20 @@ void processPendingMqttCommand()
       // - sysType 'p'     => drawPng/raw565
       {
         char sysT = sysDefaultType(sysName);
+        // [DIAG-TEMP]
+        if (CMD_GAME_DEBUG_LOGS) Serial.println("[DIAG] SLOW path sysT=" + String(sysT));
         // Si le jeu n'est PAS dans le cache bigram (cached='?'), fallback RAM direct.
         // Ne PAS forcer 'g' (qui ferait openGif() lent sur dossier de 800+ fichiers).
         if(cached == '?')
         {
-          Serial.println("[CMD_GAME] slow cached=? -> fallback default.raw565 RAM t=" + String(millis()));
+          if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] slow cached=? -> fallback default.raw565 RAM t=" + String(millis()));
           if(drawDefaultRaw565Cached())
           {
             // Garder displayedMaskSysName=sysName pour que loop() ne clearScreen pas
             // (voir MODE_PNG: if(displayedMaskSysName.length()==0) display->clearScreen())
             displayedMaskSysName = sysName;
             pngDrawn=true; currentPngPath=""; currentMode=MODE_BLACK;
-            Serial.println("[CMD_GAME] slow cached=? fallback OK t=" + String(millis()));
+            if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] slow cached=? fallback OK t=" + String(millis()));
             break;
           }
         }
@@ -3604,15 +3961,66 @@ void processPendingMqttCommand()
         char cachedBefore = cached;
         if(sysT=='g' || sysT=='B') cached = 'g';
         else if(sysT=='p') cached = 'p';
-        Serial.println("[CMD_GAME] slow cached force sysType=" + String(sysT)
+        if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] slow cached force sysType=" + String(sysT)
                        + " cachedBefore=" + String(cachedBefore)
                        + " cachedAfter=" + String(cached));
+
+        // Garde-fou heap bas (2026-08-09, demande utilisateur : le repli
+        // ne doit se declencher QUE si le heap est reellement trop bas,
+        // jamais systematiquement sur un flag B). Comportement normal
+        // (heap suffisant) inchange : 'B' suit exactement le chemin 'g'
+        // ci-dessous (raw565pack via openGif() en premier). Plusieurs
+        // crashes reels confirmes (abort() dans lock_init_generic puis
+        // dans make_shared<VFSFileImpl>, les deux lors d'un SD.open())
+        // quand le heap est trop fragmente pour la moindre allocation,
+        // meme petite -- seuil choisi avec de la marge par rapport au
+        // plus gros besoin ponctuel de ce chemin (buffer de frame
+        // raw565(pack), 8192 octets).
+        if (ESP.getMaxAllocHeap() < CMD_GAME_MIN_HEAP_FOR_FILE_OPEN) {
+          if (sysT == 'B') {
+            // B a une alternative moins couteuse que raw565pack : raw565
+            // statique (un seul SD.open()+read() de 8192 octets, pas de
+            // .meta ni de cache des delais). Tente ce repli AVANT
+            // d'abandonner sur l'image de secours generique -- perd
+            // l'animation mais garde le vrai visuel du jeu.
+            String rawPathDirect = gameBase + ".raw565";
+            // Log TOUJOURS visible (pas gate derriere CMD_GAME_DEBUG_LOGS) :
+            // evenement rare/exceptionnel (heap critique), pas du spam par
+            // jeu -- besoin de rester diagnosticable sans activer tous les
+            // logs verbeux (voir bug v60 "plus jamais de rawpack lu",
+            // silencieux car cache derriere le flag desactive par defaut).
+            Serial.println("[CMD_GAME] heap trop bas (maxalloc=" + String(ESP.getMaxAllocHeap())
+                           + ") sysType=B -> tentative raw565 direct t=" + String(millis()));
+            if (drawRaw565(rawPathDirect)) {
+              pngDrawn = true;
+              currentPngPath = rawPathDirect;
+              // Garder displayedMaskSysName inchange pour que loop() ne
+              // clearScreen pas (meme raison que le repli raw565 de la
+              // branche 'g' plus bas).
+              currentMode = MODE_PNG;
+              break;
+            }
+          }
+          // g/p purs (pas d'alternative moins couteuse), ou B sans .raw565
+          // propre a ce jeu: repli direct sur l'image de secours deja en
+          // RAM (drawDefaultRaw565Cached(), zero allocation necessaire)
+          // plutot que tenter l'ouverture et risquer un abort().
+          Serial.println("[CMD_GAME] heap trop bas (maxalloc=" + String(ESP.getMaxAllocHeap())
+                         + ") -> repli direct default.raw565 RAM t=" + String(millis()));
+          if (drawDefaultRaw565Cached()) {
+            displayedMaskSysName = sysName;
+            pngDrawn = true; currentPngPath = ""; currentMode = MODE_BLACK;
+            break;
+          }
+          // Meme le repli RAM echoue (defaultRaw565Cached jamais charge) :
+          // continue vers le chemin normal, mieux qu'un ecran fige.
+        }
       }
       if(cached=='p')
       {
         String path=gameBase+".png";
         // Async pngle_new() Ã©choue systÃ©matiquement en tÃ¢che => fallback synchrone
-        Serial.println("[CMD_GAME] slow PNG fallback sync sys=" + sysName + " path=" + path);
+        if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] slow PNG fallback sync sys=" + sysName + " path=" + path);
 
         currentPngPath = path;
         currentPngAsyncWanted = false;
@@ -3622,19 +4030,19 @@ void processPendingMqttCommand()
         // En LENT, on ne clear que si pas de mask actif.
         if (displayedMaskSysName.length() == 0)
         {
-          Serial.println("[CMD_GAME] slow clearScreen (no mask) BEFORE t=" + String(millis()));
+          if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] slow clearScreen (no mask) BEFORE t=" + String(millis()));
           display->clearScreen();
-          Serial.println("[CMD_GAME] slow clearScreen AFTER t=" + String(millis()));
+          if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] slow clearScreen AFTER t=" + String(millis()));
         }
         else
         {
-          Serial.println("[CMD_GAME] slow keep mask on screen during load t=" + String(millis()));
+          if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] slow keep mask on screen during load t=" + String(millis()));
         }
 
-        Serial.println("[CMD_GAME] slow before drawPng t=" + String(millis())
+        if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] slow before drawPng t=" + String(millis())
                        + " maskLen=" + String(displayedMaskSysName.length()));
         bool okDraw = drawPng(path);
-        Serial.println("[CMD_GAME] slow after drawPng ok=" + String(okDraw ? "1" : "0")
+        if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] slow after drawPng ok=" + String(okDraw ? "1" : "0")
                        + " t=" + String(millis()));
 
         if(okDraw)
@@ -3682,7 +4090,7 @@ void processPendingMqttCommand()
         loadBigramTable(sysName);
 
         // raw565pack Ã©chouÃ© â†’ tenter le raw565 spÃ©cifique du jeu (drawRaw565 direct)
-        Serial.println("[CMD_GAME] slow cached=g raw565pack fail -> try game raw565 t=" + String(millis()));
+        if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] slow cached=g raw565pack fail -> try game raw565 t=" + String(millis()));
         {
           String rawPath=gameBase+".raw565";
           if(drawRaw565(rawPath))
@@ -3692,18 +4100,18 @@ void processPendingMqttCommand()
             // Garder displayedMaskSysName inchangÃ© pour que loop() ne clearScreen pas.
             // MODE_PNG avec pngDrawn=true â†’ loop() ne touche pas Ã  l'affichage.
             currentMode=MODE_PNG;
-            Serial.println("[CMD_GAME] slow cached=g game raw565 OK t=" + String(millis()));
+            if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] slow cached=g game raw565 OK t=" + String(millis()));
             break;
           }
         }
-        Serial.println("[CMD_GAME] slow cached=g game raw565 fail -> fallback default.raw565 t=" + String(millis()));
+        if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] slow cached=g game raw565 fail -> fallback default.raw565 t=" + String(millis()));
         if(drawDefaultRaw565Cached())
         {
           pngDrawn=true;
           currentPngPath="";
           displayedMaskSysName="";
           currentMode=MODE_PNG;
-          Serial.println("[CMD_GAME] slow cached=g fallback default.raw565 OK t=" + String(millis()));
+          if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] slow cached=g fallback default.raw565 OK t=" + String(millis()));
           break;
         }
         // fallback mem epuise -> probe3 classique
@@ -3714,9 +4122,9 @@ void processPendingMqttCommand()
         String pngPath=gameBase+".png";
 
         unsigned long tProbeStart = millis();
-        Serial.println("[CMD_GAME] probe3 start t=" + String(tProbeStart) + " png=" + pngPath);
+        if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] probe3 start t=" + String(tProbeStart) + " png=" + pngPath);
 
-        Serial.println("[CMD_GAME] probe3 calling drawPng (skip SD.exists) t=" + String(millis()));
+        if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] probe3 calling drawPng (skip SD.exists) t=" + String(millis()));
 
         if(drawPng(pngPath))
         {
@@ -3727,7 +4135,7 @@ void processPendingMqttCommand()
         }
         else
         {
-          Serial.println("[CMD_GAME] probe3 drawPng failed t=" + String(millis()));
+          if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] probe3 drawPng failed t=" + String(millis()));
         }
       }
 
@@ -3939,11 +4347,28 @@ void mqttTask(void *param)
   int wifiAlertCount = 0;
   int recalboxDisconnectedAlertCount = 0;
   const int MAX_CONNECTION_ALERT_COUNT = 3;
+  // Horodatage de la derniere transition WiFi deconnecte->connecte
+  // (2026-08-09, mitigation deadlock mqttTask/LWIP -- voir changelog v58).
+  // MISE A JOUR (2026-08-10, v68) : WiFi.setAutoReconnect() est desormais
+  // FALSE (setupWiFiFromConfig()) -- la source de collision visee
+  // initialement ici (sa tache interne au driver, opaque, independante de
+  // mqttTask) n'existe plus. Ce delai reste utile pour la source de
+  // reconnexion restante, maintainWiFi() (application-level, appelee
+  // depuis loop()) : juste apres son WiFi.begin() qui reussit, la pile
+  // socket peut encore etre en cours de stabilisation au moment ou
+  // mqttTask tente mqttClient.connect(), meme risque de collision sur les
+  // verrous LWIP internes. N'elimine pas la cause (verrou bas niveau, hors
+  // de portee du code applicatif) mais reduit la fenetre de collision la
+  // plus evidente.
+  unsigned long wifiConnectedSinceMs = 0;
+  bool wasWifiConnected = false;
+  const unsigned long MQTT_WIFI_SETTLE_MS = 1500UL;
 
   for(;;)
   {
     if(!wifiEnabled||recalboxIP.length()==0){vTaskDelay(pdMS_TO_TICKS(2000));continue;}
     if(WiFi.status()!=WL_CONNECTED){
+      wasWifiConnected = false;
       wifiDownStreak++;
       // Cette branche boucle a ~1/s (vTaskDelay 1000ms ci-dessous) : la
       // 1ere fois (~1s apres la coupure) puis toutes les ~60 iterations
@@ -3959,6 +4384,10 @@ void mqttTask(void *param)
     }
     wifiDownStreak = 0;
     wifiAlertCount = 0;
+    if (!wasWifiConnected) {
+      wasWifiConnected = true;
+      wifiConnectedSinceMs = millis();
+    }
 
     // En mode config web : ne pas tenter de connexion MQTT (garde les sockets libres pour HTTP)
     // Idem pendant une generation de playlist (2026-07-29, test en cours) :
@@ -3969,12 +4398,26 @@ void mqttTask(void *param)
     // reel observe sur ce meme materiel. Ne saute que la TENTATIVE de
     // connexion -- .loop() reste actif si deja connecte, donc une commande
     // (ex. reboot) recue avant le debut du scan continue d'etre traitee.
-    bool plGenActiveNow = false;
-    if (xSemaphoreTake(plGenStatusMutex, 0) == pdTRUE) { plGenActiveNow = g_plGenStatus.active; xSemaphoreGive(plGenStatusMutex); }
+    // (2026-08-10, v65 suite) : v65 a deja retire ce cout de
+    // gifPlayFrameCompat()/openNextGif() (chemin le plus chaud) sans
+    // resoudre le probleme -- ce check-ci tournait pourtant SANS AUCUNE
+    // CONDITION, a CHAQUE iteration de mqttTask (~50 fois/seconde en
+    // regime normal), meme quand playlistGenTask() n'a jamais tourne.
+    // Contrairement au cas precedent, c'est mqttTask() qui prend son
+    // propre semaphore juste avant ses operations socket/LWIP -- candidat
+    // plus direct. Meme fix : lecture non protegee de g_plGenStatus.active
+    // en pre-check rapide, plGenStatusMutex seulement pris si necessaire.
+    bool plGenActiveNow = g_plGenStatus.active;
     if(g_sdOpInProgress || plGenActiveNow) { if(mqttClient.connected()) mqttClient.loop(); vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
 
     if(!mqttClient.connected())
     {
+      // Delai de stabilisation post-reconnexion WiFi -- voir commentaire
+      // pres de MQTT_WIFI_SETTLE_MS plus haut.
+      if (millis() - wifiConnectedSinceMs < MQTT_WIFI_SETTLE_MS) {
+        vTaskDelay(pdMS_TO_TICKS(200));
+        continue;
+      }
       Serial.println("[MQTT] connecting to "+recalboxIP);
       if(mqttClient.connect(MQTT_CLIENT))
       {
@@ -4121,18 +4564,49 @@ void maintainApRecovery()
     lastSecUpdate = ms;
     unsigned long remaining = (AP_RECOVERY_DURATION_MS - elapsed) / 1000UL;
     g_sdOpMsg = trWifiRecoveryCountdown(remaining);
-    g_configDmdDirty = true;
+    // v55 : redessine directement la ligne 1 SEULE (meme rendu que
+    // webDmdForceRedraw() pour cette ligne), au lieu de passer par
+    // g_configDmdDirty=true -- ce dernier declenche un reset complet des
+    // 2 lignes (webDmdForceRedraw() remet aussi g_sdOpScrollOffset a 0),
+    // alors que seule la ligne 1 (countdown) vient de changer ici. Sans
+    // ce fix, le defilement de la ligne 2 (SSID/IP, alterne toutes les
+    // 6s juste en dessous) etait remis a zero CHAQUE SECONDE -- jamais
+    // assez de temps pour defiler jusqu'au SSID/IP, situes en fin de
+    // chaine apres un long prefixe. Bug signale par l'utilisateur.
+    display->setTextWrap(false);
+    display->setTextSize(1);
+    display->fillRect(0, 4, 128, 8, 0);
+    display->setTextColor(0xFFE0);
+    display->setCursor(1, 4);
+    display->print(g_sdOpMsg);
+    g_sdOpScrollOffset1 = 0;
+    g_sdOpLastScroll1 = ms;
   }
   // Alterne SSID / IP (avec instruction prefixee) sur la ligne 2 toutes les
   // 6s -- ces chaines depassent 128px avec le prefixe, 6s (au lieu de 2s)
   // laisse le defilement horizontal existant le temps d'avancer avant de
-  // reinitialiser le scroll sur la chaine suivante.
-  static unsigned long lastToggle = 0;
+  // reinitialiser le scroll sur la chaine suivante. Premier message =
+  // SSID (demande utilisateur, ordre SSID puis IP) -- base sur "elapsed"
+  // (temps ecoule DEPUIS l'entree en mode secours, pas millis() absolu)
+  // pour garantir une vraie fenetre de 6s avant le 1er basculement : avec
+  // l'ancien "lastToggle" compare a millis() absolu (temps ecoule depuis
+  // le tout premier boot), le compte a rebours pouvait deja depasser 6s
+  // au moment du tout premier appel (selon la duree du boot avant
+  // d'atteindre ce point), faisant basculer sur IP quasi immediatement.
+  static unsigned long lastToggleElapsed = 0;
   static bool showSSID = true;
-  if (ms - lastToggle >= 6000UL) {
-    lastToggle = ms;
+  if (elapsed - lastToggleElapsed >= 6000UL) {
+    lastToggleElapsed = elapsed;
     showSSID = !showSSID;
-    g_sdOpSubMsg = showSSID ? trJoinWifi(AP_RECOVERY_SSID) : trOpenInBrowser(String("http://") + apRecoveryIP);
+    if (showSSID) {
+      String ssid = String(AP_RECOVERY_SSID);
+      g_sdOpSubMsg = trJoinWifi(ssid);
+      g_sdOpSubMsgWhiteFrom = (int)g_sdOpSubMsg.length() - (int)ssid.length();
+    } else {
+      String url = String("http://") + apRecoveryIP;
+      g_sdOpSubMsg = trOpenInBrowser(url);
+      g_sdOpSubMsgWhiteFrom = (int)g_sdOpSubMsg.length() - (int)url.length();
+    }
     g_configDmdDirty = true;
   }
 }
@@ -4150,7 +4624,11 @@ void setupWiFiFromConfig()
     apRecoveryIP = WiFi.softAPIP().toString();
     if (apRecoveryIP == "0.0.0.0") apRecoveryIP = "192.168.4.1";
     g_sdOpMsg = trWifiRecoveryCountdown(AP_RECOVERY_DURATION_MS / 1000UL);
-    g_sdOpSubMsg = trJoinWifi(AP_RECOVERY_SSID);
+    {
+      String ssid = String(AP_RECOVERY_SSID);
+      g_sdOpSubMsg = trJoinWifi(ssid);
+      g_sdOpSubMsgWhiteFrom = (int)g_sdOpSubMsg.length() - (int)ssid.length();
+    }
     g_sdOpSubMsgColor = 0xFFE0;
     g_sdOpInProgress = true;
     currentMode = MODE_CONFIG;
@@ -4171,7 +4649,12 @@ void setupWiFiFromConfig()
     delay(500);
     return;
   }
-  WiFi.mode(WIFI_STA);WiFi.setSleep(false);WiFi.setAutoReconnect(true);
+  // setAutoReconnect desormais FALSE (2026-08-10, voir changelog v68) :
+  // sa tache interne au driver, opaque et hors controle applicatif, est
+  // un 2e candidat de collision LWIP avec mqttTask -- maintainWiFi()
+  // (deja en place, appelee a chaque loop(), cooldown 5s, reapplique
+  // l'IP fixe) reste desormais la SEULE source de reconnexion.
+  WiFi.mode(WIFI_STA);WiFi.setSleep(false);WiFi.setAutoReconnect(false);
   if(!applyStaticIP()){if(showInfo)showWifiStatusScreen("WIFI","IP CFG ERR",display->color565(255,0,0));delay(1200);}
   if(showInfo)showWifiStatusScreen("WIFI","CONNECT",display->color565(0,180,255));
   // Plusieurs tentatives avant d'abandonner et de basculer en AP: sur un
@@ -4926,8 +5409,8 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
 
   mqttCmdMutex=xSemaphoreCreateMutex();
   pendingCmd=MqttCommand(MqttCommand::CMD_NONE,"");
-  plGenStatusMutex=xSemaphoreCreateMutex();
-  sdAccessMutex=xSemaphoreCreateMutex();
+  // plGenStatusMutex/sdAccessMutex retires (2026-08-10) : playlistGenStep()
+  // tourne exclusivement dans loop(), plus d'acces concurrent a proteger.
   if (needWebConfigMode) {
     goto start_mqtt_task;
   }
@@ -5092,7 +5575,27 @@ start_mqtt_task:
 // --------------------------------------------------
 void loop()
 {
-  handleWebConfig(); maintainWiFi(); maintainApRecovery(); processPendingMqttCommand();
+  // processPendingMqttCommand() APPELE EN PREMIER (2026-08-09, v62) --
+  // AVANT handleWebConfig() -- voir changelog v62 : webServer->handleClient()
+  // et mqttClient.loop() (mqttTask()) passent tous deux par la meme couche
+  // socket LWIP bas niveau ; si handleWebConfig() se bloque sur un verrou
+  // LWIP retenu ailleurs (meme famille que le deadlock mqttTask/LWIP deja
+  // documente), TOUT le reste de cette iteration de loop() -- y compris
+  // processPendingMqttCommand() -- restait bloque avec lui, laissant
+  // pendingCmd (un seul slot) se faire ecraser silencieusement par chaque
+  // nouveau message MQTT recu entre-temps (rien n'etait jamais traite ni
+  // logue). Ne resout pas la cause racine (verrou hors de portee du code
+  // applicatif) mais garantit que la derniere commande en attente AU DEBUT
+  // de l'iteration est bien consommee avant tout risque de blocage sur
+  // handleWebConfig().
+  processPendingMqttCommand();
+  // playlistGenStep() (2026-08-10, RETOUR de cette architecture -- voir
+  // changelog v67) : avance la generation de playlist d'un pas borne, cout
+  // quasi nul quand aucune generation n'est active (un seul if). Appelee
+  // ici, avant handleWebConfig(), meme position qu'a l'origine (avant le
+  // 2026-07-30).
+  playlistGenStep();
+  handleWebConfig(); maintainWiFi(); maintainApRecovery();
   // Alerte "No wifi, No Recalbox" (2026-08-05, demande utilisateur) --
   // repli ici pour le cas ou la demande (g_noWifiRecalboxPending, posee
   // par mqttTask()) survient alors qu'aucune playlist n'est en cours de
@@ -5208,13 +5711,11 @@ void loop()
     static unsigned long lastPlGenDmdMs = 0;
     if (millis() - lastPlGenDmdMs > 2000)
     {
-      bool active = false; String dirName; int gifs = 0;
-      if (xSemaphoreTake(plGenStatusMutex, 0) == pdTRUE) {
-        active = g_plGenStatus.active;
-        dirName = g_plGenStatus.curDirName;
-        gifs = g_plGenStatus.curDirGifs;
-        xSemaphoreGive(plGenStatusMutex);
-      }
+      // plGenStatusMutex retire (2026-08-10) : plus d'acces concurrent
+      // possible, tout tourne desormais dans loop().
+      bool active = g_plGenStatus.active;
+      String dirName = g_plGenStatus.curDirName;
+      int gifs = g_plGenStatus.curDirGifs;
       if (active && currentMode == MODE_CONFIG)
       {
         webDmdOverlayLine2(plGenDmdText(dirName, gifs), 0x07E0);
@@ -5270,11 +5771,9 @@ void loop()
       unsigned long t=millis();
       while((long)(millis()-t)<fd){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(0);}
       // Pre-chargement opportuniste (deja optionnel avant : ne fait rien si
-      // nextGifFile est deja pris). Non bloquant sur sdAccessMutex -- une
-      // tentative ratee est sans consequence, retentee au prochain tour.
-      if(nextGifPath.length()>0&&!nextGifFile&&xSemaphoreTake(sdAccessMutex,0)==pdTRUE){
+      // nextGifFile est deja pris). sdAccessMutex retire (2026-08-10).
+      if(nextGifPath.length()>0&&!nextGifFile){
         nextGifFile=SD.open(nextGifPath.c_str());
-        xSemaphoreGive(sdAccessMutex);
       }
     }
     break;
@@ -5370,11 +5869,14 @@ void loop()
     if (g_configDmdDirty) {
       webDmdForceRedraw();
     }
-    // Defilement ligne 1
+    // Defilement ligne 1 -- pas de 4px/tick (au lieu de 1px, 2026-08-09,
+    // demande utilisateur : le message WiFi de secours coupait la fin du
+    // texte avant d'avoir eu le temps de defiler jusqu'au SSID/IP dans la
+    // fenetre de 6s entre 2 bascules, voir maintainApRecovery()).
     {
       bool scroll1 = (g_sdOpMsg.length() * 6) > 128;
       if (scroll1 && millis() - g_sdOpLastScroll1 > 100) {
-        g_sdOpScrollOffset1 = (g_sdOpScrollOffset1 + 1) % (g_sdOpMsg.length() * 6 + 32);
+        g_sdOpScrollOffset1 = (g_sdOpScrollOffset1 + 4) % (g_sdOpMsg.length() * 6 + 32);
         g_sdOpLastScroll1 = millis();
         display->fillRect(0, 4, 128, 8, 0);
         display->setTextColor(0xFFE0);
@@ -5382,16 +5884,28 @@ void loop()
         display->print(g_sdOpMsg);
       }
     }
-    // Defilement ligne 2
+    // Defilement ligne 2 -- meme acceleration + drawSdOpSubMsgAt() pour
+    // le rendu 2-couleurs (voir g_sdOpSubMsgWhiteFrom). Pause ~1.8s des
+    // que la fin de la chaine (le SSID/IP en blanc) devient entierement
+    // visible a l'ecran (2026-08-09, demande utilisateur), au lieu de
+    // continuer a defiler sans jamais s'arreter dessus.
     {
-      bool scroll2 = (g_sdOpSubMsg.length() * 6) > 128;
+      int textW2 = (int)g_sdOpSubMsg.length() * 6;
+      bool scroll2 = textW2 > 128;
       if (scroll2 && millis() - g_sdOpLastScroll > 100) {
-        g_sdOpScrollOffset = (g_sdOpScrollOffset + 1) % (g_sdOpSubMsg.length() * 6 + 32);
-        g_sdOpLastScroll = millis();
-        display->fillRect(0, 24, 128, 8, 0);
-        display->setTextColor(g_sdOpSubMsgColor);
-        display->setCursor(1 - g_sdOpScrollOffset, 24);
-        display->print(g_sdOpSubMsg);
+        if (g_sdOpSubMsgPauseUntil != 0 && (long)(millis() - g_sdOpSubMsgPauseUntil) < 0) {
+          // En pause : ne pas avancer le defilement pour l'instant.
+        } else {
+          g_sdOpSubMsgPauseUntil = 0;
+          int revealOffset = textW2 - 128; // fin de chaine tout juste entierement visible
+          int newOffset = g_sdOpScrollOffset + 4;
+          bool justRevealed = (g_sdOpScrollOffset < revealOffset) && (newOffset >= revealOffset);
+          g_sdOpScrollOffset = newOffset % (textW2 + 32);
+          g_sdOpLastScroll = millis();
+          display->fillRect(0, 24, 128, 8, 0);
+          drawSdOpSubMsgAt(1 - g_sdOpScrollOffset);
+          if (justRevealed) g_sdOpSubMsgPauseUntil = millis() + 1800UL;
+        }
       }
     }
     delay(1);
