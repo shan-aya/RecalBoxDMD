@@ -1,7 +1,25 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v68
+// Version actuelle : v69
+//
+// v69 - 2026-08-10 - safe-modify - Chemin FAST (isSlow=false) de CMD_GAME :
+//   ajout d'un pre-check du cache bigramme (findInGamesCache(), meme
+//   mecanisme deja utilise par le chemin SLOW) AVANT toute tentative
+//   d'ouverture SD reelle. Cause : mesure reelle sur mame (temporairement
+//   teste en FAST sous un seuil de flag L trop haut, voir outil PC v31/v32)
+//   -- un jeu absent de la SD force drawRaw565() a scanner l'INTEGRALITE du
+//   dossier physique alphabetique avant de conclure "absent" (pire cas pour
+//   un scan de repertoire sequentiel, pas de sortie anticipee), mesure
+//   jusqu'a 3.3s sur mame/S (4641 entrees). Cette verification n'a jamais eu
+//   de raison d'etre limitee au flag L : games_cache.bin est construit pour
+//   TOUS les systemes sans distinction (RecalBoxDMD_tool.py::build_cache()),
+//   le flag L ne determinait que QUEL chemin de code y avait acces. Fix :
+//   si cached=='?' (jeu absent du cache), saut direct au repli
+//   default.png/default.raw existant, sans tenter drawPng()/openGif() sur
+//   le vrai chemin du jeu. Comportement du cas "jeu present" strictement
+//   inchange (les 3 tentatives reelles restent identiques, juste sautees
+//   dans le cas absent).
 //
 // v68 - 2026-08-10 - safe-modify - Suite de v67 : test reel confirme une
 //   AMELIORATION MAJEURE (2 tests intensifs consecutifs sans incident sur
@@ -3804,11 +3822,48 @@ void processPendingMqttCommand()
       // [DIAG-TEMP]
       if (CMD_GAME_DEBUG_LOGS) Serial.println("[DIAG] FAST path sysT=" + String(sysT));
 
+      // Pre-check cache bigramme (2026-08-10, v69) -- meme mecanisme que le
+      // chemin SLOW (findInGamesCache()), etendu ici : evite un scan SD
+      // couteux (jusqu'a 3.3s mesure sur mame/S, 4641 entrees) quand le jeu
+      // est absent, en sautant directement au repli default.png/default.raw
+      // ci-dessous. games_cache.bin couvre tous les systemes sans
+      // distinction de flag, cette verification n'a jamais eu de raison
+      // d'etre limitee au chemin SLOW.
+      bool fastSkipToDefault = false;
+      {
+        preloadBigram(sysName, romName);
+        char cachedFast = findInGamesCache(sysName, romName);
+        if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] fast cache pre-check sys=" + sysName
+                       + " rom=" + romName + " cached=" + String(cachedFast));
+        if (cachedFast == '?') fastSkipToDefault = true;
+      }
+
       display->clearScreen();
 
-      // Pour B : raw565pack d'abord (openGif sur .gif => .raw565pack+.meta)
-      if(sysT == 'B')
+      if (!fastSkipToDefault)
       {
+        // Pour B : raw565pack d'abord (openGif sur .gif => .raw565pack+.meta)
+        if(sysT == 'B')
+        {
+          if(openGif(gameGif, false, true))
+          {
+            pngDrawn = false;
+            currentPngPath = "";
+            currentMode = MODE_GIF;
+            break;
+          }
+        }
+
+        // Ordre standard : PNG d'abord
+        if(drawPng(gamePng))
+        {
+          pngDrawn = true;
+          currentPngPath = gamePng;
+          currentMode = MODE_PNG;
+          break;
+        }
+
+        // Puis GIF
         if(openGif(gameGif, false, true))
         {
           pngDrawn = false;
@@ -3816,24 +3871,6 @@ void processPendingMqttCommand()
           currentMode = MODE_GIF;
           break;
         }
-      }
-
-      // Ordre standard : PNG d'abord
-      if(drawPng(gamePng))
-      {
-        pngDrawn = true;
-        currentPngPath = gamePng;
-        currentMode = MODE_PNG;
-        break;
-      }
-
-      // Puis GIF
-      if(openGif(gameGif, false, true))
-      {
-        pngDrawn = false;
-        currentPngPath = "";
-        currentMode = MODE_GIF;
-        break;
       }
 
       // fallback : default.png/default.raw

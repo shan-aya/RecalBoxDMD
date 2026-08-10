@@ -1,7 +1,29 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v30
+# Version actuelle : v32
+#
+# v32 - 2026-08-10 - safe-modify - Repli du seuil flag "L" de 15000 (v31,
+#      test) a 5000, suite au test reel v31 : mame/S (1547) et mame/M (1019)
+#      confirmes trop lents SANS mask (2-3s par jeu, cas fallback/jeu absent
+#      mesure a 3.3s -- cause identifiee : drawRaw565() tente d'abord le
+#      chemin alphaSubdirPath, qui force un scan du dossier physique complet
+#      quand le fichier est absent -- 4641 entrees dans mame/S). mame redevient
+#      seul systeme en flag L (10420 > 5000, tous les autres restent sous
+#      5000 : atarist 3926 est le plus proche). Voir
+#      [[project-recalbox-dmd-slow-flag-per-bucket]].
+#
+# v31 - 2026-08-10 - safe-modify - Seuil du flag "L" (lent, ecran masque
+#      d'attente) remonte de 800 a 15000 (build_systems_cache(), 3 appels
+#      count_ext_over sur .raw565/.raw565pack/.meta) -- decision utilisateur
+#      pour tester en reel si le mask est encore necessaire maintenant que
+#      le cache bigramme (games_cache.bin) est fiable (fix v30). Objectif :
+#      plus AUCUN systeme en flag L avec ce seuil (le plus gros, mame,
+#      totalise 10420 fichiers par extension < 15000). Si le delai reel
+#      s'avere trop lent sans mask, repli prevu a 5000 (mame resterait seul
+#      en L, tous les autres systemes restent sous cette barre -- voir
+#      [[project-recalbox-dmd-slow-flag-per-bucket]] pour le detail des
+#      comptages par systeme/bucket).
 #
 # v30 - 2026-08-09 - safe-modify - Fix bug reel signale par l'utilisateur :
 #      flags "?" (fallback) sur de nombreux logos de jeux sur les systemes
@@ -4278,9 +4300,9 @@ def build_systems_cache(
             raw565pack_over = False
             meta_over = False
             if system_dir.exists() and system_dir.is_dir():
-                raw565_over = count_ext_over(system_dir, ".raw565", 800)
-                raw565pack_over = count_ext_over(system_dir, ".raw565pack", 800)
-                meta_over = count_ext_over(system_dir, ".meta", 800)
+                raw565_over = count_ext_over(system_dir, ".raw565", 5000)
+                raw565pack_over = count_ext_over(system_dir, ".raw565pack", 5000)
+                meta_over = count_ext_over(system_dir, ".meta", 5000)
 
             slow_flag = "L" if (raw565_over or raw565pack_over or meta_over) else "N"
             out.write(f"{ftype} {name} {slow_flag}\n")
