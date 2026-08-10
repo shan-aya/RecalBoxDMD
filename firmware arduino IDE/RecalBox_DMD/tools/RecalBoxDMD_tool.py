@@ -1,7 +1,34 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v29
+# Version actuelle : v30
+#
+# v30 - 2026-08-09 - safe-modify - Fix bug reel signale par l'utilisateur :
+#      flags "?" (fallback) sur de nombreux logos de jeux sur les systemes
+#      flag "L" (lents, ex: amiga600), meme quand le fichier converti
+#      existe bel et bien sur la carte SD sous le bon nom. Root cause
+#      trouvee par comparaison exhaustive (676 paires de lettres testees,
+#      script dedie) : _calc_bigram_idx() (ici, cote construction du
+#      cache games_cache.bin) et bigramIndex() (RecalBox_DMD.ino, cote
+#      lecture au runtime) calculaient des index COMPLETEMENT differents
+#      pour la meme paire de lettres -- 100% de desaccord sur les 676 cas
+#      testes. Les deux formules ne s'accordaient QUE par coincidence
+#      quand le 1er caractere n'est pas une lettre (les deux cotes
+#      retournent 0 dans ce cas special) -- ce qui explique pourquoi
+#      certains jeux (ex: "4D Sport Driving", commence par un chiffre)
+#      s'affichaient correctement alors que d'autres sur le MEME systeme
+#      flag L (ex: "Zynaps") echouaient systematiquement : le systeme
+#      flag L n'a AUCUN repli sur un acces disque direct en cas d'echec du
+#      cache (a la difference des systemes normaux, ou openBestMedia() est
+#      tente ensuite), donc un index bigramme errone y donne TOUJOURS "?".
+#      Fix : _calc_bigram_idx() reecrite pour reproduire EXACTEMENT
+#      l'algorithme bigramIndex() du firmware (meme decoupage 1+i1*27,
+#      meme gestion des cas non-alphabetiques) -- verifie par script de
+#      comparaison directe sur les 676 paires, 0 desaccord restant apres
+#      fix. Necessite de regenerer games_cache.bin (Mode 5/6) et de le
+#      recopier sur la carte SD pour que le fix prenne effet -- aucun
+#      changement firmware necessaire (bigramIndex() cote C++ reste la
+#      reference, c'est le cote Python qui s'aligne dessus).
 #
 # v29 - 2026-08-03 - safe-modify - RECONSTRUCTION apres perte accidentelle
 #      du worktree dev-cache-externalisation (git worktree remove --force
@@ -1408,16 +1435,28 @@ def sanitize_filename(name: str) -> str:
 # Calcul d'index bigramme pour le cache (compatible ESP32, NB_IDX=703)
 # --------------------------------------------------
 def _calc_bigram_idx(name: str) -> int:
-    """Calcule l'index bigramme (0-702) a partir du nom du jeu."""
-    c1 = name[0].lower() if name else " "
-    c2 = name[1].lower() if len(name) > 1 else " "
-    if c1 < "a" or c1 > "z":
+    """Calcule l'index bigramme (0-702) a partir du nom du jeu.
+
+    Doit reproduire EXACTEMENT bigramIndex() (RecalBox_DMD.ino) -- c'est le
+    firmware qui relit games_cache.bin au runtime, cette fonction ne fait
+    que le construire. Un desaccord entre les deux formules rend le cache
+    inutilisable (voir changelog v30 : 100% de desaccord avant ce fix,
+    seul le cas particulier "1er caractere non-alphabetique -> 0" etait
+    identique des deux cotes, par coincidence).
+    """
+    if not name:
         return 0
-    if c2 < "a" or c2 > "z":
-        c2 = " "
-    base = ord(c1) - ord("a") + 1
-    idx = base * 27 + (ord(c2) - ord("a") + 1 if c2 != " " else 0)
-    return idx % 703
+    c1 = name[0].upper()
+    if not ("A" <= c1 <= "Z"):
+        return 0
+    i1 = ord(c1) - ord("A")
+    base = 1 + i1 * 27
+    if len(name) < 2:
+        return base
+    c2 = name[1].upper()
+    if not ("A" <= c2 <= "Z"):
+        return base
+    return base + (ord(c2) - ord("A")) + 1
 
 
 # --------------------------------------------------
