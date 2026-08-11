@@ -1,7 +1,20 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v32
+# Version actuelle : v34
+#
+# v34 - 2026-08-11 - safe-modify - "main_opt_quit" (bouton Quitter, 3
+#      langues) en MAJUSCULES -- demande utilisateur (voir aussi
+#      RecalBoxDMD_GUI.py v46 pour le bouton Demarrer).
+#
+# v33 - 2026-08-11 - safe-modify - Seuil flag "L" (build_systems_cache(),
+#      jusqu'ici code en dur a 5000) rendu reglable : nouveau parametre
+#      optionnel slow_threshold sur build_systems_cache(), resolu depuis
+#      RecalBoxDMD_prefs.get("slow_threshold") quand non fourni explicitement
+#      -- source unique, tous les appelants (GUI Mode 1/3/8, CLI) heritent
+#      automatiquement du reglage utilisateur (onglet Parametres, GUI v45)
+#      sans modification de leurs appels. Repli 5000 sur toute erreur de
+#      lecture/conversion (coherent avec la valeur par defaut historique).
 #
 # v32 - 2026-08-10 - safe-modify - Repli du seuil flag "L" de 15000 (v31,
 #      test) a 5000, suite au test reel v31 : mame/S (1547) et mame/M (1019)
@@ -636,7 +649,7 @@ TRANSLATIONS = {
         "mode1_scripts_skip": "\n⏭️  Recalbox non confirmée — scripts non installés automatiquement (copie manuelle possible depuis le dossier temporaire, ou Mode 9 plus tard).",
         "mode1_scripts_installed_via": lambda m: f"   ℹ️  Installés via {'SMB' if m == 'smb' else 'SSH (repli)'}.",
         "main_choice": "Votre choix (1-9) : ",
-        "main_opt_quit": "Quitter",
+        "main_opt_quit": "QUITTER",
         "main_warn": "⚠️  Tape un chiffre entre 0 et 9.\n",
         "back": "↩  Retour en arrière",
         "back_main": "\n  ↩  Retour au menu principal...",
@@ -879,7 +892,7 @@ TRANSLATIONS = {
         "mode1_scripts_skip": "\n⏭️  Recalbox not confirmed — scripts not installed automatically (manual copy possible from the temp folder, or Mode 9 later).",
         "mode1_scripts_installed_via": lambda m: f"   ℹ️  Installed via {'SMB' if m == 'smb' else 'SSH (fallback)'}.",
         "main_choice": "Your choice (1-9): ",
-        "main_opt_quit": "Quit",
+        "main_opt_quit": "QUIT",
         "main_warn": "⚠️  Enter a number between 0 and 9.\n",
         "back": "↩  Go back",
         "back_main": "\n  ↩  Back to main menu...",
@@ -1123,7 +1136,7 @@ TRANSLATIONS = {
         "mode1_scripts_skip": "\n⏭️  Recalbox no confirmada — scripts no instalados automáticamente (copia manual posible desde la carpeta temporal, o Modo 9 más tarde).",
         "mode1_scripts_installed_via": lambda m: f"   ℹ️  Instalados vía {'SMB' if m == 'smb' else 'SSH (repliegue)'}.",
         "main_choice": "Su eleccion (1-9): ",
-        "main_opt_quit": "Salir",
+        "main_opt_quit": "SALIR",
         "main_warn": "⚠️  Escribe un número entre 0 y 9.\n",
         "back": "↩  Volver atrás",
         "back_main": "\n  ↩  Volver al menú principal...",
@@ -4065,6 +4078,7 @@ def build_systems_cache(
     systems_dir: Path,
     output_path: Path,
     progress_cb=None,
+    slow_threshold: Optional[int] = None,
 ):
     """
     Génère systems_cache.dat au format attendu par l'ESP32 :
@@ -4072,7 +4086,19 @@ def build_systems_cache(
       p snes
       g neogeo
     Scanne systems_dir/_defaults/ — un fichier par système (gif prioritaire).
+
+    slow_threshold : nombre de fichiers .raw565/.raw565pack/.meta au-dela
+    duquel un systeme recoit le flag "L" (lent). None (par defaut) = lu
+    depuis la preference utilisateur "slow_threshold" (onglet Parametres,
+    v33) -- source unique pour tous les appelants (GUI Mode 1/3/8, CLI),
+    repli 5000 sur toute erreur de lecture/conversion.
     """
+    if slow_threshold is None:
+        try:
+            slow_threshold = int(prefs.get("slow_threshold") or 5000)
+        except (TypeError, ValueError):
+            slow_threshold = 5000
+
     defaults_dir = systems_dir / "_defaults"
     if not defaults_dir.exists():
         print(tr("sysc_no_defaults"))
@@ -4300,9 +4326,9 @@ def build_systems_cache(
             raw565pack_over = False
             meta_over = False
             if system_dir.exists() and system_dir.is_dir():
-                raw565_over = count_ext_over(system_dir, ".raw565", 5000)
-                raw565pack_over = count_ext_over(system_dir, ".raw565pack", 5000)
-                meta_over = count_ext_over(system_dir, ".meta", 5000)
+                raw565_over = count_ext_over(system_dir, ".raw565", slow_threshold)
+                raw565pack_over = count_ext_over(system_dir, ".raw565pack", slow_threshold)
+                meta_over = count_ext_over(system_dir, ".meta", slow_threshold)
 
             slow_flag = "L" if (raw565_over or raw565pack_over or meta_over) else "N"
             out.write(f"{ftype} {name} {slow_flag}\n")

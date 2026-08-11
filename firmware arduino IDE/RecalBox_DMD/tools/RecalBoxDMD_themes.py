@@ -1,7 +1,18 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v5
+# Version actuelle : v6
+#
+# v6 — 2026-08-11 — safe-modify — Panneaux "detail de mode" (RecalBoxDMD_GUI.py,
+#      mode_desc_label/_adv) convertis de Label a Text pour des liens
+#      cliquables (pack "ultimate" externe, Mode 2/11) -- deux ajouts ici :
+#      (1) _walk_and_apply() : les Text portant l'attribut Python
+#      _theme_as_panel=True se fondent dans le panneau (bg_main/fg_text)
+#      au lieu de prendre l'aspect "carte" blanche habituel des Text
+#      (bg_text/fg_textbox). (2) apply() : appelle gui._update_mode_desc()
+#      apres le decoupage de fond, meme raison que _refresh_help_tab_content()
+#      juste au-dessus -- les couleurs de lien sont figees dans les tags
+#      Tkinter au rendu, il faut regenerer le contenu pour suivre le theme.
 #
 # v5 — 2026-08-03 — safe-modify — RECONSTRUCTION (worktree dev-tous-txt-
 #      filter, apres perte accidentelle de dev-cache-externalisation,
@@ -263,10 +274,23 @@ def _walk_and_apply(widget, theme: dict, path: str = "", has_bg: bool = False):
                 selectforeground="#FFFFFF",
             )
         elif widget_type in ("Text",):
-            widget.configure(
-                bg=colors.get("bg_text", "#FFFFFF"),
-                fg=colors.get("fg_textbox", "#000000"),
-            )
+            # 2026-08-11 -- exception pour les panneaux "detail de mode"
+            # (Text au lieu de Label depuis RecalBoxDMD_GUI.py, pour rendre
+            # cliquables les liens qu'ils peuvent contenir) : ils doivent se
+            # fondre dans le panneau environnant (bg_main/fg_text, comme un
+            # Label) au lieu de prendre l'aspect "carte" blanche habituel
+            # des Text (bg_text/fg_textbox, ex: onglet Aide). Marque via
+            # l'attribut Python _theme_as_panel = True pose a la creation.
+            if getattr(widget, "_theme_as_panel", False):
+                widget.configure(
+                    bg=colors.get("bg_main", "#F3F3F3"),
+                    fg=colors.get("fg_text", "#000000"),
+                )
+            else:
+                widget.configure(
+                    bg=colors.get("bg_text", "#FFFFFF"),
+                    fg=colors.get("fg_textbox", "#000000"),
+                )
         elif widget_type in ("Scrollbar",):
             widget.configure(
                 bg=colors.get("bg_frame", "#CCCCCC"),
@@ -518,6 +542,18 @@ def apply(name: str, gui) -> None:
     ):
         try:
             gui._refresh_help_tab_content()
+        except Exception:
+            pass
+
+    # 2026-08-11 -- meme raison que pour l'onglet Aide ci-dessus : les
+    # panneaux "detail de mode" (mode_desc_label/_adv) sont desormais des
+    # Text avec liens auto-detectes (voir RecalBoxDMD_GUI.py
+    # _insert_autolink_text()), dont la couleur de lien est figee au moment
+    # du rendu -- il faut regenerer le contenu pour qu'elle suive le
+    # nouveau theme.
+    if hasattr(gui, "_update_mode_desc"):
+        try:
+            gui._update_mode_desc()
         except Exception:
             pass
 

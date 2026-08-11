@@ -1,8 +1,15 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v6
+# Version actuelle : v7
 #
+# v7 - 2026-08-11 - safe-modify - Ajout de la preference "slow_threshold"
+#      (seuil de nombre de fichiers .raw565/.raw565pack/.meta au-dela duquel
+#      un systeme recoit le flag "L" (lent) dans systems_cache.dat, voir
+#      build_systems_cache() dans RecalBoxDMD_tool.py) -- rendu reglable
+#      dans l'onglet Parametres de la GUI, la vitesse reelle d'une carte SD
+#      variant d'un utilisateur a l'autre. Valeur par defaut "5000" alignee
+#      sur le seuil code en dur jusqu'ici (v32 de RecalBoxDMD_tool.py).
 # v6 - 2026-07-21 - safe-modify - Ajout de la preference "recalbox_ip" (nom
 #      reseau ou IP de la Recalbox cible pour l'installation des scripts
 #      userscripts, partagee entre le Mode 1 automatique et le Mode 9 dedie)
@@ -47,6 +54,7 @@ _DEFAULTS = {
     "recalbox_profile": "10.x",  # "10.x", "9.x", "legacy" (Mode 1)
     "default_fallback_image": "",  # chemin PNG source pour default.raw565 ("" = defaut projet)
     "recalbox_ip": "",  # nom reseau ou IP Recalbox pour l'installation des scripts (Mode 1 + Mode 9)
+    "slow_threshold": "5000",  # seuil flag L (build_systems_cache) -- reglable, onglet Parametres
 }
 
 

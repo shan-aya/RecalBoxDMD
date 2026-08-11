@@ -2,7 +2,116 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v42
+# Version actuelle : v48
+#
+# v48 — 2026-08-11 — safe-modify — Le fix v47 (after_idle) etait
+#      INSUFFISANT -- signale par l'utilisateur : le bug persistait. Cause
+#      complementaire identifiee : `self.root.after(200, lambda ...:
+#      themes.apply(...))` (deja present, ligne ~2426, re-application du
+#      theme 200ms apres le demarrage) declenche desormais aussi
+#      _update_mode_desc() via l'ajout RecalBoxDMD_themes.py v6 -- 2 appels
+#      concurrents (le mien via after_idle, celui-la via after(200)) sans
+#      garantie que les DEUX mesurent contre une largeur de widget fiable.
+#      Fix plus robuste, independant du timing exact : _insert_autolink_text()
+#      verifie desormais text_widget.winfo_width() APRES update() -- si la
+#      largeur rendue est suspecte (<50px, widget pas encore reellement
+#      dispose), la hauteur n'est PAS modifiee cette fois (ancienne valeur
+#      conservee) plutot que de calculer un nombre de lignes aberrant contre
+#      une largeur quasi nulle. Un appel ulterieur (changement de mode/
+#      theme/onglet, tres frequent dans ce fichier) la corrigera avec une
+#      largeur fiable.
+#
+# v47 — 2026-08-11 — safe-modify — Bug reel signale par l'utilisateur sur
+#      v45/v46 (conversion mode_desc_label en Text) : au tout premier
+#      affichage de l'onglet Main, le cadre Progression partage (sous le
+#      Notebook) disparaissait, et le cadre "systemes a traiter" semblait
+#      agrandi -- un aller-retour Main -> Avance -> Main corrigeait la
+#      taille. Cause : l'appel initial a _update_mode_desc() (fin de
+#      _build_mode_area_advanced) s'execute PENDANT __init__(), avant que
+#      mainloop() ne demarre -- la fenetre n'est donc pas encore mappee, et
+#      self.root.update() dans _insert_autolink_text() ne peut pas obtenir
+#      une largeur en pixels fiable pour le widget Text, qui se voit donc
+#      assigner une hauteur bien trop grande. Un changement d'onglet
+#      redeclenche _update_mode_desc() une fois la fenetre reellement
+#      mappee, d'ou la correction observee. Fix : appel initial differe via
+#      self.root.after_idle(self._update_mode_desc) (se declenche au tout
+#      debut de mainloop(), fenetre deja mappee) au lieu d'un appel
+#      synchrone pendant la construction.
+#
+# v46 — 2026-08-11 — safe-modify — Retours utilisateur sur le v45 :
+#      (1) Mode 11 (pack GIFs) unifie sur le meme fonctionnement que Mode 2
+#      -- passe desormais par btn_start_adv/_worker_main
+#      (_pipeline_mode_11(), reutilise toolkit.download_gif_pack()) au lieu
+#      d'un panneau/bouton/thread dedies, retires entierement
+#      (_mode11_frame et handlers associes). Detail Mode 11 adapte ("cliquez
+#      sur Demarrer" au lieu de "Telecharger le pack"). (2) Popup
+#      "ecraser les fichiers _defaults existants ?" (Mode 2) :
+#      messagebox.askyesno() (rendu Windows natif fixe, ne suit pas le
+#      theme) remplace par self._themed_yesno(). (3) Boutons
+#      Demarrer/Quitter (Main + Avance) en MAJUSCULES (start_btn ici,
+#      main_opt_quit dans RecalBoxDMD_tool.py v34, 3 langues chacun).
+#      (4) Detail Mode 9 raccourci (derniere phrase "Ce mode fait aussi
+#      partie du Mode 1..." retiree, 3 langues) : le panneau Mode 9 +
+#      description debordaient sur le cadre Progression partage en bas de
+#      fenetre (fenetre a taille fixe, voir _build_mode_area_advanced) --
+#      libere de la hauteur verticale.
+#
+# v45 — 2026-08-11 — safe-modify — Trois ajouts demandes par l'utilisateur :
+#      (1) Onglet Parametres : nouveau champ numerique "seuil flag L"
+#      (_slow_threshold_var, ttk.Spinbox), permet d'affiner selon la
+#      vitesse reelle de la carte SD de l'utilisateur le seuil utilise par
+#      build_systems_cache() (RecalBoxDMD_tool.py v33) pour decider quels
+#      systemes recoivent le flag "L" (lent). Persiste dans
+#      RecalBoxDMD_prefs.json (v7). (2) Nouveau Mode 11 (sous-menu separe
+#      de la categorie DOWNLOAD FROM GITHUB, a cote de Mode 2) : telecharge
+#      le pack gratuit de ~600 GIFs GitHub, action autonome (bouton +
+#      thread propre, meme principe que Mode 9/10) reutilisant integralement
+#      toolkit.download_gif_pack() -- Mode 2 reste inchange (uniquement
+#      _defaults). (3) Liens cliquables : mode_desc_label/_adv (Main +
+#      Avance) convertis de Label+StringVar a Text avec auto-lien
+#      (_insert_autolink_text(), regex _AUTOLINK_URL_RE) pour rendre
+#      cliquable la mention du pack "ultimate" externe (~11000 animations,
+#      rpiteam.carrd.co + forum Arcadia) dans le detail du Mode 11 et la
+#      popup pack GIFs du Mode 1 (_themed_yesno(..., linked=True), nouveau
+#      helper _make_linked_text()). RecalBoxDMD_themes.py v6 complementaire
+#      (widgets Text _theme_as_panel + refresh au changement de theme).
+#
+# v44 — 2026-08-11 — safe-modify — Bug reel signale par l'utilisateur sur
+#      v43 (accordeon) : tous les sous-menus (corps de categorie) s'ouvraient
+#      sous le bouton Quitter au lieu de sous leur propre en-tete. Cause :
+#      Tkinter place un widget re-pack()e (pack_forget() puis pack() a
+#      nouveau, ou pack() appele pour la 1ere fois APRES d'autres widgets
+#      deja empaquetes) en DERNIERE position parmi les enfants de son
+#      parent -- pas a sa position "logique" dans le code. Comme les
+#      "body" de categorie non ouverte au demarrage n'etaient empaquetes
+#      qu'au clic (donc apres coup, apres que spacer/path_box/Demarrer/
+#      Quitter aient deja ete empaquetes dans "left"), ils atterrissaient
+#      tout en bas. Fix : chaque categorie recoit desormais son propre
+#      petit conteneur (category_frame) empaquete UNE SEULE FOIS a la
+#      construction, dans l'ordre -- le dépli/repli du corps ne touche
+#      plus que l'ordre interne a ce conteneur (en-tete + corps, 2
+#      enfants), jamais l'ordre parmi les enfants de "left". Pas encore
+#      teste (nouveau lancement necessaire).
+#
+# v43 — 2026-08-11 — safe-modify — Onglet Avance : refonte de la colonne
+#      des modes (8 radios plats) en accordeon a 5 categories thematiques
+#      cliquables (une seule depliee a la fois) -- demande utilisateur pour
+#      gagner de la place dans la colonne fixe (363px) et pouvoir ajouter
+#      de futurs modes sans que la liste devienne ingerable. Un menu a
+#      survol (fly-out) a ete explicitement ecarte : chaque mode expose
+#      des parametres (dossier, panneaux dedies) qui doivent rester des
+#      widgets persistants dans right_adv. Taxonomie validee avec
+#      l'utilisateur : DOWNLOAD FROM GITHUB (Mode 2), GAMELIST.XML
+#      (Mode 3+8), IMAGES TOOLS (Mode 4+5+10), CACHES (Mode 6+7),
+#      SCRIPTS RECALBOX (Mode 9). Nouveau Mode 10 : promotion du panneau
+#      "Choisir son image de secours" (auparavant simple bouton sous
+#      Mode 2) en mode selectionnable a part entiere, meme principe
+#      autonome que Mode 9 (pas de pipeline, action directe via son
+#      propre bouton). Nouvelles methodes _accordion_category_for_mode/
+#      _accordion_header_text/_on_accordion_toggle ; reutilise le
+#      mecanisme pack()/pack_forget() + _reslice_after_mode_change() deja
+#      en place pour tous les panneaux de detail par mode. Pas encore
+#      teste (lancement reel de l'app).
 #
 # v42 — 2026-08-07 — safe-modify — Fix bug signale par l'utilisateur : le
 #      cadre Progression (partage, sous le Notebook) semblait "disparu" en
@@ -731,6 +840,15 @@ class GuiConfig:
     nas_path_is_unc: bool
 
 
+# 2026-08-11 -- regex d'auto-lien pour les popups/details de mode contenant
+# des URLs (pack ultimate GitHub/forum Arcadia). Volontairement PAS un rendu
+# markdown complet (reserve a RecalBoxDMD_md_renderer/l'onglet Aide) : ce
+# texte contient des caracteres (underscores dans _defaults, parentheses...)
+# qu'un vrai parseur markdown interpreterait a tort -- seules les URLs
+# http(s) deviennent des liens cliquables, tout le reste est affiche
+# verbatim. Voir _insert_autolink_text().
+_AUTOLINK_URL_RE = re.compile(r"https?://[^\s<>\)\]]+")
+
 UI_TRANSLATIONS = {
     "fr": {
         "sys_all_selected": "Aucun système sélectionné — tous les systèmes seront traités.",
@@ -780,7 +898,7 @@ UI_TRANSLATIONS = {
         "roms_pick_btn": "Choisir dossier ROMs",
         "mode7_pick_btn": 'Choisir le dossier "systems" contenant "_defaults"',
         "images_pick_btn": "Choix des dossiers Images",
-        "start_btn": "Démarrer",
+        "start_btn": "DÉMARRER",
         "detect_systems_btn": "Détection des systèmes (gamelist.xml)",
         "select_images_btn": "Sélection des dossiers images",
         "systems_to_process_lbl": "Systèmes à traiter (clic pour sélectionner)",
@@ -804,6 +922,12 @@ UI_TRANSLATIONS = {
             else f"⚠️ {ok}/{total} fichier(s) installé(s)"
         ),
         "mode1_profile_label": "Version Recalbox (scrape marquee/logo)",
+        "slow_threshold_label": "Seuil flag L (systèmes lents)",
+        "slow_threshold_hint": (
+            "Nombre de fichiers convertis au-delà duquel un système est "
+            "marqué \"lent\" (écran d'attente au lancement). À augmenter "
+            "si votre carte SD est rapide, à réduire si elle est lente."
+        ),
         "mode1_scrape_help_btn": "Comment scraper ?",
         "mode1_clean_btn": "Nettoyer les dossiers avant scrape",
         "mode1_clean_confirm_title": "Confirmer le nettoyage",
@@ -1041,7 +1165,11 @@ UI_TRANSLATIONS = {
         "gifpack_q_msg": (
             "Télécharger le pack gratuit de 600 GIFs (thèmes variés) "
             "depuis GitHub ?\n\n"
-            "Vous pourrez aussi ajouter vos propres GIFs à l'étape suivante."
+            "Vous pourrez aussi ajouter vos propres GIFs à l'étape suivante.\n\n"
+            "Pour un pack bien plus complet (pack ultimate, ~11000 animations "
+            "pixel-perfect pour DMD), voir https://rpiteam.carrd.co/ et le "
+            "forum Arcadia : "
+            "https://www.neo-arcadia.com/forum/viewtopic.php?t=67065"
         ),
         "gifpack_q_yes": "Oui",
         "gifpack_q_no": "Non",
@@ -1153,6 +1281,16 @@ UI_TRANSLATIONS = {
         "mode7_short_title": "MODE 7 — systems_cache.dat",
         "mode8_short_title": "MODE 8 — Images manquantes",
         "mode9_short_title": "MODE 9 — Installer les scripts Recalbox",
+        "mode10_short_title": "MODE 10 — Image de secours",
+        "mode11_short_title": "MODE 11 — Pack 600 GIFs (GitHub)",
+        # En-tetes de categorie de l'accordeon (2026-08-11, v43) -- noms
+        # techniques donnes par l'utilisateur, gardes identiques dans les
+        # 3 langues (FR/EN/ES).
+        "accordion_cat_github": "DOWNLOAD FROM GITHUB",
+        "accordion_cat_gamelist": "GAMELIST.XML",
+        "accordion_cat_images": "IMAGES TOOLS",
+        "accordion_cat_caches": "CACHES",
+        "accordion_cat_scripts": "SCRIPTS RECALBOX",
     },
     "en": {
         "sys_all_selected": "No system selected — all systems will be processed.",
@@ -1202,7 +1340,7 @@ UI_TRANSLATIONS = {
         "roms_pick_btn": "Choose ROMs folder",
         "mode7_pick_btn": 'Choose the "systems" folder containing "_defaults"',
         "images_pick_btn": "Choose images folders",
-        "start_btn": "Start",
+        "start_btn": "START",
         "detect_systems_btn": "Detect systems (gamelist.xml)",
         "select_images_btn": "Select image folders",
         "systems_to_process_lbl": "Systems to process (click to select)",
@@ -1226,6 +1364,12 @@ UI_TRANSLATIONS = {
             else f"⚠️ {ok}/{total} file(s) installed"
         ),
         "mode1_profile_label": "Recalbox version (marquee/logo scrape)",
+        "slow_threshold_label": "Slow-flag threshold (slow systems)",
+        "slow_threshold_hint": (
+            "Number of converted files above which a system is marked "
+            "\"slow\" (loading screen on launch). Raise it if your SD "
+            "card is fast, lower it if it's slow."
+        ),
         "mode1_scrape_help_btn": "How to scrape?",
         "mode1_clean_btn": "Clean folders before scraping",
         "mode1_clean_confirm_title": "Confirm cleanup",
@@ -1453,7 +1597,11 @@ UI_TRANSLATIONS = {
         "gifpack_q_msg": (
             "Download the free pack of 600 GIFs (assorted themes) from "
             "GitHub?\n\n"
-            "You can also add your own GIFs in the next step."
+            "You can also add your own GIFs in the next step.\n\n"
+            "For a much larger pack (ultimate pack, ~11,000 pixel-perfect "
+            "DMD animations), see https://rpiteam.carrd.co/ and the "
+            "Arcadia forum: "
+            "https://www.neo-arcadia.com/forum/viewtopic.php?t=67065"
         ),
         "gifpack_q_yes": "Yes",
         "gifpack_q_no": "No",
@@ -1560,6 +1708,13 @@ UI_TRANSLATIONS = {
         "mode7_short_title": "MODE 7 — systems_cache.dat",
         "mode8_short_title": "MODE 8 — Missing images",
         "mode9_short_title": "MODE 9 — Install Recalbox scripts",
+        "mode10_short_title": "MODE 10 — Fallback image",
+        "mode11_short_title": "MODE 11 — 600 GIFs pack (GitHub)",
+        "accordion_cat_github": "DOWNLOAD FROM GITHUB",
+        "accordion_cat_gamelist": "GAMELIST.XML",
+        "accordion_cat_images": "IMAGES TOOLS",
+        "accordion_cat_caches": "CACHES",
+        "accordion_cat_scripts": "SCRIPTS RECALBOX",
     },
     "es": {
         "sys_all_selected": "No se seleccionó ningún sistema — se procesarán todos los sistemas.",
@@ -1608,7 +1763,7 @@ UI_TRANSLATIONS = {
         "mode_label": "Modo",
         "roms_pick_btn": "Elegir carpeta ROMs",
         "images_pick_btn": "Elegir carpetas de imágenes",
-        "start_btn": "Iniciar",
+        "start_btn": "INICIAR",
         "detect_systems_btn": "Detectar sistemas (gamelist.xml)",
         "select_images_btn": "Selección de carpetas de imágenes",
         "systems_to_process_lbl": "Sistemas a procesar (clic para seleccionar)",
@@ -1632,6 +1787,12 @@ UI_TRANSLATIONS = {
             else f"⚠️ {ok}/{total} archivo(s) instalado(s)"
         ),
         "mode1_profile_label": "Version de Recalbox (scrape de marquee/logo)",
+        "slow_threshold_label": "Umbral flag L (sistemas lentos)",
+        "slow_threshold_hint": (
+            "Número de archivos convertidos a partir del cual un sistema "
+            "se marca como \"lento\" (pantalla de espera al iniciar). "
+            "Auméntelo si su tarjeta SD es rápida, redúzcalo si es lenta."
+        ),
         "mode1_scrape_help_btn": "Como hacer el scrape?",
         "mode1_clean_btn": "Limpiar carpetas antes del scrape",
         "mode1_clean_confirm_title": "Confirmar limpieza",
@@ -1872,7 +2033,11 @@ UI_TRANSLATIONS = {
         "gifpack_q_msg": (
             "¿Descargar el pack gratuito de 600 GIFs (temas variados) "
             "desde GitHub?\n\n"
-            "También podrás añadir tus propios GIFs en el siguiente paso."
+            "También podrás añadir tus propios GIFs en el siguiente paso.\n\n"
+            "Para un pack mucho más completo (pack ultimate, ~11000 "
+            "animaciones pixel-perfect para DMD), consulte "
+            "https://rpiteam.carrd.co/ y el foro Arcadia: "
+            "https://www.neo-arcadia.com/forum/viewtopic.php?t=67065"
         ),
         "gifpack_q_yes": "Sí",
         "gifpack_q_no": "No",
@@ -1981,6 +2146,13 @@ UI_TRANSLATIONS = {
         "mode7_short_title": "MODO 7 — systems_cache.dat",
         "mode8_short_title": "MODO 8 — Imágenes faltantes",
         "mode9_short_title": "MODO 9 — Instalar scripts de Recalbox",
+        "mode10_short_title": "MODO 10 — Imagen de respaldo",
+        "mode11_short_title": "MODO 11 — Pack 600 GIFs (GitHub)",
+        "accordion_cat_github": "DOWNLOAD FROM GITHUB",
+        "accordion_cat_gamelist": "GAMELIST.XML",
+        "accordion_cat_images": "IMAGES TOOLS",
+        "accordion_cat_caches": "CACHES",
+        "accordion_cat_scripts": "SCRIPTS RECALBOX",
     },
 }
 
@@ -2146,6 +2318,15 @@ class RetroBoxLEDGui:
         self._mode1_profile_var = tk.StringVar(
             value=_saved_profile if _saved_profile in self.tkmod.RECALBOX_PROFILES else "10.x"
         )
+
+        # Seuil flag "L" (build_systems_cache(), onglet Parametres, v45) --
+        # persiste dans RecalBoxDMD_prefs.json (v7). Repli 5000 sur toute
+        # valeur invalide (fichier prefs corrompu/edite a la main).
+        try:
+            _saved_threshold = int(prefs.get("slow_threshold") or 5000)
+        except (TypeError, ValueError):
+            _saved_threshold = 5000
+        self._slow_threshold_var = tk.IntVar(value=_saved_threshold)
 
         # ── Onglet PLAYLIST : etat separe de self.sd_dir (qui designe le
         # dossier de travail LOCAL de ce toolkit, sans rapport avec la
@@ -4278,6 +4459,40 @@ class RetroBoxLEDGui:
             "<<ComboboxSelected>>", self._on_mode1_profile_selected
         )
 
+        # Seuil flag "L" (build_systems_cache(), v45) -- affine selon la
+        # vitesse reelle de la carte SD de l'utilisateur le nombre de
+        # fichiers convertis au-dela duquel un systeme est marque "lent".
+        self._params_slow_threshold_lbl = tk.Label(
+            box,
+            text=ui["slow_threshold_label"],
+            bg="#F3F3F3",
+            fg="black",
+            font=("TkDefaultFont", 10, "bold"),
+        )
+        self._params_slow_threshold_lbl.grid(row=len(langs) + 5, column=0, sticky="w", pady=(12, 4))
+        self._params_slow_threshold_spin = ttk.Spinbox(
+            box,
+            from_=100,
+            to=50000,
+            increment=100,
+            textvariable=self._slow_threshold_var,
+            width=10,
+            command=self._on_slow_threshold_changed,
+        )
+        self._params_slow_threshold_spin.grid(row=len(langs) + 6, column=0, sticky="w", pady=2)
+        self._params_slow_threshold_spin.bind("<Return>", self._on_slow_threshold_changed)
+        self._params_slow_threshold_spin.bind("<FocusOut>", self._on_slow_threshold_changed)
+        self._params_slow_threshold_hint_lbl = tk.Label(
+            box,
+            text=ui["slow_threshold_hint"],
+            bg="#F3F3F3",
+            fg="#555555",
+            font=("TkDefaultFont", 8),
+            wraplength=260,
+            justify="left",
+        )
+        self._params_slow_threshold_hint_lbl.grid(row=len(langs) + 7, column=0, sticky="w", pady=(2, 4))
+
     def _build_help_tab(self, parent: tk.Frame) -> None:
         ui = self._get_ui_t()
         self.tab_help_bg = "#F3F3F3"
@@ -4510,7 +4725,9 @@ class RetroBoxLEDGui:
                 "6": "Le mode 6 génère uniquement le fichier games_cache.bin, qui correspond au cache des jeux.\n\nMarche à suivre :\nExécutez d'abord le Mode 3 (extraction gamelist.xml) si ce n'est pas déjà fait, puis revenez ici et cliquez directement sur « Démarrer » — aucun dossier à choisir.",
                 "7": "Le mode 7 génère uniquement le fichier systems_cache.dat, qui représente l’index des systèmes.\n\nMarche à suivre :\nExécutez d'abord le Mode 2 (téléchargement _defaults) si ce n'est pas déjà fait, puis revenez ici et cliquez directement sur « Démarrer » — aucun dossier à choisir.",
                 "8": "Le mode 8 vérifie les images manquantes en parcourant les gamelist.xml du dossier ROMs. Le rapport liste les images absentes avec le chemin attendu selon le profil Recalbox sélectionné.\n\nMarche à suivre :\n1. « Choisir dossier ROMs »\n2. Choisissez la « Version Recalbox »\n3. « Lancer la vérification »\n4. « Ouvrir le rapport »\nOptionnel : « Comparer avec le support final » puis « Ouvrir le rapport final ».",
-                "9": "Installe/met à jour les scripts utilisateur Recalbox (WiFi Recovery, Config Web, pont marquee) directement sur le partage réseau de la Recalbox (\\\\<ip>\\share), sans passer par le DMD.\n\nMarche à suivre :\n1. Vérifiez/saisissez l'adresse IP ou le nom réseau de la Recalbox (pré-rempli si détecté automatiquement ou déjà utilisé).\n2. « Installer / Mettre à jour »\n3. Sur la Recalbox : START > PARAMÈTRES AVANCÉS > SCRIPTS UTILISATEUR.\n\nCe mode fait aussi partie du Mode 1 (AUTO) : si une Recalbox est détectée/connue, les scripts sont installés automatiquement en fin de pipeline.",
+                "9": "Installe/met à jour les scripts utilisateur Recalbox (WiFi Recovery, Config Web, pont marquee) directement sur le partage réseau de la Recalbox (\\\\<ip>\\share), sans passer par le DMD.\n\nMarche à suivre :\n1. Vérifiez/saisissez l'adresse IP ou le nom réseau de la Recalbox (pré-rempli si détecté automatiquement ou déjà utilisé).\n2. « Installer / Mettre à jour »\n3. Sur la Recalbox : START > PARAMÈTRES AVANCÉS > SCRIPTS UTILISATEUR.",
+                "10": "Choisissez l'image de secours (default.raw565) affichée quand aucune image spécifique n'est disponible pour un jeu ou un système. Action autonome et immédiate, sans dossier ROMs ni pipeline.\n\nMarche à suivre :\n1. « Choisir son image de secours »\n2. Sélectionnez une image de la galerie ou importez la vôtre.\nLe choix s'applique immédiatement au dossier de travail.",
+                "11": "Le mode 11 télécharge uniquement le pack gratuit de 600 GIFs (thèmes variés) depuis GitHub dans /gifs/. Indépendant du Mode 2 (qui télécharge « _defaults »). Il ne réalise aucune extraction ni conversion d’images.\n\nPour un pack bien plus complet (pack ultimate, ~11000 animations pixel-perfect pour DMD), voir https://rpiteam.carrd.co/ et le forum Arcadia : https://www.neo-arcadia.com/forum/viewtopic.php?t=67065\n\nMarche à suivre :\n1. Cliquez directement sur « Démarrer ».\nAucun dossier ROMs ni sélection de systèmes n'est nécessaire (bouton désactivé).",
             },
             "en": {
                 "1": "Auto Mode extracts images from your gamelists, converts PNG to 128x32 (raw565) and GIF to raw565pack/meta, builds the cache, downloads the default images and generates systems_cache.dat. Also installs the Recalbox scripts and sends the language to the DMD, right at the start of the pipeline.\n\nImportant: pick the \"Recalbox version\" below first (10.x / 9.x / legacy) — it determines which gamelist.xml tag is used (logo/thumbnail/image). Click \"How to scrape?\" to see exactly what to enable in Recalbox's Scraper tab.\n\nSteps:\n1. « Choose ROMs folder » (systems auto-detected)\n2. Select the systems to process\n3. « Start »",
@@ -4521,7 +4738,9 @@ class RetroBoxLEDGui:
                 "6": "Mode 6: generates only games_cache.bin (games cache).\n\nSteps:\nRun Mode 3 first (gamelist extraction) if not done yet, then come back and click « Start » directly — no folder to choose.",
                 "7": "Mode 7: generates only systems_cache.dat (systems index).\n\nSteps:\nRun Mode 2 first (_defaults download) if not done yet, then come back and click « Start » directly — no folder to choose.",
                 "8": "Mode 8: checks missing images by scanning gamelist.xml in the ROMs folder. The report lists missing images with the expected path according to the selected Recalbox profile.\n\nSteps:\n1. « Choose ROMs folder »\n2. Pick the « Recalbox version »\n3. « Start check »\n4. « Open report »\nOptional: « Compare with final media » then « Open final report ».",
-                "9": "Installs/updates the Recalbox user scripts (WiFi Recovery, Web Config, marquee bridge) directly on the Recalbox network share (\\\\<ip>\\share), without going through the DMD.\n\nSteps:\n1. Check/enter the Recalbox IP address or network name (pre-filled if auto-detected or already used).\n2. « Install / Update »\n3. On the Recalbox: START > ADVANCED SETTINGS > USER SCRIPTS.\n\nThis also runs as part of Mode 1 (AUTO): if a Recalbox is detected/known, scripts are installed automatically at the end of the pipeline.",
+                "9": "Installs/updates the Recalbox user scripts (WiFi Recovery, Web Config, marquee bridge) directly on the Recalbox network share (\\\\<ip>\\share), without going through the DMD.\n\nSteps:\n1. Check/enter the Recalbox IP address or network name (pre-filled if auto-detected or already used).\n2. « Install / Update »\n3. On the Recalbox: START > ADVANCED SETTINGS > USER SCRIPTS.",
+                "10": "Choose the fallback image (default.raw565) shown when no specific image is available for a game or system. Standalone, immediate action, no ROMs folder or pipeline involved.\n\nSteps:\n1. « Choose your fallback image »\n2. Pick an image from the gallery or import your own.\nThe choice is applied immediately to the working folder.",
+                "11": "Mode 11 downloads only the free pack of 600 GIFs (assorted themes) from GitHub into /gifs/. Independent from Mode 2 (which downloads \"_defaults\"). No extraction or conversion.\n\nFor a much larger pack (ultimate pack, ~11,000 pixel-perfect DMD animations), see https://rpiteam.carrd.co/ and the Arcadia forum: https://www.neo-arcadia.com/forum/viewtopic.php?t=67065\n\nSteps:\n1. Click « Start » directly.\nNo ROMs folder or system selection needed (button disabled).",
             },
             "es": {
                 "1": "Modo 1 (AUTO): extrae imágenes desde tus gamelists, convierte PNG a 128x32 (raw565) y GIF a raw565pack/meta, crea la caché, descarga las imágenes por defecto y genera systems_cache.dat. También instala los scripts de Recalbox y transmite el idioma al DMD, al principio del proceso.\n\nImportante: elige primero la « Versión de Recalbox » abajo (10.x / 9.x / legacy) — determina la etiqueta del gamelist.xml usada (logo/thumbnail/image). Haz clic en « Cómo hacer el scrape? » para saber qué activar en la pestaña Scraper de Recalbox.\n\nPasos:\n1. « Elegir carpeta ROMs » (detección de sistemas automática)\n2. Seleccione los sistemas a procesar\n3. « Iniciar »",
@@ -4532,7 +4751,9 @@ class RetroBoxLEDGui:
                 "6": "Modo 6: genera solo games_cache.bin (caché de juegos).\n\nPasos:\nEjecute primero el Modo 3 (extracción gamelist) si no lo ha hecho, luego vuelva aquí y haga clic directamente en « Iniciar » — no hay que elegir carpeta.",
                 "7": "Modo 7: genera solo systems_cache.dat (índice de sistemas).\n\nPasos:\nEjecute primero el Modo 2 (descarga _defaults) si no lo ha hecho, luego vuelva aquí y haga clic directamente en « Iniciar » — no hay que elegir carpeta.",
                 "8": "Modo 8: verifica las imagenes faltantes escaneando los gamelist.xml en la carpeta ROMs. El informe enumera las imagenes faltantes con la ruta esperada segun el perfil de Recalbox seleccionado.\n\nPasos:\n1. « Elegir carpeta ROMs »\n2. Elija la « Versión de Recalbox »\n3. « Iniciar verificación »\n4. « Abrir informe »\nOpcional: « Comparar con el soporte final » luego « Abrir informe final ».",
-                "9": "Instala/actualiza los scripts de usuario de Recalbox (WiFi Recovery, Config Web, puente marquee) directamente en el recurso compartido de red de la Recalbox (\\\\<ip>\\share), sin pasar por el DMD.\n\nPasos:\n1. Compruebe/introduzca la IP o el nombre de red de la Recalbox (rellenado automáticamente si se detecta o ya se usó).\n2. « Instalar / Actualizar »\n3. En la Recalbox: START > CONFIGURACIÓN AVANZADA > SCRIPTS DE USUARIO.\n\nEste modo también forma parte del Modo 1 (AUTO): si se detecta/conoce una Recalbox, los scripts se instalan automáticamente al final del proceso.",
+                "9": "Instala/actualiza los scripts de usuario de Recalbox (WiFi Recovery, Config Web, puente marquee) directamente en el recurso compartido de red de la Recalbox (\\\\<ip>\\share), sin pasar por el DMD.\n\nPasos:\n1. Compruebe/introduzca la IP o el nombre de red de la Recalbox (rellenado automáticamente si se detecta o ya se usó).\n2. « Instalar / Actualizar »\n3. En la Recalbox: START > CONFIGURACIÓN AVANZADA > SCRIPTS DE USUARIO.",
+                "10": "Elija la imagen de respaldo (default.raw565) que se muestra cuando no hay una imagen especifica disponible para un juego o sistema. Accion autonoma e inmediata, sin carpeta ROMs ni proceso.\n\nPasos:\n1. « Elegir su imagen de respaldo »\n2. Seleccione una imagen de la galeria o importe la suya.\nLa eleccion se aplica de inmediato a la carpeta de trabajo.",
+                "11": "El modo 11 descarga solo el pack gratuito de 600 GIFs (temas variados) desde GitHub en /gifs/. Independiente del Modo 2 (que descarga «_defaults»). Sin extracción ni conversión.\n\nPara un pack mucho más completo (pack ultimate, ~11000 animaciones pixel-perfect para DMD), consulte https://rpiteam.carrd.co/ y el foro Arcadia: https://www.neo-arcadia.com/forum/viewtopic.php?t=67065\n\nPasos:\n1. Haga clic directamente en « Iniciar ».\nNo se necesita carpeta ROMs ni selección de sistemas (botón desactivado).",
             },
         }
 
@@ -4560,8 +4781,8 @@ class RetroBoxLEDGui:
             rb.pack(anchor="w", pady=2)
             self._mode_radios[m] = rb
 
-        # Radios invisibles pour modes 2-9 (garder mode_var stable entre onglets)
-        for hidden_m in ("2", "3", "4", "5", "6", "7", "8", "9"):
+        # Radios invisibles pour modes 2-11 (garder mode_var stable entre onglets)
+        for hidden_m in ("2", "3", "4", "5", "6", "7", "8", "9", "10", "11"):
             rb_hidden = tk.Radiobutton(
                 left, variable=self.mode_var, value=hidden_m,
                 state="disabled", takefocus=0,
@@ -4726,16 +4947,19 @@ class RetroBoxLEDGui:
         )
         self.mode_detail_title_lbl.pack(anchor="w", pady=(0, 6))
 
-        self.mode_desc_var = tk.StringVar(value="")
-        self.mode_desc_label = tk.Label(
-            self.right,
-            textvariable=self.mode_desc_var,
-            bg="#F3F3F3",
-            fg="black",
-            font=("TkDefaultFont", 10),
-            wraplength=300,
-            justify="left",
+        # 2026-08-11 -- Text (au lieu de Label+StringVar) pour rendre
+        # cliquables les liens du detail Mode 2/11 (pack "ultimate", voir
+        # _update_mode_desc()/_insert_autolink_text()). bd=0 (pas de carte
+        # visible, contrairement a _make_linked_text() par defaut) pour
+        # rester visuellement proche du Label d'origine, qui se fondait
+        # dans le panneau.
+        self.mode_desc_label = tk.Text(
+            self.right, wrap="word", bg="#F3F3F3", fg="black",
+            font=("TkDefaultFont", 10), width=34, height=1,
+            bd=0, highlightthickness=0, cursor="arrow", padx=0, pady=0,
         )
+        self.mode_desc_label._theme_as_panel = True  # voir RecalBoxDMD_themes.py _walk_and_apply()
+        self.mode_desc_label.bind("<Key>", lambda e: "break")
         self.mode_desc_label.pack(anchor="w", fill="x")
 
         # ── Mode 6 panel (hidden until previous pipeline is finished)
@@ -4806,42 +5030,103 @@ class RetroBoxLEDGui:
         # etc. (partages avec le CLI via self.tkmod.tr) sont trop longs et
         # cassent sur 2 lignes de facon inegale d'une option a l'autre. Ces
         # cles GUI-only n'affectent pas les banners CLI.
-        modes = [
-            ("2", ui["mode2_short_title"]),
-            ("3", ui["mode3_short_title"]),
-            ("4", ui["mode4_short_title"]),
-            ("5", ui["mode5_short_title"]),
-            ("6", ui["mode6_short_title"]),
-            ("7", ui["mode7_short_title"]),
-            ("8", ui["mode8_short_title"]),
-            ("9", ui["mode9_short_title"]),
+        #
+        # Accordeon thematique (2026-08-11, v43) -- remplace la liste plate
+        # de 8 radios par 5 categories cliquables (une seule depliee a la
+        # fois), pour gagner de la place dans cette colonne fixe (363px) et
+        # pouvoir ajouter de futurs modes sans que la liste devienne
+        # ingerable (ajouter un mode = l'ajouter sous sa categorie, le
+        # nombre d'en-tetes visibles ne grandit pas). Un menu a survol
+        # (fly-out) a ete explicitement ecarte par l'utilisateur : chaque
+        # mode expose des parametres (choix de dossier, panneaux dedies)
+        # qui doivent rester des widgets persistants dans right_adv, pas
+        # transitoires. Reutilise le meme mecanisme pack()/pack_forget()
+        # deja employe partout dans ce fichier (panneaux de detail par
+        # mode, voir _on_mode_changed) -- risque le plus faible vis-a-vis
+        # du decoupage d'image de fond par theme.
+        self._accordion_categories: list[tuple[str, str, list[str]]] = [
+            ("github", "accordion_cat_github", ["2", "11"]),
+            ("gamelist", "accordion_cat_gamelist", ["3", "8"]),
+            ("images", "accordion_cat_images", ["4", "5", "10"]),
+            ("caches", "accordion_cat_caches", ["6", "7"]),
+            ("scripts", "accordion_cat_scripts", ["9"]),
         ]
-        for m, label in modes:
-            rb = tk.Radiobutton(
-                left,
-                text=label,
-                variable=self.mode_var,
-                value=m,
-                bg="#F3F3F3",
+        mode_short_titles = {
+            "2": ui["mode2_short_title"],
+            "3": ui["mode3_short_title"],
+            "4": ui["mode4_short_title"],
+            "5": ui["mode5_short_title"],
+            "6": ui["mode6_short_title"],
+            "7": ui["mode7_short_title"],
+            "8": ui["mode8_short_title"],
+            "9": ui["mode9_short_title"],
+            "10": ui["mode10_short_title"],
+            "11": ui["mode11_short_title"],
+        }
+        self._accordion_headers: dict[str, tk.Label] = {}
+        self._accordion_bodies: dict[str, tk.Frame] = {}
+        self._accordion_open_category = (
+            self._accordion_category_for_mode(self.mode_var.get())
+            or self._accordion_categories[0][0]
+        )
+        for cat_key, cat_ui_key, cat_modes in self._accordion_categories:
+            # Conteneur dedie par categorie, empaquete UNE SEULE FOIS ici,
+            # dans l'ordre -- toujours visible, jamais reempaquete. Sans ca,
+            # rouvrir une categorie plus tard (body.pack() appele apres
+            # coup, au clic sur l'en-tete) placerait le corps a la FIN de
+            # la liste d'empilement de "left" (Tkinter : un widget
+            # re-pack() va toujours en dernier parmi les enfants de son
+            # parent, pas a sa position "logique") -- bug reel observe :
+            # tous les sous-menus s'ouvraient sous le bouton Quitter, deja
+            # empaquete avant eux. En isolant chaque categorie dans son
+            # propre petit conteneur, le dépli/repli du corps ne touche
+            # que l'ordre interne a CE conteneur (2 enfants : en-tete
+            # toujours au-dessus, corps en dessous), jamais l'ordre parmi
+            # les enfants de "left".
+            category_frame = tk.Frame(left, bg="#F3F3F3")
+            category_frame.pack(anchor="w", fill="x")
+
+            header = tk.Label(
+                category_frame,
+                text=self._accordion_header_text(cat_key, cat_ui_key, ui),
+                bg="#E7E7E7",
                 fg="black",
-                activebackground="#E7E7E7",
-                font=("TkDefaultFont", 12, "bold"),
-                wraplength=300,
-                justify="left",
+                font=("TkDefaultFont", 11, "bold"),
                 anchor="w",
-                highlightthickness=0,
-                takefocus=0,
-                command=self._on_mode_changed,
+                cursor="hand2",
+                padx=6,
+                pady=4,
             )
-            # fill="x" : chaque radio occupe toute la largeur de la colonne
-            # (mesuree a 363px), identique a path_box/Demarrer/Quitter en
-            # dessous, pour un alignement visuel des 7 lignes. anchor="w"
-            # (option du widget, pas seulement de pack()) : sans lui, le
-            # Radiobutton centre indicateur+texte dans la largeur etiree
-            # par fill="x", donc les libelles courts (Mode 5, 6...)
-            # semblaient decales par rapport aux plus longs.
-            rb.pack(anchor="w", fill="x", pady=2)
-            self._mode_radios_adv[m] = rb
+            header.pack(anchor="w", fill="x", pady=(4, 0))
+            header.bind("<Button-1>", lambda e, k=cat_key: self._on_accordion_toggle(k))
+            self._accordion_headers[cat_key] = header
+
+            body = tk.Frame(category_frame, bg="#F3F3F3")
+            self._accordion_bodies[cat_key] = body
+            for m in cat_modes:
+                rb = tk.Radiobutton(
+                    body,
+                    text=mode_short_titles[m],
+                    variable=self.mode_var,
+                    value=m,
+                    bg="#F3F3F3",
+                    fg="black",
+                    activebackground="#E7E7E7",
+                    font=("TkDefaultFont", 12, "bold"),
+                    wraplength=280,
+                    justify="left",
+                    anchor="w",
+                    highlightthickness=0,
+                    takefocus=0,
+                    command=self._on_mode_changed,
+                )
+                # fill="x"/anchor="w" : meme raisonnement que l'ancienne
+                # liste plate (voir historique v-- ci-dessus) -- padx=(14,0)
+                # indente les radios sous leur en-tete de categorie.
+                rb.pack(anchor="w", fill="x", pady=2, padx=(14, 0))
+                self._mode_radios_adv[m] = rb
+            if cat_key == self._accordion_open_category:
+                body.pack(anchor="w", fill="x")
         # Espaceur qui pousse les boutons en bas
         spacer = tk.Frame(left, bg="#F3F3F3")
         spacer.pack(fill="both", expand=True)
@@ -4960,20 +5245,33 @@ class RetroBoxLEDGui:
             font=("TkDefaultFont", 12, "bold"),
         )
         self.mode_detail_title_lbl_adv.pack(anchor="w", pady=(0, 6))
-        self.mode_desc_var_adv = tk.StringVar(value="")
-        self.mode_desc_label_adv = tk.Label(
-            self.right_adv,
-            textvariable=self.mode_desc_var_adv,
-            bg="#F3F3F3",
-            fg="black",
-            font=("TkDefaultFont", 10),
-            wraplength=300,
-            justify="left",
+        # 2026-08-11 -- Text (voir commentaire equivalent sur mode_desc_label,
+        # onglet Simple) pour les liens cliquables (pack "ultimate" du
+        # detail Mode 2/11).
+        self.mode_desc_label_adv = tk.Text(
+            self.right_adv, wrap="word", bg="#F3F3F3", fg="black",
+            font=("TkDefaultFont", 10), width=34, height=1,
+            bd=0, highlightthickness=0, cursor="arrow", padx=0, pady=0,
         )
+        self.mode_desc_label_adv._theme_as_panel = True
+        self.mode_desc_label_adv.bind("<Key>", lambda e: "break")
         self.mode_desc_label_adv.pack(anchor="w", fill="x")
 
-        # Initialiser la description pour le mode par défaut
-        self._update_mode_desc()
+        # Initialiser la description pour le mode par défaut -- differe via
+        # after_idle() (2026-08-11) : appelee ICI, la fenetre n'est pas
+        # encore mappee/affichee (mainloop() n'a pas encore demarre,
+        # self.root.update() dans _insert_autolink_text() ne peut donc pas
+        # obtenir une largeur en pixels fiable pour mode_desc_label). Bug
+        # reel observe : hauteur du widget Text calculee bien trop grande
+        # au tout premier affichage de l'onglet Main (cadre "systemes a
+        # traiter" visuellement agrandi, cadre Progression partage pousse
+        # hors de la fenetre a taille fixe) -- corrige des le premier
+        # changement d'onglet (Main -> Avance -> Main), qui redeclenche
+        # _update_mode_desc() une fois la fenetre reellement mappee. En
+        # differant l'appel initial via after_idle (declenche au tout debut
+        # de mainloop(), fenetre deja mappee), la mesure est fiable des le
+        # premier affichage, sans devoir changer d'onglet.
+        self.root.after_idle(self._update_mode_desc)
 
         # -- Mode 8 panel --
         # Ancre en bas de right_adv (meme idiome que _mode6_ui_frame dans
@@ -5257,6 +5555,15 @@ class RetroBoxLEDGui:
             self._mode_radios_adv["7"].config(text=ui["mode7_short_title"])
             self._mode_radios_adv["8"].config(text=ui["mode8_short_title"])
             self._mode_radios_adv["9"].config(text=ui["mode9_short_title"])
+            self._mode_radios_adv["10"].config(text=ui["mode10_short_title"])
+            self._mode_radios_adv["11"].config(text=ui["mode11_short_title"])
+        # En-tetes de categorie de l'accordeon (2026-08-11, v43)
+        if hasattr(self, "_accordion_categories"):
+            for cat_key, cat_ui_key, _cat_modes in self._accordion_categories:
+                if cat_key in self._accordion_headers:
+                    self._accordion_headers[cat_key].config(
+                        text=self._accordion_header_text(cat_key, cat_ui_key, ui)
+                    )
 
         # update main UI labels/buttons (ours)
         if getattr(self, "params_language_title_lbl", None):
@@ -5423,6 +5730,12 @@ class RetroBoxLEDGui:
         if getattr(self, "_params_profile_lbl", None):
             self._params_profile_lbl.config(text=ui["mode1_profile_label"])
 
+        # ── Onglet Parametres : label + aide seuil flag "L" (v45) ──
+        if getattr(self, "_params_slow_threshold_lbl", None):
+            self._params_slow_threshold_lbl.config(text=ui["slow_threshold_label"])
+        if getattr(self, "_params_slow_threshold_hint_lbl", None):
+            self._params_slow_threshold_hint_lbl.config(text=ui["slow_threshold_hint"])
+
         # ── Bouton "Image de secours" (Main + Avance/Mode 2) ──
         if getattr(self, "_default_image_btn", None):
             self._default_image_btn.config(text=ui["default_image_btn"])
@@ -5520,13 +5833,70 @@ class RetroBoxLEDGui:
                 if idx != -1:
                     text = text[:idx]
                     break
-        self.mode_desc_var.set(text)
-        if hasattr(self, "mode_desc_var_adv"):
-            self.mode_desc_var_adv.set(text)
+        # 2026-08-11 -- mode_desc_label(_adv) est un Text (auto-lien, voir
+        # _insert_autolink_text()), plus un Label+StringVar -- garde
+        # defensif (getattr) : cette methode peut etre appelee par
+        # themes.apply() avant que ces widgets existent (application du
+        # theme sauvegarde, potentiellement avant construction complete de
+        # l'onglet Avance).
+        if getattr(self, "mode_desc_label", None) is not None:
+            self._insert_autolink_text(self.mode_desc_label, text)
+        if getattr(self, "mode_desc_label_adv", None) is not None:
+            self._insert_autolink_text(self.mode_desc_label_adv, text)
+
+    def _accordion_category_for_mode(self, mode: str) -> Optional[str]:
+        """Retourne la cle de categorie de l'accordeon contenant ce mode,
+        ou None si le mode n'en fait pas partie (ex: Mode 1, onglet Main)."""
+        for cat_key, _cat_ui_key, cat_modes in getattr(self, "_accordion_categories", []):
+            if mode in cat_modes:
+                return cat_key
+        return None
+
+    def _accordion_header_text(self, cat_key: str, cat_ui_key: str, ui: dict) -> str:
+        is_open = getattr(self, "_accordion_open_category", None) == cat_key
+        prefix = "▾" if is_open else "▸"
+        return f"{prefix} {ui.get(cat_ui_key, cat_key)}"
+
+    def _on_accordion_toggle(self, cat_key: str) -> None:
+        """Replie la categorie actuellement ouverte et deplie celle cliquee
+        (un seul en-tete de categorie developpe a la fois). Un clic sur
+        l'en-tete deja ouvert ne fait rien -- toujours garder une categorie
+        visible plutot que tout replier."""
+        if getattr(self, "_accordion_open_category", None) == cat_key:
+            return
+        ui = UI_TRANSLATIONS.get(self.lang_var.get(), UI_TRANSLATIONS["fr"])
+        prev = self._accordion_open_category
+        self._accordion_open_category = cat_key
+        for c_key, c_ui_key, _c_modes in self._accordion_categories:
+            if c_key == prev and prev in self._accordion_bodies:
+                self._accordion_bodies[prev].pack_forget()
+                self._accordion_headers[prev].config(
+                    text=self._accordion_header_text(prev, c_ui_key, ui)
+                )
+            elif c_key == cat_key:
+                self._accordion_bodies[cat_key].pack(anchor="w", fill="x")
+                self._accordion_headers[cat_key].config(
+                    text=self._accordion_header_text(cat_key, c_ui_key, ui)
+                )
+        # Deplier/replier change la hauteur du contenu de "left" -- meme
+        # traitement que tout changement de mode (voir _on_mode_changed),
+        # sinon le decoupage de l'image de fond reste perime (bandes
+        # blanches).
+        self.root.update_idletasks()
+        self.root.after(30, self._reslice_after_mode_change)
 
     def _on_mode_changed(self) -> None:
         mode = self.mode_var.get()
         ui = UI_TRANSLATIONS.get(self.lang_var.get(), UI_TRANSLATIONS["fr"])
+
+        # Auto-ouvre la categorie de l'accordeon contenant le mode
+        # selectionne (changement depuis l'onglet Main, ou premier
+        # affichage de l'onglet Avance) -- sans ca, le radio actif pourrait
+        # se trouver dans une categorie visuellement repliee, invisible.
+        if hasattr(self, "_accordion_categories"):
+            target_cat = self._accordion_category_for_mode(mode)
+            if target_cat and target_cat != getattr(self, "_accordion_open_category", None):
+                self._on_accordion_toggle(target_cat)
 
         # Libellés spécifiques bouton pick (onglet Main)
         if getattr(self, "btn_pick_roms", None):
@@ -5559,8 +5929,8 @@ class RetroBoxLEDGui:
         # Mode 3 : visible, label normal
         # Mode 1 : visible, label normal
         if hasattr(self, "btn_pick_roms_adv"):
-            # Modes 2/6/7/9 : bouton désactivé (mais gardé visible pour la stabilité du fond)
-            if mode in ("2", "6", "7", "9"):
+            # Modes 2/6/7/9/10/11 : bouton désactivé (mais gardé visible pour la stabilité du fond)
+            if mode in ("2", "6", "7", "9", "10", "11"):
                 try:
                     self.btn_pick_roms_adv.config(state="disabled")
                 except Exception:
@@ -5691,6 +6061,15 @@ class RetroBoxLEDGui:
         else:
             if hasattr(self, "_mode9_frame"):
                 self._mode9_frame.pack_forget()
+            # Mode 10 (image de secours) : action autonome via son propre
+            # bouton (voir _default_image_frame_adv plus bas), pas de
+            # pipeline -- meme raison que Mode 9 ci-dessus, desactive
+            # btn_start_adv plutot que le reutiliser. Mode 11 (pack GIFs)
+            # n'en fait PLUS partie depuis l'unification avec Mode 2
+            # (2026-08-11, demande utilisateur) : passe desormais par
+            # btn_start_adv comme tous les autres modes "pipeline".
+            if mode == "10" and hasattr(self, "btn_start_adv"):
+                self.btn_start_adv.config(state="disabled", text=ui["start_btn"])
 
         # Mode 3 : afficher le panneau "Version Recalbox" (partage avec le
         # Mode 1) pour choisir le profil logo/thumbnail/image avant
@@ -5715,16 +6094,18 @@ class RetroBoxLEDGui:
             if hasattr(self, "_mode6_ui_frame_adv"):
                 self._mode6_ui_frame_adv.pack_forget()
 
-        # Mode 2 : afficher le bouton "Image de secours" (partage avec le
-        # Main), puisque Mode 2 telecharge justement systems/_defaults/.
+        # Mode 10 : afficher le bouton "Image de secours" -- promu en mode
+        # a part entiere (2026-08-11, v43, etait auparavant affiche sous
+        # Mode 2), regroupe sous la categorie IMAGES TOOLS de l'accordeon.
         # Empaquete juste sous "Details du mode selectionne" (pas ancre en
         # bas, contrairement aux panneaux Mode 3/Mode 8).
-        if mode == "2":
+        if mode == "10":
             if hasattr(self, "_default_image_frame_adv"):
                 self._default_image_frame_adv.pack(fill="x", pady=(12, 0))
         else:
             if hasattr(self, "_default_image_frame_adv"):
                 self._default_image_frame_adv.pack_forget()
+
 
         self._update_mode_desc()
         # Un changement de mode peut modifier la largeur naturelle de
@@ -6765,8 +7146,13 @@ class RetroBoxLEDGui:
         dlg.grab_set()
         self.root.wait_window(dlg)
 
-    def _themed_yesno(self, title: str, message: str) -> bool:
-        """Meme principe que _themed_info() mais Oui/Non, retourne le choix."""
+    def _themed_yesno(self, title: str, message: str, linked: bool = False) -> bool:
+        """Meme principe que _themed_info() mais Oui/Non, retourne le choix.
+        linked=True (2026-08-11) : le message est affiche via un widget Text
+        avec auto-lien (_insert_autolink_text()) au lieu d'un simple Label --
+        utilise quand le message contient une URL a rendre cliquable (ex:
+        pack GIFs Mode 1, qui pointe vers le pack "ultimate" externe).
+        Comportement inchange (Label) pour tous les autres appelants."""
         ui = self._get_ui_t()
         c = self._theme_colors()
         bg = c.get("bg_main", "#F3F3F3")
@@ -6781,10 +7167,15 @@ class RetroBoxLEDGui:
         dlg.resizable(False, False)
         body = tk.Frame(dlg, bg=bg, padx=16, pady=16)
         body.pack(fill="both", expand=True)
-        tk.Label(
-            body, text=message, bg=bg, fg=fg,
-            font=("TkDefaultFont", 9), wraplength=420, justify="left",
-        ).pack(anchor="w", pady=(0, 12))
+        if linked:
+            msg_text = self._make_linked_text(body, bg=bg, fg=fg, width=56)
+            msg_text.pack(anchor="w", fill="x", pady=(0, 12))
+            self._insert_autolink_text(msg_text, message)
+        else:
+            tk.Label(
+                body, text=message, bg=bg, fg=fg,
+                font=("TkDefaultFont", 9), wraplength=420, justify="left",
+            ).pack(anchor="w", pady=(0, 12))
         btns = tk.Frame(body, bg=bg)
         btns.pack(fill="x")
 
@@ -6812,6 +7203,87 @@ class RetroBoxLEDGui:
         dlg.grab_set()
         self.root.wait_window(dlg)
         return result["value"]
+
+    def _make_linked_text(self, parent: tk.Widget, bg: str, fg: str, width: int) -> tk.Text:
+        """Cree un widget Text en lecture seule (liens cliquables actifs,
+        pas de saisie -- meme pattern que self.help_text, voir
+        _build_help_tab()/aide), stylise en petite carte (bord fin, comme
+        path_box ailleurs dans ce fichier). A remplir via
+        _insert_autolink_text()."""
+        tw = tk.Text(
+            parent, wrap="word", bg=bg, fg=fg, bd=2, relief="solid",
+            highlightthickness=0, font=("TkDefaultFont", 9),
+            width=width, height=1, cursor="arrow", padx=6, pady=6,
+        )
+        tw.bind("<Key>", lambda e: "break")
+        return tw
+
+    def _insert_autolink_text(self, text_widget: tk.Text, raw_text: str, link_fg: Optional[str] = None) -> None:
+        """Insere raw_text tel quel dans text_widget (deja en wrap="word"),
+        en rendant cliquables (ouverture navigateur) les URLs http(s)
+        qu'il contient -- auto-lien par regex, PAS un rendu markdown complet
+        (voir _AUTOLINK_URL_RE). Ajuste aussi la hauteur du widget au
+        nombre de lignes affichees apres retour a la ligne (les widgets
+        Text, contrairement a Label, n'ont pas de hauteur auto)."""
+        if link_fg is None:
+            try:
+                link_fg = md_renderer._derive_markdown_colors(
+                    text_widget, text_widget.cget("bg"), text_widget.cget("fg")
+                )["link"]
+            except Exception:
+                link_fg = "#1565C0"
+        text_widget.configure(state="normal")
+        text_widget.delete("1.0", "end")
+        pos = 0
+        link_n = 0
+        for m in _AUTOLINK_URL_RE.finditer(raw_text):
+            if m.start() > pos:
+                text_widget.insert("end", raw_text[pos:m.start()])
+            url = m.group(0)
+            # Ponctuation de fin de phrase collee a l'URL (ex. "...67065.")
+            # ne fait pas partie du lien.
+            trail = ""
+            while url and url[-1] in ".,;:)":
+                trail = url[-1] + trail
+                url = url[:-1]
+            link_n += 1
+            tag = f"autolink_{id(text_widget)}_{link_n}"
+            text_widget.insert("end", url, (tag,))
+            text_widget.tag_configure(tag, foreground=link_fg, underline=True)
+            text_widget.tag_bind(tag, "<Button-1>", lambda e, u=url: webbrowser.open_new_tab(u))
+            text_widget.tag_bind(tag, "<Enter>", lambda e, w=text_widget: w.configure(cursor="hand2"))
+            text_widget.tag_bind(tag, "<Leave>", lambda e, w=text_widget: w.configure(cursor="arrow"))
+            if trail:
+                text_widget.insert("end", trail)
+            pos = m.end()
+        if pos < len(raw_text):
+            text_widget.insert("end", raw_text[pos:])
+        # update() (pas juste update_idletasks()) : necessaire pour qu'un
+        # widget tout juste cree dans un Toplevel pas encore mappe/affiche
+        # obtienne une largeur en pixels fiable avant la mesure -- sinon
+        # wrap="word" se rabat sur une largeur quasi nulle et
+        # .count(displaylines) donne un resultat aberrant (bug reel trouve
+        # en test : popup mesuree a plusieurs milliers de lignes de haut,
+        # placee hors ecran). Widgets deja mappes de longue date (ex.
+        # mode_desc_label, rappele a chaque changement de mode) ne sont pas
+        # affectes par ce risque mais update() reste sans danger pour eux.
+        text_widget.update()
+        # Garde-fou supplementaire (2026-08-11) : meme apres update(), un
+        # widget dont la fenetre parente n'a pas encore termine sa toute
+        # premiere passe de geometrie peut renvoyer une largeur quasi nulle
+        # (bug reel observe : cadre Progression partage pousse hors de la
+        # fenetre a taille fixe des le premier affichage de l'onglet Main,
+        # mode_desc_label mesure contre une largeur non fiable). Si la
+        # largeur rendue est suspecte, on n'ajuste PAS la hauteur cette
+        # fois -- un appel ulterieur (changement de mode/theme/onglet, deja
+        # frequent dans ce fichier) la corrigera avec une largeur fiable.
+        # Mieux vaut une hauteur temporairement legerement fausse (ancienne
+        # valeur conservee) qu'un calcul aberrant contre une largeur ~0.
+        widget_w = text_widget.winfo_width()
+        if widget_w < 50:
+            return
+        lines = text_widget.count("1.0", "end", "displaylines")
+        text_widget.configure(height=(lines[0] if lines else 1))
 
     def _themed_choice(self, title: str, message: str, yes_label: str, no_label: str) -> bool:
         """Comme _themed_yesno() mais avec des libelles de bouton
@@ -7047,25 +7519,30 @@ class RetroBoxLEDGui:
             self._mode1_sd_copy_active = False
             self._update_mode_desc()
 
-        # Mode 2 : pas besoin de dossier ROMs (téléchargement GitHub _defaults uniquement)
-        if mode in ("2",):
+        # Mode 2/11 : pas besoin de dossier ROMs (telechargements GitHub
+        # uniquement -- _defaults pour Mode 2, pack ~600 GIFs pour Mode 11).
+        if mode in ("2", "11"):
             roms_root = self.sd_dir / "systems"
             is_unc = False
 
-            # Si des fichiers existent deja dans _defaults/, proposer
-            # d'ecraser (recuperer les dernieres versions) ou de conserver
-            # les fichiers actuels. Choix lu sur le thread principal (avant
-            # de lancer le worker) car _pipeline_mode_2 s'execute dans un
-            # thread d'arriere-plan, ou une messagebox ne serait pas sure.
-            # "default.raw565" est toujours ecrase quel que soit ce choix
-            # (voir toolkit.download_defaults).
-            self._mode2_overwrite_existing = True
-            defaults_dir = self.sd_dir / "systems" / "_defaults"
-            if defaults_dir.exists() and any(defaults_dir.iterdir()):
-                ui2 = self._get_ui_t()
-                self._mode2_overwrite_existing = messagebox.askyesno(
-                    ui2["mode2_overwrite_title"], ui2["mode2_overwrite_msg"]
-                )
+            if mode == "2":
+                # Si des fichiers existent deja dans _defaults/, proposer
+                # d'ecraser (recuperer les dernieres versions) ou de conserver
+                # les fichiers actuels. Choix lu sur le thread principal (avant
+                # de lancer le worker) car _pipeline_mode_2 s'execute dans un
+                # thread d'arriere-plan, ou une messagebox ne serait pas sure.
+                # "default.raw565" est toujours ecrase quel que soit ce choix
+                # (voir toolkit.download_defaults).
+                self._mode2_overwrite_existing = True
+                defaults_dir = self.sd_dir / "systems" / "_defaults"
+                if defaults_dir.exists() and any(defaults_dir.iterdir()):
+                    ui2 = self._get_ui_t()
+                    # Popup themee (2026-08-11) -- messagebox.askyesno() est
+                    # un rendu Windows natif fixe, ne suit pas le theme
+                    # clair/sombre actif.
+                    self._mode2_overwrite_existing = self._themed_yesno(
+                        ui2["mode2_overwrite_title"], ui2["mode2_overwrite_msg"]
+                    )
         else:
             # Verifie/alerte sur le dossier ROMs AVANT tout prompt Mode 1
             # (RB/image de secours, ci-dessous) : si aucun dossier n'est
@@ -7291,7 +7768,7 @@ class RetroBoxLEDGui:
 
             self._mode1_gifpack_bg_thread = None
             self._mode1_download_pack = self._themed_yesno(
-                ui_pre["gifpack_q_title"], ui_pre["gifpack_q_msg"]
+                ui_pre["gifpack_q_title"], ui_pre["gifpack_q_msg"], linked=True
             )
             if self._mode1_download_pack:
                 # Demande utilisateur : le telechargement du pack doit
@@ -7443,6 +7920,8 @@ class RetroBoxLEDGui:
                     self._pipeline_mode_7(toolkit, cfg)
                 elif mode == "8":
                     self._pipeline_mode_8(toolkit, cfg)
+                elif mode == "11":
+                    self._pipeline_mode_11(toolkit, cfg)
                 else:
                     print(f"Mode inconnu: {mode}")
             except Exception:
@@ -7751,6 +8230,18 @@ class RetroBoxLEDGui:
         self._apply_custom_default_fallback(sd_dir)
 
         print("[GUI] DONE mode 2 (extract + download _defaults)")
+
+    def _pipeline_mode_11(self, toolkit, cfg: GuiConfig) -> None:
+        # Pack GitHub (~600 GIFs) -- unifie sur le meme fonctionnement que
+        # Mode 2 (2026-08-11, demande utilisateur) : passe desormais par
+        # btn_start_adv/_worker_main comme tous les autres modes, au lieu
+        # d'un bouton/thread dedies. Reutilise integralement
+        # toolkit.download_gif_pack() (deja utilise par le pack GIFs de
+        # Mode 1).
+        sd_dir = self.sd_dir
+        sd_dir.mkdir(parents=True, exist_ok=True)
+        toolkit.download_gif_pack(sd_dir, progress_cb=self._progress_cb, listen_keyboard=False)
+        print("[GUI] DONE mode 11 (download pack GIFs GitHub)")
 
     def _pipeline_mode_3(self, toolkit, cfg: GuiConfig) -> None:
         sd_dir = self.sd_dir
@@ -8618,6 +9109,16 @@ class RetroBoxLEDGui:
 
     def _on_mode1_profile_selected(self, event=None) -> None:
         prefs.set("recalbox_profile", self._mode1_profile_var.get())
+
+    def _on_slow_threshold_changed(self, event=None) -> None:
+        # Repli sur la derniere valeur valide si l'utilisateur a tape
+        # quelque chose de non numerique dans le Spinbox (get() sur un
+        # IntVar leve tk.TclError dans ce cas, plutot que de planter la GUI).
+        try:
+            value = self._slow_threshold_var.get()
+        except tk.TclError:
+            return
+        prefs.set("slow_threshold", str(value))
 
     def _mode1_scrape_help_image_path(self, profile_name: str) -> Optional[Path]:
         # Captures reelles fournies par l'utilisateur (menu SCRAPEUR de son
