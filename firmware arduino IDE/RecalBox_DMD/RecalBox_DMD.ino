@@ -1,7 +1,49 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v74
+// Version actuelle : v76
+//
+// v76 - 2026-08-11 - safe-modify - Log diagnostique esp_reset_reason() au
+//   boot (demande utilisateur), suite a un crash a distance non explique :
+//   log serie se terminant en texte UART corrompu ("[MQTT] faile rcLj�j"
+//   etc.) juste avant un "rst:0x1 (POWERON_RESET)" generique du bootloader
+//   ROM -- signature typique d'un brownout (chute de tension), mais le BOD
+//   materiel de l'ESP32 est deliberement desactive au tout debut de setup()
+//   ("evite reboot intempestifs", raison d'origine non documentee), donc
+//   aucun message clair ne pouvait le confirmer jusqu'ici -- chaque
+//   brownout reel se presentait comme un simple redemarrage generique.
+//   Purement diagnostique, ne change AUCUN comportement : un seul
+//   Serial.printf() supplementaire au tout debut de setup(), traduit
+//   esp_reset_reason() (registre RTC distinct du BOD bas niveau desactive
+//   plus haut) en texte lisible (POWERON/BROWNOUT/PANIC/TASK_WDT/...). Si
+//   un futur crash reaffiche encore POWERON malgre ce log, ce sera la
+//   confirmation que le probleme est hors de portee de tout diagnostic
+//   logiciel (brownout trop severe/rapide pour etre vu par l'ESP32
+//   lui-meme) -- pointerait vers l'alimentation (adaptateur/cable USB,
+//   consommation cumulee ESP32+matrice HUB75+pics WiFi). Pas encore
+//   reteste sur materiel apres ce fix (attend un futur crash pour
+//   verifier son utilite).
+//
+// v75 - 2026-08-11 - safe-modify - Fix "Reprendre DMD" ignore pendant un
+//   apercu horloge actif (3e bug trouve en test materiel sur l'apercu
+//   horloge, apres v73/v74). Repro : ouvrir la page Horloge (apercu auto
+//   v58), cliquer "Reprendre DMD" PENDANT que l'apercu tourne encore --
+//   log serie confirme resumePlaylist() ouvre bien le GIF suivant
+//   ("[GIF] open OK ...") mais le DMD reste visuellement bloque sur
+//   l'animation du theme horloge. Cause : showClock() en mode preview ne
+//   sait s'arreter que via hasPendingMqttCommand() (nouvelle selection de
+//   theme ou "stop" poste par /clock-preview) -- /dmd-resume ne passe PAS
+//   par ce mecanisme, webDmdResume()/resumePlaylist() modifient bien
+//   currentMode mais showClock() n'en a aucune connaissance et continue de
+//   dessiner par-dessus a chaque iteration de sa boucle bloquante.
+//   Fix : nouveau drapeau dedie g_clockPreviewAbort (pas de reutilisation
+//   du pendingCmd "stop" existant -- celui-ci repasserait currentMode en
+//   MODE_CONFIG au tour suivant de loop(), ecrasant a tort le
+//   MODE_PLAYLIST/GIF que resumePlaylist() vient de poser). Pose par
+//   webDmdResume(), consomme par showClock() a ses 2 points de controle
+//   (banniere de nom + boucle principale) : sortie immediate sans toucher
+//   currentMode, deja a jour cote resumePlaylist(). Pas encore reteste sur
+//   materiel apres ce fix.
 //
 // v74 - 2026-08-11 - safe-modify - Fix ecran noir/vide du preview horloge
 //   (2e test materiel apres v73) : showClock() contient 4 gardes
@@ -1240,6 +1282,7 @@ typedef uint8_t BitOrder; // Workaround: Adafruit_BusIO attend BitOrder (AVR) ma
 #include "pngle.h"
 #include <time.h>
 #include "hal/brownout_ll.h"
+#include "esp_system.h" // v76 -- esp_reset_reason(), diagnostic crash/brownout au boot
 #include "nvs_flash.h"
 #include "ff.h" // Partie C (plan cache_master_gifs) -- f_getlabel()/f_setlabel(), renommage etiquette volume SD au boot
 #include "clock_themes.h"
@@ -1868,6 +1911,19 @@ enum DisplayMode { MODE_PLAYLIST, MODE_GIF, MODE_PNG, MODE_CONFIG, MODE_BLACK };
 volatile DisplayMode currentMode = MODE_PLAYLIST;
 
 bool g_sdOpInProgress = false;
+
+// v75 -- drapeau dedie pour interrompre un apercu horloge (showClock() en
+// mode preview, boucle bloquante -- voir CMD_CLOCK_PREVIEW) depuis
+// webDmdResume() ("Reprendre DMD"). NECESSAIRE en plus de pendingCmd/
+// hasPendingMqttCommand() (deja utilise par le "stop" normal et le
+// changement de theme) : reutiliser pendingCmd="stop" depuis webDmdResume()
+// ferait retraiter ce "stop" par processPendingMqttCommand() a l'iteration
+// SUIVANTE de loop(), qui repasse currentMode=MODE_CONFIG (ecran de pause)
+// -- ecrasant le MODE_PLAYLIST/GIF que resumePlaylist() vient tout juste de
+// poser dans ce meme appel. Un drapeau simple, distinct, evite ce
+// chevauchement : showClock() le consomme lui-meme (return immediat, sans
+// toucher currentMode -- deja fixe par resumePlaylist() entre-temps).
+volatile bool g_clockPreviewAbort = false;
 
 String   g_sdOpMsg       = "";
 String   g_sdOpSubMsg    = "";
@@ -3450,6 +3506,17 @@ void webDmdResume()
   // toute commande tant que le mode config est actif, donc l'oublier ici
   // bloquerait ces commandes indefiniment apres un "Reprendre DMD".
   Serial.println("[WEB] DMD resume -> retour a l'affichage normal (sans reboot)");
+  // v75 -- si un apercu de theme horloge (CMD_CLOCK_PREVIEW) tourne
+  // actuellement dans sa boucle bloquante (showClock(), previewMode), le
+  // signaler pour qu'elle s'arrete AU PROCHAIN TOUR (juste apres son appel
+  // a handleWebConfig(), qui execute ce handler -- donc quasi immediat).
+  // Sans ca, resumePlaylist() ci-dessous ouvre bien le GIF suivant mais
+  // showClock() continue a dessiner le theme horloge par-dessus
+  // indefiniment (elle ne connait que pendingCmd/hasPendingMqttCommand(),
+  // jamais notifie par cet endpoint) -- bug reel constate en test materiel :
+  // "Reprendre DMD" clique pendant un apercu actif, le DMD reste bloque sur
+  // l'horloge alors que le GIF est bien ouvert en memoire.
+  g_clockPreviewAbort = true;
   g_sdOpInProgress = false;
   // Demande explicite utilisateur (2026-08-03) : si la Recalbox est deja
   // connectee (MQTT actif), lui laisser reprendre la main plutot que de
@@ -5293,6 +5360,12 @@ static bool showClock(int forceTheme)
   bool previewMode = (forceTheme != -2);
   if (!previewMode) {
     if (!clockEnabled) return true;
+  } else {
+    // v75 -- reset defensif : evite qu'un g_clockPreviewAbort pose par un
+    // "Reprendre DMD" precedent (deja consomme ou arrive apres coup, sans
+    // preview actif a interrompre a ce moment-la) ne fasse avorter CETTE
+    // NOUVELLE preview des sa 1ere iteration.
+    g_clockPreviewAbort = false;
   }
   // v73 fix (2e bug trouve au 1er test materiel post-v73) : ce garde
   // g_sdOpInProgress (herite du comportement normal hors preview, ou il
@@ -5337,6 +5410,12 @@ static bool showClock(int forceTheme)
         clockVisible = false;
         return true;
       }
+      if (previewMode && g_clockPreviewAbort) { // v75, voir webDmdResume()
+        g_clockPreviewAbort = false;
+        Serial.println("[CLOCK] preview interrupted by DMD resume");
+        clockVisible = false;
+        return true;
+      }
       if (hasPendingMqttCommand()) {
         clockVisible = false;
         return true;
@@ -5358,6 +5437,17 @@ static bool showClock(int forceTheme)
     // fonction)
     if (!previewMode && g_sdOpInProgress) {
       Serial.println("[CLOCK] Interrupted by web page");
+      clockVisible = false;
+      return true;
+    }
+
+    // v75 -- "Reprendre DMD" clique pendant cet apercu (voir webDmdResume()
+    // et le commentaire complet a la declaration de g_clockPreviewAbort).
+    // resumePlaylist() a deja ouvert le GIF/mis a jour currentMode a ce
+    // stade -- on se contente de sortir SANS y toucher.
+    if (previewMode && g_clockPreviewAbort) {
+      g_clockPreviewAbort = false;
+      Serial.println("[CLOCK] preview interrupted by DMD resume");
       clockVisible = false;
       return true;
     }
@@ -5431,6 +5521,41 @@ void setup()
   brownout_ll_intr_enable(false);    // Desactive IRQ BOD
   brownout_ll_reset_config(false, 0, BROWNOUT_RESET_LEVEL_CHIP);
   Serial.begin(115200); delay(1000);
+
+  // v76 -- log de la cause du dernier reset (demande utilisateur, suite a un
+  // crash a distance non explique : log serie termine en texte UART
+  // corrompu juste avant un "rst:0x1 (POWERON_RESET)" generique du
+  // bootloader ROM -- signature typique d'un brownout, MAIS le BOD materiel
+  // est desactive juste au-dessus (voir commentaire "evite reboot
+  // intempestifs"), donc aucun message clair ne le confirmait). Purement
+  // diagnostique -- ne change AUCUN comportement, juste un Serial.println()
+  // suppelmentaire au boot. esp_reset_reason() lit un registre RTC distinct
+  // du BOD materiel desactive ci-dessus : reste capable de rapporter
+  // ESP_RST_PANIC/ESP_RST_TASK_WDT/ESP_RST_INT_WDT/ESP_RST_BROWNOUT dans les
+  // cas ou le SDK les detecte par un autre chemin que le BOD bas niveau --
+  // meme desactive, si un brownout est assez severe pour etre vu par un
+  // autre capteur de tension interne, ce sera visible ici. Si le prochain
+  // crash reaffiche encore ESP_RST_POWERON malgre ce log, ce sera la
+  // confirmation que le brownout se produit "sous" tout ce que l'ESP32 peut
+  // lui-meme observer (cas materiel pur, hors de portee logicielle).
+  {
+    esp_reset_reason_t rr = esp_reset_reason();
+    const char *rrName = "UNKNOWN";
+    switch (rr) {
+      case ESP_RST_POWERON:   rrName = "POWERON (alimentation/reset externe)"; break;
+      case ESP_RST_EXT:       rrName = "EXT (broche reset externe)"; break;
+      case ESP_RST_SW:        rrName = "SW (ESP.restart())"; break;
+      case ESP_RST_PANIC:     rrName = "PANIC (exception logicielle)"; break;
+      case ESP_RST_INT_WDT:   rrName = "INT_WDT (watchdog interruption)"; break;
+      case ESP_RST_TASK_WDT:  rrName = "TASK_WDT (watchdog tache -- boucle bloquee)"; break;
+      case ESP_RST_WDT:       rrName = "WDT (autre watchdog)"; break;
+      case ESP_RST_DEEPSLEEP: rrName = "DEEPSLEEP"; break;
+      case ESP_RST_BROWNOUT:  rrName = "BROWNOUT (sous-tension detectee)"; break;
+      case ESP_RST_SDIO:      rrName = "SDIO"; break;
+      default: break;
+    }
+    Serial.printf("[BOOT] cause du dernier reset : %s (code=%d)\n", rrName, (int)rr);
+  }
 
   // NVS doit etre explicitement (re)initialisee: apres un flash du merged.bin
   // (bootloader+partitions+app en un bloc), la zone NVS est ecrasee en 0xFF brut
