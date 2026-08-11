@@ -1,7 +1,78 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v71
+// Version actuelle : v74
+//
+// v74 - 2026-08-11 - safe-modify - Fix ecran noir/vide du preview horloge
+//   (2e test materiel apres v73) : showClock() contient 4 gardes
+//   `if (g_sdOpInProgress) return true;` (1 avant le choix du theme, 2 dans
+//   les 2 bannieres de nom de 800ms, 1 dans la boucle principale) herites du
+//   comportement normal (hors preview), ou ils evitent d'afficher l'horloge
+//   par-dessus l'ecran de pause web -- mais en previewMode, g_sdOpInProgress
+//   est PERMANENMMENT vrai (c'est justement la page Horloge, web ouverte,
+//   qui demande le preview), donc le tout premier de ces 4 gardes coupait
+//   systematiquement avant meme de choisir un theme : ecran noir garanti.
+//   Log serie de reproduction : "[CLOCK] preview theme=X" (affiche cote
+//   appelant, processPendingMqttCommand()) jamais suivi de
+//   "[CLOCK] Start retro theme=" (plus bas dans showClock()) -- preuve du
+//   retour immediat au tout premier garde. Les 4 occurrences corrigees en
+//   `if (!previewMode && g_sdOpInProgress)` : en previewMode, seul
+//   hasPendingMqttCommand() (nouvelle selection ou "stop") doit interrompre
+//   l'affichage, comme deja documente en tete de cette fonction depuis v72
+//   mais jamais reellement applique a ces 4 endroits. Pas encore reteste
+//   sur materiel apres ce fix.
+//
+// v73 - 2026-08-11 - safe-modify - Fix test materiel reel du preview horloge
+//   (v72) : 2 bugs bloquants trouves sur le premier test.
+//   (1) La protection web (g_sdOpInProgress, ecran "WEB DMD CONFIG" pose par
+//   triggerWebConfigModeSoft() a CHAQUE chargement de page config) etait
+//   annulee des qu'on quittait l'onglet Horloge : le cas "stop" de
+//   CMD_CLOCK_PREVIEW (déclenché par le sendBeacon pagehide/beforeunload de
+//   la page Horloge, y compris en changeant simplement d'onglet vers
+//   Basic/Network/Media) appelait resumePlaylist() sans condition, qui
+//   repasse currentMode a MODE_PLAYLIST et relance les GIFs -- alors que
+//   g_sdOpInProgress restait a true (jamais touche par resumePlaylist()).
+//   Resultat observe en test reel : la protection "flotte", parait ne
+//   s'activer qu'apres changement d'onglet. resumePlaylist() est reserve au
+//   bouton explicite "Reprendre DMD" (/dmd-resume) ; le cas "stop" se
+//   contente desormais de reafficher l'ecran de pause config existant
+//   (MODE_CONFIG + webDmdForceRedraw(), g_sdOpMsg/g_sdOpSubMsg deja a jour
+//   depuis le dernier triggerWebConfigModeSoft()).
+//   (2) Le preview lui-meme ne pouvait jamais s'activer : le garde
+//   `if (g_sdOpInProgress) { ... ignoree ... }` copie par erreur depuis les
+//   handlers MQTT (ou g_sdOpInProgress=true protege le web contre une
+//   interruption EXTERNE) est toujours vrai des que la page Horloge
+//   elle-meme est ouverte (posee par son propre chargement de page juste
+//   avant) -- bloquait donc 100% des tentatives reelles (confirme par le
+//   log serie : "[CLOCK] preview ignoree (web open)" sur la seule
+//   selection tentee). Garde supprimee : aucun conflit SD reel a proteger
+//   ici (webServer->handleClient() est mono-thread, un upload bloquerait de
+//   toute facon le traitement de toute autre requete concurrente).
+//   Pas encore reteste sur materiel apres ce fix.
+//
+// v72 - 2026-08-11 - safe-modify - Apercu en direct des themes horloge
+//   depuis la page web (onglet Horloge, worktree dev/clock-theme-preview) :
+//   selectionner un theme dans la liste deroulante l'affiche IMMEDIATEMENT
+//   sur le DMD physique, sans limite de duree -- il reste affiche jusqu'a
+//   ce qu'un autre theme soit selectionne (bascule immediate) ou que la
+//   page Horloge soit quittee (navigator.sendBeacon sur pagehide/
+//   beforeunload, cote web_config.h). Pas de filet de securite additionnel
+//   (decision utilisateur) : si le signal d'arret n'arrive jamais
+//   (fermeture brutale du navigateur), l'apercu reste affiche jusqu'au
+//   prochain evenement MQTT ou reboot -- comportement assume.
+//   showClock() (inchangee pour son appel normal existant) gagne un
+//   parametre optionnel forceTheme=-2 (sentinelle, ne collisionne pas avec
+//   -1=aleatoire) : quand fourni (>=-1), ignore clockEnabled, impose
+//   currentTheme, et sa boucle interne tourne SANS condition de duree
+//   (fini par hasPendingMqttCommand() deja verifie a chaque iteration,
+//   comme n'importe quelle interruption MQTT normale). Nouvelle commande
+//   interne MqttCommand::CMD_CLOCK_PREVIEW (topic web uniquement, pas
+//   expose en MQTT) : argument = theme ("-1".."9") ou "stop". Reutilise
+//   l'infrastructure pendingCmd/processPendingMqttCommand() deja eprouvee
+//   pour interrompre proprement ce qui est affiche (meme nettoyage que
+//   CMD_STOP), sans risque de reentrance (showClock() elle-meme appelle
+//   deja handleWebConfig() dans sa boucle, donc jamais d'appel direct
+//   depuis un handler web). Pas encore teste sur materiel reel.
 //
 // v71 - 2026-08-11 - safe-modify - Luminosite DMD appliquee en direct (sans
 //   reboot), demande explicite utilisateur (worktree dev/live-brightness).
@@ -2043,7 +2114,7 @@ struct MqttCommand
 {
   enum Type { CMD_NONE, CMD_STOP, CMD_DEFAULT, CMD_SYSTEM, CMD_GAME,
               CMD_STARTCLIP, CMD_RESUMESYS, CMD_SHOW_CONFIG, CMD_WIFI_RECOVERY,
-              CMD_REBOOT, CMD_WAITING_MQTT, CMD_BRIGHTNESS };
+              CMD_REBOOT, CMD_WAITING_MQTT, CMD_BRIGHTNESS, CMD_CLOCK_PREVIEW };
   Type   type;
   String arg;
   MqttCommand() : type(CMD_NONE), arg("") {}
@@ -2053,6 +2124,24 @@ struct MqttCommand
 SemaphoreHandle_t mqttCmdMutex   = nullptr;
 MqttCommand       pendingCmd;
 TaskHandle_t      mqttTaskHandle = nullptr;
+
+// Pont pour web_config.h (v72) : #include "web_config.h" a lieu AVANT la
+// definition du type MqttCommand/pendingCmd ci-dessus (ligne 1241) -- cette
+// fonction permet au handler web /clock-preview de poser une commande
+// CMD_CLOCK_PREVIEW sans exposer le type MqttCommand a web_config.h (juste
+// son prototype, voir extern en tete de web_config.h).
+void requestClockPreview(const String &arg)
+{
+  pendingCmd = MqttCommand(MqttCommand::CMD_CLOCK_PREVIEW, arg);
+}
+
+// Declaration anticipee (v72) : showClock() est definie plus bas (pres de
+// loop(), son seul appelant jusqu'ici) mais processPendingMqttCommand()
+// (CMD_CLOCK_PREVIEW, avant la definition dans l'ordre du fichier) doit
+// desormais l'appeler aussi -- la generation automatique de prototype
+// d'Arduino ne gere pas correctement l'argument par defaut ajoute a cette
+// signature, d'ou cette declaration manuelle.
+static bool showClock(int forceTheme = -2);
 
 #define MQTT_LOG_SIZE 10
 struct MqttLogEntry { String topic; String msg; unsigned long ts; };
@@ -4332,6 +4421,51 @@ void processPendingMqttCommand()
     break;
   }
 
+  // Apercu de theme horloge depuis la page web (v72, onglet Horloge ;
+  // fixes v73 ci-dessous) -- cmd.arg = "stop" (quitte la page ou aucun
+  // thème selectionne) ou un theme ("-1".."9", cf. select #clock_theme).
+  // RAM only / affichage uniquement, ne touche jamais /config.ini
+  // (independant du bouton "Sauvegarder"). Jamais emise par la Recalbox
+  // (topic web uniquement).
+  case MqttCommand::CMD_CLOCK_PREVIEW:
+  {
+    if (cmd.arg == "stop") {
+      // v73 : NE PLUS appeler resumePlaylist() ici -- ce "stop" arrive a
+      // chaque fois qu'on quitte la page Horloge (pagehide/beforeunload),
+      // y compris pour changer d'onglet vers Basic/Network/Media, PAS
+      // seulement en quittant tout le web config. Or g_sdOpInProgress reste
+      // vrai dans ce cas (repose de toute facon par le triggerWebConfigModeSoft()
+      // de la page suivante) -- relancer la playlist ici cassait la
+      // protection web (ecran "WEB DMD CONFIG" annule, GIFs qui repartent).
+      // resumePlaylist() reste le rôle exclusif du bouton "Reprendre DMD"
+      // (/dmd-resume, voir webDmdResume()). On se contente de reafficher
+      // l'ecran de pause config deja pose (g_sdOpMsg/g_sdOpSubMsg encore a
+      // jour depuis le dernier triggerWebConfigModeSoft()).
+      Serial.println("[CLOCK] preview stop");
+      currentMode = MODE_CONFIG;
+      display->clearScreen();
+      webDmdForceRedraw();
+      break;
+    }
+    // v73 : garde g_sdOpInProgress supprimee -- elle bloquait 100% des
+    // tentatives (voir en-tete de fichier v73) : cette commande vient
+    // justement de la page Horloge, qui vient elle-meme de poser
+    // g_sdOpInProgress=true en se chargeant. Aucun conflit SD reel a
+    // proteger ici (webServer mono-thread).
+    int previewTheme = cmd.arg.toInt();
+    if (previewTheme < -1 || previewTheme >= RETRO_THEME_COUNT) {
+      Serial.println("[CLOCK] preview ignoree (theme invalide: " + cmd.arg + ")");
+      break;
+    }
+    // Meme nettoyage que CMD_STOP : interrompt proprement un GIF/PNG en
+    // cours avant de basculer sur l'apercu.
+    gif.close(); gifOpened=false; currentPngPath=""; pngDrawn=false;
+    currentMode=MODE_BLACK; display->clearScreen();
+    Serial.println("[CLOCK] preview theme=" + cmd.arg);
+    showClock(previewTheme); // bloquant, sans limite de duree -- voir showClock()
+    break;
+  }
+
   default: break;
   }
 }
@@ -5147,14 +5281,38 @@ static bool getClockTime(int &h, int &m, int &s)
 // Affiche meme si NTP pas encore synchro (heure 1970 temporaire).
 // -- Show clock using retro themes --
 // Affiche les themes retro pixel-art pendant clockDuration.
-static bool showClock()
+// forceTheme (v72) : -2 (sentinelle, defaut) = comportement normal inchange
+// (lit clockEnabled/clockTheme/clockDuration, appel existant dans loop()).
+// -1..RETRO_THEME_COUNT-1 = mode apercu web (CMD_CLOCK_PREVIEW) : ignore
+// clockEnabled, impose currentTheme (-1 tire un theme au hasard UNE fois,
+// pas de rotation periodique -- voir plus bas), et la boucle d'affichage
+// tourne SANS limite de duree (uniquement hasPendingMqttCommand(), deja
+// verifie a chaque iteration, y met fin -- nouvelle selection ou "stop").
+static bool showClock(int forceTheme)
 {
-  if (!clockEnabled) return true;
-  if (g_sdOpInProgress) return true;
+  bool previewMode = (forceTheme != -2);
+  if (!previewMode) {
+    if (!clockEnabled) return true;
+  }
+  // v73 fix (2e bug trouve au 1er test materiel post-v73) : ce garde
+  // g_sdOpInProgress (herite du comportement normal hors preview, ou il
+  // sert a ne pas afficher l'horloge par-dessus l'ecran de pause web) sortait
+  // ICI avant meme de choisir un theme des que previewMode est actif -- or
+  // g_sdOpInProgress est TOUJOURS vrai en mode preview (c'est justement la
+  // page Horloge, web ouverte, qui vient de le demander) : ecran noir/vide
+  // garanti a 100%, confirme par le log serie ("[CLOCK] preview theme=X"
+  // affiche cote appelant mais jamais "[CLOCK] Start retro theme=" plus bas,
+  // preuve du retour immediat ici). Les 3 autres occurrences de ce meme
+  // garde plus bas dans cette fonction (banniere de nom x2 + boucle
+  // principale) ont le meme probleme et sont corrigees pareil : en
+  // previewMode, seul hasPendingMqttCommand() (nouvelle selection ou "stop")
+  // doit interrompre l'affichage, comme deja documente en tete de fonction.
+  if (!previewMode && g_sdOpInProgress) return true;
 
   // Choisir le theme
-  currentTheme = (clockTheme >= 0 && clockTheme < RETRO_THEME_COUNT)
-                  ? clockTheme
+  int themeSource = previewMode ? forceTheme : clockTheme;
+  currentTheme = (themeSource >= 0 && themeSource < RETRO_THEME_COUNT)
+                  ? themeSource
                   : random(0, RETRO_THEME_COUNT);
   themeStartMs = millis();
 
@@ -5175,7 +5333,7 @@ static bool showClock()
     while (millis() < nameEnd) {
       handleWebConfig();
       yield();
-      if (g_sdOpInProgress) {
+      if (!previewMode && g_sdOpInProgress) { // v73 fix, voir plus haut
         clockVisible = false;
         return true;
       }
@@ -5191,12 +5349,14 @@ static bool showClock()
   Serial.println("[CLOCK] Start retro theme=" + String(retroThemeNames[currentTheme]) + " id=" + String(currentTheme));
 
   unsigned long endMs = clockStartMs + ((unsigned long)clockDuration * 1000UL);
-  while (millis() < endMs) {
+  while (previewMode || millis() < endMs) {
     handleWebConfig();
     yield();
 
-    // Interruption si page web ouverte
-    if (g_sdOpInProgress) {
+    // Interruption si page web ouverte (v73 : jamais en previewMode, ou
+    // g_sdOpInProgress est en permanence vrai -- voir garde en tete de
+    // fonction)
+    if (!previewMode && g_sdOpInProgress) {
       Serial.println("[CLOCK] Interrupted by web page");
       clockVisible = false;
       return true;
@@ -5214,7 +5374,7 @@ static bool showClock()
     // themeStartMs et clockStartMs demarrent quasi en meme temps, sans lui
     // la bannière de nom (800ms) se declenchait juste avant la sortie du
     // clock, donnant l'impression a tort d'un nom affiche "a la sortie".
-    if (clockTheme == -1 && (millis() - themeStartMs) >= ((unsigned long)clockDuration * 1000UL)
+    if (!previewMode && clockTheme == -1 && (millis() - themeStartMs) >= ((unsigned long)clockDuration * 1000UL)
         && (long)(endMs - millis()) > 800) {
       int prevTheme = currentTheme;
       do { currentTheme = random(0, RETRO_THEME_COUNT); } while (currentTheme == prevTheme && RETRO_THEME_COUNT > 1);
@@ -5232,7 +5392,7 @@ static bool showClock()
         unsigned long nameEnd = millis() + 800UL;
         while (millis() < nameEnd) {
           yield();
-          if (g_sdOpInProgress) {
+          if (!previewMode && g_sdOpInProgress) { // v73 fix, voir plus haut
             clockVisible = false;
             return true;
           }
