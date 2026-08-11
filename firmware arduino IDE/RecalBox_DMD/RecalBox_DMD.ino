@@ -1,7 +1,25 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v69
+// Version actuelle : v70
+//
+// v70 - 2026-08-10 - safe-modify - Luminosite DMD appliquee en direct (sans
+//   reboot), demande explicite utilisateur (worktree dev/live-brightness).
+//   Avant ce fix, display->setBrightness8() n'etait appele qu'une seule
+//   fois au setup() -- tout changement de screenBrightness (page web ou,
+//   desormais, MQTT) restait sans effet sur le hardware jusqu'au prochain
+//   redemarrage. Fix : nouvelle commande MQTT dediee MqttCommand::
+//   CMD_BRIGHTNESS (topic marquee/cmd/brightness, argument = pourcentage
+//   0-100 en texte), traitee dans processPendingMqttCommand() -- map vers
+//   0-255, ecrit screenBrightness (RAM uniquement, pas de commande MQTT
+//   n'ecrit sur SD, coherent avec CMD_STOP/CMD_DEFAULT/etc.), puis appelle
+//   display->setBrightness8() immediatement. Complement cote web_config.h
+//   (v55) : handleWebConfigSave() applique aussi setBrightness8() des la
+//   sauvegarde, + nouvel endpoint /set-brightness pour l'apercu live
+//   pendant le drag du curseur. setBrightness8() ne fait que reecrire les
+//   bits OE/PWM dans le buffer DMA deja actif (pas de begin()/
+//   clearScreen()), donc sans risque a appeler en plein GIF/PNG affiche.
+//   Pas encore teste sur materiel reel.
 //
 // v69 - 2026-08-10 - safe-modify - Chemin FAST (isSlow=false) de CMD_GAME :
 //   ajout d'un pre-check du cache bigramme (findInGamesCache(), meme
@@ -2009,7 +2027,7 @@ struct MqttCommand
 {
   enum Type { CMD_NONE, CMD_STOP, CMD_DEFAULT, CMD_SYSTEM, CMD_GAME,
               CMD_STARTCLIP, CMD_RESUMESYS, CMD_SHOW_CONFIG, CMD_WIFI_RECOVERY,
-              CMD_REBOOT, CMD_WAITING_MQTT };
+              CMD_REBOOT, CMD_WAITING_MQTT, CMD_BRIGHTNESS };
   Type   type;
   String arg;
   MqttCommand() : type(CMD_NONE), arg("") {}
@@ -4279,6 +4297,25 @@ void processPendingMqttCommand()
     ESP.restart();
     break;
 
+  // Luminosite en direct via MQTT (v70) : cmd.arg = pourcentage 0-100 en
+  // texte (ex. publie par "mosquitto_pub -t marquee/cmd/brightness -m 50").
+  // RAM uniquement (comme les autres commandes MQTT) -- pas de reecriture
+  // de /config.ini ici, ca reste le role explicite de "Sauvegarder" sur la
+  // page web. setBrightness8() est sans risque a appeler a tout moment
+  // (reecrit juste les bits OE/PWM du buffer DMA deja actif).
+  case MqttCommand::CMD_BRIGHTNESS:
+  {
+    int pct = cmd.arg.toInt();
+    if (pct >= 0 && pct <= 100) {
+      screenBrightness = map(pct, 0, 100, 0, 255);
+      if (display) display->setBrightness8(screenBrightness);
+      Serial.println("[MQTT] brightness -> " + String(pct) + "%");
+    } else {
+      Serial.println("[MQTT] brightness ignoree (valeur hors 0-100: " + cmd.arg + ")");
+    }
+    break;
+  }
+
   default: break;
   }
 }
@@ -4334,6 +4371,7 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
   else if(t=="marquee/cmd/show_config") pendingCmd=MqttCommand(MqttCommand::CMD_SHOW_CONFIG,"");
   else if(t=="marquee/cmd/wifi_recovery") pendingCmd=MqttCommand(MqttCommand::CMD_WIFI_RECOVERY,"");
   else if(t=="marquee/cmd/reboot")        pendingCmd=MqttCommand(MqttCommand::CMD_REBOOT,"");
+  else if(t=="marquee/cmd/brightness")    pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS,msg);
   else if(t==mqttEventTopic)
   {
     String ev=extractField(msg,"EVENT");
@@ -4469,6 +4507,7 @@ void mqttTask(void *param)
         mqttClient.subscribe("marquee/cmd/show_config");
         mqttClient.subscribe("marquee/cmd/wifi_recovery");
         mqttClient.subscribe("marquee/cmd/reboot");
+        mqttClient.subscribe("marquee/cmd/brightness");
         mqttClient.subscribe(mqttEventTopic.c_str());
         // Retenu (retain=true) : un abonne (script Recalbox) qui se connecte
         // plus tard recoit immediatement la derniere IP publiee, sans avoir
