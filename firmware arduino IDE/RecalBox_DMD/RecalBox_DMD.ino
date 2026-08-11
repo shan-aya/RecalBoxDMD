@@ -1,7 +1,20 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v69
+// Version actuelle : v70
+//
+// v70 - 2026-08-11 - safe-modify - Fix incoherence de seuil flag "L" entre
+//   le chemin normal (outil PC, build_systems_cache(), seuil reglable
+//   depuis RecalBoxDMD_tool.py v33, defaut 5000) et le repli firmware
+//   buildSysDefaultCache() (emprunte seulement si /systems_cache.dat est
+//   absent de la SD au boot, voir loadSysDefaultCache()) : ce dernier
+//   utilisait encore l'ANCIEN seuil 800 (jamais mis a jour lors des
+//   revisions 800->15000->5000 cote PC). countPngGifOverRec("/systems/"+
+//   sysName, 800, ...) -> seuil releve a 5000 pour aligner ce repli rare
+//   sur la valeur par defaut actuelle de l'outil PC. Changement isole (une
+//   constante), pas de reglage utilisateur cote firmware (reglage reserve
+//   a l'outil PC, onglet Parametres -- voir RecalBoxDMD_GUI.py v45/
+//   RecalBoxDMD_tool.py v33), pas encore teste sur materiel reel.
 //
 // v69 - 2026-08-10 - safe-modify - Chemin FAST (isSlow=false) de CMD_GAME :
 //   ajout d'un pre-check du cache bigramme (findInGamesCache(), meme
@@ -1373,7 +1386,10 @@ void buildSysDefaultCache()
       bool pngOver = false;
       bool gifOver = false;
 
-      countPngGifOverRec("/systems/" + sysName, 800, pngCount, gifCount, pngOver, gifOver);
+      // Seuil 5000 (v70) -- aligne sur build_systems_cache() cote outil PC
+      // (RecalBoxDMD_tool.py v33), qui fait foi en usage normal. Ce repli
+      // n'est emprunte que si /systems_cache.dat est absent de la SD.
+      countPngGifOverRec("/systems/" + sysName, 5000, pngCount, gifCount, pngOver, gifOver);
       sysCacheSlowVals[sysCacheCount] = (pngOver || gifOver) ? 'L' : 'N';
       sysCacheCount++;
     }
