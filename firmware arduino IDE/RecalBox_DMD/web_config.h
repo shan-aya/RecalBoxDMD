@@ -3,7 +3,22 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v55
+// Version actuelle : v56
+//
+// v56 — 2026-08-11 — safe-modify — Luminosite DMD appliquee en direct (sans
+//   reboot), demande explicite utilisateur (worktree dev/live-brightness,
+//   voir aussi RecalBox_DMD.ino v71 pour la commande MQTT associee).
+//   handleWebConfigSave() appelle desormais display->setBrightness8() juste
+//   apres avoir mis a jour screenBrightness (effet immediat au clic
+//   "Sauvegarder", au lieu d'attendre le prochain reboot). Nouvel endpoint
+//   POST /set-brightness (handleWebConfigSetBrightness()) : met a jour
+//   screenBrightness en RAM et appelle setBrightness8() SANS toucher a
+//   /config.ini (ca reste le role de "Sauvegarder") -- utilise pour
+//   l'apercu live pendant le drag du curseur de luminosite. Cote JS, le
+//   slider #brightness envoie desormais un fetch throttle (>=120ms entre
+//   deux envois pendant le drag) vers /set-brightness sur "input", plus un
+//   envoi garanti sur "change" (relachement) pour ne pas perdre la valeur
+//   finale. Pas encore teste sur materiel reel.
 //
 // v55 — 2026-08-10 — safe-modify — Page Medias (WEB_CONFIG_MEDIA_HTML),
 //   texte d'accompagnement de la section "Envoi GIF" (desc_upload, FR/EN/ES) :
@@ -941,7 +956,7 @@ body{position:relative}
 <form id="basicForm" onsubmit="saveConfig(event)">
 <div class="section">
 <h2 data-i18n="sec_display">&#x1F4A1; Affichage</h2>
-<div class="row"><label for="brightness" data-i18n="lbl_brightness">Luminosit&eacute; (%)</label><input id="brightness" type="range" min="0" max="100" value="50" oninput="document.getElementById('bval').textContent=this.value"><span id="bval" style="margin-left:8px;color:#ffd146;min-width:24px">50</span></div>
+<div class="row"><label for="brightness" data-i18n="lbl_brightness">Luminosit&eacute; (%)</label><input id="brightness" type="range" min="0" max="100" value="50" oninput="onBrightnessInput(this)" onchange="sendBrightness(this.value,true)"><span id="bval" style="margin-left:8px;color:#ffd146;min-width:24px">50</span></div>
 <div class="row"><label data-i18n="lbl_silent_boot">D&eacute;marrage silencieux</label><input id="silent_boot" type="checkbox"></div>
 </div>
 <div class="section">
@@ -1026,6 +1041,23 @@ function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=
 // "DMD repris", confirme en test reel).
 function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
 function serialize(){return new URLSearchParams({brightness:document.getElementById('brightness').value,info:document.getElementById('silent_boot').checked?'0':'1',playlist:document.getElementById('playlist').value,random:document.getElementById('random').checked?'1':'0'});}
+// v55 -- apercu live de la luminosite pendant le drag du curseur : envoi
+// throttle vers /set-brightness (RAM uniquement sur le firmware, pas
+// d'ecriture SD) pour ne pas spammer l'ESP32 a chaque pixel de drag, plus
+// un envoi garanti au relachement ("change") pour ne jamais perdre la
+// valeur finale. Independant de "Sauvegarder" (qui reste le seul a ecrire
+// /config.ini).
+let _brightnessLastSentMs = 0;
+function sendBrightness(val, force){
+  const now = Date.now();
+  if (!force && (now - _brightnessLastSentMs) < 120) return;
+  _brightnessLastSentMs = now;
+  fetch('/set-brightness',{method:'POST',body:new URLSearchParams({value:val}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});
+}
+function onBrightnessInput(el){
+  document.getElementById('bval').textContent = el.value;
+  sendBrightness(el.value, false);
+}
 // Brouillon localStorage (2026-08-05, correctif "reglages perdus si on
 // change de page", demande explicite : pas d'alerte bloquante, un vrai
 // correctif qui empeche la perte). Chaque frappe sur cette page ecrit
@@ -3854,7 +3886,13 @@ static void handleWebConfigSave()
   // la sauvegarde depuis toutes les pages sauf BASIC.
   if (webServer->hasArg("brightness")) {
     int b = webServer->arg("brightness").toInt();
-    if (b >= 0 && b <= 100) screenBrightness = map(b, 0, 100, 0, 255);
+    if (b >= 0 && b <= 100) {
+      screenBrightness = map(b, 0, 100, 0, 255);
+      // v55 -- effet immediat sur le DMD des la sauvegarde, sans attendre
+      // le prochain reboot (setBrightness8() est sans risque a tout
+      // moment, voir commentaire d'en-tete de fichier).
+      if (display) display->setBrightness8(screenBrightness);
+    }
   }
   if (webServer->hasArg("playlist"))        playlistName = webServer->arg("playlist");
   if (webServer->hasArg("random"))          playlistRandom = webServer->arg("random") == "1";
@@ -4214,6 +4252,22 @@ static void handleDmdOpen()
   webServer->send(200, "text/plain", "OK " + full);
 }
 
+// v55 -- apercu live pendant le drag du curseur de luminosite (page
+// BASIC). Volontairement distinct de /save : RAM uniquement, AUCUNE
+// ecriture sur /config.ini ici (ca reste le role explicite du bouton
+// "Sauvegarder") -- evite aussi de spammer la carte SD pendant un drag
+// rapide. setBrightness8() est sans risque a tout moment (voir en-tete de
+// fichier).
+static void handleWebConfigSetBrightness()
+{
+  if (!webServer->hasArg("value")) { webServer->send(400, "text/plain", "ERR: missing value"); return; }
+  int b = webServer->arg("value").toInt();
+  if (b < 0 || b > 100) { webServer->send(400, "text/plain", "ERR: out of range"); return; }
+  screenBrightness = map(b, 0, 100, 0, 255);
+  if (display) display->setBrightness8(screenBrightness);
+  webServer->send(200, "text/plain", "OK");
+}
+
 static void handleWebConfigReboot() { webServer->send(200, "text/plain", "REBOOT"); delay(500); ESP.restart(); }
 
 static void handleWebConfigScanWiFi()
@@ -4529,6 +4583,7 @@ void setupWebConfig()
   webServer->on("/dmd-pause", HTTP_POST, handleDmdPause);
   webServer->on("/dmd-resume", HTTP_POST, handleDmdResume);
   webServer->on("/dmd-open", HTTP_POST, handleDmdOpen);
+  webServer->on("/set-brightness", HTTP_POST, handleWebConfigSetBrightness);
   webServer->on("/save", HTTP_POST, handleWebConfigSave);
   webServer->on("/reboot", handleWebConfigReboot);
   webServer->begin();
