@@ -5,14 +5,19 @@
 [🇬🇧 English](README.md) · 🇫🇷 **Français** · [🇪🇸 Español](README.es.md)
 
 <p align="center">
-  <img src="medias/marketing/plaquette_1_marque_et_ecosysteme.png" alt="Bannière RecalBoxDMD — Raw565 Edition" width="820">
+  <img src="medias/hero/hero_fr.jpg" alt="RecalBoxDMD tournant en direct sur une vraie borne Recalbox JAMMA" width="420">
 </p>
 
 <p align="center">
-  <img src="medias/clock_themes/00_super_mario.gif" width="160" alt="Thème horloge Super Mario">
-  <img src="medias/clock_themes/02_pac_man.gif" width="160" alt="Thème horloge Pac-Man">
-  <img src="medias/clock_themes/03_space_invaders.gif" width="160" alt="Thème horloge Space Invaders">
-  <img src="medias/clock_themes/07_fire.gif" width="160" alt="Thème horloge Fire">
+  <img src="medias/dmd_in_action.gif" alt="Vraies images : le marquee change en direct pendant la navigation dans les jeux" width="260">
+</p>
+<p align="center"><sub>📹 Vraies images, pas un montage — le marquee se met à jour en direct pendant la navigation · <a href="medias/dmd_in_action.mp4">voir le clip complet (MP4)</a></sub></p>
+
+<p align="center">
+  <img src="medias/clock_themes/00_super_mario.gif" width="140" alt="Thème horloge Super Mario">
+  <img src="medias/clock_themes/02_pac_man.gif" width="140" alt="Thème horloge Pac-Man">
+  <img src="medias/clock_themes/03_space_invaders.gif" width="140" alt="Thème horloge Space Invaders">
+  <img src="medias/clock_themes/07_fire.gif" width="140" alt="Thème horloge Fire">
 </p>
 
 <p align="center">
