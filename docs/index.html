@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RecalBoxDMD — Web Installer</title>
+<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:24px 16px 60px;max-width:640px;margin:auto}
+.logo-wrap{text-align:center;margin:10px 0 4px}
+.logo-wrap img{max-width:220px;height:auto}
+h1{text-align:center;font-size:22px;margin:6px 0 2px;color:#fff}
+.tagline{text-align:center;color:#aaa;font-size:13px;margin:0 0 18px}
+#langSelect{position:fixed;top:14px;right:14px;padding:6px 8px;font-size:13px;background:#16213e;color:#8ab4f8;border:1px solid #333;border-radius:4px}
+.section{background:#16213e;border-radius:10px;padding:20px;margin:16px 0}
+.section h2{color:#ffd146;font-size:16px;margin:0 0 10px}
+.section p{font-size:14px;line-height:1.6;margin:0 0 10px;color:#ddd}
+.section ol,.section ul{margin:0 0 10px 20px;font-size:14px;line-height:1.7;color:#ddd}
+.warn{background:#3a2410;border:1px solid #7a4a12;color:#ffcf8a;border-radius:8px;padding:12px 14px;font-size:13px;margin:14px 0}
+.install-wrap{text-align:center;margin:18px 0}
+esp-web-install-button{--esp-tools-button-color:#0f766e}
+.bigbtn{display:inline-block;padding:14px 28px;border-radius:10px;background:#0f766e;color:#ecfeff;font-weight:700;font-size:16px;border:none;cursor:pointer}
+.bigbtn:hover{background:#12968a}
+.unsupported,.not-allowed{display:block;text-align:center;background:#3a1414;border:1px solid #7a1212;color:#ffb0b0;border-radius:8px;padding:12px;font-size:13px}
+a{color:#8ab4f8}
+.back{display:block;text-align:center;margin-top:24px;font-size:13px}
+.drivers{font-size:13px;line-height:1.7}
+</style>
+</head>
+<body>
+<select id="langSelect" onchange="setLang(this.value)">
+  <option value="en">EN</option>
+  <option value="fr">FR</option>
+  <option value="es">ES</option>
+</select>
+
+<div class="logo-wrap">
+  <img src="../medias/marketing/plaquette_1_marque_et_ecosysteme.png" alt="RecalBoxDMD" style="max-width:100%;border-radius:8px">
+</div>
+<h1 data-i18n="title">RecalBoxDMD — Web Installer</h1>
+<div class="tagline" data-i18n="tagline">Flash the ESP32 firmware straight from your browser — no Arduino IDE, nothing to install.</div>
+
+<div class="section">
+  <h2 data-i18n="before_title">Before you start</h2>
+  <ol>
+    <li data-i18n="before_1">Use <b>Google Chrome</b> or <b>Microsoft Edge</b> on a desktop PC (Web Serial isn't available on mobile or other browsers).</li>
+    <li data-i18n="before_2">Connect the ESP32 to your PC with a USB cable.</li>
+    <li data-i18n="before_3">Have your SD card ready — prepare it separately with the <a href="../README.md">PC Toolkit</a> (Mode 1 — AUTO).</li>
+  </ol>
+  <div class="warn" data-i18n="warn_erase">⚠️ When prompted, choose <b>Erase device</b> on a first install (or when switching from another firmware/DMDos) to fully wipe the flash. You can skip erasing on a simple re-flash/update.</div>
+</div>
+
+<div class="section">
+  <h2 data-i18n="install_title">Install</h2>
+  <div class="install-wrap">
+    <esp-web-install-button manifest="manifest.json">
+      <button slot="activate" class="bigbtn" data-i18n="install_btn">⚡ Install RecalBoxDMD</button>
+      <span slot="unsupported" class="unsupported" data-i18n="unsupported">Your browser doesn't support Web Serial. Please open this page in Chrome or Edge.</span>
+      <span slot="not-allowed" class="not-allowed" data-i18n="not_allowed">This page must be served over HTTPS (it is, if you're reading this on GitHub Pages).</span>
+    </esp-web-install-button>
+  </div>
+  <p data-i18n="install_hint">Click Install, pick the ESP32's COM port in the browser prompt, and follow the on-screen steps. Takes about a minute.</p>
+</div>
+
+<div class="section">
+  <h2 data-i18n="drivers_title">ESP32 not showing up?</h2>
+  <div class="drivers">
+    <span data-i18n="drivers_intro">Install the USB-to-serial driver for your board's chip:</span>
+    <ul>
+      <li>CP2102 — <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers" target="_blank">Silicon Labs drivers</a></li>
+      <li>CH340 / CH341 — <a href="https://learn.sparkfun.com/tutorials/how-to-install-ch340-drivers/all" target="_blank">SparkFun guide</a></li>
+    </ul>
+  </div>
+</div>
+
+<a class="back" href="../README.md" data-i18n="back_link">&larr; Back to the RecalBoxDMD project</a>
+
+<script>
+const I18N = {
+en:{title:'RecalBoxDMD — Web Installer',tagline:'Flash the ESP32 firmware straight from your browser — no Arduino IDE, nothing to install.',before_title:'Before you start',before_1:'Use <b>Google Chrome</b> or <b>Microsoft Edge</b> on a desktop PC (Web Serial isn\'t available on mobile or other browsers).',before_2:'Connect the ESP32 to your PC with a USB cable.',before_3:'Have your SD card ready — prepare it separately with the <a href="../README.md">PC Toolkit</a> (Mode 1 — AUTO).',warn_erase:'⚠️ When prompted, choose <b>Erase device</b> on a first install (or when switching from another firmware/DMDos) to fully wipe the flash. You can skip erasing on a simple re-flash/update.',install_title:'Install',install_btn:'⚡ Install RecalBoxDMD',unsupported:'Your browser doesn\'t support Web Serial. Please open this page in Chrome or Edge.',not_allowed:'This page must be served over HTTPS (it is, if you\'re reading this on GitHub Pages).',install_hint:'Click Install, pick the ESP32\'s COM port in the browser prompt, and follow the on-screen steps. Takes about a minute.',drivers_title:'ESP32 not showing up?',drivers_intro:'Install the USB-to-serial driver for your board\'s chip:',back_link:'← Back to the RecalBoxDMD project'},
+fr:{title:'RecalBoxDMD — Installateur Web',tagline:'Flashez le firmware de l\'ESP32 directement depuis votre navigateur — aucun Arduino IDE, rien à installer.',before_title:'Avant de commencer',before_1:'Utilisez <b>Google Chrome</b> ou <b>Microsoft Edge</b> sur un PC de bureau (le Web Serial n\'est pas disponible sur mobile ni sur les autres navigateurs).',before_2:'Branchez l\'ESP32 à votre PC avec un câble USB.',before_3:'Préparez votre carte SD séparément avec la <a href="../README.fr.md">boîte à outils PC</a> (Mode 1 — AUTO).',warn_erase:'⚠️ Quand on vous le propose, choisissez <b>Erase device</b> lors d\'une première installation (ou en changeant depuis un autre firmware/DMDos) pour effacer complètement la mémoire flash. Vous pouvez ignorer l\'effacement pour une simple mise à jour.',install_title:'Installer',install_btn:'⚡ Installer RecalBoxDMD',unsupported:'Votre navigateur ne supporte pas le Web Serial. Ouvrez cette page avec Chrome ou Edge.',not_allowed:'Cette page doit être servie en HTTPS (c\'est le cas si vous la lisez sur GitHub Pages).',install_hint:'Cliquez sur Installer, choisissez le port COM de l\'ESP32 dans la fenêtre du navigateur, et suivez les étapes. Environ une minute.',drivers_title:'L\'ESP32 n\'apparaît pas ?',drivers_intro:'Installez le pilote USB-série correspondant à la puce de votre carte :',back_link:'← Retour au projet RecalBoxDMD'},
+es:{title:'RecalBoxDMD — Instalador Web',tagline:'Flashea el firmware del ESP32 directamente desde tu navegador — sin Arduino IDE, sin instalar nada.',before_title:'Antes de empezar',before_1:'Usa <b>Google Chrome</b> o <b>Microsoft Edge</b> en un PC de escritorio (Web Serial no está disponible en móvil ni en otros navegadores).',before_2:'Conecta el ESP32 a tu PC con un cable USB.',before_3:'Ten tu tarjeta SD lista — prepárala aparte con la <a href="../README.es.md">caja de herramientas de PC</a> (Modo 1 — AUTO).',warn_erase:'⚠️ Cuando se te pida, elige <b>Erase device</b> en una primera instalación (o al cambiar desde otro firmware/DMDos) para borrar por completo la memoria flash. Puedes omitir el borrado en una simple actualización.',install_title:'Instalar',install_btn:'⚡ Instalar RecalBoxDMD',unsupported:'Tu navegador no soporta Web Serial. Abre esta página con Chrome o Edge.',not_allowed:'Esta página debe servirse en HTTPS (lo está, si la lees en GitHub Pages).',install_hint:'Haz clic en Instalar, elige el puerto COM del ESP32 en el aviso del navegador, y sigue los pasos. Un minuto aproximadamente.',drivers_title:'¿El ESP32 no aparece?',drivers_intro:'Instala el driver USB-serie correspondiente al chip de tu placa:',back_link:'← Volver al proyecto RecalBoxDMD'}
+};
+function applyLang(lang){
+  document.documentElement.lang=lang;
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    const key=el.dataset.i18n;
+    if(I18N[lang][key]!==undefined) el.innerHTML=I18N[lang][key];
+  });
+  document.getElementById('langSelect').value=lang;
+  try{localStorage.setItem('dmd_installer_lang',lang);}catch(e){}
+}
+function setLang(lang){applyLang(lang);}
+(function(){
+  let lang='en';
+  try{
+    const stored=localStorage.getItem('dmd_installer_lang');
+    if(stored&&I18N[stored]) lang=stored;
+    else{const nav=(navigator.language||'').substring(0,2); if(I18N[nav]) lang=nav;}
+  }catch(e){}
+  applyLang(lang);
+})();
+</script>
+</body>
+</html>
