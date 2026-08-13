@@ -1,6 +1,6 @@
-> ⚠️ **You are on the `dev` branch — testing only, not the stable release.** See [`DEV_BRANCH.md`](DEV_BRANCH.md) for what's currently being tested here. For the stable version, switch to [`main`](https://github.com/shan-aya/RecalBoxDMD/tree/main).
+﻿> ⚠️ **You are on the `dev` branch — testing only, not the stable release.** See [`DEV_BRANCH.md`](DEV_BRANCH.md) for what's currently being tested here. For the stable version, switch to [`main`](https://github.com/shan-aya/RecalBoxDMD/tree/main).
 
-# RecalBoxDMD — Raw565 Edition
+# RecalBoxDMD — Raw565 Edition dev13
 
 **A real LED marquee for your Recalbox arcade cabinet — instant display, even with a 30,000-game MAME fullset.**
 
