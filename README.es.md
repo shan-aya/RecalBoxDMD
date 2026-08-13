@@ -152,7 +152,16 @@ La herramienta incluye 9 temas visuales (SNES, Mega Drive, Dreamcast, PlayStatio
 
 ## Inicio rápido
 
-La caja de herramientas de PC se descarga de 3 formas — elige la que prefieras en la **[página de Releases](https://github.com/shan-aya/RecalBoxDMD/releases)** (los archivos `.exe`/`.msi` compilados no están en el propio repositorio, solo publicados ahí):
+El recorrido completo, de cero a un marquee funcionando, en 4 pasos:
+
+1. **[Instala la caja de herramientas de PC](#instala-la-caja-de-herramientas-de-pc) + primer arranque** — haz el scrape de tus juegos en Recalbox, apunta la herramienta a tu carpeta de ROMs, pulsa Iniciar.
+2. **[Monta el DMD](#hardware)** — une los dos paneles, coloca la placa DMDos, cablea (~5 minutos, sin soldadura).
+3. **[Flashea el firmware](#firmware--compilar-y-flashear)** — instalador web en un clic, sin necesidad de Arduino IDE.
+4. **Inserta la tarjeta SD, enciende** — el primer arranque te guía por la configuración WiFi, y luego la **[página de configuración web](#configuración-web--en-vivo-en-el-navegador)** se encarga de todo lo demás (brillo, playlists, temas de reloj...).
+
+### Instala la caja de herramientas de PC
+
+Se descarga de 4 formas — elige la que prefieras en la **[página de Releases](https://github.com/shan-aya/RecalBoxDMD/releases)** (los archivos `.exe`/`.msi` compilados no están en el propio repositorio, solo publicados ahí):
 
 **Opción A — Instalador de Windows (recomendado)**
 
@@ -185,7 +194,7 @@ La caja de herramientas de PC se descarga de 3 formas — elige la que prefieras
    (o manualmente: pip install Pillow Markdown && python run_gui.py)
 ```
 
-**Primer arranque recomendado**
+### Primer arranque
 
 ```
 1. Haz el scrape de tus juegos en Recalbox (ver «¿Cómo hacer el scrape?» en la
@@ -195,8 +204,9 @@ La caja de herramientas de PC se descarga de 3 formas — elige la que prefieras
 4. Elige tu carpeta de ROMs (ej.: D:\Recalbox\share\roms)
 5. Haz clic en Iniciar — el MODO 1 encadena todo el proceso automáticamente
 6. Inserta la tarjeta SD → el botón parpadeante se ofrece a copiarla por ti
-7. Inserta la SD en el ESP32, enciéndelo — listo
 ```
+
+A continuación: [monta el hardware](#hardware) y [flashea el firmware](#firmware--compilar-y-flashear) — luego inserta esa tarjeta SD y enciende.
 
 ---
 

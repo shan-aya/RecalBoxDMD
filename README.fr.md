@@ -152,7 +152,16 @@ L'outil embarque 9 habillages visuels (SNES, Mega Drive, Dreamcast, PlayStation,
 
 ## Démarrage rapide
 
-La boîte à outils PC se télécharge sous 3 formes — prenez celle que vous préférez sur la **[page Releases](https://github.com/shan-aya/RecalBoxDMD/releases)** (les fichiers `.exe`/`.msi` compilés ne sont pas dans le dépôt lui-même, seulement publiés là-bas) :
+Le parcours complet, de zéro à un marquee fonctionnel, en 4 étapes :
+
+1. **[Installez la boîte à outils PC](#installer-la-boîte-à-outils-pc) + premier lancement** — scrapez vos jeux dans Recalbox, pointez l'outil vers votre dossier ROMs, cliquez sur Démarrer.
+2. **[Assemblez le DMD](#matériel)** — assemblez les deux panneaux, montez la carte DMDos, câblez (~5 minutes, sans soudure).
+3. **[Flashez le firmware](#firmware--compiler-et-flasher)** — installateur web en un clic, pas besoin d'Arduino IDE.
+4. **Insérez la carte SD, allumez** — le premier démarrage vous guide pour le Wi-Fi, puis la **[page de configuration web](#configuration-web--en-direct-dans-le-navigateur)** prend le relais pour tout le reste (luminosité, playlists, thèmes horloge...).
+
+### Installer la boîte à outils PC
+
+Se télécharge sous 4 formes — prenez celle que vous préférez sur la **[page Releases](https://github.com/shan-aya/RecalBoxDMD/releases)** (les fichiers `.exe`/`.msi` compilés ne sont pas dans le dépôt lui-même, seulement publiés là-bas) :
 
 **Option A — Installateur Windows (recommandé)**
 
@@ -185,7 +194,7 @@ La boîte à outils PC se télécharge sous 3 formes — prenez celle que vous p
    (ou manuellement : pip install Pillow Markdown && python run_gui.py)
 ```
 
-**Premier lancement recommandé**
+### Premier lancement
 
 ```
 1. Scrapez vos jeux dans Recalbox (voir « Comment scraper ? » dans l'outil,
@@ -195,8 +204,9 @@ La boîte à outils PC se télécharge sous 3 formes — prenez celle que vous p
 4. Choisissez votre dossier ROMs (ex : D:\Recalbox\share\roms)
 5. Cliquez Démarrer — le MODE 1 enchaîne tout le pipeline automatiquement
 6. Insérez la carte SD → le bouton clignotant propose de la copier pour vous
-7. Insérez la SD dans l'ESP32, allumez — terminé
 ```
+
+Ensuite : [assemblez le matériel](#matériel) et [flashez le firmware](#firmware--compiler-et-flasher) — puis insérez cette carte SD et allumez.
 
 ---
 

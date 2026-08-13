@@ -152,7 +152,16 @@ The toolkit ships with 9 visual skins (SNES, Mega Drive, Dreamcast, PlayStation,
 
 ## Quick start
 
-The PC Toolkit ships three ways — grab whichever you prefer from the **[Releases page](https://github.com/shan-aya/RecalBoxDMD/releases)** (the built `.exe`/`.msi` files aren't committed to the repo itself, only released there):
+The full journey from zero to a working marquee, in 4 steps:
+
+1. **[Install the PC Toolkit](#install-the-pc-toolkit) + first run** — scrape your games in Recalbox, point the toolkit at your ROMs folder, click Start.
+2. **[Assemble the DMD](#hardware)** — join the two panels, mount the DMDos board, wire it up (~5 minutes, no soldering).
+3. **[Flash the firmware](#firmware--compiling--flashing)** — one-click browser installer, no Arduino IDE required.
+4. **Insert the SD card, power on** — first boot walks you through Wi-Fi setup, then the **[web configuration page](#web-configuration--live-in-your-browser)** takes over for everything else (brightness, playlists, clock themes...).
+
+### Install the PC Toolkit
+
+Ships four ways — grab whichever you prefer from the **[Releases page](https://github.com/shan-aya/RecalBoxDMD/releases)** (the built `.exe`/`.msi` files aren't committed to the repo itself, only released there):
 
 **Option A — Windows installer (recommended)**
 
@@ -185,7 +194,7 @@ The PC Toolkit ships three ways — grab whichever you prefer from the **[Releas
    (or manually: pip install Pillow Markdown && python run_gui.py)
 ```
 
-**Recommended first run**
+### First run
 
 ```
 1. Scrape your games in Recalbox (see "How to scrape?" in the tool,
@@ -195,8 +204,9 @@ The PC Toolkit ships three ways — grab whichever you prefer from the **[Releas
 4. Pick your ROMs folder (e.g. D:\Recalbox\share\roms)
 5. Click Start — MODE 1 runs the full pipeline automatically
 6. Insert the SD card → the blinking button offers to copy it for you
-7. Insert the SD in the ESP32, power it on — done
 ```
+
+Next: [assemble the hardware](#hardware) and [flash the firmware](#firmware--compiling--flashing) — then insert that SD card and power on.
 
 ---
 
