@@ -152,12 +152,46 @@ L'outil embarque 9 habillages visuels (SNES, Mega Drive, Dreamcast, PlayStation,
 
 ## Démarrage rapide
 
-Le parcours complet, de zéro à un marquee fonctionnel, en 4 étapes :
+<p align="center"><b>🚀 De zéro à un marquee fonctionnel en 4 étapes 🚀</b></p>
 
-1. **[Installez la boîte à outils PC](#installer-la-boîte-à-outils-pc) + premier lancement** — scrapez vos jeux dans Recalbox, pointez l'outil vers votre dossier ROMs, cliquez sur Démarrer.
-2. **[Assemblez le DMD](#matériel)** — assemblez les deux panneaux, montez la carte DMDos, câblez (~5 minutes, sans soudure).
-3. **[Flashez le firmware](#firmware--compiler-et-flasher)** — installateur web en un clic, pas besoin d'Arduino IDE.
-4. **Insérez la carte SD, allumez** — le premier démarrage vous guide pour le Wi-Fi, puis la **[page de configuration web](#configuration-web--en-direct-dans-le-navigateur)** prend le relais pour tout le reste (luminosité, playlists, thèmes horloge...).
+<table align="center">
+<tr>
+<td align="center" width="70"><h2>1️⃣</h2></td>
+<td>
+
+**[Installez la boîte à outils PC](#installer-la-boîte-à-outils-pc) + premier lancement**
+Scrapez vos jeux dans Recalbox, pointez l'outil vers votre dossier ROMs, cliquez sur **Démarrer**.
+
+</td>
+</tr>
+<tr>
+<td align="center"><h2>2️⃣</h2></td>
+<td>
+
+**[Assemblez le DMD](#matériel)**
+Assemblez les deux panneaux, montez la carte DMDos, câblez — **~5 minutes, sans soudure**.
+
+</td>
+</tr>
+<tr>
+<td align="center"><h2>3️⃣</h2></td>
+<td>
+
+**[Flashez le firmware](#firmware--compiler-et-flasher)**
+Installateur web en un clic — **pas besoin d'Arduino IDE**.
+
+</td>
+</tr>
+<tr>
+<td align="center"><h2>4️⃣</h2></td>
+<td>
+
+**Insérez la carte SD, allumez**
+Le premier démarrage vous guide pour le Wi-Fi, puis la **[page de configuration web](#configuration-web--en-direct-dans-le-navigateur)** prend le relais pour tout le reste (luminosité, playlists, thèmes horloge...).
+
+</td>
+</tr>
+</table>
 
 ### Installer la boîte à outils PC
 

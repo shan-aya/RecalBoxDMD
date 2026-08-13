@@ -152,12 +152,46 @@ La herramienta incluye 9 temas visuales (SNES, Mega Drive, Dreamcast, PlayStatio
 
 ## Inicio rápido
 
-El recorrido completo, de cero a un marquee funcionando, en 4 pasos:
+<p align="center"><b>🚀 De cero a un marquee funcionando en 4 pasos 🚀</b></p>
 
-1. **[Instala la caja de herramientas de PC](#instala-la-caja-de-herramientas-de-pc) + primer arranque** — haz el scrape de tus juegos en Recalbox, apunta la herramienta a tu carpeta de ROMs, pulsa Iniciar.
-2. **[Monta el DMD](#hardware)** — une los dos paneles, coloca la placa DMDos, cablea (~5 minutos, sin soldadura).
-3. **[Flashea el firmware](#firmware--compilar-y-flashear)** — instalador web en un clic, sin necesidad de Arduino IDE.
-4. **Inserta la tarjeta SD, enciende** — el primer arranque te guía por la configuración WiFi, y luego la **[página de configuración web](#configuración-web--en-vivo-en-el-navegador)** se encarga de todo lo demás (brillo, playlists, temas de reloj...).
+<table align="center">
+<tr>
+<td align="center" width="70"><h2>1️⃣</h2></td>
+<td>
+
+**[Instala la caja de herramientas de PC](#instala-la-caja-de-herramientas-de-pc) + primer arranque**
+Haz el scrape de tus juegos en Recalbox, apunta la herramienta a tu carpeta de ROMs, pulsa **Iniciar**.
+
+</td>
+</tr>
+<tr>
+<td align="center"><h2>2️⃣</h2></td>
+<td>
+
+**[Monta el DMD](#hardware)**
+Une los dos paneles, coloca la placa DMDos, cablea — **~5 minutos, sin soldadura**.
+
+</td>
+</tr>
+<tr>
+<td align="center"><h2>3️⃣</h2></td>
+<td>
+
+**[Flashea el firmware](#firmware--compilar-y-flashear)**
+Instalador web en un clic — **sin necesidad de Arduino IDE**.
+
+</td>
+</tr>
+<tr>
+<td align="center"><h2>4️⃣</h2></td>
+<td>
+
+**Inserta la tarjeta SD, enciende**
+El primer arranque te guía por la configuración WiFi, y luego la **[página de configuración web](#configuración-web--en-vivo-en-el-navegador)** se encarga de todo lo demás (brillo, playlists, temas de reloj...).
+
+</td>
+</tr>
+</table>
 
 ### Instala la caja de herramientas de PC
 

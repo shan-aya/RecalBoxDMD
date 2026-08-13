@@ -152,12 +152,46 @@ The toolkit ships with 9 visual skins (SNES, Mega Drive, Dreamcast, PlayStation,
 
 ## Quick start
 
-The full journey from zero to a working marquee, in 4 steps:
+<p align="center"><b>🚀 Zero to a working marquee in 4 steps 🚀</b></p>
 
-1. **[Install the PC Toolkit](#install-the-pc-toolkit) + first run** — scrape your games in Recalbox, point the toolkit at your ROMs folder, click Start.
-2. **[Assemble the DMD](#hardware)** — join the two panels, mount the DMDos board, wire it up (~5 minutes, no soldering).
-3. **[Flash the firmware](#firmware--compiling--flashing)** — one-click browser installer, no Arduino IDE required.
-4. **Insert the SD card, power on** — first boot walks you through Wi-Fi setup, then the **[web configuration page](#web-configuration--live-in-your-browser)** takes over for everything else (brightness, playlists, clock themes...).
+<table align="center">
+<tr>
+<td align="center" width="70"><h2>1️⃣</h2></td>
+<td>
+
+**[Install the PC Toolkit](#install-the-pc-toolkit) + first run**
+Scrape your games in Recalbox, point the toolkit at your ROMs folder, click **Start**.
+
+</td>
+</tr>
+<tr>
+<td align="center"><h2>2️⃣</h2></td>
+<td>
+
+**[Assemble the DMD](#hardware)**
+Join the two panels, mount the DMDos board, wire it up — **~5 minutes, no soldering**.
+
+</td>
+</tr>
+<tr>
+<td align="center"><h2>3️⃣</h2></td>
+<td>
+
+**[Flash the firmware](#firmware--compiling--flashing)**
+One-click browser installer — **no Arduino IDE required**.
+
+</td>
+</tr>
+<tr>
+<td align="center"><h2>4️⃣</h2></td>
+<td>
+
+**Insert the SD card, power on**
+First boot walks you through Wi-Fi setup, then the **[web configuration page](#web-configuration--live-in-your-browser)** takes over for everything else (brightness, playlists, clock themes...).
+
+</td>
+</tr>
+</table>
 
 ### Install the PC Toolkit
 
