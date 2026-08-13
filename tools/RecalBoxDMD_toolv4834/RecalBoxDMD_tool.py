@@ -1,7 +1,22 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v34
+# Version actuelle : v35
+#
+# v35 - 2026-08-13 - BRANCHE DEV (test avant fusion master) - Portage du
+#      flag "L" (lent) par sous-dossier alphabetique depuis le worktree
+#      dev/slow-flag-per-bucket (v29, jamais fusionne) sur l'outil actuel
+#      (v34). build_systems_cache() : remplace le comptage recursif par
+#      systeme entier (count_ext_over) par un comptage par SOUS-DOSSIER
+#      ALPHABETIQUE (count_ext_over_per_bucket, bucket A..Z/#), reutilise
+#      le parametre slow_threshold existant (v33) au lieu du seuil 800
+#      code en dur de la version d'origine du worktree. systems_cache.dat
+#      gagne un 4e champ (27 caracteres L/N, ordre LETTERS) :
+#      "<val> <sysName> <slowFlag> <bucketFlags27>". Nouvelle fonction
+#      _bucket_letter_for_stem() (meme regle que _alpha_subdir()).
+#      Contrepartie firmware : RecalBox_DMD.ino v77 (meme branche dev).
+#      PAS ENCORE teste (ni recompilation du firmware contre cette
+#      sortie, ni materiel reel) -- a faire avant toute fusion master.
 #
 # v34 - 2026-08-11 - safe-modify - "main_opt_quit" (bouton Quitter, 3
 #      langues) en MAJUSCULES -- demande utilisateur (voir aussi
@@ -1531,6 +1546,20 @@ def _alpha_subdir_if_needed(dst: Path) -> Path:
     if dst.parent.name == expected_subdir:
         return dst
     return _alpha_subdir(dst)
+
+
+def _bucket_letter_for_stem(stem: str) -> str:
+    """
+    Regle du bucket alphabetique (1ere lettre du nom de fichier SANS
+    extension, majuscule, '#' si non-alpha ou nom vide) -- meme regle que
+    _alpha_subdir()/_alpha_subdir_if_needed() ci-dessus, factorisee ici en
+    fonction reutilisable pour le comptage par bucket de
+    build_systems_cache() (flag "L" par sous-dossier plutot que par
+    systeme entier -- portage du worktree dev/slow-flag-per-bucket,
+    branche dev de test).
+    """
+    first = stem[0].upper() if stem else "?"
+    return first if first.isalpha() else "#"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -4307,31 +4336,50 @@ def build_systems_cache(
 
             name, ftype = entries[stem]
 
-            # LENT : plus de 800 PNG OU GIF (mais pas les deux)
-            # -> XOR : (png_over ^ gif_over)
+            # Flag "lent" (L) par SOUS-DOSSIER ALPHABETIQUE (bucket #/A..Z),
+            # pas par systeme entier (portage du worktree
+            # dev/slow-flag-per-bucket, branche dev de test) : compte non
+            # recursivement (os.scandir) chaque bucket + les eventuels
+            # fichiers residuels laisses "a plat" directement sous
+            # system_dir (contenu genere par une version anterieure de
+            # l'outil, avant l'ajout du bucketing alphabetique) -- ceux-ci
+            # sont assignes a leur bucket via _bucket_letter_for_stem(), la
+            # MEME regle que celle qui les aurait ranges au moment de
+            # l'ecriture. Seuil = slow_threshold (reglable, onglet
+            # Parametres, v33), OR logique entre les 3 extensions, identique
+            # a l'ancienne logique par-systeme mais applique par bucket.
             system_dir = systems_dir / name
 
-            def count_ext_over(base: Path, ext_lower: str, limit: int) -> bool:
-                # Retourne True dès qu'on dépasse "limit"
-                count = 0
-                for _root, _dirs, files in os.walk(base):
-                    for fn in files:
-                        if fn.lower().endswith(ext_lower):
-                            count += 1
-                            if count > limit:
-                                return True
-                return False
+            def count_ext_over_per_bucket(base: Path, ext_lower: str, limit: int) -> dict:
+                counts = {letter: 0 for letter in LETTERS}
+                for letter in LETTERS:
+                    bucket_dir = base / letter
+                    if not bucket_dir.is_dir():
+                        continue
+                    for entry in os.scandir(bucket_dir):
+                        if entry.is_file() and entry.name.lower().endswith(ext_lower):
+                            counts[letter] += 1
+                # Residus non bucketises (a plat directement sous system_dir)
+                for entry in os.scandir(base):
+                    if entry.is_file() and entry.name.lower().endswith(ext_lower):
+                        letter = _bucket_letter_for_stem(Path(entry.name).stem)
+                        counts[letter] += 1
+                return {letter: (c > limit) for letter, c in counts.items()}
 
-            raw565_over = False
-            raw565pack_over = False
-            meta_over = False
+            raw565_over_b = {letter: False for letter in LETTERS}
+            raw565pack_over_b = {letter: False for letter in LETTERS}
+            meta_over_b = {letter: False for letter in LETTERS}
             if system_dir.exists() and system_dir.is_dir():
-                raw565_over = count_ext_over(system_dir, ".raw565", slow_threshold)
-                raw565pack_over = count_ext_over(system_dir, ".raw565pack", slow_threshold)
-                meta_over = count_ext_over(system_dir, ".meta", slow_threshold)
+                raw565_over_b = count_ext_over_per_bucket(system_dir, ".raw565", slow_threshold)
+                raw565pack_over_b = count_ext_over_per_bucket(system_dir, ".raw565pack", slow_threshold)
+                meta_over_b = count_ext_over_per_bucket(system_dir, ".meta", slow_threshold)
 
-            slow_flag = "L" if (raw565_over or raw565pack_over or meta_over) else "N"
-            out.write(f"{ftype} {name} {slow_flag}\n")
+            bucket_flags = "".join(
+                "L" if (raw565_over_b[letter] or raw565pack_over_b[letter] or meta_over_b[letter]) else "N"
+                for letter in LETTERS
+            )
+            slow_flag = "L" if "L" in bucket_flags else "N"
+            out.write(f"{ftype} {name} {slow_flag} {bucket_flags}\n")
             print(tr("sysc_line")(ftype, name))
 
             if progress_cb is not None:
