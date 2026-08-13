@@ -144,20 +144,37 @@ The toolkit ships with 9 visual skins (SNES, Mega Drive, Dreamcast, PlayStation,
 
 ## Quick start
 
-**Option A — Windows executable (simplest)**
+The PC Toolkit ships three ways — grab whichever you prefer from the **[Releases page](https://github.com/shan-aya/RecalBoxDMD/releases)** (the built `.exe`/`.msi` files aren't committed to the repo itself, only released there):
+
+**Option A — Windows installer (recommended)**
 
 ```
-1. Download the toolkit build from tools/ (RecalBoxDMD_TooL.exe)
-2. Run it — no Python install required
-3. Main tab → choose your Recalbox version → pick your ROMs folder → Start
+1. Download RecalBoxDMD_Toolkit_Setup.exe from the Releases page
+2. Run it — Start Menu shortcut, optional desktop icon, proper uninstaller
+3. Launch "RecalBoxDMD Toolkit" from the Start Menu
 ```
 
-**Option B — From Python source**
+**Option B — Portable .exe (no install)**
+
+```
+1. Download RecalBoxDMD_GUI.exe from the Releases page
+2. Run it directly — no install, no Python required, single file
+```
+
+**Option C — .msi (for scripted/group-policy deployment)**
+
+```
+1. Download the .msi from the Releases page
+2. msiexec /i "RecalBoxDMD Toolkit-1.0.0-win64.msi"   (or double-click)
+```
+
+**Option D — From Python source**
 
 ```
 1. Grab the tools/ folder
-2. pip install Pillow Markdown   (auto-installed on first run if missing)
-3. python run_gui.py
+2. Double-click install_and_run.bat — installs Python (via winget, if
+   missing), Pillow and Markdown, then launches the GUI
+   (or manually: pip install Pillow Markdown && python run_gui.py)
 ```
 
 **Recommended first run**
