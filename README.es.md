@@ -21,6 +21,13 @@
 </p>
 
 <p align="center">
+  <img src="medias/fallback_images/default_RB.png" width="140" alt="Imagen de respaldo — Recalbox">
+  <img src="medias/fallback_images/default_jamma.png" width="140" alt="Imagen de respaldo — Recalbox JAMMA">
+  <img src="medias/fallback_images/default_rgbdual.png" width="140" alt="Imagen de respaldo — Recalbox RGB Dual">
+  <img src="medias/fallback_images/default_rgbdual2.png" width="140" alt="Imagen de respaldo — Recalbox RGB Dual 2">
+</p>
+
+<p align="center">
   <a href="LICENSE"><img alt="Licencia: MIT" src="https://img.shields.io/badge/licencia-MIT-green.svg"></a>
   <img alt="Plataforma: ESP32" src="https://img.shields.io/badge/plataforma-ESP32-blue.svg">
   <img alt="Panel: HUB75 128x32" src="https://img.shields.io/badge/panel-HUB75%20128x32-blue.svg">
