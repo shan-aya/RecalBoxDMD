@@ -1,4 +1,4 @@
-# RecalBoxDMD — Raw565 Edition
+# RecalBoxDMD — Raw565 Edition v12
 
 **Un verdadero marquee LED para tu mueble arcade Recalbox — visualización instantánea, incluso con un fullset MAME de 30 000 juegos.**
 
