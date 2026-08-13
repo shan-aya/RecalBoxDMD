@@ -1,4 +1,4 @@
-# RecalBoxDMD — Raw565 Edition
+# RecalBoxDMD — Raw565 Edition v12
 
 **Un vrai panneau marquee lumineux pour votre borne d'arcade Recalbox — affichage instantané, même avec un fullset MAME de 30 000 jeux.**
 
