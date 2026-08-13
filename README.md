@@ -156,7 +156,7 @@ The toolkit ships with 9 visual skins (SNES, Mega Drive, Dreamcast, PlayStation,
 
 ```
 1. Grab the tools/ folder
-2. pip install Pillow   (auto-installed on first run if missing)
+2. pip install Pillow Markdown   (auto-installed on first run if missing)
 3. python run_gui.py
 ```
 
@@ -466,9 +466,13 @@ docs/                          ← GitHub Pages: browser-based Web Installer (sh
 - **Original RetroBoxLED project**: [Jamyz](https://github.com/Jamyz/RetroBoxLED) — the ESP32 firmware base and idea
 - **Raw565 Edition**: **Shan_ayA** — raw565 format, bigram cache, mask system, PC toolkit, clock themes, Recalbox-version handling, web live-preview
 - **Inspiration**: [RetroPixelLED](https://github.com/fjgordillo86/RetroPixelLED) by fjgordillo86
+- **600-GIF pack**: **eLLuiGi** / [RpiTeaM](https://rpiteam.carrd.co/) — free sample of their curated retro GIF collection
 - **Hardware & assembly guide**: [Mortaca — DMDos Board](https://www.mortaca.com/) / [dmdos.net](https://www.dmdos.net/)
 - **3D frame**: Janibol — [Retromojones](https://www.youtube.com/@retromojones)
 - **Community**: [Recalbox](https://www.recalbox.com/)
+- **Development**: written with the assistance of [Claude](https://www.anthropic.com/claude) (Anthropic) — AI-assisted coding throughout the firmware and PC toolkit
+
+📜 Full version history: [CHANGELOG.md](CHANGELOG.md)
 
 Licensed under the [MIT License](LICENSE).
 

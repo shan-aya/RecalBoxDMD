@@ -156,7 +156,7 @@ L'outil embarque 9 habillages visuels (SNES, Mega Drive, Dreamcast, PlayStation,
 
 ```
 1. Récupérez le dossier tools/
-2. pip install Pillow   (installé automatiquement au premier lancement si absent)
+2. pip install Pillow Markdown   (installés automatiquement au premier lancement si absents)
 3. python run_gui.py
 ```
 
@@ -466,9 +466,13 @@ docs/                          ← GitHub Pages : installateur Web (shan-aya.git
 - **Projet original RetroBoxLED** : [Jamyz](https://github.com/Jamyz/RetroBoxLED) — la base du firmware ESP32 et l'idée d'origine
 - **Raw565 Edition** : **Shan_ayA** — format raw565, cache bigramme, système de masque, boîte à outils PC, thèmes horloge, gestion des versions Recalbox, aperçu web en direct
 - **Inspiration** : [RetroPixelLED](https://github.com/fjgordillo86/RetroPixelLED) par fjgordillo86
+- **Pack de 600 GIFs** : **eLLuiGi** / [RpiTeaM](https://rpiteam.carrd.co/) — échantillon gratuit de leur collection de GIFs rétro
 - **Matériel & guide de montage** : [Mortaca — DMDos Board](https://www.mortaca.com/) / [dmdos.net](https://www.dmdos.net/)
 - **Boîtier 3D** : Janibol — [Retromojones](https://www.youtube.com/@retromojones)
 - **Communauté** : [Recalbox](https://www.recalbox.com/)
+- **Développement** : écrit avec l'assistance de [Claude](https://www.anthropic.com/claude) (Anthropic) — code assisté par IA sur l'ensemble du firmware et de la boîte à outils PC
+
+📜 Historique complet des versions : [CHANGELOG.fr.md](CHANGELOG.fr.md)
 
 Sous licence [MIT](LICENSE).
 
