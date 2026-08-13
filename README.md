@@ -1,4 +1,4 @@
-﻿> ⚠️ **You are on the `dev` branch — testing only, not the stable release.** See [`DEV_BRANCH.md`](DEV_BRANCH.md) for what's currently being tested here. For the stable version, switch to [`main`](https://github.com/shan-aya/RecalBoxDMD/tree/main).
+> ⚠️ **You are on the `dev` branch — testing only, not the stable release.** See [`DEV_BRANCH.md`](DEV_BRANCH.md) for what's currently being tested here. For the stable version, switch to [`main`](https://github.com/shan-aya/RecalBoxDMD/tree/main).
 
 # RecalBoxDMD — Raw565 Edition dev13
 
@@ -20,6 +20,13 @@
   <img src="medias/clock_themes/02_pac_man.gif" width="140" alt="Pac-Man clock theme">
   <img src="medias/clock_themes/03_space_invaders.gif" width="140" alt="Space Invaders clock theme">
   <img src="medias/clock_themes/07_fire.gif" width="140" alt="Fire clock theme">
+</p>
+
+<p align="center">
+  <img src="medias/fallback_images/default_RB.png" width="140" alt="Fallback image — Recalbox">
+  <img src="medias/fallback_images/default_jamma.png" width="140" alt="Fallback image — Recalbox JAMMA">
+  <img src="medias/fallback_images/default_rgbdual.png" width="140" alt="Fallback image — Recalbox RGB Dual">
+  <img src="medias/fallback_images/default_rgbdual2.png" width="140" alt="Fallback image — Recalbox RGB Dual 2">
 </p>
 
 <p align="center">
@@ -79,6 +86,7 @@ It is a fork of [Jamyz's RetroBoxLED](https://github.com/Jamyz/RetroBoxLED), reb
 - ⚡ **raw565 engine** — PNG → `.raw565` (8,192 bytes, RGB565), GIF → `.raw565pack` + `.meta`. No on-device decoding: the ESP32 just reads bytes and blits them. 5–15 ms per display.
 - 🖼️ **Both fixed and animated marquees, per game or per system** — a game/system can have a still logo (`.raw565`, from PNG) **or** a full animated marquee (`.raw565pack`, from GIF); the firmware plays whichever is present, no configuration needed.
 - 🎯 **Mask system for huge collections (MAME, FBNeo...)** — systems flagged **"L"** (Large/slow) instantly show a cached default image while the real one decodes in the background, so the panel **never goes black**, even scrolling through a 30,000-game fullset.
+- 🖼️ **Custom fallback image** — 4 ready-made defaults are included (Recalbox, JAMMA, RGB Dual, RGB Dual 2), or pick **your own** picture from the PC Toolkit to use as the global fallback shown whenever nothing else matches.
 - 🧮 **Bigram game cache** — a compact indexed cache (`games_cache.bin`) avoids listing tens of thousands of SD-card files at runtime; lookups are near-instant.
 - 🕹️ **10 built-in pixel-art clock themes** — Super Mario, Tetris, Pac-Man, Space Invaders, Pong, Neon, Matrix, Fire, Rainbow, and a scrolling Level 1‑1 — shown periodically between games (or full-time), theme selectable from the web UI with **live preview on the physical panel**.
 - 📦 **~600 free retro GIFs included** — an optional one-click download (Arcade, Consoles, Computers, Pinball, Halloween, Xmas, and more) for idle/attract-mode playlists.
@@ -146,7 +154,50 @@ The toolkit ships with 9 visual skins (SNES, Mega Drive, Dreamcast, PlayStation,
 
 ## Quick start
 
-The PC Toolkit ships three ways — grab whichever you prefer from the **[Releases page](https://github.com/shan-aya/RecalBoxDMD/releases)** (the built `.exe`/`.msi` files aren't committed to the repo itself, only released there):
+<p align="center"><b>🚀 Zero to a working marquee in 4 steps 🚀</b></p>
+
+<table align="center">
+<tr>
+<td align="center" width="70"><h2>1️⃣</h2></td>
+<td>
+
+**[Install the PC Toolkit](#install-the-pc-toolkit) + first run**
+Scrape your games in Recalbox, point the toolkit at your ROMs folder, click **Start**.
+
+</td>
+</tr>
+<tr>
+<td align="center"><h2>2️⃣</h2></td>
+<td>
+
+**[Assemble the DMD](#hardware)**
+Join the two panels, mount the DMDos board, wire it up — **~5 minutes, no soldering**.
+
+</td>
+</tr>
+<tr>
+<td align="center"><h2>3️⃣</h2></td>
+<td>
+
+**[Flash the firmware](#firmware--compiling--flashing)**
+One-click browser installer — **no Arduino IDE required**.
+
+</td>
+</tr>
+<tr>
+<td align="center"><h2>4️⃣</h2></td>
+<td>
+
+**Insert the SD card, power on**
+First boot walks you through Wi-Fi setup, then the **[web configuration page](#web-configuration--live-in-your-browser)** takes over for everything else (brightness, playlists, clock themes...).
+
+</td>
+</tr>
+</table>
+
+### Install the PC Toolkit
+
+Ships four ways — grab whichever you prefer from the **[Releases page](https://github.com/shan-aya/RecalBoxDMD/releases)** (the built `.exe`/`.msi` files aren't committed to the repo itself, only released there):
 
 **Option A — Windows installer (recommended)**
 
@@ -179,7 +230,7 @@ The PC Toolkit ships three ways — grab whichever you prefer from the **[Releas
    (or manually: pip install Pillow Markdown && python run_gui.py)
 ```
 
-**Recommended first run**
+### First run
 
 ```
 1. Scrape your games in Recalbox (see "How to scrape?" in the tool,
@@ -189,8 +240,9 @@ The PC Toolkit ships three ways — grab whichever you prefer from the **[Releas
 4. Pick your ROMs folder (e.g. D:\Recalbox\share\roms)
 5. Click Start — MODE 1 runs the full pipeline automatically
 6. Insert the SD card → the blinking button offers to copy it for you
-7. Insert the SD in the ESP32, power it on — done
 ```
+
+Next: [assemble the hardware](#hardware) and [flash the firmware](#firmware--compiling--flashing) — then insert that SD card and power on.
 
 ---
 
@@ -208,7 +260,22 @@ The PC Toolkit ships three ways — grab whichever you prefer from the **[Releas
   <img src="medias/marketing/plaquette_5_materiel_montage.png" alt="Hardware and assembly" width="720">
 </p>
 
-Assembly takes about 5 minutes: join the two panels, seat the DMDos board on the **input** connector, wire the two panels' power leads to the board's terminals (red/black, per the silkscreen), connect the ribbon cable between panels, insert the SD card, plug in the ESP32 (already flashed), and power it via USB‑C.
+The physical build (panels + DMDos Board + ESP32 + microSD) is identical to the one described on the official **[dmdos.net](https://www.dmdos.net/)** site by Mortaca — genuinely quick, no soldering, no tools beyond a screwdriver:
+
+1. **Join the two panels.** Use the union pieces that ship with the DMDos Board. Screws aren't included — any M3 screw you have lying around works (e.g. salvaged from a power strip).
+2. **Seat the DMDos Board.** Once joined, keep the back-panel component orientation identical on both sides. You'll see two identical connectors: one **input**, one **output**. The board only works on the **input** side — pick the orientation that clears the plastic bracket easily.
+3. **Wire the power.** Before placing the ESP32 on top, connect each panel's red/black power leads to the board's terminals per the silkscreen (red↔red, black↔black) — keep the supplied connector and screw down a single pin, or strip/trim the cable to fit the terminal directly. Connect the two panels to each other with the included ribbon cable.
+4. **SD card, ESP32, power.** Insert the SD card you prepared with the PC Toolkit (see [Quick start](#quick-start)), plug in the ESP32 already flashed with the RecalBoxDMD firmware (see [Firmware](#firmware--compiling--flashing)) on top of the board, then power everything through the ESP32's USB‑C port.
+
+<p align="center">
+  <a href="https://www.dmdos.net/#montaje" title="Full illustrated guide on dmdos.net"><img src="medias/assembly/1_union.png" width="220" alt="Step 1 — joining the two panels"></a>
+  <a href="https://www.dmdos.net/#montaje" title="Full illustrated guide on dmdos.net"><img src="medias/assembly/2_posicion.png" width="220" alt="Step 2 — DMDos board seated on the input connector"></a>
+  <a href="https://www.dmdos.net/#montaje" title="Full illustrated guide on dmdos.net"><img src="medias/assembly/3_cableado.png" width="220" alt="Step 3 — power wiring and ribbon cable"></a>
+  <a href="https://www.dmdos.net/#montaje" title="Full illustrated guide on dmdos.net"><img src="medias/assembly/4_final.png" width="220" alt="Step 4 — ESP32 mounted, ready to power"></a>
+</p>
+<p align="center"><sub>Thumbnails link to the official step-by-step guide on dmdos.net</sub></p>
+
+📖 **Official illustrated guide**: [dmdos.net → Hardware](https://www.dmdos.net/#hardware) · [dmdos.net → Montaje/Assembly](https://www.dmdos.net/#montaje) · [dmdos.net → Mueble/Frame](https://www.dmdos.net/#mueble)
 
 > ⚠️ The DMDos website offers its own separate firmware/OS. **Do not flash the DMDos firmware** if you want to run RecalBoxDMD — only the **hardware** (panels, board, frame) and the **assembly guide** are reused; the firmware and SD card content come from this repository.
 
@@ -255,6 +322,17 @@ Shown periodically between games (configurable interval/duration) or full-time, 
 </p>
 
 Super Mario · Tetris · Pac-Man · Space Invaders · Pong · Neon · Matrix · Fire · Rainbow · Level 1‑1 (scrolling).
+
+### Fallback images
+
+Shown whenever a game/system has no marquee of its own. 4 are included out of the box — or supply your own from the PC Toolkit's fallback-image picker.
+
+<p align="center">
+  <img src="medias/fallback_images/default_RB.png" width="160" alt="Fallback image — Recalbox">
+  <img src="medias/fallback_images/default_jamma.png" width="160" alt="Fallback image — Recalbox JAMMA">
+  <img src="medias/fallback_images/default_rgbdual.png" width="160" alt="Fallback image — Recalbox RGB Dual">
+  <img src="medias/fallback_images/default_rgbdual2.png" width="160" alt="Fallback image — Recalbox RGB Dual 2">
+</p>
 
 ---
 
