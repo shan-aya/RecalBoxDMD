@@ -173,20 +173,37 @@ La copie vers la carte SD physique (bouton clignotant après un traitement) rés
 
 ## 🚀 Installation rapide
 
-**Option A — Exécutable Windows (le plus simple)**
+Prenez le build de votre choix sur la **[page Releases](https://github.com/shan-aya/RecalBoxDMD/releases)** (les `.exe`/`.msi` compilés ne sont pas dans le dépôt, seulement publiés là-bas) :
+
+**Option A — Installateur Windows (recommandé)**
 
 ```
-1. Téléchargez tools/dist/RecalBoxDMD_TooL.exe
-2. Lancez-le directement (aucune installation Python nécessaire)
-3. Suivez les instructions ou utilisez l'interface graphique
+1. Téléchargez RecalBoxDMD_Toolkit_Setup.exe depuis la page Releases
+2. Lancez-le — raccourci menu Démarrer, icône bureau optionnelle, vrai désinstalleur
+3. Lancez « RecalBoxDMD Toolkit » depuis le menu Démarrer
 ```
 
-**Option B — Depuis les sources Python**
+**Option B — Exécutable portable (sans installation)**
+
+```
+1. Téléchargez RecalBoxDMD_GUI.exe depuis la page Releases
+2. Lancez-le directement — aucune installation, aucun Python requis, fichier unique
+```
+
+**Option C — .msi (pour un déploiement scripté/GPO)**
+
+```
+1. Téléchargez le .msi depuis la page Releases
+2. msiexec /i "RecalBoxDMD Toolkit-1.0.0-win64.msi"   (ou double-clic)
+```
+
+**Option D — Depuis les sources Python**
 
 ```
 1. Téléchargez les fichiers du dossier tools/
-2. Lancez : python run_gui.py
-3. Suivez les instructions ou utilisez l'interface graphique
+2. Double-cliquez sur install_and_run.bat — installe Python (via winget,
+   si absent), Pillow et Markdown, puis lance la GUI
+   (ou manuellement : pip install Pillow Markdown && python run_gui.py)
 ```
 
 ---
@@ -320,7 +337,7 @@ Affiche ce README directement dans l'interface.
 1. 🔄 Scrapez vos jeux dans Recalbox (voir le Tutoriel scraping ci-dessous
    selon votre version Recalbox : logo dédié, marquee ou logo détouré)
    ↓
-2. 📂 Lancez RecalBoxDMD Toolkit (RecalBoxDMD_TooL.exe ou python run_gui.py) → onglet Main
+2. 📂 Lancez RecalBoxDMD Toolkit (raccourci installé, RecalBoxDMD_GUI.exe portable, ou python run_gui.py) → onglet Main
    ↓
 3. 🎛️ Choisissez votre « Version Recalbox » (10.x / 9.x / legacy)
       Besoin d'aide ? Cliquez « Comment scraper ? »

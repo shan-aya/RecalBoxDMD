@@ -171,20 +171,37 @@ Copying to the physical SD card (the blinking button shown after a run) now surv
 
 ## 🚀 Quick Start
 
-**Option A — Windows executable (simplest)**
+Grab whichever build you prefer from the **[Releases page](https://github.com/shan-aya/RecalBoxDMD/releases)** (the built `.exe`/`.msi` aren't committed to the repo, only released there):
+
+**Option A — Windows installer (recommended)**
 
 ```
-1. Download tools/dist/RecalBoxDMD_TooL.exe
-2. Run it directly (no Python installation needed)
-3. Follow the on-screen instructions or use the GUI
+1. Download RecalBoxDMD_Toolkit_Setup.exe from the Releases page
+2. Run it — Start Menu shortcut, optional desktop icon, proper uninstaller
+3. Launch "RecalBoxDMD Toolkit" from the Start Menu
 ```
 
-**Option B — From Python source**
+**Option B — Portable .exe (no install)**
+
+```
+1. Download RecalBoxDMD_GUI.exe from the Releases page
+2. Run it directly — no install, no Python required, single file
+```
+
+**Option C — .msi (for scripted/group-policy deployment)**
+
+```
+1. Download the .msi from the Releases page
+2. msiexec /i "RecalBoxDMD Toolkit-1.0.0-win64.msi"   (or double-click)
+```
+
+**Option D — From Python source**
 
 ```
 1. Download the files from the tools/ folder
-2. Run: python run_gui.py
-3. Follow the on-screen instructions or use the GUI
+2. Double-click install_and_run.bat — installs Python (via winget, if
+   missing), Pillow and Markdown, then launches the GUI
+   (or manually: pip install Pillow Markdown && python run_gui.py)
 ```
 
 ---
@@ -318,7 +335,7 @@ Displays this README directly in the interface.
 1. 🔄 Scrape your games in Recalbox (see the Scraping Tutorial below,
    depending on your Recalbox version: dedicated logo, marquee or cut-out logo)
    ↓
-2. 📂 Launch RecalBoxDMD Toolkit (RecalBoxDMD_TooL.exe or python run_gui.py) → Main tab
+2. 📂 Launch RecalBoxDMD Toolkit (installed shortcut, portable RecalBoxDMD_GUI.exe, or python run_gui.py) → Main tab
    ↓
 3. 🎛️ Choose your "Recalbox version" (10.x / 9.x / legacy)
       Need help? Click "How to scrape?"

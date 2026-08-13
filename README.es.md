@@ -144,20 +144,37 @@ La herramienta incluye 9 temas visuales (SNES, Mega Drive, Dreamcast, PlayStatio
 
 ## Inicio rápido
 
-**Opción A — Ejecutable de Windows (lo más sencillo)**
+La caja de herramientas de PC se descarga de 3 formas — elige la que prefieras en la **[página de Releases](https://github.com/shan-aya/RecalBoxDMD/releases)** (los archivos `.exe`/`.msi` compilados no están en el propio repositorio, solo publicados ahí):
+
+**Opción A — Instalador de Windows (recomendado)**
 
 ```
-1. Descarga la build de la herramienta en tools/ (RecalBoxDMD_TooL.exe)
-2. Ejecútalo — no necesita instalar Python
-3. Pestaña Main → elige tu versión de Recalbox → carpeta de ROMs → Iniciar
+1. Descarga RecalBoxDMD_Toolkit_Setup.exe desde la página de Releases
+2. Ejecútalo — acceso directo en el menú Inicio, icono de escritorio opcional, desinstalador real
+3. Abre «RecalBoxDMD Toolkit» desde el menú Inicio
 ```
 
-**Opción B — Desde el código fuente Python**
+**Opción B — Ejecutable portable (sin instalación)**
+
+```
+1. Descarga RecalBoxDMD_GUI.exe desde la página de Releases
+2. Ejecútalo directamente — sin instalación, sin necesidad de Python, archivo único
+```
+
+**Opción C — .msi (para despliegue mediante script/GPO)**
+
+```
+1. Descarga el .msi desde la página de Releases
+2. msiexec /i "RecalBoxDMD Toolkit-1.0.0-win64.msi"   (o doble clic)
+```
+
+**Opción D — Desde el código fuente Python**
 
 ```
 1. Descarga la carpeta tools/
-2. pip install Pillow Markdown   (se instalan automáticamente en el primer arranque si faltan)
-3. python run_gui.py
+2. Haz doble clic en install_and_run.bat — instala Python (vía winget,
+   si falta), Pillow y Markdown, y luego abre la GUI
+   (o manualmente: pip install Pillow Markdown && python run_gui.py)
 ```
 
 **Primer arranque recomendado**
