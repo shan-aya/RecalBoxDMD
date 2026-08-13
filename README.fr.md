@@ -1,4 +1,4 @@
-# RecalBoxDMD — Raw565 Edition v12
+# RecalBoxDMD — Raw565 Edition
 
 **Un vrai panneau marquee lumineux pour votre borne d'arcade Recalbox — affichage instantané, même avec un fullset MAME de 30 000 jeux.**
 
@@ -77,6 +77,7 @@ C'est un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), r
 - ⚡ **Moteur raw565** — PNG → `.raw565` (8 192 octets, RGB565), GIF → `.raw565pack` + `.meta`. Aucun décodage sur l'ESP32 : il lit des octets et les envoie tels quels au panneau. 5-15 ms par affichage.
 - 🖼️ **Marquees fixes et animées, par jeu ou par système** — un jeu/système peut avoir un logo fixe (`.raw565`, depuis un PNG) **ou** un marquee animé complet (`.raw565pack`, depuis un GIF) ; le firmware joue celui qui est présent, sans aucune configuration.
 - 🎯 **Système de masque pour les grosses collections (MAME, FBNeo...)** — les systèmes marqués **« L »** (Large/lent) affichent immédiatement une image par défaut en cache pendant que la vraie image se décode en tâche de fond : le panneau **ne reste jamais noir**, même en enchaînant un fullset de 30 000 jeux.
+- 🖼️ **Image de secours personnalisée** — 4 images par défaut sont fournies (Recalbox, JAMMA, RGB Dual, RGB Dual 2), ou choisissez **votre propre image** depuis la boîte à outils PC comme image de secours globale, affichée quand rien d'autre ne correspond.
 - 🧮 **Cache de jeux bigramme** — un cache indexé compact (`games_cache.bin`) évite de lister des dizaines de milliers de fichiers SD à l'exécution ; les recherches sont quasi instantanées.
 - 🕹️ **10 thèmes horloge pixel-art intégrés** — Super Mario, Tetris, Pac-Man, Space Invaders, Pong, Neon, Matrix, Fire, Rainbow, et un niveau 1-1 défilant — affichés périodiquement entre les jeux (ou en continu), thème sélectionnable depuis la page web avec **aperçu en direct sur le panneau physique**.
 - 📦 **~600 GIFs rétro gratuits inclus** — téléchargement en un clic (Arcade, Consoles, Ordinateurs, Flipper, Halloween, Noël, et plus) pour vos playlists d'attente.
@@ -268,6 +269,17 @@ Affichés périodiquement entre les jeux (intervalle/durée configurables) ou en
 </p>
 
 Super Mario · Tetris · Pac-Man · Space Invaders · Pong · Neon · Matrix · Fire · Rainbow · Level 1-1 (défilant).
+
+### Images de secours
+
+Affichées quand un jeu/système n'a pas de marquee propre. 4 sont fournies d'office — ou fournissez la vôtre depuis le sélecteur d'image de secours de la boîte à outils PC.
+
+<p align="center">
+  <img src="medias/fallback_images/default_RB.png" width="160" alt="Image de secours — Recalbox">
+  <img src="medias/fallback_images/default_jamma.png" width="160" alt="Image de secours — Recalbox JAMMA">
+  <img src="medias/fallback_images/default_rgbdual.png" width="160" alt="Image de secours — Recalbox RGB Dual">
+  <img src="medias/fallback_images/default_rgbdual2.png" width="160" alt="Image de secours — Recalbox RGB Dual 2">
+</p>
 
 ---
 
