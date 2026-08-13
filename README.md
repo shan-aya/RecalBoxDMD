@@ -213,7 +213,15 @@ The physical build (panels + DMDos Board + ESP32 + microSD) is identical to the 
 3. **Wire the power.** Before placing the ESP32 on top, connect each panel's red/black power leads to the board's terminals per the silkscreen (red↔red, black↔black) — keep the supplied connector and screw down a single pin, or strip/trim the cable to fit the terminal directly. Connect the two panels to each other with the included ribbon cable.
 4. **SD card, ESP32, power.** Insert the SD card you prepared with the PC Toolkit (see [Quick start](#quick-start)), plug in the ESP32 already flashed with the RecalBoxDMD firmware (see [Firmware](#firmware--compiling--flashing)) on top of the board, then power everything through the ESP32's USB‑C port.
 
-📖 **Official illustrated guide** (photos for every step above): [dmdos.net → Hardware](https://www.dmdos.net/#hardware) · [dmdos.net → Montaje/Assembly](https://www.dmdos.net/#montaje) · [dmdos.net → Mueble/Frame](https://www.dmdos.net/#mueble)
+<p align="center">
+  <a href="https://www.dmdos.net/#montaje" title="Full illustrated guide on dmdos.net"><img src="medias/assembly/1_union.png" width="220" alt="Step 1 — joining the two panels"></a>
+  <a href="https://www.dmdos.net/#montaje" title="Full illustrated guide on dmdos.net"><img src="medias/assembly/2_posicion.png" width="220" alt="Step 2 — DMDos board seated on the input connector"></a>
+  <a href="https://www.dmdos.net/#montaje" title="Full illustrated guide on dmdos.net"><img src="medias/assembly/3_cableado.png" width="220" alt="Step 3 — power wiring and ribbon cable"></a>
+  <a href="https://www.dmdos.net/#montaje" title="Full illustrated guide on dmdos.net"><img src="medias/assembly/4_final.png" width="220" alt="Step 4 — ESP32 mounted, ready to power"></a>
+</p>
+<p align="center"><sub>Thumbnails link to the official step-by-step guide on dmdos.net</sub></p>
+
+📖 **Official illustrated guide**: [dmdos.net → Hardware](https://www.dmdos.net/#hardware) · [dmdos.net → Montaje/Assembly](https://www.dmdos.net/#montaje) · [dmdos.net → Mueble/Frame](https://www.dmdos.net/#mueble)
 
 > ⚠️ The DMDos website offers its own separate firmware/OS. **Do not flash the DMDos firmware** if you want to run RecalBoxDMD — only the **hardware** (panels, board, frame) and the **assembly guide** are reused; the firmware and SD card content come from this repository.
 

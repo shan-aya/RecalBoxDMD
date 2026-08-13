@@ -213,7 +213,15 @@ Le montage physique (panneaux + carte DMDos + ESP32 + microSD) est identique à 
 3. **Câblez l'alimentation.** Avant de poser l'ESP32 dessus, reliez les fils d'alimentation rouge/noir de chaque panneau aux bornes de la carte selon la sérigraphie (rouge↔rouge, noir↔noir) — gardez le connecteur fourni et ne vissez qu'une seule broche, ou dénudez/coupez le câble pour qu'il rentre directement dans la borne. Reliez les deux panneaux entre eux avec la nappe fournie.
 4. **Carte SD, ESP32, alimentation.** Insérez la carte SD préparée avec la boîte à outils PC (voir [Démarrage rapide](#démarrage-rapide)), branchez l'ESP32 déjà flashé avec le firmware RecalBoxDMD (voir [Firmware](#firmware--compiler-et-flasher)) par-dessus la carte, puis alimentez le tout via le port USB-C de l'ESP32.
 
-📖 **Guide officiel illustré** (photos pour chaque étape ci-dessus) : [dmdos.net → Hardware](https://www.dmdos.net/#hardware) · [dmdos.net → Montaje/Assembly](https://www.dmdos.net/#montaje) · [dmdos.net → Mueble/Frame](https://www.dmdos.net/#mueble)
+<p align="center">
+  <a href="https://www.dmdos.net/#montaje" title="Guide illustré complet sur dmdos.net"><img src="medias/assembly/1_union.png" width="220" alt="Étape 1 — jonction des deux panneaux"></a>
+  <a href="https://www.dmdos.net/#montaje" title="Guide illustré complet sur dmdos.net"><img src="medias/assembly/2_posicion.png" width="220" alt="Étape 2 — carte DMDos positionnée sur le connecteur entrée"></a>
+  <a href="https://www.dmdos.net/#montaje" title="Guide illustré complet sur dmdos.net"><img src="medias/assembly/3_cableado.png" width="220" alt="Étape 3 — câblage alimentation et nappe"></a>
+  <a href="https://www.dmdos.net/#montaje" title="Guide illustré complet sur dmdos.net"><img src="medias/assembly/4_final.png" width="220" alt="Étape 4 — ESP32 monté, prêt à alimenter"></a>
+</p>
+<p align="center"><sub>Les miniatures renvoient vers le guide officiel pas-à-pas sur dmdos.net</sub></p>
+
+📖 **Guide officiel illustré** : [dmdos.net → Hardware](https://www.dmdos.net/#hardware) · [dmdos.net → Montaje/Assembly](https://www.dmdos.net/#montaje) · [dmdos.net → Mueble/Frame](https://www.dmdos.net/#mueble)
 
 > ⚠️ Le site DMDos propose son propre firmware/OS, distinct. **Ne flashez pas le firmware DMDos** si vous voulez utiliser RecalBoxDMD — seuls le **matériel** (panneaux, carte, boîtier) et le **guide de montage** sont réutilisés ; le firmware et le contenu de la carte SD viennent de ce dépôt.
 
