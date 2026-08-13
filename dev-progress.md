@@ -1,35 +1,35 @@
-# Dev branch — work in progress log
+# Journal de progression — branche dev
 
-Living log of what's being worked on in the `dev` branch and why. Updated as local changes get committed. See [`DEV_BRANCH.md`](DEV_BRANCH.md) for the branch's overall purpose, and [`CHANGELOG.md`](CHANGELOG.md) for what's already shipped and stable on `main`.
+Journal vivant de ce qui est en cours sur la branche `dev` et pourquoi. Mis à jour à chaque commit local. Voir [`DEV_BRANCH.md`](DEV_BRANCH.md) pour l'objet général de la branche, et [`CHANGELOG.md`](CHANGELOG.md) pour ce qui est déjà livré et stable sur `main`.
 
 ---
 
-## 🎯 Current goal
+## 🎯 But actuel
 
-Test the **slow-flag ("L") per alphabetical subfolder** feature on real hardware before merging it into `main`.
+Tester la fonctionnalité **flag lent (« L ») par sous-dossier alphabétique** sur matériel réel avant de la fusionner dans `main`.
 
-**Why**: today, a whole *system* (e.g. `mame/`) is flagged "slow" (shows the loading mask on the DMD) if its **total** file count crosses a threshold — even when only one alphabetical subfolder (e.g. `mame/S/`) is actually huge and the rest are small (e.g. `mame/G/`, 15 files). This wastes the mask on systems/games that would actually load fast. The fix computes the flag **per alphabetical bucket** (`A`, `B`, ... `#`) instead of per whole system, so only genuinely slow buckets show the mask.
+**Pourquoi** : aujourd'hui, un *système* entier (ex. `mame/`) est marqué « lent » (affiche l'écran masque de chargement sur le DMD) si son nombre **total** de fichiers dépasse un seuil — même si un seul sous-dossier alphabétique (ex. `mame/S/`) est réellement volumineux et que les autres sont petits (ex. `mame/G/`, 15 fichiers). Ça gaspille le masque sur des systèmes/jeux qui chargeraient en fait rapidement. Le correctif calcule le flag **par sous-dossier alphabétique** (`A`, `B`, ... `#`) plutôt que par système entier, pour que seuls les buckets réellement lents affichent le masque.
 
-## 📋 Changes so far
+## 📋 Changements effectués
 
-### 2026-08-13 — firmware source published + feature ported (commit `360284d`)
-- **Published** `RecalBox_DMD.ino`, `web_config.h`, `clock_themes.h` to GitHub for the first time — they weren't here at all before (only compiled `binaries/`).
-- **Ported** the per-bucket flag logic from the local `dev/slow-flag-per-bucket` branch (single commit, forked from firmware v36, never merged) onto the current v76 firmware base → **v77**. 3-way merge was clean; only the changelog header needed manual resolution.
-- **Status**: compiles conceptually (based on the original v37 compile check); **not yet re-verified on the v76 base, not yet tested on real hardware**.
+### 2026-08-13 — firmware publié + fonctionnalité portée (commit `360284d`)
+- **Publication** de `RecalBox_DMD.ino`, `web_config.h`, `clock_themes.h` sur GitHub pour la première fois — ils n'y étaient pas du tout avant (seulement les `binaries/` compilés).
+- **Portage** de la logique par bucket depuis la branche locale `dev/slow-flag-per-bucket` (un seul commit, forkée au firmware v36, jamais fusionnée) sur le firmware v76 actuel → **v77**. Fusion à 3 propre ; seul l'en-tête de changelog a nécessité une résolution manuelle.
+- **Statut** : compile en théorie (d'après la vérification de compilation d'origine en v37) ; **pas revérifié sur la base v76, pas testé sur matériel réel**.
 
-### 2026-08-13 — PC Toolkit counterpart ported (commit `<this push>`)
-- **Correction to the note below**: the Toolkit side wasn't actually missing — it was already written, just sitting **uncommitted** in the local `dev-slow-flag-per-bucket` worktree (`RecalBoxDMD_tool.py` v29, untracked on that branch's own git history). Committed there as-is.
-- **Ported** the same per-bucket logic onto the current v34 Toolkit (which has diverged a lot since — Recalbox-version profiles, Mode 9-11, adjustable `slow_threshold`, etc.) → **v35**. `build_systems_cache()` now writes the 4th field (27-char `L`/`N` string) to `systems_cache.dat`, reusing the existing adjustable `slow_threshold` (v33) instead of the worktree's original hard-coded `800`.
-- New helper `_bucket_letter_for_stem()`, same rule as `_alpha_subdir()`.
-- **Status**: compiles clean (`py_compile`). **Not yet tested** — no real conversion run, no real SD card, no hardware.
+### 2026-08-13 — contrepartie outil PC portée (commit `0a8d774`)
+- **Correction par rapport à la note ci-dessous** : le côté outil n'était en fait pas manquant — il était déjà écrit, mais restait **non commité** dans le worktree local `dev-slow-flag-per-bucket` (`RecalBoxDMD_tool.py` v29, jamais suivi par git sur l'historique de cette branche). Committé tel quel.
+- **Portage** de la même logique par bucket sur l'outil v34 actuel (qui a beaucoup évolué depuis — profils Recalbox, Modes 9-11, seuil `slow_threshold` réglable, etc.) → **v35**. `build_systems_cache()` écrit désormais le 4e champ (chaîne de 27 caractères `L`/`N`) dans `systems_cache.dat`, en réutilisant le seuil réglable existant (`slow_threshold`, v33) au lieu du seuil `800` codé en dur d'origine du worktree.
+- Nouvelle fonction utilitaire `_bucket_letter_for_stem()`, même règle que `_alpha_subdir()`.
+- **Statut** : compile proprement (`py_compile`). **Pas encore testé** — aucune conversion réelle, aucune carte SD réelle, aucun matériel.
 
-~~### ⚠️ Known gap — blocks the feature from doing anything yet~~ *(resolved above)*
-~~The PC Toolkit counterpart is missing entirely...~~
+~~### ⚠️ Lacune connue — bloquait la fonctionnalité~~ *(résolu ci-dessus)*
+~~La contrepartie outil PC était manquante...~~
 
-## ⏭️ Next steps
+## ⏭️ Prochaines étapes
 
-1. ~~Write the PC Toolkit side~~ ✅ done (see above).
-2. Run Mode 1/7 against a real ROMs folder, inspect the generated `systems_cache.dat` — confirm the 4th field is well-formed (27 chars, valid `L`/`N`) and matches what the firmware expects.
-3. Recompile the firmware against current `web_config.h`/`clock_themes.h` and confirm 0 errors.
-4. Test on real hardware: a system with an unevenly-distributed alphabet (e.g. `mame/S/` huge, `mame/G/` small) should now show the mask only when launching a game from the genuinely slow bucket.
-5. Once confirmed working on hardware → merge `dev` into `main`.
+1. ~~Écrire le côté outil PC~~ ✅ fait (voir ci-dessus).
+2. Lancer le Mode 1/7 sur un vrai dossier ROMs, inspecter le `systems_cache.dat` généré — vérifier que le 4e champ est bien formé (27 caractères, `L`/`N` valides) et correspond à ce qu'attend le firmware.
+3. Recompiler le firmware contre les `web_config.h`/`clock_themes.h` actuels et confirmer 0 erreur.
+4. Tester sur matériel réel : un système à l'alphabet mal réparti (ex. `mame/S/` énorme, `mame/G/` petit) ne devrait plus afficher le masque qu'en lançant un jeu du bucket réellement lent.
+5. Une fois confirmé fonctionnel sur matériel → fusionner `dev` dans `main`.
