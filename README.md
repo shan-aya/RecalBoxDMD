@@ -1,4 +1,4 @@
-# RecalBoxDMD — Raw565 Edition
+# RecalBoxDMD — Raw565 Edition dev13
 
 **A real LED marquee for your Recalbox arcade cabinet — instant display, even with a 30,000-game MAME fullset.**
 
