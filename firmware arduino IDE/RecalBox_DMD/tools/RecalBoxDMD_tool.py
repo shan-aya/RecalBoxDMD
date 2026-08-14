@@ -1,7 +1,18 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v34
+# Version actuelle : v35
+#
+# v35 - 2026-08-13 - safe-modify - Support des 2 nouveaux scripts Recalbox
+#      "Luminosite DMD +10%.sh"/"-10%.sh" (marquee/cmd/brightness_up et
+#      /brightness_down, cf. firmware v77) : marqueur "Luminosite DMD"
+#      ajoute a _MANUAL_SCRIPT_MARKERS pour qu'ils soient routes vers
+#      userscripts/manual (comme Reboot/WiFi Recovery/Config Web) et non
+#      userscripts/ racine (reserve aux scripts d'evenement). mode9_desc
+#      (FR/EN/ES) et docstring de download_recalbox_scripts() mis a jour
+#      pour citer les 6 scripts installes par Mode 1/Mode 9 (au passage,
+#      corrige une omission preexistante : "Reboot DMD" n'y etait deja pas
+#      mentionne alors que le marqueur existait depuis un fix precedent).
 #
 # v34 - 2026-08-11 - safe-modify - "main_opt_quit" (bouton Quitter, 3
 #      langues) en MAJUSCULES -- demande utilisateur (voir aussi
@@ -632,7 +643,7 @@ TRANSLATIONS = {
         "main_opt7": "Interface graphique (Tkinter)",
         "mode9_title": "MODE 9 — Installer les scripts Recalbox",
         "mode9_short_title": "Installer les scripts Recalbox",
-        "mode9_desc": "Installe/met à jour les scripts utilisateur Recalbox (WiFi Recovery, Config Web, pont marquee) directement sur le partage réseau de la Recalbox.",
+        "mode9_desc": "Installe/met à jour les scripts utilisateur Recalbox (WiFi Recovery, Config Web, Reboot, Luminosité +10%/-10%, pont marquee) directement sur le partage réseau de la Recalbox.",
         "mode9_ip_prompt": "Adresse IP ou nom réseau de la Recalbox",
         "mode9_autodetect_ok": lambda host: f"✅ Recalbox détectée automatiquement : {host}",
         "mode9_result_ok": lambda n: f"   ✅ {n}",
@@ -875,7 +886,7 @@ TRANSLATIONS = {
         "main_opt7": "Graphical interface (Tkinter)",
         "mode9_title": "MODE 9 — Install Recalbox scripts",
         "mode9_short_title": "Install Recalbox scripts",
-        "mode9_desc": "Installs/updates the Recalbox user scripts (WiFi Recovery, Web Config, marquee bridge) directly on the Recalbox network share.",
+        "mode9_desc": "Installs/updates the Recalbox user scripts (WiFi Recovery, Web Config, Reboot, Brightness +10%/-10%, marquee bridge) directly on the Recalbox network share.",
         "mode9_ip_prompt": "Recalbox IP address or network name",
         "mode9_autodetect_ok": lambda host: f"✅ Recalbox auto-detected: {host}",
         "mode9_result_ok": lambda n: f"   ✅ {n}",
@@ -1119,7 +1130,7 @@ TRANSLATIONS = {
         "main_opt7": "Interfaz gráfica (Tkinter)",
         "mode9_title": "MODO 9 — Instalar scripts de Recalbox",
         "mode9_short_title": "Instalar scripts de Recalbox",
-        "mode9_desc": "Instala/actualiza los scripts de usuario de Recalbox (WiFi Recovery, Config Web, puente marquee) directamente en el recurso compartido de red de la Recalbox.",
+        "mode9_desc": "Instala/actualiza los scripts de usuario de Recalbox (WiFi Recovery, Config Web, Reboot, Brillo +10%/-10%, puente marquee) directamente en el recurso compartido de red de la Recalbox.",
         "mode9_ip_prompt": "Dirección IP o nombre de red de la Recalbox",
         "mode9_autodetect_ok": lambda host: f"✅ Recalbox detectada automáticamente: {host}",
         "mode9_result_ok": lambda n: f"   ✅ {n}",
@@ -3559,7 +3570,7 @@ GITHUB_SCRIPTS_RAW_BASE = "https://raw.githubusercontent.com/shan-aya/RecalBoxDM
 # tools/ est a plat sur GitHub (pas de sous-dossier scripts/manual|events) --
 # route chaque .sh vers userscripts/manual (lancement manuel depuis Recalbox)
 # ou userscripts/ (scripts d'evenement) selon son nom.
-_MANUAL_SCRIPT_MARKERS = ("Config Web DMD", "WiFi Recovery", "Reboot DMD")
+_MANUAL_SCRIPT_MARKERS = ("Config Web DMD", "WiFi Recovery", "Reboot DMD", "Luminosite DMD")
 
 
 def _is_manual_script(fname: str) -> bool:
@@ -3889,7 +3900,8 @@ def install_recalbox_scripts(staged_dir: Path, recalbox_host: str, progress_cb=N
 def download_recalbox_scripts(recalbox_host: str, progress_cb=None, listen_keyboard: bool = True):
     r"""
     Installe/met a jour les scripts utilisateur Recalbox (WiFi Recovery DMD,
-    Config Web DMD, pont marquee) en les telechargeant depuis GitHub
+    Config Web DMD, Reboot DMD, Luminosite DMD +10%/-10%, pont marquee) en
+    les telechargeant depuis GitHub
     (dossier tools/, a plat -- aucun sous-dossier scripts/manual|events sur
     le depot) directement vers le partage reseau \\<recalbox_host>\share,
     route par nom de fichier vers userscripts/manual (scripts a lancement

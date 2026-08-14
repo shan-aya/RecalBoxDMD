@@ -1,7 +1,28 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v76
+// Version actuelle : v77
+//
+// v77 - 2026-08-13 - safe-modify - Commandes MQTT relatives de luminosite
+//   +10%/-10% (marquee/cmd/brightness_up, marquee/cmd/brightness_down,
+//   payload vide), demande explicite utilisateur pour piloter la
+//   luminosite depuis un script Recalbox (menu START > Parametres avances
+//   > Scripts utilisateur) sans devoir connaitre/publier un pourcentage
+//   absolu comme le fait CMD_BRIGHTNESS (v70/v71). Nouvelles commandes
+//   MqttCommand::CMD_BRIGHTNESS_UP/CMD_BRIGHTNESS_DOWN, traitees dans le
+//   meme case que CMD_BRIGHTNESS (processPendingMqttCommand()) : le
+//   pourcentage courant est reconstruit depuis screenBrightness (0-255,
+//   round(x*100/255)), le delta est applique et clampe [0,100], puis
+//   applique en live via display->setBrightness8() comme les autres
+//   commandes de luminosite. Difference volontaire avec CMD_BRIGHTNESS
+//   (qui reste RAM-only) : ces 2 nouvelles commandes appellent aussi
+//   writeConfigFlag("brightness", ...) pour persister la nouvelle valeur
+//   dans /config.ini (choix utilisateur explicite -- un +10%/-10% declenche
+//   depuis un script doit survivre a un reboot, sans repasser par le
+//   bouton "Sauvegarder" de la page web). L'ecriture SD est conditionnelle
+//   (seulement si le pourcentage clampe differe reellement du courant,
+//   ex. deja a 100% et +10% demande) pour eviter des ecritures inutiles.
+//   Pas encore teste sur materiel reel.
 //
 // v76 - 2026-08-11 - safe-modify - Log diagnostique esp_reset_reason() au
 //   boot (demande utilisateur), suite a un crash a distance non explique :
@@ -2170,7 +2191,8 @@ struct MqttCommand
 {
   enum Type { CMD_NONE, CMD_STOP, CMD_DEFAULT, CMD_SYSTEM, CMD_GAME,
               CMD_STARTCLIP, CMD_RESUMESYS, CMD_SHOW_CONFIG, CMD_WIFI_RECOVERY,
-              CMD_REBOOT, CMD_WAITING_MQTT, CMD_BRIGHTNESS, CMD_CLOCK_PREVIEW };
+              CMD_REBOOT, CMD_WAITING_MQTT, CMD_BRIGHTNESS, CMD_CLOCK_PREVIEW,
+              CMD_BRIGHTNESS_UP, CMD_BRIGHTNESS_DOWN };
   Type   type;
   String arg;
   MqttCommand() : type(CMD_NONE), arg("") {}
@@ -4488,6 +4510,34 @@ void processPendingMqttCommand()
     break;
   }
 
+  // Pas de luminosite relatif +10%/-10% via MQTT (v77) : declenche par un
+  // script Recalbox (mosquitto_pub -t marquee/cmd/brightness_up -m "" ou
+  // marquee/cmd/brightness_down), payload ignore. Contrairement a
+  // CMD_BRIGHTNESS ci-dessus (RAM only), ces 2 commandes PERSISTENT la
+  // nouvelle valeur dans /config.ini via writeConfigFlag() -- choix
+  // utilisateur explicite, un +10%/-10% declenche depuis un script doit
+  // survivre a un reboot sans passer par le bouton "Sauvegarder" web.
+  // Ecriture SD conditionnelle (seulement si la valeur clampee change
+  // reellement, ex. deja a 100% et +10% redemande) pour ne pas ecrire sur
+  // la SD inutilement.
+  case MqttCommand::CMD_BRIGHTNESS_UP:
+  case MqttCommand::CMD_BRIGHTNESS_DOWN:
+  {
+    int curPct = (int)round(screenBrightness * 100.0 / 255.0);
+    int delta  = (cmd.type == MqttCommand::CMD_BRIGHTNESS_UP) ? 10 : -10;
+    int newPct = constrain(curPct + delta, 0, 100);
+    if (newPct != curPct) {
+      screenBrightness = map(newPct, 0, 100, 0, 255);
+      if (display) display->setBrightness8(screenBrightness);
+      writeConfigFlag("brightness", String(newPct));
+      Serial.println("[MQTT] brightness " + String(delta > 0 ? "+" : "") + String(delta) +
+                      "% -> " + String(newPct) + "% (sauvegarde config.ini)");
+    } else {
+      Serial.println("[MQTT] brightness deja au " + String(newPct == 0 ? "minimum" : "maximum") + " (" + String(newPct) + "%)");
+    }
+    break;
+  }
+
   // Apercu de theme horloge depuis la page web (v72, onglet Horloge ;
   // fixes v73 ci-dessous) -- cmd.arg = "stop" (quitte la page ou aucun
   // thème selectionne) ou un theme ("-1".."9", cf. select #clock_theme).
@@ -4589,6 +4639,8 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
   else if(t=="marquee/cmd/wifi_recovery") pendingCmd=MqttCommand(MqttCommand::CMD_WIFI_RECOVERY,"");
   else if(t=="marquee/cmd/reboot")        pendingCmd=MqttCommand(MqttCommand::CMD_REBOOT,"");
   else if(t=="marquee/cmd/brightness")    pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS,msg);
+  else if(t=="marquee/cmd/brightness_up")   pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_UP,"");
+  else if(t=="marquee/cmd/brightness_down") pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_DOWN,"");
   else if(t==mqttEventTopic)
   {
     String ev=extractField(msg,"EVENT");
@@ -4725,6 +4777,8 @@ void mqttTask(void *param)
         mqttClient.subscribe("marquee/cmd/wifi_recovery");
         mqttClient.subscribe("marquee/cmd/reboot");
         mqttClient.subscribe("marquee/cmd/brightness");
+        mqttClient.subscribe("marquee/cmd/brightness_up");
+        mqttClient.subscribe("marquee/cmd/brightness_down");
         mqttClient.subscribe(mqttEventTopic.c_str());
         // Retenu (retain=true) : un abonne (script Recalbox) qui se connecte
         // plus tard recoit immediatement la derniere IP publiee, sans avoir
