@@ -485,6 +485,19 @@ Recalbox → marquee[rungame,endgame,...].sh → MQTT → ESP32 → Panneau LED
 
 Installez le script utilisateur avec le **Mode 9** de la boîte à outils, ou copiez `marquee[...].sh` manuellement vers `/recalbox/share/userscripts/`.
 
+### 🎮 Pilotage manuel depuis le menu Recalbox
+
+Le **Mode 9** installe aussi des scripts déclenchables à la main depuis Recalbox (**START → Paramètres avancés → Scripts utilisateur**), sans toucher à la carte SD :
+
+| Script | Effet |
+|---|---|
+| **WiFi Recovery DMD** | Repasse le DMD en mode point d'accès (AP) de secours pour reconfigurer le WiFi. |
+| **Config Web DMD** | Ouvre la page de configuration web sur le DMD et affiche son IP dans Recalbox pour y accéder directement. |
+| **Reboot DMD** | Redémarre le DMD à distance. |
+| **Luminosité DMD +10% / -10%** | Ajuste la luminosité de l'écran par pas de 10 points de pourcentage (clampé 0-100%), appliqué instantanément et sauvegardé dans `config.ini`. |
+
+Tous passent par le même canal MQTT que le pont marquee, sans jamais interrompre l'affichage en cours.
+
 Une console **Telnet** est intégrée pour le débogage sur l'appareil :
 ```
 telnet <ip-esp32>
