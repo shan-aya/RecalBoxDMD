@@ -2,7 +2,17 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v49
+# Version actuelle : v50
+#
+# v50 — 2026-08-15 — safe-modify — Nouveau dialogue _prompt_systems_image_lang_dialog()
+#      (choix EN/FR/ES des images systemes/genres _defaults, avec miniature
+#      comparative bundlee tools/assets/lang_preview/compare_systems_lang.png)
+#      pose en Mode 1 (_on_start_clicked, avec les autres pre-vol) ET en
+#      Mode 2 onglet Avance (telechargement _defaults seul). Choix persiste
+#      (prefs "systems_image_lang", pre-selectionne au dialogue suivant) et
+#      transmis a toolkit.download_defaults(..., lang=...) dans
+#      _pipeline_mode_1()/_pipeline_mode_2(). Voir RecalBoxDMD_tool.py v36 et
+#      RecalBoxDMD_prefs.py v8.
 #
 # v49 — 2026-08-13 — safe-modify — Texte long du panneau Mode 9 (FR/EN/ES)
 #      mis a jour pour citer les 6 scripts installes (ajout de Reboot DMD,
@@ -1178,6 +1188,16 @@ UI_TRANSLATIONS = {
         ),
         "gifpack_q_yes": "Oui",
         "gifpack_q_no": "Non",
+        "lang_images_title": "Langue des images système",
+        "lang_images_msg": (
+            "Dans quelle langue veux-tu les images système/genres "
+            "(_defaults/) ? Les genres pas encore traduits dans la langue "
+            "choisie restent affichés en anglais.\n\n"
+            "Aperçu (exemple ci-dessous) :"
+        ),
+        "lang_images_en": "🇬🇧 Anglais (EN)",
+        "lang_images_fr": "🇫🇷 Français (FR)",
+        "lang_images_es": "🇪🇸 Espagnol (ES)",
         "customgifs_q_title": "GIFs personnalisés",
         "customgifs_q_msg": (
             "Voulez-vous ajouter vos propres GIFs (onglet Playlist) avant "
@@ -1610,6 +1630,16 @@ UI_TRANSLATIONS = {
         ),
         "gifpack_q_yes": "Yes",
         "gifpack_q_no": "No",
+        "lang_images_title": "System images language",
+        "lang_images_msg": (
+            "Which language do you want the system/genre images "
+            "(_defaults/) in? Genres not yet translated into the chosen "
+            "language stay displayed in English.\n\n"
+            "Preview (example below):"
+        ),
+        "lang_images_en": "🇬🇧 English (EN)",
+        "lang_images_fr": "🇫🇷 French (FR)",
+        "lang_images_es": "🇪🇸 Spanish (ES)",
         "customgifs_q_title": "Custom GIFs",
         "customgifs_q_msg": (
             "Do you want to add your own GIFs (Playlist tab) before "
@@ -2046,6 +2076,16 @@ UI_TRANSLATIONS = {
         ),
         "gifpack_q_yes": "Sí",
         "gifpack_q_no": "No",
+        "lang_images_title": "Idioma de las imágenes de sistemas",
+        "lang_images_msg": (
+            "¿En qué idioma quieres las imágenes de sistemas/géneros "
+            "(_defaults/)? Los géneros aún no traducidos al idioma elegido "
+            "se muestran en inglés.\n\n"
+            "Vista previa (ejemplo abajo):"
+        ),
+        "lang_images_en": "🇬🇧 Inglés (EN)",
+        "lang_images_fr": "🇫🇷 Francés (FR)",
+        "lang_images_es": "🇪🇸 Español (ES)",
         "customgifs_q_title": "GIFs personalizados",
         "customgifs_q_msg": (
             "¿Quieres añadir tus propios GIFs (pestaña Playlist) antes de "
@@ -4723,7 +4763,7 @@ class RetroBoxLEDGui:
         self._detail_templates = {
             "fr": {
                 "1": "Le mode AUTO extrait les images à partir de vos gamelists, convertit les PNG en 128x32 (raw565) et les GIF en raw565pack/meta, construit le cache, télécharge les images par défaut et génère systems_cache.dat. Installe aussi les scripts Recalbox et transmet la langue au DMD, en tout début de pipeline.\n\nImportant : choisissez d'abord la « Version Recalbox » ci-dessous (10.x / 9.x / legacy) — elle détermine quelle balise du gamelist.xml est utilisée (logo/thumbnail/image). Cliquez « Comment scraper ? » pour savoir quoi cocher dans l'onglet Scraper de Recalbox.\n\nMarche à suivre :\n1. « Choisir dossier ROMs » (détection des systèmes automatique)\n2. Sélectionnez les systèmes à traiter\n3. « Démarrer »",
-                "2": "Le mode 2 télécharge uniquement les images situées dans “systems/_defaults” depuis GitHub. Il ne réalise aucune extraction ni conversion d’images.\n\nMarche à suivre :\n1. Cliquez directement sur « Démarrer ».\nAucun dossier ROMs ni sélection de systèmes n'est nécessaire (bouton désactivé).",
+                "2": "Le mode 2 télécharge uniquement les images situées dans “systems/_defaults” depuis GitHub. Il ne réalise aucune extraction ni conversion d’images.\n\nMarche à suivre :\n1. Cliquez directement sur « Démarrer ».\n2. Choisissez la langue des images système/genres (EN/FR/ES, avec aperçu comparatif) — les genres pas encore traduits dans la langue choisie restent en anglais.\n3. La galerie d'image de secours s'ouvre systématiquement — choisissez-en une, ou fermez sans choisir pour revenir au visuel par défaut du projet.\nAucun dossier ROMs ni sélection de systèmes n'est nécessaire (bouton désactivé).",
                 "3": "Le mode 3 récupère exclusivement les images présentes dans votre dossier ROMS, en se basant sur le fichier gamelist.xml.\n\nImportant : choisissez d'abord la « Version Recalbox » ci-dessous (10.x / 9.x / legacy) — elle détermine quelle balise du gamelist.xml est utilisée. Cliquez « Comment scraper ? » pour savoir quoi cocher dans l'onglet Scraper de Recalbox.\n\nMarche à suivre :\n1. « Choisir dossier ROMs »\n2. « Détection des systèmes (gamelist.xml) »\n3. Sélectionnez les systèmes à traiter\n4. « Démarrer »",
                 "4": "Le mode 4 convertit les images PNG en raw565 et les GIF en raw565pack accompagnés de méta-données. Cette conversion concerne uniquement les formats raw.\n\nMarche à suivre :\n1. « Choisir dossier IMAGES »\n2. « Sélection des dossiers images »\n3. Sélectionnez les dossiers à convertir\n4. « Démarrer » (un dossier de sortie vous sera demandé)",
                 "5": "Le mode 5 convertit les images PNG et raw565 pour les redimensionner en 128x32 pixels.\n\nMarche à suivre :\n1. « Choisir dossier IMAGES »\n2. « Sélection des dossiers images »\n3. Sélectionnez les dossiers à convertir\n4. « Démarrer » (un dossier de sortie vous sera demandé)",
@@ -4736,7 +4776,7 @@ class RetroBoxLEDGui:
             },
             "en": {
                 "1": "Auto Mode extracts images from your gamelists, converts PNG to 128x32 (raw565) and GIF to raw565pack/meta, builds the cache, downloads the default images and generates systems_cache.dat. Also installs the Recalbox scripts and sends the language to the DMD, right at the start of the pipeline.\n\nImportant: pick the \"Recalbox version\" below first (10.x / 9.x / legacy) — it determines which gamelist.xml tag is used (logo/thumbnail/image). Click \"How to scrape?\" to see exactly what to enable in Recalbox's Scraper tab.\n\nSteps:\n1. « Choose ROMs folder » (systems auto-detected)\n2. Select the systems to process\n3. « Start »",
-                "2": "Mode 2: downloads “systems/_defaults” from GitHub only (no extraction or conversion).\n\nSteps:\n1. Click « Start » directly.\nNo ROMs folder or system selection needed (button disabled).",
+                "2": "Mode 2: downloads “systems/_defaults” from GitHub only (no extraction or conversion).\n\nSteps:\n1. Click « Start » directly.\n2. Choose the system/genre images language (EN/FR/ES, with a comparison preview) — genres not yet translated into the chosen language stay in English.\n3. The fallback image gallery always opens — pick one, or close without choosing to revert to the project's default visual.\nNo ROMs folder or system selection needed (button disabled).",
                 "3": "Mode 3: pulls images only from your ROM folder via gamelist.xml.\n\nImportant: pick the \"Recalbox version\" below first (10.x / 9.x / legacy) — it determines which gamelist.xml tag is used. Click \"How to scrape?\" to see what to enable in Recalbox's Scraper tab.\n\nSteps:\n1. « Choose ROMs folder »\n2. « Detect systems (gamelist.xml) »\n3. Select the systems to process\n4. « Start »",
                 "4": "Mode 4: converts PNG → raw565 and GIF → raw565pack + meta (raw-only conversion).\n\nSteps:\n1. « Choose images folder »\n2. « Select image folders »\n3. Select the folders to convert\n4. « Start » (you'll be asked for an output folder)",
                 "5": "Mode 5: converts PNG and raw565 images to 128x32.\n\nSteps:\n1. « Choose images folder »\n2. « Select image folders »\n3. Select the folders to convert\n4. « Start » (you'll be asked for an output folder)",
@@ -4749,7 +4789,7 @@ class RetroBoxLEDGui:
             },
             "es": {
                 "1": "Modo 1 (AUTO): extrae imágenes desde tus gamelists, convierte PNG a 128x32 (raw565) y GIF a raw565pack/meta, crea la caché, descarga las imágenes por defecto y genera systems_cache.dat. También instala los scripts de Recalbox y transmite el idioma al DMD, al principio del proceso.\n\nImportante: elige primero la « Versión de Recalbox » abajo (10.x / 9.x / legacy) — determina la etiqueta del gamelist.xml usada (logo/thumbnail/image). Haz clic en « Cómo hacer el scrape? » para saber qué activar en la pestaña Scraper de Recalbox.\n\nPasos:\n1. « Elegir carpeta ROMs » (detección de sistemas automática)\n2. Seleccione los sistemas a procesar\n3. « Iniciar »",
-                "2": "Modo 2: descarga “systems/_defaults” desde GitHub solo (sin extracción ni conversión).\n\nPasos:\n1. Haga clic directamente en « Iniciar ».\nNo se necesita carpeta ROMs ni selección de sistemas (botón desactivado).",
+                "2": "Modo 2: descarga “systems/_defaults” desde GitHub solo (sin extracción ni conversión).\n\nPasos:\n1. Haga clic directamente en « Iniciar ».\n2. Elija el idioma de las imágenes de sistemas/géneros (EN/FR/ES, con vista previa comparativa) — los géneros aún no traducidos al idioma elegido se muestran en inglés.\n3. La galería de imagen de respaldo se abre siempre — elija una, o ciérrela sin elegir para volver al visual predeterminado del proyecto.\nNo se necesita carpeta ROMs ni selección de sistemas (botón desactivado).",
                 "3": "Modo 3: extrae solo imágenes desde tu carpeta ROMs vía gamelist.xml.\n\nImportante: elige primero la « Versión de Recalbox » abajo (10.x / 9.x / legacy) — determina la etiqueta del gamelist.xml usada. Haz clic en « Cómo hacer el scrape? » para saber qué activar en la pestaña Scraper de Recalbox.\n\nPasos:\n1. « Elegir carpeta ROMs »\n2. « Detectar sistemas (gamelist.xml) »\n3. Seleccione los sistemas a procesar\n4. « Iniciar »",
                 "4": "Modo 4: convierte PNG → raw565 y GIF → raw565pack + meta (conversión “raw-only”).\n\nPasos:\n1. « Elegir carpeta de imágenes »\n2. « Selección de carpetas de imágenes »\n3. Seleccione las carpetas a convertir\n4. « Iniciar » (se le pedirá una carpeta de salida)",
                 "5": "Modo 5: convierte las imágenes PNG y raw565 a 128x32.\n\nPasos:\n1. « Elegir carpeta de imágenes »\n2. « Selección de carpetas de imágenes »\n3. Seleccione las carpetas a convertir\n4. « Iniciar » (se le pedirá una carpeta de salida)",
@@ -7340,6 +7380,75 @@ class RetroBoxLEDGui:
         self.root.wait_window(dlg)
         return result["value"]
 
+    def _prompt_systems_image_lang_dialog(self) -> str:
+        """Popup themee : choix de la langue des images systemes/genres
+        (_defaults/) telechargees depuis GitHub -- "en"/"fr"/"es". Affiche
+        une miniature comparative bundlee (tools/assets/lang_preview/) a
+        titre d'exemple. Pre-selectionne le dernier choix sauvegarde
+        (prefs "systems_image_lang") ; le choix fait ici est aussitot
+        persiste, quel que soit le bouton clique. Fermer le dialogue (X)
+        conserve le dernier choix sans le changer."""
+        ui = self._get_ui_t()
+        c = self._theme_colors()
+        bg = c.get("bg_main", "#F3F3F3")
+        fg = c.get("fg_text", "#000000")
+        bg_action = c.get("bg_button_action", "#FFD400")
+        bg_normal = c.get("bg_button_normal", "#FFFFFF")
+        current = prefs.get("systems_image_lang") or "en"
+        result = {"value": current}
+
+        dlg = tk.Toplevel(self.root)
+        dlg.title(ui["lang_images_title"])
+        dlg.configure(bg=bg)
+        dlg.transient(self.root)
+        dlg.resizable(False, False)
+        body = tk.Frame(dlg, bg=bg, padx=16, pady=16)
+        body.pack(fill="both", expand=True)
+        tk.Label(
+            body, text=ui["lang_images_msg"], bg=bg, fg=fg,
+            font=("TkDefaultFont", 9), wraplength=460, justify="left",
+        ).pack(anchor="w", pady=(0, 10))
+
+        img_path = Path(__file__).resolve().parent / "assets" / "lang_preview" / "compare_systems_lang.png"
+        if img_path.exists():
+            try:
+                from PIL import Image, ImageTk
+
+                img = Image.open(img_path)
+                max_w = 460
+                if img.width > max_w:
+                    ratio = max_w / img.width
+                    img = img.resize((max_w, int(img.height * ratio)))
+                photo = ImageTk.PhotoImage(img)
+                lbl_img = tk.Label(body, image=photo, bg=bg, bd=2, relief="solid")
+                lbl_img.image = photo  # garder une reference (evite le garbage collect)
+                lbl_img.pack(pady=(0, 12))
+            except Exception:
+                pass
+
+        btns = tk.Frame(body, bg=bg)
+        btns.pack(fill="x")
+
+        def _pick(value: str):
+            result["value"] = value
+            prefs.set("systems_image_lang", value)
+            dlg.destroy()
+
+        for value, key in (("en", "lang_images_en"), ("fr", "lang_images_fr"), ("es", "lang_images_es")):
+            is_current = value == current
+            tk.Button(
+                btns, text=ui[key], command=lambda v=value: _pick(v),
+                bg=bg_action if is_current else bg_normal, fg="#000000" if is_current else fg,
+                bd=2, relief="solid", padx=10, pady=6, font=("TkDefaultFont", 10, "bold"),
+            ).pack(side="left", expand=True, fill="x", padx=2)
+
+        dlg.protocol("WM_DELETE_WINDOW", dlg.destroy)
+        dlg.update_idletasks()
+        self._center_toplevel(dlg)
+        dlg.grab_set()
+        self.root.wait_window(dlg)
+        return result["value"]
+
     def _prompt_recalbox_ip_dialog(self, default: str = "") -> Optional[str]:
         """Popup themee avec un champ de saisie pour l'IP/nom reseau de la
         Recalbox (remplace un simpledialog.askstring natif, non theme et
@@ -7531,6 +7640,7 @@ class RetroBoxLEDGui:
             is_unc = False
 
             if mode == "2":
+                ui2 = self._get_ui_t()
                 # Si des fichiers existent deja dans _defaults/, proposer
                 # d'ecraser (recuperer les dernieres versions) ou de conserver
                 # les fichiers actuels. Choix lu sur le thread principal (avant
@@ -7541,13 +7651,33 @@ class RetroBoxLEDGui:
                 self._mode2_overwrite_existing = True
                 defaults_dir = self.sd_dir / "systems" / "_defaults"
                 if defaults_dir.exists() and any(defaults_dir.iterdir()):
-                    ui2 = self._get_ui_t()
                     # Popup themee (2026-08-11) -- messagebox.askyesno() est
                     # un rendu Windows natif fixe, ne suit pas le theme
                     # clair/sombre actif.
                     self._mode2_overwrite_existing = self._themed_yesno(
                         ui2["mode2_overwrite_title"], ui2["mode2_overwrite_msg"]
                     )
+
+                # Image de secours personnalisee (default.raw565) -- ajoutee
+                # ici car le Mode 2 telecharge aussi _defaults/
+                # (download_defaults() re-ecrase default.raw565 a chaque
+                # fois, voir sa docstring) et n'offrait jusqu'ici aucun
+                # moyen de la definir sans passer par le Mode 1 complet.
+                # Contrairement au Mode 1 (question oui/non, une seule fois
+                # tant qu'aucun choix n'est enregistre), la galerie est
+                # proposee SYSTEMATIQUEMENT ici, a chaque lancement du Mode
+                # 2 -- demande explicite utilisateur. Fermer sans choisir
+                # (bouton Fermer ou X) retombe alors sur le visuel par
+                # defaut du projet (reset_on_close=True) plutot que de
+                # laisser silencieusement un ancien choix personnalise en
+                # place.
+                self._on_default_image_picker_clicked(reset_on_close=True)
+
+                # Langue des images systemes/genres telechargees (voir
+                # toolkit.download_defaults(lang=...)) -- posee que le
+                # telechargement soit un premier remplissage ou une mise a
+                # jour, dans les deux cas download_defaults() est appele.
+                self._systems_image_lang = self._prompt_systems_image_lang_dialog()
         else:
             # Verifie/alerte sur le dossier ROMs AVANT tout prompt Mode 1
             # (RB/image de secours, ci-dessous) : si aucun dossier n'est
@@ -7757,6 +7887,11 @@ class RetroBoxLEDGui:
                     ui_pre["mode1_fallback_image_title"], ui_pre["mode1_fallback_image_msg"]
                 ):
                     self._on_default_image_picker_clicked()
+
+            # Langue des images systemes/genres telechargees depuis GitHub
+            # (voir toolkit.download_defaults(lang=...)) -- meme question
+            # qu'en Mode 2 (onglet Avance), posee ici pour le Mode 1 auto.
+            self._systems_image_lang = self._prompt_systems_image_lang_dialog()
 
             # Banque de GIFs (pack GitHub + GIFs perso via l'onglet
             # Playlist) : question posee ICI (thread principal, avant
@@ -8103,6 +8238,7 @@ class RetroBoxLEDGui:
             listen_keyboard=False,
             replace_existing=True,
             download_missing=True,
+            lang=getattr(self, "_systems_image_lang", None) or prefs.get("systems_image_lang") or "en",
         )
         self._apply_custom_default_fallback(sd_dir)
 
@@ -8231,6 +8367,7 @@ class RetroBoxLEDGui:
             replace_existing=True,
             download_missing=True,
             overwrite_existing_files=getattr(self, "_mode2_overwrite_existing", True),
+            lang=getattr(self, "_systems_image_lang", None) or prefs.get("systems_image_lang") or "en",
         )
         self._apply_custom_default_fallback(sd_dir)
 
@@ -9257,7 +9394,16 @@ class RetroBoxLEDGui:
         except Exception as e:
             print(f"[GUI] Echec application image de secours : {e}")
 
-    def _on_default_image_picker_clicked(self) -> None:
+    def _on_default_image_picker_clicked(self, reset_on_close: bool = False) -> None:
+        """reset_on_close : si True, fermer le dialogue SANS choisir
+        explicitement une tuile (bouton Fermer ou X de la fenetre) applique
+        quand meme le "visuel par defaut du projet" (equivalent a cliquer la
+        tuile de reset) au lieu de ne rien faire. Utilise par le Mode 2
+        (galerie proposee systematiquement a chaque lancement -- fermer sans
+        choisir doit alors retomber sur un etat connu/par defaut plutot que
+        de laisser silencieusement l'ancien choix personnalise en place).
+        False (comportement d'origine, inchange) pour l'usage bouton normal
+        (onglet Avance, Mode 10) : fermer sans choisir ne change rien."""
         ui = self._get_ui_t()
         c = self._theme_colors()
         bg = c.get("bg_main", "#F3F3F3")
@@ -9323,18 +9469,14 @@ class RetroBoxLEDGui:
 
             dlg.destroy()
             if not applied_now:
+                # Garde uniquement la popup d'ERREUR (information utile,
+                # echec silencieux serait trompeur) -- les confirmations de
+                # succes (reset/choix applique) ont ete retirees a la
+                # demande utilisateur : le choix est deja visible/applique
+                # immediatement, une popup supplementaire etait de trop.
                 messagebox.showerror(
                     ui["default_image_btn"],
                     ui["default_image_apply_failed_msg"].format(name=display_name),
-                )
-            elif is_reset:
-                messagebox.showinfo(
-                    ui["default_image_btn"], ui["default_image_reset_applied_msg"]
-                )
-            else:
-                messagebox.showinfo(
-                    ui["default_image_btn"],
-                    ui["default_image_applied_now_msg"].format(name=display_name),
                 )
 
         PROJECT_DEFAULT_IMAGE_FILENAME = self.PROJECT_DEFAULT_IMAGE_FILENAME
@@ -9469,10 +9611,16 @@ class RetroBoxLEDGui:
             font=("TkDefaultFont", 10, "bold"),
         ).pack(fill="x", pady=(12, 6))
 
+        def _on_close():
+            if reset_on_close:
+                _apply_choice(None, "", is_reset=True)
+            else:
+                dlg.destroy()
+
         tk.Button(
             body,
             text=ui["btn_close"],
-            command=dlg.destroy,
+            command=_on_close,
             bg=bg_normal,
             fg=fg,
             bd=2,
@@ -9482,6 +9630,7 @@ class RetroBoxLEDGui:
             font=("TkDefaultFont", 10, "bold"),
         ).pack(fill="x")
 
+        dlg.protocol("WM_DELETE_WINDOW", _on_close)
         dlg.update_idletasks()
         self._center_toplevel(dlg)
         dlg.grab_set()

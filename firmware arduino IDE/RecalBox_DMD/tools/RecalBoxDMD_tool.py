@@ -1,7 +1,28 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v35
+# Version actuelle : v37
+#
+# v37 - 2026-08-16 - safe-modify - Fix lenteur signalee "16 par 16, plusieurs
+#      minutes entre chaque lot" sur les telechargements _defaults/pack GIFs :
+#      _parallel_download_batch()/_dl_one() appelait
+#      urllib.request.urlretrieve() SANS timeout -- avec 16 threads en
+#      parallele (_PARALLEL_DOWNLOAD_MAX_WORKERS), une seule connexion qui
+#      traine bloquait son slot indefiniment (souvent plusieurs minutes
+#      avant un eventuel timeout OS) avant que le lot suivant ne demarre.
+#      Fix : socket.setdefaulttimeout(20) pose avant de lancer le
+#      ThreadPoolExecutor, restaure apres (valeur precedente sauvegardee).
+#
+# v36 - 2026-08-15 - safe-modify - download_defaults() : nouveau parametre
+#      optionnel lang="en" (aussi "fr"/"es"). Apres le telechargement du jeu
+#      EN habituel (base/fallback garanti pour tout systeme/genre), si
+#      lang != "en" on recupere en plus le sous-dossier GitHub
+#      systems/_defaults/<lang>/ (memes noms de fichiers) et on ecrase
+#      localement, a plat, les seuls fichiers qui y existent -- les genres
+#      non traduits restent donc en EN plutot que d'echouer/manquer. Le
+#      sous-dossier distant est ignore par le listing existant (qui filtre
+#      deja type=="file", les dossiers "fr"/"es" ne remontaient pas) : rien
+#      ne change pour lang="en" (comportement identique a avant ce patch).
 #
 # v35 - 2026-08-13 - safe-modify - Support des 2 nouveaux scripts Recalbox
 #      "Luminosite DMD +10%.sh"/"-10%.sh" (marquee/cmd/brightness_up et
@@ -618,6 +639,9 @@ TRANSLATIONS = {
         "dl_file_err": lambda n, e: f"   ⚠️  {n} — {e}",
         "dl_file_skip": lambda n, i, t: f"   {i:4d}/{t} ⏭️  {n} (deja present, conserve)",
         "dl_done": lambda n: f"✅ {n} fichiers téléchargés dans _defaults/",
+        "dl_lang_title": lambda lang: f"🌐  Téléchargement des images systèmes traduites ({lang})",
+        "dl_lang_fail": lambda lang: f"⚠️  Échec du téléchargement des images {lang} — les visuels EN restent en place.",
+        "dl_lang_done": lambda n, lang: f"✅ {n} fichiers {lang} téléchargés (les genres non traduits restent en EN)",
         "dl_fail_api": "❌ API GitHub inaccessible. Vérifiez votre connexion internet.",
         "github_rate_limit_msg": lambda reset_time: (
             f"⏳ Limite de requêtes GitHub atteinte (quota horaire de l'API, "
@@ -861,6 +885,9 @@ TRANSLATIONS = {
         "dl_file_err": lambda n, e: f"   ⚠️  {n} — {e}",
         "dl_file_skip": lambda n, i, t: f"   {i:4d}/{t} ⏭️  {n} (already present, kept)",
         "dl_done": lambda n: f"✅ {n} files downloaded into _defaults/",
+        "dl_lang_title": lambda lang: f"🌐  Downloading translated system images ({lang})",
+        "dl_lang_fail": lambda lang: f"⚠️  Failed to download {lang} images — EN visuals remain in place.",
+        "dl_lang_done": lambda n, lang: f"✅ {n} {lang} files downloaded (untranslated genres stay EN)",
         "dl_fail_api": "❌ GitHub API unreachable. Check your internet connection.",
         "github_rate_limit_msg": lambda reset_time: (
             f"⏳ GitHub API rate limit reached (hourly quota, 60 requests/hour "
@@ -1104,6 +1131,9 @@ TRANSLATIONS = {
         "dl_file_err": lambda n, e: f"   ⚠️  {n} — {e}",
         "dl_file_skip": lambda n, i, t: f"   {i:4d}/{t} ⏭️  {n} (ya presente, conservado)",
         "dl_done": lambda n: f"✅ {n} archivos descargados en _defaults/",
+        "dl_lang_title": lambda lang: f"🌐  Descargando imágenes de sistemas traducidas ({lang})",
+        "dl_lang_fail": lambda lang: f"⚠️  Error al descargar las imágenes {lang} — se mantienen los visuales EN.",
+        "dl_lang_done": lambda n, lang: f"✅ {n} archivos {lang} descargados (los géneros sin traducir quedan en EN)",
         "dl_fail_api": "❌ API de GitHub inaccesible. Verifica tu conexión a internet.",
         "github_rate_limit_msg": lambda reset_time: (
             f"⏳ Límite de solicitudes de GitHub alcanzado (cuota horaria de la "
@@ -3207,6 +3237,7 @@ def _parallel_download_batch(
     les logs pour une operation qui dure maintenant quelques secondes.
     """
     import concurrent.futures as cf
+    import socket
     import urllib.request
 
     total = len(tasks)
@@ -3222,6 +3253,17 @@ def _parallel_download_batch(
     def _dl_one(item):
         raw_url, dst, label = item
         try:
+            # urlretrieve() n'a pas de parametre timeout direct -- il herite
+            # du timeout socket par defaut du thread (None = bloque
+            # indefiniment si la connexion traine/stall). Avec 16 threads en
+            # parallele (_PARALLEL_DOWNLOAD_MAX_WORKERS), un seul fichier
+            # lent bloquait tout son slot jusqu'a un eventuel timeout OS
+            # (souvent plusieurs minutes) avant que le lot suivant ne
+            # demarre -- symptome remonte : "16 par 16, plusieurs minutes
+            # entre chaque lot". socket.setdefaulttimeout() est global au
+            # PROCESSUS (pas par-thread) mais chaque thread du pool
+            # l'applique des sa premiere connexion -- fixe une fois avant de
+            # lancer le lot (voir plus bas) plutot que dans _dl_one().
             urllib.request.urlretrieve(raw_url, dst)
             return True, label, None
         except Exception as e:
@@ -3230,6 +3272,15 @@ def _parallel_download_batch(
     done = 0
     failed: list = []
     stopped = False
+    # Timeout socket global au processus (par-thread, herite a la premiere
+    # connexion) -- borne les connexions qui trainent au lieu de bloquer
+    # indefiniment (voir commentaire dans _dl_one()). Restaure la valeur
+    # precedente apres coup pour ne pas affecter le reste du programme
+    # (ex: connexions SMB/SSH ailleurs, qui passent deja leur propre
+    # timeout explicite et ne sont donc pas impactees, mais autant rester
+    # prudent).
+    _prev_timeout = socket.getdefaulttimeout()
+    socket.setdefaulttimeout(20)
     ex = cf.ThreadPoolExecutor(max_workers=max_workers)
     try:
         futures = {ex.submit(_dl_one, item): item for item in tasks}
@@ -3246,6 +3297,7 @@ def _parallel_download_batch(
                 break
     finally:
         ex.shutdown(wait=not stopped, cancel_futures=stopped)
+        socket.setdefaulttimeout(_prev_timeout)
 
     return done, failed
 
@@ -3265,6 +3317,7 @@ def download_defaults(
     replace_existing=None,
     download_missing=None,
     overwrite_existing_files: bool = True,
+    lang: str = "en",
 ):
     """
     Propose de télécharger _defaults/ depuis GitHub.
@@ -3280,6 +3333,13 @@ def download_defaults(
     applique, quel que soit ce reglage). Ne supprime plus tout le dossier
     (auparavant : shutil.rmtree) -- seuls les fichiers effectivement
     retelecharges sont ecrases, fichier par fichier.
+
+    lang : "en" (defaut) / "fr" / "es" -- langue des images systemes/genres.
+    Le jeu EN complet est TOUJOURS telecharge en premier (garantit un
+    fallback pour tout systeme/genre, traduit ou non). Si lang != "en", les
+    fichiers du sous-dossier GitHub systems/_defaults/<lang>/ sont ensuite
+    telecharges par-dessus, a plat (memes noms), pour les seuls genres qui y
+    existent -- ceux qui n'ont pas encore de traduction restent en EN.
     """
     import urllib.request
     import json
@@ -3383,6 +3443,67 @@ def download_defaults(
         PAUSE.stop()
 
     print(tr("dl_done")(done))
+
+    if lang in ("fr", "es"):
+        _download_defaults_lang_overlay(defaults_dir, lang, progress_cb, listen_keyboard)
+
+
+def _download_defaults_lang_overlay(
+    defaults_dir: Path, lang: str, progress_cb=None, listen_keyboard: bool = True
+):
+    """
+    Telecharge systems/_defaults/<lang>/ (GitHub) par-dessus defaults_dir,
+    a plat (les fichiers gardent leur nom sans le sous-dossier) -- seuls les
+    genres qui ont une traduction <lang> sont ecrases, les autres restent en
+    EN (deja telecharges par download_defaults() juste avant). Best-effort :
+    une erreur ici (dossier <lang>/ absent du depot, reseau...) n'interrompt
+    jamais le pipeline, le jeu EN deja en place reste utilisable tel quel.
+    """
+    import urllib.request
+    import json
+
+    api_url = f"{GITHUB_API_URL}/{lang}"
+    raw_base = f"{GITHUB_RAW_BASE}/{lang}"
+
+    print(f"\n{tr('dl_lang_title')(lang.upper())}")
+    print(f"   ↪ {api_url}")
+
+    try:
+        req = urllib.request.Request(api_url, headers={"User-Agent": "recalbox-toolkit"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            files = json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        is_rl, detail = _describe_github_api_error(e)
+        if is_rl:
+            print(tr("github_rate_limit_msg")(detail))
+        else:
+            print(tr("dl_lang_fail")(lang.upper()))
+            print(f"   {detail}")
+        return
+
+    media_files = [
+        f
+        for f in files
+        if f.get("type") == "file"
+        and Path(f["name"]).suffix.lower() in (".png", ".gif", ".raw565")
+    ]
+
+    tasks = [
+        (f"{raw_base}/{urllib.request.quote(f['name'])}", defaults_dir / f["name"], f["name"])
+        for f in media_files
+    ]
+
+    PAUSE.start(listen_keyboard=listen_keyboard)
+    try:
+        done, failed = _parallel_download_batch(
+            tasks, progress_cb, "download_defaults_lang", skip_aborts=True
+        )
+        for label in failed:
+            print(tr("dl_file_err")(label, "échec téléchargement"))
+    finally:
+        PAUSE.stop()
+
+    print(tr("dl_lang_done")(done, lang.upper()))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
