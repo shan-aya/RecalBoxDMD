@@ -8,6 +8,14 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-08-16 — Imágenes de sistemas/géneros multilingües (FR/ES)
+
+- **Caja de herramientas de PC**: el pack de respaldo `systems/_defaults` (insignias de género, pseudo-sistemas como Favoritos/Últimos Jugados/Portados/Todos los Juegos) ya está disponible en **francés y español**, 60/60 cada uno — el icono se conserva píxel por píxel (vectorizado, no solo ampliado), solo el texto se ha vuelto a renderizar y traducir. Los géneros aún no traducidos simplemente quedan en inglés, nunca falta ninguno.
+- **Caja de herramientas de PC**: nuevo selector de **idioma de las imágenes de sistemas** (EN/FR/ES, con vista previa comparativa lado a lado) tanto en el Modo 1 (pipeline automático) como en el Modo 2 (pestaña Avanzado, descarga solo de `_defaults`) — `download_defaults()` siempre descarga primero el conjunto base en inglés (respaldo garantizado) y luego superpone los archivos traducidos del idioma elegido.
+- **Caja de herramientas de PC**: el Modo 2 ahora siempre ofrece la galería de imagen de respaldo (cerrarla sin elegir vuelve al visual predeterminado del proyecto) en lugar de una pregunta sí/no condicionada a "aún no definido"; también se eliminaron los popups de confirmación tras elegir una (la elección ya es visible/se aplica de inmediato).
+- **Caja de herramientas de PC**: corregido un problema real de lentitud en `_parallel_download_batch()` — `urlretrieve()` no tenía timeout, así que una sola conexión atascada dentro del pool de 16 hilos podía bloquear su hueco indefinidamente; ahora se establece un timeout de socket acotado durante el lote.
+- **Recursos del firmware**: 15 logotipos de sistemas/géneros añadidos a `_defaults` — 10 que faltaban respecto al conjunto oficial de logos de Recalbox, más 5 incorporaciones muy recientes del canal alpha de Recalbox (Cassette Vision, EXL 100, ST-V, Vircon32, y el nuevo pseudo-sistema **Challenges**).
+
 ## 2026-08-13 — Preparación del lanzamiento público
 
 - **Documentación**: reescritura completa del README en inglés/francés/español — capturas de pantalla, imágenes reales del dispositivo, referencia de modos, guía de hardware.

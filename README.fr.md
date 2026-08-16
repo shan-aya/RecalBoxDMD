@@ -93,6 +93,7 @@ C'est un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), r
 - ⚡ **Flashage du firmware depuis le navigateur** — un [installateur web en un clic](https://shan-aya.github.io/RecalBoxDMD/) (Chrome/Edge) flashe l'ESP32 en USB, sans Arduino IDE.
 - 📡 **Intégration MQTT** avec Recalbox pour l'affichage en temps réel des jeux/systèmes/événements, plus une console **Telnet** pour le débogage sur l'appareil.
 - 🌍 **Entièrement trilingue** — l'interface web du firmware et la boîte à outils PC sont toutes deux disponibles en **français, anglais et espagnol**.
+- 🗣️ **Images système/genre multilingues** — le pack de secours `_defaults` (badges de genre, Favoris, Derniers Jeux Joués...) est disponible en français et espagnol, sélectionnable depuis la boîte à outils PC avec un aperçu comparatif en direct ; les genres pas encore traduits restent simplement en anglais.
 - 🔁 **Scraping conscient de la version Recalbox** — cible automatiquement la bonne balise `gamelist.xml` et le bon dossier média pour Recalbox 10.x / 9.x / legacy, avec un guide « comment scraper » intégré.
 
 ---
@@ -530,7 +531,9 @@ telnet <ip-esp32>
 │   │   └── <jeu>.meta                ← marquee animée (timings)
 │   └── _defaults/
 │       ├── default.raw565            ← repli global
-│       └── <système>.raw565          ← repli par système
+│       ├── <système>.raw565          ← repli par système (anglais)
+│       ├── fr/<système>.raw565       ← texte français, même icône (optionnel)
+│       └── es/<système>.raw565       ← texte espagnol, même icône (optionnel)
 ├── gifs/                             ← playlists d'attente (le pack 600 GIFs atterrit ici)
 │   ├── Arcade/  Consoles/  Computers/  Pinball_Short/  Pinball_Story/
 │   └── Halloween/  XMAS/  Logo/  Other/ ...

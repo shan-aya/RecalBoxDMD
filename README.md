@@ -93,6 +93,7 @@ It is a fork of [Jamyz's RetroBoxLED](https://github.com/Jamyz/RetroBoxLED), reb
 - ⚡ **Flash the firmware from your browser** — a [one-click Web Installer](https://shan-aya.github.io/RecalBoxDMD/) (Chrome/Edge) flashes the ESP32 over USB, no Arduino IDE required.
 - 📡 **MQTT integration** with Recalbox for real-time game/system/event display, plus a **Telnet** console for on-device debugging.
 - 🌍 **Fully trilingual** — both the firmware's web UI and the PC toolkit are available in **French, English and Spanish**.
+- 🗣️ **Multi-language system/genre images** — the `_defaults` fallback pack (genre badges, Favorites, Last Played...) is available in French and Spanish, selectable from the PC Toolkit with a live comparison preview; untranslated genres simply stay in English.
 - 🔁 **Recalbox-version aware scraping** — automatically targets the right `gamelist.xml` tag and media folder for Recalbox 10.x / 9.x / legacy, with a built-in "how to scrape" guide.
 
 ---
@@ -530,7 +531,9 @@ telnet <esp32-ip>
 │   │   └── <game>.meta              ← animated marquee (timings)
 │   └── _defaults/
 │       ├── default.raw565           ← global fallback
-│       └── <system>.raw565          ← per-system fallback
+│       ├── <system>.raw565          ← per-system fallback (English)
+│       ├── fr/<system>.raw565       ← French text, same icon (optional)
+│       └── es/<system>.raw565       ← Spanish text, same icon (optional)
 ├── gifs/                            ← attract-mode playlists (600-GIF pack lands here)
 │   ├── Arcade/  Consoles/  Computers/  Pinball_Short/  Pinball_Story/
 │   └── Halloween/  XMAS/  Logo/  Other/ ...

@@ -8,6 +8,14 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-08-16 — Images systèmes/genres multilingues (FR/ES)
+
+- **Boîte à outils PC** : le pack de secours `systems/_defaults` (badges de genre, pseudo-systèmes comme Favoris/Derniers Jeux Joués/Portages/Tous Jeux) est désormais disponible en **français et espagnol**, 60/60 chacun — icône conservée pixel pour pixel (vectorisée, pas juste agrandie), seul le texte a été re-rendu et traduit. Les genres pas encore traduits basculent simplement en anglais, jamais d'absence.
+- **Boîte à outils PC** : nouveau sélecteur de **langue des images système** (EN/FR/ES, avec aperçu comparatif côte à côte) dans le Mode 1 (pipeline auto) et le Mode 2 (onglet Avancé, téléchargement `_defaults` seul) — `download_defaults()` récupère toujours d'abord le jeu anglais de base (repli garanti), puis surcharge avec les fichiers traduits de la langue choisie.
+- **Boîte à outils PC** : le Mode 2 propose désormais systématiquement la galerie d'image de secours (fermer sans choisir revient au visuel par défaut du projet) au lieu d'une question oui/non conditionnée à "pas déjà défini" ; les popups de confirmation après sélection ont aussi été retirées (le choix est déjà visible/appliqué immédiatement).
+- **Boîte à outils PC** : correction d'un vrai bug de lenteur dans `_parallel_download_batch()` — `urlretrieve()` n'avait aucun timeout, une seule connexion figée dans le pool de 16 threads pouvait bloquer son slot indéfiniment ; un timeout socket borné est maintenant posé le temps du lot.
+- **Assets firmware** : 15 logos systèmes/genres ajoutés à `_defaults` — 10 manquants par rapport au jeu de logos officiel Recalbox, plus 5 ajouts très récents de la branche alpha de Recalbox (Cassette Vision, EXL 100, ST-V, Vircon32, et le nouveau pseudo-système **Challenges**).
+
 ## 2026-08-13 — Préparation de la publication
 
 - **Docs** : réécriture complète du README en anglais/français/espagnol — captures d'écran, vraies images de l'appareil, référence des modes, guide matériel.
