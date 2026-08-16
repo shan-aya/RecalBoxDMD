@@ -76,3 +76,23 @@ tools/RecalBoxDMD_prefs.json
 # these are cx_Freeze-specific extra scratch dirs from setup_msi.py)
 tools/build_msi_exe/
 
+# Localisation FR/ES systems/_defaults (2026-08) -- materiel de travail
+# volumineux/regenerable, garde localement dans le worktree mais hors de
+# l'historique git (~350 Mo au total) :
+# - logos officiels Recalbox recuperes depuis leur depot (tiers, source
+#   toujours disponible en ligne, pas besoin de les versionner ici)
+tools/assets/recalbox_logos_png/
+tools/assets/recalbox_logos_svg/
+# - PNG/SVG intermediaires ou derives du kit de localisation (crops de
+#   reference, resultats bruts deposes par l'IA, rendus dupliques du
+#   vecteur final) -- seuls les .md du kit (MANIFEST/PROMPTS/NOTES,
+#   tracabilite des traductions choisies) restent versionnes
+tools/assets/systems_defaults_localization_kit/en_reference/
+tools/assets/systems_defaults_localization_kit/fr_reference/
+tools/assets/systems_defaults_localization_kit/text_reference/
+tools/assets/systems_defaults_localization_kit/incoming_fr/
+tools/assets/systems_defaults_localization_kit/incoming_es/
+tools/assets/systems_defaults_localization_kit/fullres_fr/
+tools/assets/systems_defaults_localization_kit/fullres_es/
+tools/assets/systems_defaults_localization_kit/fullres_fr_svg/
+tools/assets/systems_defaults_localization_kit/fullres_es_svg/

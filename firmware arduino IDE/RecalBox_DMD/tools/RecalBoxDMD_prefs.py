@@ -1,8 +1,14 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v7
+# Version actuelle : v8
 #
+# v8 - 2026-08-15 - safe-modify - Ajout de la preference "systems_image_lang"
+#      (langue des images systemes/genres telechargees dans _defaults/ depuis
+#      GitHub -- "en"/"fr"/"es", distincte de "language" qui est la langue de
+#      l'interface de l'outil). Choisie via un nouveau dialogue en Mode 1 et
+#      dans le Mode 2 de l'onglet Avance, voir download_defaults(lang=...)
+#      dans RecalBoxDMD_tool.py.
 # v7 - 2026-08-11 - safe-modify - Ajout de la preference "slow_threshold"
 #      (seuil de nombre de fichiers .raw565/.raw565pack/.meta au-dela duquel
 #      un systeme recoit le flag "L" (lent) dans systems_cache.dat, voir
@@ -55,6 +61,7 @@ _DEFAULTS = {
     "default_fallback_image": "",  # chemin PNG source pour default.raw565 ("" = defaut projet)
     "recalbox_ip": "",  # nom reseau ou IP Recalbox pour l'installation des scripts (Mode 1 + Mode 9)
     "slow_threshold": "5000",  # seuil flag L (build_systems_cache) -- reglable, onglet Parametres
+    "systems_image_lang": "en",  # "en"/"fr"/"es" -- langue des images systems/_defaults (Mode 1 + Mode 2)
 }
 
 
