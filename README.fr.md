@@ -28,6 +28,8 @@
 </p>
 
 <p align="center">
+  <img alt="Firmware : Raw565 Ed. v12" src="https://img.shields.io/badge/firmware-Raw565%20Ed.%20v12-blueviolet.svg">
+  <img alt="Outil PC : v5037" src="https://img.shields.io/badge/outil%20PC-v5037-blueviolet.svg">
   <a href="LICENSE"><img alt="Licence : MIT" src="https://img.shields.io/badge/licence-MIT-green.svg"></a>
   <img alt="Plateforme : ESP32" src="https://img.shields.io/badge/plateforme-ESP32-blue.svg">
   <img alt="Panneau : HUB75 128x32" src="https://img.shields.io/badge/panneau-HUB75%20128x32-blue.svg">
