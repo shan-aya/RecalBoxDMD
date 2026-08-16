@@ -70,3 +70,9 @@ tools/RecalBoxDMD_prefs.json
 
 # Keep firmware source
 !RecalBox_DMD.ino
+
+# PyInstaller / cx_Freeze build scratch (not the final installer output --
+# tools/dist/ and tools/build/ already covered by build//dist/ above;
+# these are cx_Freeze-specific extra scratch dirs from setup_msi.py)
+tools/build_msi_exe/
+
