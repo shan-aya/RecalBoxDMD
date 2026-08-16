@@ -531,9 +531,11 @@ telnet <ip-esp32>
 │   │   └── <jeu>.meta                ← marquee animée (timings)
 │   └── _defaults/
 │       ├── default.raw565            ← repli global
-│       ├── <système>.raw565          ← repli par système (anglais)
-│       ├── fr/<système>.raw565       ← texte français, même icône (optionnel)
-│       └── es/<système>.raw565       ← texte espagnol, même icône (optionnel)
+│       └── <système>.raw565          ← repli par système, dans la langue
+│                                        choisie (anglais par défaut ; les
+│                                        versions FR/ES écrasent ce même
+│                                        fichier si sélectionnées dans
+│                                        l'outil PC)
 ├── gifs/                             ← playlists d'attente (le pack 600 GIFs atterrit ici)
 │   ├── Arcade/  Consoles/  Computers/  Pinball_Short/  Pinball_Story/
 │   └── Halloween/  XMAS/  Logo/  Other/ ...

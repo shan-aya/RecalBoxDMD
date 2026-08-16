@@ -531,9 +531,11 @@ telnet <ip-esp32>
 │   │   └── <juego>.meta               ← marquee animada (tiempos)
 │   └── _defaults/
 │       ├── default.raw565             ← respaldo global
-│       ├── <sistema>.raw565           ← respaldo por sistema (inglés)
-│       ├── fr/<sistema>.raw565        ← texto francés, mismo icono (opcional)
-│       └── es/<sistema>.raw565        ← texto español, mismo icono (opcional)
+│       └── <sistema>.raw565           ← respaldo por sistema, en el idioma
+│                                         elegido (inglés por defecto; las
+│                                         versiones FR/ES sobrescriben este
+│                                         mismo archivo si se seleccionan
+│                                         en la herramienta de PC)
 ├── gifs/                              ← playlists de modo de espera (aquí llega el pack de 600 GIFs)
 │   ├── Arcade/  Consoles/  Computers/  Pinball_Short/  Pinball_Story/
 │   └── Halloween/  XMAS/  Logo/  Other/ ...

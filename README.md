@@ -531,9 +531,10 @@ telnet <esp32-ip>
 │   │   └── <game>.meta              ← animated marquee (timings)
 │   └── _defaults/
 │       ├── default.raw565           ← global fallback
-│       ├── <system>.raw565          ← per-system fallback (English)
-│       ├── fr/<system>.raw565       ← French text, same icon (optional)
-│       └── es/<system>.raw565       ← Spanish text, same icon (optional)
+│       └── <system>.raw565          ← per-system fallback, in the chosen
+│                                       language (EN by default; FR/ES
+│                                       versions overwrite this same file
+│                                       in place if selected in the Toolkit)
 ├── gifs/                            ← attract-mode playlists (600-GIF pack lands here)
 │   ├── Arcade/  Consoles/  Computers/  Pinball_Short/  Pinball_Story/
 │   └── Halloween/  XMAS/  Logo/  Other/ ...
