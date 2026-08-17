@@ -1,4 +1,20 @@
 #!/bin/ash
+# ============================================
+# safe-modify — Historique des modifications
+# ============================================
+# Version actuelle : v4
+#
+# v4 - 2026-08-17 - safe-modify - PORT depuis dev/mame-score-mqtt-bridge
+#   (chantier reassignation de coeur, chunk 3 -- signal dedie "vraiment en
+#   jeu"). Nouveau topic marquee/cmd/ingame ("1" sur rungame, "0" sur
+#   endgame/stop) -- AJOUTE, ne remplace rien de l'existant. Necessaire cote
+#   firmware (RecalBox_DMD.ino v79) : marquee/cmd/game est publie A LA FOIS
+#   par un vrai lancement de partie (rungame) ET par un simple survol de la
+#   liste des jeux (gamelistbrowsing, voir plus bas dans ce fichier -- meme
+#   topic, meme format) -- le firmware ne peut pas distinguer les 2 a partir
+#   de ce seul topic pour savoir s'il faut activer l'alternance hi-score/
+#   game_info (cout heap/CPU non-nul, a eviter pendant un simple defilement
+#   rapide de liste).
 LOG="/recalbox/share/system/logs/marquee_mqtt.log"
 
 read_state() {
@@ -131,6 +147,7 @@ while true; do
                 LAST_SYSTEM="$system"
                 LAST_ROM="$rom"
                 send_mqtt_retain "game" "${system}/${rom}"
+                send_mqtt_retain "ingame" "1"
             fi
             ;;
 
@@ -142,6 +159,7 @@ while true; do
 
             echo "$(date '+%H:%M:%S') ENDGAME sys=$system last=$LAST_SYSTEM" >> "$LOG"
 
+            send_mqtt_retain "ingame" "0"
             if [ -n "$system" ]; then
                 LAST_SYSTEM="$system"
                 send_mqtt_retain "system" "$system"
@@ -152,6 +170,7 @@ while true; do
             echo "$(date '+%H:%M:%S') STOP -> playlist" >> "$LOG"
             IN_GAME=0
             LAST_ROM=""
+            send_mqtt_retain "ingame" "0"
             send_mqtt_retain "default" "1"
             sleep 2
             ;;

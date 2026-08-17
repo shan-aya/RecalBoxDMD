@@ -1,7 +1,603 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v77
+// Version actuelle : v104
+//
+// v104 - 2026-08-17 - safe-modify - BUG REEL confirme sur materiel EN DIRECT
+//   (observation utilisateur : "reconnection validee ds le serial mais
+//   fausse sur le dmd, pas de reaction au changement de jeu") : la
+//   deconnexion forcee (v94/v98) n'avait AUCUN recul -- log confirme : TCP
+//   se reconnecte vite (broker local, ~14ms, connexion reellement saine a
+//   CE niveau), mais les subscribe() echouent A NOUVEAU sur cette connexion
+//   fraiche ~19s plus tard (meme cause sous-jacente que le rc=-4/-2 deja
+//   documente, non resolue), re-declenchant la meme deconnexion forcee --
+//   boucle infinie toutes les ~39s observee, jamais d'etat stable ou les
+//   souscriptions tiennent, DMD jamais reellement abonne a rien malgre
+//   "connected" affiche en boucle. Fix : compteur de cycles d'echec
+//   consecutifs (consecutiveSubscribeFailCycles), recul progressif
+//   (5s x compteur, plafonne a 60s) avant de retenter apres une
+//   deconnexion forcee -- reinitialise a 0 des qu'un cycle complet
+//   reussit (souscriptions OK). PAS ENCORE VALIDE sur materiel au moment
+//   d'ecrire cette entree.
+//
+// v103 - 2026-08-17 - safe-modify - RESOLUTION du mystere documente en v99/
+//   v102 ("CMD_GAME/CMD_SYSTEM silencieux specifiquement post-reconnexion") :
+//   inWaitingGrace (fenetre de grace 1.5s, g_mqttWaitingUntilMs, re-armee a
+//   CHAQUE reconnexion via CMD_WAITING_MQTT, pas juste au 1er boot) filtrait
+//   ENCORE system/game -- alors que "default" avait deja ete explicitement
+//   retire de ce meme filtre en v45 pour EXACTEMENT la meme raison ("un
+//   message RETENU reflete toujours le dernier etat REEL connu de RB,
+//   jamais faux en soi"), argument qui s'applique identiquement a
+//   system/game (juste oublies lors de ce fix v45, ou lors du refactor v96/
+//   v97 qui a introduit les slots dedies). Preuve : reproduit plusieurs
+//   fois (karatour, PUIS le MEME jeu "ctribe" observe echouant silencieux
+//   la 1ere fois dans la rafale post-reconnexion, PUIS reussissant
+//   parfaitement (log [DIAG] complet) quelques dizaines de secondes plus
+//   tard hors rafale, sur le MEME boot). Fix : system/game retires du
+//   filtre inWaitingGrace, meme traitement que default depuis v45.
+//   PAS ENCORE VALIDE sur materiel au moment d'ecrire cette entree.
+//
+// v102 - 2026-08-17 - safe-modify - Test empirique approfondi (demande
+//   utilisateur : "desactive plus profondement overlay", "pas que
+//   l'affichage") : score/game_info/achievement ne sont plus stockes DU
+//   TOUT a la reception (CMD_SCORE/CMD_GAME_INFO/CMD_ACHIEVEMENT) -- avant,
+//   seul l'affichage etait bloque (scoreEnabled/gameInfoEnabled/
+//   achievementEnabled=false) ou, pour game_info, seul le champ DESCRIPTION
+//   etait filtre (v96-v99) -- desormais rejet complet, aucune allocation/
+//   copie String, juste un log de reception (longueur seule). Objectif :
+//   isoler si la RECEPTION seule (sans stockage ni affichage) contribue a
+//   l'instabilite MQTT observee. A RETIRER (revenir au stockage normal +
+//   conditions scoreEnabled/gameInfoEnabled/achievementEnabled) une fois le
+//   test conclu. PAS ENCORE VALIDE sur materiel au moment d'ecrire cette
+//   entree.
+//
+// v101 - 2026-08-17 - safe-modify - BUG REEL confirme sur materiel EN DIRECT
+//   (observation live utilisateur + confirmation log) : connexion "zombie"
+//   -- silence total >2min30, aucune tentative de reconnexion, ecran DMD
+//   fige sur "RB connectee" -- mqttClient.connected() restait true (TCP a
+//   moitie mort, pair disparu sans FIN/RST propre). Aucun garde-fou
+//   existant (v94, verifie seulement au moment du connect()) ne peut
+//   detecter un silence qui s'installe plus tard en cours de session.
+//   Cause racine trouvee : mqttClient.setKeepAlive(60) (60s, sans
+//   justification documentee dans le code, tres au-dessus des 15s par
+//   defaut de la librairie) rendait le SEUL mecanisme capable de detecter
+//   ce cas (keepalive PINGREQ/PINGRESP interne de PubSubClient) beaucoup
+//   trop lent -- ~1.5-2x ce delai (90-120s+) avant meme de COMMENCER une
+//   vraie reconnexion, coherent avec les silences de plusieurs minutes
+//   observes plusieurs fois ce soir. Fix : setKeepAlive(15) (retour au
+//   defaut librairie) -- cout reseau negligeable, detection ~4x plus
+//   rapide.
+//   EN PLUS (meme version, demande utilisateur) : test empirique -- overlay
+//   COMPLETEMENT desactive a l'affichage (score+game_info force false a la
+//   lecture de config.ini quelle que soit sa valeur reelle -- A RETIRER une
+//   fois le test conclu -- achievement via son nouveau toggle, voir
+//   ci-dessous). Objectif : verifier si la stabilite MQTT s'ameliore sans
+//   AUCUNE activite overlay (heap/CPU).
+//   Nouveau toggle web "achievementEnabled" (ACHIEVEMENT_ENABLED dans
+//   config.ini, meme pattern que scoreEnabled/gameInfoEnabled v86) --
+//   RetroAchievements n'avait jusqu'ici aucune option de desactivation.
+//   Defaut false (comme les 2 autres a leur introduction) -- couvre aussi
+//   de facto le test empirique ci-dessus pour ce 3e volet de l'overlay.
+//   PAS ENCORE VALIDE sur materiel au moment d'ecrire cette entree.
+//
+// v100 - 2026-08-17 - safe-modify - 8e CRASH REEL confirme sur materiel (hash
+//   ELF verifie + addr2line, reproduit 2x d'affilee) en testant v99 : crash
+//   COMPLETEMENT DIFFERENT de tous les precedents cette session -- pas dans
+//   notre code, mais DANS le driver WiFi d'ESP-IDF lui-meme (timer_task()
+//   interne -> ieee80211_timer_process()/pp_timer_process() -> wifi_log()
+//   tente d'ecrire un log diagnostique interne -> esp_log_write() -> ecriture
+//   console/UART -> lock_init_generic() (1ere init du verrou recursif stdio)
+//   -> echec -> abort()). Meme plateau heap bas que le reste de la session
+//   (free=5196-5228 juste avant). Aucun try/catch possible (code C d'ESP-IDF,
+//   pas d'exceptions). Fix : esp_log_level_set("wifi", ESP_LOG_NONE) tout au
+//   debut de setup(), avant toute init WiFi -- si wifi_log() ne tente jamais
+//   d'ecrire, ce chemin de code entier n'est plus emprunte. Pratique standard
+//   en production ESP32, aucun risque fonctionnel (n'affecte que les logs
+//   internes du driver, pas nos Serial.println()). PAS ENCORE VALIDE sur
+//   materiel au moment d'ecrire cette entree.
+//
+// v99 - 2026-08-17 - safe-modify - Symptome recurrent observe sur materiel
+//   MEME apres le fix v97 (slots dedies default/system/game/ingame) :
+//   "RB connectee" + logo generique repete en boucle (confirme sur le log --
+//   PNG-RAW redessine /systems/_defaults/default.raw565 toutes les ~17s) au
+//   lieu du marquee du jeu reel, ET un overlay game_info vide/"0 car." pour
+//   un payload dont l'utilisateur a confirme (log brut) qu'un champ INFOS
+//   substantiel etait bien publie -- rentre dans l'ordre plus tard, "avec la
+//   reconnexion suivante". Diagnostic de parsing ajoute (verification :
+//   relecture manuelle du filtre DESCRIPTION ne revele aucun bug logique
+//   evident) + hypothese plus probable retenue : game_info n'etait PAS
+//   protege par le fix v97 (seuls default/system/game/ingame l'etaient),
+//   donc toujours susceptible d'etre perdu par ecrasement de pendingCmd dans
+//   la meme rafale post-reconnexion -- coherent avec "arrive avec la
+//   reconnexion suivante" (une rafale ulterieure, moins chargee, a fini par
+//   laisser passer un message game_info non ecrase). Fix : game_info recoit
+//   desormais aussi son slot dedie (g_pendingGameInfo+Arg), meme mecanisme
+//   que les 4 precedents. CMD_GAME_DEBUG_LOGS reactive en parallele pour
+//   confirmer directement (au prochain cycle) si CMD_GAME lui-meme est bien
+//   recu/traite pour un jeu qui reste bloque sur le fallback. PAS ENCORE
+//   VALIDE sur materiel au moment d'ecrire cette entree.
+//
+// v98 - 2026-08-17 - safe-modify - 6e CRASH REEL confirme sur materiel (hash
+//   ELF verifie + addr2line) en testant v97 : abort() MEME cause que les
+//   crashes deja corriges en v91/v95 (double-echec d'allocation dans
+//   getNextGif()->getNextGifRandom()->SD.open(), non rattrapable), mais un
+//   3e site d'appel DIFFERENT, jamais repere avant -- dans la boucle de frame
+//   MODE_GIF de loop() elle-meme (prefetch du GIF suivant PENDANT la lecture
+//   du GIF courant, ligne ~7804), distinct des 2 deja proteges dans
+//   openNextGif(). Fix : meme seuil dedie PREFETCH_NEXT_GIF_MIN_HEAP=8000
+//   (v95), remonte en portee fichier pour etre partage entre les 2 sites.
+//   Verification faite : plus aucun appel non protege a getNextGif() dans
+//   tout le fichier (3 sites au total, tous couverts).
+//   VALIDATION PARTIELLE en cours de test sur materiel : ce crash n'est plus
+//   reproduit, mais a permis d'observer un autre defaut confirme du fix v94
+//   (deconnexion forcee sur trop d'echecs subscribe()) : le check du seuil
+//   ne s'executait qu'APRES les 15 tentatives sequentielles -- observe 8
+//   echecs/15 avant declenchement, soit ~2min40 avant que la deconnexion
+//   forcee agisse, perdant une bonne partie du gain de reactivite vise.
+//   Fix additionnel (meme version) : boucle avec sortie anticipee des que le
+//   seuil (3) est atteint, au lieu d'attendre la fin des 15.
+//   7e CRASH REEL confirme sur materiel pendant ce meme test (hash ELF
+//   verifie + addr2line) : 4e site distinct de la MEME famille (double-echec
+//   d'allocation SD.open()->make_shared<VFSFileImpl>), cette fois DANS
+//   openGif() lui-meme (aucun garde-fou avant), appele par CMD_GAME pour
+//   charger le VRAI marquee du jeu (observe juste apres un reveil RB). Un
+//   seuil heap (comme PREFETCH_NEXT_GIF_MIN_HEAP) a ete envisage PUIS
+//   ECARTE : verification sur le log reel, maxalloc=4596 (plateau NORMAL)
+//   juste avant CE crash, IDENTIQUE a des dizaines d'ouvertures REUSSIES la
+//   meme session -- un seuil a 8000 aurait bloque le chargement du marquee
+//   la plupart du temps (regression majeure), maxalloc n'etant pas un
+//   predicteur fiable pour cette allocation precise. Fix retenu : openGif()
+//   renomme en openGifImpl() (logique inchangee), nouveau wrapper openGif()
+//   (meme signature/defauts) l'appelle dans un try/catch (meme technique
+//   deja etablie pour getNextGifRandom(), v78) -- n'empeche pas le cas du
+//   double-echec total (rare, non rattrapable par le C++ runtime), mais
+//   capture le cas plus frequent d'un echec isole, sans aucun risque de
+//   regression fonctionnelle. PAS ENCORE VALIDE sur materiel au moment
+//   d'ecrire cette entree.
+//
+// v97 - 2026-08-17 - safe-modify - BUG REEL confirme sur materiel (diagnostic
+//   via CMD_GAME_DEBUG_LOGS, cf. v96) : pendingCmd (slot unique partage par
+//   TOUTES les commandes MQTT) perdait silencieusement "game" quand un AUTRE
+//   type de commande (ex. "game_info", ~0.2s plus tard) l'ecrasait avant que
+//   loop() ait eu l'occasion de le consommer -- confirme : aucun log [DIAG]
+//   (pourtant inconditionnel avec CMD_GAME_DEBUG_LOGS actif) pour le message
+//   "game" perdu, alors que game_info/ingame arrives juste apres etaient
+//   bien traites. Explique le symptome observe (question utilisateur) : le
+//   marquee du jeu reste bloque sur l'ecran "RB connectee" meme apres une
+//   reconnexion MQTT reussie, alors que l'overlay (game_info) affiche du
+//   contenu a jour par-dessus -- typiquement juste apres une reconnexion,
+//   quand plusieurs messages retenus (default+system+game+game_info+ingame)
+//   arrivent en rafale en moins d'une seconde.
+//   Une queue/tableau generique a ete deliberement ECARTEE (demande explicite
+//   utilisateur suite a une mise en garde retrouvee dans la memoire du
+//   chantier source, project_marquee_heartbeat_rederivation_bug) : un
+//   tableau de flags "commande en attente" indexe par type y avait ete
+//   fortement suspecte de corruption memoire (ecriture hors-limites),
+//   causant des commandes PERIMEES a se declencher en pleine partie active --
+//   sur le MEME plateau heap bas que celui de ce chantier, jamais elucide.
+//   Fix retenu a la place : les 4 commandes qui definissent "ce qui doit
+//   etre affiche" (default/system/game/ingame) recoivent chacune sa PROPRE
+//   variable dediee (g_pendingDefault/g_pendingSystem+Arg/g_pendingGame+Arg/
+//   g_pendingIngame+Arg -- 4 paires nommees individuellement, PAS un tableau
+//   indexe par type, meme pattern deja utilise sans probleme connu ailleurs
+//   dans ce fichier pour g_noWifiRecalboxPending/g_achievementPendingShow) --
+//   elles ne peuvent donc plus jamais etre ecrasees par un type de commande
+//   different. processPendingMqttCommand() les consomme en priorite (1 par
+//   appel, ordre default->system->game->ingame), le reste (score/game_info/
+//   achievement/brightness/etc.) continue sur pendingCmd inchange (perte
+//   occasionnelle deja acceptee, aucun bug confirme les concernant). Tous
+//   les sites d'ecriture identifies et migres (dispatch principal MQTT,
+//   fallback "injoignable", fallback evenement ES sans systeme connu).
+//   CMD_GAME_DEBUG_LOGS repasse a false (diagnostic termine). PAS ENCORE
+//   VALIDE sur materiel au moment d'ecrire cette entree.
+//
+// v96 - 2026-08-17 - safe-modify - Test empirique demande utilisateur :
+//   champ "DESCRIPTION" du game_info (texte le plus long, cout heap/scroll
+//   le plus eleve) desactive par filtrage de label dans
+//   startGameInfoOverlay(), "INFOS" reste actif ainsi que le hi-score
+//   (startScoreOverlay(), non affecte). Objectif : verifier si retirer le
+//   champ le plus couteux en heap reduit la frequence des crashes/
+//   instabilites observes en jeu. Aucun changement cote script RB. A
+//   retirer (ou rendre configurable) une fois le test conclu. Titre splash
+//   screen (RETRO_VERSION) egalement change de "v12" a "devCORE0" (demande
+//   utilisateur, purement cosmetique).
+//
+// v95 - 2026-08-17 - safe-modify - 5e CRASH REEL confirme sur materiel (hash
+//   ELF verifie + addr2line) en testant v94 : abort() a EXACTEMENT le meme
+//   site que le crash deja "corrige" en v91 (prefetch nextGifPath=getNextGif()
+//   dans openNextGif()) -- le garde-fou v91 (ESP.getMaxAllocHeap() >=
+//   OPEN_NEXT_GIF_MIN_HEAP=4000) etait INSUFFISANT : au moment du crash,
+//   maxalloc=4596, deja au-dessus du seuil, donc le garde a laisse passer.
+//   4596 s'avere etre le plateau heap NORMAL de ce materiel (deja documente
+//   ailleurs dans ce projet), pas une valeur anormale -- le seuil de 4000
+//   (calibre pour un AUTRE point d'appel, le garde d'entree de openNextGif())
+//   ne protegeait quasiment jamais en pratique pour cette allocation precise.
+//   Fix : nouveau seuil DEDIE PREFETCH_NEXT_GIF_MIN_HEAP=8000, uniquement pour
+//   ce prefetch (risque limite d'un seuil haut ici, contrairement au garde
+//   d'entree : le pire cas est un prefetch simplement saute, le GIF en cours
+//   reste affiche normalement). PAS ENCORE VALIDE sur materiel au moment
+//   d'ecrire cette entree.
+//
+// v94 - 2026-08-17 - safe-modify - BUG REEL confirme sur materiel en testant
+//   v93 : les 15 subscribe() de mqttTask() ont TOUS echoue (meme apres
+//   retry v89), ~20s d'ecart chacun (2x le socket timeout 10s) -- TCP
+//   accepte + CONNACK recu mais plus AUCUNE reponse ensuite (connexion
+//   "zombie", mqttClient.connected() reste true mais sourde). Le fix v89
+//   (log+retry par topic) suffit pour un echec isole mais n'avait aucun
+//   recours ici : le code postait quand meme CMD_WAITING_MQTT, ecran
+//   "RecalBox connectee" fige (observe en direct : "affichage fallback + rb
+//   connectee en fixe"), sans plus rien recevoir. Observe SANS ce fix (v93
+//   pur) : le keepalive interne de PubSubClient finit par detecter tout seul
+//   la connexion morte et redeclenche une reconnexion -- mais seulement
+//   apres ~5min30 de service coupe. Fix : compte les echecs de subscribe()
+//   apres retry ; si >= 3 (seuil arbitraire, large marge au-dessus d'un
+//   echec isole tolerable), la connexion est consideree morte --
+//   deconnexion FORCEE (mqttClient.disconnect()) immediate, pas de publish
+//   ip ni de CMD_WAITING_MQTT sur ce socket mort -- le prochain tour de
+//   mqttTask() retente une vraie reconnexion (nouveau socket), au lieu
+//   d'attendre le keepalive. PAS ENCORE VALIDE sur materiel au moment
+//   d'ecrire cette entree.
+//
+// v93 - 2026-08-17 - safe-modify - 1 instrumentation + 1 BUG REEL confirme
+//   sur materiel (tous deux en testant v92 en conditions reelles, partie sur
+//   Alien Syndrome + reconnexions MQTT) :
+//   INSTRUMENTATION : ajout du heap (free + maxalloc) sur chaque log
+//   "[MQTT] connecting"/"failed rc=". Objectif : verifier avec des mesures
+//   reelles l'hypothese utilisateur (observee empiriquement PLUSIEURS fois
+//   aujourd'hui, independamment) selon laquelle la reconnexion MQTT
+//   n'aboutit qu'apres un retour hors-jeu/playlist -- possible contention
+//   sur le heap PARTAGE entre loop() (overlay/raw565pack en jeu, heap
+//   maintenu bas ~4596 en continu observe ce jour) et mqttTask() (connect()
+//   a peut-etre besoin d'un certain heap libre pour ses buffers TCP/MQTT).
+//   A retirer une fois l'hypothese confirmee/infirmee.
+//   BUG : observe en jeu (Alien Syndrome, PAS un overlay perime -- correction
+//   d'un diagnostic errone de ma part en cours de session, l'utilisateur a
+//   confirme etre reellement en partie) : ecran "RecalBox connectee" bloque
+//   en boucle avec l'overlay game_info (courant, pas perime) par-dessus,
+//   log "[PNG-RAW] MISSING raw565 path=/systems/_defaults/default.raw565
+//   raw565=/systems/_defaults/default.raw565.raw565" -- pngToRaw565Path()
+//   rajoutait ".raw565" a un chemin qui en avait DEJA un (le placeholder pose
+//   par CMD_WAITING_MQTT), chemin double-extension forcement introuvable,
+//   ~800ms perdus en chaine de repli avant rattrapage. Cause probable
+//   (mecanisme precis non confirme a 100% -- connexion MQTT restee stable en
+//   continu 7mn avant l'incident, donc PAS un reconnect en cours a ce
+//   moment-la) : le repli "fast path totalement echoue" ajoute en v92 pour
+//   CMD_GAME ne nettoyait pas currentPngPath, laissant ce placeholder perime
+//   trainer pour un redessin ulterieur (endOverlay()) errone. Fix (2
+//   parties) : (a) pngToRaw565Path() rendue idempotente (ne rajoute jamais
+//   ".raw565" si deja present) -- ferme le symptome quelle que soit la cause
+//   exacte ; (b) le repli v92 nettoie desormais aussi currentPngPath="".
+//   ATTENTION : une premiere tentative de fix (g_inGameMarquee=false dans
+//   CMD_WAITING_MQTT) a ete ECRITE PUIS REVERTEE dans cette meme session --
+//   diagnostic initial errone (avait suppose l'overlay perime a tort),
+//   l'utilisateur a corrige avant flash. Ne pas la reintroduire sans nouvelle
+//   preuve.
+//
+// v92 - 2026-08-17 - safe-modify - 2 BUGS REELS lies, confirmes sur materiel
+//   en testant v91 en conditions reelles (partie + reconnexion MQTT sous
+//   stress) :
+//   (1) CMD_GAME (systeme "rapide", isSlow=false, ex. fbneo) n'avait AUCUN
+//   filet de secours si le jeu, son .gif ET default.png/_defaults echouaient
+//   TOUS a s'ouvrir (observe juste apres une reconnexion MQTT stressee,
+//   probable pression heap transitoire) -- le code continuait silencieusement
+//   dans le bloc if(isSlow) juste en dessous, qui ne s'execute JAMAIS pour un
+//   systeme rapide, laissant currentMode bloque a sa valeur PRECEDENTE
+//   (observe : reste en MODE_PLAYLIST issu d'un resumePlaylist() anterieur,
+//   le mecanisme "injoignable" qui resout les rc=-4 repetes) -- etat
+//   incoherent qui bloquait aussi silencieusement le declencheur d'overlay
+//   (exige MODE_PNG/MODE_GIF, jamais MODE_PLAYLIST, meme raisonnement que le
+//   bug v85). Fix : etat MODE_BLACK explicite si le fast path echoue
+//   entierement, log toujours visible (pas gate CMD_GAME_DEBUG_LOGS).
+//   (2) case MODE_BLACK de loop() (observe separement : ecran noir fige
+//   ~2min30 apres un simple echec d'ouverture GIF, nom de fichier tronque)
+//   ne retentait JAMAIS rien -- contrairement au blocage heap
+//   (requestNextGif=true, deja existant), un echec d'ouverture y laissait
+//   l'ecran noir INDEFINIMENT jusqu'a un evenement MQTT externe fortuit. Fix :
+//   retente periodique (meme requestNextGif, rate-limite 3s) -- couvre aussi
+//   le nouveau MODE_BLACK du point (1) ci-dessus. PAS ENCORE VALIDE sur
+//   materiel au moment d'ecrire cette entree.
+//
+// v91 - 2026-08-17 - safe-modify - 4e CRASH REEL confirme sur materiel (hash
+//   ELF verifie + addr2line), decouvert en testant v90 : abort() ~2s apres
+//   "[MQTT] connected" au boot, PAS lie au fix v90 (ingame/default differe --
+//   ce scenario n'avait meme pas encore eu l'occasion de se produire).
+//   Backtrace : loop() -> openNextGif() -> getNextGif() -> getNextGifRandom()
+//   -> fs::FS::open() -> VFSImpl::open() -> operator new (shared_ptr
+//   VFSFileImpl) -> __cxa_allocate_exception -> std::terminate() -> abort().
+//   Cause : le prefetch "GIF suivant" (nextGifPath=getNextGif(), ligne ~3840,
+//   execute a CHAQUE ouverture de GIF reussie) n'etait garde par AUCUN
+//   controle heap propre -- seul le controle d'ENTREE de openNextGif()
+//   (OPEN_NEXT_GIF_MIN_HEAP, v78) le precedait, mais openGif() qui s'execute
+//   juste avant ce prefetch consomme lui-meme du heap, invalidant le controle
+//   d'entree. Sous heap suffisamment bas, operator new echoue POUR la
+//   construction de l'objet bad_alloc lui-meme (pas seulement pour
+//   l'allocation demandee) -- double-echec qui force std::terminate() de
+//   facon INCONDITIONNELLE, non rattrapable par le try/catch deja present
+//   dans getNextGifRandom() (v78, qui ne protege que le cas d'un simple
+//   echec d'allocation, pas ce double-echec). Fix : re-verification du seuil
+//   heap juste avant ce 2e appel a getNextGif() ; si trop bas, prefetch
+//   simplement saute (retente au prochain appel via le fallback existant).
+//   PAS ENCORE VALIDE sur materiel au moment d'ecrire cette entree.
+//
+// v90 - 2026-08-17 - safe-modify - BUG REEL confirme sur materiel (observe
+//   live juste apres validation de v89) : apres une reconnexion MQTT reussie
+//   pendant une VRAIE partie (ingame=1, ex. relance de 1941), le DMD repart
+//   en playlist ~6s plus tard ("[MQTT] default differe applique -> reprise
+//   playlist") alors que le joueur est toujours en jeu. Cause : le mecanisme
+//   "default differe" (v49, ecran de boot uniquement a l'origine) se re-arme
+//   en realite a CHAQUE reconnexion MQTT (CMD_WAITING_MQTT emis a chaque
+//   connect() reussi, pas seulement au 1er boot), et un "default" RETENU
+//   (rejoue par le broker a la resouscription, cf. v89) peut arriver dans
+//   cette fenetre de 7s en meme temps qu'une vraie partie demarre. CMD_GAME/
+//   CMD_SYSTEM annulaient deja ce differe depuis v49 ("un vrai jeu prend le
+//   pas sur un default differe"), mais CMD_INGAME (introduit en v79, apres ce
+//   mecanisme) avait ete oublie -- oubli de synchronisation entre les 2
+//   refactors. Fix : CMD_INGAME("1") annule desormais aussi le differe, meme
+//   raisonnement, seulement sur la transition vers une vraie partie. PAS
+//   ENCORE VALIDE sur materiel au moment d'ecrire cette entree.
+//
+// v89 - 2026-08-17 - safe-modify - BUG REEL confirme sur materiel : le DMD
+//   restait affiche "[MQTT] connected" (connexion TCP saine, confirme cote
+//   broker via netstat -- une seule connexion ESTABLISHED, pas de zombie)
+//   mais ne recevait plus AUCUN message publie par la RB (confirme cote RB
+//   : marquee.sh publiait bien, marquee_mqtt.log actif) -- observe apres
+//   une reconnexion elle-meme precedee de plusieurs echecs (rc=-2/rc=-4).
+//   Cause probable : 15 mqttClient.subscribe() consecutifs, SANS AUCUNE
+//   verification du resultat ni delai entre eux, juste apres connect() --
+//   si le reseau etait encore instable a cet instant precis, un ou
+//   plusieurs subscribe() ont pu echouer silencieusement (retour bool
+//   jamais teste). Fix : chaque subscribe() est desormais verifie,
+//   reessaie une fois apres un court delai en cas d'echec, logue tout
+//   echec definitif. VALIDE sur materiel apres flash+reboot : sequence
+//   observee au serial juste apres "[MQTT] connected" -- marquee/cmd/system,
+//   marquee/cmd/game, marquee/cmd/ingame recus normalement, aucune ligne
+//   "subscribe ECHEC", playlist/GIFs enchaines normalement ensuite (heap
+//   stable ~8.5k libre, maxalloc constant 4596). Reste a confirmer sur une
+//   duree plus longue et lors d'une future reconnexion apres coupure reseau
+//   reelle (le cas qui avait initialement revele le bug).
+//
+// v88 - 2026-08-17 - safe-modify - 3e CRASH REEL confirme sur materiel
+//   (hash ELF verifie, decode via addr2line), MEME site que le tout 1er
+//   crash de cette session (v80) : mqttTask() bloque dans
+//   PubSubClient::connect() (PubSubClient.cpp:257), malgre le yield() deja
+//   ajoute a cet endroit -- confirme cette fois pendant une PARTIE en
+//   cours ([LOOPDIAG] montre loop() parfaitement sain, mode=MODE_OVERLAY,
+//   jusqu'a 300ms avant le crash -- donc PAS loop() en cause, uniquement
+//   mqttTask()). Cause du echec du 1er correctif : yield()/taskYIELD() sur
+//   ESP32/FreeRTOS ne cede la main qu'aux taches de priorite EGALE OU
+//   SUPERIEURE -- PAS a IDLE0 (priorite la plus basse, celle surveillee
+//   par le watchdog materiel), donc pas une garantie fiable (explique
+//   pourquoi ca a tenu plusieurs minutes de test avant de retomber). Fix :
+//   yield() remplace par delay(1) (patch local PubSubClient.cpp, boucle de
+//   connect() ET readByte() par prudence meme si non encore observee sur
+//   ce 2e site) -- delay(1) force un vrai blocage d'au moins 1 tick,
+//   laissant le planificateur choisir N'IMPORTE QUELLE tache prete, IDLE
+//   inclue. PAS ENCORE VALIDE sur materiel au moment d'ecrire cette
+//   entree.
+//
+// v87 - 2026-08-17 - safe-modify - INSTRUMENTATION DIAGNOSTIC TEMPORAIRE :
+//   episode reel observe sur materiel -- rafale de std::bad_alloc
+//   rattrapees (chunk 1, pre-chargement du GIF suivant en rotation
+//   playlist normale, heap coince a maxalloc=4596) suivie de 65s de
+//   silence total avant qu'une commande MQTT deja en attente ne soit
+//   enfin traitee, alors que processPendingMqttCommand() est censee
+//   tourner sans condition a chaque iteration de loop(). Hypothese a
+//   confirmer : le cout du throw/catch C++ (chunk 1) sous heap critique
+//   pourrait etre bien plus eleve que prevu sur ESP32. Heartbeat
+//   [LOOPDIAG] inconditionnel (2s) ajoute en tout debut de loop() pour
+//   localiser precisement ou loop() se trouve si le silence se
+//   reproduit. PAS ENCORE VALIDE au moment d'ecrire cette entree.
+//
+// v86 - 2026-08-17 - safe-modify - PORT de l'UI web pour scoreEnabled/
+//   gameInfoEnabled depuis dev/mame-score-mqtt-bridge (page /config/basic,
+//   confirmee fonctionnelle par l'utilisateur sur cette branche source) :
+//   2 cases a cocher ("Hi-score en jeu" / "Infos jeu en jeu") dans la
+//   section Affichage, juste sous "Demarrage silencieux". Chaine complete
+//   portee : HTML (web_config.h), i18n FR/EN/ES (PAGE_I18N), JS
+//   (serialize()/DRAFT_FIELDS/chargement depuis /load), backend
+//   (handleWebConfigSave() lit les args, JSON de statut les expose,
+//   reecriture complete de config.ini les persiste avec
+//   SCORE_INTERVAL_SEC/SCORE_DURATION/GAME_INFO_EVERY_N -- meme piege que
+//   "language=" deja documente : une reecriture complete doit re-emettre
+//   TOUTE cle existante). scoreEnabled/gameInfoEnabled repasses a false
+//   par defaut (le forcage temporaire a true de v79 n'est plus necessaire,
+//   l'activation se fait desormais depuis cette page).
+//
+// v85 - 2026-08-17 - safe-modify - CAUSE TROUVEE et corrigee pour le bug
+//   "overlay hi-score/game_info ne se declenche jamais" (v84) -- PAS une
+//   corruption memoire, un vrai bug de logique confirme par
+//   l'instrumentation [TRIGDIAG] : currentMode reste bloque a
+//   MODE_PLAYLIST alors que g_inGameMarquee reste vrai (etat incoherent,
+//   confirme aussi par observation ecran directe -- "le DMD est repasse en
+//   playlist en mode jeu"). Cause : resumePlaylist() est appelee depuis
+//   plusieurs sites qui NE PASSENT PAS par le case CMD_DEFAULT de
+//   processPendingMqttCommand() (ou j'avais ajoute le reset de
+//   g_inGameMarquee en v79) -- notamment le mecanisme "default differe"
+//   (v49, applique un CMD_DEFAULT recu tot pendant l'ecran de connexion,
+//   mais potentiellement bien APRES qu'une vraie partie ait demarre entre-
+//   temps) ainsi que l'auto-resolution des alertes WiFi/RecalBox et
+//   "Reprendre DMD" (web). Le declencheur d'alternance exige
+//   MODE_PNG/MODE_GIF (jamais MODE_PLAYLIST) -- une fois dans cet etat
+//   incoherent, plus aucun overlay ne pouvait se declencher, silencieusement
+//   et indefiniment, jusqu'au prochain vrai CMD_STOP/CMD_SYSTEM/CMD_INGAME.
+//   Fix : g_inGameMarquee=false ajoute a chaque site individuel connu, ET
+//   centralise DIRECTEMENT dans resumePlaylist() (qui signifie TOUJOURS
+//   "on quitte pour la playlist hors-jeu") en dernier recours -- protege
+//   aussi tout site futur non repere. PAS ENCORE VALIDE sur materiel au
+//   moment d'ecrire cette entree.
+//
+// v84 - 2026-08-17 - safe-modify - INSTRUMENTATION DIAGNOSTIC TEMPORAIRE :
+//   episode reel observe sur materiel (v83) ou l'overlay hi-score/game_info
+//   ne s'est JAMAIS declenche pendant une partie de plusieurs minutes,
+//   alors que g_inGameMarquee etait bien vrai (ingame=1 confirme). PISTE
+//   INITIALE ECARTEE par retour utilisateur direct (2 preuves) : (1)
+//   l'animation du logo/marquee jeu restait fonctionnelle tout du long
+//   (loop() n'est donc PAS bloque -- un vrai gel figerait aussi le rendu) ;
+//   (2) la carte SD elle-meme est confirmee saine (le carrousel playlist,
+//   qui ouvre un nouveau GIF a chaque fois, fonctionne normalement des la
+//   sortie de partie). Donc PAS un blocage bas niveau (SD/LWIP) -- un bug
+//   de LOGIQUE dans la condition de declenchement de l'overlay elle-meme
+//   (ou son "point de coupure propre" dans case MODE_GIF/MODE_PNG), qui a
+//   simplement empeche g_overlayPendingStart de se poser ou de se
+//   consommer, sans rien logger (le rendu GIF normal ne log rien par
+//   frame, d'ou l'illusion d'un silence total). Logs [TRIGDIAG] ajoutes
+//   (etat complet du bloc declencheur toutes les 5s pendant une partie
+//   sans overlay actif, + suivi si pendingStart reste bloque en attente) --
+//   a retirer une fois la cause confirmee.
+//
+// v83 - 2026-08-17 - safe-modify - CORRECTIF PLUS PROFOND de l'instabilite
+//   MQTT residuelle (voir v82 -- l'hypothese "contention CPU overlay" de
+//   v82 est INVALIDEE par retour utilisateur : le meme probleme existait
+//   deja sur dev/mame-score-mqtt-bridge, SANS le changement de cœur, et
+//   apparait meme en simple navigation de liste, sans overlay actif).
+//   Investigation reseau reelle (netstat cote RB pendant un episode) :
+//   socket zombie en etat CLOSING cote broker en plus de la connexion
+//   active -- signature d'un ID client MQTT FIXE (MQTT_CLIENT=
+//   "esp32-marquee") : quand le DMD retente connect() (a tort ou a raison),
+//   le broker force la fermeture de l'ancienne connexion (norme MQTT,
+//   meme ID client = kick de l'ancienne session), meme si elle etait encore
+//   valide. Cause racine du "a tort" : PubSubClient.cpp:257 (boucle
+//   d'attente du CONNACK) n'avait aucun yield() -- fixe DIRECTEMENT dans
+//   PubSubClient.cpp (patch local, voir son commentaire) plutot que de
+//   continuer a compenser cote firmware avec un timeout court. Ce timeout
+//   court (v80, 3s) etait lui-meme devenu trop impatient : setSocketTimeout()
+//   couvre TOUTES les lectures socket, pas seulement connect() -- une
+//   lenteur passagere du broker (RB occupee a emuler un jeu, ex. observe
+//   reellement pendant cette session) pendant mqttClient.loop() normal
+//   pouvait aussi declencher une reconnexion prematuree, elle-meme
+//   provoquant le kick d'ID client ci-dessus -- cascade auto-entretenue.
+//   Remonte a 10s maintenant que le vrai risque watchdog est corrige a la
+//   racine (voir setSocketTimeout(), section MQTT setup, pour le detail
+//   complet). PAS ENCORE VALIDE sur materiel au moment d'ecrire cette
+//   entree.
+//
+// v82 - 2026-08-17 - safe-modify - EXPERIENCE EN COURS (pas encore
+//   confirmee) suite a v80/v81 : apres les 2 crashs corriges, une
+//   instabilite MQTT residuelle (reconnexions rc=-4/rc=-2 en rafale,
+//   retour playlist force par MQTT_OFFLINE_FALLBACK_MS) reste observee sur
+//   materiel reel, correlee dans le temps avec un overlay hi-score/
+//   game_info actif. Hypothese (pas encore prouvee) : sur ce worktree,
+//   loop() et mqttTask() partagent desormais le MEME coeur (0, voir le
+//   chantier de reassignation), contrairement a la branche source ou
+//   OVERLAY_FRAME_INTERVAL_MS=45ms avait ete calibre pour l'AUTRE coeur
+//   (EventsCore/WiFi) -- ce calibrage n'a plus le meme sens ici. Test A/B :
+//   OVERLAY_FRAME_INTERVAL_MS 45ms->200ms (voir advanceOverlay()) pour
+//   ceder nettement plus de temps CPU a mqttTask pendant un scroll actif.
+//   PAS ENCORE VALIDE sur materiel au moment d'ecrire cette entree --
+//   si confirme insuffisant, ne pas re-tenter la meme piste en boucle,
+//   envisager plutot l'idee alternative deja discutee (utilisateur,
+//   2026-08-17) : deporter le rythme de l'animation cote script Recalbox
+//   (tick MQTT a frequence reduite) plutot que la garder cote firmware --
+//   ecartee pour ce premier essai (ajoute du trafic MQTT, complexite de
+//   coordination start/stop, alors que MQTT est justement la ressource
+//   fragile) mais reste une option si le simple ralentissement local ne
+//   suffit pas.
+//
+// v81 - 2026-08-17 - safe-modify - 2e CRASH REEL confirme sur materiel
+//   (decode via addr2line, hash ELF verifie identique au binaire plante),
+//   DIFFERENT du v80 (celui-la un abort() PANIC, pas un watchdog) --
+//   preloadBigram()->loadBigramTable()->SD.open()->make_shared<VFSFileImpl>
+//   ->operator new echoue a maxalloc=4596 (meme plateau heap deja documente
+//   partout ailleurs dans ce fichier). Ce site (9 appelants, notamment
+//   depuis le chemin CMD_GAME) n'avait AUCUN garde-fou, contrairement a
+//   getNextGifRandom()/drawRaw565() -- trou preexistant dans master, pas
+//   introduit par le chunk 3, mais le hi-score/game_info consomme plus de
+//   heap pendant CMD_GAME, rendant ce plateau plus facile a atteindre. Fix :
+//   meme double protection (seuil CMD_GAME_MIN_HEAP_FOR_FILE_OPEN avant
+//   tentative + try/catch en filet de securite) que les guards existants,
+//   centralisee dans loadBigramTable() (protege ses 9 appelants d'un coup).
+//   CMD_GAME_MIN_HEAP_FOR_FILE_OPEN deplacee plus haut dans le fichier
+//   (avant loadBigramTable(), qui en a besoin plus tot que drawRaw565()) --
+//   simple relocalisation de declaration, aucun changement de valeur/
+//   comportement pour drawRaw565() et ses autres appelants existants.
+//
+// v80 - 2026-08-17 - safe-modify - CRASH REEL confirme sur materiel
+//   pendant le test du chunk 3 (v79, hi-score/game_info/achievement) --
+//   reset TASK_WDT, decode via addr2line (hash ELF verifie identique au
+//   binaire plante) : mqttTask() bloque dans PubSubClient::connect()
+//   (boucle sans yield en attendant le CONNACK), setSocketTimeout(30)
+//   laissait cette boucle affamer IDLE0 (cœur 0) assez longtemps pour
+//   declencher le watchdog materiel. PAS un bug introduit par ce chantier
+//   (mqttTask() etait deja seul sur le cœur 0 avant ET apres le changement
+//   LoopCore -- comportement deja documente comme tel dans PubSubClient),
+//   juste jamais declenche en test avant une vraie reconnexion qui traine.
+//   Fix : timeout abaisse a 3s (voir setSocketTimeout(), section MQTT
+//   setup) -- large marge pour un handshake local sain, borne desormais le
+//   pire cas nettement sous le watchdog.
+//
+// v79 - 2026-08-17 - safe-modify - PORT depuis dev/mame-score-mqtt-bridge
+//   (chunk 3/N -- hi-score FBNeo + game info + RetroAchievements + le
+//   sous-systeme d'overlay de rendu non-bloquant qui les porte tous les
+//   trois -- regroupes car NON SEPARABLES proprement dans la branche
+//   source : g_overlayCycleIndex/g_overlayType/advanceOverlay() sont
+//   partages entre les 3 fonctionnalites). Deja teste et fonctionnel sur
+//   materiel reel dans la branche source -- portage fidele, pas de
+//   re-conception. Nouvelles commandes MqttCommand::CMD_SCORE (marquee/cmd/
+//   score), CMD_GAME_INFO (marquee/cmd/game_info), CMD_ACHIEVEMENT
+//   (marquee/cmd/achievement) -- memorisent juste le payload recu,
+//   l'affichage se fait en alternance avec le marquee du jeu EN COURS
+//   (jamais avec la playlist hors-jeu), voir startScoreOverlay()/
+//   startGameInfoOverlay()/startAchievementOverlay()/advanceOverlay() et
+//   leur section dediee juste avant setup(). Nouvelles cles config.ini :
+//   SCORE_ENABLED/SCORE_INTERVAL_SEC/SCORE_DURATION/GAME_INFO_ENABLED/
+//   GAME_INFO_EVERY_N (opt-in, pas d'onglet web dedie a ce stade, meme
+//   choix que la branche source).
+//
+//   DIVERGENCE DELIBEREE vs la branche source (retour utilisateur explicite
+//   pendant cette session) : g_inGameMarquee N'EST PLUS pose par CMD_GAME
+//   directement -- verifie dans marquee.sh (branche source ET master) que
+//   marquee/cmd/game est publie A LA FOIS par un vrai lancement de partie
+//   (rungame) ET par un simple survol de la liste des jeux
+//   (gamelistbrowsing, meme topic, meme format "system/rom") -- le firmware
+//   ne peut pas distinguer les 2 a partir de ce seul topic. Poser
+//   g_inGameMarquee=true sur CHAQUE CMD_GAME (comme le fait la branche
+//   source) aurait donc pu activer l'alternance hi-score/game_info (et son
+//   cout heap/CPU associe -- allocations String dans start*Overlay(),
+//   scroll 22fps) pendant un simple defilement RAPIDE de liste (plusieurs
+//   CMD_GAME/seconde observes en test reel), exactement la zone deja la
+//   plus marginale en heap de ce projet. Fix : nouveau topic dedie
+//   marquee/cmd/ingame ("1"=rungame reel, "0"=sortie de jeu), publie par
+//   marquee.sh UNIQUEMENT sur rungame/endgame (jamais sur
+//   gamelistbrowsing) -- voir MqttCommand::CMD_INGAME. CMD_GAME continue de
+//   reinitialiser le rythme d'alternance (dwell/cycle) a chaque nouvelle
+//   entree (inoffensif hors-jeu, gate par g_inGameMarquee ailleurs), mais
+//   ne touche plus g_inGameMarquee lui-meme.
+//
+//   Rappel utilisateur (contexte du chantier de reassignation de coeur en
+//   cours) : la branche source fonctionnait globalement bien mais a connu
+//   des corruptions memoire non elucidees (voir memoire
+//   project_core_reassignment_rb_script_mismatch et
+//   project_marquee_heartbeat_rederivation_bug, namespace
+//   dev-mame-score-mqtt-bridge) EN PLUS du probleme de collision WiFi/coeur
+//   que ce chantier de reassignation vise a corriger -- 2 problemes
+//   distincts, ne pas les confondre si un symptome de corruption
+//   reapparait apres ce portage (ne pas repartir sur des correctifs
+//   MQTT/tristate, deja explores a fond cote branche source).
+//
+//   NON PORTE a ce stade (chunks suivants) : garde-fou heartbeat MQTT
+//   anti-perte-de-message (marquee.sh v3.2, dmd_score.sh v9), dedup
+//   CMD_GAME/CMD_SYSTEM (v109 source), blocage web-config pendant une
+//   partie (v101/v108 source). v110 source (garde CMD_STARTCLIP/
+//   CMD_RESUMESYS) explicitement EXCLU -- cause probable = corruption
+//   memoire non elucidee, pas un vrai fix.
+//
+// v78 - 2026-08-17 - safe-modify - PORT depuis dev/mame-score-mqtt-bridge
+//   (chantier "reassignation de coeur ESP32" -- port fonction par fonction
+//   apres validation materielle du changement LoopCore=1->0, PAS une copie
+//   de fichier en bloc). Chunk 1/N : garde-fous heap uniquement, deja bien
+//   testes sur materiel reel dans la branche source (equivalent la-bas de
+//   v99+v104+v105+v106 cumules) -- getNextGifRandom() protege par try/catch
+//   (filet de securite EXCEPTION sur crash confirme addr2line, meme
+//   technique que handleWebConfig()) + openNextGif() protege par un seuil
+//   heuristique ESP.getMaxAllocHeap()<OPEN_NEXT_GIF_MIN_HEAP (4000, calibrage
+//   deja arbitre sur materiel reel dans la branche source -- ne pas remonter
+//   a 8000, bloquait le plateau heap stable normal en permanence). AUCUNE
+//   des fonctionnalites hi-score/game_info/RA/heartbeat MQTT de la branche
+//   source n'est incluse a ce stade (chunks suivants, testes separement sur
+//   materiel avant d'enchainer -- voir memoire
+//   project_core_reassignment_rb_script_mismatch). v110 de la branche source
+//   (garde CMD_STARTCLIP/CMD_RESUMESYS) explicitement EXCLU du portage --
+//   cause probable = corruption memoire non elucidee, pas un vrai fix.
 //
 // v77 - 2026-08-13 - safe-modify - Commandes MQTT relatives de luminosite
 //   +10%/-10% (marquee/cmd/brightness_up, marquee/cmd/brightness_down,
@@ -1304,6 +1900,7 @@ typedef uint8_t BitOrder; // Workaround: Adafruit_BusIO attend BitOrder (AVR) ma
 #include <time.h>
 #include "hal/brownout_ll.h"
 #include "esp_system.h" // v76 -- esp_reset_reason(), diagnostic crash/brownout au boot
+#include "esp_log.h" // v99 -- esp_log_level_set(), voir setup() pour le detail complet
 #include "nvs_flash.h"
 #include "ff.h" // Partie C (plan cache_master_gifs) -- f_getlabel()/f_setlabel(), renommage etiquette volume SD au boot
 #include "clock_themes.h"
@@ -1666,11 +2263,48 @@ static void ensureGamesIndexLoaded()
     Serial.println("[GCACHE] charge a la demande (post-copie): " + String(gamesIdxCount) + " systemes");
 }
 
+// Garde-fou heap bas avant ouverture fichier dans le chemin lent CMD_GAME
+// (raw565pack/.gif/.png/.raw565 sur /systems/..., + loadBigramTable() ci-
+// dessous depuis v81) -- 2026-08-09, voir v60/v61/v62. v60 utilisait 8500
+// (marge vs buffer de frame raw565(pack), 8192 octets) -- MAUVAIS calibrage
+// confirme en test reel (log utilisateur) : le plancher NORMAL de
+// ESP.getMaxAllocHeap() en fonctionnement sain tourne en continu autour de
+// 4596-5876 (du au setvbuf(4096) de SD.open()), donc maxalloc<8500 etait
+// vrai quasi en permanence -- le garde-fou interceptait SYSTEMATIQUEMENT,
+// empechant tout raw565pack de se charger. Seuil abaisse a 3000 (sous ce
+// plancher normal) en v61. Centralisee ici (avant drawRaw565() en v62, puis
+// avant loadBigramTable() en v81 -- deplacee plus haut dans le fichier pour
+// rester utilisable par les deux) pour que chaque site puisse l'utiliser
+// directement sans dupliquer la verification.
+const unsigned long CMD_GAME_MIN_HEAP_FOR_FILE_OPEN = 3000;
+
 // Charge la table bigramme du systeme en heap (une seule lecture SD)
+// v81 (2026-08-17) -- CRASH REEL confirme sur materiel (abort() decode via
+// addr2line, hash ELF verifie identique au binaire plante, pendant le test
+// du chunk 3) : SD.open()->fs::FS::open()->make_shared<VFSFileImpl>->
+// operator new echoue quand le heap contigu est trop bas (observe a
+// maxalloc=4596, le meme plateau deja documente ailleurs dans ce fichier
+// pour getNextGifRandom()/drawRaw565()) -- ce site precis (appele 9 fois,
+// notamment depuis preloadBigram() dans le chemin CMD_GAME) n'avait AUCUN
+// garde-fou, contrairement a ces 2 autres. Fix : meme double protection
+// deja eprouvee ailleurs -- seuil heuristique CMD_GAME_MIN_HEAP_FOR_FILE_OPEN
+// (deja utilise pour un SD.open() comparable dans le meme chemin CMD_GAME,
+// reutilise ici plutot que d'inventer une nouvelle constante) AVANT la
+// tentative, + try/catch en filet de securite (un seuil fixe seul ne
+// suffit pas toujours, voir le meme constat deja fait pour
+// getNextGifRandom()). Centralise ICI (choix deliberе, meme raisonnement
+// que pour drawRaw565() en v62) : protege ses 9 appelants d'un coup au lieu
+// de dupliquer la verification a chaque site.
 bool loadBigramTable(const String &sysName)
 {
   if (bigramTableLoaded && bigramTableSys == sysName && bigramTable != nullptr)
     return true;
+
+  if (ESP.getMaxAllocHeap() < CMD_GAME_MIN_HEAP_FOR_FILE_OPEN) {
+    Serial.println("[GCACHE] loadBigramTable heap trop bas (maxalloc=" + String(ESP.getMaxAllocHeap())
+                   + ") -> abandon avant open");
+    return false;
+  }
 
   uint32_t sysOffset = 0; bool found = false;
   for (int i = 0; i < gamesIdxCount; i++)
@@ -1684,16 +2318,32 @@ bool loadBigramTable(const String &sysName)
     if (!bigramTable) return false;
   }
 
-  File f = SD.open(gamesCacheFile.c_str(), FILE_READ);
-  if (!f) { free(bigramTable); bigramTable = nullptr; return false; }
-
-  f.seek(sysOffset);
-  size_t read = f.read((uint8_t*)bigramTable, NB_IDX * 4);
-  f.close();
-
-  if (read < (size_t)(NB_IDX * 4))
+  try
   {
-    free(bigramTable); bigramTable = nullptr; return false;
+    File f = SD.open(gamesCacheFile.c_str(), FILE_READ);
+    if (!f) { free(bigramTable); bigramTable = nullptr; return false; }
+
+    f.seek(sysOffset);
+    size_t read = f.read((uint8_t*)bigramTable, NB_IDX * 4);
+    f.close();
+
+    if (read < (size_t)(NB_IDX * 4))
+    {
+      free(bigramTable); bigramTable = nullptr; return false;
+    }
+  }
+  catch (std::exception &e)
+  {
+    Serial.println(String("[GCACHE] EXCEPTION rattrapee dans loadBigramTable() (heap critique, maxalloc=")
+                   + String(ESP.getMaxAllocHeap()) + ") : " + e.what());
+    free(bigramTable); bigramTable = nullptr;
+    return false;
+  }
+  catch (...)
+  {
+    Serial.println("[GCACHE] EXCEPTION inconnue rattrapee dans loadBigramTable() (maxalloc=" + String(ESP.getMaxAllocHeap()) + ")");
+    free(bigramTable); bigramTable = nullptr;
+    return false;
   }
 
   bigramTableSys    = sysName;
@@ -1932,6 +2582,12 @@ enum DisplayMode { MODE_PLAYLIST, MODE_GIF, MODE_PNG, MODE_CONFIG, MODE_BLACK };
 volatile DisplayMode currentMode = MODE_PLAYLIST;
 
 bool g_sdOpInProgress = false;
+
+// v104 -- variables "precoces" du hi-score/game_info/achievement (scoreEnabled,
+// g_inGameMarquee, g_overlayPendingStart, lastAchievementText,
+// gameInfoEnabled, achievementEnabled, etc.) RETIREES entierement -- meme
+// raison que le sous-systeme overlay plus bas dans ce fichier, voir son
+// commentaire.
 
 // v75 -- drapeau dedie pour interrompre un apercu horloge (showClock() en
 // mode preview, boucle bloquante -- voir CMD_CLOCK_PREVIEW) depuis
@@ -2203,6 +2859,41 @@ SemaphoreHandle_t mqttCmdMutex   = nullptr;
 MqttCommand       pendingCmd;
 TaskHandle_t      mqttTaskHandle = nullptr;
 
+// v96 -- BUG REEL confirme sur materiel (CMD_GAME_DEBUG_LOGS active, hash ELF
+// verifie) : pendingCmd (slot unique partage par TOUTES les commandes)
+// perdait silencieusement un message si un AUTRE type de commande arrivait
+// avant que loop() ait consomme le precedent -- confirme en conditions
+// reelles : juste apres une reconnexion MQTT, une rafale de messages retenus
+// (default+system+game+game_info+ingame en <1s) faisait ecraser "game"
+// (jamais consomme, aucun [DIAG] log meme avec CMD_GAME_DEBUG_LOGS actif) par
+// "game_info" arrive ~0.2s plus tard -- le marquee du jeu restait donc
+// bloque sur l'ecran "RB connectee" meme apres une reconnexion reussie,
+// alors que les messages suivants (game_info/ingame) etaient traites
+// normalement (d'ou l'overlay a jour sur un fond perime).
+// Remplacer pendingCmd par une queue/tableau generique a ete deliberement
+// ECARTE (voir memoire projet dev-mame-score-mqtt-bridge,
+// project_marquee_heartbeat_rederivation_bug) : un tableau de flags
+// "commande en attente" indexe par type (g_cmdPending[CMD_STARTCLIP]) y a
+// ete fortement suspecte de corruption memoire (ecriture hors-limites
+// ailleurs dans le firmware atterrissant sur cette zone adjacente), causant
+// des commandes PERIMEES a se declencher en pleine partie active -- sur le
+// MEME plateau heap bas (maxalloc 4596-12000) que celui observe ici, jamais
+// elucide, chantier explicitement abandonne sur cette piste (v110 source
+// exclu pour cette raison). Fix retenu a la place, pattern deja eprouve
+// ailleurs dans ce fichier (g_noWifiRecalboxPending, g_achievementPendingShow,
+// etc., de simples booleens nommes, jamais un tableau) : uniquement les 4
+// commandes qui definissent "ce qui doit etre affiche" recoivent chacune sa
+// PROPRE variable dediee (pas un tableau indexe par type -- 4 paires
+// bool+String nommees individuellement) -- elles ne peuvent donc plus jamais
+// etre ecrasees par un type de commande DIFFERENT. score/game_info/
+// achievement/brightness/etc. restent sur pendingCmd (perte occasionnelle
+// deja acceptee, aucun bug confirme les concernant a ce jour).
+bool   g_pendingDefault   = false;
+bool   g_pendingSystem    = false;  String g_pendingSystemArg = "";
+bool   g_pendingGame      = false;  String g_pendingGameArg   = "";
+// v104 -- g_pendingIngame/g_pendingGameInfo retires (CMD_INGAME/CMD_GAME_INFO
+// n'existent plus, voir suppression du sous-systeme hi-score/overlay).
+
 // Pont pour web_config.h (v72) : #include "web_config.h" a lieu AVANT la
 // definition du type MqttCommand/pendingCmd ci-dessus (ligne 1241) -- cette
 // fonction permet au handler web /clock-preview de poser une commande
@@ -2446,6 +3137,17 @@ static String pngToRaw565Path(const String &pngPath)
 {
   if (pngPath.length() >= 4 && pngPath.endsWith(".png"))
     return pngPath.substring(0, pngPath.length() - 4) + ".raw565";
+  // v93 -- BUG REEL confirme sur materiel : cette fonction est censee
+  // recevoir un chemin .png, mais currentPngPath peut parfois deja contenir
+  // un chemin .raw565 (ex. DEFAULT_RAW565_PATH, pose par CMD_WAITING_MQTT
+  // comme placeholder "informatif" puis relu a tort par un redessin force,
+  // cf. endOverlay()) -- l'ancien comportement (retourner pngPath+".raw565"
+  // sans condition) produisait alors un chemin double-extension du genre
+  // "default.raw565.raw565", forcement introuvable (log [PNG-RAW] MISSING),
+  // qui declenchait toute une chaine de repli (~800ms perdus, tentative de
+  // decodage PNG sur un fichier qui n'en est pas un) avant de se rattraper.
+  // Fix : idempotent, ne rajoute jamais ".raw565" si deja present.
+  if (pngPath.endsWith(".raw565")) return pngPath;
   return pngPath + ".raw565";
 }
 
@@ -2488,21 +3190,10 @@ static String alphaSubdirPath(const String &path)
 
 static uint16_t *raw565FullBuf = nullptr;
 
-// Garde-fou heap bas avant ouverture fichier dans le chemin lent CMD_GAME
-// (raw565pack/.gif/.png/.raw565 sur /systems/...) -- 2026-08-09, voir
-// v60/v61/v62. v60 utilisait 8500 (marge vs buffer de frame raw565(pack),
-// 8192 octets) -- MAUVAIS calibrage confirme en test reel (log
-// utilisateur) : le plancher NORMAL de ESP.getMaxAllocHeap() en
-// fonctionnement sain tourne en continu autour de 4596-5876 (deja
-// documente ailleurs dans ce projet, du au setvbuf(4096) de SD.open()),
-// donc maxalloc<8500 etait vrai quasi en permanence -- le garde-fou
-// interceptait SYSTEMATIQUEMENT, empechant tout raw565pack de se charger
-// ("plus jamais de rawpack lu"). Seuil abaisse a 3000 (sous ce plancher
-// normal) en v61. Deplacee ici (avant drawRaw565()) en v62 pour que
-// drawRaw565() puisse l'utiliser directement (garde-fou centralise,
-// couvre tous ses appelants -- voir changelog v62 complet en tete de
-// fichier).
-const unsigned long CMD_GAME_MIN_HEAP_FOR_FILE_OPEN = 3000;
+// CMD_GAME_MIN_HEAP_FOR_FILE_OPEN deplacee plus haut dans le fichier en v81
+// (2026-08-17) -- voir sa declaration pres de loadBigramTable(), qui en a
+// desormais besoin AVANT ce point du fichier (variable globale, pas de
+// forward-declaration possible contrairement aux fonctions).
 
 // Cache RAM du fallback /systems/_defaults/default.raw565 (8KB)
 static uint16_t *defaultRaw565Buf = nullptr;
@@ -3130,7 +3821,26 @@ static void gifResetCompat()
   }
 }
 
-bool openGif(const String &path, bool clearBefore=true, bool skipProbe=false, bool skipRawPack=false)
+// v98 -- BUG REEL confirme sur materiel (4e site distinct de la MEME famille
+// de crash deja corrigee 3x en v91/v95/v98 -- double-echec d'allocation dans
+// SD.open()->make_shared<VFSFileImpl>, non rattrapable par try/catch) : cette
+// fois via CMD_GAME (processPendingMqttCommand()) appelant directement
+// openGif() pour charger le VRAI marquee du jeu (pas un prefetch), observe
+// juste apres un reveil RB (heap sous pression transitoire). openGif()
+// n'avait ICI AUCUN garde-fou. Un seuil heap type PREFETCH_NEXT_GIF_MIN_HEAP
+// a ete ENVISAGE PUIS ECARTE : verification sur le log reel, maxalloc=4596
+// (le plateau NORMAL de ce materiel) juste avant CE crash -- IDENTIQUE a
+// des dizaines d'ouvertures REUSSIES la meme session. Un seuil a 8000
+// bloquerait donc le chargement du marquee la plupart du temps (regression
+// fonctionnelle majeure), pas seulement le cas rare de crash -- maxalloc
+// n'est pas un predicteur fiable pour cette allocation precise. Fix retenu
+// a la place : try/catch autour de la fonction (meme pattern deja etabli
+// pour getNextGifRandom(), v78) -- n'empeche PAS le cas du double-echec
+// total (rare, deja documente comme non rattrapable par le C++ runtime),
+// mais capture le cas plus frequent d'un simple echec d'allocation isole
+// (heap juste suffisant pour lever l'exception), sans aucun risque de faux
+// positif/regression fonctionnelle contrairement a un seuil heuristique.
+bool openGifImpl(const String &path, bool clearBefore, bool skipProbe, bool skipRawPack)
 {
   if (!skipProbe)
   {
@@ -3263,6 +3973,29 @@ bool openGif(const String &path, bool clearBefore=true, bool skipProbe=false, bo
   return false;
 }
 
+// v98 -- filet de securite EXCEPTION (voir commentaire complet pres de
+// openGifImpl() ci-dessus) -- meme technique que getNextGifRandom() (v78).
+bool openGif(const String &path, bool clearBefore=true, bool skipProbe=false, bool skipRawPack=false)
+{
+  try
+  {
+    return openGifImpl(path, clearBefore, skipProbe, skipRawPack);
+  }
+  catch (std::exception &e)
+  {
+    Serial.println(String("[GIF] EXCEPTION rattrapee dans openGif() (heap critique, maxalloc=")
+                   + String(ESP.getMaxAllocHeap()) + ") : " + e.what());
+    gifRawPackMode = false; gifOpened = false;
+    return false;
+  }
+  catch (...)
+  {
+    Serial.println("[GIF] EXCEPTION inconnue rattrapee dans openGif() (maxalloc=" + String(ESP.getMaxAllocHeap()) + ")");
+    gifRawPackMode = false; gifOpened = false;
+    return false;
+  }
+}
+
 // --------------------------------------------------
 // openBestMedia
 // --------------------------------------------------
@@ -3383,19 +4116,60 @@ String getNextGifSequential()
   return "";
 }
 
+// v78 (2026-08-17) -- Port depuis dev/mame-score-mqtt-bridge (v99+v104+v105+
+// v106, deja confirmes/ajustes plusieurs fois sur materiel reel dans cette
+// branche source) : garde-fou heap pour le crash REEL confirme et decode via
+// addr2line a plusieurs reprises (ELF verifie identique au binaire plante)
+// -- getNextGifRandom() -> SD.open(playlistCachePath) -> fs::FS::open() ->
+// operator new echoue si le heap contigu disponible est trop bas, exception
+// non rattrapee -> abort()+reboot. Se produit typiquement juste apres boot
+// (WiFi+MQTT+web fraichement inities, maxAllocHeap observe aussi bas que
+// ~4.6 Ko a ce moment precis). Seuil OPEN_NEXT_GIF_MIN_HEAP=4000 : historique
+// de calibrage complet (8000 essaye puis abandonne -- bloquait le plateau
+// heap stable normal ~4596 en permanence, ecran noir indefini) deja dans la
+// memoire projet source, pas rejoue ici. Le try/catch sur getNextGifRandom()
+// est un filet de securite EXCEPTION en complement de ce seuil heuristique
+// (pas garanti pour tous les fichiers -- crash reel observe a maxalloc=4596,
+// DONC AU-DESSUS du seuil 4000) ; meme technique deja utilisee ailleurs dans
+// ce fichier pour handleWebConfig(). Sur exception, retourne "" (meme
+// comportement que les autres cas d'echec deja geres par les appelants).
+const size_t OPEN_NEXT_GIF_MIN_HEAP = 4000;
+
+// v95 -- seuil DEDIE, plus eleve, pour tout site de PREFETCH du GIF suivant
+// (getNextGif() appele en dehors du chemin d'ouverture normal deja garde par
+// OPEN_NEXT_GIF_MIN_HEAP ci-dessus) -- remonte en portee fichier en v97 car
+// UN 2e site d'appel non protege a ete trouve (boucle de frame MODE_GIF dans
+// loop(), distinct de celui dans openNextGif()) ; voir le commentaire complet
+// pres du 1er site corrige (openNextGif(), v91/v95) pour le detail du crash.
+const size_t PREFETCH_NEXT_GIF_MIN_HEAP = 8000;
+
 String getNextGifRandom()
 {
   if(gifCount<=0) return "";
-  int idx=lastRandomIndex;
-  if(gifCount>1){int t=0;while(idx==lastRandomIndex&&t<10){idx=random(0,gifCount);t++;}}
-  else idx=0;
-  lastRandomIndex=idx;
-  if(!idxFileHandle){idxFileHandle=SD.open(playlistIdxPath,FILE_READ);if(!idxFileHandle)return getNextGifSequential();}
-  idxFileHandle.seek((uint32_t)idx*4);
-  uint32_t offset=0; idxFileHandle.read((uint8_t*)&offset,4);
-  File cf=SD.open(playlistCachePath,FILE_READ); if(!cf) return "";
-  cf.seek(offset); String line=cf.readStringUntil('\n'); cf.close(); line.trim();
-  return line;
+  try
+  {
+    int idx=lastRandomIndex;
+    if(gifCount>1){int t=0;while(idx==lastRandomIndex&&t<10){idx=random(0,gifCount);t++;}}
+    else idx=0;
+    lastRandomIndex=idx;
+    if(!idxFileHandle){idxFileHandle=SD.open(playlistIdxPath,FILE_READ);if(!idxFileHandle)return getNextGifSequential();}
+    idxFileHandle.seek((uint32_t)idx*4);
+    uint32_t offset=0; idxFileHandle.read((uint8_t*)&offset,4);
+    File cf=SD.open(playlistCachePath,FILE_READ); if(!cf) return "";
+    cf.seek(offset); String line=cf.readStringUntil('\n'); cf.close(); line.trim();
+    return line;
+  }
+  catch (std::exception &e)
+  {
+    Serial.println(String("[GIF] EXCEPTION rattrapee dans getNextGifRandom() (heap critique, maxalloc=")
+                   + String(ESP.getMaxAllocHeap()) + ") : " + e.what());
+    return "";
+  }
+  catch (...)
+  {
+    Serial.println("[GIF] EXCEPTION inconnue rattrapee dans getNextGifRandom() (maxalloc=" + String(ESP.getMaxAllocHeap()) + ")");
+    return "";
+  }
 }
 
 String getNextGif(){if(gifCount<=0)return "";return playlistRandom?getNextGifRandom():getNextGifSequential();}
@@ -3404,9 +4178,57 @@ String getNextGif(){if(gifCount<=0)return "";return playlistRandom?getNextGifRan
 // gifPlayFrameCompat(), voir son commentaire complet.
 void openNextGif()
 {
+  if (ESP.getMaxAllocHeap() < OPEN_NEXT_GIF_MIN_HEAP)
+  {
+    // v78 -- ce chemin etait totalement SILENCIEUX avant (port depuis
+    // dev/mame-score-mqtt-bridge v103 diag) : suspect n°1 de l'ecran noir
+    // persistant apres veille. Rate-limite (retente a CHAQUE loop() via
+    // requestNextGif -- sans limite, spam total tant que le heap reste bas)
+    // a 1 log/3s max.
+    static unsigned long s_lastBlockedLogMs = 0;
+    if (millis() - s_lastBlockedLogMs >= 3000)
+    {
+      s_lastBlockedLogMs = millis();
+      Serial.println("[HEAP] openNextGif BLOQUE (maxalloc=" + String(ESP.getMaxAllocHeap())
+                     + " < " + String(OPEN_NEXT_GIF_MIN_HEAP) + ") -- retente via requestNextGif t=" + String(millis()));
+    }
+    requestNextGif = true;
+    return;
+  }
   String next=(nextGifPath.length()>0)?nextGifPath:getNextGif(); nextGifPath="";
   bool ok = (next.length()>0) && openGif(next,false,true,true);
-  if (ok) nextGifPath=getNextGif();
+  // v91 -- BUG REEL confirme sur materiel (abort() decode via addr2line, ELF
+  // verifie) : ce prefetch (nextGifPath=getNextGif(), execute a CHAQUE
+  // ouverture de GIF reussie) n'etait garde par AUCUN controle heap propre --
+  // seul le controle d'ENTREE de openNextGif() (ligne ~3821, OPEN_NEXT_GIF_MIN_HEAP)
+  // le precedait, mais openGif() qui vient de s'executer juste au-dessus
+  // consomme lui-meme du heap, donc le seuil verifie a l'entree n'est plus
+  // garanti valide ici. Crash observe : SD.open() -> operator new echoue
+  // (shared_ptr<VFSFileImpl>) ET l'allocation de l'exception bad_alloc
+  // ELLE-MEME echoue aussi (heap trop bas meme pour ca) -> std::terminate()
+  // direct, non rattrapable par le try/catch deja present dans
+  // getNextGifRandom() (v78) -- ce filet ne protege QUE le cas ou il reste
+  // juste assez de heap pour lever l'exception, pas le cas de double-echec.
+  //
+  // v94 -- CE MEME CRASH REPRODUIT sur materiel MALGRE le fix v91 ci-dessus
+  // (hash ELF verifie, meme ligne exacte) : au moment du crash,
+  // ESP.getMaxAllocHeap()==4596, DONC AU-DESSUS du seuil OPEN_NEXT_GIF_MIN_HEAP
+  // (4000) -- le garde-fou v91 a laisse passer et le double-echec d'allocation
+  // s'est quand meme produit. Cause : 4596 est le plateau heap NORMAL/HABITUEL
+  // de ce materiel en fonctionnement courant (deja documente ailleurs dans ce
+  // projet), pas une valeur anormalement basse -- OPEN_NEXT_GIF_MIN_HEAP=4000
+  // (calibre a l'origine pour un AUTRE point d'appel, le garde d'ENTREE de
+  // openNextGif()) ne protege quasiment JAMAIS en pratique pour CETTE
+  // allocation precise (make_shared<VFSFileImpl>), qui a besoin de plus de
+  // marge que 4596 pour reussir de facon fiable. Fix : seuil DEDIE, plus
+  // eleve, uniquement pour ce prefetch -- contrairement au garde d'ENTREE
+  // (dont un seuil trop haut avait cause un ecran noir indefini, historique
+  // documente), un seuil haut ICI est peu risque : le pire cas est un
+  // prefetch simplement saute (retente au prochain appel, le GIF EN COURS
+  // reste affiche normalement pendant ce temps, pas d'ecran noir). Constante
+  // remontee en portee fichier en v97 (voir sa declaration, un 2e site
+  // d'appel non protege trouve ailleurs en a eu besoin aussi).
+  if (ok && ESP.getMaxAllocHeap() >= PREFETCH_NEXT_GIF_MIN_HEAP) nextGifPath=getNextGif();
   if (!ok)
   {gifOpened=false;currentMode=MODE_BLACK;display->clearScreen();return;}
   currentMode=MODE_PLAYLIST;
@@ -3414,6 +4236,23 @@ void openNextGif()
 
 void resumePlaylist()
 {
+  // v85 (2026-08-17) -- BUG REEL confirme sur materiel : plusieurs sites
+  // d'appel de resumePlaylist() (deferred "default", auto-resolution des
+  // alertes WiFi/RecalBox, "Reprendre DMD" web) ne passaient pas par le
+  // case CMD_DEFAULT de processPendingMqttCommand() et donc ne
+  // reinitialisaient jamais g_inGameMarquee -- si l'un d'eux s'appliquait
+  // pendant qu'une vraie partie etait en cours (ex. "default" differe
+  // depuis l'ecran de connexion, applique bien apres qu'un jeu ait
+  // demarre), currentMode repassait a MODE_PLAYLIST mais g_inGameMarquee
+  // restait bloque a true -- etat incoherent qui empechait silencieusement
+  // et indefiniment toute alternance hi-score/game_info de se declencher
+  // (elle exige MODE_PNG/MODE_GIF, jamais MODE_PLAYLIST). Corrige
+  // individuellement a chaque site connu (voir leurs commentaires), ET ICI
+  // en dernier recours centralise : resumePlaylist() signifie TOUJOURS
+  // "on quitte ce qui tournait pour la playlist hors-jeu", donc c'est
+  // TOUJOURS correct d'y desactiver l'alternance, quel que soit l'appelant
+  // (present ou futur).
+  // v104 -- g_inGameMarquee retire (hi-score port supprime).
   gif.close(); gifOpened=false; currentPngPath=""; pngDrawn=false;
   if(nextGifFile){nextGifFile.close();nextGifFile=File();}
   nextGifPath=""; freeBigramAll();
@@ -3569,6 +4408,7 @@ void webDmdResume()
   }
   else
   {
+    // v104 -- g_inGameMarquee retire (hi-score port supprime).
     resumePlaylist();
   }
 }
@@ -3857,7 +4697,7 @@ String trOpenInBrowser(const String &url)
 // la fragmentation sur une session avec beaucoup de changements rapides
 // -- pas confirme, juste teste). Repasser a true pour retrouver le detail
 // complet si besoin de deboguer a nouveau le flux CMD_GAME.
-const bool CMD_GAME_DEBUG_LOGS = false;
+const bool CMD_GAME_DEBUG_LOGS = true; // v98 -- reactive : meme symptome recurrent (currentPngPath bloque sur le placeholder "RB connectee" en boucle) observe MEME apres le fix v97 (slot dedie pour game) -- besoin de confirmer si CMD_GAME est bien recu/traite cette fois, ou si un autre mecanisme est en cause
 
 // CMD_GAME_MIN_HEAP_FOR_FILE_OPEN deplacee plus haut dans le fichier en
 // v62 (avant drawRaw565(), qui en depend desormais -- garde-fou
@@ -3868,7 +4708,9 @@ bool hasPendingMqttCommand()
 {
   if(mqttCmdMutex==nullptr) return false;
   if(xSemaphoreTake(mqttCmdMutex,0)!=pdTRUE) return false;
-  bool has=(pendingCmd.type!=MqttCommand::CMD_NONE);
+  // v96/v104 -- inclut les 3 slots dedies (voir leur declaration).
+  bool has = g_pendingDefault || g_pendingSystem || g_pendingGame
+             || (pendingCmd.type!=MqttCommand::CMD_NONE);
   xSemaphoreGive(mqttCmdMutex); return has;
 }
 
@@ -3876,7 +4718,17 @@ void processPendingMqttCommand()
 {
   if(mqttCmdMutex==nullptr) return;
   if(xSemaphoreTake(mqttCmdMutex,0)!=pdTRUE) return;
-  MqttCommand cmd=pendingCmd; pendingCmd=MqttCommand(MqttCommand::CMD_NONE,"");
+  // v96 -- priorite aux 4 slots dedies (jamais ecrases par un type different,
+  // voir leur declaration) avant le pendingCmd generique -- ordre naturel
+  // d'arrivee cote RB (default/system/game deja dans cet ordre logique,
+  // ingame en dernier car publie apres coup par marquee.sh). Un seul
+  // consomme par appel, comme avant -- les autres suivront au(x) prochain(s)
+  // appel(s) de loop() (quelques ms plus tard), jamais perdus entre-temps.
+  MqttCommand cmd(MqttCommand::CMD_NONE,"");
+  if      (g_pendingDefault) { g_pendingDefault=false; cmd=MqttCommand(MqttCommand::CMD_DEFAULT,""); }
+  else if (g_pendingSystem)  { g_pendingSystem=false;  cmd=MqttCommand(MqttCommand::CMD_SYSTEM,g_pendingSystemArg); }
+  else if (g_pendingGame)    { g_pendingGame=false;    cmd=MqttCommand(MqttCommand::CMD_GAME,g_pendingGameArg); }
+  else                       { cmd=pendingCmd; pendingCmd=MqttCommand(MqttCommand::CMD_NONE,""); }
   xSemaphoreGive(mqttCmdMutex);
   if(cmd.type==MqttCommand::CMD_NONE) return;
 
@@ -3884,6 +4736,7 @@ void processPendingMqttCommand()
   {
   case MqttCommand::CMD_STOP:
     if(currentMode==MODE_PLAYLIST||g_sdOpInProgress){Serial.println("[MQTT] stop ignored");break;}
+    // v104 -- g_inGameMarquee retire (hi-score port supprime).
     g_mqttConnectedScreenUntilMs = 0;
     // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
     // contenu MQTT reprend la main, plus besoin d'attendre son
@@ -3899,6 +4752,7 @@ void processPendingMqttCommand()
 
   case MqttCommand::CMD_DEFAULT:
     if (g_sdOpInProgress) { Serial.println("[MQTT] default ignored (web open)"); break; }
+    // v104 -- g_inGameMarquee retire (hi-score port supprime).
     g_lastMqttWasDefault = true; // v50 -- pose ici, avant meme le differe eventuel : RB a bien annonce "default"
     // Delai minimum d'affichage de l'ecran "RecalBox connectee" (v49) : si
     // ce default arrive PENDANT que cet ecran est encore affiche ET avant le
@@ -3968,6 +4822,7 @@ void processPendingMqttCommand()
 
   case MqttCommand::CMD_SYSTEM:
     if (g_sdOpInProgress) { Serial.println("[MQTT] system ignored (web open)"); break; }
+    // v104 -- g_inGameMarquee retire (hi-score port supprime).
     g_mqttConnectedScreenUntilMs = 0;
     // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
     // contenu MQTT reprend la main, plus besoin d'attendre son
@@ -3998,6 +4853,8 @@ void processPendingMqttCommand()
     g_recalboxDisconnectedPending = false;
     g_mqttDefaultPendingAfterMinDisplay = false; // un vrai jeu prend le pas sur un default differe (v49)
     g_lastMqttWasDefault = false; // v50
+    // v104 -- bloc de reinitialisation de l'alternance overlay score/game_info
+    // retire (hi-score port supprime).
   {
     int slash=cmd.arg.indexOf('/');
     String sysName=(slash>=0)?cmd.arg.substring(0,slash):cmd.arg;
@@ -4094,6 +4951,33 @@ void processPendingMqttCommand()
         pngDrawn = true;
         currentPngPath = defPng;
         currentMode = MODE_PNG;
+        break;
+      }
+
+      // v92 -- BUG REEL confirme sur materiel : si TOUT echoue ici (jeu, gif,
+      // ET default.png -- observe apres une reconnexion MQTT sous stress,
+      // heap probablement sous pression transitoire a ce moment precis), le
+      // code continuait silencieusement dans le bloc if(isSlow) juste en
+      // dessous, qui ne s'execute JAMAIS pour un systeme rapide (isSlow=false,
+      // ex. fbneo) -- currentMode restait donc bloque a sa valeur PRECEDENTE
+      // (ex. MODE_PLAYLIST issu d'un resumePlaylist() anterieur, cf. v90/
+      // "injoignable"), etat incoherent qui bloque aussi silencieusement le
+      // declencheur d'overlay (exige MODE_PNG/MODE_GIF, jamais MODE_PLAYLIST,
+      // meme raisonnement que le bug v85). Log volontairement TOUJOURS visible
+      // (pas gate CMD_GAME_DEBUG_LOGS) : evenement rare/exceptionnel, besoin
+      // de rester diagnosticable sans activer tous les logs verbeux.
+      if (!isSlow)
+      {
+        Serial.println("[CMD_GAME] fast path totalement echoue (jeu+gif+default.png), maxalloc="
+                       + String(ESP.getMaxAllocHeap()));
+        currentMode = MODE_BLACK;
+        // v93 -- laisser un currentPngPath perime (ex. le placeholder .raw565
+        // de CMD_WAITING_MQTT) ici a cause un redessin errone plus tard (voir
+        // pngToRaw565Path() et son commentaire v93) si un overlay se
+        // declenche puis se termine avant le prochain CMD_GAME reussi.
+        currentPngPath = "";
+        pngDrawn = false;
+        display->clearScreen();
         break;
       }
 
@@ -4413,6 +5297,7 @@ void processPendingMqttCommand()
 
   case MqttCommand::CMD_STARTCLIP:
     if (g_sdOpInProgress) { Serial.println("[MQTT] startclip ignored"); break; }
+    // v104 -- g_inGameMarquee retire (hi-score port supprime).
     g_mqttConnectedScreenUntilMs = 0;
     // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
     // contenu MQTT reprend la main, plus besoin d'attendre son
@@ -4429,6 +5314,7 @@ void processPendingMqttCommand()
 
   case MqttCommand::CMD_RESUMESYS:
     if (g_sdOpInProgress) { Serial.println("[MQTT] resumesys ignored"); break; }
+    // v104 -- g_inGameMarquee retire (hi-score port supprime).
     g_mqttConnectedScreenUntilMs = 0;
     // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
     // contenu MQTT reprend la main, plus besoin d'attendre son
@@ -4538,6 +5424,10 @@ void processPendingMqttCommand()
     break;
   }
 
+  // v104 -- cases CMD_INGAME/CMD_SCORE/CMD_GAME_INFO/CMD_ACHIEVEMENT retirees
+  // (hi-score/game_info/achievement port supprime, voir entete changelog et
+  // memoire projet -- test empirique isolant si ce code contribue au rc=-4).
+
   // Apercu de theme horloge depuis la page web (v72, onglet Horloge ;
   // fixes v73 ci-dessous) -- cmd.arg = "stop" (quitte la page ou aucun
   // thème selectionne) ou un theme ("-1".."9", cf. select #clock_theme).
@@ -4629,18 +5519,46 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
   // "faux" en soi -- et depuis le retrait de la reprise auto par delai (v45
   // egalement), c'est desormais le SEUL moyen de sortir de l'ecran d'attente
   // si RB est deja en demo a la connexion.
-  bool inWaitingGrace = (millis() < g_mqttWaitingUntilMs);
+  // v102 -- inWaitingGrace (le filtre lui-meme) retire : voir le commentaire
+  // complet pres du dispatch system/game plus bas, qui etait le DERNIER
+  // usage de cette variable (system/game desormais traites comme default,
+  // v45). g_mqttWaitingUntilMs/MQTT_WAITING_GRACE_MS laisses en place
+  // (ecrits mais plus lus) au cas ou un futur filtre en aurait a nouveau
+  // besoin -- cout nul, evite de toucher a plus de sites que necessaire.
 
+  // v96 -- default/system/game passent desormais par leur slot dedie (voir
+  // declaration de g_pendingGame et al.) au lieu du pendingCmd generique,
+  // pour ne plus jamais etre ecrases par un type de commande different
+  // (score/game_info/ingame...) arrivant juste apres dans la meme rafale.
   if     (t=="marquee/cmd/stop")    pendingCmd=MqttCommand(MqttCommand::CMD_STOP,"");
-  else if(t=="marquee/cmd/default") pendingCmd=MqttCommand(MqttCommand::CMD_DEFAULT,"");
-  else if(t=="marquee/cmd/system")  { if(!inWaitingGrace) {lastSysName=msg;pendingCmd=MqttCommand(MqttCommand::CMD_SYSTEM,msg);} }
-  else if(t=="marquee/cmd/game")    { if(!inWaitingGrace) pendingCmd=MqttCommand(MqttCommand::CMD_GAME,msg); }
+  else if(t=="marquee/cmd/default") g_pendingDefault = true;
+  // v102 -- BUG REEL confirme sur materiel, reproduit plusieurs fois
+  // (karatour, ctribe x2 -- la MEME commande "game" pour le MEME jeu echoue
+  // silencieusement la 1ere fois dans la rafale post-reconnexion, puis
+  // reussit normalement quelques dizaines de secondes plus tard hors
+  // rafale) : inWaitingGrace (fenetre 1.5s, re-armee a CHAQUE reconnexion
+  // via CMD_WAITING_MQTT, pas juste au 1er boot) filtrait ENCORE
+  // system/game -- alors que "default" avait deja ete explicitement retire
+  // de ce meme filtre en v45 pour EXACTEMENT la meme raison ("un message
+  // RETENU reflete toujours le dernier etat REEL connu de RB, jamais faux
+  // en soi"), argument qui s'applique identiquement a system/game.
+  // system/game etaient donc systematiquement ignores (sans aucun log,
+  // contrairement aux autres skips explicites de ce fichier) des qu'ils
+  // faisaient partie de la rafale de messages retenus livree juste apres
+  // resouscription -- expliquant precisement le symptome observe
+  // ("CMD_GAME/SYSTEM silencieux post-reconnexion", documente comme
+  // mystere non resolu avant cette decouverte). Fix : retire du filtre,
+  // meme traitement que default depuis v45.
+  else if(t=="marquee/cmd/system")  { lastSysName=msg; g_pendingSystemArg=msg; g_pendingSystem=true; }
+  else if(t=="marquee/cmd/game")    { g_pendingGameArg=msg; g_pendingGame=true; }
   else if(t=="marquee/cmd/show_config") pendingCmd=MqttCommand(MqttCommand::CMD_SHOW_CONFIG,"");
   else if(t=="marquee/cmd/wifi_recovery") pendingCmd=MqttCommand(MqttCommand::CMD_WIFI_RECOVERY,"");
   else if(t=="marquee/cmd/reboot")        pendingCmd=MqttCommand(MqttCommand::CMD_REBOOT,"");
   else if(t=="marquee/cmd/brightness")    pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS,msg);
   else if(t=="marquee/cmd/brightness_up")   pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_UP,"");
   else if(t=="marquee/cmd/brightness_down") pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_DOWN,"");
+  // v104 -- dispatch marquee/cmd/score, game_info, achievement, ingame retire
+  // (hi-score port supprime, voir entete changelog).
   else if(t==mqttEventTopic)
   {
     String ev=extractField(msg,"EVENT");
@@ -4653,7 +5571,7 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
     {
       String sys=(lastSys.length()>0)?lastSys:lastSysName;
       if(sys.length()>0){lastSysName=sys;pendingCmd=MqttCommand(MqttCommand::CMD_RESUMESYS,sys);}
-      else pendingCmd=MqttCommand(MqttCommand::CMD_DEFAULT,"");
+      else g_pendingDefault = true; // v96 -- slot dedie, voir commentaire pres de sa declaration
     }
   }
   xSemaphoreGive(mqttCmdMutex);
@@ -4707,6 +5625,21 @@ void mqttTask(void *param)
   unsigned long wifiConnectedSinceMs = 0;
   bool wasWifiConnected = false;
   const unsigned long MQTT_WIFI_SETTLE_MS = 1500UL;
+  // v104 -- BUG REEL confirme sur materiel EN DIRECT : la deconnexion forcee
+  // (v94/v98, sur trop d'echecs subscribe()) n'avait AUCUN recul -- observe :
+  // TCP se reconnecte vite (broker local, ~14ms, connexion reellement
+  // saine a ce niveau), mais les subscribe() echouent A NOUVEAU sur cette
+  // connexion fraiche ~19s plus tard, re-declenchant une nouvelle
+  // deconnexion forcee -- boucle infinie toutes les ~39s, jamais d'etat
+  // stable ou les souscriptions tiennent. Symptome utilisateur : "connected"
+  // visible dans le serial en boucle, mais AUCUNE reaction reelle du DMD
+  // (jamais reellement abonne a rien). Fix : compteur d'echecs consecutifs,
+  // recul progressif avant de retenter apres plusieurs cycles d'affilee --
+  // laisse au reseau/broker le temps de se stabiliser au lieu de marteler
+  // en boucle serree.
+  int consecutiveSubscribeFailCycles = 0;
+  const unsigned long SUBSCRIBE_BACKOFF_STEP_MS = 5000UL;
+  const unsigned long SUBSCRIBE_BACKOFF_MAX_MS = 60000UL;
 
   for(;;)
   {
@@ -4762,24 +5695,111 @@ void mqttTask(void *param)
         vTaskDelay(pdMS_TO_TICKS(200));
         continue;
       }
-      Serial.println("[MQTT] connecting to "+recalboxIP);
+      // v92 -- instrumentation heap sur chaque tentative connect()/echec, pour
+      // verifier l'hypothese utilisateur (observee empiriquement plusieurs
+      // fois : la reconnexion n'aboutit qu'apres un retour hors-jeu/playlist)
+      // d'une contention sur le heap PARTAGE entre loop() (overlay/raw565pack
+      // en jeu, heap maintenu bas) et mqttTask() (connect() a peut-etre besoin
+      // d'assez de heap libre pour ses buffers TCP/MQTT). A RETIRER une fois
+      // l'hypothese confirmee ou infirmee par des mesures reelles.
+      Serial.println("[MQTT] connecting to "+recalboxIP+" (free="+String(ESP.getFreeHeap())
+                     +" maxalloc="+String(ESP.getMaxAllocHeap())+")");
       if(mqttClient.connect(MQTT_CLIENT))
       {
         Serial.println("[MQTT] connected");
         lastMqttConnectedMs=millis();
         lastRecalboxDisconnectedAlertMs=0; // reautorise l'alerte immediate en cas de future deconnexion
         recalboxDisconnectedAlertCount=0;
-        mqttClient.subscribe("marquee/cmd/stop");
-        mqttClient.subscribe("marquee/cmd/default");
-        mqttClient.subscribe("marquee/cmd/system");
-        mqttClient.subscribe("marquee/cmd/game");
-        mqttClient.subscribe("marquee/cmd/show_config");
-        mqttClient.subscribe("marquee/cmd/wifi_recovery");
-        mqttClient.subscribe("marquee/cmd/reboot");
-        mqttClient.subscribe("marquee/cmd/brightness");
-        mqttClient.subscribe("marquee/cmd/brightness_up");
-        mqttClient.subscribe("marquee/cmd/brightness_down");
-        mqttClient.subscribe(mqttEventTopic.c_str());
+        // v89 (2026-08-17) -- BUG REEL confirme sur materiel : le DMD
+        // restait "[MQTT] connected" mais ne recevait plus AUCUN message
+        // publie par la RB (confirme cote RB : marquee.sh publiait bien),
+        // observe apres une reconnexion elle-meme precedee de plusieurs
+        // echecs (rc=-2/rc=-4) -- le reseau etait donc probablement encore
+        // instable au moment exact de cette rafale de 15 subscribe()
+        // consecutifs, SANS AUCUNE verification du resultat ni delai entre
+        // eux. subscribe() peut echouer silencieusement (retour bool
+        // jamais teste jusqu'ici) si l'ecriture socket echoue -- aucun
+        // moyen de le savoir depuis les logs. Fix : verifie chaque
+        // subscribe(), reessaie une fois apres un court delai en cas
+        // d'echec, logue tout echec definitif (visibilite minimale, pas
+        // de garantie absolue si le reseau reste degrade en continu, mais
+        // couvre le cas d'une instabilite passagere juste apres connect()).
+        int subscribeFailCount = 0;
+        auto subscribeChecked = [&subscribeFailCount](const char *topic) {
+          if (mqttClient.subscribe(topic)) return;
+          delay(50);
+          if (!mqttClient.subscribe(topic))
+          {
+            Serial.println("[MQTT] subscribe ECHEC (apres 1 retry) -> " + String(topic));
+            subscribeFailCount++;
+          }
+        };
+        // v98 -- BUG REEL confirme sur materiel : le check du seuil (voir
+        // SUBSCRIBE_FAIL_THRESHOLD plus bas) ne s'executait qu'APRES cette
+        // sequence de 15 appels sequentiels -- observe : 8 echecs sur 15,
+        // chacun ~20s (2x le socket timeout 10s), soit ~2min40 avant meme que
+        // la deconnexion forcee (v94) puisse se declencher -- perd une bonne
+        // partie du gain de reactivite vise par ce fix. Passe en boucle avec
+        // sortie anticipee des que le seuil est atteint, au lieu d'attendre
+        // les 15 tentatives.
+        const int SUBSCRIBE_FAIL_THRESHOLD = 3;
+        const char *subscribeTopics[] = {
+          "marquee/cmd/stop", "marquee/cmd/default", "marquee/cmd/system", "marquee/cmd/game",
+          "marquee/cmd/show_config", "marquee/cmd/wifi_recovery", "marquee/cmd/reboot",
+          "marquee/cmd/brightness", "marquee/cmd/brightness_up", "marquee/cmd/brightness_down"
+          // v104 -- marquee/cmd/score, game_info, achievement, ingame retires
+          // (hi-score port supprime, test empirique rc=-4)
+        };
+        const int nSubscribeTopics = sizeof(subscribeTopics) / sizeof(subscribeTopics[0]);
+        for (int si = 0; si < nSubscribeTopics && subscribeFailCount < SUBSCRIBE_FAIL_THRESHOLD; si++)
+          subscribeChecked(subscribeTopics[si]);
+        if (subscribeFailCount < SUBSCRIBE_FAIL_THRESHOLD)
+          subscribeChecked(mqttEventTopic.c_str());
+
+        // v94 -- BUG REEL confirme sur materiel : le fix v89 (subscribeChecked,
+        // log+retry par topic) suffisait pour un echec ISOLE/transitoire, mais
+        // ne gerait pas le cas observe en direct ici -- les 15 subscribe()
+        // ont TOUS echoue (meme apres retry), ~20s d'ecart chacun (2x le
+        // socket timeout 10s), TCP accepte + CONNACK recu mais plus AUCUNE
+        // reponse ensuite -- connexion "zombie" (mqttClient.connected() reste
+        // true, mais sourde). Avant ce fix, le code continuait quand meme :
+        // publish("marquee/status/ip") sur un socket mort, et surtout
+        // CMD_WAITING_MQTT poste -> ecran "RecalBox connectee" affiche et
+        // fige plusieurs minutes (observe : "affichage fallback + rb
+        // connectee en fixe" pendant ~5min30 -- PAS indefiniment : le
+        // keepalive interne de PubSubClient finit par detecter la connexion
+        // morte tout seul et redeclenche une vraie reconnexion, observe sur
+        // materiel SANS ce fix). Fix : plutot que d'attendre ce keepalive
+        // (~5-6 minutes de sortie de service ici), si un nombre significatif
+        // de subscribe() ont echoue (seuil arbitraire mais large marge --
+        // 1-2 echecs isoles
+        // restent tolerables sans reagir, cf. v89), la connexion est
+        // consideree morte : deconnexion FORCEE (mqttClient.disconnect()),
+        // pas de publish ip ni de CMD_WAITING_MQTT sur ce socket -- le
+        // prochain tour de boucle de mqttTask() (if(!mqttClient.connected()))
+        // retentera une VRAIE reconnexion (nouveau socket TCP). Seuil declare
+        // plus haut (v98, avec la boucle a sortie anticipee).
+        if (subscribeFailCount >= SUBSCRIBE_FAIL_THRESHOLD)
+        {
+          consecutiveSubscribeFailCycles++;
+          // v104 -- recul progressif : sans ca, un connect() rapide (broker
+          // local) enchaine immediatement sur une nouvelle rafale de
+          // subscribe() qui peut echouer pour la MEME raison sous-jacente
+          // (probablement le meme reseau instable que le rc=-4/-2 deja
+          // documente), redeclenchant cette meme deconnexion forcee en
+          // boucle serree (~39s observes) sans jamais laisser le temps au
+          // reseau/broker de se stabiliser.
+          unsigned long backoffMs = min((unsigned long)consecutiveSubscribeFailCycles * SUBSCRIBE_BACKOFF_STEP_MS, SUBSCRIBE_BACKOFF_MAX_MS);
+          Serial.println("[MQTT] " + String(subscribeFailCount)
+                         + " subscribe() en echec (sortie anticipee, v98) -- connexion consideree morte, deconnexion forcee"
+                         + " (cycle consecutif #" + String(consecutiveSubscribeFailCycles)
+                         + ", recul " + String(backoffMs) + "ms avant nouvelle tentative)");
+          mqttClient.disconnect();
+          vTaskDelay(pdMS_TO_TICKS(backoffMs));
+        }
+        else
+        {
+        consecutiveSubscribeFailCycles = 0; // v104 -- connexion saine (souscriptions OK), recul reinitialise
         // Retenu (retain=true) : un abonne (script Recalbox) qui se connecte
         // plus tard recoit immediatement la derniere IP publiee, sans avoir
         // besoin d'etre a l'ecoute au moment exact de cette connexion.
@@ -4804,10 +5824,12 @@ void mqttTask(void *param)
           }
           xSemaphoreGive(mqttCmdMutex);
         }
+        }
       }
       else
       {
-        Serial.println("[MQTT] failed rc="+String(mqttClient.state()));
+        Serial.println("[MQTT] failed rc="+String(mqttClient.state())+" (free="+String(ESP.getFreeHeap())
+                       +" maxalloc="+String(ESP.getMaxAllocHeap())+")");
         unsigned long now=millis();
         // Alerte "RecalBox non connectee" (2026-08-05, demande utilisateur)
         // -- uniquement rc==-2 (MQTT_CONNECT_FAILED, echec de connexion TCP
@@ -4827,8 +5849,9 @@ void mqttTask(void *param)
           if(currentMode!=MODE_PLAYLIST&&gifCount>0&&!g_sdOpInProgress)
           {
             Serial.println("[MQTT] injoignable -> reprise playlist");
+            // v96 -- slot dedie (voir commentaire pres de g_pendingGame).
             if(mqttCmdMutex!=nullptr&&xSemaphoreTake(mqttCmdMutex,pdMS_TO_TICKS(100))==pdTRUE)
-            {pendingCmd=MqttCommand(MqttCommand::CMD_DEFAULT,"");xSemaphoreGive(mqttCmdMutex);}
+            {g_pendingDefault=true;xSemaphoreGive(mqttCmdMutex);}
             lastMqttConnectedMs=now;
           }
         }
@@ -5037,8 +6060,68 @@ void setupWiFiFromConfig()
     if(recalboxIP.length()>0){
       mqttClient.setServer(recalboxIP.c_str(),MQTT_PORT);
       mqttClient.setCallback(onMqttMessage);
-      mqttClient.setKeepAlive(60);
-      mqttClient.setSocketTimeout(30);
+      // v79 -- port depuis dev/mame-score-mqtt-bridge : buffer PubSubClient
+      // par defaut = 256 octets (MQTT_MAX_PACKET_SIZE), largement suffisant
+      // pour tous les topics d'avant ce chunk (le plus long, le top 5
+      // hiscore multi-rangs, fait ~90 octets) -- mais game_info peut faire
+      // jusqu'a ~700 octets de texte (voir MAX_TOTAL_LEN dans
+      // dmd_game_info.py), largement au-dela : sans setBufferSize(),
+      // PubSubClient tronque/rejette silencieusement le message (pas
+      // d'erreur visible). 1024 = marge confortable (payload + topic +
+      // entetes MQTT).
+      mqttClient.setBufferSize(1024);
+      // v100 -- BUG REEL confirme sur materiel : connexion "zombie" observee
+      // en DIRECT (silence total >2min30, aucune tentative de reconnexion,
+      // ecran DMD fige sur "RB connectee") -- mqttClient.connected() restait
+      // true (TCP "a moitie mort", pair disparu sans FIN/RST propre), et
+      // AUCUN de nos garde-fous existants (v94, verifie seulement au moment
+      // du connect()) ne peut detecter un silence qui s'installe PLUS TARD
+      // en cours de session. Seul le keepalive interne de PubSubClient
+      // (PINGREQ/PINGRESP) peut detecter ce cas -- mais setKeepAlive(60)
+      // (60s, sans justification documentee, tres au-dessus des 15s par
+      // defaut de la librairie) le rend beaucoup trop lent : il faut ~1.5-2x
+      // ce delai avant que PubSubClient marque la connexion morte, soit
+      // 90-120s+ avant meme de COMMENCER une vraie reconnexion -- cohere
+      // avec les silences de plusieurs minutes observes ce soir. Fix :
+      // retour a 15s (defaut librairie) -- cout reseau negligeable (quelques
+      // octets toutes les 15s sur un WiFi local qui vehicule deja des
+      // payloads bien plus gros), gain direct : detection ~4x plus rapide
+      // d'une connexion zombie.
+      mqttClient.setKeepAlive(15);
+      // v80 (2026-08-17) -- CRASH REEL confirme sur materiel (reset
+      // TASK_WDT, decode via addr2line, hash ELF verifie identique au
+      // binaire plante) : mqttTask() bloque dans PubSubClient::connect()
+      // (PubSubClient.cpp:257, boucle "while(!_client->available())" SANS
+      // AUCUN yield/delay en attendant le CONNACK) -- avec un timeout de
+      // 30s, cette boucle serree peut affamer IDLE0 (cœur 0) assez
+      // longtemps pour declencher le watchdog materiel. Comportement DEJA
+      // documente comme tel dans PubSubClient (pas un bug introduit par ce
+      // chantier -- mqttTask() etait deja seul sur le cœur 0 avant ET apres
+      // le changement LoopCore, ce risque existait deja, juste jamais
+      // declenche en test avant maintenant : il faut une reconnexion qui
+      // traine pour l'atteindre). Premier fix : timeout abaisse a 3s.
+      // v83 (2026-08-17) -- CORRECTIF PLUS PROFOND suite a investigation
+      // reseau sur materiel reel (reconnexions spontanees en rafale meme
+      // au repos, sans rapport avec le rendu/l'overlay -- deja constate sur
+      // dev/mame-score-mqtt-bridge, independant du changement de cœur).
+      // Root cause de la boucle sans yield corrigee DIRECTEMENT dans
+      // PubSubClient.cpp (patch local, voir son commentaire pres de la
+      // ligne 257 : yield() ajoute dans la boucle d'attente du CONNACK,
+      // meme protection que readByte() plus bas dans ce meme fichier, qui
+      // l'avait deja) -- le watchdog ne peut plus se declencher quelle que
+      // soit la duree d'attente. Peut donc remonter ce timeout a une valeur
+      // plus tolerante SANS reintroduire le risque watchdog : 3s s'est
+      // revele trop impatient en usage reel -- setSocketTimeout() couvre
+      // TOUTES les lectures socket de PubSubClient (pas seulement
+      // connect()), donc une lenteur passagere du broker (ex. RB occupee a
+      // emuler un jeu) pendant mqttClient.loop() normal pouvait aussi
+      // declencher une reconnexion prematuree -- qui elle-meme, via l'ID
+      // client FIXE (MQTT_CLIENT="esp32-marquee"), force le broker a fermer
+      // la connexion precedente (cause probable des sockets zombies
+      // "CLOSING" observees cote broker), cascade auto-entretenue. 10s :
+      // large tolerance pour ce cas, tout en restant borne (pas de retour
+      // au risque watchdog d'avant v80, corrige a la racine par le patch).
+      mqttClient.setSocketTimeout(10);
     }
   }
   else{
@@ -5224,7 +6307,7 @@ int buildOffsetIndex()
 // --------------------------------------------------
 // Splash screen â€” version au dÃ©marrage (info=1 uniquement)
 // --------------------------------------------------
-#define RETRO_VERSION "Raw565 Ed. v12"
+#define RETRO_VERSION "Raw565 Ed. devCORE0"
 
 void showSplashScreen()
 {
@@ -5569,12 +6652,39 @@ static bool showClock(int forceTheme)
   return true;
 }
 
+// v104 -- Sous-systeme overlay (score/game_info/achievement) RETIRE
+// entierement (test empirique : isoler si le CODE du port hi-score, meme
+// desactive/inutilise, contribue a l'instabilite MQTT observee cette
+// session -- voir memoire projet). Portait ~500 lignes (enum OverlayType,
+// endOverlay()/drawOverlayTextShadowed()/startScoreOverlay()/
+// startAchievementOverlay()/startGameInfoOverlay()/advanceOverlay()).
+
 void setup()
 {
   brownout_ll_bod_enable(false);     // Desactive BOD (evite reboot intempestifs)
   brownout_ll_intr_enable(false);    // Desactive IRQ BOD
   brownout_ll_reset_config(false, 0, BROWNOUT_RESET_LEVEL_CHIP);
   Serial.begin(115200); delay(1000);
+
+  // v99 -- BUG REEL confirme sur materiel (hash ELF verifie + addr2line,
+  // reproduit 2x d'affilee) : crash COMPLETEMENT DIFFERENT de tous les autres
+  // de cette session -- pas dans notre code du tout, mais DANS le driver
+  // WiFi d'ESP-IDF lui-meme : timer_task() (tache interne esp_timer) ->
+  // ieee80211_timer_process()/pp_timer_process() -> wifi_log() (le driver
+  // WiFi tente d'ecrire un log DIAGNOSTIQUE INTERNE, ex. avertissement bas
+  // niveau) -> esp_log_write() -> ecriture console/UART -> le verrou
+  // recursif de stdio doit etre initialise a la premiere utilisation
+  // (lock_init_generic()) -> echec (heap trop bas au meme plateau que le
+  // reste de cette session, free=5196-5228 observe juste avant) -> abort().
+  // Aucun try/catch possible ici (code C d'ESP-IDF, pas d'exceptions C++).
+  // Fix : faire taire les logs internes du driver WiFi AVANT toute
+  // initialisation WiFi -- si wifi_log() ne tente jamais d'ecrire (filtre
+  // par niveau AVANT meme de formater le message), ce chemin de code entier
+  // (donc ce crash) n'est plus jamais emprunte. Pratique standard/
+  // recommandee en production ESP32 (verbosite driver reduite), aucun risque
+  // fonctionnel -- desactive uniquement les logs internes du tag "wifi",
+  // pas nos propres Serial.println().
+  esp_log_level_set("wifi", ESP_LOG_NONE);
 
   // v76 -- log de la cause du dernier reset (demande utilisateur, suite a un
   // crash a distance non explique : log serie termine en texte UART
@@ -5710,6 +6820,9 @@ void setup()
           if(v>=0&&v<=100)screenBrightness=map(v,0,100,0,255);
         }
         else if(line.startsWith("CLOCK_ENABLED="))clockEnabled=(line.substring(line.indexOf('=')+1).toInt()!=0);
+        // v104 -- parsing SCORE_ENABLED/SCORE_INTERVAL_SEC/SCORE_DURATION/
+        // GAME_INFO_ENABLED/ACHIEVEMENT_ENABLED/GAME_INFO_EVERY_N retire
+        // (hi-score port supprime, test empirique rc=-4).
 else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+1).toInt();if(s>=-1&&s<RETRO_THEME_COUNT)clockTheme=s;}
         else if(line.startsWith("CLOCK_COLOR=")){
           String v=line.substring(line.indexOf('=')+1);v.trim();
@@ -6006,6 +7119,36 @@ start_mqtt_task:
 // --------------------------------------------------
 void loop()
 {
+  // v87 (2026-08-17) -- INSTRUMENTATION DIAGNOSTIC TEMPORAIRE : episode reel
+  // observe sur materiel -- rafale de std::bad_alloc rattrapees (chunk 1,
+  // pre-chargement du GIF suivant pendant une rotation playlist normale,
+  // heap coince a maxalloc=4596) suivie de 65s de silence TOTAL avant
+  // qu'une commande MQTT deja en attente (posee des la connexion reussie)
+  // ne soit enfin traitee -- alors que processPendingMqttCommand() est
+  // censee etre appelee sans aucune condition a CHAQUE iteration (voir
+  // juste en dessous). Hypothese a confirmer/infirmer : le cout du
+  // throw/catch C++ lui-meme (chunk 1, try/catch autour de SD.open()) sous
+  // heap deja critique pourrait etre bien plus eleve que prevu sur ESP32.
+  // Heartbeat INCONDITIONNEL (2s, ne depend d'aucun etat) pour savoir OU
+  // loop() se trouve reellement si ce silence se reproduit -- si meme ce
+  // heartbeat s'arrete, loop() est vraiment bloque (pas juste "coince en
+  // MODE_BLACK sans rien logger"). A retirer une fois la cause confirmee.
+  {
+    static unsigned long s_loopDiagLastMs = 0;
+    if (millis() - s_loopDiagLastMs >= 2000)
+    {
+      s_loopDiagLastMs = millis();
+      Serial.println("[LOOPDIAG] t=" + String(millis())
+                     + " mode=" + String((int)currentMode)
+                     + " gifOpened=" + String(gifOpened)
+                     + " gifRawPackMode=" + String(gifRawPackMode)
+                     + " requestNextGif=" + String(requestNextGif)
+                     + " nextGifPathLen=" + String(nextGifPath.length())
+                     + " free=" + String(ESP.getFreeHeap())
+                     + " maxalloc=" + String(ESP.getMaxAllocHeap())
+                     + " pendingType=" + String((int)pendingCmd.type));
+    }
+  }
   // processPendingMqttCommand() APPELE EN PREMIER (2026-08-09, v62) --
   // AVANT handleWebConfig() -- voir changelog v62 : webServer->handleClient()
   // et mqttClient.loop() (mqttTask()) passent tous deux par la meme couche
@@ -6058,6 +7201,21 @@ void loop()
     g_noWifiRecalboxPending = false;
     g_recalboxDisconnectedScreenActive = false;
     g_recalboxDisconnectedPending = false;
+    // v85 (2026-08-17) -- BUG REEL confirme sur materiel (log + observation
+    // ecran) : ce chemin appelle resumePlaylist() DIRECTEMENT, en
+    // contournant le case CMD_DEFAULT de processPendingMqttCommand() (voir
+    // ce case pour le raisonnement complet) -- donc s'il s'applique APRES
+    // qu'une vraie partie ait demarre entre-temps (le "default" etait
+    // differe depuis l'ecran de connexion, potentiellement plusieurs
+    // dizaines de secondes plus tot), l'affichage repassait bien en
+    // MODE_PLAYLIST mais g_inGameMarquee restait bloque a true -- etat
+    // incoherent (currentMode==MODE_PLAYLIST mais "en jeu" du point de vue
+    // de l'alternance hi-score/game_info, qui exige MODE_PNG/MODE_GIF pour
+    // se declencher -- ne se declenche donc plus JAMAIS, silencieusement,
+    // jusqu'au prochain vrai CMD_STOP/CMD_DEFAULT/CMD_SYSTEM/CMD_INGAME).
+    // C'etait la cause du bug "overlay ne s'affiche jamais" (voir memoire
+    // projet) -- PAS une corruption memoire.
+    // v104 -- g_inGameMarquee retire (hi-score port supprime).
     Serial.println("[MQTT] default differe applique -> reprise playlist");
     resumePlaylist();
   }
@@ -6105,6 +7263,7 @@ void loop()
     if (millis() >= g_noWifiRecalboxUntilMs)
     {
       g_noWifiRecalboxScreenActive = false;
+      // v104 -- g_inGameMarquee retire (hi-score port supprime).
       Serial.println("[WIFI] No wifi, No Recalbox -- delai ecoule, reprise playlist");
       resumePlaylist();
     }
@@ -6125,6 +7284,7 @@ void loop()
     if (millis() >= g_recalboxDisconnectedUntilMs)
     {
       g_recalboxDisconnectedScreenActive = false;
+      // v104 -- g_inGameMarquee retire (hi-score port supprime).
       Serial.println("[MQTT] RecalBox non connectee -- delai ecoule, reprise playlist");
       resumePlaylist();
     }
@@ -6154,6 +7314,8 @@ void loop()
       lastPlGenDmdMs = millis();
     }
   }
+  // v104 -- bloc declencheur d'alternance score/game_info (TRIGDIAG inclus)
+  // retire entierement (hi-score port supprime, test empirique rc=-4).
   if(requestNextGif&&!g_sdOpInProgress){requestNextGif=false;openNextGif();}
   if(requestReboot) {delay(100);ESP.restart();}
 
@@ -6198,7 +7360,17 @@ void loop()
         break;
       }
       if(fd<=0)fd=10;
-      if(nextGifPath.length()==0)nextGifPath=getNextGif();
+      // v97 -- BUG REEL confirme sur materiel (abort() decode via addr2line,
+      // ELF verifie) : MEME cause que le crash deja corrige en v91/v95
+      // (getNextGif()->getNextGifRandom()->SD.open() double-echec
+      // d'allocation, non rattrapable par le try/catch existant), mais un
+      // 3e site d'appel DIFFERENT, jamais protege -- celui-ci dans la boucle
+      // de frame MODE_GIF elle-meme (prefetch du GIF suivant pendant la
+      // lecture), distinct des 2 deja corriges dans openNextGif(). Meme
+      // seuil dedie (PREFETCH_NEXT_GIF_MIN_HEAP=8000, v95) -- pire cas si
+      // heap trop bas : prefetch simplement saute, retente a la frame
+      // suivante (aucun impact visuel, le GIF en cours continue).
+      if(nextGifPath.length()==0 && ESP.getMaxAllocHeap()>=PREFETCH_NEXT_GIF_MIN_HEAP)nextGifPath=getNextGif();
       unsigned long t=millis();
       while((long)(millis()-t)<fd){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(0);}
       // Pre-chargement opportuniste (deja optionnel avant : ne fait rien si
@@ -6213,7 +7385,12 @@ void loop()
     if(!gifOpened){display->clearScreen();currentMode=MODE_BLACK;break;}
     {
       int fd=0; bool frameOk=gifPlayFrameCompat(false,&fd);
-      if(!frameOk){gifResetCompat();break;}
+      if(!frameOk){
+        gifResetCompat();
+        // v104 -- point de coupure overlay score/game_info/achievement retire
+        // (hi-score port supprime, test empirique rc=-4).
+        break;
+      }
       if(fd<=0)fd=10;
       unsigned long t=millis();
       while((long)(millis()-t)<fd){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(0);}
@@ -6276,6 +7453,8 @@ void loop()
         pngDrawn = true;
       }
     }
+    // v104 -- consommation de l'overlay en attente retiree (hi-score port
+    // supprime, test empirique rc=-4).
     {
       unsigned long t=millis();
       while((long)(millis()-t)<100){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(1);}
@@ -6342,11 +7521,34 @@ void loop()
     delay(1);
     break;
 
+  // v79 -- Overlay texte non-bloquant (score/game_info/achievement), voir
+  // section dediee juste avant setup() pour le detail complet.
   case MODE_BLACK:
   default:
     if (g_sdOpInProgress) {
       processPendingMqttCommand();
       delay(1);
+    }
+    // v92 -- BUG REEL confirme sur materiel (ecran noir fige ~2min30 observe
+    // sur ce build meme, suite a un nom de fichier tronque faisant echouer
+    // openNextGif()) : ce case n'avait JAMAIS retente quoi que ce soit --
+    // contrairement au blocage heap (qui pose requestNextGif=true et retente,
+    // voir openNextGif()), un simple echec d'ouverture (fichier tronque/
+    // corrompu, ou desormais aussi le repli CMD_GAME totalement echoue,
+    // v92 plus haut) laissait l'ecran noir INDEFINIMENT jusqu'a un evenement
+    // MQTT externe fortuit. Fix : retente periodique (meme mecanisme
+    // requestNextGif que le blocage heap, rate-limite a 3s pour ne pas
+    // marteler la SD) -- getNextGifRandom()/Sequential() tirera tres
+    // probablement un index DIFFERENT du fichier fautif, donc pas de boucle
+    // infinie sur le meme fichier corrompu.
+    if (!g_sdOpInProgress)
+    {
+      static unsigned long s_lastBlackRetryMs = 0;
+      if (millis() - s_lastBlackRetryMs >= 3000)
+      {
+        s_lastBlackRetryMs = millis();
+        requestNextGif = true;
+      }
     }
     break;
   }

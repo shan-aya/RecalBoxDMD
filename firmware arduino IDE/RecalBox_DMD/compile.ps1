@@ -21,7 +21,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "`n=== Compilation arduino-cli ===" -ForegroundColor Cyan
-$FQBN = "esp32:esp32:esp32:UploadSpeed=921600,CPUFreq=240,FlashFreq=40,FlashMode=qio,FlashSize=4M,PartitionScheme=huge_app,DebugLevel=none,PSRAM=disabled,LoopCore=1,EventsCore=1,EraseFlash=none"
+$FQBN = "esp32:esp32:esp32:UploadSpeed=921600,CPUFreq=240,FlashFreq=40,FlashMode=qio,FlashSize=4M,PartitionScheme=huge_app,DebugLevel=none,PSRAM=disabled,LoopCore=0,EventsCore=1,EraseFlash=none"
 # directories.user d'arduino-cli est aligne sur le sketchbook de l'IDE
 # Arduino ("d:\CROQUIS ARDUINO IDE", voir arduino-cli config) -- les
 # librairies utilisees ici sont donc desormais exactement les memes que

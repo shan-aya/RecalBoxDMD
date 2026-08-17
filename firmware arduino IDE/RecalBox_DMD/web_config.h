@@ -712,6 +712,9 @@ extern bool   playlistRandom;
 extern String recalboxIP;
 extern bool   clockEnabled;
 extern int    clockTheme;
+// v104 -- extern scoreEnabled/scoreIntervalSec/scoreDuration/gameInfoEnabled/
+// g_gameInfoEveryN/achievementEnabled retires (hi-score port supprime cote
+// .ino, test empirique rc=-4).
 extern int    clockIntervalGifs;
 extern int    clockIntervalMin;
 extern int    clockDuration;
@@ -986,6 +989,7 @@ body{position:relative}
 <div class="row"><label for="brightness" data-i18n="lbl_brightness">Luminosit&eacute; (%)</label><input id="brightness" type="range" min="0" max="100" value="50" oninput="onBrightnessInput(this)" onchange="sendBrightness(this.value,true)"><span id="bval" style="margin-left:8px;color:#ffd146;min-width:24px">50</span></div>
 <div class="desc" data-i18n="desc_brightness_live">&#x1F4A1; Aper&ccedil;u appliqu&eacute; en direct sur l'&eacute;cran DMD.</div>
 <div class="row"><label data-i18n="lbl_silent_boot">D&eacute;marrage silencieux</label><input id="silent_boot" type="checkbox"></div>
+<!-- v104 -- checkboxes score_enabled/game_info_enabled/achievement_enabled retirees (hi-score port supprime cote firmware, test empirique rc=-4) -->
 </div>
 <div class="section">
 <h2 data-i18n="sec_playlist">&#x1F4BF; Playlist</h2>
@@ -3999,6 +4003,9 @@ static void handleWebConfigSave()
   // writeConfigFlag(), qui preserve deja les cles non touchees.
   f.println("language=" + uiLanguage);
   f.println(); f.println("# Affichage"); f.println("brightness=" + String(b));
+  // v104 -- reecriture SCORE_ENABLED/SCORE_INTERVAL_SEC/SCORE_DURATION/
+  // GAME_INFO_ENABLED/ACHIEVEMENT_ENABLED/GAME_INFO_EVERY_N retiree
+  // (hi-score port supprime cote firmware, test empirique rc=-4).
   f.println(); f.println("# Playlist"); f.println("playlist=" + playlistName); f.println("random=" + String(playlistRandom ? "1" : "0"));
   f.println(); f.println("# Wi-Fi & Bluetooth");
   f.println("wifi_enabled=" + String(wifiEnabled ? "1" : "0")); f.println("wifi_ssid=" + wifiSSID); f.println("wifi_password=" + wifiPassword);
