@@ -3199,6 +3199,27 @@ static uint16_t *raw565FullBuf = nullptr;
 static uint16_t *defaultRaw565Buf = nullptr;
 static bool defaultRaw565Cached = false;
 static const char *DEFAULT_RAW565_PATH = "/systems/_defaults/default.raw565";
+// v107 -- animation "coupe-circuit anti-rafale" (voir memoire projet) :
+// raw565pack dedie, fixe, pre-fabrique (statique/interference CRT), affiche
+// en boucle pendant une rafale de navigation cote RB (marquee.sh) au lieu de
+// laisser le dernier marquee reel fige. Chemin fixe sous _defaults (pas de
+// sous-dossier alphabetique, meme convention que default.raw565) -- fichier
+// a copier manuellement sur la carte SD (voir memoire projet pour le detail
+// de generation de l'asset).
+// v108 -- BUG REEL corrige AVANT tout test materiel (relecture ouGifImpl()
+// suite a une question utilisateur) : ce chemin doit se terminer en ".gif",
+// meme si aucun .gif reel n'existe. openGif()/openGifImpl() derive TOUJOURS
+// les noms reels via gifToRaw565PackPath()/gifToRaw565MetaPath(), qui font
+// une simple substitution de suffixe ".gif"->".raw565pack"/".meta" ; sans
+// suffixe ".gif" en entree elles concatenent au lieu de substituer, ce qui
+// cherchait a tort "_shuffle.raw565pack.raw565pack" / ".raw565pack.meta"
+// (fichiers inexistants) au lieu de "_shuffle.raw565pack" / "_shuffle.meta"
+// (fichiers reels). L'ouverture raw565pack echouait alors systematiquement,
+// et comme _defaults est "raw-only strict" (refus sans fallback .gif, voir
+// openGifImpl()), le tout aurait echoue silencieusement. Meme convention
+// que partout ailleurs dans ce fichier (ex: openGif(gameGif, ...)) : le
+// nom en .gif est une simple cle, jamais lu directement hors mode playlist.
+static const char *SHUFFLE_GIF_PATH = "/systems/_defaults/_shuffle.gif";
 
 static bool ensureDefaultRaw565Cached()
 {
@@ -4855,6 +4876,30 @@ void processPendingMqttCommand()
     g_lastMqttWasDefault = false; // v50
     // v104 -- bloc de reinitialisation de l'alternance overlay score/game_info
     // retire (hi-score port supprime).
+    // v107 -- coupe-circuit anti-rafale (voir memoire projet) : marquee.sh
+    // envoie ce signal special sur ce MEME topic marquee/cmd/game (deja
+    // souscrit, deja dispatche) au moment ou une rafale de navigation est
+    // detectee cote RB, AU LIEU de publier chaque jeu survole. Le raw565pack
+    // dedie (SHUFFLE_GIF_PATH) boucle automatiquement via le
+    // mecanisme MODE_GIF/gifResetCompat() deja existant -- aucune nouvelle
+    // logique d'affichage necessaire, on reutilise openGif() tel quel. La
+    // vraie position (le jeu reellement choisi) suit dans un 2e message
+    // normal (marquee/cmd/game = "sys/rom") des que la rafale se termine,
+    // qui remplacera cet affichage comme n'importe quel autre CMD_GAME.
+    // v108 -- SHUFFLE_RAW565PACK_PATH renomme SHUFFLE_GIF_PATH (voir son
+    // commentaire de declaration) : openGif() a besoin d'une cle en ".gif"
+    // pour deriver correctement les vrais noms .raw565pack/.meta.
+    if (cmd.arg == "!SHUFFLE")
+    {
+      if (openGif(String(SHUFFLE_GIF_PATH), true, true))
+      {
+        pngDrawn = false;
+        currentPngPath = "";
+        currentMode = MODE_GIF;
+        Serial.println("[MQTT] game -> shuffle (anti-rafale)");
+      }
+      break;
+    }
   {
     int slash=cmd.arg.indexOf('/');
     String sysName=(slash>=0)?cmd.arg.substring(0,slash):cmd.arg;
@@ -7106,6 +7151,16 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
   }
 
 start_mqtt_task:
+  // v107 (2026-08-18) -- TEST EMPIRIQUE : mqttTask() deplace temporairement
+  // du coeur 0 vers le coeur 1, pour tester l'hypothese d'une contention
+  // avec loop() (LoopCore=0) comme cause du rc=-4/timeout observe toute la
+  // journee (log broker correle, voir memoire projet -- CONNACK envoye
+  // mais client timeout ~24-30s plus tard faute de PINGREQ a temps).
+  // RESULTAT : hypothese REFUTEE sur materiel -- tempete demarree ~90s
+  // apres boot avec mqttTask sur coeur 1, meme signature, aucune
+  // amelioration (voir memoire projet pour le detail). Revert au coeur 0
+  // (etat historique, identique a master -- voir memoire projet) faute de
+  // benefice demontre.
   if(wifiEnabled&&recalboxIP.length()>0)
     xTaskCreatePinnedToCore(mqttTask,"mqttTask",4096,NULL,1,&mqttTaskHandle,0);
 
@@ -7521,8 +7576,6 @@ void loop()
     delay(1);
     break;
 
-  // v79 -- Overlay texte non-bloquant (score/game_info/achievement), voir
-  // section dediee juste avant setup() pour le detail complet.
   case MODE_BLACK:
   default:
     if (g_sdOpInProgress) {
@@ -7541,7 +7594,23 @@ void loop()
     // marteler la SD) -- getNextGifRandom()/Sequential() tirera tres
     // probablement un index DIFFERENT du fichier fautif, donc pas de boucle
     // infinie sur le meme fichier corrompu.
-    if (!g_sdOpInProgress)
+    //
+    // v106 (2026-08-18) -- BUG REEL confirme sur materiel : ce retry se
+    // declenchait AUSSI pendant un scroll rapide sur un systeme "lent"
+    // (isSlow, ex. mame gros romset) -- le repli CMD_GAME sur ROM non
+    // cachee (case 'cached=?', voir plus haut) pose deliberement
+    // currentMode=MODE_BLACK comme simple astuce technique pour eviter un
+    // clearScreen() (le mask/repli visuel reste affiche, ecran PAS
+    // reellement noir/vide), mais laisse ce case le traiter comme un VRAI
+    // echec bloque -- au bout de 3s sans nouvelle commande (facilement
+    // atteint entre deux ROM du meme defilement rapide), la playlist
+    // normale se relancait par-dessus, provoquant des flashs de GIFs
+    // aleatoires visibles EN PLEIN MILIEU d'un defilement actif. Distinction
+    // fiable trouvee : ce repli pose aussi pngDrawn=true (contenu reellement
+    // affiche), alors que les VRAIS cas bloques vises par le fix v92
+    // (fichier gif corrompu, repli CMD_GAME totalement echoue) posent tous
+    // pngDrawn=false. Fix : ne retenter que si pngDrawn est faux.
+    if (!g_sdOpInProgress && !pngDrawn)
     {
       static unsigned long s_lastBlackRetryMs = 0;
       if (millis() - s_lastBlackRetryMs >= 3000)
