@@ -2,7 +2,32 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v9
+# Version actuelle : v10
+#
+# v10 - 2026-08-18 - safe-modify - Suppression du polling permanent (-W 1)
+#   hors rafale. BUG REEL confirme sur materiel (log debug mosquitto, meme
+#   jour) : le "-W 1" ajoute en v6 pour detecter la fin de rafale faisait
+#   sortir la boucle mosquitto_sub TOUTES LES ~1s EN PERMANENCE, meme en
+#   idle total sans aucune navigation -- pas seulement pendant une vraie
+#   rafale comme prevu au design. Chaque sortie de boucle relance un NOUVEAU
+#   mosquitto_sub, donc une NOUVELLE connexion locale (127.0.0.1) toutes les
+#   secondes, en continu, 24h/24. Capture broker (log debug) : rafale de
+#   connexions locales QUASI CONTINUE (~1/s, ~30 connexions/31s observees)
+#   coincidant exactement avec "Client esp32-marquee has exceeded timeout,
+#   disconnecting." -- ce trafic de fond genere par le script LUI-MEME est
+#   un suspect direct pour le rc=-4 (le broker peine peut-etre a traiter la
+#   session distante du DMD au milieu de ce bruit local constant). C'est
+#   l'inverse du but recherche par le coupe-circuit anti-rafale (v6), qui
+#   visait a REDUIRE le trafic MQTT local, pas a en ajouter en permanence.
+#   Fix : le timeout "-W 1" n'est desormais utilise QUE pendant une rafale
+#   effectivement en cours (throttled=1) -- seul moment ou une detection de
+#   fin de rafale a un sens. Hors rafale (cas normal, largement majoritaire
+#   en usage reel), retour a un mosquitto_sub -C 1 BLOQUANT SANS timeout,
+#   comme avant v6 -- une connexion locale UNIQUEMENT quand un vrai
+#   evenement ES arrive, zero trafic de fond en idle. Aucun changement de
+#   comportement fonctionnel : le detecteur de rafale, le seuil, le
+#   !SHUFFLE et la publication de fin de rafale restent identiques,
+#   seulement actifs pendant la fenetre (courte, bornee) ou throttled=1.
 #
 # v9 - 2026-08-18 - safe-modify - Affichage transitoire pendant le throttle
 #   ("coupe-circuit anti-rafale", v6). Au lieu de laisser le dernier marquee
@@ -195,7 +220,7 @@ publish_settled_position() {
     fi
 }
 
-echo "$(date) - Marquee bridge started (v9, lock acquired)" >> "$LOG"
+echo "$(date) - Marquee bridge started (v10, lock acquired)" >> "$LOG"
 
 send_mqtt_retain "default" "1"
 
@@ -214,14 +239,21 @@ throttled=0
 
 while true; do
     PREV_EVENT="$event"
-    # v6 -- "-W 1" (timeout 1s) ajoute : sans ca, un blocage pur ne
-    # permettrait jamais de detecter "la rafale vient de s'arreter" (aucune
-    # iteration ne se produit tant qu'aucun evenement n'arrive). $event
-    # vide en sortie de boucle veut donc maintenant dire soit "timeout"
-    # soit (tres improbable) "message vide recu" -- traite pareil, sans
-    # consequence (le case *) ci-dessous ignore deja les events vides).
-    event=$(mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 \
-        -t "Recalbox/EmulationStation/Event" -C 1 -W 1 2>/dev/null | tr -d '\r')
+    # v10 -- "-W 1" reserve au cas throttled=1 (voir changelog v10) : hors
+    # rafale, blocage pur (pas de timeout) -- zero connexion locale tant
+    # qu'aucun vrai evenement ES n'arrive, comme avant v6. Pendant une
+    # rafale, "-W 1" reste necessaire pour detecter sa fin (aucune iteration
+    # ne se produirait sinon tant qu'aucun evenement n'arrive). $event vide
+    # en sortie de boucle ne peut donc survenir QUE si throttled=1 (timeout)
+    # ou (tres improbable) message vide recu -- traite pareil, sans
+    # consequence (le case *) plus bas ignore deja les events vides).
+    if [ "$throttled" -eq 1 ]; then
+        event=$(mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 \
+            -t "Recalbox/EmulationStation/Event" -C 1 -W 1 2>/dev/null | tr -d '\r')
+    else
+        event=$(mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 \
+            -t "Recalbox/EmulationStation/Event" -C 1 2>/dev/null | tr -d '\r')
+    fi
 
     if [ -z "$event" ]; then
         # v6 -- timeout : si une rafale etait en cours, elle vient de
