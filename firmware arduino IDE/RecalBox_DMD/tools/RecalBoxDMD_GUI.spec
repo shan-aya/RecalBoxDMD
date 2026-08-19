@@ -5,7 +5,7 @@ a = Analysis(
     ['run_gui.py'],
     pathex=[],
     binaries=[],
-    datas=[('themes', 'themes'), ('README.md', '.'), ('README.fr.md', '.'), ('README.es.md', '.')],
+    datas=[('themes', 'themes'), ('assets', 'assets'), ('README.md', '.'), ('README.fr.md', '.'), ('README.es.md', '.')],
     hiddenimports=['RecalBoxDMD_prefs', 'RecalBoxDMD_themes', 'RecalBoxDMD_md_renderer', 'RecalBoxDMD_tool'],
     hookspath=[],
     hooksconfig={},
@@ -35,4 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=['assets\\recalboxdmd_icon.ico'],
 )
