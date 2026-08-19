@@ -1,5 +1,21 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+# Manifest Windows personnalise (dpi_aware.manifest, source unique partagee
+# avec setup_msi.py/cx_Freeze -- meme fichier, ne pas dupliquer) -- bug
+# utilisateur : le fix DPI-awareness runtime (SetProcessDpiAwareness() dans
+# RecalBoxDMD_GUI.py v52) marche en lancant le .py mais pas le .exe
+# compile. Root cause : le manifest par defaut de PyInstaller
+# (PyInstaller.utils.win32.winmanifest, _DEFAULT_MANIFEST_XML) ne declare
+# AUCUNE conscience DPI, contrairement au manifest deja embarque nativement
+# dans python.exe (python.org) qui la declare -- d'ou l'appel runtime
+# insuffisant/trop tard uniquement dans l'exe compile (le manifest est
+# applique par le loader Windows AVANT le moindre code Python, alors qu'un
+# appel runtime peut arriver trop tard selon ce qui s'est deja passe au
+# demarrage du process). Confirme en verifiant en direct la vraie
+# conscience DPI du process via GetProcessDpiAwareness() (shcore) : 0
+# (Unaware) sans ce fix, 2 (PerMonitorAware) avec.
+with open("dpi_aware.manifest", "r", encoding="utf-8") as _f:
+    _DPI_AWARE_MANIFEST = _f.read()
 
 a = Analysis(
     ['run_gui.py'],
@@ -36,4 +52,5 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=['assets\\recalboxdmd_icon.ico'],
+    manifest=_DPI_AWARE_MANIFEST,
 )
