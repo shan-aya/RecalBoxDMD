@@ -2,7 +2,22 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v53
+# Version actuelle : v54
+#
+# v54 — 2026-08-19 — safe-modify — Diagnostic temporaire dans
+#      _center_toplevel() : bug utilisateur persistant malgre le fix v53
+#      (root desormais bien centree, confirme par mesure Windows externe
+#      GetWindowRect) -- le popup "SD card" (_prompt_sd_card_dialog,
+#      seule fenetre en cause d'apres confirmation utilisateur) reste mal
+#      place. Le residu n'est donc PAS herite de root. Prints
+#      "[DEBUG centerToplevel]" ajoutes (deja captes par l'onglet Logs de
+#      l'appli, redirection stdout permanente existante) : root
+#      avant centrage, taille demandee du popup, position cible calculee,
+#      PUIS position reelle apres geometry() -- et l'exception n'est plus
+#      jamais avalee silencieusement (ancien except Exception: pass).
+#      Objectif : obtenir les vrais chiffres au moment ou ca casse plutot
+#      que continuer a deviner (echec des fixes v51/v52/v53 malgre
+#      verification systematique en isolation a chaque etape).
 #
 # v53 — 2026-08-19 — safe-modify — Root cause enfin identifiee du popup "SD
 #      card" (Mode 1) toujours en haut a gauche du bureau, meme apres les
@@ -9876,7 +9891,21 @@ class RetroBoxLEDGui:
 
     def _center_toplevel(self, win: tk.Toplevel) -> None:
         # Centre la popup au milieu de la fenêtre principale
+        print("[DEBUG centerToplevel] ENTREE FONCTION")
 
+        # v54, safe-modify : diagnostic temporaire (bug utilisateur : popup
+        # "SD card" toujours mal placee alors que root est desormais bien
+        # centree, v53 -- confirme que le residu n'est PAS herite de root).
+        # print() est deja redirige en permanence vers l'onglet Logs de
+        # l'appli (RecalBoxDMD_GUI.py v?? / __init__, QueueWriter) : ces
+        # lignes [DEBUG centerToplevel] doivent apparaitre dans les Logs
+        # au moment ou le popup s'affiche, meme dans l'exe compile.
+        # L'ancien except Exception: pass masquait silencieusement toute
+        # erreur ici -- change pour au moins la logger avant d'abandonner.
+        try:
+            title = win.title()
+        except Exception:
+            title = "?"
         try:
             root_x = self.root.winfo_x()
             root_y = self.root.winfo_y()
@@ -9887,9 +9916,18 @@ class RetroBoxLEDGui:
             x = root_x + (root_w - w) // 2
             y = root_y + (root_h - h) // 2
             x, y = self._clamp_to_root_monitor(x, y, w, h)
+            print(
+                f"[DEBUG centerToplevel] win={title!r} root=({root_x},{root_y},{root_w},{root_h}) "
+                f"reqw/h=({w},{h}) -> target=({x},{y})"
+            )
             win.geometry(f"+{x}+{y}")
-        except Exception:
-            pass
+            win.update_idletasks()
+            print(
+                f"[DEBUG centerToplevel] win={title!r} APRES geometry() : "
+                f"winfo_x/y=({win.winfo_x()},{win.winfo_y()}) geometry()={win.geometry()!r}"
+            )
+        except Exception as e:
+            print(f"[DEBUG centerToplevel] win={title!r} EXCEPTION : {e!r}")
 
     def _clamp_to_root_monitor(self, x: int, y: int, w: int, h: int) -> tuple[int, int]:
         """
