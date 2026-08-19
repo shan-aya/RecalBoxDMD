@@ -1,7 +1,24 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v37
+# Version actuelle : v38
+#
+# v38 - 2026-08-19 - safe-modify - Fix detection carte SD (bug utilisateur :
+#      carte visible dans l'Explorateur Windows mais jamais dans le tool,
+#      "Aucun lecteur amovible detecte" en Mode 1/6/8). Root cause confirmee
+#      en reproduisant en direct : _list_removable_drives()/_ex() reposaient
+#      exclusivement sur "wmic logicaldisk", or wmic.exe est retire par
+#      defaut sur les builds recentes de Windows 11 -- subprocess levait
+#      FileNotFoundError, avalee par l'except Exception: pass existant, donc
+#      liste vide silencieuse quel que soit l'etat reel des lecteurs. Les 2
+#      fonctions partagent desormais _query_logical_disks() (nouveau),
+#      qui interroge WMI via "Get-CimInstance Win32_LogicalDisk" (PowerShell,
+#      pas le CLI wmic.exe deprecie) et parse le CSV avec le module csv
+#      standard au lieu d'un split(",") manuel. Repli sur l'ancien "wmic"
+#      conserve en dernier recours (machines ou powershell serait absent/
+#      bloque) -- best effort, non garanti. Comportement inchange sinon :
+#      toujours DriveType=2 (amovible), memes tuples de retour pour les 4
+#      sites d'appel existants (GUI Mode 1/6/8, CLI Mode 6/8).
 #
 # v37 - 2026-08-16 - safe-modify - Fix lenteur signalee "16 par 16, plusieurs
 #      minutes entre chaque lot" sur les telechargements _defaults/pack GIFs :
@@ -4519,80 +4536,83 @@ def mode_systems_cache(sd_dir: Path):
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _list_removable_drives():
+def _format_size_gb(size_str) -> str:
+    """Convertit une taille en octets (chaine, telle que renvoyee par WMI)
+    en chaine lisible "X.X GB". "? GB" si vide/non convertible (ex: lecteur
+    de carte SD sans carte inseree -- Size remonte vide dans ce cas)."""
+    try:
+        size_gb = int(str(size_str).strip()) / (1024**3)
+        return f"{size_gb:.1f} GB"
+    except Exception:
+        return "? GB"
+
+
+def _query_logical_disks(drive_type: int = 2) -> list:
     """
-    Liste les lecteurs amovibles sur Windows via WMI (wmic).
-    Retourne une liste de tuples (lettre, label, taille_lisible).
+    Interroge WMI pour lister les lecteurs logiques d'un DriveType donne
+    (2 = amovible, valeur utilisee par les 2 fonctions appelantes).
+
+    v38, safe-modify : remplace l'ancien appel direct a "wmic logicaldisk"
+    (bug utilisateur -- carte SD visible dans l'Explorateur Windows mais
+    jamais detectee par le tool). Root cause confirmee en reproduisant en
+    direct : wmic.exe est retire par defaut sur les builds recentes de
+    Windows 11, donc subprocess.check_output(["wmic", ...]) levait
+    FileNotFoundError -- avalee par l'ancien "except Exception: pass", ce
+    qui rendait la liste vide silencieusement quel que soit l'etat reel des
+    lecteurs. Get-CimInstance interroge le meme sous-systeme WMI mais via
+    PowerShell (present nativement sur toutes les versions de Windows
+    supportees), pas le CLI wmic.exe deprecie/retire.
+
+    Repli sur l'ancien "wmic" en dernier recours (machine ou PowerShell
+    serait absent/bloque -- cas tres rare/inhabituel) : best effort, non
+    garanti.
+
+    Retourne une liste de dict avec cles DeviceID/VolumeName/Size/
+    FileSystem (chaines ; Size peut etre vide si le lecteur n'a pas de
+    media insere, ex: lecteur de carte SD vide).
     """
+    import csv
+    import io
     import subprocess
 
-    drives = []
+    ps_cmd = (
+        f'Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DriveType={drive_type}" '
+        "| Select-Object DeviceID,VolumeName,Size,FileSystem "
+        "| ConvertTo-Csv -NoTypeInformation"
+    )
     try:
         out = subprocess.check_output(
-            [
-                "wmic",
-                "logicaldisk",
-                "where",
-                "drivetype=2",
-                "get",
-                "DeviceID,VolumeName,Size",
-                "/format:csv",
-            ],
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
             text=True,
             stderr=subprocess.DEVNULL,
+            timeout=15,
         )
-        for line in out.splitlines():
-            line = line.strip()
-            if not line or line.startswith("Node"):
-                continue
-            parts = line.split(",")
-            if len(parts) < 4:
-                continue
-            _, device, size_str, label = parts[0], parts[1], parts[2], parts[3]
-            letter = device.strip()
-            label = label.strip() or "NO LABEL"
-            try:
-                size_gb = int(size_str.strip()) / (1024**3)
-                size_s = f"{size_gb:.1f} GB"
-            except Exception:
-                size_s = "? GB"
-            if letter:
-                drives.append((letter, label, size_s))
+        rows = [row for row in csv.DictReader(io.StringIO(out)) if row.get("DeviceID")]
+        if rows or out.strip():
+            # Sortie CSV exploitee avec succes (meme si 0 lecteur trouve) :
+            # ne PAS tomber sur le repli wmic dans ce cas, sinon un systeme
+            # sans lecteur amovible re-basculerait inutilement dessus.
+            return rows
     except Exception:
         pass
-    return drives
 
-
-def _list_removable_drives_ex():
-    """
-    Fonction soeur de _list_removable_drives() (celle-ci NON modifiee : 4
-    sites d'appel existants font un unpacking strict a 3 valeurs) --
-    rajoute le systeme de fichiers via wmic logicaldisk ... get
-    DeviceID,FileSystem,VolumeName,Size /format:csv. Attention : les
-    colonnes /format:csv sortent triees par ordre ALPHABETIQUE du nom de
-    propriete demande, pas par l'ordre donne a "get" -- verifie
-    empiriquement (wmic direct hors Python) : "DeviceID,FileSystem,
-    VolumeName,Size" -> ordre reel "Node,DeviceID,FileSystem,Size,
-    VolumeName". Retourne une liste de tuples (lettre, label, taille_lisible,
-    filesystem).
-    """
-    import subprocess
-
-    drives = []
+    # Repli wmic (best effort, machines ou powershell serait indisponible).
     try:
         out = subprocess.check_output(
             [
                 "wmic",
                 "logicaldisk",
                 "where",
-                "drivetype=2",
+                f"drivetype={drive_type}",
                 "get",
                 "DeviceID,FileSystem,VolumeName,Size",
                 "/format:csv",
             ],
             text=True,
             stderr=subprocess.DEVNULL,
+            timeout=15,
         )
+        rows = []
         for line in out.splitlines():
             line = line.strip()
             if not line or line.startswith("Node"):
@@ -4600,19 +4620,54 @@ def _list_removable_drives_ex():
             parts = line.split(",")
             if len(parts) < 5:
                 continue
+            # Colonnes /format:csv triees par ordre ALPHABETIQUE du nom de
+            # propriete, pas par l'ordre donne a "get" -- verifie
+            # empiriquement : "DeviceID,FileSystem,VolumeName,Size" -> ordre
+            # reel "Node,DeviceID,FileSystem,Size,VolumeName".
             device, fs, size_str, label = parts[1], parts[2], parts[3], parts[4]
-            letter = device.strip()
-            label = label.strip() or "NO LABEL"
-            fs = fs.strip() or "?"
-            try:
-                size_gb = int(size_str.strip()) / (1024**3)
-                size_s = f"{size_gb:.1f} GB"
-            except Exception:
-                size_s = "? GB"
-            if letter:
-                drives.append((letter, label, size_s, fs))
+            rows.append(
+                {
+                    "DeviceID": device.strip(),
+                    "FileSystem": fs.strip(),
+                    "Size": size_str.strip(),
+                    "VolumeName": label.strip(),
+                }
+            )
+        return rows
     except Exception:
-        pass
+        return []
+
+
+def _list_removable_drives():
+    """
+    Liste les lecteurs amovibles sur Windows.
+    Retourne une liste de tuples (lettre, label, taille_lisible).
+    """
+    drives = []
+    for d in _query_logical_disks(drive_type=2):
+        letter = (d.get("DeviceID") or "").strip()
+        if not letter:
+            continue
+        label = (d.get("VolumeName") or "").strip() or "NO LABEL"
+        drives.append((letter, label, _format_size_gb(d.get("Size"))))
+    return drives
+
+
+def _list_removable_drives_ex():
+    """
+    Fonction soeur de _list_removable_drives() (celle-ci NON modifiee : 4
+    sites d'appel existants font un unpacking strict a 3 valeurs) --
+    rajoute le systeme de fichiers. Retourne une liste de tuples (lettre,
+    label, taille_lisible, filesystem).
+    """
+    drives = []
+    for d in _query_logical_disks(drive_type=2):
+        letter = (d.get("DeviceID") or "").strip()
+        if not letter:
+            continue
+        label = (d.get("VolumeName") or "").strip() or "NO LABEL"
+        fs = (d.get("FileSystem") or "").strip() or "?"
+        drives.append((letter, label, _format_size_gb(d.get("Size")), fs))
     return drives
 
 
