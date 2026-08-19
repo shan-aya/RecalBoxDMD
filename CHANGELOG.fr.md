@@ -4,9 +4,14 @@ Historique de **RecalBoxDMD — Raw565 Edition**, couvrant à la fois le **firmw
 
 [🇬🇧 English](CHANGELOG.md) · 🇫🇷 **Français** · [🇪🇸 Español](CHANGELOG.es.md)
 
-Ceci est un résumé sélectionné de l'historique interne des versions du projet (76+ révisions firmware, 58+ révisions config web, 34+ révisions boîte à outils, 48+ révisions GUI) — regroupé par jalons réellement pertinents pour un utilisateur, pas un déversement brut de chaque micro-correctif.
+Ceci est un résumé sélectionné de l'historique interne des versions du projet (76+ révisions firmware, 58+ révisions config web, 38+ révisions boîte à outils, 54+ révisions GUI) — regroupé par jalons réellement pertinents pour un utilisateur, pas un déversement brut de chaque micro-correctif.
 
 ---
+
+## 2026-08-19 — Détection des lecteurs amovibles & positionnement des popups
+
+- **Boîte à outils PC** : correction de la détection de carte SD qui échouait silencieusement sur les builds récentes de Windows 11 — la liste des lecteurs reposait entièrement sur `wmic.exe`, retiré par défaut par Microsoft sur les versions récentes de Windows 11 ; un utilisateur voyait sa carte SD dans l'Explorateur Windows mais elle n'apparaissait jamais dans l'outil (Mode 1/6/8), sans aucun message d'erreur. La détection passe désormais par `Get-CimInstance` (PowerShell), avec l'ancien appel `wmic` conservé uniquement en dernier recours pour les environnements inhabituels.
+- **Boîte à outils PC** : correction de plusieurs popups (fin de copie, sélection du lecteur carte SD, confirmation de fermeture) qui apparaissaient hors écran ou hors de la fenêtre principale, surtout sur les configurations multi-écrans. Double cause : la fenêtre principale n'avait jamais de position explicite au lancement (désormais centrée explicitement sur l'écran primaire au démarrage), et les builds `.exe`/`.msi` compilées n'avaient pas de manifeste Windows déclarant la conscience DPI — présent nativement en lançant depuis les sources Python, mais absent par défaut des sorties PyInstaller/cx_Freeze, ce qui pouvait fausser les coordonnées de fenêtre rapportées par Windows. Le centrage des popups se confine désormais aussi au vrai moniteur que Windows rapporte pour la fenêtre principale, plutôt qu'à la taille d'écran primaire uniquement connue de Tk.
 
 ## 2026-08-16 — Images systèmes/genres multilingues (FR/ES)
 

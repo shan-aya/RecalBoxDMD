@@ -4,9 +4,14 @@ History of **RecalBoxDMD — Raw565 Edition**, covering both the **ESP32 firmwar
 
 🇬🇧 **English** · [🇫🇷 Français](CHANGELOG.fr.md) · [🇪🇸 Español](CHANGELOG.es.md)
 
-This is a curated summary of the project's internal version history (76+ firmware revisions, 58+ web-config revisions, 34+ toolkit revisions, 48+ GUI revisions) — grouped into the milestones that actually matter if you use the project, not a raw dump of every micro-fix.
+This is a curated summary of the project's internal version history (76+ firmware revisions, 58+ web-config revisions, 38+ toolkit revisions, 54+ GUI revisions) — grouped into the milestones that actually matter if you use the project, not a raw dump of every micro-fix.
 
 ---
+
+## 2026-08-19 — Removable-drive detection & popup positioning fixes
+
+- **PC Toolkit**: fixed SD-card detection silently failing on recent Windows 11 builds — drive listing relied entirely on `wmic.exe`, which Microsoft removed by default starting with recent Windows 11 releases; a user's SD card was visible in Windows Explorer but never showed up in the toolkit (Mode 1/6/8), with no error message. Detection now goes through PowerShell's `Get-CimInstance` instead, with the old `wmic` call kept only as a last-resort fallback for unusual environments.
+- **PC Toolkit**: fixed several popups (end-of-copy dialog, SD-card drive picker, quit-confirmation dialog) appearing off-screen or outside the main window, especially on multi-monitor setups. Root cause was two-fold: the main window never had an explicit launch position (now explicitly centered on the primary screen at startup), and the compiled `.exe`/`.msi` builds lacked a Windows DPI-awareness manifest — present natively when running from Python source, but absent by default from PyInstaller/cx_Freeze output, which could make Windows misreport window coordinates. Popup centering also now clamps to the real monitor Windows reports for the main window, instead of Tk's primary-monitor-only screen size.
 
 ## 2026-08-16 — Multi-language system/genre images (FR/ES)
 

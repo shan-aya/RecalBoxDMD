@@ -4,9 +4,14 @@ Historial de **RecalBoxDMD — Raw565 Edition**, cubriendo tanto el **firmware E
 
 [🇬🇧 English](CHANGELOG.md) · [🇫🇷 Français](CHANGELOG.fr.md) · 🇪🇸 **Español**
 
-Este es un resumen seleccionado del historial interno de versiones del proyecto (76+ revisiones de firmware, 58+ de la config web, 34+ de la caja de herramientas, 48+ de la GUI) — agrupado por los hitos que realmente importan si usas el proyecto, no un volcado en bruto de cada micro-arreglo.
+Este es un resumen seleccionado del historial interno de versiones del proyecto (76+ revisiones de firmware, 58+ de la config web, 38+ de la caja de herramientas, 54+ de la GUI) — agrupado por los hitos que realmente importan si usas el proyecto, no un volcado en bruto de cada micro-arreglo.
 
 ---
+
+## 2026-08-19 — Detección de unidades extraíbles y posicionamiento de ventanas emergentes
+
+- **Caja de herramientas de PC**: corregida la detección de tarjeta SD que fallaba silenciosamente en las builds recientes de Windows 11 — el listado de unidades dependía por completo de `wmic.exe`, retirado por defecto por Microsoft en las versiones recientes de Windows 11; un usuario veía su tarjeta SD en el Explorador de Windows pero nunca aparecía en la herramienta (Modo 1/6/8), sin ningún mensaje de error. La detección ahora pasa por `Get-CimInstance` (PowerShell), conservando la antigua llamada a `wmic` solo como último recurso para entornos poco habituales.
+- **Caja de herramientas de PC**: corregidas varias ventanas emergentes (fin de copia, selección de unidad de tarjeta SD, confirmación de cierre) que aparecían fuera de pantalla o fuera de la ventana principal, sobre todo en configuraciones multi-monitor. Doble causa: la ventana principal nunca tenía una posición explícita al iniciar (ahora centrada explícitamente en la pantalla primaria al arrancar), y las builds `.exe`/`.msi` compiladas carecían de un manifiesto de Windows que declarara conciencia de DPI — presente de forma nativa al ejecutar desde el código fuente Python, pero ausente por defecto en la salida de PyInstaller/cx_Freeze, lo que podía falsear las coordenadas de ventana reportadas por Windows. El centrado de las ventanas emergentes ahora también se confina al monitor real que Windows reporta para la ventana principal, en lugar del tamaño de pantalla primaria que es lo único que Tk conoce.
 
 ## 2026-08-16 — Imágenes de sistemas/géneros multilingües (FR/ES)
 
