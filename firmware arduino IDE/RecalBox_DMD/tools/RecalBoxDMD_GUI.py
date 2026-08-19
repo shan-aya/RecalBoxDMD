@@ -2,7 +2,22 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v50
+# Version actuelle : v51
+#
+# v51 — 2026-08-19 — safe-modify — Fix popup fin de copie SD (_on_mode6_flash_done,
+#      "Explorer SD/Explorer temp/Fermer") signalee hors de la fenetre de
+#      l'outil par un utilisateur. Cause : _center_toplevel(dlg) etait
+#      appelee juste apres la creation du Toplevel, AVANT le pack() du
+#      Label et des 3 boutons -- le calcul se basait donc sur
+#      winfo_reqwidth()/reqheight() d'une fenetre encore vide (~1x1) au
+#      lieu de sa taille reelle une fois remplie, plaçant le coin
+#      superieur-gauche au centre de la fenetre principale et laissant le
+#      reste du dialogue deborder hors champ. Fix : deplace l'appel apres
+#      le pack() de tous les widgets (meme ordre que les autres popups du
+#      fichier, ex: _on_mode6_flash_error()). Meme bug/meme fix trouve en
+#      auditant les 16 appels a _center_toplevel() du fichier dans la
+#      popup de fermeture liee au nettoyage du dossier temporaire SD (fin
+#      de _on_quit_app_clicked, titre "quit_app_warning_title").
 #
 # v50 — 2026-08-15 — safe-modify — Nouveau dialogue _prompt_systems_image_lang_dialog()
 #      (choix EN/FR/ES des images systemes/genres _defaults, avec miniature
@@ -10327,7 +10342,6 @@ class RetroBoxLEDGui:
         dlg.transient(self.root)
         dlg.grab_set()
         dlg.configure(bg=bg)
-        self._center_toplevel(dlg)
 
         lbl = tk.Label(
             dlg,
@@ -10408,6 +10422,8 @@ class RetroBoxLEDGui:
             font=("TkDefaultFont", 10, "bold"),
         )
         btn_close.pack(fill="x", pady=2)
+
+        self._center_toplevel(dlg)
 
     def _on_quit_app_clicked(self) -> None:
         ui = self._get_ui_t()
@@ -10638,8 +10654,6 @@ class RetroBoxLEDGui:
         dlg.grab_set()
         dlg.configure(bg=bg)
 
-        self._center_toplevel(dlg)
-
         lbl = tk.Label(
             dlg,
             text=(
@@ -10684,6 +10698,8 @@ class RetroBoxLEDGui:
             bg=bg_action, fg="#000000", bd=2, relief="solid",
         )
         ok_btn.grid(row=0, column=1, padx=6)
+
+        self._center_toplevel(dlg)
 
     def _wait_for_threads_then_exit(self) -> None:
         if self._is_processing():
