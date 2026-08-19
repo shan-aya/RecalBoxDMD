@@ -2,7 +2,29 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v51
+# Version actuelle : v52
+#
+# v52 — 2026-08-19 — safe-modify — Le fix v51 (ordre pack/_center_toplevel)
+#      etait CORRECT mais INSUFFISANT -- signale par l'utilisateur : popup
+#      fin de copie SD toujours hors fenetre, en haut a gauche de l'ecran.
+#      Reproduit le calcul de _center_toplevel() isolement (mainloop
+#      factice) : le resultat est bien centre RELATIVEMENT a root — donc le
+#      bug residuel vient d'ailleurs. Machine de l'utilisateur : setup
+#      multi-ecrans confirme, avec une disposition atypique (moniteur
+#      secondaire en portrait, hors de l'etendue du moniteur "primaire"
+#      Windows). 2 fixes complementaires, aucun ne depend de diagnostiquer
+#      lequel est la cause exacte :
+#      (1) Declaration DPI-awareness du process AVANT toute creation de
+#      fenetre (SetProcessDpiAwareness, repli SetProcessDPIAware) --
+#      aucune des deux n'etait presente avant ce fix ; sans elle, Windows
+#      applique une virtualisation DPI "legacy" a l'appli qui peut fausser
+#      les coordonnees rapportees par Tk selon le moniteur de demarrage,
+#      cause connue de popups Tk mal places sur setup multi-ecrans.
+#      (2) _center_toplevel() confine desormais le resultat a l'interieur
+#      du moniteur Windows REEL qui contient root (MonitorFromWindow +
+#      GetMonitorInfo, PAS winfo_screenwidth/height qui ne renvoie QUE le
+#      moniteur primaire sous Tk) : meme si le calcul de centrage derive
+#      encore un peu, la popup ne peut plus finir sur un autre ecran.
 #
 # v51 — 2026-08-19 — safe-modify — Fix popup fin de copie SD (_on_mode6_flash_done,
 #      "Explorer SD/Explorer temp/Fermer") signalee hors de la fenetre de
@@ -2271,6 +2293,28 @@ class RetroBoxLEDGui:
         self.sd_dir = sd_dir
         # Dossier final choisi par l'utilisateur (copie depuis sd_dir/tems de travail).
         self._final_output_dir: Optional[Path] = None
+
+        # v52, safe-modify : declaration DPI-awareness AVANT la moindre
+        # fenetre (doit precéder tk.Tk() pour avoir un effet). Sans elle,
+        # Windows virtualise le DPI d'une appli non declaree "consciente",
+        # ce qui peut fausser les coordonnees que Tk rapporte ensuite
+        # (winfo_x/y, geometry()) selon le moniteur de demarrage -- cause
+        # connue de popups Tk mal repositionnes sur un setup multi-ecrans.
+        # PROCESS_SYSTEM_DPI_AWARE (1) en priorite, repli sur l'ancienne
+        # API (Vista+, moins precise mais suffisante ici) si Shcore
+        # indisponible (Windows 7 sans mise a jour de plateforme).
+        if sys.platform == "win32":
+            try:
+                import ctypes
+
+                ctypes.windll.shcore.SetProcessDpiAwareness(1)
+            except Exception:
+                try:
+                    import ctypes
+
+                    ctypes.windll.user32.SetProcessDPIAware()
+                except Exception:
+                    pass
 
         self.root = tk.Tk()
         self.root.title("RecalBoxDMD Toolkit - GUI")
@@ -9804,9 +9848,66 @@ class RetroBoxLEDGui:
             h = win.winfo_reqheight()
             x = root_x + (root_w - w) // 2
             y = root_y + (root_h - h) // 2
+            x, y = self._clamp_to_root_monitor(x, y, w, h)
             win.geometry(f"+{x}+{y}")
         except Exception:
             pass
+
+    def _clamp_to_root_monitor(self, x: int, y: int, w: int, h: int) -> tuple[int, int]:
+        """
+        v52, safe-modify : confine (x, y) a l'interieur du moniteur Windows
+        REEL qui contient root (MonitorFromWindow + GetMonitorInfo), pas
+        winfo_screenwidth()/winfo_screenheight() qui ne renvoie QUE les
+        dimensions du moniteur PRIMAIRE sous Tk -- source du bug "popup fin
+        de copie SD hors fenetre / coin haut-gauche de l'ecran" signale par
+        l'utilisateur sur un setup multi-ecrans (moniteur secondaire hors
+        de l'etendue du moniteur primaire, ex: portrait). Meme si le calcul
+        de centrage dans _center_toplevel() derive encore un peu (DPI
+        virtualise, arrondi...), la popup ne peut plus finir sur un autre
+        ecran que celui de l'outil. No-op (retourne x, y tels quels) hors
+        Windows ou en cas d'echec de l'appel API.
+        """
+        if sys.platform != "win32":
+            return x, y
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            hwnd = self.root.winfo_id()
+            MONITOR_DEFAULTTONEAREST = 2
+            hmon = ctypes.windll.user32.MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)
+
+            class _RECT(ctypes.Structure):
+                _fields_ = [
+                    ("left", wintypes.LONG),
+                    ("top", wintypes.LONG),
+                    ("right", wintypes.LONG),
+                    ("bottom", wintypes.LONG),
+                ]
+
+            class _MONITORINFO(ctypes.Structure):
+                _fields_ = [
+                    ("cbSize", wintypes.DWORD),
+                    ("rcMonitor", _RECT),
+                    ("rcWork", _RECT),
+                    ("dwFlags", wintypes.DWORD),
+                ]
+
+            info = _MONITORINFO()
+            info.cbSize = ctypes.sizeof(_MONITORINFO)
+            if not ctypes.windll.user32.GetMonitorInfoW(hmon, ctypes.byref(info)):
+                return x, y
+
+            wa = info.rcWork
+            # min(..., wa.right - w) peut descendre sous wa.left si le
+            # moniteur est plus etroit que la popup (cas degenerate) -- le
+            # max() exterieur reste prioritaire, la popup peut alors
+            # legerement deborder a droite plutot que de disparaitre.
+            x = max(wa.left, min(x, wa.right - w))
+            y = max(wa.top, min(y, wa.bottom - h))
+        except Exception:
+            pass
+        return x, y
 
     def _on_mode8_check_clicked(self):
         self._on_start_clicked()
