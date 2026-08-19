@@ -1,4 +1,4 @@
-﻿// ============================================
+// ============================================
 // web_config.h — Interface web de configuration
 //
 // safe-modify — Historique des modifications
@@ -707,6 +707,17 @@ extern String wifiDNS2;
 extern bool   bluetoothEnabled;
 extern String bluetoothName;
 extern bool   showInfo;
+// v110 -- reglages hi-score/info/description/RA (voir declaration/changelog
+// complet dans RecalBox_DMD.ino, pres de showInfo).
+extern bool   featHiscoreIngame;
+extern bool   featHiscoreBrowse;
+extern bool   featInfoIngame;
+extern bool   featInfoBrowse;
+extern bool   featDescriptionIngame;
+extern bool   featDescriptionBrowse;
+extern bool   featRaIngame;
+extern bool   featRaBrowse;
+extern void   broadcastFeatureStatus(); // v110, RecalBox_DMD.ino
 extern String playlistName;
 extern bool   playlistRandom;
 extern String recalboxIP;
@@ -919,6 +930,8 @@ h2{color:#8ab4f8;font-size:15px;margin:0 0 10px;border-left:3px solid #8ab4f8;pa
 .row label{flex:0 0 150px;font-size:14px;color:#aaa}
 .row input,.row select{flex:1;min-width:120px;padding:8px 10px;border:1px solid #333;border-radius:4px;background:#0f3460;color:#eee;font-size:14px}
 .row input[type=checkbox]{flex:0 0 20px;width:20px;height:20px;margin:0 8px 0 0}
+.featcol{display:flex;align-items:center;gap:4px;font-size:12px;color:#ccc;margin-right:16px}
+.featcol input[type=checkbox]{flex:0 0 18px;width:18px;height:18px;margin:0}
 .btn-row{display:flex;gap:10px;justify-content:center;margin:18px 0;flex-wrap:wrap}
 .btn{padding:12px 20px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
 .btn-save{background:#ffd146;color:#1a1a2e}
@@ -989,7 +1002,26 @@ body{position:relative}
 <div class="row"><label for="brightness" data-i18n="lbl_brightness">Luminosit&eacute; (%)</label><input id="brightness" type="range" min="0" max="100" value="50" oninput="onBrightnessInput(this)" onchange="sendBrightness(this.value,true)"><span id="bval" style="margin-left:8px;color:#ffd146;min-width:24px">50</span></div>
 <div class="desc" data-i18n="desc_brightness_live">&#x1F4A1; Aper&ccedil;u appliqu&eacute; en direct sur l'&eacute;cran DMD.</div>
 <div class="row"><label data-i18n="lbl_silent_boot">D&eacute;marrage silencieux</label><input id="silent_boot" type="checkbox"></div>
-<!-- v104 -- checkboxes score_enabled/game_info_enabled/achievement_enabled retirees (hi-score port supprime cote firmware, test empirique rc=-4) -->
+</div>
+<div class="section">
+<h2 data-i18n="sec_features">&#x1F3C6; Hi-score / Infos / RetroAchievements</h2>
+<div class="desc" data-i18n="desc_features">Choisissez ce qui s'affiche sur le DMD, et dans quel contexte. C'est la Recalbox qui decide quand envoyer -- ces cases ne font qu'autoriser ou non chaque type de contenu.</div>
+<div class="row featrow"><label data-i18n="lbl_feat_hiscore">Hi-score</label>
+<span class="featcol"><input id="feat_hiscore_ingame" type="checkbox"><span data-i18n="lbl_col_ingame">En jeu</span></span>
+<span class="featcol"><input id="feat_hiscore_browse" type="checkbox"><span data-i18n="lbl_col_browse">Navigation</span></span>
+</div>
+<div class="row featrow"><label data-i18n="lbl_feat_info">Infos jeu</label>
+<span class="featcol"><input id="feat_info_ingame" type="checkbox"><span data-i18n="lbl_col_ingame">En jeu</span></span>
+<span class="featcol"><input id="feat_info_browse" type="checkbox"><span data-i18n="lbl_col_browse">Navigation</span></span>
+</div>
+<div class="row featrow"><label data-i18n="lbl_feat_description">Description</label>
+<span class="featcol"><input id="feat_description_ingame" type="checkbox"><span data-i18n="lbl_col_ingame">En jeu</span></span>
+<span class="featcol"><input id="feat_description_browse" type="checkbox"><span data-i18n="lbl_col_browse">Navigation</span></span>
+</div>
+<div class="row featrow"><label data-i18n="lbl_feat_ra">RetroAchievements</label>
+<span class="featcol"><input id="feat_ra_ingame" type="checkbox"><span data-i18n="lbl_col_ingame">En jeu</span></span>
+<span class="featcol"><input id="feat_ra_browse" type="checkbox"><span data-i18n="lbl_col_browse">Navigation</span></span>
+</div>
 </div>
 <div class="section">
 <h2 data-i18n="sec_playlist">&#x1F4BF; Playlist</h2>
@@ -1031,9 +1063,9 @@ function showHelpModal(){
 }
 function closeHelpModal(){document.getElementById('helpBackdrop').classList.remove('show');}
 const PAGE_I18N={
-fr:{title:'RecalBox DMD - Affichage',h1:'Affichage &amp; Playlists',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_display:'&#x1F4A1; Affichage',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Luminosité (%)',desc_brightness_live:'&#x1F4A1; Aperçu appliqué en direct sur l\'écran DMD.',lbl_silent_boot:'Démarrage silencieux',lbl_playlist_file:'Playlist par défaut',lbl_random:'Lecture aléatoire',lbl_delete_playlist:'Supprimer',btn_delete_playlist:'&#x1F5D1; Supprimer playlist',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_select_playlist:'Sélectionnez une playlist à supprimer',msg_confirm_delete:'Supprimer ${0} ?',msg_confirm_delete_default:'ATTENTION : ${0} est actuellement la playlist par defaut ! La supprimer peut empecher le DMD de demarrer normalement. Continuer ?',msg_deleting:'Suppression...',msg_load_error:'Impossible de charger la config',sec_manage_playlists:'&#x2699; Gestion des playlists',desc_gen_playlist:'Cochez des dossiers pour générer une nouvelle playlist. &#x26A0;&#xFE0F; La création n\'est performante que sur des dossiers avec un nombre limité de fichiers. Pour des playlists contenant des dossiers conséquents, passez par l\'utilitaire RecalboxDMD_tool sur PC.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',lbl_playlist_name:'Nom playlist',placeholder_playlist_name:'ex: MaPlaylist',btn_gen_playlist:'&#x2699; Générer playlist',msg_no_playlist_name:'Donnez un nom à la playlist',msg_select_folder:'Choisissez au moins un dossier',msg_generating:'Generation...',lbl_load_playlist:'Modifier une playlist existante',msg_scanning:'Analyse',msg_gen_busy:'Generation deja en cours ailleurs',msg_gen_start_error:'Impossible de demarrer la generation',msg_gen_leave_warning:'Une generation de playlist est en cours. Quitter la page ?',btn_stop_gen:'&#x23F9; Arreter',msg_confirm_stop_gen:'Arreter la generation ? La playlist en cours de creation sera supprimee.',msg_stopping_gen:'Arret playlist en cours, veuillez patienter...',msg_stop_gen_failed:'Echec de la demande d\'arret (reseau) -- reessayez',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',loading_text:'Chargement en cours...',...HELP_I18N.fr},
-en:{title:'RecalBox DMD - Display',h1:'Display &amp; Playlists',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_display:'&#x1F4A1; Display',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Brightness (%)',desc_brightness_live:'&#x1F4A1; Live preview applied directly on the DMD screen.',lbl_silent_boot:'Silent boot',lbl_playlist_file:'Default playlist',lbl_random:'Random playback',lbl_delete_playlist:'Delete',btn_delete_playlist:'&#x1F5D1; Delete playlist',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_select_playlist:'Select a playlist to delete',msg_confirm_delete:'Delete ${0}?',msg_confirm_delete_default:'WARNING: ${0} is currently the default playlist! Deleting it may prevent the DMD from starting normally. Continue?',msg_deleting:'Deleting...',msg_load_error:'Unable to load config',sec_manage_playlists:'&#x2699; Playlist management',desc_gen_playlist:'Check folders to generate a new playlist. &#x26A0;&#xFE0F; Generation is only fast on folders with a limited number of files. For playlists covering large folders, use the RecalboxDMD_tool utility on PC instead.',btn_select_all:'Select all',btn_select_none:'Select none',lbl_playlist_name:'Playlist name',placeholder_playlist_name:'e.g. MyPlaylist',btn_gen_playlist:'&#x2699; Generate playlist',msg_no_playlist_name:'Please name the playlist',msg_select_folder:'Select at least one folder',msg_generating:'Generating...',lbl_load_playlist:'Edit an existing playlist',msg_scanning:'Scanning',msg_gen_busy:'A generation is already running',msg_gen_start_error:'Could not start generation',msg_gen_leave_warning:'A playlist generation is in progress. Leave the page?',btn_stop_gen:'&#x23F9; Stop',msg_confirm_stop_gen:'Stop generation? The playlist being created will be deleted.',msg_stopping_gen:'Stopping playlist generation, please wait...',msg_stop_gen_failed:'Stop request failed (network) -- please retry',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',loading_text:'Loading...',...HELP_I18N.en},
-es:{title:'RecalBox DMD - Pantalla',h1:'Pantalla y listas',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_display:'&#x1F4A1; Pantalla',sec_playlist:'&#x1F4BF; Lista',lbl_brightness:'Brillo (%)',desc_brightness_live:'&#x1F4A1; Vista previa aplicada en directo en la pantalla DMD.',lbl_silent_boot:'Arranque silencioso',lbl_playlist_file:'Lista predeterminada',lbl_random:'Reproducción aleatoria',lbl_delete_playlist:'Eliminar',btn_delete_playlist:'&#x1F5D1; Eliminar lista',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_select_playlist:'Selecciona una lista para eliminar',msg_confirm_delete:'¿Eliminar ${0}?',msg_confirm_delete_default:'ATENCIÓN: ¡${0} es actualmente la lista predeterminada! Eliminarla puede impedir que el DMD arranque normalmente. ¿Continuar?',msg_deleting:'Eliminando...',msg_load_error:'No se pudo cargar la configuración',sec_manage_playlists:'&#x2699; Gestión de listas',desc_gen_playlist:'Marque las carpetas para generar una nueva lista. &#x26A0;&#xFE0F; La creación solo es rápida en carpetas con un número limitado de archivos. Para listas con carpetas voluminosas, use la utilidad RecalboxDMD_tool en el PC.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',lbl_playlist_name:'Nombre de la lista',placeholder_playlist_name:'ej: MiLista',btn_gen_playlist:'&#x2699; Generar lista',msg_no_playlist_name:'Póngale un nombre a la lista',msg_select_folder:'Elija al menos una carpeta',msg_generating:'Generando...',lbl_load_playlist:'Editar una lista existente',msg_scanning:'Analizando',msg_gen_busy:'Ya hay una generación en curso',msg_gen_start_error:'No se pudo iniciar la generación',msg_gen_leave_warning:'Hay una generación de lista en curso. ¿Salir de la página?',btn_stop_gen:'&#x23F9; Detener',msg_confirm_stop_gen:'¿Detener la generación? La lista en creación se eliminará.',msg_stopping_gen:'Deteniendo la generación de la lista, espere...',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',loading_text:'Cargando...',...HELP_I18N.es}
+fr:{title:'RecalBox DMD - Affichage',h1:'Affichage &amp; Playlists',nav_basic:'&#x1F4A1; Affichage &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_display:'&#x1F4A1; Affichage',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Luminosité (%)',desc_brightness_live:'&#x1F4A1; Aperçu appliqué en direct sur l\'écran DMD.',lbl_silent_boot:'Démarrage silencieux',sec_features:'&#x1F3C6; Hi-score / Infos / RetroAchievements',desc_features:'Choisissez ce qui s\'affiche sur le DMD, et dans quel contexte. C\'est la Recalbox qui décide quand envoyer -- ces cases ne font qu\'autoriser ou non chaque type de contenu.',lbl_feat_hiscore:'Hi-score',lbl_feat_info:'Infos jeu',lbl_feat_description:'Description',lbl_feat_ra:'RetroAchievements',lbl_col_ingame:'En jeu',lbl_col_browse:'Navigation',lbl_playlist_file:'Playlist par défaut',lbl_random:'Lecture aléatoire',lbl_delete_playlist:'Supprimer',btn_delete_playlist:'&#x1F5D1; Supprimer playlist',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_select_playlist:'Sélectionnez une playlist à supprimer',msg_confirm_delete:'Supprimer ${0} ?',msg_confirm_delete_default:'ATTENTION : ${0} est actuellement la playlist par defaut ! La supprimer peut empecher le DMD de demarrer normalement. Continuer ?',msg_deleting:'Suppression...',msg_load_error:'Impossible de charger la config',sec_manage_playlists:'&#x2699; Gestion des playlists',desc_gen_playlist:'Cochez des dossiers pour générer une nouvelle playlist. &#x26A0;&#xFE0F; La création n\'est performante que sur des dossiers avec un nombre limité de fichiers. Pour des playlists contenant des dossiers conséquents, passez par l\'utilitaire RecalboxDMD_tool sur PC.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',lbl_playlist_name:'Nom playlist',placeholder_playlist_name:'ex: MaPlaylist',btn_gen_playlist:'&#x2699; Générer playlist',msg_no_playlist_name:'Donnez un nom à la playlist',msg_select_folder:'Choisissez au moins un dossier',msg_generating:'Generation...',lbl_load_playlist:'Modifier une playlist existante',msg_scanning:'Analyse',msg_gen_busy:'Generation deja en cours ailleurs',msg_gen_start_error:'Impossible de demarrer la generation',msg_gen_leave_warning:'Une generation de playlist est en cours. Quitter la page ?',btn_stop_gen:'&#x23F9; Arreter',msg_confirm_stop_gen:'Arreter la generation ? La playlist en cours de creation sera supprimee.',msg_stopping_gen:'Arret playlist en cours, veuillez patienter...',msg_stop_gen_failed:'Echec de la demande d\'arret (reseau) -- reessayez',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',loading_text:'Chargement en cours...',...HELP_I18N.fr},
+en:{title:'RecalBox DMD - Display',h1:'Display &amp; Playlists',nav_basic:'&#x1F4A1; Display &amp; Playlists',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_display:'&#x1F4A1; Display',sec_playlist:'&#x1F4BF; Playlist',lbl_brightness:'Brightness (%)',desc_brightness_live:'&#x1F4A1; Live preview applied directly on the DMD screen.',lbl_silent_boot:'Silent boot',sec_features:'&#x1F3C6; Hi-score / Info / RetroAchievements',desc_features:'Choose what shows on the DMD, and in which context. The Recalbox decides when to send it -- these checkboxes just allow or block each content type.',lbl_feat_hiscore:'Hi-score',lbl_feat_info:'Game info',lbl_feat_description:'Description',lbl_feat_ra:'RetroAchievements',lbl_col_ingame:'In-game',lbl_col_browse:'Browsing',lbl_playlist_file:'Default playlist',lbl_random:'Random playback',lbl_delete_playlist:'Delete',btn_delete_playlist:'&#x1F5D1; Delete playlist',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_select_playlist:'Select a playlist to delete',msg_confirm_delete:'Delete ${0}?',msg_confirm_delete_default:'WARNING: ${0} is currently the default playlist! Deleting it may prevent the DMD from starting normally. Continue?',msg_deleting:'Deleting...',msg_load_error:'Unable to load config',sec_manage_playlists:'&#x2699; Playlist management',desc_gen_playlist:'Check folders to generate a new playlist. &#x26A0;&#xFE0F; Generation is only fast on folders with a limited number of files. For playlists covering large folders, use the RecalboxDMD_tool utility on PC instead.',btn_select_all:'Select all',btn_select_none:'Select none',lbl_playlist_name:'Playlist name',placeholder_playlist_name:'e.g. MyPlaylist',btn_gen_playlist:'&#x2699; Generate playlist',msg_no_playlist_name:'Please name the playlist',msg_select_folder:'Select at least one folder',msg_generating:'Generating...',lbl_load_playlist:'Edit an existing playlist',msg_scanning:'Scanning',msg_gen_busy:'A generation is already running',msg_gen_start_error:'Could not start generation',msg_gen_leave_warning:'A playlist generation is in progress. Leave the page?',btn_stop_gen:'&#x23F9; Stop',msg_confirm_stop_gen:'Stop generation? The playlist being created will be deleted.',msg_stopping_gen:'Stopping playlist generation, please wait...',msg_stop_gen_failed:'Stop request failed (network) -- please retry',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',loading_text:'Loading...',...HELP_I18N.en},
+es:{title:'RecalBox DMD - Pantalla',h1:'Pantalla y listas',nav_basic:'&#x1F4A1; Pantalla y listas',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_display:'&#x1F4A1; Pantalla',sec_playlist:'&#x1F4BF; Lista',lbl_brightness:'Brillo (%)',desc_brightness_live:'&#x1F4A1; Vista previa aplicada en directo en la pantalla DMD.',lbl_silent_boot:'Arranque silencioso',sec_features:'&#x1F3C6; Hi-score / Info / RetroAchievements',desc_features:'Elija qué se muestra en el DMD, y en qué contexto. Recalbox decide cuándo enviarlo -- estas casillas solo permiten o bloquean cada tipo de contenido.',lbl_feat_hiscore:'Hi-score',lbl_feat_info:'Info del juego',lbl_feat_description:'Descripción',lbl_feat_ra:'RetroAchievements',lbl_col_ingame:'En juego',lbl_col_browse:'Navegación',lbl_playlist_file:'Lista predeterminada',lbl_random:'Reproducción aleatoria',lbl_delete_playlist:'Eliminar',btn_delete_playlist:'&#x1F5D1; Eliminar lista',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_select_playlist:'Selecciona una lista para eliminar',msg_confirm_delete:'¿Eliminar ${0}?',msg_confirm_delete_default:'ATENCIÓN: ¡${0} es actualmente la lista predeterminada! Eliminarla puede impedir que el DMD arranque normalmente. ¿Continuar?',msg_deleting:'Eliminando...',msg_load_error:'No se pudo cargar la configuración',sec_manage_playlists:'&#x2699; Gestión de listas',desc_gen_playlist:'Marque las carpetas para generar una nueva lista. &#x26A0;&#xFE0F; La creación solo es rápida en carpetas con un número limitado de archivos. Para listas con carpetas voluminosas, use la utilidad RecalboxDMD_tool en el PC.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',lbl_playlist_name:'Nombre de la lista',placeholder_playlist_name:'ej: MiLista',btn_gen_playlist:'&#x2699; Generar lista',msg_no_playlist_name:'Póngale un nombre a la lista',msg_select_folder:'Elija al menos una carpeta',msg_generating:'Generando...',lbl_load_playlist:'Editar una lista existente',msg_scanning:'Analizando',msg_gen_busy:'Ya hay una generación en curso',msg_gen_start_error:'No se pudo iniciar la generación',msg_gen_leave_warning:'Hay una generación de lista en curso. ¿Salir de la página?',btn_stop_gen:'&#x23F9; Detener',msg_confirm_stop_gen:'¿Detener la generación? La lista en creación se eliminará.',msg_stopping_gen:'Deteniendo la generación de la lista, espere...',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',loading_text:'Cargando...',...HELP_I18N.es}
 };
 let currentLang='fr';
 // Overlay "Chargement en cours..." (2026-08-05, demande utilisateur :
@@ -1072,7 +1104,7 @@ function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=
 // ce qui annulait la reprise a peine effectuee (ecran fige juste apres
 // "DMD repris", confirme en test reel).
 function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
-function serialize(){return new URLSearchParams({brightness:document.getElementById('brightness').value,info:document.getElementById('silent_boot').checked?'0':'1',playlist:document.getElementById('playlist').value,random:document.getElementById('random').checked?'1':'0'});}
+function serialize(){return new URLSearchParams({brightness:document.getElementById('brightness').value,info:document.getElementById('silent_boot').checked?'0':'1',playlist:document.getElementById('playlist').value,random:document.getElementById('random').checked?'1':'0',feat_hiscore_ingame:document.getElementById('feat_hiscore_ingame').checked?'1':'0',feat_hiscore_browse:document.getElementById('feat_hiscore_browse').checked?'1':'0',feat_info_ingame:document.getElementById('feat_info_ingame').checked?'1':'0',feat_info_browse:document.getElementById('feat_info_browse').checked?'1':'0',feat_description_ingame:document.getElementById('feat_description_ingame').checked?'1':'0',feat_description_browse:document.getElementById('feat_description_browse').checked?'1':'0',feat_ra_ingame:document.getElementById('feat_ra_ingame').checked?'1':'0',feat_ra_browse:document.getElementById('feat_ra_browse').checked?'1':'0'});}
 // v55 -- apercu live de la luminosite pendant le drag du curseur : envoi
 // throttle vers /set-brightness (RAM uniquement sur le firmware, pas
 // d'ecriture SD) pour ne pas spammer l'ESP32 a chaque pixel de drag, plus
@@ -1102,7 +1134,7 @@ function onBrightnessInput(el){
 // elle-meme continue de n'etre ecrite que sur un clic explicite sur
 // "Enregistrer"/"Enregistrer & Redemarrer", inchange.
 const DRAFT_KEY='dmd_draft_basic';
-const DRAFT_FIELDS=['brightness','silent_boot','playlist','random'];
+const DRAFT_FIELDS=['brightness','silent_boot','playlist','random','feat_hiscore_ingame','feat_hiscore_browse','feat_info_ingame','feat_info_browse','feat_description_ingame','feat_description_browse','feat_ra_ingame','feat_ra_browse'];
 function loadDraft(){try{const raw=localStorage.getItem(DRAFT_KEY);return raw?JSON.parse(raw):null;}catch(e){return null;}}
 function saveDraft(){const o={};DRAFT_FIELDS.forEach(id=>{const el=document.getElementById(id);if(!el)return;o[id]=(el.type==='checkbox')?el.checked:el.value;});localStorage.setItem(DRAFT_KEY,JSON.stringify(o));}
 function clearDraft(){localStorage.removeItem(DRAFT_KEY);}
@@ -1460,6 +1492,14 @@ function loadConfig(){const draft=loadDraft();return fetch('/load').then(r=>r.js
   document.getElementById('silent_boot').checked=g('silent_boot',d.info==='0');
   fillPlaylists(g('playlist',d.playlist||''));
   document.getElementById('random').checked=g('random',d.random==='1');
+  document.getElementById('feat_hiscore_ingame').checked=g('feat_hiscore_ingame',d.feat_hiscore_ingame==='1');
+  document.getElementById('feat_hiscore_browse').checked=g('feat_hiscore_browse',d.feat_hiscore_browse==='1');
+  document.getElementById('feat_info_ingame').checked=g('feat_info_ingame',d.feat_info_ingame==='1');
+  document.getElementById('feat_info_browse').checked=g('feat_info_browse',d.feat_info_browse==='1');
+  document.getElementById('feat_description_ingame').checked=g('feat_description_ingame',d.feat_description_ingame==='1');
+  document.getElementById('feat_description_browse').checked=g('feat_description_browse',d.feat_description_browse==='1');
+  document.getElementById('feat_ra_ingame').checked=g('feat_ra_ingame',d.feat_ra_ingame==='1');
+  document.getElementById('feat_ra_browse').checked=g('feat_ra_browse',d.feat_ra_browse==='1');
   if(draft)_formDirty=true; // reboot/reprise doivent quand meme avertir : la config.ini reelle n'a pas ce brouillon
 }).catch(()=>showMsg(tr('msg_load_error'),false));}
 localStorage.setItem('dmd_last_section','basic');
@@ -2554,6 +2594,14 @@ static void handleWebConfigLoad()
   json += ",\"info\":\"" + String(showInfo ? '1' : '0') + "\"";
   json += ",\"playlist\":\"" + jsonEscape(playlistName) + "\"";
   json += ",\"random\":\"" + String(playlistRandom ? '1' : '0') + "\"";
+  json += ",\"feat_hiscore_ingame\":\"" + String(featHiscoreIngame ? '1' : '0') + "\"";
+  json += ",\"feat_hiscore_browse\":\"" + String(featHiscoreBrowse ? '1' : '0') + "\"";
+  json += ",\"feat_info_ingame\":\"" + String(featInfoIngame ? '1' : '0') + "\"";
+  json += ",\"feat_info_browse\":\"" + String(featInfoBrowse ? '1' : '0') + "\"";
+  json += ",\"feat_description_ingame\":\"" + String(featDescriptionIngame ? '1' : '0') + "\"";
+  json += ",\"feat_description_browse\":\"" + String(featDescriptionBrowse ? '1' : '0') + "\"";
+  json += ",\"feat_ra_ingame\":\"" + String(featRaIngame ? '1' : '0') + "\"";
+  json += ",\"feat_ra_browse\":\"" + String(featRaBrowse ? '1' : '0') + "\"";
   json += ",\"wifi_enabled\":\"" + String(wifiEnabled ? '1' : '0') + "\"";
   json += ",\"wifi_ssid\":\"" + jsonEscape(wifiSSID) + "\"";
   json += ",\"wifi_password\":\"" + jsonEscape(wifiPassword) + "\"";
@@ -3959,6 +4007,15 @@ static void handleWebConfigSave()
   if (webServer->hasArg("playlist"))        playlistName = webServer->arg("playlist");
   if (webServer->hasArg("random"))          playlistRandom = webServer->arg("random") == "1";
   if (webServer->hasArg("info"))            showInfo = webServer->arg("info") == "1";
+  // v110 -- reglages hi-score/info/description/RA (voir declaration).
+  if (webServer->hasArg("feat_hiscore_ingame"))     featHiscoreIngame     = webServer->arg("feat_hiscore_ingame") == "1";
+  if (webServer->hasArg("feat_hiscore_browse"))     featHiscoreBrowse     = webServer->arg("feat_hiscore_browse") == "1";
+  if (webServer->hasArg("feat_info_ingame"))        featInfoIngame        = webServer->arg("feat_info_ingame") == "1";
+  if (webServer->hasArg("feat_info_browse"))        featInfoBrowse        = webServer->arg("feat_info_browse") == "1";
+  if (webServer->hasArg("feat_description_ingame")) featDescriptionIngame = webServer->arg("feat_description_ingame") == "1";
+  if (webServer->hasArg("feat_description_browse")) featDescriptionBrowse = webServer->arg("feat_description_browse") == "1";
+  if (webServer->hasArg("feat_ra_ingame"))          featRaIngame          = webServer->arg("feat_ra_ingame") == "1";
+  if (webServer->hasArg("feat_ra_browse"))          featRaBrowse          = webServer->arg("feat_ra_browse") == "1";
   if (webServer->hasArg("wifi_enabled"))    wifiEnabled = webServer->arg("wifi_enabled") == "1";
   if (webServer->hasArg("wifi_ssid"))       wifiSSID = webServer->arg("wifi_ssid");
   if (webServer->hasArg("wifi_password"))   wifiPassword = webServer->arg("wifi_password");
@@ -4003,9 +4060,16 @@ static void handleWebConfigSave()
   // writeConfigFlag(), qui preserve deja les cles non touchees.
   f.println("language=" + uiLanguage);
   f.println(); f.println("# Affichage"); f.println("brightness=" + String(b));
-  // v104 -- reecriture SCORE_ENABLED/SCORE_INTERVAL_SEC/SCORE_DURATION/
-  // GAME_INFO_ENABLED/ACHIEVEMENT_ENABLED/GAME_INFO_EVERY_N retiree
-  // (hi-score port supprime cote firmware, test empirique rc=-4).
+  // v110 -- reglages hi-score/info/description/RA (voir declaration) --
+  // remplace la reecriture SCORE_ENABLED/... retiree en v104.
+  f.println("feat_hiscore_ingame=" + String(featHiscoreIngame ? "1" : "0"));
+  f.println("feat_hiscore_browse=" + String(featHiscoreBrowse ? "1" : "0"));
+  f.println("feat_info_ingame=" + String(featInfoIngame ? "1" : "0"));
+  f.println("feat_info_browse=" + String(featInfoBrowse ? "1" : "0"));
+  f.println("feat_description_ingame=" + String(featDescriptionIngame ? "1" : "0"));
+  f.println("feat_description_browse=" + String(featDescriptionBrowse ? "1" : "0"));
+  f.println("feat_ra_ingame=" + String(featRaIngame ? "1" : "0"));
+  f.println("feat_ra_browse=" + String(featRaBrowse ? "1" : "0"));
   f.println(); f.println("# Playlist"); f.println("playlist=" + playlistName); f.println("random=" + String(playlistRandom ? "1" : "0"));
   f.println(); f.println("# Wi-Fi & Bluetooth");
   f.println("wifi_enabled=" + String(wifiEnabled ? "1" : "0")); f.println("wifi_ssid=" + wifiSSID); f.println("wifi_password=" + wifiPassword);
@@ -4042,6 +4106,7 @@ static void handleWebConfigSave()
   f.println("first_boot=" + String(g_firstBoot ? "1" : "0"));
   f.close();
   Serial.println("[WEB] config.ini saved (brightness=" + String(b) + "%)");
+  broadcastFeatureStatus(); // v110 -- diffuse le nouveau reglage aux scripts RB (voir sa declaration)
   webServer->send(200, "text/plain", "OK");
 }
 

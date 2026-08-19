@@ -1,7 +1,28 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v104
+// Version actuelle : v110
+//
+// v110 - 2026-08-19 - safe-modify - CMD_SCORE reintroduit, version "DMD
+//   bete" (demande utilisateur explicite, apres diagnostic du bug
+//   CMD_STARTCLIP fantome sur l'autre worktree dev-mame-score-mqtt-bridge --
+//   voir memoire projet project_core_reassignment_rb_script_mismatch) :
+//   CMD_GAME/l'affichage du jeu restent 100% INCHANGES, geres par le DMD
+//   exactement comme avant (aucune nouvelle dependance ajoutee a ce chemin).
+//   Le score est ajoute en PUR PASSIF par-dessus : nouveau topic
+//   marquee/cmd/score, nouveau MODE_SCORE d'affichage plein ecran (4 lignes,
+//   parsees sur "|"), utilise le slot pendingCmd generique deja existant
+//   (comme avant le retrait v104 -- perte occasionnelle sous rafale
+//   deja acceptee, le score n'est jamais "ce qui doit etre affiche" a la
+//   difference de default/system/game qui ont leurs slots dedies). AUCUNE
+//   dependance au canal marquee/event/CMD_STARTCLIP/CMD_RESUMESYS (deja
+//   presents avant ce commit, non touches ici) -- pas de garde
+//   g_inGameMarquee/Event-topic re-introduit, cause structurelle exclue.
+//   Garantie anti-blocage demandee explicitement par l'utilisateur : retour
+//   AUTOMATIQUE au jeu apres SCORE_DISPLAY_DURATION_MS (timer 100% LOCAL au
+//   DMD, ne depend d'AUCUN message RB ulterieur) -- si le script RB qui
+//   publie le score meurt/retarde/echoue, le DMD ne reste JAMAIS bloque sur
+//   un ecran de score perime, il revient de lui-meme au jeu.
 //
 // v104 - 2026-08-17 - safe-modify - BUG REEL confirme sur materiel EN DIRECT
 //   (observation utilisateur : "reconnection validee ds le serial mais
@@ -2578,7 +2599,11 @@ File gifFile;
 File nextGifFile;
 BluetoothSerial SerialBT;
 
-enum DisplayMode { MODE_PLAYLIST, MODE_GIF, MODE_PNG, MODE_CONFIG, MODE_BLACK };
+// v110 -- MODE_SCORE ajoute : ecran plein temporaire (score hi-score), ne
+// touche JAMAIS gifOpened/currentPngPath/pngDrawn -- le jeu reste ouvert et
+// intact "en dessous" pendant l'affichage du score, voir case MODE_SCORE de
+// loop() pour le retour automatique.
+enum DisplayMode { MODE_PLAYLIST, MODE_GIF, MODE_PNG, MODE_CONFIG, MODE_BLACK, MODE_SCORE };
 volatile DisplayMode currentMode = MODE_PLAYLIST;
 
 bool g_sdOpInProgress = false;
@@ -2717,6 +2742,25 @@ String bluetoothName    = "ESP32-GIF";
 bool   showInfo         = true;
 int    screenBrightness = 120;  // 0..255 (map depuis 0-100% dans config.ini: brightness=)
 
+// v110 -- reglages hi-score/info/description/RA (4 fonctionnalites x 2
+// contextes = 8 booleens), demande utilisateur explicite (2026-08-19) :
+// reintroduits sur la page web (retiree en v104 avec tout le sous-systeme
+// overlay), mais restent PUREMENT INFORMATIFS cote firmware -- personne ici
+// ne decide QUAND afficher quoi (voir philosophie "DMD bete", memoire
+// projet). C'est la RB (marquee.sh/dmd_score.sh) qui lit ces valeurs (via
+// broadcastFeatureStatus(), topic retenu marquee/status/features) pour
+// decider elle-meme d'envoyer -- ou non -- marquee/cmd/score. Valeurs par
+// defaut : actif en jeu, inactif en navigation (comportement le plus proche
+// de l'ancien systeme retire).
+bool featHiscoreIngame     = true;
+bool featHiscoreBrowse     = false;
+bool featInfoIngame        = true;
+bool featInfoBrowse        = false;
+bool featDescriptionIngame = false;
+bool featDescriptionBrowse = false;
+bool featRaIngame          = true;
+bool featRaBrowse          = false;
+
 // --------------------------------------------------
 // Horloge (Clock) - variables
 // --------------------------------------------------
@@ -2848,7 +2892,8 @@ struct MqttCommand
   enum Type { CMD_NONE, CMD_STOP, CMD_DEFAULT, CMD_SYSTEM, CMD_GAME,
               CMD_STARTCLIP, CMD_RESUMESYS, CMD_SHOW_CONFIG, CMD_WIFI_RECOVERY,
               CMD_REBOOT, CMD_WAITING_MQTT, CMD_BRIGHTNESS, CMD_CLOCK_PREVIEW,
-              CMD_BRIGHTNESS_UP, CMD_BRIGHTNESS_DOWN };
+              CMD_BRIGHTNESS_UP, CMD_BRIGHTNESS_DOWN,
+              CMD_SCORE /* v110 -- reintroduit, voir entete changelog */ };
   Type   type;
   String arg;
   MqttCommand() : type(CMD_NONE), arg("") {}
@@ -4729,10 +4774,90 @@ String trOpenInBrowser(const String &url)
 // complet si besoin de deboguer a nouveau le flux CMD_GAME.
 const bool CMD_GAME_DEBUG_LOGS = true; // v98 -- reactive : meme symptome recurrent (currentPngPath bloque sur le placeholder "RB connectee" en boucle) observe MEME apres le fix v97 (slot dedie pour game) -- besoin de confirmer si CMD_GAME est bien recu/traite cette fois, ou si un autre mecanisme est en cause
 
+// v110 -- CMD_SCORE/MODE_SCORE (voir entete changelog). Duree fixe d'affichage
+// avant retour automatique au jeu -- c'est LA garantie anti-blocage demandee
+// par l'utilisateur, ne depend d'aucun message RB ulterieur. g_modeBeforeScore
+// memorise le mode a restaurer (MODE_GIF ou MODE_PNG selon ce qui tournait
+// avant le score) ; g_scoreShowUntilMs est l'echeance absolue (millis()).
+const unsigned long SCORE_DISPLAY_DURATION_MS = 6000;
+DisplayMode   g_modeBeforeScore  = MODE_BLACK;
+unsigned long g_scoreShowUntilMs = 0;
+
 // CMD_GAME_MIN_HEAP_FOR_FILE_OPEN deplacee plus haut dans le fichier en
 // v62 (avant drawRaw565(), qui en depend desormais -- garde-fou
 // centralise) -- voir sa declaration/changelog complet juste avant
 // drawDefaultRaw565Cached().
+
+// v110 -- ombre portee (1px, noir) derriere le texte principal -- reprend
+// le style visuel de l'ancien drawOverlayTextShadowed() (branche
+// dev-mame-score-mqtt-bridge, retire ici en v104 avec tout le reste du
+// sous-systeme overlay) : ameliore juste la lisibilite sur fond de LEDs,
+// AUCUNE logique d'etat/timing associee (pure fonction de dessin,
+// appelee une seule fois par ecran -- pas de risque ajoute).
+void drawScoreTextShadowed(int x, int y, const String &s, uint16_t mainColor)
+{
+  display->setTextColor(display->color565(0, 0, 0));
+  display->setCursor(x + 1, y + 1);
+  display->print(s);
+  display->setTextColor(mainColor);
+  display->setCursor(x, y);
+  display->print(s);
+}
+
+// v110 -- rendu MODE_SCORE : ecran plein, jusqu'a 4 lignes (128x32, taille de
+// texte 1 = 8px/ligne -> tient exactement), payload decoupe sur "|" (format
+// deja utilise par l'ancien systeme hi-score avant retrait v104, ex.
+// "HI-SCORE|1 MAA 283200|2 CAP 30000|..."). Presentation reprise de l'ancien
+// systeme (ombre portee, titre centre en or, rangs coupes sur le DERNIER
+// espace pour colorer nom/score separement -- voir memoire projet) --
+// demande utilisateur explicite (2026-08-19) : "ameliorer la presentation
+// comme sur l'autre branche de dev". Volontairement SANS le defilement
+// vertical/emphase rang-1-en-gros-caracteres de l'ancien systeme -- ca
+// ajoutait un etat/timing anime (g_overlayScrollTop, pause sur le rang 1,
+// etc.) coherent avec la philosophie "DMD bete" a eviter ici : si plus de 4
+// champs sont envoyes, seuls les 4 premiers s'affichent (statique, aucune
+// troncature dangereuse, juste moins d'info visible). Ne touche JAMAIS
+// gifOpened/currentPngPath/pngDrawn -- le jeu en dessous reste intact.
+void drawScoreScreen(const String &payload)
+{
+  display->clearScreen();
+  display->setTextWrap(false);
+  display->setTextSize(1);
+  int y = 0;
+  int start = 0;
+  int lineIdx = 0;
+  const int maxLines = 4;
+  uint16_t gold  = display->color565(255, 200, 0); // convention "highscore" deja utilisee ailleurs (ex. showClock())
+  uint16_t white = display->color565(235, 235, 235);
+  while (start <= (int)payload.length() && lineIdx < maxLines) {
+    int sep = payload.indexOf('|', start);
+    String line = (sep == -1) ? payload.substring(start) : payload.substring(start, sep);
+    if (lineIdx == 0) {
+      // Titre (1ere ligne) : centre, en or.
+      int tx = (RAW565_W - (int)line.length() * 6) / 2; if (tx < 0) tx = 0;
+      drawScoreTextShadowed(tx, y, line, gold);
+    } else {
+      // Rang : coupe sur le DERNIER espace -- nom (blanc) a gauche, score
+      // (or) juste apres. Aligne a gauche (pas de centrage independant par
+      // ligne, voir bug reel deja documente sur l'ancien systeme : un
+      // centrage independant desalignait les rangs entre eux selon le
+      // nombre de chiffres du score).
+      int sp = line.lastIndexOf(' ');
+      if (sp > 0) {
+        String name = line.substring(0, sp);
+        String scoreVal = line.substring(sp + 1);
+        drawScoreTextShadowed(1, y, name, white);
+        drawScoreTextShadowed(1 + (int)name.length() * 6 + 6, y, scoreVal, gold);
+      } else {
+        drawScoreTextShadowed(1, y, line, white);
+      }
+    }
+    y += 8;
+    lineIdx++;
+    if (sep == -1) break;
+    start = sep + 1;
+  }
+}
 
 bool hasPendingMqttCommand()
 {
@@ -5485,9 +5610,24 @@ void processPendingMqttCommand()
     break;
   }
 
-  // v104 -- cases CMD_INGAME/CMD_SCORE/CMD_GAME_INFO/CMD_ACHIEVEMENT retirees
-  // (hi-score/game_info/achievement port supprime, voir entete changelog et
-  // memoire projet -- test empirique isolant si ce code contribue au rc=-4).
+  // v104 -- cases CMD_INGAME/CMD_GAME_INFO/CMD_ACHIEVEMENT restent retirees
+  // (game_info/achievement port supprime, pas redemande). CMD_SCORE
+  // reintroduit ci-dessous en v110, voir entete changelog complet.
+  case MqttCommand::CMD_SCORE:
+  {
+    if (g_sdOpInProgress) { Serial.println("[MQTT] score ignore (web open)"); break; }
+    // v110 -- ne memorise le mode a restaurer QUE si on n'est pas deja en
+    // train d'afficher un score (sinon un 2e score arrivant pendant
+    // l'affichage du 1er ecraserait g_modeBeforeScore avec MODE_SCORE
+    // lui-meme -- le jeu redemarrerait alors en MODE_SCORE au lieu de
+    // reprendre le jeu, cassant la garantie anti-blocage).
+    if (currentMode != MODE_SCORE) g_modeBeforeScore = currentMode;
+    drawScoreScreen(cmd.arg);
+    currentMode = MODE_SCORE;
+    g_scoreShowUntilMs = millis() + SCORE_DISPLAY_DURATION_MS;
+    Serial.println("[MQTT] score -> affiche " + String(SCORE_DISPLAY_DURATION_MS / 1000) + "s puis retour auto au jeu");
+    break;
+  }
 
   // Apercu de theme horloge depuis la page web (v72, onglet Horloge ;
   // fixes v73 ci-dessous) -- cmd.arg = "stop" (quitte la page ou aucun
@@ -5618,8 +5758,10 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
   else if(t=="marquee/cmd/brightness")    pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS,msg);
   else if(t=="marquee/cmd/brightness_up")   pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_UP,"");
   else if(t=="marquee/cmd/brightness_down") pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_DOWN,"");
-  // v104 -- dispatch marquee/cmd/score, game_info, achievement, ingame retire
-  // (hi-score port supprime, voir entete changelog).
+  // v110 -- marquee/cmd/score reintroduit (voir entete changelog) ; payload
+  // vide ignore (rien a afficher). game_info/achievement/ingame restent
+  // retires (v104), pas redemandes par l'utilisateur.
+  else if(t=="marquee/cmd/score") { if(msg.length()>0) pendingCmd=MqttCommand(MqttCommand::CMD_SCORE,msg); }
   else if(t==mqttEventTopic)
   {
     String ev=extractField(msg,"EVENT");
@@ -5807,9 +5949,10 @@ void mqttTask(void *param)
         const char *subscribeTopics[] = {
           "marquee/cmd/stop", "marquee/cmd/default", "marquee/cmd/system", "marquee/cmd/game",
           "marquee/cmd/show_config", "marquee/cmd/wifi_recovery", "marquee/cmd/reboot",
-          "marquee/cmd/brightness", "marquee/cmd/brightness_up", "marquee/cmd/brightness_down"
-          // v104 -- marquee/cmd/score, game_info, achievement, ingame retires
-          // (hi-score port supprime, test empirique rc=-4)
+          "marquee/cmd/brightness", "marquee/cmd/brightness_up", "marquee/cmd/brightness_down",
+          "marquee/cmd/score" // v110 -- reintroduit (voir entete changelog)
+          // v104 -- marquee/cmd/game_info, achievement, ingame restent retires
+          // (port supprime, pas redemande)
         };
         const int nSubscribeTopics = sizeof(subscribeTopics) / sizeof(subscribeTopics[0]);
         for (int si = 0; si < nSubscribeTopics && subscribeFailCount < SUBSCRIBE_FAIL_THRESHOLD; si++)
@@ -5865,6 +6008,7 @@ void mqttTask(void *param)
         // plus tard recoit immediatement la derniere IP publiee, sans avoir
         // besoin d'etre a l'ecoute au moment exact de cette connexion.
         mqttClient.publish("marquee/status/ip", WiFi.localIP().toString().c_str(), true);
+        broadcastFeatureStatus(); // v110 -- voir sa declaration
         if(mqttCmdMutex!=nullptr&&xSemaphoreTake(mqttCmdMutex,pdMS_TO_TICKS(100))==pdTRUE)
         {
           // Connexion MQTT tout juste effective : affiche l'image de
@@ -6270,6 +6414,15 @@ void loadConfig()
     else if(key=="recalbox_ip"        &&value.length())  recalboxIP       =value;
     else if(key=="random")                               playlistRandom   =(value!="0");
     else if(key=="info")                                 showInfo         =(value!="0");
+    // v110 -- reglages hi-score/info/description/RA (voir declaration).
+    else if(key=="feat_hiscore_ingame")                  featHiscoreIngame    =(value!="0");
+    else if(key=="feat_hiscore_browse")                  featHiscoreBrowse    =(value!="0");
+    else if(key=="feat_info_ingame")                     featInfoIngame       =(value!="0");
+    else if(key=="feat_info_browse")                      featInfoBrowse       =(value!="0");
+    else if(key=="feat_description_ingame")              featDescriptionIngame=(value!="0");
+    else if(key=="feat_description_browse")              featDescriptionBrowse=(value!="0");
+    else if(key=="feat_ra_ingame")                       featRaIngame         =(value!="0");
+    else if(key=="feat_ra_browse")                       featRaBrowse         =(value!="0");
     else if(key=="brightness")                            screenBrightness =map(constrain(value.toInt(),0,100),0,100,0,255);
     else if(key=="mqtt_event_topic"   &&value.length())  mqttEventTopic   =value;
     else if(key=="first_boot")                           g_firstBoot      =(value!="0");
@@ -6289,6 +6442,31 @@ void loadConfig()
   playlistCachePath="/playlists/"+base+".cache";
   playlistSigPath  ="/playlists/"+base+".sig";
   playlistIdxPath  ="/playlists/"+base+".idx";
+}
+
+// v110 -- diffuse les 8 reglages hi-score/info/description/RA en un seul
+// message MQTT RETENU (marquee/status/features) : appelee a chaque
+// (re)connexion MQTT reussie (voir mqttTask(), juste apres la publication
+// de marquee/status/ip) ET a chaque sauvegarde web (voir
+// handleWebConfigSave()). Retenu = un script RB qui redemarre recoit
+// IMMEDIATEMENT le dernier etat connu sans avoir a interroger le DMD --
+// coherent avec la philosophie "DMD bete" (le DMD ANNONCE passivement son
+// reglage, il ne pilote jamais l'affichage lui-meme). Format cle=valeur
+// separe par ";", volontairement simple/parsable en shell POSIX (meme
+// esprit que le reste du protocole marquee/cmd/*).
+void broadcastFeatureStatus()
+{
+  if (mqttClient.state() != 0) return; // pas connecte, rien a publier
+  String payload = "hiscore_ingame=" + String(featHiscoreIngame ? "1" : "0")
+                  + ";hiscore_browse=" + String(featHiscoreBrowse ? "1" : "0")
+                  + ";info_ingame=" + String(featInfoIngame ? "1" : "0")
+                  + ";info_browse=" + String(featInfoBrowse ? "1" : "0")
+                  + ";description_ingame=" + String(featDescriptionIngame ? "1" : "0")
+                  + ";description_browse=" + String(featDescriptionBrowse ? "1" : "0")
+                  + ";ra_ingame=" + String(featRaIngame ? "1" : "0")
+                  + ";ra_browse=" + String(featRaBrowse ? "1" : "0");
+  mqttClient.publish("marquee/status/features", payload.c_str(), true);
+  Serial.println("[MQTT] marquee/status/features -> " + payload);
 }
 
 bool isValidPlaylistLine(String line){line.trim();return line.length()&&line[0]!='#'&&line[0]!=';'&&line[0]=='/';}
@@ -7605,6 +7783,23 @@ void loop()
           if (justRevealed) g_sdOpSubMsgPauseUntil = millis() + 1800UL;
         }
       }
+    }
+    delay(1);
+    break;
+
+  case MODE_SCORE:
+    // v110 -- retour AUTOMATIQUE au jeu, timer 100% local (voir entete
+    // changelog) : ne consomme aucun message MQTT pour revenir, garantie
+    // anti-blocage explicitement demandee par l'utilisateur.
+    if ((long)(millis() - g_scoreShowUntilMs) >= 0) {
+      currentMode = g_modeBeforeScore;
+      // MODE_PNG saute son dessin si pngDrawn==true (voir case MODE_PNG) --
+      // jamais touche pendant l'affichage du score, donc encore a true ici :
+      // sans ce reset, l'ecran resterait fige sur le score apres le retour
+      // de mode. MODE_GIF/MODE_PLAYLIST n'ont pas besoin de ca :
+      // gifPlayFrameCompat() redessine integralement a chaque appel.
+      if (currentMode == MODE_PNG) pngDrawn = false;
+      Serial.println("[MQTT] score expire -> retour au jeu (mode=" + String((int)currentMode) + ")");
     }
     delay(1);
     break;
