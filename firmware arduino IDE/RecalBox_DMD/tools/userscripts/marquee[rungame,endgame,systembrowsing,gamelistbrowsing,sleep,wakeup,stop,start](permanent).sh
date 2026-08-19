@@ -2,7 +2,21 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v10
+# Version actuelle : v11
+#
+# v11 - 2026-08-19 - safe-modify - Desactivation du coupe-circuit anti-rafale
+#   (throttle + !SHUFFLE) SANS retirer le code -- BURST_THRESHOLD remonte de
+#   5 a 50 survols/seconde, largement hors de portee d'une navigation humaine
+#   meme tres rapide (les rafales mesurees cette session culminaient a 5-8/s).
+#   Motivation : la cause principale du rc=-4/gels de navigation chassee
+#   depuis plusieurs sessions semble in fine etre l'overclock RPi5 sous
+#   canicule (voir memoire projet, decouverte du 2026-08-19), pas le trafic
+#   MQTT local -- le coupe-circuit avait ete concu specifiquement pour
+#   attenuer une correlation activite/rc=-4 qui n'a peut-etre jamais ete la
+#   vraie cause. Test demande : navigation en direct sans throttle (comme
+#   avant v6), pour voir si le systeme tient maintenant que l'hypothese
+#   thermique/overclock est traitee. Mecanisme garde intact (juste rendu
+#   inatteignable) -- seuil abaissable a nouveau instantanement si besoin.
 #
 # v10 - 2026-08-18 - safe-modify - Suppression du polling permanent (-W 1)
 #   hors rafale. BUG REEL confirme sur materiel (log debug mosquitto, meme
@@ -220,7 +234,7 @@ publish_settled_position() {
     fi
 }
 
-echo "$(date) - Marquee bridge started (v10, lock acquired)" >> "$LOG"
+echo "$(date) - Marquee bridge started (v11, lock acquired)" >> "$LOG"
 
 send_mqtt_retain "default" "1"
 
@@ -232,7 +246,8 @@ PREV_EVENT=""
 
 # v6 -- etat du detecteur de rafale (voir changelog v6 ci-dessus).
 # v7 -- seuil remonte de 3 a 5 (retour utilisateur : 3 trop restrictif).
-BURST_THRESHOLD=5
+# v11 -- seuil remonte a 50 (desactivation de fait, voir changelog v11).
+BURST_THRESHOLD=50
 burst_window_start=0
 burst_count=0
 throttled=0
