@@ -2,7 +2,23 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v52
+# Version actuelle : v53
+#
+# v53 — 2026-08-19 — safe-modify — Root cause enfin identifiee du popup "SD
+#      card" (Mode 1) toujours en haut a gauche du bureau, meme apres les
+#      fixes v51/v52 (ordre pack/centrage, DPI-awareness, clamp moniteur,
+#      manifest .exe) : root n'avait JAMAIS de position explicite au
+#      lancement (self.root.geometry("1100x750"), sans +x+y), donc Tk la
+#      placait selon son propre defaut (~130,130 sur la machine de test,
+#      empiriquement pres du coin haut-gauche de l'ecran primaire -- PAS
+#      centre). Confirme par l'utilisateur : la fenetre principale n'avait
+#      jamais ete deplacee manuellement, elle demarrait deja coincee dans
+#      le coin -- tous les popups par ailleurs correctement centres
+#      RELATIVEMENT a root (dont _prompt_sd_card_dialog, deja verifie
+#      correct en isolation aux 2 fixes precedents) heritaient donc de
+#      cette meme position bancale. Fix : root explicitement centree sur
+#      l'ecran primaire Windows (winfo_screenwidth/height) au demarrage,
+#      avant toute autre configuration de fenetre.
 #
 # v52 — 2026-08-19 — safe-modify — Le fix v51 (ordre pack/_center_toplevel)
 #      etait CORRECT mais INSUFFISANT -- signale par l'utilisateur : popup
@@ -2580,7 +2596,29 @@ class RetroBoxLEDGui:
         # l'onglet Main est plutot resserre pour tenir dans 750px (voir
         # _build_mode6_panel : listbox lecteurs reduite, paddings reduits).
         self.root.minsize(1100, 750)
-        self.root.geometry("1100x750")
+        # v53, safe-modify : fenetre principale explicitement CENTREE sur
+        # l'ecran primaire au lancement -- root n'avait jusqu'ici JAMAIS
+        # de position explicite (geometry() ne donnait que WxH), donc Tk la
+        # placait selon son propre defaut (~130,130 sur cette machine,
+        # empiriquement pres du coin haut-gauche de l'ecran primaire, pas
+        # du tout centre). Tous les popups "correctement centres" par
+        # ailleurs (ex: _prompt_sd_card_dialog, _on_mode6_flash_done)
+        # heritent de cette meme position bancale puisqu'ils se centrent
+        # relativement a root -- bug signale par l'utilisateur ("fenetre
+        # SD card en haut a gauche du bureau") alors meme que root n'avait
+        # jamais ete deplacee manuellement : root elle-meme demarrait deja
+        # coincee dans le coin. winfo_screenwidth/height (PAS
+        # MonitorFromWindow -- root n'a pas encore d'HWND stable tant
+        # qu'elle n'a pas ete mappee/dessinee) donnent les dimensions de
+        # l'ecran PRIMAIRE Windows, un point de reference simple et
+        # raisonnable pour un lancement sans signal sur le moniteur voulu
+        # par l'utilisateur.
+        self.root.update_idletasks()
+        _screen_w = self.root.winfo_screenwidth()
+        _screen_h = self.root.winfo_screenheight()
+        _x = max(0, (_screen_w - 1100) // 2)
+        _y = max(0, (_screen_h - 750) // 2)
+        self.root.geometry(f"1100x750+{_x}+{_y}")
         # Interdire le redimensionnement en plein écran / maximisé.
         self.root.resizable(False, False)
         self.root.grid_propagate(True)
