@@ -19,6 +19,15 @@
 #      que continuer a deviner (echec des fixes v51/v52/v53 malgre
 #      verification systematique en isolation a chaque etape).
 #
+#      -> RESOLU : confirme par l'utilisateur que le fix v53 (root
+#      explicitement centree au lancement) suffisait bel et bien -- le
+#      test precedent de l'utilisateur portait sur un exe pas encore a
+#      jour. Prints de diagnostic retires du chemin normal juste apres
+#      (meme entree de changelog, meme version) pour ne pas polluer
+#      l'onglet Logs des utilisateurs finaux ; seule l'exception reste
+#      loguee au lieu d'etre avalee silencieusement (amelioration
+#      permanente, conservee).
+#
 # v53 — 2026-08-19 — safe-modify — Root cause enfin identifiee du popup "SD
 #      card" (Mode 1) toujours en haut a gauche du bureau, meme apres les
 #      fixes v51/v52 (ordre pack/centrage, DPI-awareness, clamp moniteur,
@@ -9891,21 +9900,15 @@ class RetroBoxLEDGui:
 
     def _center_toplevel(self, win: tk.Toplevel) -> None:
         # Centre la popup au milieu de la fenêtre principale
-        print("[DEBUG centerToplevel] ENTREE FONCTION")
 
-        # v54, safe-modify : diagnostic temporaire (bug utilisateur : popup
-        # "SD card" toujours mal placee alors que root est desormais bien
-        # centree, v53 -- confirme que le residu n'est PAS herite de root).
-        # print() est deja redirige en permanence vers l'onglet Logs de
-        # l'appli (RecalBoxDMD_GUI.py v?? / __init__, QueueWriter) : ces
-        # lignes [DEBUG centerToplevel] doivent apparaitre dans les Logs
-        # au moment ou le popup s'affiche, meme dans l'exe compile.
-        # L'ancien except Exception: pass masquait silencieusement toute
-        # erreur ici -- change pour au moins la logger avant d'abandonner.
-        try:
-            title = win.title()
-        except Exception:
-            title = "?"
+        # v54, safe-modify : les prints de diagnostic "[DEBUG
+        # centerToplevel]" (ajoutes pour chasser le bug "popup SD card hors
+        # fenetre", resolu par le fix root-centree v53) sont retires du
+        # chemin normal une fois le fix confirme par l'utilisateur -- pas
+        # de bruit dans l'onglet Logs des utilisateurs finaux. On garde
+        # neanmoins la lecon : l'ancien "except Exception: pass" masquait
+        # silencieusement toute erreur ici sans aucune trace exploitable ;
+        # une eventuelle exception reste desormais loguee.
         try:
             root_x = self.root.winfo_x()
             root_y = self.root.winfo_y()
@@ -9916,18 +9919,9 @@ class RetroBoxLEDGui:
             x = root_x + (root_w - w) // 2
             y = root_y + (root_h - h) // 2
             x, y = self._clamp_to_root_monitor(x, y, w, h)
-            print(
-                f"[DEBUG centerToplevel] win={title!r} root=({root_x},{root_y},{root_w},{root_h}) "
-                f"reqw/h=({w},{h}) -> target=({x},{y})"
-            )
             win.geometry(f"+{x}+{y}")
-            win.update_idletasks()
-            print(
-                f"[DEBUG centerToplevel] win={title!r} APRES geometry() : "
-                f"winfo_x/y=({win.winfo_x()},{win.winfo_y()}) geometry()={win.geometry()!r}"
-            )
         except Exception as e:
-            print(f"[DEBUG centerToplevel] win={title!r} EXCEPTION : {e!r}")
+            print(f"⚠️  _center_toplevel({win!r}) a echoue : {e!r}")
 
     def _clamp_to_root_monitor(self, x: int, y: int, w: int, h: int) -> tuple[int, int]:
         """
