@@ -3220,6 +3220,15 @@ static const char *DEFAULT_RAW565_PATH = "/systems/_defaults/default.raw565";
 // que partout ailleurs dans ce fichier (ex: openGif(gameGif, ...)) : le
 // nom en .gif est une simple cle, jamais lu directement hors mode playlist.
 static const char *SHUFFLE_GIF_PATH = "/systems/_defaults/_shuffle.gif";
+// v109 -- desactivation demandee (2026-08-19) : test en cours pour isoler
+// si le rc=-4 (chasse depuis plusieurs sessions) revient a vitesse de
+// defilement max SANS aucune protection anti-rafale (ni cote RB -- voir
+// marquee.sh v11, BURST_THRESHOLD releve a 50 -- ni cote firmware), main-
+// tenant que l'overclock RPi5 suspecte comme cause principale a ete retire
+// (voir memoire projet). Code garde intact (meme motif que
+// CMD_GAME_DEBUG_LOGS) -- juste desactive, pas retire, reactivable en un
+// mot (repasser a true) si le test tourne mal.
+const bool SHUFFLE_ENABLED = false;
 
 static bool ensureDefaultRaw565Cached()
 {
@@ -4889,7 +4898,14 @@ void processPendingMqttCommand()
     // v108 -- SHUFFLE_RAW565PACK_PATH renomme SHUFFLE_GIF_PATH (voir son
     // commentaire de declaration) : openGif() a besoin d'une cle en ".gif"
     // pour deriver correctement les vrais noms .raw565pack/.meta.
-    if (cmd.arg == "!SHUFFLE")
+    // v109 -- SHUFFLE_ENABLED (voir sa declaration) : desactive pour test,
+    // code garde intact. Si desactive et que "!SHUFFLE" arrivait quand meme
+    // (ne devrait plus jamais arriver, marquee.sh v11 ne l'envoie plus),
+    // ca tomberait dans le parsing normal juste en dessous : pas de '/'
+    // trouve -> sysName=romName="!SHUFFLE" -> systeme inconnu -> echec
+    // gracieux (repli sur default.png existant), aucun crash, juste un
+    // affichage de repli generique inoffensif.
+    if (SHUFFLE_ENABLED && cmd.arg == "!SHUFFLE")
     {
       if (openGif(String(SHUFFLE_GIF_PATH), true, true))
       {
@@ -7193,6 +7209,22 @@ void loop()
     if (millis() - s_loopDiagLastMs >= 2000)
     {
       s_loopDiagLastMs = millis();
+      // v109 -- instrumentation diagnostic (voir memoire projet worktree
+      // dev-mame-score-mqtt-bridge : corruption memoire silencieuse
+      // suspectee de longue date, jamais localisee -- hypothese testee ici :
+      // depassement de PILE de loopTask, pas de heap. uxTaskGetStackHighWaterMark()
+      // renvoie le MINIMUM historique d'octets de pile libres jamais atteint
+      // depuis le demarrage de la tache (valeur qui ne fait QUE decroitre,
+      // jamais remonter) -- inutile de capturer pile au bon moment, ce log
+      // periodique (2s, deja existant) suffit a reveler le pire cas atteint
+      // au fil d'une session, meme si le pic de pile lui-meme ne dure que
+      // quelques ms (ex. pendant la chaine d'appels profonde drawRaw565()->
+      // fs::FS::open()->VFS->FatFs->SPI vue dans le crash TASK_WDT du
+      // 2026-08-18). stackMin exprime en OCTETS (uxTaskGetStackHighWaterMark
+      // renvoie des words sur ESP32/FreeRTOS -- xPortGetFreeHeapSize non
+      // utilise ici, conversion *4 le rend directement comparable a la
+      // taille de pile allouee en octets, ex. 8192 par defaut pour loopTask).
+      uint32_t stackMinWords = uxTaskGetStackHighWaterMark(nullptr);
       Serial.println("[LOOPDIAG] t=" + String(millis())
                      + " mode=" + String((int)currentMode)
                      + " gifOpened=" + String(gifOpened)
@@ -7201,7 +7233,8 @@ void loop()
                      + " nextGifPathLen=" + String(nextGifPath.length())
                      + " free=" + String(ESP.getFreeHeap())
                      + " maxalloc=" + String(ESP.getMaxAllocHeap())
-                     + " pendingType=" + String((int)pendingCmd.type));
+                     + " pendingType=" + String((int)pendingCmd.type)
+                     + " stackMinBytes=" + String(stackMinWords * 4));
     }
   }
   // processPendingMqttCommand() APPELE EN PREMIER (2026-08-09, v62) --
