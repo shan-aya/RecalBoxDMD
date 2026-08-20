@@ -51,6 +51,22 @@ raisonnement complet).
 - **Un popup/tooltip en `position:fixed` plein écran (`inset:0`) qui apparaît AU-DESSUS d'une icône hover lui fait perdre son `:hover` CSS** → `mouseleave` se déclenche sans que la souris ait bougé → fermeture → l'icône redevient survolable → `mouseenter` → réouverture → clignotement. Fix : `pointer-events:none` sur le conteneur plein écran, `pointer-events:auto` uniquement sur la boîte de contenu visible (les événements souris traversent jusqu'à l'icône en dessous, qui garde son survol).
 - **Le motif brouillon localStorage `g(k,dv)=(draft&&draft[k]!==undefined)?draft[k]:dv`** (4+ pages) doit exclure la chaîne vide, pas seulement `undefined` — un champ nombre momentanément vidé pendant une frappe est sauvegardé tel quel par `saveDraft()` (déclenché sur CHAQUE `input`), et une chaîne vide écrase alors silencieusement la vraie valeur serveur à chaque rechargement. Condition correcte : `draft[k]!==undefined&&draft[k]!==''`.
 
+## CHANTIER OUVERT (2026-08-20) — Le DMD ne se resynchronise pas sur l'état réel de la RB au (re)branchement
+
+**Symptôme rapporté** : au démarrage (après connexion MQTT validée) et après "Reprendre DMD" (bouton web), le DMD ne reflète pas l'état RÉEL de la RB au moment du (re)branchement — il retombe sur la playlist alors que la RB est en jeu ou dans une liste, et/ou reste bloqué sur l'écran "RecalBox connectée" indéfiniment au lieu d'un temps limité.
+
+**Diagnostic établi (pas encore corrigé)** : `MQTT_WAITING_GRACE_MS = 1500` (`RecalBox_DMD.ino`) — fenêtre de grâce qui ignore DÉLIBÉRÉMENT les messages MQTT retenus (`marquee/cmd/system`/`marquee/cmd/game`, publiés avec `-r` par `marquee.sh`) à chaque connexion, pour éviter d'afficher un jeu "périmé" resté accroché d'une session précédente. Problème : cette fenêtre s'arme au moment où `mqttClient.connect()` réussit — qui survient déjà plusieurs secondes après le début du boot (WiFi, NTP, chargement caches, observé ~15-30s dans les logs de cette session) — donc le message retenu arrive quasi systématiquement DANS cette fenêtre de 1.5s et se fait filtrer. Le DMD attend alors passivement un NOUVEAU message MQTT, que la RB n'envoie que sur une navigation active — si la RB est immobile (en jeu ou en liste sans bouger), rien n'arrive jamais.
+
+**Nature du problème** : ce n'est pas un bug ponctuel mais un trou de conception — le DMD ne fait que réagir passivement aux événements RB, il ne demande/reçoit jamais activement "quel est ton état actuel ?" au (re)branchement.
+
+**Pistes à explorer (aucune tranchée)** :
+
+1. Réduire/retirer la fenêtre de grâce sur `system`/`game` spécifiquement (risque : réintroduit l'affichage d'un jeu périmé après une longue coupure DMD — le problème d'origine que cette fenêtre visait à corriger).
+2. RB republie activement son état courant à un moment identifiable côté DMD (ex. topic dédié `marquee/status/rb_state` publié par un watcher marquee.sh, lu par le DMD APRÈS l'expiration de sa propre fenêtre de grâce plutôt qu'au moment du retenu initial).
+3. Le DMD publie un message "je viens de me connecter" que marquee.sh écoute et auquel il répond immédiatement par l'état courant (round-trip explicite, pas de dépendance au timing du retenu).
+
+**Décision utilisateur (2026-08-20)** : reporté à une prochaine session (pas traité ce soir, 2 crashs TASK_WDT déjà essuyés — voir plus haut). Budget de test dédié sur matériel nécessaire, ne pas traiter à la légère.
+
 ## Scripts RB (userscripts) — verrou anti-relance
 
 - **Verrou fichier PID (check-then-write) PROUVÉ INSUFFISANT — verrou `mkdir` atomique désormais le standard.**
