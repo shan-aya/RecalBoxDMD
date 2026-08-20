@@ -5,7 +5,27 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v3
+# Version actuelle : v4
+#
+# v4 - 2026-08-20 - safe-modify - Repetition periodique du slideshow EN JEU
+#   (demande utilisateur explicite, avec analyse de risque validee AVANT
+#   implementation -- voir memoire projet). Regle : feat_repeat_cycles
+#   (0..20, page web, defaut 3) -- exprimee en CYCLES, PAS en secondes, sur
+#   demande utilisateur explicite ("pour eviter le probleme du
+#   chevauchement") : 1 cycle = duree d'un passage complet du slideshow
+#   ingame ACTUELLEMENT actif (nombre de cartes hi-score/description/infos
+#   activees x SLIDESHOW_GAP_S) -- garantit PAR CONSTRUCTION que la
+#   periode reelle ne peut jamais etre plus courte qu'un slideshow complet,
+#   quel que soit le nombre de cartes activees, sans avoir a choisir une
+#   duree "sure" a la main. Mecanisme : GAME_SESSION_FILE (sys|rom en
+#   cours), ecrit sur rungame, efface sur endgame/stop -- un guetteur en
+#   arriere-plan (repeater(), meme pattern que le dwell v3) dort N cycles
+#   puis verifie que la partie est TOUJOURS EN COURS (meme session) avant
+#   de republier -- s'arrete silencieusement des que la partie se termine
+#   ou change. Reste et gere 100% cote script RB (voir featRepeatCycles,
+#   RecalBox_DMD.ino) -- le DMD ne voit AUCUNE difference entre un
+#   declenchement "une fois" et "repete", toujours le meme CMD_SCORE/
+#   MODE_SCORE, aucune nouvelle logique/etat firmware.
 #
 # v3 - 2026-08-20 - safe-modify - Dwell (>5s) sur gamelistbrowsing avant de
 #   declencher le slideshow navigation -- demande utilisateur explicite
@@ -109,6 +129,8 @@ SLIDESHOW_GAP_S=7
 # mises a jour ulterieures d'une variable shell du parent).
 DWELL_SECONDS=5
 BROWSE_STATE_FILE="/tmp/dmd_browse_state"
+# v4 -- repetition periodique en jeu (voir entete changelog).
+GAME_SESSION_FILE="/tmp/dmd_game_session"
 
 read_state() {
     grep "^${1}=" "/tmp/es_state.inf" 2>/dev/null | cut -d= -f2- | tr -d '\r\n '
@@ -123,6 +145,51 @@ feat_enabled() {
     [ -f "$FEATURES_FILE" ] || return 1
     val=$(sed -n "s/.*${1}=\([01]\).*/\1/p" "$FEATURES_FILE" | head -n1)
     [ "$val" = "1" ]
+}
+
+# v4 -- variante numerique de feat_enabled() (pour feat_repeat_cycles, pas
+# un booleen 0/1) -- renvoie 0 si le cache n'existe pas encore ou si la cle
+# est absente (comportement prudent : pas de repetition tant que le
+# reglage reel n'est pas connu).
+feat_value() {
+    [ -f "$FEATURES_FILE" ] || { echo 0; return; }
+    val=$(sed -n "s/.*${1}=\([0-9]*\).*/\1/p" "$FEATURES_FILE" | head -n1)
+    [ -n "$val" ] && echo "$val" || echo 0
+}
+
+# v4 -- duree (s) d'un passage complet du slideshow ingame ACTUELLEMENT
+# actif (voir entete changelog) -- recalculee a chaque cycle pour suivre
+# tout changement de reglage en direct.
+ingame_cycle_seconds() {
+    n=0
+    feat_enabled "hiscore_ingame" && n=$((n + 1))
+    feat_enabled "description_ingame" && n=$((n + 1))
+    feat_enabled "info_ingame" && n=$((n + 1))
+    [ "$n" -eq 0 ] && n=1
+    echo $((n * SLIDESHOW_GAP_S))
+}
+
+# v4 -- guetteur de repetition (meme pattern que le dwell v3, voir
+# publish_slideshow() gamelistbrowsing) : dort N cycles puis verifie que
+# la partie est TOUJOURS EN COURS (GAME_SESSION_FILE inchange) avant de
+# republier -- s'arrete silencieusement sinon. Appelee en arriere-plan
+# ("&") par le cas rungame, jamais bloquante.
+repeater() {
+    sys="$1"; gpath="$2"; rom="$3"
+    session="${sys}|${rom}"
+    while true; do
+        cycles=$(feat_value "repeat_cycles")
+        [ "$cycles" -le 0 ] && return
+        cycle_s=$(ingame_cycle_seconds)
+        sleep $((cycles * cycle_s))
+        current=$(cat "$GAME_SESSION_FILE" 2>/dev/null)
+        if [ "$current" != "$session" ]; then
+            echo "$(date '+%H:%M:%S') REPEAT stop sys=$sys rom=$rom (partie terminee/changee)" >> "$LOG"
+            return
+        fi
+        echo "$(date '+%H:%M:%S') REPEAT slideshow sys=$sys rom=$rom (cycles=$cycles cycle_s=$cycle_s)" >> "$LOG"
+        publish_slideshow "$sys" "$gpath" "$rom" "ingame"
+    done
 }
 
 # v2 -- sous-processus DEDIE (comme le heartbeat de l'ancienne v9, meme
@@ -320,7 +387,12 @@ publish_slideshow() {
     fi
 }
 
-echo "$(date) - DMD score bridge started (v3, architecture DMD bete + dwell navigation)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v4, architecture DMD bete + dwell navigation + repetition en jeu)" >> "$LOG"
+# v4 -- efface une session perimee d'un lancement precedent (ex. apres un
+# crash/kill -9) -- sinon un guetteur de repetition deja en vol (survivant
+# a un redemarrage rapide du script) pourrait continuer a republier pour
+# une partie qui n'existe plus du point de vue de CETTE instance.
+: > "$GAME_SESSION_FILE"
 
 # Dedoublonnage gamelistbrowsing : evite de relancer le slideshow a CHAQUE
 # evenement si l'utilisateur reste sur le MEME rom, seulement au changement
@@ -342,13 +414,21 @@ while IFS= read -r event; do
             rom=""
             if [ -n "$system" ] && [ -n "$game_path" ]; then
                 rom=$(basename "$game_path" | sed 's/\.[^.]*$//')
+                # v4 -- ouvre la session (voir GAME_SESSION_FILE, entete
+                # changelog) AVANT de spawner le guetteur de repetition --
+                # sinon une repetition trop rapide (cycles/cycle_s tres
+                # courts) pourrait le voir absent au 1er reveil.
+                printf '%s\n' "${system}|${rom}" > "$GAME_SESSION_FILE"
                 publish_slideshow "$system" "$game_path" "$rom" "ingame" &
+                repeater "$system" "$game_path" "$rom" &
             fi
             ;;
         endgame)
             # Republie le score final (pas de description/infos ici --
             # inchange depuis v1, seul le hi-score a un interet a etre
-            # rafraichi en fin de partie).
+            # rafraichi en fin de partie). Efface aussi la session (v4) --
+            # arrete le guetteur de repetition eventuellement en vol.
+            : > "$GAME_SESSION_FILE"
             system=$(read_state "SystemId")
             if [ "$system" = "fbneo" ] && feat_enabled "hiscore_ingame"; then
                 game_path=$(read_state "GamePath")
@@ -359,6 +439,12 @@ while IFS= read -r event; do
                     [ -n "$payload" ] && send_score "$payload"
                 fi
             fi
+            ;;
+        stop)
+            # v4 -- defensif : ES peut envoyer "stop" sans "endgame" prealable
+            # (quitter brutalement) -- efface quand meme la session pour
+            # arreter un eventuel guetteur de repetition en vol.
+            : > "$GAME_SESSION_FILE"
             ;;
         gamelistbrowsing)
             system=$(read_state "SystemId")

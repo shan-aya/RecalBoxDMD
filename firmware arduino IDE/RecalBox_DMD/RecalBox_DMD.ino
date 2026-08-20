@@ -2750,16 +2750,33 @@ int    screenBrightness = 120;  // 0..255 (map depuis 0-100% dans config.ini: br
 // projet). C'est la RB (marquee.sh/dmd_score.sh) qui lit ces valeurs (via
 // broadcastFeatureStatus(), topic retenu marquee/status/features) pour
 // decider elle-meme d'envoyer -- ou non -- marquee/cmd/score. Valeurs par
-// defaut : actif en jeu, inactif en navigation (comportement le plus proche
-// de l'ancien systeme retire).
+// defaut (2026-08-20, demande utilisateur explicite) : en jeu -> hi-score +
+// RA ; en liste de jeux -> infos + description.
 bool featHiscoreIngame     = true;
 bool featHiscoreBrowse     = false;
-bool featInfoIngame        = true;
-bool featInfoBrowse        = false;
+bool featInfoIngame        = false;
+bool featInfoBrowse        = true;
 bool featDescriptionIngame = false;
-bool featDescriptionBrowse = false;
+bool featDescriptionBrowse = true;
 bool featRaIngame          = true;
 bool featRaBrowse          = false;
+// v111 -- espacement de repetition du slideshow hi-score/infos EN JEU,
+// exprime en NOMBRE DE CYCLES (pas en secondes) -- demande utilisateur
+// explicite (2026-08-20) : "exprime le slider en cycle d'affichage marquee
+// plutot qu'en duree, pour eviter le probleme du chevauchement". 1 cycle =
+// la duree naturelle d'un passage complet du slideshow (calculee par
+// dmd_score.sh selon les cartes ingame actuellement actives -- hi-score
+// seul, ou + infos/description). Repeter "toutes les N cycles" garantit
+// PAR CONSTRUCTION que l'intervalle reel (N x duree du slideshow) ne peut
+// jamais etre plus court qu'un slideshow complet, quel que soit le nombre
+// de cartes activees -- plus besoin de choisir une duree "sure" a la
+// main. 0 = desactive (comportement d'origine v110, une seule fois par
+// partie). PUREMENT INFORMATIF ici aussi (voir featHiscoreIngame etc.) :
+// c'est dmd_score.sh qui lit cette valeur et gere le minuteur lui-meme --
+// le DMD ne voit AUCUNE difference entre un declenchement "une fois" et
+// "repete". Ne s'applique qu'au contexte "ingame" -- le contexte
+// navigation se re-declenche deja naturellement a chaque nouveau dwell.
+int featRepeatCycles = 3;
 
 // --------------------------------------------------
 // Horloge (Clock) - variables
@@ -6423,6 +6440,7 @@ void loadConfig()
     else if(key=="feat_description_browse")              featDescriptionBrowse=(value!="0");
     else if(key=="feat_ra_ingame")                       featRaIngame         =(value!="0");
     else if(key=="feat_ra_browse")                       featRaBrowse         =(value!="0");
+    else if(key=="feat_repeat_cycles")                   featRepeatCycles     =constrain(value.toInt(),0,20);
     else if(key=="brightness")                            screenBrightness =map(constrain(value.toInt(),0,100),0,100,0,255);
     else if(key=="mqtt_event_topic"   &&value.length())  mqttEventTopic   =value;
     else if(key=="first_boot")                           g_firstBoot      =(value!="0");
@@ -6464,7 +6482,8 @@ void broadcastFeatureStatus()
                   + ";description_ingame=" + String(featDescriptionIngame ? "1" : "0")
                   + ";description_browse=" + String(featDescriptionBrowse ? "1" : "0")
                   + ";ra_ingame=" + String(featRaIngame ? "1" : "0")
-                  + ";ra_browse=" + String(featRaBrowse ? "1" : "0");
+                  + ";ra_browse=" + String(featRaBrowse ? "1" : "0")
+                  + ";repeat_cycles=" + String(featRepeatCycles);
   mqttClient.publish("marquee/status/features", payload.c_str(), true);
   Serial.println("[MQTT] marquee/status/features -> " + payload);
 }
