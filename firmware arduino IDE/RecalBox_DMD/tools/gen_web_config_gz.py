@@ -38,6 +38,7 @@ def to_c_array(data: bytes, name: str) -> str:
 page_names = [
     "WEB_CONFIG_MENU_HTML",
     "WEB_CONFIG_BASIC_HTML",
+    "WEB_CONFIG_PLAYLIST_HTML",
     "WEB_CONFIG_NETWORK_HTML",
     "WEB_CONFIG_CLOCK_HTML",
     "WEB_CONFIG_MEDIA_HTML",
