@@ -5,7 +5,29 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v2
+# Version actuelle : v3
+#
+# v3 - 2026-08-20 - safe-modify - Dwell (>5s) sur gamelistbrowsing avant de
+#   declencher le slideshow navigation -- demande utilisateur explicite
+#   (question posee AVANT implementation : "ca va perturber un firmware
+#   deja fragile ?", reponse donnee : mecanisme CMD_SCORE sans risque cote
+#   DMD, seul le DEBIT de publications MQTT est a surveiller). Corrige au
+#   passage un vrai probleme non anticipe hier soir : SANS dwell, v2
+#   declenchait le slideshow a CHAQUE changement de rom pendant un
+#   defilement rapide -- un scroll traversant 20 jeux fbneo aurait spawn
+#   20 slideshows en arriere-plan (rafale de publications), exactement le
+#   genre de trafic que le coupe-circuit anti-rafale de marquee[...].sh a
+#   ete concu pour eviter cote navigation generale. Mecanisme : chaque
+#   evenement gamelistbrowsing ecrit l'etat courant (sys|rom) dans
+#   BROWSE_STATE_FILE ; un changement de rom spawn un "guetteur" en
+#   arriere-plan qui dort DWELL_SECONDS puis verifie que l'etat n'a PAS
+#   change entre-temps avant de publier -- si l'utilisateur a deja bouge
+#   vers un autre jeu, le guetteur se termine silencieusement sans rien
+#   publier. Plusieurs guetteurs perimes peuvent coexister brievement
+#   (harmless, verifient puis sortent), seul celui qui correspond a l'etat
+#   REELLEMENT stabilise finit par publier. Pas besoin de toucher
+#   marquee[...].sh (chaque script garde son propre abonnement independant
+#   a Recalbox/EmulationStation/Event, deja le cas depuis v1).
 #
 # v2 - 2026-08-20 - safe-modify - Migration vers l'architecture "DMD bete"
 #   (firmware v110, demande utilisateur explicite -- voir memoire projet
@@ -80,6 +102,13 @@ FEATURES_FILE="/tmp/dmd_features_cache"
 # voir RecalBox_DMD.ino) pour laisser chaque contenu pleinement visible
 # avant le suivant. Marge de 500ms au-dessus pour ne jamais chevaucher.
 SLIDESHOW_GAP_S=7
+# v3 -- dwell navigation (voir entete changelog) : delai d'immobilite sur
+# un rom avant de declencher le slideshow "browse". BROWSE_STATE_FILE
+# partage l'etat courant (sys|rom) entre la boucle principale et les
+# guetteurs en arriere-plan (necessaire : un "&" fork ne voit jamais les
+# mises a jour ulterieures d'une variable shell du parent).
+DWELL_SECONDS=5
+BROWSE_STATE_FILE="/tmp/dmd_browse_state"
 
 read_state() {
     grep "^${1}=" "/tmp/es_state.inf" 2>/dev/null | cut -d= -f2- | tr -d '\r\n '
@@ -291,7 +320,7 @@ publish_slideshow() {
     fi
 }
 
-echo "$(date) - DMD score bridge started (v2, architecture DMD bete)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v3, architecture DMD bete + dwell navigation)" >> "$LOG"
 
 # Dedoublonnage gamelistbrowsing : evite de relancer le slideshow a CHAQUE
 # evenement si l'utilisateur reste sur le MEME rom, seulement au changement
@@ -336,15 +365,30 @@ while IFS= read -r event; do
             game_path=$(read_state "GamePath")
             if [ -n "$system" ] && [ -n "$game_path" ] && [ ! -d "$game_path" ]; then
                 rom=$(basename "$game_path" | sed 's/\.[^.]*$//')
+                state="${system}|${rom}"
+                # v3 -- ecrit a CHAQUE evenement (meme rom repete), pour que
+                # les guetteurs deja en vol voient bien "rien n'a bouge"
+                # meme si ES republie le meme evenement plusieurs fois.
+                printf '%s\n' "$state" > "$BROWSE_STATE_FILE"
                 if [ "$system" != "$LAST_BROWSE_SYS" ] || [ "$rom" != "$LAST_BROWSE_ROM" ]; then
                     LAST_BROWSE_SYS="$system"
                     LAST_BROWSE_ROM="$rom"
-                    echo "$(date '+%H:%M:%S') BROWSE sys=$system rom=$rom" >> "$LOG"
-                    publish_slideshow "$system" "$game_path" "$rom" "browse" &
+                    echo "$(date '+%H:%M:%S') BROWSE sys=$system rom=$rom (dwell ${DWELL_SECONDS}s)" >> "$LOG"
+                    (
+                        sleep "$DWELL_SECONDS"
+                        current=$(cat "$BROWSE_STATE_FILE" 2>/dev/null)
+                        if [ "$current" = "$state" ]; then
+                            echo "$(date '+%H:%M:%S') DWELL settled sys=$system rom=$rom" >> "$LOG"
+                            publish_slideshow "$system" "$game_path" "$rom" "browse"
+                        else
+                            echo "$(date '+%H:%M:%S') DWELL abandoned sys=$system rom=$rom (deplace entre-temps)" >> "$LOG"
+                        fi
+                    ) &
                 fi
             else
                 LAST_BROWSE_SYS=""
                 LAST_BROWSE_ROM=""
+                : > "$BROWSE_STATE_FILE"
             fi
             ;;
         *)
