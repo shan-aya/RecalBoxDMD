@@ -3,7 +3,26 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v61
+// Version actuelle : v63
+//
+// v63 — 2026-08-20 — safe-modify — Case "RA / Navigation" grisee et
+//   desactivee (demande utilisateur explicite) : ce reglage n'a
+//   actuellement AUCUN effet cote script RB (dmd_achievement.sh ne lit que
+//   ra_ingame -- afficher le nombre de succes obtenus/total pour un jeu
+//   survole en navigation necessiterait une nouvelle source de donnees,
+//   non implementee) -- attribut disabled + opacite reduite + infobulle,
+//   popup d'aide mise a jour en consequence. A reactiver le jour ou la
+//   fonctionnalite existe reellement.
+//
+// v62 — 2026-08-20 — safe-modify — Refonte round-robin hi-score/infos/
+//   description (voir dmd_score.sh v6/RecalBox_DMD.ino v111 pour le detail
+//   complet) : 2 nouveaux reglages page Affichage — "Repetition en
+//   navigation" (feat_repeat_browse_cycles, ratio separe du contexte "en
+//   jeu") et "Delai d'immobilite (navigation)" (feat_dwell_seconds, etait
+//   fixe a 5s en dur cote script, plancher de securite 3s impose ici ET
+//   cote firmware). Popups d'aide dediees ajoutees, texte du popup
+//   "Repetition en jeu" mis a jour (nouvelle semantique ratio, plus
+//   "paquet groupe").
 //
 // v61 — 2026-08-20 — safe-modify — 3 restaurations/ajouts demandes par
 //   l'utilisateur apres relecture des pages Reseau/Horloge :
@@ -788,6 +807,8 @@ extern bool   featDescriptionBrowse;
 extern bool   featRaIngame;
 extern bool   featRaBrowse;
 extern int    featRepeatCycles;
+extern int    featRepeatBrowseCycles; // v111, RecalBox_DMD.ino
+extern int    featDwellSeconds;       // v111, RecalBox_DMD.ino
 extern void   broadcastFeatureStatus(); // v110, RecalBox_DMD.ino
 extern String playlistName;
 extern bool   playlistRandom;
@@ -1089,9 +1110,11 @@ body{position:relative}
 </div>
 <div class="row featrow"><label data-i18n="lbl_feat_ra">RetroAchievements</label><span class="featinfo" onmouseenter="showFeatInfo('ra')" onmouseleave="closeFeatInfo()">?</span>
 <span class="featcol"><input id="feat_ra_ingame" type="checkbox"><span data-i18n="lbl_col_ingame">En jeu</span></span>
-<span class="featcol"><input id="feat_ra_browse" type="checkbox"><span data-i18n="lbl_col_browse">Navigation</span></span>
+<span class="featcol" style="opacity:.4" title="Pas encore implemente cote script RB -- ce reglage n'a actuellement aucun effet"><input id="feat_ra_browse" type="checkbox" disabled><span data-i18n="lbl_col_browse">Navigation</span></span>
 </div>
 <div class="row"><label data-i18n="lbl_repeat_cycles">R&eacute;p&eacute;tition en jeu</label><span class="featinfo" onmouseenter="showFeatInfo('repeat')" onmouseleave="closeFeatInfo()">?</span><input id="feat_repeat_cycles" type="range" min="0" max="10" step="1" oninput="updateRepeatCyclesLabel(this.value)"><span id="repeatCyclesVal" style="margin-left:8px;color:#ffd146;min-width:90px;font-size:12px"></span></div>
+<div class="row"><label data-i18n="lbl_repeat_browse_cycles">R&eacute;p&eacute;tition en navigation</label><span class="featinfo" onmouseenter="showFeatInfo('repeat_browse')" onmouseleave="closeFeatInfo()">?</span><input id="feat_repeat_browse_cycles" type="range" min="0" max="10" step="1" oninput="updateRepeatBrowseCyclesLabel(this.value)"><span id="repeatBrowseCyclesVal" style="margin-left:8px;color:#ffd146;min-width:90px;font-size:12px"></span></div>
+<div class="row"><label data-i18n="lbl_dwell_seconds">D&eacute;lai d'immobilit&eacute; (navigation)</label><span class="featinfo" onmouseenter="showFeatInfo('dwell')" onmouseleave="closeFeatInfo()">?</span><input id="feat_dwell_seconds" type="range" min="3" max="20" step="1" oninput="updateDwellSecondsLabel(this.value)"><span id="dwellSecondsVal" style="margin-left:8px;color:#ffd146;min-width:40px;font-size:12px"></span></div>
 </div>
 <div id="featInfoBackdrop" class="help-backdrop">
 <div class="help-box" onmouseenter="cancelCloseFeatInfo()" onmouseleave="closeFeatInfo()">
@@ -1132,8 +1155,10 @@ fr:{
   hiscore:{t:'Hi-score',b:'Affiche le meilleur score enregistre pour le jeu en cours (uniquement les jeux reconnus par le DMD -- voir dmd_score.sh). Exemple affiche :\n\nHI-SCORE\n1 MAA 283200\n2 CAP 30000\n3 COM 29000'},
   info:{t:'Infos jeu',b:'Affiche developpeur, editeur, annee, nombre de joueurs et note du jeu (si disponibles dans la base Recalbox). Exemple affiche :\n\nDeveloppeur: Capcom\nEditeur: Capcom\nAnnee: 1990\nJoueurs: 1-2\nNote: 4/5'},
   description:{t:'Description',b:'Affiche le resume/synopsis du jeu (si disponible dans la base Recalbox). Exemple affiche :\n\n"1941 est la suite directe de 1943 sorti sur la generation precedente de borne..."'},
-  ra:{t:'RetroAchievements',b:'Affiche le nom du succes RetroAchievements au moment ou vous le debloquez, pendant la partie. Exemple affiche :\n\nSUCCES\nRibs to Go'},
-  repeat:{t:'Repetition en jeu',b:'Nombre de cycles du marquee entre 2 rappels du hi-score/infos pendant une meme partie (0 = une seule fois, jamais de rappel). Exprime en CYCLES (pas en secondes) pour ne jamais risquer un chevauchement, quel que soit le nombre de cartes activees : 1 cycle = un passage complet du slideshow actuellement actif.'}
+  ra:{t:'RetroAchievements',b:'Affiche le nom du succes RetroAchievements au moment ou vous le debloquez, pendant la partie. Exemple affiche :\n\nSUCCES\nRibs to Go\n\n(La case "Navigation" est desactivee -- afficher le nombre de succes obtenus/total pour un jeu survole n\'est pas encore implemente.)'},
+  repeat:{t:'Repetition en jeu',b:'Ratio marquee/panneau pendant une partie (0 = jamais de rappel). Le marquee du jeu s\'affiche N fois entre chaque panneau (hi-score, description, infos, chacun a son tour), en boucle continue tant que la partie dure. Exprime en cycles marquee (pas en secondes) pour ne jamais risquer de chevauchement.'},
+  repeat_browse:{t:'Repetition en navigation',b:'Meme principe que "Repetition en jeu" (voir ci-dessus), applique a la navigation dans les listes de jeux plutot qu\'en partie -- reglage independant, sa propre valeur.'},
+  dwell:{t:'Delai d\'immobilite (navigation)',b:'Temps (secondes) a rester immobile sur un jeu en navigation avant que les panneaux hi-score/infos/description commencent a s\'afficher. Un minimum de 3s est impose pour ne jamais se declencher pendant un defilement normal.'}
 },
 en:{
   silent_boot:{t:'Silent boot',b:'Enabled: on startup, the DMD shows only the title/logo, no technical details. Disabled (default): also shows the detected IP address, time sync, etc. -- useful to diagnose a connection issue at startup.'},
@@ -1141,7 +1166,9 @@ en:{
   info:{t:'Game info',b:'Shows developer, publisher, year, player count and rating (if available in the Recalbox database). Example shown:\n\nDeveloper: Capcom\nPublisher: Capcom\nYear: 1990\nPlayers: 1-2\nRating: 4/5'},
   description:{t:'Description',b:'Shows the game synopsis (if available in the Recalbox database). Example shown:\n\n"1941 is the direct sequel to 1943 from the previous cabinet generation..."'},
   ra:{t:'RetroAchievements',b:'Shows the RetroAchievements name the moment you unlock it, during gameplay. Example shown:\n\nSUCCESS\nRibs to Go'},
-  repeat:{t:'In-game repeat',b:'Number of marquee cycles between 2 hi-score/info reminders during the same game (0 = only once, never repeats). Expressed in CYCLES (not seconds) so it can never overlap, whatever the number of active cards: 1 cycle = one full pass of the currently active slideshow.'}
+  repeat:{t:'In-game repeat',b:'Marquee/panel ratio during a game (0 = never). The game marquee shows N times between each panel (hi-score, description, info, taking turns), looping continuously for as long as the game lasts. Expressed in marquee cycles (not seconds) so it can never overlap.'},
+  repeat_browse:{t:'Browse repeat',b:'Same idea as "In-game repeat" (see above), applied to browsing game lists instead of playing -- independent setting, its own value.'},
+  dwell:{t:'Dwell delay (browsing)',b:'How long (seconds) to stay still on a game while browsing before the hi-score/info/description panels start showing. A minimum of 3s is enforced so it never triggers during normal scrolling.'}
 },
 es:{
   silent_boot:{t:'Inicio silencioso',b:'Activado: al arrancar, el DMD muestra solo el titulo/logo, sin detalles tecnicos. Desactivado (por defecto): tambien muestra la IP detectada, la sincronizacion horaria, etc. -- util para diagnosticar un problema de conexion al arrancar.'},
@@ -1149,7 +1176,9 @@ es:{
   info:{t:'Info del juego',b:'Muestra desarrollador, editor, ano, numero de jugadores y valoracion (si estan disponibles en la base de Recalbox). Ejemplo mostrado:\n\nDesarrollador: Capcom\nEditor: Capcom\nAno: 1990\nJugadores: 1-2\nValoracion: 4/5'},
   description:{t:'Descripcion',b:'Muestra la sinopsis del juego (si esta disponible en la base de Recalbox). Ejemplo mostrado:\n\n"1941 es la secuela directa de 1943 de la generacion anterior de recreativa..."'},
   ra:{t:'RetroAchievements',b:'Muestra el nombre del logro RetroAchievements en el momento en que lo desbloqueas, durante la partida. Ejemplo mostrado:\n\nLOGRO\nRibs to Go'},
-  repeat:{t:'Repeticion en juego',b:'Numero de ciclos del marquee entre 2 recordatorios de hi-score/info durante la misma partida (0 = solo una vez, nunca se repite). Expresado en CICLOS (no en segundos) para que nunca pueda solaparse, sea cual sea el numero de tarjetas activas: 1 ciclo = un pase completo del slideshow actualmente activo.'}
+  repeat:{t:'Repeticion en juego',b:'Ratio marquee/panel durante una partida (0 = nunca). El marquee del juego se muestra N veces entre cada panel (hi-score, descripcion, info, cada uno por turno), en bucle continuo mientras dure la partida. Expresado en ciclos de marquee (no en segundos) para que nunca pueda solaparse.'},
+  repeat_browse:{t:'Repeticion en navegacion',b:'Mismo principio que "Repeticion en juego" (ver arriba), aplicado a la navegacion por listas de juegos en lugar de jugar -- ajuste independiente, su propio valor.'},
+  dwell:{t:'Retardo de inmovilidad (navegacion)',b:'Tiempo (segundos) a permanecer inmovil sobre un juego en navegacion antes de que empiecen a mostrarse los paneles hi-score/info/descripcion. Se impone un minimo de 3s para que nunca se active durante un desplazamiento normal.'}
 }
 };
 // v112 -- ouverture au SURVOL (demande utilisateur explicite, remplace le
@@ -1190,10 +1219,24 @@ function updateRepeatCyclesLabel(v){
   if(!el)return;
   el.textContent=(v==0)?tr('lbl_repeat_never'):tr('lbl_repeat_every').replace('{0}',v);
 }
+// v111 -- meme motif que updateRepeatCyclesLabel() ci-dessus, contexte
+// navigation (feat_repeat_browse_cycles) -- reutilise les memes cles i18n
+// lbl_repeat_never/lbl_repeat_every (meme semantique : 0=jamais, sinon
+// "toutes les N cycles").
+function updateRepeatBrowseCyclesLabel(v){
+  const el=document.getElementById('repeatBrowseCyclesVal');
+  if(!el)return;
+  el.textContent=(v==0)?tr('lbl_repeat_never'):tr('lbl_repeat_every').replace('{0}',v);
+}
+function updateDwellSecondsLabel(v){
+  const el=document.getElementById('dwellSecondsVal');
+  if(!el)return;
+  el.textContent=v+'s';
+}
 const PAGE_I18N={
-fr:{title:'RecalBox DMD - Affichage',h1:'Affichage',nav_basic:'&#x1F4A1; Affichage',nav_playlist:'&#x1F4BF; Playlist',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_display:'&#x1F4A1; Affichage',lbl_brightness:'Luminosité (%)',desc_brightness_live:'&#x1F4A1; Aperçu appliqué en direct sur l\'écran DMD.',lbl_silent_boot:'Démarrage silencieux',sec_features:'&#x1F3C6; Hi-score / Infos / RetroAchievements',desc_features:'Choisissez ce qui s\'affiche sur le DMD, et dans quel contexte. C\'est la Recalbox qui décide quand envoyer -- ces cases ne font qu\'autoriser ou non chaque type de contenu.',lbl_feat_hiscore:'Hi-score',lbl_feat_info:'Infos jeu',lbl_feat_description:'Description',lbl_feat_ra:'RetroAchievements',lbl_col_ingame:'En jeu',lbl_col_browse:'Navigation',lbl_repeat_cycles:'Répétition en jeu',lbl_repeat_never:'Jamais',lbl_repeat_every:'toutes les {0} cycles',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_load_error:'Impossible de charger la config',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',loading_text:'Chargement en cours...',...HELP_I18N.fr},
-en:{title:'RecalBox DMD - Display',h1:'Display',nav_basic:'&#x1F4A1; Display',nav_playlist:'&#x1F4BF; Playlist',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_display:'&#x1F4A1; Display',lbl_brightness:'Brightness (%)',desc_brightness_live:'&#x1F4A1; Live preview applied directly on the DMD screen.',lbl_silent_boot:'Silent boot',sec_features:'&#x1F3C6; Hi-score / Info / RetroAchievements',desc_features:'Choose what shows on the DMD, and in which context. The Recalbox decides when to send it -- these checkboxes just allow or block each content type.',lbl_feat_hiscore:'Hi-score',lbl_feat_info:'Game info',lbl_feat_description:'Description',lbl_feat_ra:'RetroAchievements',lbl_col_ingame:'In-game',lbl_col_browse:'Browsing',lbl_repeat_cycles:'In-game repeat',lbl_repeat_never:'Never',lbl_repeat_every:'every {0} cycles',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_load_error:'Unable to load config',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',loading_text:'Loading...',...HELP_I18N.en},
-es:{title:'RecalBox DMD - Pantalla',h1:'Pantalla',nav_basic:'&#x1F4A1; Pantalla',nav_playlist:'&#x1F4BF; Playlist',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_display:'&#x1F4A1; Pantalla',lbl_brightness:'Brillo (%)',desc_brightness_live:'&#x1F4A1; Vista previa aplicada en directo en la pantalla DMD.',lbl_silent_boot:'Arranque silencioso',sec_features:'&#x1F3C6; Hi-score / Info / RetroAchievements',desc_features:'Elija qué se muestra en el DMD, y en qué contexto. Recalbox decide cuándo enviarlo -- estas casillas solo permiten o bloquean cada tipo de contenido.',lbl_feat_hiscore:'Hi-score',lbl_feat_info:'Info del juego',lbl_feat_description:'Descripción',lbl_feat_ra:'RetroAchievements',lbl_col_ingame:'En juego',lbl_col_browse:'Navegación',lbl_repeat_cycles:'Repetición en juego',lbl_repeat_never:'Nunca',lbl_repeat_every:'cada {0} ciclos',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_load_error:'No se pudo cargar la configuración',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',loading_text:'Cargando...',...HELP_I18N.es}
+fr:{title:'RecalBox DMD - Affichage',h1:'Affichage',nav_basic:'&#x1F4A1; Affichage',nav_playlist:'&#x1F4BF; Playlist',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_display:'&#x1F4A1; Affichage',lbl_brightness:'Luminosité (%)',desc_brightness_live:'&#x1F4A1; Aperçu appliqué en direct sur l\'écran DMD.',lbl_silent_boot:'Démarrage silencieux',sec_features:'&#x1F3C6; Hi-score / Infos / RetroAchievements',desc_features:'Choisissez ce qui s\'affiche sur le DMD, et dans quel contexte. C\'est la Recalbox qui décide quand envoyer -- ces cases ne font qu\'autoriser ou non chaque type de contenu.',lbl_feat_hiscore:'Hi-score',lbl_feat_info:'Infos jeu',lbl_feat_description:'Description',lbl_feat_ra:'RetroAchievements',lbl_col_ingame:'En jeu',lbl_col_browse:'Navigation',lbl_repeat_cycles:'Répétition en jeu',lbl_repeat_browse_cycles:'Répétition en navigation',lbl_dwell_seconds:'Délai d\'immobilité (navigation)',lbl_repeat_never:'Jamais',lbl_repeat_every:'toutes les {0} cycles',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_load_error:'Impossible de charger la config',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',loading_text:'Chargement en cours...',...HELP_I18N.fr},
+en:{title:'RecalBox DMD - Display',h1:'Display',nav_basic:'&#x1F4A1; Display',nav_playlist:'&#x1F4BF; Playlist',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_display:'&#x1F4A1; Display',lbl_brightness:'Brightness (%)',desc_brightness_live:'&#x1F4A1; Live preview applied directly on the DMD screen.',lbl_silent_boot:'Silent boot',sec_features:'&#x1F3C6; Hi-score / Info / RetroAchievements',desc_features:'Choose what shows on the DMD, and in which context. The Recalbox decides when to send it -- these checkboxes just allow or block each content type.',lbl_feat_hiscore:'Hi-score',lbl_feat_info:'Game info',lbl_feat_description:'Description',lbl_feat_ra:'RetroAchievements',lbl_col_ingame:'In-game',lbl_col_browse:'Browsing',lbl_repeat_cycles:'In-game repeat',lbl_repeat_browse_cycles:'Browse repeat',lbl_dwell_seconds:'Dwell delay (browsing)',lbl_repeat_never:'Never',lbl_repeat_every:'every {0} cycles',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_load_error:'Unable to load config',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',loading_text:'Loading...',...HELP_I18N.en},
+es:{title:'RecalBox DMD - Pantalla',h1:'Pantalla',nav_basic:'&#x1F4A1; Pantalla',nav_playlist:'&#x1F4BF; Playlist',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_display:'&#x1F4A1; Pantalla',lbl_brightness:'Brillo (%)',desc_brightness_live:'&#x1F4A1; Vista previa aplicada en directo en la pantalla DMD.',lbl_silent_boot:'Arranque silencioso',sec_features:'&#x1F3C6; Hi-score / Info / RetroAchievements',desc_features:'Elija qué se muestra en el DMD, y en qué contexto. Recalbox decide cuándo enviarlo -- estas casillas solo permiten o bloquean cada tipo de contenido.',lbl_feat_hiscore:'Hi-score',lbl_feat_info:'Info del juego',lbl_feat_description:'Descripción',lbl_feat_ra:'RetroAchievements',lbl_col_ingame:'En juego',lbl_col_browse:'Navegación',lbl_repeat_cycles:'Repetición en juego',lbl_repeat_browse_cycles:'Repetición en navegación',lbl_dwell_seconds:'Retardo de inmovilidad (navegación)',lbl_repeat_never:'Nunca',lbl_repeat_every:'cada {0} ciclos',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_load_error:'No se pudo cargar la configuración',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',loading_text:'Cargando...',...HELP_I18N.es}
 };
 let currentLang='fr';
 // Overlay "Chargement en cours..." (2026-08-05, demande utilisateur :
@@ -1231,7 +1274,7 @@ function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=
 // ce qui annulait la reprise a peine effectuee (ecran fige juste apres
 // "DMD repris", confirme en test reel).
 function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
-function serialize(){return new URLSearchParams({brightness:document.getElementById('brightness').value,info:document.getElementById('silent_boot').checked?'0':'1',feat_hiscore_ingame:document.getElementById('feat_hiscore_ingame').checked?'1':'0',feat_hiscore_browse:document.getElementById('feat_hiscore_browse').checked?'1':'0',feat_info_ingame:document.getElementById('feat_info_ingame').checked?'1':'0',feat_info_browse:document.getElementById('feat_info_browse').checked?'1':'0',feat_description_ingame:document.getElementById('feat_description_ingame').checked?'1':'0',feat_description_browse:document.getElementById('feat_description_browse').checked?'1':'0',feat_ra_ingame:document.getElementById('feat_ra_ingame').checked?'1':'0',feat_ra_browse:document.getElementById('feat_ra_browse').checked?'1':'0',feat_repeat_cycles:document.getElementById('feat_repeat_cycles').value});}
+function serialize(){return new URLSearchParams({brightness:document.getElementById('brightness').value,info:document.getElementById('silent_boot').checked?'0':'1',feat_hiscore_ingame:document.getElementById('feat_hiscore_ingame').checked?'1':'0',feat_hiscore_browse:document.getElementById('feat_hiscore_browse').checked?'1':'0',feat_info_ingame:document.getElementById('feat_info_ingame').checked?'1':'0',feat_info_browse:document.getElementById('feat_info_browse').checked?'1':'0',feat_description_ingame:document.getElementById('feat_description_ingame').checked?'1':'0',feat_description_browse:document.getElementById('feat_description_browse').checked?'1':'0',feat_ra_ingame:document.getElementById('feat_ra_ingame').checked?'1':'0',feat_ra_browse:document.getElementById('feat_ra_browse').checked?'1':'0',feat_repeat_cycles:document.getElementById('feat_repeat_cycles').value,feat_repeat_browse_cycles:document.getElementById('feat_repeat_browse_cycles').value,feat_dwell_seconds:document.getElementById('feat_dwell_seconds').value});}
 // v55 -- apercu live de la luminosite pendant le drag du curseur : envoi
 // throttle vers /set-brightness (RAM uniquement sur le firmware, pas
 // d'ecriture SD) pour ne pas spammer l'ESP32 a chaque pixel de drag, plus
@@ -1261,7 +1304,7 @@ function onBrightnessInput(el){
 // elle-meme continue de n'etre ecrite que sur un clic explicite sur
 // "Enregistrer"/"Enregistrer & Redemarrer", inchange.
 const DRAFT_KEY='dmd_draft_basic';
-const DRAFT_FIELDS=['brightness','silent_boot','feat_hiscore_ingame','feat_hiscore_browse','feat_info_ingame','feat_info_browse','feat_description_ingame','feat_description_browse','feat_ra_ingame','feat_ra_browse','feat_repeat_cycles'];
+const DRAFT_FIELDS=['brightness','silent_boot','feat_hiscore_ingame','feat_hiscore_browse','feat_info_ingame','feat_info_browse','feat_description_ingame','feat_description_browse','feat_ra_ingame','feat_ra_browse','feat_repeat_cycles','feat_repeat_browse_cycles','feat_dwell_seconds'];
 function loadDraft(){try{const raw=localStorage.getItem(DRAFT_KEY);return raw?JSON.parse(raw):null;}catch(e){return null;}}
 function saveDraft(){const o={};DRAFT_FIELDS.forEach(id=>{const el=document.getElementById(id);if(!el)return;o[id]=(el.type==='checkbox')?el.checked:el.value;});localStorage.setItem(DRAFT_KEY,JSON.stringify(o));}
 function clearDraft(){localStorage.removeItem(DRAFT_KEY);}
@@ -1303,6 +1346,8 @@ function loadConfig(){const draft=loadDraft();return fetch('/load').then(r=>r.js
   document.getElementById('feat_ra_ingame').checked=g('feat_ra_ingame',d.feat_ra_ingame==='1');
   document.getElementById('feat_ra_browse').checked=g('feat_ra_browse',d.feat_ra_browse==='1');
   { const rc=g('feat_repeat_cycles',d.feat_repeat_cycles||'3'); document.getElementById('feat_repeat_cycles').value=rc; updateRepeatCyclesLabel(rc); }
+  { const rbc=g('feat_repeat_browse_cycles',d.feat_repeat_browse_cycles||'3'); document.getElementById('feat_repeat_browse_cycles').value=rbc; updateRepeatBrowseCyclesLabel(rbc); }
+  { const dw=g('feat_dwell_seconds',d.feat_dwell_seconds||'5'); document.getElementById('feat_dwell_seconds').value=dw; updateDwellSecondsLabel(dw); }
   if(draft)_formDirty=true; // reboot/reprise doivent quand meme avertir : la config.ini reelle n'a pas ce brouillon
 }).catch(()=>showMsg(tr('msg_load_error'),false));}
 localStorage.setItem('dmd_last_section','basic');
@@ -2867,6 +2912,8 @@ static void handleWebConfigLoad()
   json += ",\"feat_ra_ingame\":\"" + String(featRaIngame ? '1' : '0') + "\"";
   json += ",\"feat_ra_browse\":\"" + String(featRaBrowse ? '1' : '0') + "\"";
   json += ",\"feat_repeat_cycles\":\"" + String(featRepeatCycles) + "\"";
+  json += ",\"feat_repeat_browse_cycles\":\"" + String(featRepeatBrowseCycles) + "\"";
+  json += ",\"feat_dwell_seconds\":\"" + String(featDwellSeconds) + "\"";
   json += ",\"wifi_enabled\":\"" + String(wifiEnabled ? '1' : '0') + "\"";
   json += ",\"wifi_ssid\":\"" + jsonEscape(wifiSSID) + "\"";
   json += ",\"wifi_password\":\"" + jsonEscape(wifiPassword) + "\"";
@@ -4282,6 +4329,11 @@ static void handleWebConfigSave()
   if (webServer->hasArg("feat_ra_ingame"))          featRaIngame          = webServer->arg("feat_ra_ingame") == "1";
   if (webServer->hasArg("feat_ra_browse"))          featRaBrowse          = webServer->arg("feat_ra_browse") == "1";
   if (webServer->hasArg("feat_repeat_cycles"))      featRepeatCycles      = constrain(webServer->arg("feat_repeat_cycles").toInt(), 0, 20);
+  // v111 -- voir declaration (featRepeatBrowseCycles/featDwellSeconds,
+  // RecalBox_DMD.ino). Plancher de securite 3s impose ICI aussi (pas
+  // seulement au chargement config.ini) -- demande utilisateur explicite.
+  if (webServer->hasArg("feat_repeat_browse_cycles")) featRepeatBrowseCycles = constrain(webServer->arg("feat_repeat_browse_cycles").toInt(), 0, 20);
+  if (webServer->hasArg("feat_dwell_seconds"))      featDwellSeconds      = constrain(webServer->arg("feat_dwell_seconds").toInt(), 3, 30);
   if (webServer->hasArg("wifi_enabled"))    wifiEnabled = webServer->arg("wifi_enabled") == "1";
   if (webServer->hasArg("wifi_ssid"))       wifiSSID = webServer->arg("wifi_ssid");
   if (webServer->hasArg("wifi_password"))   wifiPassword = webServer->arg("wifi_password");
@@ -4337,6 +4389,8 @@ static void handleWebConfigSave()
   f.println("feat_ra_ingame=" + String(featRaIngame ? "1" : "0"));
   f.println("feat_ra_browse=" + String(featRaBrowse ? "1" : "0"));
   f.println("feat_repeat_cycles=" + String(featRepeatCycles));
+  f.println("feat_repeat_browse_cycles=" + String(featRepeatBrowseCycles));
+  f.println("feat_dwell_seconds=" + String(featDwellSeconds));
   f.println(); f.println("# Playlist"); f.println("playlist=" + playlistName); f.println("random=" + String(playlistRandom ? "1" : "0"));
   f.println(); f.println("# Wi-Fi & Bluetooth");
   f.println("wifi_enabled=" + String(wifiEnabled ? "1" : "0")); f.println("wifi_ssid=" + wifiSSID); f.println("wifi_password=" + wifiPassword);

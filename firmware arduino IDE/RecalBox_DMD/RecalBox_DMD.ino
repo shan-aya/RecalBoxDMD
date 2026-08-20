@@ -1,7 +1,118 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v110
+// Version actuelle : v119
+//
+// v119 - 2026-08-20 - safe-modify - 2 ajustements suite au 1er retour
+//   utilisateur sur v118 : (1) espacement inter-caractere DESCRIPTION
+//   reduit ("reduie l'espace entre les lettre un petit peu") -- le +1px
+//   manuel ajoute en v118 au-dela de l'avance native TomThumb est retire ;
+//   (2) couleur DESCRIPTION FIXEE en gold ("on garde la couleur gold pour
+//   le texte") -- remplace le test A/B blanc/or temporaire de v118. Voir
+//   drawScoreScreen()/isDescriptionScreen.
+//
+// v118 - 2026-08-20 - safe-modify - Org_01 (v117) RETIRE suite au retour
+//   utilisateur ("cette police semble avoir un espacement entre les mots
+//   important et ca rompt avec le style general") -- retour a TomThumb
+//   (v114) avec 2 ameliorations de lisibilite tentees ("essaye
+//   d'ameliorer la police thumb") : espacement inter-caractere elargi
+//   manuellement (dessin caractere par caractere, nouvelle fonction
+//   tomThumbCharAdvance()) + rendu tout en MAJUSCULES. Test A/B temporaire
+//   ajoute a la demande de l'utilisateur (alternance blanc/or par ligne
+//   de contenu, "pour voir la difference de facilite de lecture") --
+//   tranche en v119 (voir ci-dessus).
+//
+// v117 - 2026-08-20 - safe-modify - 2 ajustements suite au 1er retour
+//   utilisateur sur v114-v116 : police DESCRIPTION Org_01 essayee a la
+//   place de TomThumb ("un peu dure a lire") ; couleur titleColor rendue
+//   plus vive ("elle se rapproche trop du blanc") -- bleu-violet sature
+//   (90,90,255) au lieu du cyan pale (120,220,220).
+//
+// v116 - 2026-08-20 - safe-modify - BUG REEL corrige (retour utilisateur :
+//   "la page 2 hi-score n'a pas son titre") -- le titre doit PERSISTER sur
+//   toutes les pages d'un meme contenu (regle deja actee pour INFOS/
+//   DESCRIPTION). Le titre "HI-SCORE" est desormais envoye sur les 2 pages
+//   (dmd_score.sh v12) ; la distinction page1/page2 se fait maintenant sur
+//   le CONTENU (rest commence par "1 " = rang 1 present = page 1) plutot
+//   que sur le titre (etait auparavant vide sur la page 2 specifiquement
+//   pour eviter de declencher le rendu special "rang 1 en gros").
+//
+// v115 - 2026-08-20 - safe-modify - Palette de couleurs UNIFIEE entre tous
+//   les ecrans MODE_SCORE (retour utilisateur explicite : "unifie les
+//   couleurs des differents elements entre les tableaux" + "le titre ne
+//   doit pas avoir la meme couleur que les sous-titres/le texte --
+//   actuellement les scores sont de la meme couleur que le titre") :
+//   nouvelle couleur dediee titleColor pour TOUS les titres (etait 'gold',
+//   partagee a tort avec les scores) ; INFOS bascule sur le meme motif
+//   white(libelle)/gold(valeur) que hi-score(nom/score) au lieu de sa
+//   propre palette dediee -- 3 roles coherents partout desormais
+//   (titre/libelle/valeur), sauf le rang 1 (couleur d'emphase deliberee,
+//   inchangee).
+//
+// v114 - 2026-08-20 - safe-modify - Police compacte TomThumb (3x5px,
+//   Adafruit_GFX_Library) pour l'ecran DESCRIPTION -- demande utilisateur
+//   explicite : "reduire la taille des caracteres du contenu de
+//   descriptions pour afficher plus de texte par ligne" -- ~4px/caractere
+//   au lieu de 6px, ~30 caracteres/ligne au lieu de ~21 (WRAP_WIDTH ajuste
+//   en consequence cote dmd_score.sh v11). Positionnement adapte (ligne de
+//   base, pas coin superieur-gauche). N'affecte QUE l'ecran DESCRIPTION --
+//   hi-score/infos/titre restent sur la police classique.
+//
+// v113 - 2026-08-20 - safe-modify - Page hi-score corrigee suite au 1er
+//   test reel de v112 : "le rang 1 doit etre affiche en taille 2 [ligne],
+//   pas sur 2 lignes, le titre a disparu". Titre "HI-SCORE" restaure
+//   (retire par erreur en v111 lors de la simplification "1 page avec
+//   rang 1 plus gros") ; rang 1 desormais sur UNE SEULE ligne en taille 2
+//   (nom+score ensemble) au lieu de nom taille 1 + score taille 2 sur 2
+//   lignes distinctes.
+//
+// v112 - 2026-08-20 - safe-modify - 2 corrections de rendu suite au 1er
+//   test reel du fix currentMode (v111) :
+//   (1) BUG REEL corrige : currentMode = MODE_SCORE manquant (perdu
+//   pendant la restructuration v111 pour le prefixe "@ms|") -- le texte se
+//   dessinait bien un instant mais currentMode ne changeait jamais,
+//   laissant loop() continuer a redessiner la frame suivante du marquee
+//   par-dessus des l'iteration suivante ("flash" d'une seule frame
+//   rapporte par l'utilisateur, confirme via un detecteur generique de
+//   transition qui ne loguait JAMAIS de changement malgre un texte
+//   visible). Root cause identifiee par l'utilisateur lui-meme ("le
+//   rawpack continue a etre lu normalement, pas de redemarrage de
+//   l'animation") avant meme la confirmation par instrumentation.
+//   (2) Palette INFOS corrigee : "chaque ligne a une couleur c'est pas
+//   bon, garde les sous-titre d'une couleur et le texte d'une autre" --
+//   remplace la rotation 3 couleurs/ligne par un split libelle/valeur
+//   coherent (2 couleurs fixes, coupe au premier ":").
+//   (3) Ecran DESCRIPTION corrige : "ya des mots qui sont de la meme
+//   couleur que le titre, enleve ca (dernier mot de chaque ligne)" --
+//   tombait a tort dans le rendu generique hi-score (split au dernier
+//   espace, dernier mot en or comme un score) -- rendu dedie ajoute,
+//   1 seule couleur, aucun split.
+//
+// v111 - 2026-08-20 - safe-modify - 3 ajouts a drawScoreScreen()/CMD_SCORE,
+//   demande utilisateur explicite en reponse au constat "hi-score tronque a
+//   3/5 rangs, description/infos inutilisables (pas de retour a la ligne)" --
+//   AUCUN etat/timing anime introduit (chaque appel reste un rendu statique
+//   independant, coherent avec la philosophie "DMD bete" v110) :
+//   (1) Duree d'affichage PAR MESSAGE optionnelle -- prefixe "@<ms>|" en
+//   tete du payload CMD_SCORE (SCORE_DURATION_OVERRIDE_MIN/MAX_MS, bornes
+//   500-15000ms), lit par dmd_score.sh v6 pour un "scroll bete" pagine
+//   cote script (contenu trop long pour 4 lignes = plusieurs pages
+//   statiques envoyees en remplacement l'une de l'autre, PAS de defilement
+//   firmware). Sans prefixe, comportement inchange (SCORE_DISPLAY_DURATION_MS).
+//   (2) Hi-score : rang 1 mis en valeur -- nom taille normale + SCORE en
+//   gros (taille 2) et couleur dediee (orange, distincte de l'or standard),
+//   rang 2 en dessous en taille normale (8+16+8=32px, tient exactement).
+//   Plus de titre "HI-SCORE" affiche a part (consomme comme marqueur
+//   uniquement -- gagne la place pour le rang 2). Declenche uniquement si
+//   le titre du payload vaut exactement "HI-SCORE" ET qu'il y a du contenu
+//   apres -- une page de continuation (titre VIDE, rangs 3/4/5) tombe
+//   naturellement dans le rendu generique inchange.
+//   (3) Palette dediee pour les ecrans INFOS (titre == "INFOS") : 3
+//   couleurs en rotation par ligne (bleu clair/vert/ambre) au lieu du
+//   split nom/score generique (n'avait pas de sens pour un format "Label:
+//   valeur") -- nouvelle palette dessinee ici, l'ancien systeme
+//   (startGameInfoOverlay(), retire en v104) etant introuvable dans
+//   l'historique git malgre recherche approfondie.
 //
 // v110 - 2026-08-19 - safe-modify - CMD_SCORE reintroduit, version "DMD
 //   bete" (demande utilisateur explicite, apres diagnostic du bug
@@ -1908,6 +2019,19 @@ typedef uint8_t BitOrder; // Workaround: Adafruit_BusIO attend BitOrder (AVR) ma
 #endif
 
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
+// v114 -- police compacte TomThumb (3x5px, fournie par Adafruit_GFX_Library,
+// deja presente dans ce projet) -- demande utilisateur explicite : "reduire
+// la taille des caracteres du contenu de descriptions pour afficher plus de
+// texte par ligne". Utilisee UNIQUEMENT pour l'ecran DESCRIPTION (voir
+// drawScoreScreen()) -- ~4px/caractere au lieu de 6px avec la police
+// classique, soit ~30 caracteres/ligne au lieu de ~21.
+// v117 -- Org_01 essayee a la place (retour utilisateur "TomThumb un peu
+// dure a lire") -- v118 -- Org_01 RETIRE (retour utilisateur : son
+// caractere espace est trop large, rompt avec le style general des autres
+// ecrans) -- retour DEFINITIF a TomThumb, avec espacement inter-caractere
+// manuel + rendu MAJUSCULES pour ameliorer sa lisibilite (voir
+// gfxCharAdvance()/drawScoreScreen() plus bas).
+#include <Fonts/TomThumb.h>
 #include <AnimatedGIF.h>
 #include <SD.h>
 #include <SPI.h>
@@ -2777,6 +2901,19 @@ bool featRaBrowse          = false;
 // "repete". Ne s'applique qu'au contexte "ingame" -- le contexte
 // navigation se re-declenche deja naturellement a chaque nouveau dwell.
 int featRepeatCycles = 3;
+// v111 -- meme principe que featRepeatCycles ci-dessus, mais pour le
+// contexte NAVIGATION (round-robin apres dwell, dmd_score.sh v6) -- ratio
+// separe, reglable independamment (demande utilisateur explicite : "fait 2
+// valeurs separees pour chaque situation"). PUREMENT INFORMATIF ici aussi.
+int featRepeatBrowseCycles = 3;
+// v111 -- delai d'immobilite (secondes) avant de declencher le round-robin
+// navigation -- etait fixe a 5s en dur cote script (DWELL_SECONDS,
+// dmd_score.sh v3), rendu reglable ici (demande utilisateur explicite).
+// Plancher de securite impose a la SAUVEGARDE (voir loadConfig()) : "un
+// minimum securitaire doit etre impose pour ne pas qu'il se declenche
+// pendant une navigation normale" -- meme plancher reapplique cote script
+// (defense en profondeur, DWELL_MIN_SECONDS).
+int featDwellSeconds = 5;
 
 // --------------------------------------------------
 // Horloge (Clock) - variables
@@ -4797,6 +4934,18 @@ const bool CMD_GAME_DEBUG_LOGS = true; // v98 -- reactive : meme symptome recurr
 // memorise le mode a restaurer (MODE_GIF ou MODE_PNG selon ce qui tournait
 // avant le score) ; g_scoreShowUntilMs est l'echeance absolue (millis()).
 const unsigned long SCORE_DISPLAY_DURATION_MS = 6000;
+// v111 -- duree PAR MESSAGE optionnelle (demande utilisateur explicite --
+// pagination "scroll bete" cote script RB, dmd_score.sh v6, qui a besoin
+// de durees plus courtes/differenciees par type de page pour tester la
+// vitesse de lecture). Prefixe optionnel "@<ms>|" en tete du payload
+// CMD_SCORE (voir case MqttCommand::CMD_SCORE) -- SANS ce prefixe,
+// comportement 100% inchange (SCORE_DISPLAY_DURATION_MS, ex.
+// marquee/cmd/score venant de dmd_achievement.sh, jamais mis a jour pour
+// ce prefixe). Bornes de securite : en-deca de MIN, un enchainement de
+// pages deviendrait illisible/aveuglant ; au-dela de MAX, aucun interet
+// (le round-robin cote RB a de toute facon son propre rythme).
+const long SCORE_DURATION_OVERRIDE_MIN_MS = 500;
+const long SCORE_DURATION_OVERRIDE_MAX_MS = 15000;
 DisplayMode   g_modeBeforeScore  = MODE_BLACK;
 unsigned long g_scoreShowUntilMs = 0;
 
@@ -4821,6 +4970,26 @@ void drawScoreTextShadowed(int x, int y, const String &s, uint16_t mainColor)
   display->print(s);
 }
 
+// v118 -- avance reelle (xAdvance) du caractere c dans la police TomThumb
+// -- necessaire pour l'espacement inter-caractere manuel de l'ecran
+// DESCRIPTION (voir drawScoreScreen()/isDescriptionScreen). Lit
+// directement TomThumbGlyphs[] (defini par Fonts/TomThumb.h, plage
+// 0x20-0x7E) plutot que via display->gfxFont : ce dernier est `protected`
+// dans Adafruit_GFX (inaccessible depuis ici, erreur de compilation
+// constatee au 1er essai) -- sans interet de toute facon, cette fonction
+// n'est appelee que pour CETTE police precise. Repli a 4px si le
+// caractere est hors de la plage couverte (securite, ne devrait jamais
+// arriver avec le texte MAJUSCULES pur ASCII envoye ici). pgm_read_byte
+// -- meme convention qu'Adafruit_GFX.cpp en interne (TomThumbGlyphs[] est
+// PROGMEM) -- no-op sur ESP32 (flash mappee en memoire) mais garde le
+// code portable.
+uint8_t tomThumbCharAdvance(char c)
+{
+  uint8_t uc = (uint8_t)c;
+  if (uc < 0x20 || uc > 0x7E) return 4;
+  return pgm_read_byte(&TomThumbGlyphs[uc - 0x20].xAdvance);
+}
+
 // v110 -- rendu MODE_SCORE : ecran plein, jusqu'a 4 lignes (128x32, taille de
 // texte 1 = 8px/ligne -> tient exactement), payload decoupe sur "|" (format
 // deja utilise par l'ancien systeme hi-score avant retrait v104, ex.
@@ -4839,20 +5008,167 @@ void drawScoreScreen(const String &payload)
 {
   display->clearScreen();
   display->setTextWrap(false);
+  // v114 -- reset defensif de la police (voir TomThumb, ecran DESCRIPTION
+  // plus bas) -- garantit que la police classique est toujours le point de
+  // depart de CET appel, quel que soit l'etat laisse par un appel precedent.
+  display->setFont(NULL);
+  uint16_t gold  = display->color565(255, 200, 0); // convention "highscore" deja utilisee ailleurs (ex. showClock())
+  uint16_t white = display->color565(235, 235, 235);
+  // v115 -- palette UNIFIEE entre tous les ecrans (demande utilisateur
+  // explicite : "unifie les couleurs des differents elements entre les
+  // tableaux" + "le titre ne doit pas avoir la meme couleur que les
+  // sous-titres ou le texte -- actuellement les scores sont de la meme
+  // couleur que le titre") -- 3 roles COHERENTS partout : titleColor pour
+  // TOUS les titres (HI-SCORE/INFOS/DESCRIPTION, plus utilise gold), white
+  // pour le "libelle/nom" (nom de rang, libelle INFOS, texte DESCRIPTION),
+  // gold pour la "valeur/donnee" (score de rang, valeur INFOS) -- remplace
+  // les infoLabelColor/infoValueColor dediees (v112) par ce meme motif
+  // white/gold deja utilise pour hi-score.
+  // v117 -- couleur du titre plus vive (retour utilisateur : "elle se
+  // rapproche trop du blanc") -- bleu-violet sature, sans ambiguite avec
+  // le blanc (235,235,235) ni l'or des scores.
+  uint16_t titleColor = display->color565(90, 90, 255);
+  // v111 -- rang 1 mis en valeur (demande utilisateur explicite, "fais 1
+  // page avec rang 1 plus gros ... et/ou avec couleur differente") :
+  // couleur dediee, distincte de l'or utilise partout ailleurs -- exception
+  // deliberee a la palette unifiee ci-dessus (emphase specifique du rang 1).
+  uint16_t rank1Color = display->color565(255, 90, 40);
+
+  // v111 -- titre (1ere ligne) extrait A PART, avant la boucle -- necessaire
+  // pour decider du mode de rendu (hiscore rang-1-en-gros / infos couleurs /
+  // generique) AVANT de traiter le reste du payload.
+  int firstSep = payload.indexOf('|');
+  String title = (firstSep == -1) ? payload : payload.substring(0, firstSep);
+  String rest  = (firstSep == -1) ? String("") : payload.substring(firstSep + 1);
+
+  // v113 -- page 1 hi-score (dmd_score.sh v6, pagination "scroll bete") --
+  // CORRIGE suite au 1er test reel (retour utilisateur : "le rang 1 doit
+  // etre affiche en taille 2 [ligne], pas sur 2 lignes, le titre a
+  // disparu") : titre "HI-SCORE" RESTAURE (centre, or, taille 1, 8px) ;
+  // rang 1 desormais sur UNE SEULE ligne en taille 2 (nom+score ensemble,
+  // pas nom en taille 1 puis score en taille 2 sur une 2e ligne comme
+  // avant) ; rang 2 en taille normale en dessous. 8+16+8=32px, tient
+  // exactement. Le numero de rang ("1 ") est retire du nom affiche en gros
+  // (implicite -- 1er rang juste sous le titre -- le garder ferait
+  // deborder l'ecran pour un score a 6+ chiffres : 128px / 12px par
+  // caractere en taille 2 = ~10-11 caracteres de budget).
+  // v116 -- BUG REEL corrige (retour utilisateur : "la page 2 hi-score n'a
+  // pas son titre") -- le titre doit PERSISTER sur toutes les pages (regle
+  // deja actee, voir INFOS/DESCRIPTION qui le font deja correctement).
+  // Auparavant, page 2 (rangs 3/4/5) envoyait un titre VIDE specifiquement
+  // pour eviter de declencher le rendu special "rang 1 en gros" -- au prix
+  // de perdre le titre. Fix : le titre "HI-SCORE" est desormais envoye sur
+  // les 2 pages (voir dmd_score.sh v12) ; la distinction page1/page2 se
+  // fait maintenant sur le CONTENU (rest commence par "1 " = le rang 1 est
+  // present = page 1) plutot que sur le titre.
+  if (title == "HI-SCORE" && rest.startsWith("1 ")) {
+    int y = 0;
+    display->setTextSize(1);
+    { int tx = (RAW565_W - (int)title.length() * 6) / 2; if (tx < 0) tx = 0;
+      drawScoreTextShadowed(tx, y, title, titleColor); }
+    y += 8;
+    int start = 0;
+    int rankIdx = 0;
+    while (start <= (int)rest.length() && rankIdx < 2) {
+      int sep = rest.indexOf('|', start);
+      String line = (sep == -1) ? rest.substring(start) : rest.substring(start, sep);
+      int sp = line.lastIndexOf(' ');
+      String name = (sp > 0) ? line.substring(0, sp) : line;
+      String scoreVal = (sp > 0) ? line.substring(sp + 1) : "";
+      if (rankIdx == 0) {
+        String bigName = name;
+        int firstSpace = name.indexOf(' ');
+        if (firstSpace > 0) bigName = name.substring(firstSpace + 1); // retire le numero de rang
+        display->setTextSize(2);
+        drawScoreTextShadowed(1, y, bigName, white);
+        int sx = 1 + (int)bigName.length() * 12 + 6;
+        drawScoreTextShadowed(sx, y, scoreVal, rank1Color);
+        y += 16;
+      } else {
+        display->setTextSize(1);
+        drawScoreTextShadowed(1, y, name, white);
+        if (scoreVal.length() > 0) drawScoreTextShadowed(1 + (int)name.length() * 6 + 6, y, scoreVal, gold);
+        y += 8;
+      }
+      rankIdx++;
+      if (sep == -1) break;
+      start = sep + 1;
+    }
+    return;
+  }
+
   display->setTextSize(1);
   int y = 0;
   int start = 0;
   int lineIdx = 0;
   const int maxLines = 4;
-  uint16_t gold  = display->color565(255, 200, 0); // convention "highscore" deja utilisee ailleurs (ex. showClock())
-  uint16_t white = display->color565(235, 235, 235);
+  bool isInfoScreen = (title == "INFOS");
+  // v112 -- ecran DESCRIPTION : texte libre, AUCUN split nom/score --
+  // corrige (retour utilisateur : "ya des mots qui sont de la meme couleur
+  // que le titre, enleve ca (dernier mot de chaque ligne)") -- ce champ
+  // tombait avant dans le rendu GENERIQUE ci-dessous (concu pour les rangs
+  // hi-score, nom/score separes par le DERNIER espace), colorant a tort le
+  // dernier mot de chaque ligne en or comme s'il s'agissait d'un score.
+  bool isDescriptionScreen = (title == "DESCRIPTION");
   while (start <= (int)payload.length() && lineIdx < maxLines) {
     int sep = payload.indexOf('|', start);
     String line = (sep == -1) ? payload.substring(start) : payload.substring(start, sep);
     if (lineIdx == 0) {
-      // Titre (1ere ligne) : centre, en or.
-      int tx = (RAW565_W - (int)line.length() * 6) / 2; if (tx < 0) tx = 0;
-      drawScoreTextShadowed(tx, y, line, gold);
+      // Titre (1ere ligne) : centre, couleur dediee (titleColor, v115).
+      // Chaine vide (page de continuation hi-score/pagination generique) ->
+      // ne dessine rien, consomme juste ce slot de ligne.
+      if (line.length() > 0) {
+        int tx = (RAW565_W - (int)line.length() * 6) / 2; if (tx < 0) tx = 0;
+        drawScoreTextShadowed(tx, y, line, titleColor);
+      }
+    } else if (isInfoScreen) {
+      // v115 -- ecran INFOS : split au PREMIER ":" -- libelle (avant, avec
+      // le ":") en white, valeur (apres) en gold -- palette UNIFIEE avec
+      // hi-score (nom=white, score=gold), voir commentaire plus haut.
+      int cp = line.indexOf(':');
+      if (cp > 0) {
+        String label = line.substring(0, cp + 1); // inclut le ":"
+        String value = line.substring(cp + 1);
+        drawScoreTextShadowed(1, y, label, white);
+        drawScoreTextShadowed(1 + (int)label.length() * 6 + 4, y, value, gold);
+      } else {
+        drawScoreTextShadowed(1, y, line, white);
+      }
+    } else if (isDescriptionScreen) {
+      // v118 -- Org_01 (v117) RETIRE : retour utilisateur explicite
+      // ("cette police semble avoir un espacement entre les mots important
+      // et ca rompt avec le style general" -- le caractere espace d'Org_01
+      // est large, cassait la coherence visuelle avec le reste de
+      // l'ecran). Retour a TomThumb (1ere police compacte testee, rejetee
+      // a l'epoque pour "un peu dure a lire") avec 2 ameliorations de
+      // lisibilite tentees sur demande explicite ("essaye d'ameliorer la
+      // police thumb") :
+      //  (1) espacement inter-caractere manuel (dessin caractere par
+      //      caractere via tomThumbCharAdvance()) -- v119 -- REDUIT (retour
+      //      utilisateur : "reduie l'espace entre les lettre un petit peu")
+      //      -- +1px supplementaire au-dela de l'avance native RETIRE,
+      //      avance native de la police seule desormais (deja ~1px pour la
+      //      plupart des glyphes).
+      //  (2) rendu tout en MAJUSCULES -- meilleure lisibilite a hauteur
+      //      <=5px (TomThumb n'a de toute facon pas de vraies formes
+      //      minuscules distinctes des majuscules a cette taille).
+      // Positionnement : GFXfont custom = ligne de BASE (pas coin
+      // superieur-gauche) -- yOffset=-5 pour la quasi-totalite des glyphes
+      // TomThumb -> cursor.y = haut voulu + 5.
+      // v119 -- couleur FIXEE en gold (retour utilisateur explicite : "on
+      // garde la couleur gold pour le texte") -- remplace le test A/B
+      // blanc/or TEMPORAIRE de v118 (alternance par ligne), desormais
+      // tranche.
+      display->setFont(&TomThumb);
+      String upper = line;
+      upper.toUpperCase();
+      int cx = 1;
+      for (size_t ci = 0; ci < upper.length(); ci++) {
+        char ch = upper.charAt(ci);
+        drawScoreTextShadowed(cx, y + 5, String(ch), gold);
+        cx += tomThumbCharAdvance(ch);
+      }
+      display->setFont(NULL);
     } else {
       // Rang : coupe sur le DERNIER espace -- nom (blanc) a gauche, score
       // (or) juste apres. Aligne a gauche (pas de centrage independant par
@@ -4903,6 +5219,22 @@ void processPendingMqttCommand()
   else                       { cmd=pendingCmd; pendingCmd=MqttCommand(MqttCommand::CMD_NONE,""); }
   xSemaphoreGive(mqttCmdMutex);
   if(cmd.type==MqttCommand::CMD_NONE) return;
+
+  // v111 -- INSTRUMENTATION DIAGNOSTIC TEMPORAIRE (a retirer une fois la
+  // cause confirmee) : utilisateur rapporte un affichage MODE_SCORE
+  // "fugace" (1/10eme de seconde au lieu des 4-6s attendues) alors que le
+  // log [MQTT] "score -> affiche X.Xs" ne prouve que l'INTENTION posee a
+  // la reception, pas la duree REELLEMENT tenue -- ce log ne capture donc
+  // PAS une interruption ulterieure. Log EXPLICITE ici, au point exact ou
+  // n'importe quelle AUTRE commande (game/default/system/stop/etc.) est
+  // sur le point d'ecraser un MODE_SCORE encore actif, avec le temps qu'il
+  // restait -- confirme ou infirme en un seul test si une commande
+  // concurrente coupe le score prematurement.
+  if (currentMode == MODE_SCORE && cmd.type != MqttCommand::CMD_SCORE) {
+    long remainingMs = (long)(g_scoreShowUntilMs - millis());
+    Serial.println("[DIAG] MODE_SCORE interrompu par cmd=" + String((int)cmd.type)
+                   + " apres seulement " + String(remainingMs) + "ms restants (sur la duree demandee)");
+  }
 
   switch(cmd.type)
   {
@@ -5639,10 +5971,42 @@ void processPendingMqttCommand()
     // lui-meme -- le jeu redemarrerait alors en MODE_SCORE au lieu de
     // reprendre le jeu, cassant la garantie anti-blocage).
     if (currentMode != MODE_SCORE) g_modeBeforeScore = currentMode;
-    drawScoreScreen(cmd.arg);
-    currentMode = MODE_SCORE;
-    g_scoreShowUntilMs = millis() + SCORE_DISPLAY_DURATION_MS;
-    Serial.println("[MQTT] score -> affiche " + String(SCORE_DISPLAY_DURATION_MS / 1000) + "s puis retour auto au jeu");
+    // v111 -- prefixe optionnel "@<ms>|" (voir SCORE_DURATION_OVERRIDE_MIN/
+    // MAX_MS) : duree d'affichage PAR MESSAGE au lieu du fixe
+    // SCORE_DISPLAY_DURATION_MS -- retire du payload AVANT drawScoreScreen()
+    // (jamais visible a l'affichage, purement un en-tete de controle).
+    // Format invalide/hors bornes -> ignore silencieusement, comportement
+    // par defaut inchange (aucun risque de plantage sur un payload malforme).
+    {
+      String payload = cmd.arg;
+      unsigned long durMs = SCORE_DISPLAY_DURATION_MS;
+      if (payload.length() > 1 && payload.charAt(0) == '@') {
+        int sep = payload.indexOf('|');
+        if (sep > 1) {
+          long parsed = payload.substring(1, sep).toInt();
+          if (parsed >= SCORE_DURATION_OVERRIDE_MIN_MS && parsed <= SCORE_DURATION_OVERRIDE_MAX_MS) {
+            durMs = (unsigned long)parsed;
+            payload = payload.substring(sep + 1);
+          }
+        }
+      }
+      drawScoreScreen(payload);
+      // v111 -- BUG REEL introduit par erreur PENDANT cette meme session
+      // (perdu lors de la restructuration pour le prefixe "@ms|" ci-dessus) :
+      // cette ligne avait disparu, donc currentMode ne passait JAMAIS a
+      // MODE_SCORE -- drawScoreScreen() dessinait bien le texte, mais des
+      // l'iteration loop() suivante, le switch(currentMode) restait sur
+      // l'ancien mode (MODE_GIF) et redessinait la frame suivante du
+      // marquee PAR-DESSUS, expliquant le "flash" d'une seule frame
+      // rapporte par l'utilisateur (rawpack jamais interrompu, exactement
+      // son hypothese). Confirme sur materiel via un detecteur generique
+      // de transition de currentMode : AUCUNE transition n'etait jamais
+      // loguee malgre un texte visible un instant -- preuve que
+      // currentMode ne changeait tout simplement pas.
+      currentMode = MODE_SCORE;
+      g_scoreShowUntilMs = millis() + durMs;
+      Serial.println("[MQTT] score -> affiche " + String(durMs / 1000.0, 1) + "s puis retour auto au jeu");
+    }
     break;
   }
 
@@ -6441,6 +6805,11 @@ void loadConfig()
     else if(key=="feat_ra_ingame")                       featRaIngame         =(value!="0");
     else if(key=="feat_ra_browse")                       featRaBrowse         =(value!="0");
     else if(key=="feat_repeat_cycles")                   featRepeatCycles     =constrain(value.toInt(),0,20);
+    // v111 -- voir declaration (featRepeatBrowseCycles/featDwellSeconds).
+    // Plancher de securite 3s IMPOSE ICI (pas seulement cote script) pour
+    // featDwellSeconds -- demande utilisateur explicite.
+    else if(key=="feat_repeat_browse_cycles")            featRepeatBrowseCycles=constrain(value.toInt(),0,20);
+    else if(key=="feat_dwell_seconds")                   featDwellSeconds     =constrain(value.toInt(),3,30);
     else if(key=="brightness")                            screenBrightness =map(constrain(value.toInt(),0,100),0,100,0,255);
     else if(key=="mqtt_event_topic"   &&value.length())  mqttEventTopic   =value;
     else if(key=="first_boot")                           g_firstBoot      =(value!="0");
@@ -6483,7 +6852,9 @@ void broadcastFeatureStatus()
                   + ";description_browse=" + String(featDescriptionBrowse ? "1" : "0")
                   + ";ra_ingame=" + String(featRaIngame ? "1" : "0")
                   + ";ra_browse=" + String(featRaBrowse ? "1" : "0")
-                  + ";repeat_cycles=" + String(featRepeatCycles);
+                  + ";repeat_cycles=" + String(featRepeatCycles)
+                  + ";repeat_browse_cycles=" + String(featRepeatBrowseCycles)
+                  + ";dwell_seconds=" + String(featDwellSeconds);
   mqttClient.publish("marquee/status/features", payload.c_str(), true);
   Serial.println("[MQTT] marquee/status/features -> " + payload);
 }
@@ -7387,6 +7758,28 @@ start_mqtt_task:
 // --------------------------------------------------
 void loop()
 {
+  // v111 -- INSTRUMENTATION DIAGNOSTIC TEMPORAIRE (a retirer une fois la
+  // cause confirmee) : detecteur GENERIQUE de changement de currentMode --
+  // plus de 40 sites d'ecriture differents dans ce fichier, impossible a
+  // tous instrumenter individuellement. Capture ICI, au tout debut de
+  // loop() (avant tout traitement de cette iteration), la valeur de
+  // currentMode telle qu'elle etait a la FIN de l'iteration precedente --
+  // n'importe quelle transition, peu importe le site qui l'a causee, est
+  // ainsi loguee. Objectif : confirmer/infirmer qu'une sortie prematuree de
+  // MODE_SCORE (bug "flash fugace" rapporte par l'utilisateur, ni le
+  // diagnostic cmd= existant ni le log "score expire" ne l'ont captee)
+  // passe bien par une ecriture directe de currentMode plutot que par un
+  // mecanisme non encore identifie.
+  {
+    static DisplayMode s_lastLoggedMode = MODE_PLAYLIST;
+    static bool s_first = true;
+    if (s_first) { s_lastLoggedMode = currentMode; s_first = false; }
+    else if (currentMode != s_lastLoggedMode) {
+      Serial.println("[DIAG] currentMode " + String((int)s_lastLoggedMode) + " -> " + String((int)currentMode)
+                     + " t=" + String(millis()));
+      s_lastLoggedMode = currentMode;
+    }
+  }
   // v87 (2026-08-17) -- INSTRUMENTATION DIAGNOSTIC TEMPORAIRE : episode reel
   // observe sur materiel -- rafale de std::bad_alloc rattrapees (chunk 1,
   // pre-chargement du GIF suivant pendant une rotation playlist normale,

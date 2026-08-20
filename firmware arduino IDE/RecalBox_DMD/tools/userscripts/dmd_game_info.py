@@ -2,7 +2,24 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v7
+# Version actuelle : v9
+#
+# v9 - 2026-08-20 - safe-modify - Retour utilisateur : le libelle
+#   "Developpeur:" (12 caracteres) est abrege en "Dev:" -- l'ecran INFOS
+#   cote firmware n'enveloppe pas la valeur (elle demarre juste apres le
+#   libelle sur la meme ligne, jamais coupee sur plusieurs lignes comme
+#   DESCRIPTION), donc un libelle long mangeait l'espace disponible pour
+#   le nom du studio qui suit, le coupant net en fin d'ecran. Voir
+#   field_infos_combined().
+#
+# v8 - 2026-08-20 - safe-modify - BUG REEL corrige (latent depuis v4/v5) :
+#   field_infos_combined() joignait ses lignes avec "\n", convention de
+#   l'ANCIEN systeme d'overlay (startGameInfoOverlay(), RecalBox_DMD.ino
+#   v92, retire depuis v104) -- jamais mise a jour vers "|" (convention du
+#   systeme CMD_SCORE actuel, v110+). Invisible tant qu'aucune coupure de
+#   ligne n'etait tentee cote firmware sur ce champ, mais aurait empeche
+#   toute pagination correcte de fonctionner dessus (dmd_score.sh v6,
+#   send_paginated_lines() -- decoupe explicitement sur "|"). Fix : "|".
 #
 # v7 - 2026-08-15 - safe-modify - Demande utilisateur : le titre affiche
 #   sur le DMD pour ce champ passe de "DESC" a "DESCRIPTION" (label
@@ -221,7 +238,15 @@ def field_infos_combined(game):
 
     lines = []
     if dev:
-        lines.append(f"Developpeur: {dev}")
+        # v9 -- "Developpeur:" (12 caracteres) abrege en "Dev:" (retour
+        # utilisateur : le nom du studio qui suit etait coupe -- l'ecran
+        # INFOS (RecalBox_DMD.ino) n'enveloppe PAS la valeur, elle demarre
+        # juste apres le libelle sur la MEME ligne (x = 1 + len(libelle)*6+4
+        # en police classique) -- "Developpeur:" a lui seul ne laissait que
+        # ~51px (~8 caracteres) pour le nom du studio avant le bord droit
+        # de l'ecran 128px. Les autres libelles (Editeur/Annee/Joueurs/Note)
+        # sont deja assez courts, inchanges.
+        lines.append(f"Dev: {dev}")
     if pub:
         lines.append(f"Editeur: {pub}")
     if year:
@@ -231,7 +256,7 @@ def field_infos_combined(game):
     if rating:
         lines.append(f"Note: {rating}")
 
-    return "\n".join(lines) if lines else None
+    return "|".join(lines) if lines else None
 
 
 # Ordre d'inclusion dans le payload -- aussi l'ordre de rotation cote
