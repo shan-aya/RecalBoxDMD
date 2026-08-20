@@ -2,7 +2,14 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v11
+# Version actuelle : v12
+#
+# v12 - 2026-08-20 - safe-modify - Verrou anti-relance rendu ATOMIQUE (voir
+#   commentaire complet pres de LOCKDIR plus bas) -- 4 instances simultanees
+#   de dmd_achievement.sh (meme mecanisme de verrou) retrouvees vivantes le
+#   meme jour, preuve que le fichier PID check-then-write n'etait pas
+#   suffisant contre une rafale d'invocations quasi simultanees par
+#   EmulationStation. mkdir (atomique) remplace le fichier PID simple.
 #
 # v11 - 2026-08-19 - safe-modify - Desactivation du coupe-circuit anti-rafale
 #   (throttle + !SHUFFLE) SANS retirer le code -- BURST_THRESHOLD remonte de
@@ -160,20 +167,34 @@
 
 echo "$(date '+%H:%M:%S.%N') TRACE start pid=$$ ppid=$PPID arg0=$0" >> /tmp/marquee_trace.log
 
-# v5 -- verrou anti-relance : DOIT etre la toute premiere action du script
-# (avant meme LOG=...), pour sortir le plus vite possible si une instance
-# tourne deja -- evite tout travail inutile (et surtout, evite d'entrer
-# dans la boucle "while true" qui ne se terminerait jamais). Fichier PID
-# plutot que flock (voir changelog v5 ci-dessus pour la raison).
-PIDFILE="/tmp/marquee_singleton.pid"
-if [ -f "$PIDFILE" ]; then
-    oldpid=$(cat "$PIDFILE" 2>/dev/null)
+# v12 -- verrou anti-relance rendu ATOMIQUE (mkdir au lieu d'un fichier PID
+# check-then-write) -- BUG REEL reconfirme sur materiel (2026-08-20) : 4
+# instances simultanees de dmd_achievement.sh (meme verrou fichier PID que
+# celui-ci) trouvees vivantes en meme temps malgre le "fix" v5/v1.1 --
+# EmulationStation peut lancer plusieurs invocations dans la MEME seconde
+# (ex. rafale d'evenements au boot), et la sequence "verifier si le fichier
+# existe" PUIS "ecrire son propre PID" n'est PAS une operation atomique :
+# plusieurs instances peuvent toutes lire "pas de verrou" avant qu'aucune
+# n'ait eu le temps d'ecrire le sien. mkdir EST atomique sur ce systeme de
+# fichiers (tmpfs) -- un seul appel concurrent peut reussir, garanti par le
+# noyau, fermant la fenetre de course entierement (contrairement au fichier
+# PID simple). Verrou perime (proprietaire mort) detecte et reclame via
+# rmdir+nouveau mkdir -- si la reclamation perd elle-meme la course contre
+# une autre instance, sortie propre (comportement identique a avant).
+LOCKDIR="/tmp/marquee_singleton.lock"
+if ! mkdir "$LOCKDIR" 2>/dev/null; then
+    oldpid=$(cat "$LOCKDIR/pid" 2>/dev/null)
     if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then
         echo "$(date '+%H:%M:%S.%N') TRACE exit pid=$$ (oldpid=$oldpid alive)" >> /tmp/marquee_trace.log
         exit 0
     fi
+    rmdir "$LOCKDIR" 2>/dev/null
+    if ! mkdir "$LOCKDIR" 2>/dev/null; then
+        echo "$(date '+%H:%M:%S.%N') TRACE exit pid=$$ (course perdue a la reclamation)" >> /tmp/marquee_trace.log
+        exit 0
+    fi
 fi
-echo $$ > "$PIDFILE"
+echo $$ > "$LOCKDIR/pid"
 echo "$(date '+%H:%M:%S.%N') TRACE proceeding pid=$$" >> /tmp/marquee_trace.log
 
 LOG="/recalbox/share/system/logs/marquee_mqtt.log"
@@ -234,7 +255,7 @@ publish_settled_position() {
     fi
 }
 
-echo "$(date) - Marquee bridge started (v11, lock acquired)" >> "$LOG"
+echo "$(date) - Marquee bridge started (v12, lock atomique acquis)" >> "$LOG"
 
 send_mqtt_retain "default" "1"
 

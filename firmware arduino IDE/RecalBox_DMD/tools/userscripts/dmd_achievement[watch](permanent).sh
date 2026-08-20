@@ -5,7 +5,7 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v2
+# Version actuelle : v3
 #
 # v2 - 2026-08-20 - safe-modify - Migration vers l'architecture "DMD bete"
 #   (voir dmd_score[...].sh pour le raisonnement complet, memoire projet
@@ -54,14 +54,26 @@
 # evenement PONCTUEL "vient de se produire", pas un etat permanent a
 # rejouer a la reconnexion MQTT.
 
-PIDFILE="/tmp/dmd_achievement_singleton.pid"
-if [ -f "$PIDFILE" ]; then
-    oldpid=$(cat "$PIDFILE" 2>/dev/null)
+# v3 - 2026-08-20 - safe-modify - Verrou anti-relance rendu ATOMIQUE (mkdir
+#   au lieu d'un fichier PID check-then-write) -- BUG REEL reconfirme sur
+#   materiel : 4 instances simultanees de CE script retrouvees vivantes
+#   malgre le verrou fichier PID v2 -- EmulationStation peut lancer
+#   plusieurs invocations dans la MEME seconde (rafale d'evenements au
+#   boot), et "verifier si le fichier existe" PUIS "ecrire son propre PID"
+#   n'est pas atomique. mkdir EST atomique sur ce systeme de fichiers
+#   (tmpfs), fermant la fenetre de course entierement.
+LOCKDIR="/tmp/dmd_achievement_singleton.lock"
+if ! mkdir "$LOCKDIR" 2>/dev/null; then
+    oldpid=$(cat "$LOCKDIR/pid" 2>/dev/null)
     if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then
         exit 0
     fi
+    rmdir "$LOCKDIR" 2>/dev/null
+    if ! mkdir "$LOCKDIR" 2>/dev/null; then
+        exit 0
+    fi
 fi
-echo $$ > "$PIDFILE"
+echo $$ > "$LOCKDIR/pid"
 
 LOG="/recalbox/share/system/logs/dmd_achievement_mqtt.log"
 RA_LOG="/recalbox/share/system/logs/retroarch.log"
@@ -83,7 +95,7 @@ features_watcher() {
 }
 features_watcher &
 
-echo "$(date) - DMD achievement bridge started (v2, architecture DMD bete)" >> "$LOG"
+echo "$(date) - DMD achievement bridge started (v3, verrou atomique + architecture DMD bete)" >> "$LOG"
 
 # -n 0 : ne rejoue pas le contenu deja present au demarrage du script. -F
 # suit meme si le fichier est recree entre-temps.

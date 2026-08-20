@@ -5,7 +5,7 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v4
+# Version actuelle : v5
 #
 # v4 - 2026-08-20 - safe-modify - Repetition periodique du slideshow EN JEU
 #   (demande utilisateur explicite, avec analyse de risque validee AVANT
@@ -101,17 +101,24 @@
 # voir memoire projet "Faisabilite highscore/level DMD"). Un jeu FBNeo
 # inconnu de cette table est simplement ignore (aucune publication).
 
-# v1.1 - 2026-08-19 - safe-modify - Verrou anti-relance (fichier PID) --
-#   ES relance ce script a chaque evenement, sans protection chaque relance
-#   dupliquerait la boucle mosquitto_sub principale.
-PIDFILE="/tmp/dmd_score_singleton.pid"
-if [ -f "$PIDFILE" ]; then
-    oldpid=$(cat "$PIDFILE" 2>/dev/null)
+# v5 - 2026-08-20 - safe-modify - Verrou anti-relance rendu ATOMIQUE (mkdir
+#   au lieu d'un fichier PID check-then-write) -- voir le meme fix/le meme
+#   raisonnement complet dans marquee[...].sh v12 (4 instances simultanees
+#   de dmd_achievement.sh, meme mecanisme de verrou, retrouvees vivantes le
+#   meme jour -- preuve que le fichier PID n'etait pas suffisant contre une
+#   rafale d'invocations quasi simultanees par EmulationStation).
+LOCKDIR="/tmp/dmd_score_singleton.lock"
+if ! mkdir "$LOCKDIR" 2>/dev/null; then
+    oldpid=$(cat "$LOCKDIR/pid" 2>/dev/null)
     if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then
         exit 0
     fi
+    rmdir "$LOCKDIR" 2>/dev/null
+    if ! mkdir "$LOCKDIR" 2>/dev/null; then
+        exit 0
+    fi
 fi
-echo $$ > "$PIDFILE"
+echo $$ > "$LOCKDIR/pid"
 
 LOG="/recalbox/share/system/logs/dmd_score.log"
 SCRIPT_DIR=$(dirname "$0")
@@ -387,7 +394,7 @@ publish_slideshow() {
     fi
 }
 
-echo "$(date) - DMD score bridge started (v4, architecture DMD bete + dwell navigation + repetition en jeu)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v5, verrou atomique + architecture DMD bete + dwell navigation + repetition en jeu)" >> "$LOG"
 # v4 -- efface une session perimee d'un lancement precedent (ex. apres un
 # crash/kill -9) -- sinon un guetteur de repetition deja en vol (survivant
 # a un redemarrage rapide du script) pourrait continuer a republier pour
