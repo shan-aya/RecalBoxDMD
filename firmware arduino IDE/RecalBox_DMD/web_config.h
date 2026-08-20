@@ -1006,27 +1006,27 @@ body{position:relative}
 <div class="row featrow"><label data-i18n="lbl_feat_hiscore">Hi-score</label>
 <span class="featcol"><input id="feat_hiscore_ingame" type="checkbox"><span data-i18n="lbl_col_ingame">En jeu</span></span>
 <span class="featcol"><input id="feat_hiscore_browse" type="checkbox"><span data-i18n="lbl_col_browse">Navigation</span></span>
-<span class="featinfo" onclick="showFeatInfo('hiscore')">?</span>
+<span class="featinfo" onmouseenter="showFeatInfo('hiscore')" onmouseleave="closeFeatInfo()">?</span>
 </div>
 <div class="row featrow"><label data-i18n="lbl_feat_info">Infos jeu</label>
 <span class="featcol"><input id="feat_info_ingame" type="checkbox"><span data-i18n="lbl_col_ingame">En jeu</span></span>
 <span class="featcol"><input id="feat_info_browse" type="checkbox"><span data-i18n="lbl_col_browse">Navigation</span></span>
-<span class="featinfo" onclick="showFeatInfo('info')">?</span>
+<span class="featinfo" onmouseenter="showFeatInfo('info')" onmouseleave="closeFeatInfo()">?</span>
 </div>
 <div class="row featrow"><label data-i18n="lbl_feat_description">Description</label>
 <span class="featcol"><input id="feat_description_ingame" type="checkbox"><span data-i18n="lbl_col_ingame">En jeu</span></span>
 <span class="featcol"><input id="feat_description_browse" type="checkbox"><span data-i18n="lbl_col_browse">Navigation</span></span>
-<span class="featinfo" onclick="showFeatInfo('description')">?</span>
+<span class="featinfo" onmouseenter="showFeatInfo('description')" onmouseleave="closeFeatInfo()">?</span>
 </div>
 <div class="row featrow"><label data-i18n="lbl_feat_ra">RetroAchievements</label>
 <span class="featcol"><input id="feat_ra_ingame" type="checkbox"><span data-i18n="lbl_col_ingame">En jeu</span></span>
 <span class="featcol"><input id="feat_ra_browse" type="checkbox"><span data-i18n="lbl_col_browse">Navigation</span></span>
-<span class="featinfo" onclick="showFeatInfo('ra')">?</span>
+<span class="featinfo" onmouseenter="showFeatInfo('ra')" onmouseleave="closeFeatInfo()">?</span>
 </div>
-<div class="row"><label data-i18n="lbl_repeat_cycles">R&eacute;p&eacute;tition en jeu</label><input id="feat_repeat_cycles" type="range" min="0" max="10" step="1" oninput="updateRepeatCyclesLabel(this.value)"><span id="repeatCyclesVal" style="margin-left:8px;color:#ffd146;min-width:90px;font-size:12px"></span><span class="featinfo" onclick="showFeatInfo('repeat')">?</span></div>
+<div class="row"><label data-i18n="lbl_repeat_cycles">R&eacute;p&eacute;tition en jeu</label><input id="feat_repeat_cycles" type="range" min="0" max="10" step="1" oninput="updateRepeatCyclesLabel(this.value)"><span id="repeatCyclesVal" style="margin-left:8px;color:#ffd146;min-width:90px;font-size:12px"></span><span class="featinfo" onmouseenter="showFeatInfo('repeat')" onmouseleave="closeFeatInfo()">?</span></div>
 </div>
 <div id="featInfoBackdrop" class="help-backdrop" onclick="if(event.target===this)closeFeatInfo()">
-<div class="help-box">
+<div class="help-box" onmouseenter="cancelCloseFeatInfo()" onmouseleave="closeFeatInfo()">
 <button class="help-close" onclick="closeFeatInfo()">&times;</button>
 <h2 id="featInfoTitle"></h2>
 <p id="featInfoBody" style="white-space:pre-line"></p>
@@ -1081,14 +1081,26 @@ es:{
   repeat:{t:'Repeticion en juego',b:'Numero de ciclos del marquee entre 2 recordatorios de hi-score/info durante la misma partida (0 = solo una vez, nunca se repite). Expresado en CICLOS (no en segundos) para que nunca pueda solaparse, sea cual sea el numero de tarjetas activas: 1 ciclo = un pase completo del slideshow actualmente activo.'}
 }
 };
+// v112 -- ouverture au SURVOL (demande utilisateur explicite, remplace le
+// clic) -- delai avant fermeture (200ms) + annulation si la souris entre
+// dans la fenetre elle-meme (onmouseenter/onmouseleave sur .help-box) :
+// sans ca, la fenetre (centree a l'ecran, loin de la petite icone "?") se
+// refermerait avant meme que la souris ait eu le temps de l'atteindre pour
+// lire le contenu.
+let _featInfoCloseTimer=null;
 function showFeatInfo(key){
+  if(_featInfoCloseTimer){clearTimeout(_featInfoCloseTimer);_featInfoCloseTimer=null;}
   const d=(FEAT_INFO_I18N[currentLang]&&FEAT_INFO_I18N[currentLang][key])||FEAT_INFO_I18N.fr[key];
   if(!d)return;
   document.getElementById('featInfoTitle').textContent=d.t;
   document.getElementById('featInfoBody').textContent=d.b;
   document.getElementById('featInfoBackdrop').classList.add('show');
 }
-function closeFeatInfo(){document.getElementById('featInfoBackdrop').classList.remove('show');}
+function closeFeatInfo(){
+  if(_featInfoCloseTimer)clearTimeout(_featInfoCloseTimer);
+  _featInfoCloseTimer=setTimeout(()=>{document.getElementById('featInfoBackdrop').classList.remove('show');},200);
+}
+function cancelCloseFeatInfo(){if(_featInfoCloseTimer){clearTimeout(_featInfoCloseTimer);_featInfoCloseTimer=null;}}
 function updateRepeatCyclesLabel(v){
   const el=document.getElementById('repeatCyclesVal');
   if(!el)return;
@@ -4706,6 +4718,20 @@ static void sendGzipHtml(const uint8_t *content, size_t len)
     header += "Content-Type: text/html\r\n";
     header += "Content-Encoding: gzip\r\n";
     header += "Content-Length: " + String(len) + "\r\n";
+    // v112 -- Cache-Control: no-store (2026-08-20, demande utilisateur :
+    // "impossible de charger la config" a l'ouverture, listes non peuplees)
+    // -- AUCUN en-tete de cache n'etait envoye jusqu'ici. Sans directive
+    // explicite, un navigateur peut appliquer un cache heuristique sur une
+    // reponse GET -- sur ce projet en developpement actif, les pages HTML
+    // (et donc leur JS embarque) sont reflashees tres frequemment, avec des
+    // versions qui ne sont PAS toujours compatibles entre elles (ex. un
+    // ancien JS cache qui reference un champ /load qui a change de forme) --
+    // symptome observe : la page continue de charger normalement (cache),
+    // mais son JS periime echoue silencieusement sur des elements/champs
+    // qui n'existent plus, tombant dans le .catch() de loadConfig().
+    // no-store (pas juste no-cache) : interdit toute reutilisation, meme
+    // apres validation -- le plus strict, le plus sur pendant cette phase.
+    header += "Cache-Control: no-store\r\n";
     header += "Connection: close\r\n\r\n";
     webServer->sendContent(header);
   }
