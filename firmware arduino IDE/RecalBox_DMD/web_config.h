@@ -3,7 +3,77 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v58
+// Version actuelle : v61
+//
+// v61 — 2026-08-20 — safe-modify — 3 restaurations/ajouts demandes par
+//   l'utilisateur apres relecture des pages Reseau/Horloge :
+//   (1) Page Reseau : avertissement IP statique reapparu (perdu lors d'une
+//   refonte anterieure, retrouve via git log -S), + popup d'aide au survol
+//   sur "Bluetooth" (motif featInfo porte depuis la page Affichage --
+//   CSS/JS dediee ajoutee, cette page ne l'avait pas).
+//   (2) Page Horloge : indication "Duree d'affichage avant reprise des
+//   GIFs" reajoutee sous le champ Duree (sec) -- existait sous forme de
+//   title="" avant un refactor, jamais migree vers le motif .hint deja en
+//   usage juste au-dessus (Intervalle min).
+//   (3) Page Horloge : hint Intervalle (min) complete -- aucune trace d'un
+//   avertissement identique trouvee dans DECISIONS.md/memoire/historique
+//   git malgre recherche explicite (a signaler si retrouve ailleurs), mais
+//   coherent avec la philosophie deja actee du projet (repetition hi-score
+//   exprimee en cycles plutot qu'en secondes, meme raisonnement : un
+//   minuteur peut deriver, un compteur d'evenements non) -- recommande
+//   l'intervalle en nombre de GIFs plutot qu'en minutes.
+//   (4) BUG REEL corrige : icone "?" Bluetooth placee A L'INTERIEUR d'un
+//   element data-i18n (h2) -- applyLang() ecrase innerHTML au chargement,
+//   effacant l'icone immediatement. Deplacee dans un span dedie, sibling.
+//   (5) BUG REEL corrige : .hint (page Horloge) debordait horizontalement
+//   -- flex:0 0 100% + margin-left:150px depasse la largeur du conteneur
+//   de 150px de plus que necessaire. Fix : flex-basis en calc(100% - 150px).
+//   (6) Alerte IP statique completee (demande utilisateur, motif retrouve
+//   dans la page AP -- "laisser vide pour DHCP") : precise desormais de ne
+//   PAS cocher la case si le routeur/box assigne deja une IP fixe.
+//   (7) BUG REEL corrige (demande utilisateur) : clock_interval/
+//   clock_duration pouvaient valoir 0 avec l'horloge activee (consequence
+//   directe du bug de brouillon (6) ci-dessus qui avait ecrit 0 dans les
+//   deux). Nouvelle fonction enforceClockDefaults() -- valeurs par defaut
+//   (10 GIFs / 60s) appliquees a l'ouverture de page ET avant sauvegarde.
+//   (8) Avertissement IP statique deplace juste apres la case a cocher
+//   "IP statique" (etait plus bas, apres tous les champs gateway/masque/
+//   DNS) -- demande utilisateur, plus proche du reglage concerne.
+//   (9) Coherence demandee : les 6 icones "?" page Affichage deplacees
+//   APRES le libelle concerne (au lieu d'avant), meme convention que
+//   l'icone Bluetooth (page Reseau, ajoutee juste avant).
+//   (10) Texte "Apercu applique en direct" repositionne : centre sur le
+//   slider de luminosite lui-meme (margin-left:150px, decalage identique a
+//   la largeur fixe du libelle) au lieu du milieu de la page entiere, et
+//   rapproche verticalement (margin-top negatif).
+//
+// v60 — 2026-08-20 — safe-modify — 4 correctifs/ajouts suite retours utilisateur
+//   en test live sur la page Horloge et le topnav :
+//   (1) BUG REEL : brouillon localStorage (g(k,dv), 4 pages) laissait une
+//   chaine VIDE ecraser silencieusement la vraie valeur serveur a chaque
+//   rechargement -- observe sur clock_interval/clock_duration (vides a
+//   l'ouverture, puis ecrits a 0 dans config.ini par la sauvegarde
+//   suivante). Fix : chaine vide desormais traitee comme "pas de brouillon".
+//   (2) BUG REEL : selectionner "Aleatoire" manuellement dans le theme
+//   horloge declenchait quand meme un apercu (un theme tire au sort etait
+//   affiche) -- la garde -1 existait deja pour l'apercu auto a l'ouverture
+//   de page (v58) mais pas dans le gestionnaire de selection manuelle.
+//   (3) Chevauchement visuel topnav / lien Aide+selecteur langue (coin
+//   haut-droit, position absolue) -- provoque par l'ajout de l'onglet
+//   "Playlist" (v112) qui a elargi la rangee de navigation. Fix : marge
+//   haute ajoutee au topnav pour le degager structurellement de la zone du
+//   coin, quel que soit le nombre d'onglets.
+//   (4) Popup d'aide ajoutee pour "Demarrage silencieux" (meme motif que
+//   hi-score/infos/description/RA/repetition), demande utilisateur.
+//
+// v59 — 2026-08-20 — safe-modify — Page Affichage : fix bug reel popups
+//   d'aide (hi-score/infos/description/RA/repetition) qui clignotaient/ne
+//   restaient pas affichees au survol (#featInfoBackdrop plein ecran
+//   passait au-dessus de l'icone "?" et lui faisait perdre son survol ->
+//   boucle ouverture/fermeture) — fix pointer-events:none sur le backdrop,
+//   pointer-events:auto sur .help-box seule. Icone "?" deplacee en debut de
+//   ligne (avant le libelle) sur les 5 lignes concernees, demande
+//   utilisateur.
 //
 // v58 — 2026-08-11 — safe-modify — Demande utilisateur, 2 ajouts sur
 //   l'apercu en direct des themes horloge (v57) + luminosite (v55) :
@@ -922,7 +992,7 @@ static const char WEB_CONFIG_BASIC_HTML[] PROGMEM = R"rawliteral(
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
 h1{color:#ffd146;text-align:center;margin:8px 0 14px;font-size:22px;border-bottom:2px solid #ffd146;padding-bottom:8px}
-.topnav{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px}
+.topnav{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px;margin-top:28px}
 .topnav a{padding:8px 14px;border-radius:6px;background:#16213e;color:#8ab4f8;font-size:13px;font-weight:600;text-decoration:none}
 .topnav a.active{background:#8ab4f8;color:#1a1a2e}
 .section{background:#16213e;border-radius:8px;padding:16px;margin:12px 0}
@@ -933,7 +1003,9 @@ h2{color:#8ab4f8;font-size:15px;margin:0 0 10px;border-left:3px solid #8ab4f8;pa
 .row input[type=checkbox]{flex:0 0 20px;width:20px;height:20px;margin:0 8px 0 0}
 .featcol{display:flex;align-items:center;gap:4px;font-size:12px;color:#ccc;margin-right:16px}
 .featcol input[type=checkbox]{flex:0 0 18px;width:18px;height:18px;margin:0}
-.featinfo{flex:0 0 20px;width:20px;height:20px;border-radius:50%;background:#0f3460;color:#8ab4f8;text-align:center;line-height:20px;font-size:13px;font-weight:bold;cursor:pointer;margin-left:auto}
+.featinfo{flex:0 0 20px;width:20px;height:20px;border-radius:50%;background:#0f3460;color:#8ab4f8;text-align:center;line-height:20px;font-size:13px;font-weight:bold;cursor:pointer;margin-left:8px;margin-right:8px}
+#featInfoBackdrop{pointer-events:none}
+#featInfoBackdrop .help-box{pointer-events:auto}
 .btn-row{display:flex;gap:10px;justify-content:center;margin:18px 0;flex-wrap:wrap}
 .btn{padding:12px 20px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
 .btn-save{background:#ffd146;color:#1a1a2e}
@@ -997,35 +1069,31 @@ body{position:relative}
 <div class="section">
 <h2 data-i18n="sec_display">&#x1F4A1; Affichage</h2>
 <div class="row"><label for="brightness" data-i18n="lbl_brightness">Luminosit&eacute; (%)</label><input id="brightness" type="range" min="0" max="100" value="50" oninput="onBrightnessInput(this)" onchange="sendBrightness(this.value,true)"><span id="bval" style="margin-left:8px;color:#ffd146;min-width:24px">50</span></div>
-<div class="desc" data-i18n="desc_brightness_live">&#x1F4A1; Aper&ccedil;u appliqu&eacute; en direct sur l'&eacute;cran DMD.</div>
-<div class="row"><label data-i18n="lbl_silent_boot">D&eacute;marrage silencieux</label><input id="silent_boot" type="checkbox"></div>
+<div class="desc" data-i18n="desc_brightness_live" style="text-align:center;margin-left:150px;margin-top:-4px">&#x1F4A1; Aper&ccedil;u appliqu&eacute; en direct sur l'&eacute;cran DMD.</div>
+<div class="row"><label data-i18n="lbl_silent_boot">D&eacute;marrage silencieux</label><span class="featinfo" onmouseenter="showFeatInfo('silent_boot')" onmouseleave="closeFeatInfo()">?</span><input id="silent_boot" type="checkbox"></div>
 </div>
 <div class="section">
 <h2 data-i18n="sec_features">&#x1F3C6; Hi-score / Infos / RetroAchievements</h2>
 <div class="desc" data-i18n="desc_features">Choisissez ce qui s'affiche sur le DMD, et dans quel contexte. C'est la Recalbox qui decide quand envoyer -- ces cases ne font qu'autoriser ou non chaque type de contenu.</div>
-<div class="row featrow"><label data-i18n="lbl_feat_hiscore">Hi-score</label>
+<div class="row featrow"><label data-i18n="lbl_feat_hiscore">Hi-score</label><span class="featinfo" onmouseenter="showFeatInfo('hiscore')" onmouseleave="closeFeatInfo()">?</span>
 <span class="featcol"><input id="feat_hiscore_ingame" type="checkbox"><span data-i18n="lbl_col_ingame">En jeu</span></span>
 <span class="featcol"><input id="feat_hiscore_browse" type="checkbox"><span data-i18n="lbl_col_browse">Navigation</span></span>
-<span class="featinfo" onmouseenter="showFeatInfo('hiscore')" onmouseleave="closeFeatInfo()">?</span>
 </div>
-<div class="row featrow"><label data-i18n="lbl_feat_info">Infos jeu</label>
+<div class="row featrow"><label data-i18n="lbl_feat_info">Infos jeu</label><span class="featinfo" onmouseenter="showFeatInfo('info')" onmouseleave="closeFeatInfo()">?</span>
 <span class="featcol"><input id="feat_info_ingame" type="checkbox"><span data-i18n="lbl_col_ingame">En jeu</span></span>
 <span class="featcol"><input id="feat_info_browse" type="checkbox"><span data-i18n="lbl_col_browse">Navigation</span></span>
-<span class="featinfo" onmouseenter="showFeatInfo('info')" onmouseleave="closeFeatInfo()">?</span>
 </div>
-<div class="row featrow"><label data-i18n="lbl_feat_description">Description</label>
+<div class="row featrow"><label data-i18n="lbl_feat_description">Description</label><span class="featinfo" onmouseenter="showFeatInfo('description')" onmouseleave="closeFeatInfo()">?</span>
 <span class="featcol"><input id="feat_description_ingame" type="checkbox"><span data-i18n="lbl_col_ingame">En jeu</span></span>
 <span class="featcol"><input id="feat_description_browse" type="checkbox"><span data-i18n="lbl_col_browse">Navigation</span></span>
-<span class="featinfo" onmouseenter="showFeatInfo('description')" onmouseleave="closeFeatInfo()">?</span>
 </div>
-<div class="row featrow"><label data-i18n="lbl_feat_ra">RetroAchievements</label>
+<div class="row featrow"><label data-i18n="lbl_feat_ra">RetroAchievements</label><span class="featinfo" onmouseenter="showFeatInfo('ra')" onmouseleave="closeFeatInfo()">?</span>
 <span class="featcol"><input id="feat_ra_ingame" type="checkbox"><span data-i18n="lbl_col_ingame">En jeu</span></span>
 <span class="featcol"><input id="feat_ra_browse" type="checkbox"><span data-i18n="lbl_col_browse">Navigation</span></span>
-<span class="featinfo" onmouseenter="showFeatInfo('ra')" onmouseleave="closeFeatInfo()">?</span>
 </div>
-<div class="row"><label data-i18n="lbl_repeat_cycles">R&eacute;p&eacute;tition en jeu</label><input id="feat_repeat_cycles" type="range" min="0" max="10" step="1" oninput="updateRepeatCyclesLabel(this.value)"><span id="repeatCyclesVal" style="margin-left:8px;color:#ffd146;min-width:90px;font-size:12px"></span><span class="featinfo" onmouseenter="showFeatInfo('repeat')" onmouseleave="closeFeatInfo()">?</span></div>
+<div class="row"><label data-i18n="lbl_repeat_cycles">R&eacute;p&eacute;tition en jeu</label><span class="featinfo" onmouseenter="showFeatInfo('repeat')" onmouseleave="closeFeatInfo()">?</span><input id="feat_repeat_cycles" type="range" min="0" max="10" step="1" oninput="updateRepeatCyclesLabel(this.value)"><span id="repeatCyclesVal" style="margin-left:8px;color:#ffd146;min-width:90px;font-size:12px"></span></div>
 </div>
-<div id="featInfoBackdrop" class="help-backdrop" onclick="if(event.target===this)closeFeatInfo()">
+<div id="featInfoBackdrop" class="help-backdrop">
 <div class="help-box" onmouseenter="cancelCloseFeatInfo()" onmouseleave="closeFeatInfo()">
 <button class="help-close" onclick="closeFeatInfo()">&times;</button>
 <h2 id="featInfoTitle"></h2>
@@ -1060,6 +1128,7 @@ function closeHelpModal(){document.getElementById('helpBackdrop').classList.remo
 // touche cliquee (evite 4 modals HTML statiques distincts).
 const FEAT_INFO_I18N={
 fr:{
+  silent_boot:{t:'Demarrage silencieux',b:'Active : au demarrage, le DMD affiche uniquement le titre/logo, sans details techniques. Desactive (par defaut) : affiche aussi l\'adresse IP detectee, la synchronisation de l\'heure, etc. -- utile pour diagnostiquer un probleme de connexion au demarrage.'},
   hiscore:{t:'Hi-score',b:'Affiche le meilleur score enregistre pour le jeu en cours (uniquement les jeux reconnus par le DMD -- voir dmd_score.sh). Exemple affiche :\n\nHI-SCORE\n1 MAA 283200\n2 CAP 30000\n3 COM 29000'},
   info:{t:'Infos jeu',b:'Affiche developpeur, editeur, annee, nombre de joueurs et note du jeu (si disponibles dans la base Recalbox). Exemple affiche :\n\nDeveloppeur: Capcom\nEditeur: Capcom\nAnnee: 1990\nJoueurs: 1-2\nNote: 4/5'},
   description:{t:'Description',b:'Affiche le resume/synopsis du jeu (si disponible dans la base Recalbox). Exemple affiche :\n\n"1941 est la suite directe de 1943 sorti sur la generation precedente de borne..."'},
@@ -1067,6 +1136,7 @@ fr:{
   repeat:{t:'Repetition en jeu',b:'Nombre de cycles du marquee entre 2 rappels du hi-score/infos pendant une meme partie (0 = une seule fois, jamais de rappel). Exprime en CYCLES (pas en secondes) pour ne jamais risquer un chevauchement, quel que soit le nombre de cartes activees : 1 cycle = un passage complet du slideshow actuellement actif.'}
 },
 en:{
+  silent_boot:{t:'Silent boot',b:'Enabled: on startup, the DMD shows only the title/logo, no technical details. Disabled (default): also shows the detected IP address, time sync, etc. -- useful to diagnose a connection issue at startup.'},
   hiscore:{t:'Hi-score',b:'Shows the best recorded score for the current game (only games recognized by the DMD). Example shown:\n\nHI-SCORE\n1 MAA 283200\n2 CAP 30000\n3 COM 29000'},
   info:{t:'Game info',b:'Shows developer, publisher, year, player count and rating (if available in the Recalbox database). Example shown:\n\nDeveloper: Capcom\nPublisher: Capcom\nYear: 1990\nPlayers: 1-2\nRating: 4/5'},
   description:{t:'Description',b:'Shows the game synopsis (if available in the Recalbox database). Example shown:\n\n"1941 is the direct sequel to 1943 from the previous cabinet generation..."'},
@@ -1074,6 +1144,7 @@ en:{
   repeat:{t:'In-game repeat',b:'Number of marquee cycles between 2 hi-score/info reminders during the same game (0 = only once, never repeats). Expressed in CYCLES (not seconds) so it can never overlap, whatever the number of active cards: 1 cycle = one full pass of the currently active slideshow.'}
 },
 es:{
+  silent_boot:{t:'Inicio silencioso',b:'Activado: al arrancar, el DMD muestra solo el titulo/logo, sin detalles tecnicos. Desactivado (por defecto): tambien muestra la IP detectada, la sincronizacion horaria, etc. -- util para diagnosticar un problema de conexion al arrancar.'},
   hiscore:{t:'Hi-score',b:'Muestra la mejor puntuacion registrada para el juego actual (solo juegos reconocidos por el DMD). Ejemplo mostrado:\n\nHI-SCORE\n1 MAA 283200\n2 CAP 30000\n3 COM 29000'},
   info:{t:'Info del juego',b:'Muestra desarrollador, editor, ano, numero de jugadores y valoracion (si estan disponibles en la base de Recalbox). Ejemplo mostrado:\n\nDesarrollador: Capcom\nEditor: Capcom\nAno: 1990\nJugadores: 1-2\nValoracion: 4/5'},
   description:{t:'Descripcion',b:'Muestra la sinopsis del juego (si esta disponible en la base de Recalbox). Ejemplo mostrado:\n\n"1941 es la secuela directa de 1943 de la generacion anterior de recreativa..."'},
@@ -1087,6 +1158,19 @@ es:{
 // sans ca, la fenetre (centree a l'ecran, loin de la petite icone "?") se
 // refermerait avant meme que la souris ait eu le temps de l'atteindre pour
 // lire le contenu.
+//
+// v113 -- BUG REEL corrige (popup "clignotait"/ne restait pas affichee) :
+// #featInfoBackdrop est plein ecran (position:fixed;inset:0) et passait
+// AU-DESSUS de l'icone "?" des son apparition (z-index), ce qui lui faisait
+// perdre son survol CSS -> mouseleave se declenchait sur l'icone MEME SI la
+// souris n'avait pas bouge -> fermeture -> l'icone redevenait survolable ->
+// mouseenter -> reouverture -> boucle de clignotement. Fix : le backdrop
+// recoit pointer-events:none (les evenements souris traversent jusqu'a
+// l'icone en dessous, qui garde donc son survol normalement), seule
+// .help-box (le contenu reellement visible) repasse en pointer-events:auto
+// pour rester cliquable (bouton fermer). L'icone "?" est aussi deplacee en
+// DEBUT de ligne (avant le libelle) sur les 5 lignes hi-score/infos/
+// description/RA/repetition, a la demande utilisateur.
 let _featInfoCloseTimer=null;
 function showFeatInfo(key){
   if(_featInfoCloseTimer){clearTimeout(_featInfoCloseTimer);_featInfoCloseTimer=null;}
@@ -1196,7 +1280,17 @@ function dmdResume(){checkEssentialFields().then(ok=>{if(!ok)return;if(_formDirt
 // distinguer les deux cas, une connexion qui se ferme se ressemble dans
 // tous les cas).
 function loadConfig(){const draft=loadDraft();return fetch('/load').then(r=>r.json()).then(d=>{
-  const g=(k,dv)=>(draft&&draft[k]!==undefined)?draft[k]:dv;
+  // v113 -- BUG REEL corrige : une chaine VIDE laissee dans le brouillon
+  // (ex. un champ nombre momentanement vide pendant une frappe, sauvegarde
+  // par saveDraft() a CHAQUE evenement 'input') passait le test
+  // "!==undefined" et ecrasait donc silencieusement la vraie valeur
+  // sauvegardee cote serveur a chaque rechargement de page -- observe en
+  // reel sur clock_interval/clock_duration (champs vides a l'ouverture,
+  // PUIS ecrits a 0 dans config.ini par la sauvegarde suivante, symptome
+  // "les champs sont a zero apres F5"). Une chaine vide est desormais
+  // traitee comme "pas de brouillon pour ce champ" -- ne change rien pour
+  // les cases a cocher (false !== '').
+  const g=(k,dv)=>(draft&&draft[k]!==undefined&&draft[k]!=='')?draft[k]:dv;
   document.getElementById('brightness').value=Math.max(0,Math.min(100,parseInt(g('brightness',d.brightness||50),10)));
   document.getElementById('bval').textContent=document.getElementById('brightness').value;
   document.getElementById('silent_boot').checked=g('silent_boot',d.info==='0');
@@ -1242,7 +1336,7 @@ static const char WEB_CONFIG_PLAYLIST_HTML[] PROGMEM = R"rawliteral(
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
 h1{color:#ffd146;text-align:center;margin:8px 0 14px;font-size:22px;border-bottom:2px solid #ffd146;padding-bottom:8px}
-.topnav{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px}
+.topnav{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px;margin-top:28px}
 .topnav a{padding:8px 14px;border-radius:6px;background:#16213e;color:#8ab4f8;font-size:13px;font-weight:600;text-decoration:none}
 .topnav a.active{background:#8ab4f8;color:#1a1a2e}
 body.gen-busy .topnav a{pointer-events:none;opacity:.4}
@@ -1578,7 +1672,17 @@ async function generatePlaylist(){
   setPageBusy(false);
 }
 function loadConfig(){const draft=loadDraft();return fetch('/load').then(r=>r.json()).then(d=>{
-  const g=(k,dv)=>(draft&&draft[k]!==undefined)?draft[k]:dv;
+  // v113 -- BUG REEL corrige : une chaine VIDE laissee dans le brouillon
+  // (ex. un champ nombre momentanement vide pendant une frappe, sauvegarde
+  // par saveDraft() a CHAQUE evenement 'input') passait le test
+  // "!==undefined" et ecrasait donc silencieusement la vraie valeur
+  // sauvegardee cote serveur a chaque rechargement de page -- observe en
+  // reel sur clock_interval/clock_duration (champs vides a l'ouverture,
+  // PUIS ecrits a 0 dans config.ini par la sauvegarde suivante, symptome
+  // "les champs sont a zero apres F5"). Une chaine vide est desormais
+  // traitee comme "pas de brouillon pour ce champ" -- ne change rien pour
+  // les cases a cocher (false !== '').
+  const g=(k,dv)=>(draft&&draft[k]!==undefined&&draft[k]!=='')?draft[k]:dv;
   fillPlaylists(g('playlist',d.playlist||''));
   document.getElementById('random').checked=g('random',d.random==='1');
   if(draft)_formDirty=true;
@@ -1602,7 +1706,7 @@ static const char WEB_CONFIG_NETWORK_HTML[] PROGMEM = R"rawliteral(
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
 h1{color:#ffd146;text-align:center;margin:8px 0 14px;font-size:22px;border-bottom:2px solid #ffd146;padding-bottom:8px}
-.topnav{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px}
+.topnav{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px;margin-top:28px}
 .topnav a{padding:8px 14px;border-radius:6px;background:#16213e;color:#8ab4f8;font-size:13px;font-weight:600;text-decoration:none}
 .topnav a.active{background:#8ab4f8;color:#1a1a2e}
 .section{background:#16213e;border-radius:8px;padding:16px;margin:12px 0}
@@ -1611,6 +1715,10 @@ h2{color:#8ab4f8;font-size:15px;margin:0 0 10px;border-left:3px solid #8ab4f8;pa
 .row label{flex:0 0 150px;font-size:14px;color:#aaa}
 .row input,.row select{flex:1;min-width:120px;padding:8px 10px;border:1px solid #333;border-radius:4px;background:#0f3460;color:#eee;font-size:14px}
 .row input[type=checkbox]{flex:0 0 20px;width:20px;height:20px;margin:0 8px 0 0}
+.desc{font-size:12px;color:#aaa;margin-bottom:8px}
+.featinfo{flex:0 0 20px;width:20px;height:20px;border-radius:50%;background:#0f3460;color:#8ab4f8;text-align:center;line-height:20px;font-size:13px;font-weight:bold;cursor:pointer;margin-right:8px;display:inline-block}
+#featInfoBackdrop{pointer-events:none}
+#featInfoBackdrop .help-box{pointer-events:auto}
 .btn-row{display:flex;gap:10px;justify-content:center;margin:18px 0;flex-wrap:wrap}
 .btn{padding:12px 20px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
 .btn-save{background:#ffd146;color:#1a1a2e}
@@ -1676,6 +1784,7 @@ body{position:relative}
 <div class="row"><label for="wifi_ssid" data-i18n="lbl_network">R&eacute;seau</label><select id="wifi_ssid"><option value="" data-i18n="opt_scanning">-- Scan en cours... --</option></select></div>
 <div class="row"><label for="wifi_password" data-i18n="lbl_password">Mot de passe</label><input id="wifi_password" type="password"></div>
 <div class="row"><label data-i18n="lbl_static_ip">IP statique</label><input id="wifi_static_enabled" type="checkbox"></div>
+<div class="desc" data-i18n="desc_static_ip">&#x26A0;&#xFE0F; Ne cochez PAS cette case si votre routeur/box attribue d&eacute;j&agrave; une IP fixe au DMD (r&eacute;servation DHCP) -- le DHCP normal suffit dans ce cas. &Agrave; activer uniquement si vous configurez l'IP manuellement. Une IP/passerelle/masque incorrect peut rendre le DMD injoignable sur le r&eacute;seau ; en cas de probl&egrave;me, un mode de secours (point d'acc&egrave;s Wi-Fi) est pr&eacute;vu pour reconfigurer -- voir le manuel.</div>
 <div class="row"><label for="wifi_static_ip" data-i18n="lbl_fixed_ip">IP fixe</label><input id="wifi_static_ip"></div>
 <div class="row"><label for="wifi_gateway" data-i18n="lbl_gateway">Passerelle</label><input id="wifi_gateway"></div>
 <div class="row"><label for="wifi_subnet" data-i18n="lbl_subnet">Masque</label><input id="wifi_subnet"></div>
@@ -1683,9 +1792,16 @@ body{position:relative}
 <div class="row"><label for="wifi_dns2" data-i18n="lbl_dns2">DNS 2</label><input id="wifi_dns2"></div>
 </div>
 <div class="section">
-<h2 data-i18n="sec_bt">&#x1F4F1; Bluetooth</h2>
+<h2><span data-i18n="sec_bt">&#x1F4F1; Bluetooth</span><span class="featinfo" style="margin-left:8px;margin-right:0" onmouseenter="showFeatInfo('bt')" onmouseleave="closeFeatInfo()">?</span></h2>
 <div class="row"><label data-i18n="lbl_enabled">Activ&eacute;</label><input id="bluetooth_enabled" type="checkbox"></div>
 <div class="row"><label for="bluetooth_name" data-i18n="lbl_bt_name">Nom</label><input id="bluetooth_name"></div>
+</div>
+<div id="featInfoBackdrop" class="help-backdrop">
+<div class="help-box" onmouseenter="cancelCloseFeatInfo()" onmouseleave="closeFeatInfo()">
+<button class="help-close" onclick="closeFeatInfo()">&times;</button>
+<h2 id="featInfoTitle"></h2>
+<p id="featInfoBody" style="white-space:pre-line"></p>
+</div>
 </div>
 <div class="section">
 <h2 data-i18n="sec_mqtt">&#x1F310; MQTT</h2>
@@ -1711,10 +1827,32 @@ function showHelpModal(){
   if(p) p.textContent=((HELP_I18N[currentLang]&&HELP_I18N[currentLang].help_url_reminder)||HELP_I18N.fr.help_url_reminder).replace('{ip}',window.location.host);
 }
 function closeHelpModal(){document.getElementById('helpBackdrop').classList.remove('show');}
+// v60 -- popup d'aide au survol pour Bluetooth, meme motif que la page
+// Affichage (voir web_config.h la-bas pour le raisonnement complet sur
+// pointer-events:none/le bug de clignotement corrige) -- ici un seul champ
+// (bt), pas besoin d'un objet FEAT_INFO_I18N complet.
+const BT_INFO_I18N={
+fr:{t:'Bluetooth',b:'Diffuse un port serie sans fil (Bluetooth Classic SPP) sous le nom choisi -- utile pour consulter les logs du DMD sans cable USB. Desactive par defaut : libere de la memoire (~60 Ko) utile au reste du firmware.'},
+en:{t:'Bluetooth',b:'Broadcasts a wireless serial port (Bluetooth Classic SPP) under the chosen name -- useful to view the DMD logs without a USB cable. Disabled by default: frees up memory (~60 KB) for the rest of the firmware.'},
+es:{t:'Bluetooth',b:'Difunde un puerto serie inalambrico (Bluetooth Classic SPP) con el nombre elegido -- util para consultar los logs del DMD sin cable USB. Desactivado por defecto: libera memoria (~60 KB) para el resto del firmware.'}
+};
+let _featInfoCloseTimer=null;
+function showFeatInfo(key){
+  if(_featInfoCloseTimer){clearTimeout(_featInfoCloseTimer);_featInfoCloseTimer=null;}
+  const d=BT_INFO_I18N[currentLang]||BT_INFO_I18N.fr;
+  document.getElementById('featInfoTitle').textContent=d.t;
+  document.getElementById('featInfoBody').textContent=d.b;
+  document.getElementById('featInfoBackdrop').classList.add('show');
+}
+function closeFeatInfo(){
+  if(_featInfoCloseTimer)clearTimeout(_featInfoCloseTimer);
+  _featInfoCloseTimer=setTimeout(()=>{document.getElementById('featInfoBackdrop').classList.remove('show');},200);
+}
+function cancelCloseFeatInfo(){if(_featInfoCloseTimer){clearTimeout(_featInfoCloseTimer);_featInfoCloseTimer=null;}}
 const PAGE_I18N={
-fr:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi &amp; Bluetooth',nav_basic:'&#x1F4A1; Affichage',nav_playlist:'&#x1F4BF; Playlist',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_wifi:'&#x1F4F6; Wi-Fi',sec_bt:'&#x1F4F1; Bluetooth',sec_mqtt:'&#x1F310; MQTT',lbl_enabled:'Activé',lbl_network:'Réseau',lbl_password:'Mot de passe',lbl_static_ip:'IP statique',lbl_fixed_ip:'IP fixe',lbl_gateway:'Passerelle',lbl_subnet:'Masque',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_bt_name:'Nom',lbl_mqtt_ip:'IP Recalbox',opt_scanning:'-- Scan en cours... --',opt_select:'-- Sélectionnez --',opt_scan_error:'Erreur scan',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_load_error:'Impossible de charger la config',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',loading_text:'Chargement en cours...',...HELP_I18N.fr},
-en:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi &amp; Bluetooth',nav_basic:'&#x1F4A1; Display',nav_playlist:'&#x1F4BF; Playlist',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_wifi:'&#x1F4F6; Wi-Fi',sec_bt:'&#x1F4F1; Bluetooth',sec_mqtt:'&#x1F310; MQTT',lbl_enabled:'Enabled',lbl_network:'Network',lbl_password:'Password',lbl_static_ip:'Static IP',lbl_fixed_ip:'Fixed IP',lbl_gateway:'Gateway',lbl_subnet:'Subnet mask',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_bt_name:'Name',lbl_mqtt_ip:'Recalbox IP',opt_scanning:'-- Scanning... --',opt_select:'-- Select --',opt_scan_error:'Scan error',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_load_error:'Unable to load config',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',loading_text:'Loading...',...HELP_I18N.en},
-es:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi y Bluetooth',nav_basic:'&#x1F4A1; Pantalla',nav_playlist:'&#x1F4BF; Playlist',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_wifi:'&#x1F4F6; Wi-Fi',sec_bt:'&#x1F4F1; Bluetooth',sec_mqtt:'&#x1F310; MQTT',lbl_enabled:'Activado',lbl_network:'Red',lbl_password:'Contraseña',lbl_static_ip:'IP estática',lbl_fixed_ip:'IP fija',lbl_gateway:'Puerta de enlace',lbl_subnet:'Máscara de subred',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_bt_name:'Nombre',lbl_mqtt_ip:'IP de Recalbox',opt_scanning:'-- Escaneando... --',opt_select:'-- Seleccione --',opt_scan_error:'Error de escaneo',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_load_error:'No se pudo cargar la configuración',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',loading_text:'Cargando...',...HELP_I18N.es}
+fr:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi &amp; Bluetooth',nav_basic:'&#x1F4A1; Affichage',nav_playlist:'&#x1F4BF; Playlist',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',sec_wifi:'&#x1F4F6; Wi-Fi',sec_bt:'&#x1F4F1; Bluetooth',sec_mqtt:'&#x1F310; MQTT',lbl_enabled:'Activé',lbl_network:'Réseau',lbl_password:'Mot de passe',lbl_static_ip:'IP statique',lbl_fixed_ip:'IP fixe',lbl_gateway:'Passerelle',lbl_subnet:'Masque',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_bt_name:'Nom',lbl_mqtt_ip:'IP Recalbox',desc_static_ip:'&#x26A0;&#xFE0F; Ne cochez PAS cette case si votre routeur/box attribue déjà une IP fixe au DMD (réservation DHCP) -- le DHCP normal suffit dans ce cas. À activer uniquement si vous configurez l\'IP manuellement. Une IP/passerelle/masque incorrect peut rendre le DMD injoignable sur le réseau ; en cas de problème, un mode de secours (point d\'accès Wi-Fi) est prévu pour reconfigurer -- voir le manuel.',opt_scanning:'-- Scan en cours... --',opt_select:'-- Sélectionnez --',opt_scan_error:'Erreur scan',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_load_error:'Impossible de charger la config',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',loading_text:'Chargement en cours...',...HELP_I18N.fr},
+en:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi &amp; Bluetooth',nav_basic:'&#x1F4A1; Display',nav_playlist:'&#x1F4BF; Playlist',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',sec_wifi:'&#x1F4F6; Wi-Fi',sec_bt:'&#x1F4F1; Bluetooth',sec_mqtt:'&#x1F310; MQTT',lbl_enabled:'Enabled',lbl_network:'Network',lbl_password:'Password',lbl_static_ip:'Static IP',lbl_fixed_ip:'Fixed IP',lbl_gateway:'Gateway',lbl_subnet:'Subnet mask',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_bt_name:'Name',lbl_mqtt_ip:'Recalbox IP',desc_static_ip:'&#x26A0;&#xFE0F; Do NOT check this box if your router/box already assigns a fixed IP to the DMD (DHCP reservation) -- normal DHCP is enough in that case. Only enable this if you are configuring the IP manually. An incorrect IP/gateway/subnet mask can make the DMD unreachable on the network; if that happens, a recovery mode (Wi-Fi access point) is provided to reconfigure it -- see the manual.',opt_scanning:'-- Scanning... --',opt_select:'-- Select --',opt_scan_error:'Scan error',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_load_error:'Unable to load config',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',loading_text:'Loading...',...HELP_I18N.en},
+es:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi y Bluetooth',nav_basic:'&#x1F4A1; Pantalla',nav_playlist:'&#x1F4BF; Playlist',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',sec_wifi:'&#x1F4F6; Wi-Fi',sec_bt:'&#x1F4F1; Bluetooth',sec_mqtt:'&#x1F310; MQTT',lbl_enabled:'Activado',lbl_network:'Red',lbl_password:'Contraseña',lbl_static_ip:'IP estática',lbl_fixed_ip:'IP fija',lbl_gateway:'Puerta de enlace',lbl_subnet:'Máscara de subred',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_bt_name:'Nombre',lbl_mqtt_ip:'IP de Recalbox',desc_static_ip:'&#x26A0;&#xFE0F; NO marque esta casilla si su router/box ya asigna una IP fija al DMD (reserva DHCP) -- el DHCP normal es suficiente en ese caso. Actívelo solo si configura la IP manualmente. Una IP/puerta de enlace/máscara incorrecta puede dejar el DMD inaccesible en la red; en caso de problema, hay un modo de recuperación (punto de acceso Wi-Fi) previsto para reconfigurar -- ver el manual.',opt_scanning:'-- Escaneando... --',opt_select:'-- Seleccione --',opt_scan_error:'Error de escaneo',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_load_error:'No se pudo cargar la configuración',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',loading_text:'Cargando...',...HELP_I18N.es}
 };
 let currentLang='fr';
 // Overlay "Chargement en cours..." (2026-08-05, demande utilisateur :
@@ -1780,7 +1918,17 @@ function scanWiFi(){
   }).catch(()=>{sel.innerHTML='';const opt=document.createElement('option');opt.value=savedSsid;opt.textContent=savedSsid||tr('opt_scan_error');sel.appendChild(opt);});
 }
 function loadConfig(){const draft=loadDraft();fetch('/load').then(r=>r.json()).then(d=>{
-  const g=(k,dv)=>(draft&&draft[k]!==undefined)?draft[k]:dv;
+  // v113 -- BUG REEL corrige : une chaine VIDE laissee dans le brouillon
+  // (ex. un champ nombre momentanement vide pendant une frappe, sauvegarde
+  // par saveDraft() a CHAQUE evenement 'input') passait le test
+  // "!==undefined" et ecrasait donc silencieusement la vraie valeur
+  // sauvegardee cote serveur a chaque rechargement de page -- observe en
+  // reel sur clock_interval/clock_duration (champs vides a l'ouverture,
+  // PUIS ecrits a 0 dans config.ini par la sauvegarde suivante, symptome
+  // "les champs sont a zero apres F5"). Une chaine vide est desormais
+  // traitee comme "pas de brouillon pour ce champ" -- ne change rien pour
+  // les cases a cocher (false !== '').
+  const g=(k,dv)=>(draft&&draft[k]!==undefined&&draft[k]!=='')?draft[k]:dv;
   document.getElementById('wifi_enabled').checked=g('wifi_enabled',d.wifi_enabled==='1');
   savedSsid=g('wifi_ssid',d.wifi_ssid||''); // scanWiFi() se charge de le (re)selectionner, meme si absent du scan (fallback deja en place)
   document.getElementById('wifi_password').value=g('wifi_password',d.wifi_password||'');
@@ -1815,7 +1963,7 @@ static const char WEB_CONFIG_CLOCK_HTML[] PROGMEM = R"rawliteral(
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
 h1{color:#ffd146;text-align:center;margin:8px 0 14px;font-size:22px;border-bottom:2px solid #ffd146;padding-bottom:8px}
-.topnav{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px}
+.topnav{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px;margin-top:28px}
 .topnav a{padding:8px 14px;border-radius:6px;background:#16213e;color:#8ab4f8;font-size:13px;font-weight:600;text-decoration:none}
 .topnav a.active{background:#8ab4f8;color:#1a1a2e}
 .section{background:#16213e;border-radius:8px;padding:16px;margin:12px 0}
@@ -1824,7 +1972,7 @@ h1{color:#ffd146;text-align:center;margin:8px 0 14px;font-size:22px;border-botto
 .row input,.row select{flex:1;min-width:120px;padding:8px 10px;border:1px solid #333;border-radius:4px;background:#0f3460;color:#eee;font-size:14px}
 .row input[type=checkbox]{flex:0 0 20px;width:20px;height:20px;margin:0 8px 0 0}
 .row input[type=color]{flex:0 0 60px;padding:2px}
-.hint{flex:0 0 100%;font-size:11px;color:#666;margin-top:2px;margin-left:150px}
+.hint{flex:0 0 calc(100% - 150px);font-size:11px;color:#666;margin-top:2px;margin-left:150px}
 .btn-row{display:flex;gap:10px;justify-content:center;margin:18px 0;flex-wrap:wrap}
 .btn{padding:12px 20px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
 .btn-save{background:#ffd146;color:#1a1a2e}
@@ -1903,7 +2051,7 @@ body{position:relative}
 </div>
 <div class="row"><label for="clock_interval" data-i18n="lbl_interval_gifs">Intervalle (GIFs)</label><input id="clock_interval" type="number" min="1" max="999"></div>
 <div class="row"><label for="clock_interval_min" data-i18n="lbl_interval_min">Intervalle (min)</label><input id="clock_interval_min" type="number" min="0" max="999"><div class="hint" data-i18n="hint_interval_min">0 = d&eacute;sactiv&eacute;</div></div>
-<div class="row"><label for="clock_duration" data-i18n="lbl_duration">Dur&eacute;e (sec)</label><input id="clock_duration" type="number" min="1" max="120"></div>
+<div class="row"><label for="clock_duration" data-i18n="lbl_duration">Dur&eacute;e (sec)</label><input id="clock_duration" type="number" min="1" max="120"><div class="hint" data-i18n="hint_duration">Dur&eacute;e d'affichage de l'horloge avant de reprendre les GIFs.</div></div>
 <div class="row"><label for="clock_tz" data-i18n="lbl_tz">Fuseau horaire</label>
 <select id="clock_tz">
 <option value="CET-1CEST,M3.5.0,M10.5.0/3" data-i18n="opt_tz_ce">France / Espagne / Allemagne / Italie</option>
@@ -1941,9 +2089,9 @@ function showHelpModal(){
 }
 function closeHelpModal(){document.getElementById('helpBackdrop').classList.remove('show');}
 const PAGE_I18N={
-fr:{title:'RecalBox DMD - Horloge',h1:'Horloge',nav_basic:'&#x1F4A1; Affichage',nav_playlist:'&#x1F4BF; Playlist',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',lbl_enabled:'Activée',lbl_theme:'Thème',hint_theme_live:'&#x1F4A1; Aperçu affiché en direct sur l\'écran DMD tant que cette page est ouverte.',lbl_neon_color:'Couleur Neon',lbl_custom:'Personnalisée',hint_neon:'Thème Neon uniquement',lbl_interval_gifs:'Intervalle (GIFs)',lbl_interval_min:'Intervalle (min)',hint_interval_min:'0 = désactivé',lbl_duration:'Durée (sec)',lbl_tz:'Fuseau horaire',opt_random:'Aléatoire',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_tz_ce:'France / Espagne / Allemagne / Italie',opt_tz_uk:'Angleterre (UK) / Portugal',opt_tz_usa_e:'USA - Est (New York)',opt_tz_usa_c:'USA - Centre (Chicago)',opt_tz_usa_m:'USA - Montagnes (Denver)',opt_tz_usa_p:'USA - Pacifique (Los Angeles)',opt_tz_ee:'Grèce / Roumanie / Finlande',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_load_error:'Impossible de charger la config',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',loading_text:'Chargement en cours...',...HELP_I18N.fr},
-en:{title:'RecalBox DMD - Clock',h1:'Clock',nav_basic:'&#x1F4A1; Display',nav_playlist:'&#x1F4BF; Playlist',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',lbl_enabled:'Enabled',lbl_theme:'Theme',hint_theme_live:'&#x1F4A1; Live preview shown directly on the DMD screen while this page is open.',lbl_neon_color:'Neon color',lbl_custom:'Custom',hint_neon:'Neon theme only',lbl_interval_gifs:'Interval (GIFs)',lbl_interval_min:'Interval (min)',hint_interval_min:'0 = disabled',lbl_duration:'Duration (sec)',lbl_tz:'Timezone',opt_random:'Random',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_tz_ce:'France / Spain / Germany / Italy',opt_tz_uk:'England (UK) / Portugal',opt_tz_usa_e:'USA - East (New York)',opt_tz_usa_c:'USA - Central (Chicago)',opt_tz_usa_m:'USA - Mountain (Denver)',opt_tz_usa_p:'USA - Pacific (Los Angeles)',opt_tz_ee:'Greece / Romania / Finland',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_load_error:'Unable to load config',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',loading_text:'Loading...',...HELP_I18N.en},
-es:{title:'RecalBox DMD - Reloj',h1:'Reloj',nav_basic:'&#x1F4A1; Pantalla',nav_playlist:'&#x1F4BF; Playlist',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',lbl_enabled:'Activado',lbl_theme:'Tema',hint_theme_live:'&#x1F4A1; Vista previa mostrada en directo en la pantalla DMD mientras esta página esté abierta.',lbl_neon_color:'Color Neon',lbl_custom:'Personalizado',hint_neon:'Solo tema Neon',lbl_interval_gifs:'Intervalo (GIFs)',lbl_interval_min:'Intervalo (min)',hint_interval_min:'0 = desactivado',lbl_duration:'Duración (seg)',lbl_tz:'Zona horaria',opt_random:'Aleatorio',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_tz_ce:'Francia / España / Alemania / Italia',opt_tz_uk:'Inglaterra (UK) / Portugal',opt_tz_usa_e:'EE.UU. - Este (Nueva York)',opt_tz_usa_c:'EE.UU. - Centro (Chicago)',opt_tz_usa_m:'EE.UU. - Montañas (Denver)',opt_tz_usa_p:'EE.UU. - Pacífico (Los Ángeles)',opt_tz_ee:'Grecia / Rumanía / Finlandia',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_load_error:'No se pudo cargar la configuración',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',loading_text:'Cargando...',...HELP_I18N.es}
+fr:{title:'RecalBox DMD - Horloge',h1:'Horloge',nav_basic:'&#x1F4A1; Affichage',nav_playlist:'&#x1F4BF; Playlist',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Horloge',nav_media:'&#x1F4BF; Médias',lbl_enabled:'Activée',lbl_theme:'Thème',hint_theme_live:'&#x1F4A1; Aperçu affiché en direct sur l\'écran DMD tant que cette page est ouverte.',lbl_neon_color:'Couleur Neon',lbl_custom:'Personnalisée',hint_neon:'Thème Neon uniquement',lbl_interval_gifs:'Intervalle (GIFs)',lbl_interval_min:'Intervalle (min)',hint_interval_min:'0 = désactivé. Préférez l\'intervalle en nombre de GIFs ci-dessus : un compteur de GIFs ne peut pas dériver, contrairement à un minuteur.',lbl_duration:'Durée (sec)',hint_duration:'Durée d\'affichage de l\'horloge avant de reprendre les GIFs.',lbl_tz:'Fuseau horaire',opt_random:'Aléatoire',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_tz_ce:'France / Espagne / Allemagne / Italie',opt_tz_uk:'Angleterre (UK) / Portugal',opt_tz_usa_e:'USA - Est (New York)',opt_tz_usa_c:'USA - Centre (Chicago)',opt_tz_usa_m:'USA - Montagnes (Denver)',opt_tz_usa_p:'USA - Pacifique (Los Angeles)',opt_tz_ee:'Grèce / Roumanie / Finlande',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',btn_reboot:'&#x1F504; Redémarrer',btn_resume:'&#x25B6; Reprendre DMD',msg_saving:'Enregistrement...',msg_net_error:'Erreur réseau',msg_confirm_unsaved:'Des modifications non enregistrées seront perdues. Continuer ?',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_dmd_resumed:'DMD repris',msg_load_error:'Impossible de charger la config',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',loading_text:'Chargement en cours...',...HELP_I18N.fr},
+en:{title:'RecalBox DMD - Clock',h1:'Clock',nav_basic:'&#x1F4A1; Display',nav_playlist:'&#x1F4BF; Playlist',nav_network:'&#x1F4F6; Wi-Fi &amp; BT',nav_clock:'&#x23F0; Clock',nav_media:'&#x1F4BF; Media',lbl_enabled:'Enabled',lbl_theme:'Theme',hint_theme_live:'&#x1F4A1; Live preview shown directly on the DMD screen while this page is open.',lbl_neon_color:'Neon color',lbl_custom:'Custom',hint_neon:'Neon theme only',lbl_interval_gifs:'Interval (GIFs)',lbl_interval_min:'Interval (min)',hint_interval_min:'0 = disabled. Prefer the GIF-count interval above: a GIF counter cannot drift, unlike a timer.',lbl_duration:'Duration (sec)',hint_duration:'How long the clock stays displayed before resuming GIFs.',lbl_tz:'Timezone',opt_random:'Random',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_tz_ce:'France / Spain / Germany / Italy',opt_tz_uk:'England (UK) / Portugal',opt_tz_usa_e:'USA - East (New York)',opt_tz_usa_c:'USA - Central (Chicago)',opt_tz_usa_m:'USA - Mountain (Denver)',opt_tz_usa_p:'USA - Pacific (Los Angeles)',opt_tz_ee:'Greece / Romania / Finland',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',btn_reboot:'&#x1F504; Reboot',btn_resume:'&#x25B6; Resume DMD',msg_saving:'Saving...',msg_net_error:'Network error',msg_confirm_unsaved:'Unsaved changes will be lost. Continue?',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_dmd_resumed:'DMD resumed',msg_load_error:'Unable to load config',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',loading_text:'Loading...',...HELP_I18N.en},
+es:{title:'RecalBox DMD - Reloj',h1:'Reloj',nav_basic:'&#x1F4A1; Pantalla',nav_playlist:'&#x1F4BF; Playlist',nav_network:'&#x1F4F6; Wi-Fi y BT',nav_clock:'&#x23F0; Reloj',nav_media:'&#x1F4BF; Medios',lbl_enabled:'Activado',lbl_theme:'Tema',hint_theme_live:'&#x1F4A1; Vista previa mostrada en directo en la pantalla DMD mientras esta página esté abierta.',lbl_neon_color:'Color Neon',lbl_custom:'Personalizado',hint_neon:'Solo tema Neon',lbl_interval_gifs:'Intervalo (GIFs)',lbl_interval_min:'Intervalo (min)',hint_interval_min:'0 = desactivado. Prefiera el intervalo en número de GIFs de arriba: un contador de GIFs no puede desviarse, a diferencia de un temporizador.',lbl_duration:'Duración (seg)',hint_duration:'Duración de la visualización del reloj antes de reanudar los GIFs.',lbl_tz:'Zona horaria',opt_random:'Aleatorio',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_tz_ce:'Francia / España / Alemania / Italia',opt_tz_uk:'Inglaterra (UK) / Portugal',opt_tz_usa_e:'EE.UU. - Este (Nueva York)',opt_tz_usa_c:'EE.UU. - Centro (Chicago)',opt_tz_usa_m:'EE.UU. - Montañas (Denver)',opt_tz_usa_p:'EE.UU. - Pacífico (Los Ángeles)',opt_tz_ee:'Grecia / Rumanía / Finlandia',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',btn_reboot:'&#x1F504; Reiniciar',btn_resume:'&#x25B6; Reanudar DMD',msg_saving:'Guardando...',msg_net_error:'Error de red',msg_confirm_unsaved:'Los cambios no guardados se perderán. ¿Continuar?',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_dmd_resumed:'DMD reanudado',msg_load_error:'No se pudo cargar la configuración',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',loading_text:'Cargando...',...HELP_I18N.es}
 };
 let currentLang='fr';
 // Overlay "Chargement en cours..." (2026-08-05, demande utilisateur :
@@ -1991,6 +2139,14 @@ function saveDraft(){const o={};DRAFT_FIELDS.forEach(id=>{const el=document.getE
 // ci-dessus et du bouton "Sauvegarder" -- affichage uniquement, /config.ini
 // n'est jamais touche par cet appel.
 function onClockThemeChanged(theme){
+  // v73 -- BUG REEL corrige (demande utilisateur) : "Aleatoire" (-1)
+  // declenchait quand meme un apercu (un theme tire au sort etait affiche),
+  // alors qu'un seul theme previsualise n'a pas de sens pour un reglage qui
+  // doit justement varier a chaque rotation. La garde "!== '-1'" existait
+  // deja pour l'apercu AUTOMATIQUE a l'ouverture de page (v58) mais pas ici,
+  // dans le gestionnaire de selection MANUELLE -- desormais coherente aux
+  // deux endroits.
+  if(theme==='-1')return;
   fetch('/clock-preview',{method:'POST',body:'theme='+encodeURIComponent(theme),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});
 }
 // Arret de l'apercu en quittant la page (Basic/Network/Media sont des pages
@@ -2010,7 +2166,25 @@ window.addEventListener('pagehide',stopClockPreview);
 window.addEventListener('beforeunload',stopClockPreview);
 function clearDraft(){localStorage.removeItem(DRAFT_KEY);}
 function checkEssentialFields(){return fetch('/load').then(r=>r.json()).then(d=>{const missing=[];if(!d.wifi_ssid)missing.push(tr('essential_wifi'));if(!d.playlist)missing.push(tr('essential_playlist'));if(!d.recalbox_ip)missing.push(tr('essential_ip'));if(!missing.length)return true;return confirm(tr('msg_essential_missing').replace('{fields}',missing.join(', ')));}).catch(()=>true);}
-function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:serialize(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK')){_formDirty=false;clearDraft();}}).catch(()=>showMsg(tr('msg_net_error'),false));}
+// v61 -- BUG REEL corrige (demande utilisateur) : rien n'empechait
+// clock_interval (GIFs)/clock_duration (secondes) de valoir 0 alors que
+// l'horloge est activee -- observe en reel suite au bug de brouillon
+// corrige plus haut (v113/g()) qui avait ecrit 0 dans les deux champs.
+// Avec clock_interval=0, le compteur de GIFs (clockGifCounter, voir
+// RecalBox_DMD.ino) n'atteint jamais un seuil valide -- l'horloge ne se
+// declenche simplement jamais, symptome confus sans message d'erreur.
+// Applique a l'ouverture de page (auto-guerison d'une config deja a 0) ET
+// juste avant chaque sauvegarde (defensif, y compris si l'utilisateur vide
+// le champ a la main).
+function enforceClockDefaults(){
+  const enabledEl=document.getElementById('clock_enabled');
+  const intervalEl=document.getElementById('clock_interval');
+  const durationEl=document.getElementById('clock_duration');
+  if(!enabledEl.checked)return;
+  if(!intervalEl.value||Number(intervalEl.value)<=0)intervalEl.value='10';
+  if(!durationEl.value||Number(durationEl.value)<=0)durationEl.value='60';
+}
+function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();enforceClockDefaults();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:serialize(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK')){_formDirty=false;clearDraft();}}).catch(()=>showMsg(tr('msg_net_error'),false));}
 function doReboot(skipConfirm){checkEssentialFields().then(ok=>{if(!ok)return;if(_formDirty&&!confirm(tr('msg_confirm_unsaved')))return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});});}
 // skipConfirm=true (2026-07-29) : "Enreg. & Redemarrer" a deja un intitule
 // explicite -- redemander confirmation juste apres la sauvegarde est
@@ -2024,7 +2198,17 @@ function dmdResume(){checkEssentialFields().then(ok=>{if(!ok)return;if(_formDirt
 // distinguer les deux cas, une connexion qui se ferme se ressemble dans
 // tous les cas).
 function loadConfig(){const draft=loadDraft();fetch('/load').then(r=>r.json()).then(d=>{
-  const g=(k,dv)=>(draft&&draft[k]!==undefined)?draft[k]:dv;
+  // v113 -- BUG REEL corrige : une chaine VIDE laissee dans le brouillon
+  // (ex. un champ nombre momentanement vide pendant une frappe, sauvegarde
+  // par saveDraft() a CHAQUE evenement 'input') passait le test
+  // "!==undefined" et ecrasait donc silencieusement la vraie valeur
+  // sauvegardee cote serveur a chaque rechargement de page -- observe en
+  // reel sur clock_interval/clock_duration (champs vides a l'ouverture,
+  // PUIS ecrits a 0 dans config.ini par la sauvegarde suivante, symptome
+  // "les champs sont a zero apres F5"). Une chaine vide est desormais
+  // traitee comme "pas de brouillon pour ce champ" -- ne change rien pour
+  // les cases a cocher (false !== '').
+  const g=(k,dv)=>(draft&&draft[k]!==undefined&&draft[k]!=='')?draft[k]:dv;
   document.getElementById('clock_enabled').checked=g('clock_enabled',d.clock_enabled==='1');
   document.getElementById('clock_theme').value=g('clock_theme',d.clock_theme||'0');
   document.getElementById('clock_interval').value=g('clock_interval',d.clock_interval||'0');
@@ -2041,6 +2225,7 @@ function loadConfig(){const draft=loadDraft();fetch('/load').then(r=>r.json()).t
   // pour un tirage non encore effectue).
   const initialTheme=document.getElementById('clock_theme').value;
   if(initialTheme!=='-1') onClockThemeChanged(initialTheme);
+  enforceClockDefaults();
 }).catch(()=>showMsg(tr('msg_load_error'),false));}
 localStorage.setItem('dmd_last_section','clock');
 fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}loadConfig();}).catch(()=>{applyLang();loadConfig();}).finally(hidePageLoadingOverlay);
@@ -2061,7 +2246,7 @@ static const char WEB_CONFIG_MEDIA_HTML[] PROGMEM = R"rawliteral(
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
 h1{color:#ffd146;text-align:center;margin:8px 0 14px;font-size:22px;border-bottom:2px solid #ffd146;padding-bottom:8px}
-.topnav{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px}
+.topnav{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px;margin-top:28px}
 .topnav a{padding:8px 14px;border-radius:6px;background:#16213e;color:#8ab4f8;font-size:13px;font-weight:600;text-decoration:none}
 .topnav a.active{background:#8ab4f8;color:#1a1a2e}
 .section{background:#16213e;border-radius:8px;padding:16px;margin:12px 0}
