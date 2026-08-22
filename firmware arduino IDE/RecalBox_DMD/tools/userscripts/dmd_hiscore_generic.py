@@ -1,0 +1,241 @@
+#!/usr/bin/env python3
+# ============================================
+# safe-modify — Historique des modifications
+# ============================================
+# Version actuelle : v1
+#
+# v1 - 2026-08-23 - safe-modify - Creation initiale. Phase 1 du chantier
+#   hi-score generique MAME/FBNeo (demande utilisateur explicite : projet
+#   destine a etre distribue a toute la communaute Recalbox, pas un usage
+#   perso -- besoin d'une methode fiable a l'echelle plutot que du RAM
+#   live jeu par jeu). Genere a partir de hiscore_manifest.json, lui-meme
+#   produit par hi2txt_convert.py (voir ce fichier) a partir du depot
+#   communautaire hi2txt-xml (GreatStoneEx/hi2txt-xml, ~3100 jeux
+#   documentes, fige depuis fevrier 2022 mais reutilisable tel quel).
+#   Valide contre 6 vrais fichiers .hi de jeux FBNeo reellement presents
+#   sur la RB de l'utilisateur (afighter/aliens/avsp/bermudat/mslug2/
+#   sonicwi2) -- tous decodent des scores/noms plausibles. PAS ENCORE
+#   branche dans dmd_score.sh (round_robin()/publish_one_panel()) -- reste
+#   un decodeur autonome pour l'instant, appelable en ligne de commande
+#   comme dmd_challenge.py.
+"""dmd_hiscore_generic.py <system> <rom>
+
+Decode le hi-score d'un jeu via le manifeste hi2txt-xml converti
+(hiscore_manifest.json, ~2758 jeux) + le fichier .hi sauvegarde localement
+par l'emulateur -- AUCUNE lecture RAM live, uniquement le fichier ecrit a
+la fin de partie (voir memoire projet 2026-08-23 : approche retenue pour
+la Phase 1 "hi-score generique", plus fiable a l'echelle communautaire que
+la RAM live qui demande une recette par jeu construite a la main).
+
+Meme convention de sortie que les autres decodeurs (dmd_challenge.py,
+decode_1941_topN() en dur dans dmd_score.sh) : une ligne "rang nom score"
+par rang, jointes par "|", silencieux (rien affiche) si le jeu n'est pas
+dans le manifeste, si le fichier .hi est absent, ou si la taille ne
+correspond pas a la definition attendue (prudence : mieux vaut ne rien
+afficher qu'afficher un decodage errone).
+"""
+import json
+import os
+import re
+import sys
+import unicodedata
+
+MANIFEST_PATH = os.path.join(os.path.dirname(__file__), "hiscore_manifest.json")
+
+# Chemins de sauvegarde .hi connus par core -- a completer au fil de l'eau
+# si d'autres cores/emulateurs sont utilises. Verifie en direct sur RB
+# 2026-08-22/23 pour fbneo ; les autres sont la convention RB standard
+# (memes noms de dossier que le hiscore.dat correspondant, voir
+# /recalbox/share/bios/<core>/hiscore.dat) mais PAS ENCORE verifies en
+# direct -- a confirmer au premier jeu MAME reellement teste.
+HI_SEARCH_PATHS = [
+    "/recalbox/share/saves/fbneo/fbneo/{rom}.hi",
+    "/recalbox/share/saves/mame2003-plus/mame2003-plus/{rom}.hi",
+    "/recalbox/share/saves/mame2000/mame2000/{rom}.hi",
+    "/recalbox/share/saves/mame2003/mame2003/{rom}.hi",
+    "/recalbox/share/saves/mame2010/mame2010/{rom}.hi",
+    "/recalbox/share/saves/mame2015/mame2015/{rom}.hi",
+]
+
+MAX_ENTRIES = 9  # aligne avec dmd_challenge.py (3 pages x 3 lignes)
+
+
+def find_hi_file(rom):
+    for pattern in HI_SEARCH_PATHS:
+        path = pattern.format(rom=rom)
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+def load_manifest():
+    with open(MANIFEST_PATH, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def resolve(manifest, rom, depth=0):
+    """Suit une chaine <sameas> (max 5 sauts, largement suffisant --
+    aucune chaine >1 saut observee dans l'echantillon converti)."""
+    if depth > 5 or rom not in manifest:
+        return None
+    entry = manifest[rom]
+    if "alias_of" in entry:
+        return resolve(manifest, entry["alias_of"], depth + 1)
+    return entry
+
+
+def decode_int(data, off, field):
+    size = field["size"]
+    raw = data[off:off + size]
+    if len(raw) < size:
+        return None
+    if field.get("endian") == "little":
+        raw = raw[::-1]
+    trim = field.get("byte_trim")
+    if trim is not None:
+        # v1 -- octet de "case vide" (ex. tuile blanc 0x24 sur galaga)
+        # traite comme un chiffre "0" pour les positions non utilisees --
+        # meme principe que decode_galaga_topscore() deja en prod dans
+        # dmd_score.sh. Pas verifie sur tous les jeux utilisant byte-trim,
+        # a affiner si un decodage errone est constate.
+        raw = bytes(0 if b == trim else b for b in raw)
+    if field.get("format") == "bcd":
+        digits = ""
+        for b in raw:
+            hi, lo = b >> 4, b & 0xF
+            if hi > 9 or lo > 9:
+                return None
+            digits += str(hi) + str(lo)
+        return int(digits) if digits else 0
+    v = 0
+    for b in raw:
+        v = v * 256 + b
+    return v
+
+
+def decode_text(data, off, field, charsets):
+    size = field["size"]
+    raw = data[off:off + size]
+    if len(raw) < size:
+        return ""
+    cs = charsets.get(field.get("charset"))
+    ascii_offset = field.get("ascii_offset", 0)
+    out = []
+    for b in raw:
+        if cs is not None and str(b) in cs:
+            # v1 -- BUG REEL corrige avant tout deploiement (teste contre
+            # un vrai echantillon afighter.hi) : la table <charset> de
+            # hi2txt-xml ne couvre souvent que quelques octets SPECIAUX
+            # (espace/./? -- tuiles decoratives), PAS l'alphabet complet --
+            # les lettres normales du nom (deja de l'ASCII standard cote
+            # jeu) ne sont JAMAIS listees. Les traiter comme "absentes du
+            # charset -> vide" faisait disparaitre le nom entier (vu :
+            # "?" au lieu de "DA"). Fix : la table ne s'applique QUE sur
+            # les octets qu'elle liste explicitement, tout le reste passe
+            # en ASCII litteral (meme branche que "pas de charset").
+            out.append(cs[str(b)])
+        else:
+            v = b + ascii_offset
+            out.append(chr(v) if 32 <= v < 127 else "")
+    return "".join(out)
+
+
+def clean_name(raw):
+    name = unicodedata.normalize("NFKD", raw or "").encode("ascii", "ignore").decode("ascii")
+    name = name.upper()
+    name = re.sub(r"[^A-Z0-9 ]", "", name).strip()
+    return name[:10] if name else "?"
+
+
+def decode_entry_group(data, group, charsets):
+    """mode combined/score_only : un seul groupe de champs par rang,
+    SCORE et (facultativement) NAME co-localises."""
+    results = []
+    for i in range(group["count"]):
+        base = group["start_offset"] + i * group["stride"]
+        score = None
+        name = ""
+        for f in group["fields"]:
+            off = base + f["rel_offset"]
+            fid = f["id"].upper()
+            if f["kind"] == "int" and "SCORE" in fid:
+                v = decode_int(data, off, f)
+                if v is not None:
+                    score = v
+            elif f["kind"] == "text" and "NAME" in fid:
+                name = decode_text(data, off, f, charsets)
+        if score is not None:
+            results.append((score, name))
+    return results
+
+
+def decode_separate(data, entry, charsets):
+    """mode separate : boucle SCORE et boucle NAME distinctes, meme
+    nombre d'entrees (galaga : 2 <loop count="5"> successives)."""
+    score_grp = entry["score"]
+    name_grp = entry["name"]
+    results = []
+    for i in range(score_grp["count"]):
+        sbase = score_grp["start_offset"] + i * score_grp["stride"]
+        score = None
+        for f in score_grp["fields"]:
+            if f["kind"] == "int":
+                v = decode_int(data, sbase + f["rel_offset"], f)
+                if v is not None:
+                    score = v
+        nbase = name_grp["start_offset"] + i * name_grp["stride"]
+        name = ""
+        for f in name_grp["fields"]:
+            if f["kind"] == "text":
+                name = decode_text(data, nbase + f["rel_offset"], f, charsets)
+        if score is not None:
+            results.append((score, name))
+    return results
+
+
+def main():
+    if len(sys.argv) < 3:
+        return
+    system, rom = sys.argv[1], sys.argv[2]
+    try:
+        manifest = load_manifest()
+    except (OSError, json.JSONDecodeError):
+        return
+    entry = resolve(manifest, rom)
+    if entry is None:
+        return
+
+    hi_path = find_hi_file(rom)
+    if hi_path is None:
+        return
+    try:
+        with open(hi_path, "rb") as f:
+            data = f.read()
+    except OSError:
+        return
+
+    expected = entry.get("expected_size")
+    if expected is not None and len(data) != expected:
+        return
+
+    charsets = entry.get("charsets", {})
+    all_results = []
+    for group in entry["entries"]:
+        mode = group["mode"]
+        if mode in ("combined", "score_only"):
+            all_results.extend(decode_entry_group(data, group, charsets))
+        elif mode == "separate":
+            all_results.extend(decode_separate(data, group, charsets))
+
+    if not all_results:
+        return
+
+    all_results.sort(key=lambda t: -t[0])
+    lines = []
+    for i, (score, name) in enumerate(all_results[:MAX_ENTRIES], start=1):
+        lines.append(f"{i} {clean_name(name)} {score}")
+    print("|".join(lines))
+
+
+if __name__ == "__main__":
+    main()
