@@ -40,6 +40,9 @@ raisonnement complet).
 - **rc=-4 / gels de connexion MQTT chassés sur plusieurs sessions : cause principale = overclock RPi5 + canicule, PAS le hi-score/LoopCore.**
   Confirmé le 2026-08-19 par test décisif (vitesse de navigation max, coupe-circuit anti-rafale désactivé, zéro rc=-4 une fois l'overclock retiré). Ne pas re-suspecter le portage hi-score ou la réassignation de cœur (`LoopCore=0`) pour CE symptôme précis sans nouvelle preuve — c'est un dossier distinct du bug "CMD_STARTCLIP fantôme" ci-dessus (qui, lui, reproduit indépendamment de l'overclock).
 
+- **Coupe-circuit anti-rafale `marquee.sh` (`BURST_THRESHOLD`) — débit réel plafonne à ~5-7 survols/seconde sur ce matériel, PAS plus haut.**
+  Mesuré à plusieurs reprises (2026-08-18 puis re-confirmé le 2026-08-22, `marquee_mqtt.log` agrégé + timestamps millisecondes serial DMD) : la navigation la plus rapide possible dans RB (y compris le mode "QuickJump" alphabétique) n'a jamais dépassé 6-7 survols dans la même seconde d'horloge. Un seuil fixé au-delà (`10`, testé le 2026-08-22) est structurellement inatteignable — le mécanisme (`!SHUFFLE`) ne se déclenche alors JAMAIS, symptôme silencieux (pas d'erreur, juste un no-op permanent). Valeur stable retenue : **`BURST_THRESHOLD=5`**, avec en plus (v16) une exigence de **durée soutenue** (`BURST_SUSTAIN_SECONDS=2`, secondes consécutives au-dessus du seuil) plutôt qu'un déclenchement instantané dès la 1ère seconde — évite un déclenchement visuellement trop précoce sur un simple pic isolé. Toute réintroduction/retouche future de ce mécanisme doit repartir de ces deux valeurs, pas de zéro.
+
 ## Philosophie "DMD bête" (hi-score/infos/description/RA, depuis 2026-08-19/20)
 
 - **Le DMD reste 100% passif — toute décision de timing/logique vit côté script Recalbox (RB), jamais côté firmware.**
@@ -86,6 +89,9 @@ raisonnement complet).
 
 - **`pkill -f '<motif>'` envoyé dans la MÊME commande plink multi-lignes qu'une ligne contenant le nom de fichier LITTÉRAL (sans backslash) se tue lui-même.** Le shell distant qui exécute tout le bloc (`sh -c "<bloc complet>"`) a ce texte dans son PROPRE `argv` — `pkill -f` matche n'importe quel processus dont l'argv contient le motif, y compris son propre parent invocateur. Symptôme : `plink` retourne un code de sortie ~128, **aucune sortie du tout** (le shell distant meurt avant le premier `echo`). Reproduit 2x sur `dev/core-reassignment` (2026-08-20/21) avec `dmd_score[...].sh`.
   **Fix qui marche** : ne jamais combiner `pkill -f <motif-du-script>` et le nom de fichier littéral dans le même appel `plink` — toujours séparer en appels distincts (1: pkill+cleanup seul, 2: cd+relance seul, 3: vérification `ps` seule).
+
+- **Même famille de bug, variante `ps | grep` : `ps -o args -ww | grep -q -- '<motif>'` peut s'auto-matcher.** Trouvé dans `dmd_score.sh` (`challenge_session_active()`, v24, 2026-08-22) : `grep -q -- '--challenge '` voit, dans la sortie de `ps`, SA PROPRE ligne de commande (qui contient littéralement la chaîne cherchée dans ses arguments) — la fonction retournait donc TOUJOURS vrai, même sans processus cible réel, bloquant silencieusement une fonctionnalité entière (round-robin hi-score/infos/description scotché sur un type erroné pour TOUS les jeux). Piège d'autant plus vicieux qu'un test avec un vrai match concurrent (vraie session active en même temps) masque le bug.
+  **Fix qui marche** : casser la chaîne littérale dans l'invocation du grep sans changer ce qu'elle matche réellement, ex. `grep -- '[-]-challenge '` au lieu de `grep -- '--challenge '` (bracket expression regex : matche toujours le même texte cible, mais absent littéralement des arguments du grep lui-même). Réflexe à avoir sur TOUT `ps | grep -f`/`pgrep -f` dont le motif recherché pourrait apparaître dans la commande qui fait la recherche elle-même (nom de script, flag caractéristique, etc.).
 
 ## Mémoire Claude — limitation connue
 
