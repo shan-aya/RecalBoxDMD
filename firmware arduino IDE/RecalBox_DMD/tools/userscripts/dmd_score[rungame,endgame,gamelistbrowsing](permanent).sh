@@ -5,7 +5,35 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v24
+# Version actuelle : v25
+#
+# v25 - 2026-08-23 - safe-modify - 2 bugs reels corriges (retours
+#   utilisateur successifs sur le meme test) :
+#   (1) $state (BROWSE_STATE_FILE/expected) ne dependait que de system/rom,
+#   jamais de LAST_SYSTEMBROWSING_ID -- revoir le MEME jeu (blazing star)
+#   via la collection "challenges" PUIS via son vrai systeme (fbneo)
+#   produisait la MEME chaine d'etat, donc l'ancien round_robin() (fige sur
+#   LAST_SYSTEMBROWSING_ID="challenges" au moment de son fork -- un sous-
+#   shell ne voit jamais les mises a jour ulterieures d'une variable du
+#   parent) ne se terminait jamais et publiait le tableau challenge EN
+#   PARALLELE de la nouvelle boucle normale. Fix : LAST_SYSTEMBROWSING_ID
+#   injecte dans $state.
+#   (2) BUG SEPARE, PLUS ANCIEN (present depuis v22, jamais exerce par la
+#   sequence de test d'origine) : le handler "systembrowsing)" ne faisait
+#   QUE mettre a jour LAST_SYSTEMBROWSING_ID, sans jamais invalider un
+#   round_robin("browse") deja en vol depuis le DERNIER jeu survole avant
+#   de remonter au niveau systeme -- retour utilisateur : "survol
+#   challenge = description qui s'affiche... alors qu'on demande aucun
+#   affichage, c'est un systeme". Fix : meme nettoyage BROWSE_STATE_FILE
+#   que les autres handlers (rungame/sleep), applique ici aussi.
+#   (3) 3e BUG REEL corrige (retour utilisateur : "jeu via challenge : pas
+#   de RB CHALLENGE affiche, uniquement marquee") : challenge_session_active()
+#   cherchait "--challenge" (DEUX tirets) alors que le vrai flag passe par
+#   emulatorlauncher.pyc est "-challenge <manifeste>" (UN SEUL tiret) --
+#   verifie en DIRECT sur le materiel pendant une vraie session Challenge.
+#   Cette fonction n'a donc probablement JAMAIS detecte une vraie session
+#   avant ce fix (le "test reel" cite en v18/v24 etait masque par le bug
+#   d'auto-match de l'epoque). Voir commentaire complet pres de la fonction.
 #
 # v24 - 2026-08-22 - safe-modify - BUG REEL trouve (retour utilisateur :
 #   "les highscore ne s'affichent pas sur 1941 en mode jeu") :
@@ -534,8 +562,22 @@ enabled_panel_types() {
 # confirmer au prochain test reel.
 # v24 -- pattern "[-]-challenge " (au lieu de "--challenge ") : evite que ce
 # grep ne se matche LUI-MEME dans la sortie de ps (voir changelog v24).
+# v25 -- 2e BUG REEL corrige (retour utilisateur : "jeu via challenge : pas
+# de RB CHALLENGE affiche, uniquement marquee") : le vrai flag passe par
+# emulatorlauncher.pyc est "-challenge <manifeste>" avec UN SEUL TIRET,
+# pas "--challenge" -- verifie en DIRECT sur le materiel via `ps` pendant
+# une vraie session Challenge active :
+#   sh -c -- python .../emulatorlauncher.pyc ... -challenge
+#   /recalbox/share/system/challenges/current.json
+# Le commentaire d'origine (v17) et le fix v24 supposaient tous les deux
+# DEUX tirets par erreur -- cette fonction n'a donc probablement JAMAIS
+# detecte une vraie session Challenge correctement, y compris lors du
+# "seul test reel" cite en v24 (masque par le bug d'auto-match de l'epoque,
+# qui renvoyait toujours vrai independamment du vrai flag). Pattern corrige
+# a UN tiret, meme astuce anti-auto-match (bracket autour du tiret unique).
+# Verifie en direct : MATCH_TRUE avec une vraie session Challenge active.
 challenge_session_active() {
-    ps -o args -ww 2>/dev/null | grep -q -- '[-]-challenge '
+    ps -o args -ww 2>/dev/null | grep -q -- '[-]challenge '
 }
 
 # v13 -- BUG REEL corrige (retour utilisateur : "la description a
@@ -1110,7 +1152,7 @@ publish_one_panel() {
     return 1
 }
 
-echo "$(date) - DMD score bridge started (v24, fix auto-match challenge_session_active + tableau RB CHALLENGE en navigation dans le systeme virtuel challenges + classement exclusif en session active + pagination DESCRIPTION par phrases entieres + TomThumb + round-robin infini + interruption inter-pages + titre hi-score page2 + marge anti-flash + dwell/ratios reglables)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v25, fix state browse incluant LAST_SYSTEMBROWSING_ID (boucle round-robin fantome corrigee) + fix auto-match challenge_session_active + tableau RB CHALLENGE en navigation dans le systeme virtuel challenges + classement exclusif en session active + pagination DESCRIPTION par phrases entieres + TomThumb + round-robin infini + interruption inter-pages + titre hi-score page2 + marge anti-flash + dwell/ratios reglables)" >> "$LOG"
 # Efface une session/etat perime d'un lancement precedent.
 : > "$GAME_SESSION_FILE"
 : > "$BROWSE_STATE_FILE"
@@ -1135,6 +1177,24 @@ while IFS= read -r event; do
             # v22 -- voir commentaire complet sur LAST_SYSTEMBROWSING_ID
             # plus haut et changelog v22.
             LAST_SYSTEMBROWSING_ID=$(read_state "SystemId")
+            # v25 -- BUG REEL corrige (retour utilisateur : "survol
+            # challenge = description qui s'affiche... alors qu'on demande
+            # aucun affichage, c'est un systeme") : ce handler ne faisait
+            # QUE mettre a jour LAST_SYSTEMBROWSING_ID, sans jamais arreter
+            # un round_robin("browse") deja en vol depuis le DERNIER jeu
+            # survole avant de remonter au niveau systeme -- meme motif
+            # exact que le fix rungame/sleep (voir leurs commentaires
+            # complets) deja applique ailleurs mais oublie ICI. Resultat :
+            # remonter au niveau systeme (ou l'affichage doit etre reduit
+            # au marquee/logo, comme n'importe quel systeme) laissait
+            # l'ancien contenu (description/infos/challenge) continuer de
+            # s'afficher indefiniment. Fix : meme nettoyage que les autres
+            # handlers -- invalide BROWSE_STATE_FILE, la boucle en vol le
+            # detectera a sa prochaine verification et s'arretera d'elle-
+            # meme.
+            : > "$BROWSE_STATE_FILE"
+            LAST_BROWSE_SYS=""
+            LAST_BROWSE_ROM=""
             ;;
         rungame)
             # v10 -- BUG REEL corrige (retour utilisateur explicite : "info
@@ -1208,7 +1268,27 @@ while IFS= read -r event; do
             game_path=$(read_state "GamePath")
             if [ -n "$system" ] && [ -n "$game_path" ] && [ ! -d "$game_path" ]; then
                 rom=$(basename "$game_path" | sed 's/\.[^.]*$//')
-                state="${system}|${rom}"
+                # v25 -- BUG REEL corrige (retour utilisateur : "j'ai tous les
+                # panneaux d'infos qui s'affichent" en navigant RB CHALLENGE,
+                # alors qu'on est cense voir UNIQUEMENT le tableau challenge) :
+                # $state ne dependait QUE de system/rom, jamais de
+                # LAST_SYSTEMBROWSING_ID -- revisiter le MEME jeu (ex.
+                # blazing star) d'abord via la collection "challenges" PUIS
+                # via son vrai systeme (fbneo) produit la MEME chaine d'etat
+                # ("fbneo|blazstar" dans les 2 cas, le SystemId d'un
+                # gamelistbrowsing revient toujours au systeme REEL au niveau
+                # jeu, voir memoire projet). L'ANCIEN round_robin() (fige sur
+                # LAST_SYSTEMBROWSING_ID="challenges" au moment de son fork --
+                # un sous-shell ne voit jamais les mises a jour ulterieures
+                # d'une variable du parent) ne detectait donc JAMAIS de
+                # changement d'etat et continuait de publier le tableau
+                # challenge indefiniment, EN PARALLELE de la nouvelle boucle
+                # normale (info/description) -- d'ou le melange des 2
+                # affichages observe. Fix : LAST_SYSTEMBROWSING_ID injecte
+                # DANS $state -- un changement de contexte de navigation
+                # (meme sur le meme jeu) invalide desormais correctement
+                # toute boucle round_robin() en vol.
+                state="${LAST_SYSTEMBROWSING_ID}|${system}|${rom}"
                 printf '%s\n' "$state" > "$BROWSE_STATE_FILE"
                 if [ "$system" != "$LAST_BROWSE_SYS" ] || [ "$rom" != "$LAST_BROWSE_ROM" ]; then
                     LAST_BROWSE_SYS="$system"
