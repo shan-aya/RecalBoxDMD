@@ -1,8 +1,18 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v120
+// Version actuelle : v121
 //
+// v121 - 2026-08-22 - safe-modify - (1) SHUFFLE_ENABLED remis a true : le
+//   coupe-circuit anti-rafale de marquee.sh (v13, seuil=10/s) est reactive
+//   cote RB et republie donc "!SHUFFLE" en rafale de navigation, or ce flag
+//   etait reste a false (desactivation temporaire du 2026-08-19) -- l'echec
+//   gracieux predit par le commentaire de v109 (repli sur default.png) ne
+//   se produisait pas comme attendu : ecran NOIR signale par l'utilisateur
+//   au lieu du GIF shuffle pendant la navigation rapide. (2) Lignes de
+//   l'ecran DESCRIPTION CENTREES horizontalement au lieu d'alignees a
+//   gauche (retour utilisateur explicite), largeur calculee via la somme
+//   des avances TomThumb reelles de chaque ligne.
 // v120 - 2026-08-22 - safe-modify - Score ALIGNE A DROITE dans le rendu
 //   generique nom/score (retour utilisateur explicite : "aligner les
 //   scores a droite de l'ecran car la ils se decalent en fonction de la
@@ -3440,7 +3450,15 @@ static const char *SHUFFLE_GIF_PATH = "/systems/_defaults/_shuffle.gif";
 // (voir memoire projet). Code garde intact (meme motif que
 // CMD_GAME_DEBUG_LOGS) -- juste desactive, pas retire, reactivable en un
 // mot (repasser a true) si le test tourne mal.
-const bool SHUFFLE_ENABLED = false;
+// v121 -- REACTIVATION (2026-08-22) : marquee.sh v13 remet le coupe-circuit
+// anti-rafale en service cote RB (BURST_THRESHOLD=10, rc=-4 confirme sans
+// lien avec ce mecanisme, voir memoire projet) et publie donc de nouveau
+// "!SHUFFLE" en rafale. Laisser ce flag a false pendant que le script
+// publiait "!SHUFFLE" reproduisait exactement l'echec predit par le
+// commentaire ci-dessous (sysName=romName="!SHUFFLE" -> systeme introuvable
+// -> echec silencieux) : ecran noir signale par l'utilisateur au lieu du
+// GIF shuffle attendu.
+const bool SHUFFLE_ENABLED = true;
 
 static bool ensureDefaultRaw565Cached()
 {
@@ -5180,10 +5198,20 @@ void drawScoreScreen(const String &payload)
       // garde la couleur gold pour le texte") -- remplace le test A/B
       // blanc/or TEMPORAIRE de v118 (alternance par ligne), desormais
       // tranche.
+      // v121 -- lignes CENTREES horizontalement (retour utilisateur : "modifie
+      // description en centrant les lignes au lieu de aligner a gauche") --
+      // largeur totale de la ligne calculee au prealable (somme des avances
+      // TomThumb reelles, pas une largeur fixe par caractere) pour un
+      // centrage exact independant du contenu de chaque page.
       display->setFont(&TomThumb);
       String upper = line;
       upper.toUpperCase();
-      int cx = 1;
+      int lineWidth = 0;
+      for (size_t ci = 0; ci < upper.length(); ci++) {
+        lineWidth += tomThumbCharAdvance(upper.charAt(ci));
+      }
+      int cx = (RAW565_W - lineWidth) / 2;
+      if (cx < 0) cx = 0;
       for (size_t ci = 0; ci < upper.length(); ci++) {
         char ch = upper.charAt(ci);
         drawScoreTextShadowed(cx, y + 5, String(ch), gold);

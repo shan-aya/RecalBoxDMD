@@ -2,7 +2,65 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v12
+# Version actuelle : v16
+#
+# v16 - 2026-08-22 - safe-modify - Declenchement !SHUFFLE base sur une
+#   DUREE soutenue au lieu d'un seuil instantane. Retour utilisateur apres
+#   test reel du seuil 5/s (v15) : "ca fonctionne mais... visuellement il
+#   se declenche un peu trop tot" -- le debit reel plafonne a 5-7/s (pas de
+#   pics plus hauts observes), donc n'importe quel seuil fixe autour de 5
+#   se declenche des la 1ere seconde ou le debit instantane depasse le
+#   seuil, meme pour un survol juste un peu plus rapide que la normale, pas
+#   forcement une vraie rafale soutenue. Nouveau : BURST_SUSTAIN_SECONDS
+#   (secondes CONSECUTIVES a >=BURST_THRESHOLD requises avant de basculer
+#   throttled=1) + burst_qualifying_streak (compteur de secondes pleines
+#   consecutives qualifiees, evalue au moment ou le bucket seconde tourne --
+#   necessite d'attendre la fin complete d'une seconde pour connaitre son
+#   tally final, d'ou un delai de detection de ~1 seconde supplementaire
+#   par seconde de sustain exigee). Valeur de depart : 2s. Reinitialise a
+#   chaque point ou burst_count/throttled etaient deja remis a zero (fin de
+#   rafale par timeout, boot, transition system/game reelle, endgame,
+#   stop).
+#
+# v15 - 2026-08-22 - safe-modify - BURST_THRESHOLD 6 -> 5 (retour utilisateur
+#   apres verification croisee avec la memoire projet du 2026-08-18 :
+#   l'episode "32 connexions" cite a l'epoque etait "32 en ~30s", PAS 32/s
+#   -- mais ce meme episode notait aussi "rafales de 6 connexions/seconde"
+#   comme niveau des episodes precedents, et le choix historique du seuil
+#   (v7, 3->5) etait explicitement motive par "reste facilement atteint
+#   pendant un VRAI defilement rapide continu", PAS par une valeur pile au
+#   plafond mesure). 6 (v14) colle exactement au maximum re-mesure ce jour
+#   (6/s) -- trop fragile compte tenu du bucketing par seconde d'horloge
+#   ENTIERE (voir limite v14 ci-dessous, toujours non resolue) : une rafale
+#   reelle a cheval sur une frontiere de seconde peut ne JAMAIS atteindre un
+#   seuil pile au plafond. 5 restaure la marge de securite voulue a
+#   l'origine.
+#
+# v14 - 2026-08-22 - safe-modify - BURST_THRESHOLD 10 -> 6 (retour terrain :
+#   "shuffle ne s'est pas declenche" sur une session de navigation rapide
+#   reelle sur fbneo). Verifie sur marquee_mqtt.log (agrege sur toute la
+#   journee, grep+uniq -c par seconde d'horloge) : le debit maximum JAMAIS
+#   observe pour gamelistbrowsing sur une meme seconde entiere est 6/s, y
+#   compris pendant cette session de test -- confirme aussi par les
+#   timestamps milliseconde du serial DMD (3 events sur la seconde :32, 6
+#   sur la seconde :33 de la meme rafale). Seuil de 10 structurellement
+#   inatteignable au debit reel de la navigation rapide RB sur ce materiel
+#   -- pas un bug du detecteur, juste une valeur de depart trop haute.
+#   Limite connue non traitee ici : bucketing sur la seconde d'HORLOGE
+#   ENTIERE (date +%s, voir commentaire v6 pres de BURST_THRESHOLD) peut
+#   scinder une rafale soutenue a cheval sur une frontiere de seconde (ex.
+#   3+6 events sur 2 secondes consecutives = 9 events en ~1s reel, mais
+#   n'atteint jamais le seuil dans AUCUN des 2 buckets) -- fenetre glissante
+#   non implementee, a envisager seulement si 6 s'avere encore insuffisant.
+#
+# v13 - 2026-08-22 - safe-modify - REACTIVATION du coupe-circuit
+#   anti-rafale (BURST_THRESHOLD 50 -> 10, voir commentaire complet pres
+#   de la constante) -- demande utilisateur explicite pour preserver la
+#   SD/stabilite pendant le mode de navigation RAPIDE de RB, la cause du
+#   rc=-4 etant depuis confirmee comme l'overclock RPi5+canicule (pas le
+#   trafic MQTT local que le coupe-circuit visait a l'origine). Valeur de
+#   DEPART (10), a ajuster apres test reel comme convenu avec
+#   l'utilisateur.
 #
 # v12 - 2026-08-20 - safe-modify - Verrou anti-relance rendu ATOMIQUE (voir
 #   commentaire complet pres de LOCKDIR plus bas) -- 4 instances simultanees
@@ -255,8 +313,6 @@ publish_settled_position() {
     fi
 }
 
-echo "$(date) - Marquee bridge started (v12, lock atomique acquis)" >> "$LOG"
-
 send_mqtt_retain "default" "1"
 
 LAST_SYSTEM=""
@@ -267,11 +323,39 @@ PREV_EVENT=""
 
 # v6 -- etat du detecteur de rafale (voir changelog v6 ci-dessus).
 # v7 -- seuil remonte de 3 a 5 (retour utilisateur : 3 trop restrictif).
-# v11 -- seuil remonte a 50 (desactivation de fait, voir changelog v11).
-BURST_THRESHOLD=50
+# v11 -- seuil remonte a 50 (desactivation de fait, voir changelog v11 --
+# a l'epoque, la cause du rc=-4 semblait pouvoir etre le trafic MQTT local
+# genere par le coupe-circuit lui-meme, pas confirme).
+# v13 -- REACTIVATION (demande utilisateur explicite, 2026-08-22) : la
+# cause du rc=-4 est depuis confirmee comme l'overclock RPi5+canicule (voir
+# memoire projet), pas le trafic MQTT local -- plus de raison de garder le
+# coupe-circuit desactive. Objectif reaffirme : preserver la SD/stabilite
+# specifiquement pendant le mode de navigation RAPIDE de RB (l'utilisateur
+# a demande si RB "saute" par lettres au lieu de parcourir jeu par jeu en
+# mode rapide -- verifie que ca ne change rien a l'approche : chaque
+# position atteinte, meme par saut, publie un vrai evenement
+# gamelistbrowsing, seul le DEBIT de ces evenements compte pour ce
+# detecteur). Seuil remis a 10 (valeur de DEPART a ajuster sur test reel,
+# demande explicite "5 est trop bas teste en reel essaye 10 et on
+# modifiera" -- ni le 5 d'origine (juge trop bas cette fois) ni le 50
+# (equivalent a desactive), point de depart intermediaire pour tester.
+BURST_THRESHOLD=5
+# v16 -- voir changelog v16 : nombre de secondes CONSECUTIVES a
+# >=BURST_THRESHOLD requises avant de declencher !SHUFFLE (au lieu
+# d'un declenchement instantane des la 1ere seconde qui depasse le seuil).
+BURST_SUSTAIN_SECONDS=2
 burst_window_start=0
 burst_count=0
+burst_qualifying_streak=0
 throttled=0
+
+# v13 -- echo de demarrage deplace ICI (apres l'assignation de
+# BURST_THRESHOLD) : place plus haut dans le fichier (juste avant
+# send_mqtt_retain "default"), la variable n'existait pas encore au moment
+# de l'interpolation et le log affichait "seuil=/s" (vide) au lieu de
+# "seuil=10/s" -- bug constate au demarrage reel, corrige en deplacant le
+# log apres la declaration.
+echo "$(date) - Marquee bridge started (v16, coupe-circuit anti-rafale reactive seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
 
 while true; do
     PREV_EVENT="$event"
@@ -299,6 +383,7 @@ while true; do
         if [ "$throttled" -eq 1 ]; then
             throttled=0
             burst_count=0
+            burst_qualifying_streak=0
             echo "$(date '+%H:%M:%S') BURST end -- publication position stabilisee" >> "$LOG"
             publish_settled_position
         fi
@@ -315,6 +400,7 @@ while true; do
             LAST_SYSTEM=""
             BOOT_TIME=$(date +%s)
             burst_count=0
+            burst_qualifying_streak=0
             throttled=0
             send_mqtt_retain "default" "1"
 
@@ -343,15 +429,31 @@ while true; do
             # seconde horloge entiere (precision volontairement grossiere,
             # voir changelog v6). BURST_THRESHOLD atteint -> bascule
             # throttled=1 (les publications s'arretent, voir plus bas).
+            # v16 -- le seuil instantane seul ne suffit plus (voir
+            # changelog v16) : au moment ou le bucket seconde TOURNE (donc
+            # que le tally de la seconde qui vient de se terminer est
+            # definitif), on evalue si CETTE seconde ecoulee a atteint le
+            # seuil -- si oui, la "serie" de secondes consecutives
+            # qualifiees s'allonge, sinon elle est remise a zero. !SHUFFLE
+            # ne se declenche que quand cette serie atteint
+            # BURST_SUSTAIN_SECONDS (debit soutenu), pas des la 1ere
+            # seconde isolee au-dessus du seuil.
             if [ "$now" = "$burst_window_start" ]; then
                 burst_count=$((burst_count + 1))
             else
+                if [ "$burst_window_start" -gt 0 ]; then
+                    if [ "$burst_count" -ge "$BURST_THRESHOLD" ]; then
+                        burst_qualifying_streak=$((burst_qualifying_streak + 1))
+                    else
+                        burst_qualifying_streak=0
+                    fi
+                fi
                 burst_window_start="$now"
                 burst_count=1
             fi
-            if [ "$burst_count" -ge "$BURST_THRESHOLD" ] && [ "$throttled" -eq 0 ]; then
+            if [ "$burst_qualifying_streak" -ge "$BURST_SUSTAIN_SECONDS" ] && [ "$throttled" -eq 0 ]; then
                 throttled=1
-                echo "$(date '+%H:%M:%S') BURST start (seuil $BURST_THRESHOLD/s atteint)" >> "$LOG"
+                echo "$(date '+%H:%M:%S') BURST start (seuil $BURST_THRESHOLD/s soutenu sur ${BURST_SUSTAIN_SECONDS}s)" >> "$LOG"
                 # v9 -- coupe-circuit anti-rafale, affichage transitoire.
                 # UNE SEULE publication (pas une par frame -- l'animation
                 # boucle localement cote firmware, voir memoire projet et
@@ -437,6 +539,7 @@ while true; do
             # simple survol -- reinitialise le detecteur de rafale pour ne
             # jamais laisser ce cas etre retarde par un throttle en cours.
             burst_count=0
+            burst_qualifying_streak=0
             throttled=0
             IN_GAME=1
             # v8 -- lecture atomique (voir changelog v8).
@@ -460,6 +563,7 @@ while true; do
 
         endgame)
             burst_count=0
+            burst_qualifying_streak=0
             throttled=0
             IN_GAME=0
             LAST_ROM=""
@@ -477,6 +581,7 @@ while true; do
 
         stop)
             burst_count=0
+            burst_qualifying_streak=0
             throttled=0
             echo "$(date '+%H:%M:%S') STOP -> playlist" >> "$LOG"
             IN_GAME=0

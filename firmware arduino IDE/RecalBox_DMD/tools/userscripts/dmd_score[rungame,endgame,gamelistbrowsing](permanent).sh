@@ -5,7 +5,33 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v23
+# Version actuelle : v24
+#
+# v24 - 2026-08-22 - safe-modify - BUG REEL trouve (retour utilisateur :
+#   "les highscore ne s'affichent pas sur 1941 en mode jeu") :
+#   challenge_session_active() s'AUTO-MATCHAIT via son propre grep -- meme
+#   piege que le pkill -f documente ailleurs (DECISIONS.md), mais version
+#   "ps | grep" : `ps -o args -ww | grep -q -- '--challenge '` voit AUSSI,
+#   dans la sortie de ps, la ligne de commande du grep lui-meme (qui
+#   contient litteralement la chaine cherchee "--challenge " dans ses
+#   propres arguments), donc la fonction retournait TOUJOURS vrai, meme
+#   sans aucune session de challenge reelle en cours -- confirme en direct
+#   sur le materiel (MATCH_TRUE constate meme processus/jeu tourne). Consequence :
+#   round_robin() restait scotche sur types="challenge " en PERMANENCE des
+#   qu'un jeu tournait, quel qu'il soit -- dmd_challenge.py echoue
+#   silencieusement pour tout jeu qui n'est pas le challenge du mois (aucun
+#   match dans current.json), donc AUCUN panneau ne s'affichait jamais en
+#   jeu (ni hi-score, ni infos, ni description) en dehors du marquee.
+#   Explique aussi pourquoi ca n'avait pas ete detecte avant : le
+#   commentaire d'origine (v18) notait deja "PAS ENCORE VALIDE SUR
+#   MATERIEL avec une vraie session de challenge active" -- le seul test
+#   reel fait depuis (blazing star via le vrai menu Challenges) avait donc
+#   coincidentellement un match a la fois "auto" ET "reel", masquant le
+#   bug. Fix : astuce classique anti-auto-match (`[-]-challenge ` au lieu
+#   de `--challenge ` -- meme chaine recherchee cote cible, mais absente
+#   litteralement des arguments du grep lui-meme, donc plus d'auto-match
+#   possible). Verifie en direct : MATCH_FALSE desormais hors session
+#   challenge reelle.
 #
 # v23 - 2026-08-22 - safe-modify - CORRECTION de v22 ci-dessous, avant
 #   deploiement final -- v22 supprimait TOUT affichage (marquee seul)
@@ -506,8 +532,10 @@ enabled_panel_types() {
 # ATTENTION : PAS ENCORE VALIDE SUR MATERIEL avec une vraie session de
 # challenge active (aucune en cours au moment d'ecrire ceci) -- a
 # confirmer au prochain test reel.
+# v24 -- pattern "[-]-challenge " (au lieu de "--challenge ") : evite que ce
+# grep ne se matche LUI-MEME dans la sortie de ps (voir changelog v24).
 challenge_session_active() {
-    ps -o args -ww 2>/dev/null | grep -q -- '--challenge '
+    ps -o args -ww 2>/dev/null | grep -q -- '[-]-challenge '
 }
 
 # v13 -- BUG REEL corrige (retour utilisateur : "la description a
@@ -1082,7 +1110,7 @@ publish_one_panel() {
     return 1
 }
 
-echo "$(date) - DMD score bridge started (v23, tableau RB CHALLENGE en navigation dans le systeme virtuel challenges + classement exclusif en session active + pagination DESCRIPTION par phrases entieres + TomThumb + round-robin infini + interruption inter-pages + titre hi-score page2 + marge anti-flash + dwell/ratios reglables)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v24, fix auto-match challenge_session_active + tableau RB CHALLENGE en navigation dans le systeme virtuel challenges + classement exclusif en session active + pagination DESCRIPTION par phrases entieres + TomThumb + round-robin infini + interruption inter-pages + titre hi-score page2 + marge anti-flash + dwell/ratios reglables)" >> "$LOG"
 # Efface une session/etat perime d'un lancement precedent.
 : > "$GAME_SESSION_FILE"
 : > "$BROWSE_STATE_FILE"
