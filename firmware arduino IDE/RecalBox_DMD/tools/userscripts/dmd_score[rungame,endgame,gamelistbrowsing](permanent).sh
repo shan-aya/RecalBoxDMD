@@ -5,7 +5,64 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v16
+# Version actuelle : v19
+#
+# v19 - 2026-08-22 - safe-modify - Retour utilisateur explicite APRES
+#   confirmation que v18 fonctionne sur materiel ("parfait ca fonctionne")
+#   : "en mode challenge je veux uniquement le tableau challenge + marquee
+#   rien d'autre" -- round_robin() REMPLACE desormais (au lieu d'ajouter
+#   a) la liste des types en jeu par "challenge" seul des qu'une VRAIE
+#   session de challenge est active (challenge_session_active()) --
+#   hi-score/infos/description restent actifs normalement des que ce
+#   n'est plus le cas.
+#
+# v18 - 2026-08-22 - safe-modify - BUG REEL corrige AVANT que ca cause un
+#   probleme reel (retour utilisateur explicite, juste apres deploiement
+#   de v17 : "attention il ne faut pas que pour chaque lancement de
+#   blazing star le challenge remplace le hiscore ! uniquement si on lance
+#   blazing star en passant par le RB challenge") : v17 n'affichait le
+#   classement que si system/rom correspondaient au challenge du mois
+#   (dmd_challenge.py), mais ca aurait afficher le classement pour
+#   N'IMPORTE QUEL lancement du jeu concerne (gamelist normale), pas
+#   seulement une VRAIE session de challenge. Nouvelle fonction
+#   challenge_session_active() (verifie qu'un processus en cours porte
+#   l'argument "--challenge <manifeste>", signal trouve en lisant le code
+#   source RB configgen/emulatorlauncher.py -- CET argument n'est present
+#   QUE lors d'un lancement via le menu "Challenges" de ES) -- ajoutee
+#   comme garde supplementaire dans publish_one_panel(), cas "challenge".
+#   PAS ENCORE VALIDE SUR MATERIEL avec une vraie session de challenge
+#   active (aucune en cours au moment d'ecrire ceci) -- a confirmer au
+#   prochain test reel.
+#
+# v17 - 2026-08-22 - safe-modify - Prise en charge du "Challenge" Recalbox
+#   du mois (demande utilisateur explicite : "gerer comme on gere les RA"
+#   -- clarifie ensuite : afficher le classement COMMUNAUTAIRE EN LIGNE,
+#   pas le score local, en round-robin avec le marquee EN JEU uniquement,
+#   MAJ suivant le fichier local que RB rafraichit deja tout seul). Voir
+#   memoire projet pour l'exploration complete du systeme officiel RB
+#   (configgen/challenge/*, ScoreWatch.py, HiscoreTable.py) qui a mene a ce
+#   design : le fichier local /recalbox/share/system/challenges/
+#   current.json contient DEJA le classement en JSON pret a l'emploi --
+#   AUCUN decodage de fichier de sauvegarde necessaire pour ce circuit
+#   (contrairement au chantier hi-score FBNeo/MAME general, en attente
+#   d'une reponse de l'equipe RB, MIS DE COTE en parallele -- voir
+#   dmd_challenge.py pour le detail du format source). Nouveau fichier
+#   `dmd_challenge.py` (meme famille que dmd_game_info.py) : lit
+#   current.json, verifie que system/rom correspondent au challenge actif
+#   (evite d'afficher un classement perime d'un mois precedent sur un
+#   AUTRE jeu), formate les 9 premieres entrees en lignes "rang nom score"
+#   -- meme convention que le rendu hi-score GENERIQUE deja gere par le
+#   firmware (nom/score separes par le DERNIER espace, AUCUN changement
+#   firmware necessaire). Nouvelle fonction publish_challenge() (reutilise
+#   send_paginated_lines(), meme mecanisme que INFOS). "challenge" ajoute
+#   a la rotation UNIQUEMENT en contexte "ingame" (round_robin(), pas dans
+#   enabled_panel_types() qui reste inchangee -- evite de complexifier son
+#   contrat pour les 2 contextes alors que "challenge" n'a de sens qu'en
+#   jeu). TOUJOURS ACTIF, pas de reglage web dedie pour ce v1 (decision
+#   utilisateur explicite "toujours actif" -- ~1 seul jeu/mois concerne,
+#   overhead negligeable les autres jours puisque dmd_challenge.py ne
+#   renvoie rien silencieusement si system/rom ne correspondent pas, meme
+#   comportement que INFOS/DESCRIPTION quand ils sont vides).
 #
 # v16 - 2026-08-20 - safe-modify - send_paginated() REVUE suite a un
 #   malentendu identifie par l'utilisateur sur v15 ci-dessous : v15
@@ -376,6 +433,29 @@ enabled_panel_types() {
     echo "$types"
 }
 
+# v17 -- BUG REEL corrige AVANT deploiement (retour utilisateur explicite :
+# "attention il ne faut pas que pour chaque lancement de blazing star le
+# challenge remplace le hiscore ! uniquement si on lance blazing star en
+# passant par le RB challenge") -- la 1ere version comparait seulement
+# system/rom contre current.json (voir dmd_challenge.py), ce qui aurait
+# affiche le classement pour N'IMPORTE QUEL lancement du jeu concerne (ex.
+# depuis la gamelist normale), pas seulement une VRAIE session de
+# challenge. Signal fiable trouve en lisant le code source RB
+# (configgen/emulatorlauncher.py, ligne ~242) : le suivi ScoreWatch/
+# challenge n'est instancie QUE si l'argument de ligne de commande
+# "--challenge <manifeste>" a ete passe au lancement -- ce qui n'arrive
+# QUE via le menu "Challenges" de ES, jamais pour un lancement normal
+# depuis la gamelist. Cette fonction verifie qu'un processus EN COURS
+# porte bien cet argument (le processus emulatorlauncher.py reste actif
+# pendant toute la duree de la partie, cf. code source : il attend la fin
+# de l'emulateur avant d'appeler scoreWatch.finish()).
+# ATTENTION : PAS ENCORE VALIDE SUR MATERIEL avec une vraie session de
+# challenge active (aucune en cours au moment d'ecrire ceci) -- a
+# confirmer au prochain test reel.
+challenge_session_active() {
+    ps -o args -ww 2>/dev/null | grep -q -- '--challenge '
+}
+
 # v13 -- BUG REEL corrige (retour utilisateur : "la description a
 # poursuivi sa page 2 et 3... apres le marquee du lancement de jeu" / puis
 # confirme symetrique : "quand on quitte le jeu, hiscore continue a
@@ -640,6 +720,17 @@ round_robin() {
         current=$(cat "$state_file" 2>/dev/null)
         [ "$current" = "$expected" ] || return
         types=$(enabled_panel_types "$ctx")
+        # v19 -- "challenge" (classement communautaire Recalbox du mois),
+        # uniquement en contexte "ingame". Retour utilisateur explicite :
+        # "en mode challenge je veux uniquement le tableau challenge +
+        # marquee rien d'autre" -- REMPLACE (pas ajoute a) le reste de la
+        # rotation en jeu tant qu'une VRAIE session de challenge est
+        # active (challenge_session_active(), voir son commentaire complet
+        # plus haut) -- hi-score/infos/description restent actifs comme
+        # avant des que ce n'est plus le cas (partie normale).
+        if [ "$ctx" = "ingame" ] && challenge_session_active; then
+            types="challenge "
+        fi
         if [ -z "$types" ]; then
             continue
         fi
@@ -652,6 +743,11 @@ round_robin() {
             i=$((i + 1))
         done
         idx=$((idx + 1))
+        # v17 -- "challenge" ajoute ICI (pas dans enabled_panel_types(),
+        # qui reste inchangee/partagee entre ingame et browse) car ce
+        # contenu n'a de sens qu'en jeu -- voir changelog v17. Overhead
+        # negligeable si aucun challenge n'est actif (publish_one_panel()
+        # renvoie silencieusement 1, round_robin() continue normalement).
         echo "$(date '+%H:%M:%S') ROUNDROBIN ctx=$ctx type=$chosen ratio=$ratio pos=${pos}/${count}" >> "$LOG"
         publish_one_panel "$sys" "$gpath" "$rom" "$chosen" "$state_file" "$expected"
         current=$(cat "$state_file" 2>/dev/null)
@@ -891,11 +987,27 @@ publish_one_panel() {
             send_paginated_lines "$title" "$content" "$HISCORE_INFO_PAGE_DURATION_MS" "$HISCORE_INFO_PAGE_DURATION_S" "$sf" "$exp"
             return 0
             ;;
+        challenge)
+            # v17 -- classement communautaire du Challenge Recalbox du
+            # mois -- voir changelog v17 + dmd_challenge.py. dmd_challenge.py
+            # verifie que sys/rom correspondent au challenge actif, MAIS
+            # ca ne suffit pas : verifie EN PLUS qu'on est dans une VRAIE
+            # session de challenge (challenge_session_active(), voir son
+            # commentaire complet plus haut) -- sinon un lancement NORMAL
+            # du jeu du challenge du mois (depuis la gamelist, hors menu
+            # Challenges) afficherait a tort le classement.
+            [ -n "$sys" ] && [ -n "$rom" ] || return 1
+            challenge_session_active || return 1
+            lines=$(python3 "${SCRIPT_DIR}/dmd_challenge.py" "$sys" "$rom" 2>>"$LOG")
+            [ -n "$lines" ] || return 1
+            send_paginated_lines "CHALLENGE" "$lines" "$HISCORE_INFO_PAGE_DURATION_MS" "$HISCORE_INFO_PAGE_DURATION_S" "$sf" "$exp"
+            return 0
+            ;;
     esac
     return 1
 }
 
-echo "$(date) - DMD score bridge started (v16, pagination DESCRIPTION par phrases entieres + TomThumb + round-robin infini + interruption inter-pages + titre hi-score page2 + marge anti-flash + dwell/ratios reglables)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v19, classement Challenge exclusif en session active + pagination DESCRIPTION par phrases entieres + TomThumb + round-robin infini + interruption inter-pages + titre hi-score page2 + marge anti-flash + dwell/ratios reglables)" >> "$LOG"
 # Efface une session/etat perime d'un lancement precedent.
 : > "$GAME_SESSION_FILE"
 : > "$BROWSE_STATE_FILE"
