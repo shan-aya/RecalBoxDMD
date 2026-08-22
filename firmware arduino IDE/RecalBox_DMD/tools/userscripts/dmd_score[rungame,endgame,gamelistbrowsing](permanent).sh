@@ -5,7 +5,61 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v19
+# Version actuelle : v23
+#
+# v23 - 2026-08-22 - safe-modify - CORRECTION de v22 ci-dessous, avant
+#   deploiement final -- v22 supprimait TOUT affichage (marquee seul)
+#   pendant la navigation dans le systeme virtuel "challenges" -- retour
+#   utilisateur explicite avec la matrice complete attendue :
+#     - navigation NIVEAU SYSTEME "challenges" (avant d'entrer) -> juste
+#       le logo/marquee, comme n'importe quel systeme (deja le
+#       comportement naturel, rien a coder : systembrowsing ne demarre
+#       jamais de round-robin).
+#     - navigation NIVEAU JEU DANS "challenges" (Blazing Star atteint via
+#       la collection) -> afficher le TABLEAU CHALLENGE, pas rien.
+#     - MEME jeu joue/navigue SOUS SON SYSTEME REEL (fbneo), PAS via
+#       "challenges" -> comportement normal (hiscore/infos/description
+#       selon la config), et SURTOUT PAS le tableau challenge.
+#   round_robin() choisit desormais "challenge" comme type EXCLUSIF pour
+#   le contexte "browse" quand LAST_SYSTEMBROWSING_ID == "challenges" (au
+#   lieu de court-circuiter round_robin() entierement comme le faisait
+#   v22) -- meme mecanisme que le cas "ingame" (challenge_session_active())
+#   mais base sur le contexte de navigation plutot que sur un processus
+#   actif. La garde challenge_session_active() dans publish_one_panel()
+#   (cas "challenge") est RETIREE -- elle bloquait a tort ce nouveau cas
+#   navigation (aucun processus de jeu ne tourne pendant une simple
+#   navigation) -- round_robin() est desormais la SEULE source de verite
+#   pour decider quand "challenge" est legitime dans la rotation.
+#
+# v22 - 2026-08-22 - safe-modify - CORRECTION de v21 ci-dessous, avant meme
+#   deploiement reel -- l'approche v21 (is_challenge_game(), comparaison
+#   system/rom contre current.json) etait FAUSSE : retour utilisateur
+#   explicite "tu as pas complique les choses ?... si je suis dans fbneo
+#   ou dans neo-geo ou dans favoris je veux que l'affichage du jeu soit
+#   present quand je le survole" -- "RB CHALLENGE" est un SYSTEME VIRTUEL
+#   distinct dans ES (collection "Challenges"), la demande initiale ne
+#   visait QUE la navigation A L'INTERIEUR de ce systeme virtuel precis,
+#   PAS le meme jeu rencontre via son systeme reel (fbneo) ou via
+#   favoris. Verifie en DIRECT sur materiel (capture de /tmp/es_state.inf
+#   pendant la navigation) : au niveau systeme, l'evenement systembrowsing
+#   rapporte bien SystemId=challenges -- MAIS au niveau JEU (une fois DANS
+#   la collection), l'evenement gamelistbrowsing rapporte le SystemId REEL
+#   (fbneo), IDENTIQUE a une navigation normale -- aucun champ ne
+#   distingue "atteint via Challenges" a ce niveau. is_challenge_game()
+#   (comparaison system/rom brute) etait donc TROP LARGE : elle aurait
+#   masque les panneaux du jeu du challenge meme via fbneo/favoris.
+#   Fix : nouvelle variable LAST_SYSTEMBROWSING_ID, mise a jour par un
+#   NOUVEAU cas explicite "systembrowsing)" (jamais gere avant, tombait
+#   dans le cas par defaut "*)") -- retient le SystemId du DERNIER
+#   evenement systembrowsing vu. gamelistbrowsing verifie desormais CETTE
+#   variable (contexte de navigation memorise) au lieu de comparer le jeu
+#   lui-meme -- suppression du round-robin browse UNIQUEMENT si on
+#   navigue actuellement A L'INTERIEUR du systeme virtuel "challenges",
+#   peu importe le jeu affiche.
+#
+# v20 - 2026-08-22 - safe-modify - Titre de l'ecran classement renomme
+#   "CHALLENGE" -> "RB CHALLENGE" (demande utilisateur explicite) --
+#   simple changement de libelle, aucun impact fonctionnel.
 #
 # v19 - 2026-08-22 - safe-modify - Retour utilisateur explicite APRES
 #   confirmation que v18 fonctionne sur materiel ("parfait ca fonctionne")
@@ -728,7 +782,24 @@ round_robin() {
         # active (challenge_session_active(), voir son commentaire complet
         # plus haut) -- hi-score/infos/description restent actifs comme
         # avant des que ce n'est plus le cas (partie normale).
+        # v23 -- CORRECTION de v22 : la navigation A L'INTERIEUR du
+        # systeme virtuel "challenges" doit afficher le TABLEAU challenge
+        # (pas rien -- retour utilisateur explicite : "jeu contenu dans
+        # challenge... on affiche le tableau challenge"), tandis que le
+        # MEME jeu rencontre via son systeme reel (fbneo/favoris) garde le
+        # comportement normal SANS jamais montrer le tableau challenge.
+        # Matrice complete (voir changelog v23) :
+        #   - navigation systeme "challenges" -> marquee seul (rien de
+        #     special a faire ICI, systembrowsing ne demarre jamais de
+        #     round-robin -- comme n'importe quel autre systeme)
+        #   - navigation JEU dans "challenges" -> tableau challenge SEUL
+        #     (LAST_SYSTEMBROWSING_ID == "challenges")
+        #   - navigation JEU via fbneo/favoris (meme jeu) -> config
+        #     normale (hiscore/infos/description), JAMAIS le tableau
+        #     challenge
         if [ "$ctx" = "ingame" ] && challenge_session_active; then
+            types="challenge "
+        elif [ "$ctx" = "browse" ] && [ "$LAST_SYSTEMBROWSING_ID" = "challenges" ]; then
             types="challenge "
         fi
         if [ -z "$types" ]; then
@@ -989,31 +1060,42 @@ publish_one_panel() {
             ;;
         challenge)
             # v17 -- classement communautaire du Challenge Recalbox du
-            # mois -- voir changelog v17 + dmd_challenge.py. dmd_challenge.py
-            # verifie que sys/rom correspondent au challenge actif, MAIS
-            # ca ne suffit pas : verifie EN PLUS qu'on est dans une VRAIE
-            # session de challenge (challenge_session_active(), voir son
-            # commentaire complet plus haut) -- sinon un lancement NORMAL
-            # du jeu du challenge du mois (depuis la gamelist, hors menu
-            # Challenges) afficherait a tort le classement.
+            # mois -- voir changelog v17/v23 + dmd_challenge.py.
+            # v23 -- garde challenge_session_active() RETIREE d'ici : elle
+            # bloquait a tort le cas navigation (LAST_SYSTEMBROWSING_ID ==
+            # "challenges", voir round_robin()) puisqu'aucun processus de
+            # jeu ne tourne pendant une simple navigation. round_robin()
+            # est desormais la SEULE source de verite pour decider QUAND
+            # "challenge" fait partie de la rotation (session active EN
+            # JEU via challenge_session_active(), OU navigation dans le
+            # systeme virtuel "challenges" via LAST_SYSTEMBROWSING_ID) --
+            # si on arrive ici, c'est deja legitime. dmd_challenge.py
+            # verifie encore lui-meme sys/rom contre current.json (defense
+            # en profondeur, silencieux si pas de correspondance).
             [ -n "$sys" ] && [ -n "$rom" ] || return 1
-            challenge_session_active || return 1
             lines=$(python3 "${SCRIPT_DIR}/dmd_challenge.py" "$sys" "$rom" 2>>"$LOG")
             [ -n "$lines" ] || return 1
-            send_paginated_lines "CHALLENGE" "$lines" "$HISCORE_INFO_PAGE_DURATION_MS" "$HISCORE_INFO_PAGE_DURATION_S" "$sf" "$exp"
+            send_paginated_lines "RB CHALLENGE" "$lines" "$HISCORE_INFO_PAGE_DURATION_MS" "$HISCORE_INFO_PAGE_DURATION_S" "$sf" "$exp"
             return 0
             ;;
     esac
     return 1
 }
 
-echo "$(date) - DMD score bridge started (v19, classement Challenge exclusif en session active + pagination DESCRIPTION par phrases entieres + TomThumb + round-robin infini + interruption inter-pages + titre hi-score page2 + marge anti-flash + dwell/ratios reglables)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v23, tableau RB CHALLENGE en navigation dans le systeme virtuel challenges + classement exclusif en session active + pagination DESCRIPTION par phrases entieres + TomThumb + round-robin infini + interruption inter-pages + titre hi-score page2 + marge anti-flash + dwell/ratios reglables)" >> "$LOG"
 # Efface une session/etat perime d'un lancement precedent.
 : > "$GAME_SESSION_FILE"
 : > "$BROWSE_STATE_FILE"
 
 LAST_BROWSE_SYS=""
 LAST_BROWSE_ROM=""
+# v22 -- SystemId du DERNIER evenement "systembrowsing" vu (voir
+# changelog v22) -- distingue une navigation A L'INTERIEUR du systeme
+# virtuel "challenges" (ES, collection "Challenges") d'une navigation
+# normale, meme quand le jeu affiche est identique (l'evenement
+# gamelistbrowsing, lui, rapporte toujours le systeme REEL du jeu,
+# jamais le systeme virtuel d'ou on l'a atteint).
+LAST_SYSTEMBROWSING_ID=""
 
 # Connexion MQTT PERSISTANTE (une seule souscription, lue en continu).
 mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 -t "Recalbox/EmulationStation/Event" 2>/dev/null | \
@@ -1021,6 +1103,11 @@ while IFS= read -r event; do
     event=$(printf '%s' "$event" | tr -d '\r')
 
     case "$event" in
+        systembrowsing)
+            # v22 -- voir commentaire complet sur LAST_SYSTEMBROWSING_ID
+            # plus haut et changelog v22.
+            LAST_SYSTEMBROWSING_ID=$(read_state "SystemId")
+            ;;
         rungame)
             # v10 -- BUG REEL corrige (retour utilisateur explicite : "info
             # page1 - description page2 - hiscore - info page2 - marquee",
@@ -1105,7 +1192,18 @@ while IFS= read -r event; do
                         sleep "$dwell"
                         current=$(cat "$BROWSE_STATE_FILE" 2>/dev/null)
                         if [ "$current" = "$state" ]; then
-                            echo "$(date '+%H:%M:%S') DWELL settled sys=$system rom=$rom -- demarrage round-robin browse" >> "$LOG"
+                            # v23 -- round_robin() demarre desormais dans
+                            # TOUS les cas -- c'est SON propre choix de
+                            # type (voir v23 plus haut) qui decide entre
+                            # "challenge" seul (navigation dans le systeme
+                            # virtuel "challenges") et la rotation normale
+                            # hiscore/infos/description (meme jeu via
+                            # fbneo/favoris). Avant v23, ce cas court-
+                            # circuitait round_robin() entierement -- retour
+                            # utilisateur explicite : "jeu contenu dans
+                            # challenge... on affiche le tableau challenge",
+                            # PAS rien.
+                            echo "$(date '+%H:%M:%S') DWELL settled sys=$system rom=$rom (dernier systeme survole: $LAST_SYSTEMBROWSING_ID) -- demarrage round-robin browse" >> "$LOG"
                             round_robin "browse" "$system" "$game_path" "$rom" "$BROWSE_STATE_FILE" "$state" "repeat_browse_cycles"
                         else
                             echo "$(date '+%H:%M:%S') DWELL abandoned sys=$system rom=$rom (deplace entre-temps)" >> "$LOG"

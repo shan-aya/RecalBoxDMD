@@ -1,7 +1,20 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v119
+// Version actuelle : v120
+//
+// v120 - 2026-08-22 - safe-modify - Score ALIGNE A DROITE dans le rendu
+//   generique nom/score (retour utilisateur explicite : "aligner les
+//   scores a droite de l'ecran car la ils se decalent en fonction de la
+//   longueur des noms" -- visible surtout sur le classement RB CHALLENGE,
+//   plusieurs rangs empiles avec des noms de longueurs tres variables).
+//   Position du score desormais calculee depuis le BORD DROIT de l'ecran
+//   (RAW565_W - longueur_score*6 - 1) au lieu de juste apres le nom --
+//   applique aux 2 rendus qui partagent cette convention (rang generique
+//   dans drawScoreScreen(), et rang 2 de l'ecran hi-score special). Repli
+//   sur la fin du nom si le score deborderait a gauche (defense en
+//   profondeur, ne devrait pas arriver avec les noms deja tronques cote
+//   RB).
 //
 // v119 - 2026-08-20 - safe-modify - 2 ajustements suite au 1er retour
 //   utilisateur sur v118 : (1) espacement inter-caractere DESCRIPTION
@@ -5087,7 +5100,15 @@ void drawScoreScreen(const String &payload)
       } else {
         display->setTextSize(1);
         drawScoreTextShadowed(1, y, name, white);
-        if (scoreVal.length() > 0) drawScoreTextShadowed(1 + (int)name.length() * 6 + 6, y, scoreVal, gold);
+        // v120 -- meme alignement a droite que le rendu generique (voir
+        // commentaire complet plus bas) -- coherence visuelle entre les 2
+        // ecrans qui partagent la meme convention nom/score.
+        if (scoreVal.length() > 0) {
+          int sx = RAW565_W - (int)scoreVal.length() * 6 - 1;
+          int nameEnd = 1 + (int)name.length() * 6 + 4;
+          if (sx < nameEnd) sx = nameEnd;
+          drawScoreTextShadowed(sx, y, scoreVal, gold);
+        }
         y += 8;
       }
       rankIdx++;
@@ -5171,16 +5192,26 @@ void drawScoreScreen(const String &payload)
       display->setFont(NULL);
     } else {
       // Rang : coupe sur le DERNIER espace -- nom (blanc) a gauche, score
-      // (or) juste apres. Aligne a gauche (pas de centrage independant par
-      // ligne, voir bug reel deja documente sur l'ancien systeme : un
-      // centrage independant desalignait les rangs entre eux selon le
-      // nombre de chiffres du score).
+      // (or). v120 -- score desormais ALIGNE A DROITE (retour utilisateur
+      // explicite : "les scores... se decalent en fonction de la longueur
+      // des noms" -- visible surtout sur le classement CHALLENGE, plusieurs
+      // rangs empiles avec des noms de longueurs tres variables, ex. "SNK"
+      // vs "RUFOTHEONE") -- position calculee depuis le BORD DROIT de
+      // l'ecran (independante de la longueur du nom), au lieu de juste
+      // apres le nom (glissait a droite avec les noms longs, jamais aligne
+      // entre les rangs). Repli sur le nom seul si le score deborderait a
+      // gauche du nom (nom trop long pour le budget restant -- ne devrait
+      // pas arriver avec les noms deja tronques a 10 caracteres cote RB,
+      // mais defense en profondeur).
       int sp = line.lastIndexOf(' ');
       if (sp > 0) {
         String name = line.substring(0, sp);
         String scoreVal = line.substring(sp + 1);
         drawScoreTextShadowed(1, y, name, white);
-        drawScoreTextShadowed(1 + (int)name.length() * 6 + 6, y, scoreVal, gold);
+        int sx = RAW565_W - (int)scoreVal.length() * 6 - 1;
+        int nameEnd = 1 + (int)name.length() * 6 + 4;
+        if (sx < nameEnd) sx = nameEnd;
+        drawScoreTextShadowed(sx, y, scoreVal, gold);
       } else {
         drawScoreTextShadowed(1, y, line, white);
       }
