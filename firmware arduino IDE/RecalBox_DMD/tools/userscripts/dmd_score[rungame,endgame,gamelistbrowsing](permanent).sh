@@ -5,7 +5,17 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v25
+# Version actuelle : v26
+#
+# v26 - 2026-08-23 - safe-modify - Phase 1 hi-score generique BRANCHEE
+#   (voir memoire projet -- chantier destine a la communaute Recalbox,
+#   pas un usage perso). build_score_payload() : le cas par defaut ("jeu
+#   non supporte") tente desormais dmd_hiscore_generic.py (manifeste
+#   ~2758 jeux arcade convertis depuis hi2txt-xml) AVANT d'abandonner --
+#   les 3 cas geres en dur (1941/galaga/gyruss) restent INCHANGES, chemin
+#   deja prouve, aucun risque de regression. Etend la couverture hi-score
+#   a tout jeu FBNeo present dans le manifeste, sans toucher au code
+#   existant.
 #
 # v25 - 2026-08-23 - safe-modify - 2 bugs reels corriges (retours
 #   utilisateur successifs sur le meme test) :
@@ -1065,8 +1075,23 @@ build_score_payload() {
             echo "HI-SCORE|${topn}"
             ;;
         *)
-            echo "$(date '+%H:%M:%S') SCORE skip $rom (jeu non supporte)" >> "$LOG"
-            return
+            # v26 -- Phase 1 hi-score generique (voir memoire projet
+            # 2026-08-23) : les 3 cas ci-dessus restent le chemin RAPIDE et
+            # DEJA PROUVE (pas touche, aucun risque de regression) --
+            # ce fallback etend la couverture a tout jeu present dans
+            # hiscore_manifest.json (~2758 jeux arcade via hi2txt-xml)
+            # SANS toucher au code existant. dmd_hiscore_generic.py est
+            # silencieux (aucune sortie) si le jeu n'est pas dans le
+            # manifeste, si le fichier ne fait pas la taille attendue, ou
+            # en cas d'erreur -- meme prudence que les cas geres en dur.
+            topn=$(python3 "${SCRIPT_DIR}/dmd_hiscore_generic.py" fbneo "$rom" 2>>"$LOG")
+            if [ -z "$topn" ]; then
+                echo "$(date '+%H:%M:%S') SCORE skip $rom (jeu non supporte)" >> "$LOG"
+                return
+            fi
+            glabel="GENERIQUE"
+            score="${topn}"
+            echo "HI-SCORE|${topn}"
             ;;
     esac
     echo "$(date '+%H:%M:%S') SCORE $rom (${glabel}) -> ${score}" >> "$LOG" 1>&2
@@ -1152,7 +1177,7 @@ publish_one_panel() {
     return 1
 }
 
-echo "$(date) - DMD score bridge started (v25, fix state browse incluant LAST_SYSTEMBROWSING_ID (boucle round-robin fantome corrigee) + fix auto-match challenge_session_active + tableau RB CHALLENGE en navigation dans le systeme virtuel challenges + classement exclusif en session active + pagination DESCRIPTION par phrases entieres + TomThumb + round-robin infini + interruption inter-pages + titre hi-score page2 + marge anti-flash + dwell/ratios reglables)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v26, hi-score generique branche (~2758 jeux via hiscore_manifest.json) + fix state browse incluant LAST_SYSTEMBROWSING_ID (boucle round-robin fantome corrigee) + fix auto-match challenge_session_active + tableau RB CHALLENGE en navigation dans le systeme virtuel challenges + classement exclusif en session active + pagination DESCRIPTION par phrases entieres + TomThumb + round-robin infini + interruption inter-pages + titre hi-score page2 + marge anti-flash + dwell/ratios reglables)" >> "$LOG"
 # Efface une session/etat perime d'un lancement precedent.
 : > "$GAME_SESSION_FILE"
 : > "$BROWSE_STATE_FILE"
