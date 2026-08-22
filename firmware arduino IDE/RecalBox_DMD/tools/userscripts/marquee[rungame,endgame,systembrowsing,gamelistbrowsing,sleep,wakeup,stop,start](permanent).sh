@@ -22,6 +22,21 @@
 #   rafale par timeout, boot, transition system/game reelle, endgame,
 #   stop).
 #
+#   TODO (non fait, demande utilisateur 2026-08-22, "a mettre dans un
+#   coin et a me le rappeler") : BURST_THRESHOLD/BURST_SUSTAIN_SECONDS
+#   sont actuellement des constantes EN DUR ci-dessous, calibrees sur LE
+#   materiel de l'utilisateur a CE jour. Raison de la demande : aucun
+#   moyen de tester a l'avance un scenario de SD plus lente (ou autre
+#   contrainte materielle) qui abaisserait le debit max soutenable --
+#   souhait explicite de pouvoir ABAISSER ce seuil (voire DESACTIVER le
+#   coupe-circuit entierement, cf BURST_THRESHOLD=50 en v11/v12 =
+#   desactivation de fait) sans reflasher/redeployer un script, si un
+#   souci apparait plus tard. Piste envisageable : reglage expose sur la
+#   page web de config firmware (comme les 8 toggles hi-score/infos/RA
+#   deja existants) puis lu depuis config.ini cote script, memes
+#   conventions que le reste du sous-systeme "DMD bete" (voir section
+#   dediee DECISIONS.md).
+#
 # v15 - 2026-08-22 - safe-modify - BURST_THRESHOLD 6 -> 5 (retour utilisateur
 #   apres verification croisee avec la memoire projet du 2026-08-18 :
 #   l'episode "32 connexions" cite a l'epoque etait "32 en ~30s", PAS 32/s
