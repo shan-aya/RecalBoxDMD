@@ -2,7 +2,15 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v1
+# Version actuelle : v2
+#
+# v2 - 2026-08-23 - safe-modify - Chemins MAME corriges (voir commentaire
+#   HI_SEARCH_PATHS plus bas) + mame0278/mame0274/mame0258/mame2000 ajoutes
+#   -- la version precedente ne trouvait AUCUN .hi MAME (chemins jamais
+#   verifies en direct, structure reelle decouverte cette nuit en batissant
+#   direct_harvest_mame0278.py). Branche par dmd_score.sh v27 (le gate
+#   `[ "$sys" = "fbneo" ]` qui bloquait tout jeu MAME avant meme d'atteindre
+#   ce script est retire).
 #
 # v1 - 2026-08-23 - safe-modify - Creation initiale. Phase 1 du chantier
 #   hi-score generique MAME/FBNeo (demande utilisateur explicite : projet
@@ -43,18 +51,29 @@ import unicodedata
 MANIFEST_PATH = os.path.join(os.path.dirname(__file__), "hiscore_manifest.json")
 
 # Chemins de sauvegarde .hi connus par core -- a completer au fil de l'eau
-# si d'autres cores/emulateurs sont utilises. Verifie en direct sur RB
-# 2026-08-22/23 pour fbneo ; les autres sont la convention RB standard
-# (memes noms de dossier que le hiscore.dat correspondant, voir
-# /recalbox/share/bios/<core>/hiscore.dat) mais PAS ENCORE verifies en
-# direct -- a confirmer au premier jeu MAME reellement teste.
+# si d'autres cores/emulateurs sont utilises.
+# v2 (2026-08-23) -- BUG REEL corrige : les chemins MAME d'origine
+# ("mame2003-plus/mame2003-plus/...") etaient FAUX (jamais verifies en
+# direct) -- vrais chemins confirmes sur materiel cette nuit en construisant
+# direct_harvest_mame0278.py : TOUS les cores MAME vivent sous
+# "/recalbox/share/saves/mame/<core>/..." (pas "<core>/<core>/"), avec un
+# sous-dossier "hiscore" pour les cores recents a plugin Lua (mame0278,
+# confirme -- mame0274/mame0258 memes generations, memes plugins, motif
+# identique par extrapolation) et "hi" pour les cores plus anciens
+# (mame2003-plus confirme via find reel, 31 vrais .hi presents ; 2003/2010/
+# 2015/2000 memes generation que 2003-plus, motif identique par
+# extrapolation, pas individuellement reverifies). fbneo reste confirme et
+# inchange.
 HI_SEARCH_PATHS = [
     "/recalbox/share/saves/fbneo/fbneo/{rom}.hi",
-    "/recalbox/share/saves/mame2003-plus/mame2003-plus/{rom}.hi",
-    "/recalbox/share/saves/mame2000/mame2000/{rom}.hi",
-    "/recalbox/share/saves/mame2003/mame2003/{rom}.hi",
-    "/recalbox/share/saves/mame2010/mame2010/{rom}.hi",
-    "/recalbox/share/saves/mame2015/mame2015/{rom}.hi",
+    "/recalbox/share/saves/mame/mame0278/hiscore/{rom}.hi",
+    "/recalbox/share/saves/mame/mame0274/hiscore/{rom}.hi",
+    "/recalbox/share/saves/mame/mame0258/hiscore/{rom}.hi",
+    "/recalbox/share/saves/mame/mame2003-plus/hi/{rom}.hi",
+    "/recalbox/share/saves/mame/mame2010/hi/{rom}.hi",
+    "/recalbox/share/saves/mame/mame2015/hi/{rom}.hi",
+    "/recalbox/share/saves/mame/mame2003/hi/{rom}.hi",
+    "/recalbox/share/saves/mame/mame2000/hi/{rom}.hi",
 ]
 
 MAX_ENTRIES = 9  # aligne avec dmd_challenge.py (3 pages x 3 lignes)

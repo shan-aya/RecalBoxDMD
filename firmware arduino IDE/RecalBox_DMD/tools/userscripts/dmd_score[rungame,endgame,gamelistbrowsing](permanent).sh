@@ -5,7 +5,24 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v26
+# Version actuelle : v27
+#
+# v27 - 2026-08-23 - safe-modify - BUG REEL corrige (retour utilisateur,
+#   "je suis etonne car des la creation .hi ca semblait fonctionner" -- oui,
+#   mais UNIQUEMENT pour fbneo) : le hi-score generique v26 etait en realite
+#   TRIPLEMENT gate sur fbneo, jamais atteignable pour MAME malgre la
+#   recolte mame0278 de cette nuit (~700+ .hi frais) : (1) publish_one_panel()
+#   n'appelait publish_hiscore() QUE si $sys="fbneo", (2) build_score_payload()
+#   ne recevait meme pas $sys et utilisait un chemin .hi fbneo EN DUR pour
+#   TOUS les jeux (y compris le fallback generique), (3) le handler endgame
+#   avait le meme gate fbneo-only. Les 3 corriges : $sys chaine desormais de
+#   bout en bout (publish_one_panel -> publish_hiscore -> build_score_payload
+#   -> dmd_hiscore_generic.py), les 3 decodeurs geres en dur (galaga/gyruss/
+#   1941) restent strictement reserves a `$sys=fbneo` (format .hi
+#   specifique), tout le reste (fbneo non special-case + MAME) passe par le
+#   decodeur generique. Voir aussi dmd_hiscore_generic.py v2 (chemins MAME
+#   corriges -- necessaire en complement, sans ca ce fix ne trouvait quand
+#   meme aucun .hi MAME).
 #
 # v26 - 2026-08-23 - safe-modify - Phase 1 hi-score generique BRANCHEE
 #   (voir memoire projet -- chantier destine a la communaute Recalbox,
@@ -1039,62 +1056,79 @@ decode_1941_topN() {
 # si non applicable), le decoupage/gating reste au niveau appelant
 # (publish_hiscore(), v6).
 build_score_payload() {
-    rom="$1"
-    hifile="${HI_DIR}/${rom}.hi"
-    [ -f "$hifile" ] || { echo "$(date '+%H:%M:%S') SCORE skip $rom (pas de .hi)" >> "$LOG"; return; }
-    size=$(wc -c < "$hifile" 2>/dev/null)
-    glabel=""
+    rom="$1"; sys="$2"
 
-    case "$rom" in
-        galaga|galaga84|galagab2|galagads|galagamf|galagamk|galagamw|galagao|gallag)
-            if [ "$size" != "51" ]; then
-                echo "$(date '+%H:%M:%S') SCORE skip $rom (taille $size != 51)" >> "$LOG"
+    # v27 -- BUG REEL corrige (retour utilisateur, "je suis etonne car des
+    # la creation .hi ca semblait fonctionner" -- si, mais UNIQUEMENT pour
+    # fbneo) : cette fonction ne recevait pas $sys et gatait TOUT (y compris
+    # le fallback generique v26) sur `hifile="${HI_DIR}/${rom}.hi"`, un
+    # chemin fbneo EN DUR -- un jeu MAME (meme deja dans le manifeste
+    # generique) ne pouvait donc jamais produire de payload, quel que soit
+    # l'etat de son .hi reel (ailleurs sur le disque). Les 3 decodeurs geres
+    # en dur (galaga/gyruss/1941) restent strictement reserves a fbneo
+    # (roms fbneo, format .hi fbneo specifique, HI_DIR fbneo) -- un jeu
+    # MAME homonyme (ex. un "1941" ou un clone galaga present aussi sous
+    # mame) tombe desormais correctement dans le chemin generique, qui sait
+    # retrouver le bon .hi quel que soit le core (voir HI_SEARCH_PATHS,
+    # dmd_hiscore_generic.py v2).
+    if [ "$sys" = "fbneo" ]; then
+        case "$rom" in
+            galaga|galaga84|galagab2|galagads|galagamf|galagamk|galagamw|galagao|gallag)
+                hifile="${HI_DIR}/${rom}.hi"
+                [ -f "$hifile" ] || { echo "$(date '+%H:%M:%S') SCORE skip $rom (pas de .hi)" >> "$LOG"; return; }
+                size=$(wc -c < "$hifile" 2>/dev/null)
+                if [ "$size" != "51" ]; then
+                    echo "$(date '+%H:%M:%S') SCORE skip $rom (taille $size != 51)" >> "$LOG"
+                    return
+                fi
+                score=$(decode_galaga_topscore "$hifile")
+                echo "HI-SCORE ${score}"
+                echo "$(date '+%H:%M:%S') SCORE $rom (GALAGA) -> ${score}" >> "$LOG" 1>&2
                 return
-            fi
-            score=$(decode_galaga_topscore "$hifile")
-            glabel="GALAGA"
-            echo "HI-SCORE ${score}"
-            ;;
-        gyruss)
-            if [ "$size" != "43" ]; then
-                echo "$(date '+%H:%M:%S') SCORE skip $rom (taille $size != 43)" >> "$LOG"
+                ;;
+            gyruss)
+                hifile="${HI_DIR}/${rom}.hi"
+                [ -f "$hifile" ] || { echo "$(date '+%H:%M:%S') SCORE skip $rom (pas de .hi)" >> "$LOG"; return; }
+                size=$(wc -c < "$hifile" 2>/dev/null)
+                if [ "$size" != "43" ]; then
+                    echo "$(date '+%H:%M:%S') SCORE skip $rom (taille $size != 43)" >> "$LOG"
+                    return
+                fi
+                score=$(decode_gyruss_topscore "$hifile")
+                echo "HI-SCORE ${score}"
+                echo "$(date '+%H:%M:%S') SCORE $rom (GYRUSS) -> ${score}" >> "$LOG" 1>&2
                 return
-            fi
-            score=$(decode_gyruss_topscore "$hifile")
-            glabel="GYRUSS"
-            echo "HI-SCORE ${score}"
-            ;;
-        1941)
-            if [ "$size" != "124" ]; then
-                echo "$(date '+%H:%M:%S') SCORE skip $rom (taille $size != 124)" >> "$LOG"
+                ;;
+            1941)
+                hifile="${HI_DIR}/${rom}.hi"
+                [ -f "$hifile" ] || { echo "$(date '+%H:%M:%S') SCORE skip $rom (pas de .hi)" >> "$LOG"; return; }
+                size=$(wc -c < "$hifile" 2>/dev/null)
+                if [ "$size" != "124" ]; then
+                    echo "$(date '+%H:%M:%S') SCORE skip $rom (taille $size != 124)" >> "$LOG"
+                    return
+                fi
+                topn=$(decode_1941_topN "$hifile" 5)
+                echo "HI-SCORE|${topn}"
+                echo "$(date '+%H:%M:%S') SCORE $rom (1941) -> ${topn}" >> "$LOG" 1>&2
                 return
-            fi
-            topn=$(decode_1941_topN "$hifile" 5)
-            glabel="1941"
-            score="${topn}"
-            echo "HI-SCORE|${topn}"
-            ;;
-        *)
-            # v26 -- Phase 1 hi-score generique (voir memoire projet
-            # 2026-08-23) : les 3 cas ci-dessus restent le chemin RAPIDE et
-            # DEJA PROUVE (pas touche, aucun risque de regression) --
-            # ce fallback etend la couverture a tout jeu present dans
-            # hiscore_manifest.json (~2758 jeux arcade via hi2txt-xml)
-            # SANS toucher au code existant. dmd_hiscore_generic.py est
-            # silencieux (aucune sortie) si le jeu n'est pas dans le
-            # manifeste, si le fichier ne fait pas la taille attendue, ou
-            # en cas d'erreur -- meme prudence que les cas geres en dur.
-            topn=$(python3 "${SCRIPT_DIR}/dmd_hiscore_generic.py" fbneo "$rom" 2>>"$LOG")
-            if [ -z "$topn" ]; then
-                echo "$(date '+%H:%M:%S') SCORE skip $rom (jeu non supporte)" >> "$LOG"
-                return
-            fi
-            glabel="GENERIQUE"
-            score="${topn}"
-            echo "HI-SCORE|${topn}"
-            ;;
-    esac
-    echo "$(date '+%H:%M:%S') SCORE $rom (${glabel}) -> ${score}" >> "$LOG" 1>&2
+                ;;
+        esac
+    fi
+
+    # v26 -- Phase 1 hi-score generique (voir memoire projet 2026-08-23) :
+    # etend la couverture a tout jeu (fbneo ET mame desormais, v27) present
+    # dans hiscore_manifest.json (~3100 jeux arcade via hi2txt-xml + Phase 2
+    # statistique). dmd_hiscore_generic.py est silencieux (aucune sortie) si
+    # le jeu n'est pas dans le manifeste, si le fichier ne fait pas la
+    # taille attendue, ou en cas d'erreur -- meme prudence que les cas geres
+    # en dur ci-dessus.
+    topn=$(python3 "${SCRIPT_DIR}/dmd_hiscore_generic.py" "$sys" "$rom" 2>>"$LOG")
+    if [ -z "$topn" ]; then
+        echo "$(date '+%H:%M:%S') SCORE skip $rom (jeu non supporte)" >> "$LOG"
+        return
+    fi
+    echo "HI-SCORE|${topn}"
+    echo "$(date '+%H:%M:%S') SCORE $rom (GENERIQUE) -> ${topn}" >> "$LOG" 1>&2
 }
 
 # v6 -- point d'entree UNIQUE pour publier le hi-score d'un rom, utilise a
@@ -1104,9 +1138,12 @@ build_score_payload() {
 # v13 -- $2=state_file/$3=expected optionnels, transmis a
 # send_hiscore_paginated() -- endgame les omet (comportement inchange, un
 # appel ponctuel hors round-robin n'a pas besoin d'etre interrompu).
+# v27 -- $2=sys ajoute (necessaire a build_score_payload() pour distinguer
+# fbneo des jeux MAME homonymes, voir son commentaire) -- state_file/
+# expected decales en $3/$4.
 publish_hiscore() {
-    rom="$1"; sf="$2"; exp="$3"
-    payload=$(build_score_payload "$rom")
+    rom="$1"; sys="$2"; sf="$3"; exp="$4"
+    payload=$(build_score_payload "$rom" "$sys")
     [ -n "$payload" ] || return 1
     title="${payload%%|*}"
     rest="${payload#*|}"
@@ -1129,8 +1166,12 @@ publish_one_panel() {
     sys="$1"; gpath="$2"; rom="$3"; type="$4"; sf="$5"; exp="$6"
     case "$type" in
         hiscore)
-            [ "$sys" = "fbneo" ] && [ -n "$rom" ] || return 1
-            publish_hiscore "$rom" "$sf" "$exp"
+            # v27 -- BUG REEL corrige : restait gate sur fbneo uniquement
+            # (voir commentaire complet dans build_score_payload()) -- tout
+            # systeme arcade avec un rom connu peut desormais atteindre le
+            # decodeur (generique ou special-case selon $sys).
+            [ -n "$sys" ] && [ -n "$rom" ] || return 1
+            publish_hiscore "$rom" "$sys" "$sf" "$exp"
             return $?
             ;;
         description)
@@ -1261,11 +1302,13 @@ while IFS= read -r event; do
             # session -- arrete le round-robin ingame eventuellement en vol.
             : > "$GAME_SESSION_FILE"
             system=$(read_state "SystemId")
-            if [ "$system" = "fbneo" ] && feat_enabled "hiscore_ingame"; then
+            # v27 -- BUG REEL corrige : restait gate sur fbneo uniquement
+            # (voir commentaire complet dans build_score_payload()).
+            if [ -n "$system" ] && feat_enabled "hiscore_ingame"; then
                 game_path=$(read_state "GamePath")
                 rom=$(basename "$game_path" | sed 's/\.[^.]*$//')
-                echo "$(date '+%H:%M:%S') ENDGAME fbneo rom=$rom" >> "$LOG"
-                [ -n "$rom" ] && publish_hiscore "$rom"
+                echo "$(date '+%H:%M:%S') ENDGAME $system rom=$rom" >> "$LOG"
+                [ -n "$rom" ] && publish_hiscore "$rom" "$system"
             fi
             ;;
         stop)
