@@ -33,7 +33,7 @@
 .hi, en vue d'une correction manuelle de hiscore.dat via la methode
 "verite d'abord".
 
-Usage: rb2_ram_truth_capture.py <rom_list_file> [--extra-addr 0xADDR --extra-size 0xSIZE]
+Usage: rb2_ram_truth_capture.py <rom_list_file> [--extra-addr 0xADDR --extra-size 0xSIZE] [--dwell N]
 """
 import subprocess, time, socket, os, sys
 
@@ -224,6 +224,7 @@ def capture_one(rom, extra_addr=None, extra_size=0x4000):
 
 
 def main():
+    global DWELL_S
     if len(sys.argv) < 2:
         print(__doc__)
         return
@@ -236,6 +237,15 @@ def main():
     if "--extra-size" in sys.argv:
         i = sys.argv.index("--extra-size")
         extra_size = int(sys.argv[i + 1], 0)
+    if "--dwell" in sys.argv:
+        # v2 -- dwell configurable (2026-08-23) : le lot 1 (25 roms, dwell
+        # 15s par defaut) a montre 0/9 jeux avec un score visible a 15s --
+        # beaucoup de jeux (histoire/intro longue) ont besoin de bien plus
+        # de temps pour que leur cycle attract-mode atteigne un ecran de
+        # score. Defaut inchange (15s, calibre pour le plugin hiscore) --
+        # augmenter explicitement pour la methode "verite d'abord".
+        i = sys.argv.index("--dwell")
+        DWELL_S = int(sys.argv[i + 1])
 
     os.makedirs(DUMP_DIR, exist_ok=True)
     with open(rom_list_file) as f:
