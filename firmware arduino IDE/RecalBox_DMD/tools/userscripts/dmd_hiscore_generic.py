@@ -2,7 +2,23 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v2
+# Version actuelle : v3
+#
+# v3 - 2026-08-23 - safe-modify - decode_int() applique desormais un
+#   facteur d'echelle optionnel (`field["scale"]`, defaut 1) apres decodage
+#   BCD/binaire. Necessaire pour les jeux qui stockent le score sous forme
+#   REDUITE (ex. en milliers, 1 seul octet BCD = 2 chiffres, x1000 pour
+#   obtenir le score reel affiche) -- decouvert en verifiant `ikari` contre
+#   une vraie capture d'ecran (RetroArch, commande reseau SCREENSHOT) :
+#   l'ancienne heuristique statistique (Phase 2) ne testait jamais de champ
+#   score aussi etroit (1-2 octets), se rabattait sur un champ 3-4 octets
+#   mal aligne qui mordait sur le premier octet du NOM adjacent (lu comme
+#   un chiffre BCD parasite) -- explique le motif "suffixe parasite apres
+#   un score par ailleurs correct" observe sur plusieurs jeux cette nuit.
+#   Nouvel outil `build_entry_from_truth.py` (scratchpad) : construit une
+#   entree DIRECTEMENT a partir d'un score+nom verifies a l'ecran (recherche
+#   exhaustive score/echelle + localisation du nom + stride par repetition
+#   du nom), au lieu de deviner statistiquement puis corriger a posteriori.
 #
 # v2 - 2026-08-23 - safe-modify - Chemins MAME corriges (voir commentaire
 #   HI_SEARCH_PATHS plus bas) + mame0278/mame0274/mame0258/mame2000 ajoutes
@@ -118,6 +134,7 @@ def decode_int(data, off, field):
         # dmd_score.sh. Pas verifie sur tous les jeux utilisant byte-trim,
         # a affiner si un decodage errone est constate.
         raw = bytes(0 if b == trim else b for b in raw)
+    scale = field.get("scale", 1)
     if field.get("format") == "bcd":
         digits = ""
         for b in raw:
@@ -125,11 +142,12 @@ def decode_int(data, off, field):
             if hi > 9 or lo > 9:
                 return None
             digits += str(hi) + str(lo)
-        return int(digits) if digits else 0
+        v = int(digits) if digits else 0
+        return v * scale
     v = 0
     for b in raw:
         v = v * 256 + b
-    return v
+    return v * scale
 
 
 def decode_text(data, off, field, charsets):
