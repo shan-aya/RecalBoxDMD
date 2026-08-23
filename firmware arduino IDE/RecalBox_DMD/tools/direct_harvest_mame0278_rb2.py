@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# direct_harvest_mame0278_rb2.py v1 -- variante de direct_harvest_mame0278.py
+# direct_harvest_mame0278_rb2.py v2 -- variante de direct_harvest_mame0278.py
 # (RB1, JAMMA/CRT) adaptee au materiel x86/X11 (ex. Steam Deck, pas de
 # CRT/JAMMA, manette integree, controleur graphique nécessitant DISPLAY).
 # Ligne de lancement capturee en reel le 2026-08-23 (jeu lance normalement
@@ -8,11 +8,31 @@
 #
 # BUG REEL trouve/corrige (2026-08-23, voir DECISIONS.md "Récolte multi-RB")
 # : sans DISPLAY/XDG_RUNTIME_DIR exportes, retroarch segfaultait
-# systematiquement des le 2e lancement consecutif (jump a un pointeur de
-# fonction NULL) -- confirme via /proc/<pid du process openbox lance par
-# ES>/environ (DISPLAY=:0, XDG_RUNTIME_DIR=/run/user/0), absents d'une
-# session SSH nue. Valide : 10/10 lancements consecutifs reussis avec le
-# fix, 0/3 sans (peu importe le jeu, l'etat d'ES, ou le shader).
+# systematiquement (jump a un pointeur de fonction NULL) -- confirme via
+# /proc/<pid du process openbox lance par ES>/environ (DISPLAY=:0,
+# XDG_RUNTIME_DIR=/run/user/0), absents d'une session SSH nue.
+#
+# v2 -- 2eme BUG REEL trouve/corrige, PLUS IMPORTANT que le premier (retour
+# utilisateur explicite : "est-ce que ES sur steamdeck a les memes
+# limitations que le CRT rb1 en occupation exclusive de l'ecran ? qui t'a
+# oblige a kill ES ?") : contrairement a RB1 (Raspberry Pi, framebuffer/KMS
+# EXCLUSIF -- un seul proprietaire possible, ES DOIT etre coupe avant tout
+# lancement direct), RB2 tourne sous X11 (Steam Deck), concu pour PLUSIEURS
+# clients simultanes -- rien n'oblige a couper ES ici. La version v1 de ce
+# script coupait/relancait ES/Xorg avant/apres chaque run (motif copie de
+# RB1 sans le remettre en question) -- ces coupures/relances REPETEES du
+# serveur X etaient la VRAIE cause des segfaults massifs et apparemment
+# intermittents observes cette nuit (dmesg confirmait en parallele
+# "[drm] Failed to add display topology, DTM TA is not initialized." --
+# le pilote amdgpu ne supporte visiblement pas bien des transitions
+# d'affichage X repetees rapidement). Valide en reel : 5 jeux qui
+# echouaient a 100% (280zzzap/3wonders/3wondersb/4enraya/64street) dans
+# l'ancien cycle "coupe tout avant, relance tout apres" reussissent 5/5
+# SANS AUCUN ECHEC en laissant simplement ES actif en permanence, sans
+# jamais y toucher. **Ce script ne doit donc PLUS jamais arreter/relancer
+# ES ou Xorg** -- les lancements directs cohabitent normalement avec ES qui
+# tourne, exactement comme n'importe quel jeu lance normalement par
+# l'utilisateur.
 import subprocess, time, socket, os, sys
 
 os.environ["DISPLAY"] = ":0"
@@ -143,8 +163,8 @@ def main():
             log("!! exception sur {}: {}".format(rom, e))
         time.sleep(2)
     log("=== direct_harvest_mame0278_rb2 termine ===")
-    log("=== redemarrage EmulationStation ===")
-    subprocess.call("/etc/init.d/S31emulationstation start", shell=True)
+    # v2 -- ES n'a JAMAIS ete coupe (voir commentaire d'en-tete), rien a
+    # relancer.
 
 
 if __name__ == "__main__":
