@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# direct_harvest_mame0278_rb2.py v3 -- variante de direct_harvest_mame0278.py
+# direct_harvest_mame0278_rb2.py v4 -- variante de direct_harvest_mame0278.py
 # (RB1, JAMMA/CRT) adaptee au materiel x86/X11 (ex. Steam Deck, pas de
 # CRT/JAMMA, manette integree, controleur graphique nécessitant DISPLAY).
 # Ligne de lancement capturee en reel le 2026-08-23 (jeu lance normalement
@@ -48,6 +48,22 @@
 # donne directement, a la fin du lot, un jeu de captures pretes pour la
 # methode "verite d'abord" (tools/build_entry_from_truth.py) SANS avoir a
 # relancer quoi que ce soit.
+#
+# v4 -- BUG REEL corrige (2026-08-23, retour utilisateur direct : "tu as
+# relance la phase 1 sur les jeux deja analyses ?") : le seul critere de
+# skip etait la presence d'un .hi (`os.path.exists(save_path)`), donc tout
+# rom SANS .hi (l'immense majorite, vu le taux de peuplement -- voir
+# DECISIONS.md) etait RELANCE A CHAQUE REDEMARRAGE du script, meme s'il
+# avait deja ete tente et avait deja une reponse definitive ("pas de .hi",
+# "jamais apparu"...). Chaque pause/reprise de ce soir (tests RAM live,
+# decoupage en tranches, etc.) repartait donc du debut de la liste --
+# verifie sur le log : 471 tentatives pour seulement 172 roms distincts,
+# certains relances jusqu'a 11 fois (`1944u`), ~63% de travail machine
+# perdu en pure repetition. Fix : fichier de suivi persistant
+# (ATTEMPTED_FILE, un rom par ligne, alimente a chaque etat terminal
+# atteint) charge au demarrage -- un rom deja tente cette campagne est
+# desormais saute au meme titre qu'un rom deja peuple, quel que soit le
+# nombre de redemarrages du script.
 import subprocess, time, socket, os, sys
 
 os.environ["DISPLAY"] = ":0"
@@ -55,6 +71,17 @@ os.environ["XDG_RUNTIME_DIR"] = "/run/user/0"
 
 ROM_LIST_FILE = sys.argv[1] if len(sys.argv) > 1 else "/tmp/priority_mame0278.txt"
 LOG = "/tmp/direct_harvest_mame0278_log.txt"
+# v4 -- fichier de suivi des roms DEJA TENTEES cette campagne (2026-08-23,
+# bug reel trouve : le seul critere de skip etait la presence d'un .hi,
+# donc chaque redemarrage du script -- pause pour un test, decoupage en
+# tranches, etc. -- refaisait tourner TOUS les jeux depuis le debut de la
+# liste, meme ceux deja tentes sans .hi. Verifie sur le log de ce soir :
+# 471 tentatives pour seulement 172 roms distincts, certains relances
+# jusqu'a 11 fois. Ce fichier est un journal simple (1 rom par ligne,
+# ajoute des qu'un rom atteint un etat terminal, quel qu'il soit) --
+# persiste entre les runs, contrairement au calcul depuis un fichier de
+# liste qu'il faudrait reconstruire manuellement a chaque fois.
+ATTEMPTED_FILE = "/tmp/direct_harvest_mame0278_attempted.txt"
 LAUNCH_TEMPLATE = (
     "python3 /usr/bin/emulatorlauncher.pyc "
     "-p1index 0 -p1guid 0300f617de2800000512000010010000 -p1name \"Steam Deck\" "
@@ -118,10 +145,18 @@ def wait_gone(pid, timeout_s):
     return False
 
 
-def harvest_one(rom):
+def mark_attempted(rom):
+    with open(ATTEMPTED_FILE, "a") as f:
+        f.write(rom + "\n")
+
+
+def harvest_one(rom, attempted):
     save_path = SAVE_GLOB.format(rom=rom)
     if os.path.exists(save_path):
         log("(skip) {} -- .hi deja present".format(rom))
+        return
+    if rom in attempted:
+        log("(skip) {} -- deja tente cette campagne (voir {})".format(rom, ATTEMPTED_FILE))
         return
 
     cmd = LAUNCH_TEMPLATE.format(rom=rom)
@@ -144,6 +179,7 @@ def harvest_one(rom):
         except Exception:
             pass
         time.sleep(2)
+        mark_attempted(rom)
         return
 
     log(">>> {} lance (pid={}), attente {}s".format(rom, pid, DWELL_S))
@@ -176,15 +212,21 @@ def harvest_one(rom):
             rom, size, "PEUPLE" if populated else "zero"))
     else:
         log("==> {} : pas de .hi".format(rom))
+    mark_attempted(rom)
 
 
 def main():
     with open(ROM_LIST_FILE) as f:
         roms = [l.strip() for l in f if l.strip()]
-    log("=== direct_harvest_mame0278_rb2 demarre, {} roms en file ===".format(len(roms)))
+    attempted = set()
+    if os.path.exists(ATTEMPTED_FILE):
+        with open(ATTEMPTED_FILE) as f:
+            attempted = set(l.strip() for l in f if l.strip())
+    log("=== direct_harvest_mame0278_rb2 demarre, {} roms en file, {} deja tentees cette campagne ===".format(
+        len(roms), len(attempted)))
     for rom in roms:
         try:
-            harvest_one(rom)
+            harvest_one(rom, attempted)
         except Exception as e:
             log("!! exception sur {}: {}".format(rom, e))
         time.sleep(2)
