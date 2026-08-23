@@ -2,7 +2,24 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v16
+# Version actuelle : v17
+#
+# v17 - 2026-08-23 - safe-modify - BUG REEL confirme par relecture de code
+#   (retour utilisateur : verifier la resynchro DMD au demarrage/reconnexion
+#   -- "au lieu d'afficher une playlist alors qu'un jeu est en cours") : le
+#   handler start) (tourne a chaque (re)demarrage de ce script -- reboot RB
+#   OU simple crash/relance d'ES pendant qu'une VRAIE partie tourne deja)
+#   forcait INCONDITIONNELLEMENT send_mqtt_retain "default" "1", sans jamais
+#   verifier si un jeu etait reellement en cours a cet instant -- le DMD (si
+#   deja connecte, donc hors de sa fenetre de grace 5s post-connexion)
+#   repassait alors immediatement en playlist locale alors que le joueur
+#   etait toujours en jeu. Fix : lecture atomique de /tmp/es_state.inf (meme
+#   motif que v8) AVANT toute publication -- le champ Action= (ecrit par ES
+#   lui-meme) vaut "rungame" si une partie est reellement en cours ; dans ce
+#   cas, publie game+ingame=1 (comme le ferait un vrai evenement rungame),
+#   PAS default. Voir DECISIONS.md pour le detail complet et le volet
+#   firmware associe (marquee/cmd/ingame reabonne cote DMD, v104 l'avait
+#   retire).
 #
 # v16 - 2026-08-22 - safe-modify - Declenchement !SHUFFLE base sur une
 #   DUREE soutenue au lieu d'un seuil instantane. Retour utilisateur apres
@@ -370,7 +387,7 @@ throttled=0
 # de l'interpolation et le log affichait "seuil=/s" (vide) au lieu de
 # "seuil=10/s" -- bug constate au demarrage reel, corrige en deplacant le
 # log apres la declaration.
-echo "$(date) - Marquee bridge started (v16, coupe-circuit anti-rafale reactive seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
+echo "$(date) - Marquee bridge started (v17, resynchro start) si Action=rungame, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
 
 while true; do
     PREV_EVENT="$event"
@@ -417,18 +434,43 @@ while true; do
             burst_count=0
             burst_qualifying_streak=0
             throttled=0
-            send_mqtt_retain "default" "1"
 
-            # Attendre la fin de la rafale automatique de boot
-            sleep 5
+            # v17 -- voir changelog d'entete : ne force plus "default" sans
+            # verifier d'abord si une vraie partie est en cours (Action=
+            # dans es_state.inf, ecrit par ES lui-meme) -- lecture atomique
+            # (meme motif que v8, voir read_state_snapshot()) pour eviter
+            # toute race entre Action/SystemId/GamePath.
+            _snap=$(read_state_snapshot)
+            _action=$(extract_field "$_snap" "Action")
+            if [ "$_action" = "rungame" ]; then
+                system_raw=$(extract_field "$_snap" "SystemId")
+                game_path=$(extract_field "$_snap" "GamePath")
+                rom=$(basename "$game_path" | sed 's/\.[^.]*$//; s/ //g')
+                system=$(normalize_system "$system_raw")
+                echo "$(date '+%H:%M:%S') BOOT (ES redemarre EN JEU) -> sys=$system rom=$rom" >> "$LOG"
+                if [ -n "$system" ] && [ -n "$rom" ]; then
+                    IN_GAME=1
+                    LAST_SYSTEM="$system"
+                    LAST_ROM="$rom"
+                    send_mqtt_retain "game" "${system}/${rom}"
+                    send_mqtt_retain "ingame" "1"
+                else
+                    send_mqtt_retain "default" "1"
+                fi
+            else
+                send_mqtt_retain "default" "1"
 
-            # Lire le vrai système affiché
-            system_raw=$(read_state "SystemId")
-            system=$(normalize_system "$system_raw")
-            echo "$(date '+%H:%M:%S') BOOT settle -> sys=$system" >> "$LOG"
-            if [ -n "$system" ]; then
-                LAST_SYSTEM="$system"
-                send_mqtt_retain "system" "$system"
+                # Attendre la fin de la rafale automatique de boot
+                sleep 5
+
+                # Lire le vrai système affiché
+                system_raw=$(read_state "SystemId")
+                system=$(normalize_system "$system_raw")
+                echo "$(date '+%H:%M:%S') BOOT settle -> sys=$system" >> "$LOG"
+                if [ -n "$system" ]; then
+                    LAST_SYSTEM="$system"
+                    send_mqtt_retain "system" "$system"
+                fi
             fi
             ;;
 

@@ -1,7 +1,31 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v121
+// Version actuelle : v123
+//
+// v123 - 2026-08-23 - safe-modify - Resynchro RB au demarrage/reconnexion
+//   (retour utilisateur : verifier que le DMD ne repasse pas en playlist
+//   locale alors qu'un jeu tourne reellement -- diagnostic complet dans
+//   DECISIONS.md). marquee/cmd/ingame REABONNE (retire en v104 avec le
+//   sous-systeme hi-score overlay, mais marquee.sh continuait de le publier
+//   fidelement en retenu -- canal mort cote firmware jusqu'ici) : nouveau
+//   booleen g_recalboxInGame, simple etat courant (pas un g_pendingX, pas de
+//   redessin associe). Utilise en 2e ligne de defense dans CMD_DEFAULT : un
+//   "default" recu alors que g_recalboxInGame est vrai est ignore au lieu de
+//   faire basculer le marquee en playlist. Le vrai fix est cote script RB
+//   (marquee.sh v17, handler start) : voir son changelog -- il forcait
+//   "default" sans condition a chaque (re)demarrage du script (reboot RB OU
+//   simple crash/relance ES en jeu), sans jamais verifier si une partie
+//   etait reellement en cours (Action=rungame dans es_state.inf, jamais lu
+//   jusqu'ici par ce script).
+//
+// v122 - 2026-08-23 - safe-modify - Alertes connectivite (retour
+//   utilisateur) : (1) duree d'affichage des 3 alertes (verte "RecalBox
+//   connectee", orange "hors ligne", rouge "pas de wifi") ramenee de 7s a
+//   5s (NO_WIFI_ALERT_DISPLAY_MS et MQTT_WAITING_MIN_DISPLAY_MS, 7000->5000) ;
+//   (2) texte "RecalBox connectee :)" passe de blanc a vert
+//   (drawRecalboxConnectedOverlay(), 255,255,255 -> 0,255,0). Purement
+//   cosmetique/timing, aucun changement de logique de declenchement.
 //
 // v121 - 2026-08-22 - safe-modify - (1) SHUFFLE_ENABLED remis a true : le
 //   coupe-circuit anti-rafale de marquee.sh (v13, seuil=10/s) est reactive
@@ -483,7 +507,7 @@
 //   en realite a CHAQUE reconnexion MQTT (CMD_WAITING_MQTT emis a chaque
 //   connect() reussi, pas seulement au 1er boot), et un "default" RETENU
 //   (rejoue par le broker a la resouscription, cf. v89) peut arriver dans
-//   cette fenetre de 7s en meme temps qu'une vraie partie demarre. CMD_GAME/
+//   cette fenetre de 5s en meme temps qu'une vraie partie demarre. CMD_GAME/
 //   CMD_SYSTEM annulaient deja ce differe depuis v49 ("un vrai jeu prend le
 //   pas sur un default differe"), mais CMD_INGAME (introduit en v79, apres ce
 //   mecanisme) avait ete oublie -- oubli de synchronisation entre les 2
@@ -1291,7 +1315,7 @@
 //   4. Indicateur rouge clignotant "No wifi, No Recalbox" (WiFi injoignable,
 //      1ere tentative puis toutes les 60s) et indicateur orange clignotant
 //      "RecalBox non connectee" (WiFi OK mais mqttClient.state()==-2) --
-//      tous deux : image de secours default.raw565, affichage temporise 7s
+//      tous deux : image de secours default.raw565, affichage temporise 5s
 //      puis reprise automatique de la playlist, place entre 2 GIFs (jamais
 //      en coupant une animation en cours).
 //   Voir web_config.h v51 pour le volet interface web (first_boot n'est plus
@@ -3005,11 +3029,11 @@ bool g_noWifiRecalboxPending = false;
 bool g_noWifiRecalboxScreenActive = false;
 unsigned long g_noWifiRecalboxUntilMs = 0;
 // Duree d'affichage fixe avant retour automatique a la playlist -- valeur
-// reprise de MQTT_WAITING_MIN_DISPLAY_MS (7000ms, voir plus bas) mais
+// reprise de MQTT_WAITING_MIN_DISPLAY_MS (5000ms, voir plus bas) mais
 // mecanisme different (auto-resolutif, pas juste un delai minimum avant
 // interruption) : declaree separement plutot que de reutiliser cette
 // constante existante, qui garde sa propre semantique.
-const unsigned long NO_WIFI_ALERT_DISPLAY_MS = 7000;
+const unsigned long NO_WIFI_ALERT_DISPLAY_MS = 5000;
 
 // Indicateur "RecalBox non connectee" (2026-08-05, demande utilisateur --
 // meme principe que l'indicateur "No wifi, No Recalbox" ci-dessus, en
@@ -3019,7 +3043,7 @@ const unsigned long NO_WIFI_ALERT_DISPLAY_MS = 7000;
 // WiFi fonctionne). Texte orange clignotant, TRADUIT (contrairement a
 // "No wifi, No Recalbox" -- celui-ci reprend le meme registre que
 // trRecalboxConnected(), deja traduit). Meme duree d'affichage
-// (NO_WIFI_ALERT_DISPLAY_MS, 7s) et memes points de reset que
+// (NO_WIFI_ALERT_DISPLAY_MS, 5s) et memes points de reset que
 // l'indicateur WiFi. Frequence de reaffichage suivie par horodatage
 // (lastRecalboxDisconnectedAlertMs, dans mqttTask()) plutot que par
 // comptage d'iterations : la boucle d'echec MQTT tourne a un rythme
@@ -3055,7 +3079,7 @@ bool g_lastMqttWasDefault = true;
 // appliquee automatiquement des que le delai est ecoule (voir loop()),
 // jamais perdue -- contrairement a l'ancien filtrage qui pouvait bloquer
 // indefiniment si aucun autre message ne suivait.
-const unsigned long MQTT_WAITING_MIN_DISPLAY_MS = 7000;
+const unsigned long MQTT_WAITING_MIN_DISPLAY_MS = 5000;
 unsigned long g_mqttWaitingMinDisplayUntilMs = 0;
 bool          g_mqttDefaultPendingAfterMinDisplay = false;
 
@@ -3115,6 +3139,21 @@ bool   g_pendingSystem    = false;  String g_pendingSystemArg = "";
 bool   g_pendingGame      = false;  String g_pendingGameArg   = "";
 // v104 -- g_pendingIngame/g_pendingGameInfo retires (CMD_INGAME/CMD_GAME_INFO
 // n'existent plus, voir suppression du sous-systeme hi-score/overlay).
+//
+// v122 -- marquee/cmd/ingame REABONNE (retour utilisateur : verifier la
+// resynchro DMD au demarrage/reconnexion, cf. DECISIONS.md) -- MAIS sans
+// raccrocher l'ancien sous-systeme overlay hi-score retire en v104 : ce
+// simple booleen ne sert qu'a savoir si RB affirme etre reellement EN JEU
+// au moment present (retenu, publie par marquee.sh a chaque rungame/
+// endgame), pour gater CMD_DEFAULT (voir son case) et eviter de retomber en
+// playlist locale sur un "default" perime/errone recu pendant qu'une vraie
+// partie est en cours (bug reel identifie : marquee.sh v16 et anterieurs
+// forcaient "default" sans condition dans son handler start), qui tourne a
+// chaque redemarrage d'ES, y compris pendant une partie en cours -- corrige
+// cote script en v17, ce flag cote DMD est une 2e ligne de defense). Pas de
+// slot dedie type g_pendingGame : simple etat courant (pas une "commande a
+// executer"), ecrit directement depuis onMqttMessage().
+bool   g_recalboxInGame   = false;
 
 // Pont pour web_config.h (v72) : #include "web_config.h" a lieu AVANT la
 // definition du type MqttCommand/pendingCmd ci-dessus (ligne 1241) -- cette
@@ -4846,7 +4885,7 @@ void drawRecalboxConnectedOverlay(bool visible)
 {
   String l1, l2;
   trRecalboxConnected(l1, l2);
-  drawTwoLineCenteredOverlay(visible, l1, l2, display->color565(255, 255, 255));
+  drawTwoLineCenteredOverlay(visible, l1, l2, display->color565(0, 255, 0));
 }
 
 // Dessine (visible=true) ou efface (visible=false) le texte rouge
@@ -4866,7 +4905,7 @@ void drawNoWifiNoRecalboxOverlay(bool visible)
 }
 
 // Declenche l'affichage de l'alerte "No wifi, No Recalbox" (image de
-// secours + texte rouge clignotant, 7s puis retour auto a la playlist --
+// secours + texte rouge clignotant, 5s puis retour auto a la playlist --
 // voir g_noWifiRecalboxScreenActive/g_noWifiRecalboxUntilMs et le bloc
 // loop() qui pilote le clignotement + l'auto-resolution). Appelee depuis
 // loop() a un point ou rien d'important n'est en train de jouer (entre
@@ -5315,6 +5354,16 @@ void processPendingMqttCommand()
 
   case MqttCommand::CMD_DEFAULT:
     if (g_sdOpInProgress) { Serial.println("[MQTT] default ignored (web open)"); break; }
+    // v122 -- 2e ligne de defense (voir declaration de g_recalboxInGame) :
+    // un "default" recu alors que RB affirme encore etre EN JEU (dernier
+    // marquee/cmd/ingame retenu = "1") est traite comme perime/errone --
+    // ignore plutot que de faire basculer le marquee en playlist locale
+    // pendant qu'une vraie partie tourne. Le vrai fix est cote script
+    // (marquee.sh v17, handler start), ceci couvre les cas non prevus par
+    // ce fix (autre source de "default" non identifiee, etc.) sans risque :
+    // le pire cas est de rester sur le dernier affichage connu un peu plus
+    // longtemps, jamais un ecran errone.
+    if (g_recalboxInGame) { Serial.println("[MQTT] default ignore (RB toujours en jeu selon ingame=1)"); break; }
     // v104 -- g_inGameMarquee retire (hi-score port supprime).
     g_lastMqttWasDefault = true; // v50 -- pose ici, avant meme le differe eventuel : RB a bien annonce "default"
     // Delai minimum d'affichage de l'ecran "RecalBox connectee" (v49) : si
@@ -6199,9 +6248,13 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
   else if(t=="marquee/cmd/brightness_up")   pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_UP,"");
   else if(t=="marquee/cmd/brightness_down") pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_DOWN,"");
   // v110 -- marquee/cmd/score reintroduit (voir entete changelog) ; payload
-  // vide ignore (rien a afficher). game_info/achievement/ingame restent
-  // retires (v104), pas redemandes par l'utilisateur.
+  // vide ignore (rien a afficher). game_info/achievement restent retires
+  // (v104), pas redemandes par l'utilisateur.
   else if(t=="marquee/cmd/score") { if(msg.length()>0) pendingCmd=MqttCommand(MqttCommand::CMD_SCORE,msg); }
+  // v122 -- marquee/cmd/ingame reabonne (voir g_recalboxInGame) : simple
+  // etat courant, pas une commande d'affichage -- ecrit directement ici,
+  // pas de passage par pendingCmd/le switch de processPendingMqttCommand().
+  else if(t=="marquee/cmd/ingame") g_recalboxInGame = (msg=="1");
   else if(t==mqttEventTopic)
   {
     String ev=extractField(msg,"EVENT");
@@ -6390,8 +6443,9 @@ void mqttTask(void *param)
           "marquee/cmd/stop", "marquee/cmd/default", "marquee/cmd/system", "marquee/cmd/game",
           "marquee/cmd/show_config", "marquee/cmd/wifi_recovery", "marquee/cmd/reboot",
           "marquee/cmd/brightness", "marquee/cmd/brightness_up", "marquee/cmd/brightness_down",
-          "marquee/cmd/score" // v110 -- reintroduit (voir entete changelog)
-          // v104 -- marquee/cmd/game_info, achievement, ingame restent retires
+          "marquee/cmd/score", // v110 -- reintroduit (voir entete changelog)
+          "marquee/cmd/ingame" // v122 -- reabonne (voir g_recalboxInGame)
+          // v104 -- marquee/cmd/game_info, achievement restent retires
           // (port supprime, pas redemande)
         };
         const int nSubscribeTopics = sizeof(subscribeTopics) / sizeof(subscribeTopics[0]);
@@ -7985,7 +8039,7 @@ void loop()
   // Clignotement + auto-resolution de l'alerte "No wifi, No Recalbox"
   // (2026-08-05, demande utilisateur) -- bloc jumeau du precedent mais
   // drapeau/duree distincts (voir declaration de g_noWifiRecalboxScreenActive) :
-  // ecran TEMPORISE (7s, NO_WIFI_ALERT_DISPLAY_MS), pas d'attente indefinie
+  // ecran TEMPORISE (5s, NO_WIFI_ALERT_DISPLAY_MS), pas d'attente indefinie
   // d'un message externe qui ne viendra jamais tant que le WiFi est down.
   if (g_noWifiRecalboxScreenActive && currentMode == MODE_PNG && currentPngPath == String(DEFAULT_RAW565_PATH) && !g_sdOpInProgress)
   {
@@ -8067,7 +8121,7 @@ void loop()
         // le GIF courant vient de se terminer naturellement (frameOk==false)
         // -- point d'insertion volontairement choisi ICI, AVANT openNextGif(),
         // pour ne jamais couper une animation en plein milieu. L'alerte
-        // affichee prend la main pour 7s (voir showNoWifiRecalboxAlert()),
+        // affichee prend la main pour 5s (voir showNoWifiRecalboxAlert()),
         // puis resumePlaylist() (appele automatiquement dans loop() a
         // l'expiration du delai) enchaine sur le GIF suivant normalement --
         // la rotation reprend sans perte de position.
