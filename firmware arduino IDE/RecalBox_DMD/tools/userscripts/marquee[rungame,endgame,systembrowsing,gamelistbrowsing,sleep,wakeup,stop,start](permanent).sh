@@ -2,7 +2,27 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v18
+# Version actuelle : v19
+#
+# v19 - 2026-08-23 - safe-modify - BUG REEL trouve par retour utilisateur
+#   direct ("il existe 1 mode demo : lance des jeux et un mode demo video :
+#   lance des clips video de jeu") -- v18 n'avait cable que le premier
+#   (screensaver.type=demo -> "rundemo"/"enddemo"). Teste en direct sur RB1
+#   avec le 2e mode force (screensaver.type=gameclip, bascule faite par
+#   l'utilisateur pendant que ce script ecoutait le flux MQTT en direct) :
+#   evenements REELS "startgameclip"/"stopgameclip" (cette fois bel et bien
+#   vivants, contrairement au diagnostic v18 -- qui restait correct POUR LE
+#   MODE demo specifiquement, juste incomplet). Meme structure es_state.inf
+#   (SystemId/GamePath peuples pendant startgameclip, identique a rundemo),
+#   cadence stable ~30s/clip (jamais de rafale observee, contrairement au
+#   mode demo qui peut atteindre ~1/s soutenu -- voir BUG REEL #2 du
+#   changelog v18 ci-dessous). Fix : "startgameclip"/"stopgameclip" fusionnes
+#   dans les cases rundemo)/enddemo) existants (memes patterns partages,
+#   meme DEMO_SYSTEM/DEMO_ROM, meme limite de frequence 3s -- jamais genante
+#   ici, 30s >> 3s). L'ancien traitement "legacy" (differe a la 1ere
+#   occurrence via PREV_EVENT, puis silencieux) est retire -- remplace par
+#   le meme mecanisme robuste (deduplication par contenu reel, pas par
+#   position dans la sequence).
 #
 # v18 - 2026-08-23 - safe-modify - BUG REEL trouve par test en conditions
 #   reelles (retour utilisateur : "en mode clip & demo afficher le marquee
@@ -449,7 +469,7 @@ throttled=0
 # de l'interpolation et le log affichait "seuil=/s" (vide) au lieu de
 # "seuil=10/s" -- bug constate au demarrage reel, corrige en deplacant le
 # log apres la declaration.
-echo "$(date) - Marquee bridge started (v18, rundemo/enddemo -> marquee du jeu demo, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
+echo "$(date) - Marquee bridge started (v19, rundemo/startgameclip -> marquee du jeu demo/clip, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
 
 while true; do
     PREV_EVENT="$event"
@@ -745,30 +765,35 @@ while true; do
 
         # v18 -- BUG REEL trouve en verifiant en direct (retour utilisateur :
         # "en mode clip & demo afficher le marquee du jeu concerne au lieu
-        # de la playlist") : sur cette version d'ES, les evenements REELS de
-        # ce mode sont "rundemo"/"enddemo" -- PAS "startgameclip"/
-        # "stopgameclip" comme suppose depuis l'origine de ce script. Verifie
-        # en conditions reelles (screensaver.type=demo force, capture
-        # complete du flux Recalbox/EmulationStation/Event) : ces 2 anciens
-        # noms ne se sont JAMAIS declenches sur ce materiel -- code mort
-        # depuis le debut, tombant systematiquement dans le *) ci-dessous
-        # (ignore). Gardes ci-dessous par prudence (cout nul) au cas ou une
-        # autre version d'ES les utiliserait encore.
+        # de la playlist") : RB a en realite 2 modes de veille "jeu" DISTINCTS
+        # (retour utilisateur explicite, 2026-08-23 : "il existe 1 mode
+        # demo : lance des jeux et un mode demo video : lance des clips
+        # video de jeu"), chacun avec son propre screensaver.type et son
+        # propre couple d'evenements ES, TOUS DEUX verifies en direct sur
+        # ce materiel :
+        #   - screensaver.type=demo   -> "rundemo"/"enddemo" (vrai lancement
+        #     du jeu via l'emulateur, GamePath = vraie rom en cours
+        #     d'execution).
+        #   - screensaver.type=gameclip -> "startgameclip"/"stopgameclip"
+        #     (lecture d'un clip .mp4 pre-enregistre, PAS de lancement
+        #     emulateur -- GamePath pointe quand meme vers la rom
+        #     CONCERNEE par le clip, memes champs es_state.inf exploitables).
+        # Les 2 couples sont fusionnes ici (memes patterns partages) : les
+        # 2 modes peuplent SystemId/GamePath de la MEME facon, EXACTEMENT
+        # comme pendant un survol de liste -- meme lecture atomique (v8) et
+        # meme publication que gamelistbrowsing) reutilisees pour les 2.
+        # DEMO_SYSTEM/DEMO_ROM dedies (jamais LAST_SYSTEM/LAST_ROM) pour ne
+        # pas corrompre la position REELLE de navigation que wakeup) doit
+        # restaurer au reveil -- ni un jeu demo ni un clip video ne sont une
+        # vraie position utilisateur.
         #
-        # /tmp/es_state.inf peuple SystemId/GamePath PENDANT rundemo,
-        # EXACTEMENT comme pendant un survol de liste (verifie en direct :
-        # Action=rundemo, SystemId=fbneo, GamePath=.../dacholer.zip) --
-        # meme lecture atomique (v8) et meme publication que
-        # gamelistbrowsing) reutilisees ici. DEMO_SYSTEM/DEMO_ROM dedies
-        # (jamais LAST_SYSTEM/LAST_ROM) pour ne pas corrompre la position
-        # REELLE de navigation que wakeup) doit restaurer au reveil -- un
-        # jeu demo n'est PAS une vraie position utilisateur.
-        rundemo)
-            # v18 suite -- limite de frequence DEDIEE au mode demo (voir
-            # DEMO_MIN_PUBLISH_INTERVAL_S/demo_throttled plus haut) : jamais
-            # LAST_SYSTEM/LAST_ROM/throttled/burst_* (ceux-la pilotent
-            # publish_settled_position(), qui publie la position REELLE de
-            # navigation, jamais celle d'une demo).
+        # ATTENTION cadence tres differente entre les 2 : "demo" peut
+        # enchainer les jeux a ~1/s de facon SOUTENUE (voir BUG REEL #2,
+        # changelog v18 complet plus haut) alors que "gameclip" tourne a un
+        # rythme stable ~30s/clip (verifie en direct, jamais de rafale
+        # observee) -- la meme limite de frequence (DEMO_MIN_PUBLISH_
+        # INTERVAL_S=3s) protege les 2 sans jamais gener gameclip (30s >> 3s).
+        rundemo|startgameclip)
             now=$(date +%s)
             _snap=$(read_state_snapshot)
             system_raw=$(extract_field "$_snap" "SystemId")
@@ -782,7 +807,7 @@ while true; do
                     if [ $((now - demo_last_publish_ts)) -ge "$DEMO_MIN_PUBLISH_INTERVAL_S" ]; then
                         demo_throttled=0
                         demo_last_publish_ts="$now"
-                        echo "$(date '+%H:%M:%S') DEMO -> ${system}/${rom}" >> "$LOG"
+                        echo "$(date '+%H:%M:%S') DEMO/CLIP -> ${system}/${rom}" >> "$LOG"
                         send_mqtt_retain "game" "${system}/${rom}"
                     else
                         demo_throttled=1
@@ -791,20 +816,7 @@ while true; do
             fi
             ;;
 
-        enddemo)
-            ;;
-
-        # Mode demo/veille EmulationStation -- anciens noms d'evenement
-        # (voir commentaire rundemo) ci-dessus), JAMAIS observes declenches
-        # sur ce materiel mais gardes par prudence.
-        startgameclip)
-            if [ "$PREV_EVENT" != "startgameclip" ]; then
-                echo "$(date '+%H:%M:%S') DEMO/VEILLE (legacy) -> playlist" >> "$LOG"
-                send_mqtt_retain "default" "1"
-            fi
-            ;;
-
-        stopgameclip)
+        enddemo|stopgameclip)
             ;;
 
         *)

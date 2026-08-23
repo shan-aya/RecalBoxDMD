@@ -5,7 +5,14 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v28
+# Version actuelle : v29
+#
+# v29 - 2026-08-23 - safe-modify - "startgameclip" ajoute au case (retour
+#   utilisateur : "il existe 1 mode demo : lance des jeux et un mode demo
+#   video : lance des clips video de jeu" -- v28 n'avait cable que le
+#   premier). Verifie en direct sur RB1 (screensaver.type=gameclip) :
+#   evenement REEL "startgameclip", memes champs es_state.inf que rundemo.
+#   Voir marquee.sh v19 pour le detail complet cote cablage/decouverte.
 #
 # v28 - 2026-08-23 - safe-modify - "rundemo" ajoute au case gamelistbrowsing
 #   (retour utilisateur : "en mode clip & demo afficher marquee + panneaux
@@ -1228,7 +1235,7 @@ publish_one_panel() {
     return 1
 }
 
-echo "$(date) - DMD score bridge started (v28, rundemo -> panneaux d'info du jeu demo (equivalent survol de liste) + hi-score generique + round-robin infini + interruption inter-pages + dwell/ratios reglables)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v29, rundemo/startgameclip -> panneaux d'info du jeu demo/clip (equivalent survol de liste) + hi-score generique + round-robin infini + interruption inter-pages + dwell/ratios reglables)" >> "$LOG"
 # Efface une session/etat perime d'un lancement precedent.
 : > "$GAME_SESSION_FILE"
 : > "$BROWSE_STATE_FILE"
@@ -1335,18 +1342,21 @@ while IFS= read -r event; do
             LAST_BROWSE_ROM=""
             echo "$(date '+%H:%M:%S') SLEEP (round-robin ingame/browse arretes)" >> "$LOG"
             ;;
-        gamelistbrowsing|rundemo)
+        gamelistbrowsing|rundemo|startgameclip)
             # v28 -- "rundemo" ajoute (retour utilisateur : "en mode clip &
             # demo afficher marquee + panneaux d'info equivalent au survol
             # de liste du jeu concerne") -- meme evenement reel decouvert et
-            # cable cote marquee.sh v18 (voir son changelog complet) : sur
-            # cette version d'ES, le mode demo/clip publie "rundemo" (avec
-            # SystemId/GamePath peuples dans es_state.inf exactement comme
-            # un survol de liste), PAS "startgameclip". Reutilise tel quel
-            # tout le mecanisme dwell+round_robin("browse") ci-dessous -- un
-            # jeu demo n'est pas "en jeu" (round-robin "ingame" reserve a un
-            # vrai rungame), c'est bien un equivalent survol/consultation,
-            # exactement le comportement demande.
+            # cable cote marquee.sh v18 (voir son changelog complet). v29 --
+            # "startgameclip" ajoute : retour utilisateur, RB a en realite 2
+            # modes distincts (screensaver.type=demo -> "rundemo", vrai
+            # lancement jeu ; screensaver.type=gameclip -> "startgameclip",
+            # lecture d'un clip .mp4) -- les 2 peuplent SystemId/GamePath de
+            # la MEME facon dans es_state.inf, exactement comme un survol de
+            # liste. Reutilise tel quel tout le mecanisme dwell+
+            # round_robin("browse") ci-dessous pour les 2 -- ni un jeu demo
+            # ni un clip video ne sont "en jeu" (round-robin "ingame" reserve
+            # a un vrai rungame), ce sont bien des equivalents survol/
+            # consultation, exactement le comportement demande.
             #
             # v10 -- symetrique du fix rungame ci-dessus : un round-robin
             # "ingame" encore en vol (retour rapide a la liste juste apres
