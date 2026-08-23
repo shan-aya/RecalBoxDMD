@@ -2,7 +2,42 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v17
+# Version actuelle : v18
+#
+# v18 - 2026-08-23 - safe-modify - BUG REEL trouve par test en conditions
+#   reelles (retour utilisateur : "en mode clip & demo afficher le marquee
+#   du jeu concerne, comme un survol de liste, au lieu de la playlist ;
+#   garder la playlist pour bouncing/dim/black") -- verification complete du
+#   flux d'evenements ES avec screensaver.type force successivement sur les
+#   4 valeurs (dim/black/bouncing/demo), fenetre longue (idle timer ne
+#   demarre qu'apres le reglage complet du menu au boot, ~90-100s apres un
+#   redemarrage ES, pas juste apres le delai configure) :
+#   - dim/black/bouncing : un seul evenement "sleep", jamais repete --
+#     comportement INCHANGE (playlist), deja correct.
+#   - demo : evenements REELS "rundemo"/"enddemo" -- PAS
+#     "startgameclip"/"stopgameclip" comme suppose depuis l'origine de ce
+#     script (jamais declenches sur ce materiel, code mort garde par
+#     prudence). es_state.inf peuple SystemId/GamePath pendant rundemo
+#     exactement comme pendant un survol de liste -- nouveau case rundemo)
+#     publie desormais game=system/rom (comme gamelistbrowsing), au lieu de
+#     rester bloque sur la playlist affichee par le "sleep" qui precede.
+#     DEMO_SYSTEM/DEMO_ROM dedies (jamais LAST_SYSTEM/LAST_ROM) pour ne pas
+#     corrompre la position reelle de navigation restauree par wakeup).
+#
+#   BUG REEL #2 trouve en testant CE fix sur materiel (pas en theorie) :
+#   ES peut enchainer les jeux demo a ~1/s de facon SOUTENUE pendant
+#   plusieurs MINUTES (pas juste un pic isole) -- publier sans garde a
+#   bloque le DMD indefiniment sur l'ecran d'attente (confirme : zero
+#   "[MQTT] marquee/cmd/xxx ->" recu cote DMD pendant 3+ minutes, alors que
+#   les topics retenus etaient bien a jour cote broker -- meme famille de
+#   symptome que le rc=-4 deja documente, mais profil different : taux
+#   modere SOUTENU dans la duree, pas un pic instantane, donc invisible au
+#   detecteur de rafale "instantanee" existant (>=BURST_THRESHOLD dans la
+#   MEME seconde -- 1/s reste toujours EN-DESSOUS de ce seuil). Fix : limite
+#   de frequence dediee basee sur le temps ECOULE (DEMO_MIN_PUBLISH_INTERVAL_S
+#   = 3s, pas un compteur par seconde) -- state separee (demo_throttled/
+#   demo_last_publish_ts), jamais throttled/burst_* (ceux-la pilotent
+#   publish_settled_position(), la position REELLE de navigation).
 #
 # v17 - 2026-08-23 - safe-modify - BUG REEL confirme par relecture de code
 #   (retour utilisateur : verifier la resynchro DMD au demarrage/reconnexion
@@ -352,6 +387,33 @@ LAST_ROM=""
 IN_GAME=0
 BOOT_TIME=0
 PREV_EVENT=""
+# v18 -- dedies au mode demo (rundemo/enddemo, voir leur case) : jamais
+# LAST_SYSTEM/LAST_ROM directement, pour ne pas corrompre la position REELLE
+# de navigation que wakeup) doit restaurer au reveil.
+DEMO_SYSTEM=""
+DEMO_ROM=""
+# v18 suite -- BUG REEL trouve en test reel (ES peut enchainer les jeux
+# demo a ~1/s de facon SOUTENUE pendant plusieurs minutes -- pas juste un
+# pic isole) : le detecteur de rafale "instantanee" (>=BURST_THRESHOLD
+# evenements dans la MEME seconde d'horloge, celui de gamelistbrowsing) plus
+# bas) ne se declenche JAMAIS ici -- 1 evenement/s reste sous ce seuil, peu
+# importe la duree. Sans garde, chaque rundemo publiait immediatement
+# (mosquitto_pub, UNE connexion locale par appel) -- confirme en direct :
+# ~1/s soutenu pendant plus de 3 minutes a bloque le DMD indefiniment sur
+# l'ecran d'attente (jamais un seul "[MQTT] marquee/cmd/xxx ->" recu apres
+# la reconnexion, alors que les topics retenus etaient bien a jour cote
+# broker) -- meme famille de symptome que le rc=-4 deja documente dans la
+# memoire projet (rafale de connexions locales), mais sur un PROFIL DIFFERENT
+# (taux modere mais SOUTENU dans la duree, pas un pic instantane). Fix :
+# limite de frequence simple basee sur le temps ECOULE depuis la derniere
+# publication (pas un compteur par seconde) -- publie immediatement si le
+# jeu demo change ET qu'au moins DEMO_MIN_PUBLISH_INTERVAL_S se sont
+# ecoules depuis la derniere publication, sinon met a jour DEMO_SYSTEM/
+# DEMO_ROM silencieusement (aucun cout MQTT) et laisse le mecanisme de fin
+# de rafale (timeout -W1, ci-dessous) publier la position enfin stabilisee.
+DEMO_MIN_PUBLISH_INTERVAL_S=3
+demo_last_publish_ts=0
+demo_throttled=0
 
 # v6 -- etat du detecteur de rafale (voir changelog v6 ci-dessus).
 # v7 -- seuil remonte de 3 a 5 (retour utilisateur : 3 trop restrictif).
@@ -387,7 +449,7 @@ throttled=0
 # de l'interpolation et le log affichait "seuil=/s" (vide) au lieu de
 # "seuil=10/s" -- bug constate au demarrage reel, corrige en deplacant le
 # log apres la declaration.
-echo "$(date) - Marquee bridge started (v17, resynchro start) si Action=rungame, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
+echo "$(date) - Marquee bridge started (v18, rundemo/enddemo -> marquee du jeu demo, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
 
 while true; do
     PREV_EVENT="$event"
@@ -399,7 +461,7 @@ while true; do
     # en sortie de boucle ne peut donc survenir QUE si throttled=1 (timeout)
     # ou (tres improbable) message vide recu -- traite pareil, sans
     # consequence (le case *) plus bas ignore deja les events vides).
-    if [ "$throttled" -eq 1 ]; then
+    if [ "$throttled" -eq 1 ] || [ "$demo_throttled" -eq 1 ]; then
         event=$(mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 \
             -t "Recalbox/EmulationStation/Event" -C 1 -W 1 2>/dev/null | tr -d '\r')
     else
@@ -418,6 +480,20 @@ while true; do
             burst_qualifying_streak=0
             echo "$(date '+%H:%M:%S') BURST end -- publication position stabilisee" >> "$LOG"
             publish_settled_position
+        fi
+        # v18 suite -- meme principe, limite de frequence demo (voir
+        # demo_throttled/DEMO_MIN_PUBLISH_INTERVAL_S) : plus aucun rundemo
+        # depuis >=1s (timeout -W1) -- la sequence rapide vient de finir
+        # (ou le mode demo lui-meme s'est arrete), publie la DERNIERE
+        # position demo connue, meme si elle est plus recente que la
+        # derniere publication autorisee.
+        if [ "$demo_throttled" -eq 1 ]; then
+            demo_throttled=0
+            if [ -n "$DEMO_SYSTEM" ] && [ -n "$DEMO_ROM" ]; then
+                demo_last_publish_ts=$(date +%s)
+                echo "$(date '+%H:%M:%S') DEMO sequence rapide terminee -- publication position stabilisee" >> "$LOG"
+                send_mqtt_retain "game" "${DEMO_SYSTEM}/${DEMO_ROM}"
+            fi
         fi
         continue
     fi
@@ -667,15 +743,63 @@ while true; do
             fi
             ;;
 
-        # Mode demo/veille EmulationStation (defilement automatique de clips
-        # video) : ES ne publie ni "sleep" ni "wakeup" pour ce mode, juste
-        # "startgameclip" en boucle toutes les ~30s -- sans ce cas, le DMD ne
-        # repassait jamais en playlist pendant la demo (tombait dans le *)
-        # ci-dessous, ignore). PREV_EVENT evite de renvoyer "default" a
-        # chaque repetition (juste au moment ou on ENTRE en mode demo).
+        # v18 -- BUG REEL trouve en verifiant en direct (retour utilisateur :
+        # "en mode clip & demo afficher le marquee du jeu concerne au lieu
+        # de la playlist") : sur cette version d'ES, les evenements REELS de
+        # ce mode sont "rundemo"/"enddemo" -- PAS "startgameclip"/
+        # "stopgameclip" comme suppose depuis l'origine de ce script. Verifie
+        # en conditions reelles (screensaver.type=demo force, capture
+        # complete du flux Recalbox/EmulationStation/Event) : ces 2 anciens
+        # noms ne se sont JAMAIS declenches sur ce materiel -- code mort
+        # depuis le debut, tombant systematiquement dans le *) ci-dessous
+        # (ignore). Gardes ci-dessous par prudence (cout nul) au cas ou une
+        # autre version d'ES les utiliserait encore.
+        #
+        # /tmp/es_state.inf peuple SystemId/GamePath PENDANT rundemo,
+        # EXACTEMENT comme pendant un survol de liste (verifie en direct :
+        # Action=rundemo, SystemId=fbneo, GamePath=.../dacholer.zip) --
+        # meme lecture atomique (v8) et meme publication que
+        # gamelistbrowsing) reutilisees ici. DEMO_SYSTEM/DEMO_ROM dedies
+        # (jamais LAST_SYSTEM/LAST_ROM) pour ne pas corrompre la position
+        # REELLE de navigation que wakeup) doit restaurer au reveil -- un
+        # jeu demo n'est PAS une vraie position utilisateur.
+        rundemo)
+            # v18 suite -- limite de frequence DEDIEE au mode demo (voir
+            # DEMO_MIN_PUBLISH_INTERVAL_S/demo_throttled plus haut) : jamais
+            # LAST_SYSTEM/LAST_ROM/throttled/burst_* (ceux-la pilotent
+            # publish_settled_position(), qui publie la position REELLE de
+            # navigation, jamais celle d'une demo).
+            now=$(date +%s)
+            _snap=$(read_state_snapshot)
+            system_raw=$(extract_field "$_snap" "SystemId")
+            game_path=$(extract_field "$_snap" "GamePath")
+            rom=$(basename "$game_path" | sed 's/\.[^.]*$//; s/ //g')
+            system=$(normalize_system "$system_raw")
+            if [ -n "$system" ] && [ -n "$rom" ]; then
+                if [ "$rom" != "$DEMO_ROM" ] || [ "$system" != "$DEMO_SYSTEM" ]; then
+                    DEMO_SYSTEM="$system"
+                    DEMO_ROM="$rom"
+                    if [ $((now - demo_last_publish_ts)) -ge "$DEMO_MIN_PUBLISH_INTERVAL_S" ]; then
+                        demo_throttled=0
+                        demo_last_publish_ts="$now"
+                        echo "$(date '+%H:%M:%S') DEMO -> ${system}/${rom}" >> "$LOG"
+                        send_mqtt_retain "game" "${system}/${rom}"
+                    else
+                        demo_throttled=1
+                    fi
+                fi
+            fi
+            ;;
+
+        enddemo)
+            ;;
+
+        # Mode demo/veille EmulationStation -- anciens noms d'evenement
+        # (voir commentaire rundemo) ci-dessus), JAMAIS observes declenches
+        # sur ce materiel mais gardes par prudence.
         startgameclip)
             if [ "$PREV_EVENT" != "startgameclip" ]; then
-                echo "$(date '+%H:%M:%S') DEMO/VEILLE -> playlist" >> "$LOG"
+                echo "$(date '+%H:%M:%S') DEMO/VEILLE (legacy) -> playlist" >> "$LOG"
                 send_mqtt_retain "default" "1"
             fi
             ;;

@@ -5,7 +5,17 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v27
+# Version actuelle : v28
+#
+# v28 - 2026-08-23 - safe-modify - "rundemo" ajoute au case gamelistbrowsing
+#   (retour utilisateur : "en mode clip & demo afficher marquee + panneaux
+#   d'info equivalent au survol de liste du jeu concerne, au lieu de la
+#   playlist"). Decouverte cote marquee.sh v18 (voir son changelog complet)
+#   : le mode demo/clip de cette version d'ES publie l'evenement REEL
+#   "rundemo" (SystemId/GamePath peuples dans es_state.inf exactement comme
+#   pendant un survol de liste), pas "startgameclip" comme suppose avant.
+#   "gamelistbrowsing|rundemo)" reutilise tel quel tout le mecanisme
+#   dwell+round_robin("browse") existant -- aucune nouvelle logique.
 #
 # v27 - 2026-08-23 - safe-modify - BUG REEL corrige (retour utilisateur,
 #   "je suis etonne car des la creation .hi ca semblait fonctionner" -- oui,
@@ -1218,7 +1228,7 @@ publish_one_panel() {
     return 1
 }
 
-echo "$(date) - DMD score bridge started (v26, hi-score generique branche (~2758 jeux via hiscore_manifest.json) + fix state browse incluant LAST_SYSTEMBROWSING_ID (boucle round-robin fantome corrigee) + fix auto-match challenge_session_active + tableau RB CHALLENGE en navigation dans le systeme virtuel challenges + classement exclusif en session active + pagination DESCRIPTION par phrases entieres + TomThumb + round-robin infini + interruption inter-pages + titre hi-score page2 + marge anti-flash + dwell/ratios reglables)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v28, rundemo -> panneaux d'info du jeu demo (equivalent survol de liste) + hi-score generique + round-robin infini + interruption inter-pages + dwell/ratios reglables)" >> "$LOG"
 # Efface une session/etat perime d'un lancement precedent.
 : > "$GAME_SESSION_FILE"
 : > "$BROWSE_STATE_FILE"
@@ -1325,7 +1335,19 @@ while IFS= read -r event; do
             LAST_BROWSE_ROM=""
             echo "$(date '+%H:%M:%S') SLEEP (round-robin ingame/browse arretes)" >> "$LOG"
             ;;
-        gamelistbrowsing)
+        gamelistbrowsing|rundemo)
+            # v28 -- "rundemo" ajoute (retour utilisateur : "en mode clip &
+            # demo afficher marquee + panneaux d'info equivalent au survol
+            # de liste du jeu concerne") -- meme evenement reel decouvert et
+            # cable cote marquee.sh v18 (voir son changelog complet) : sur
+            # cette version d'ES, le mode demo/clip publie "rundemo" (avec
+            # SystemId/GamePath peuples dans es_state.inf exactement comme
+            # un survol de liste), PAS "startgameclip". Reutilise tel quel
+            # tout le mecanisme dwell+round_robin("browse") ci-dessous -- un
+            # jeu demo n'est pas "en jeu" (round-robin "ingame" reserve a un
+            # vrai rungame), c'est bien un equivalent survol/consultation,
+            # exactement le comportement demande.
+            #
             # v10 -- symetrique du fix rungame ci-dessus : un round-robin
             # "ingame" encore en vol (retour rapide a la liste juste apres
             # avoir quitte un jeu, avant qu'endgame/stop n'ait ete traite)
