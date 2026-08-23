@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# direct_harvest_mame0278_rb2.py v2 -- variante de direct_harvest_mame0278.py
+# direct_harvest_mame0278_rb2.py v3 -- variante de direct_harvest_mame0278.py
 # (RB1, JAMMA/CRT) adaptee au materiel x86/X11 (ex. Steam Deck, pas de
 # CRT/JAMMA, manette integree, controleur graphique nécessitant DISPLAY).
 # Ligne de lancement capturee en reel le 2026-08-23 (jeu lance normalement
@@ -33,6 +33,21 @@
 # ES ou Xorg** -- les lancements directs cohabitent normalement avec ES qui
 # tourne, exactement comme n'importe quel jeu lance normalement par
 # l'utilisateur.
+#
+# v3 -- capture d'ecran INTEGREE a la boucle de recolte (demande
+# utilisateur explicite : "avec le comparatif screenshot directement plutot
+# que de devoir repasser dessus apres"). Juste avant le QUIT propre, envoie
+# la commande reseau RetroArch SCREENSHOT (capture le rendu GPU reel,
+# contrairement a fbgrab/dev/fb0 qui ne capture qu'un contenu perime --
+# voir DECISIONS.md "methode verite d'abord") -- le fichier PNG atterrit
+# dans le screenshot_directory configure de RetroArch (verifier avec
+# `grep screenshot_directory /recalbox/share/system/configs/retroarch/
+# retroarchcustom.cfg`, meme convention que RB1 a priori :
+# /recalbox/share/screenshots/), nomme "<rom>-<date>-<heure>.png". Fait
+# pour TOUS les jeux qui chargent (pas seulement ceux avec .hi peuple) --
+# donne directement, a la fin du lot, un jeu de captures pretes pour la
+# methode "verite d'abord" (tools/build_entry_from_truth.py) SANS avoir a
+# relancer quoi que ce soit.
 import subprocess, time, socket, os, sys
 
 os.environ["DISPLAY"] = ":0"
@@ -74,13 +89,21 @@ def find_retroarch_pid(rom):
     return int(line.split()[0])
 
 
-def send_quit():
+def send_udp(cmd):
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.sendto(b"QUIT\n", ("127.0.0.1", 55355))
+        s.sendto(cmd, ("127.0.0.1", 55355))
         s.close()
     except Exception as e:
-        log("!! erreur envoi QUIT: {}".format(e))
+        log("!! erreur envoi {}: {}".format(cmd, e))
+
+
+def send_screenshot():
+    send_udp(b"SCREENSHOT\n")
+
+
+def send_quit():
+    send_udp(b"QUIT\n")
 
 
 def wait_gone(pid, timeout_s):
@@ -125,6 +148,9 @@ def harvest_one(rom):
 
     log(">>> {} lance (pid={}), attente {}s".format(rom, pid, DWELL_S))
     time.sleep(DWELL_S)
+
+    send_screenshot()
+    time.sleep(1)  # laisse RetroArch ecrire le fichier avant le QUIT
 
     send_quit()
     ended_cleanly = wait_gone(pid, QUIT_WAIT_S)
