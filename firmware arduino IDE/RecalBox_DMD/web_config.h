@@ -3,7 +3,31 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v63
+// Version actuelle : v64
+//
+// v64 — 2026-08-23 — safe-modify — BUG REEL corrige (signale par
+//   l'utilisateur : "les pages web n'ont pas de champs pre-remplis",
+//   recoupe avec le gel reseau periodique du DMD deja confirme/documente en
+//   memoire projet, ~27s, mini_sniffer). fetch('/load')/fetch('/lang') NE
+//   REJETTENT PAS pendant un gel -- la connexion est acceptee puis reste en
+//   suspens sans jamais resoudre NI rejeter, donc le .catch() deja present
+//   (msg_load_error) ne se declenche jamais : page silencieusement vide,
+//   sans le moindre message. Reproduit en reel le 2026-08-23 (requete
+//   /load : 1er essai timeout ~15s, 2e reussi immediatement). Fix : nouveau
+//   helper fetchTimeout() (AbortController, motif deja en usage ailleurs
+//   dans ce fichier pour l'upload JS/le polling playlist) applique a /lang
+//   ET /load dans les 4 pages (Affichage/Playlist/Reseau/Horloge) ; /load
+//   beneficie en plus d'une retentative automatique unique
+//   (fetchLoadRetry()) avant d'abandonner et d'afficher msg_load_error.
+//   Root cause du symptome horloge signale ce soir (nom du theme affiche en
+//   boucle sur chaque GIF, jamais l'horloge elle-meme) : clock_interval=0 ET
+//   clock_duration=0 encore en config.ini -- restes bloques a 0 depuis avant
+//   le fix v61/enforceClockDefaults() car la page Horloge, deja vide a
+//   cause de CE bug-ci, n'a jamais pu etre re-sauvegardee correctement.
+//   Consequence attendue : ouvrir la page Horloge maintenant doit charger
+//   les vraies valeurs (0/0) puis enforceClockDefaults() les corrige a
+//   10/60 dans le FORMULAIRE -- sauvegarder pour que ca persiste en
+//   config.ini.
 //
 // v63 — 2026-08-20 — safe-modify — Case "RA / Navigation" grisee et
 //   desactivee (demande utilisateur explicite) : ce reglage n'a
@@ -1322,7 +1346,23 @@ function dmdResume(){checkEssentialFields().then(ok=>{if(!ok)return;if(_formDirt
 // faux positifs trop frequents -- ni le JS ni le serveur ne peuvent
 // distinguer les deux cas, une connexion qui se ferme se ressemble dans
 // tous les cas).
-function loadConfig(){const draft=loadDraft();return fetch('/load').then(r=>r.json()).then(d=>{
+// v64 -- BUG REEL corrige (demande utilisateur, "les pages web n'ont pas de
+// champs pre-remplis") : un gel reseau du DMD (deja confirme/documente,
+// gel TCP pouvant durer ~27s) ne fait PAS forcement echouer fetch('/load')
+// ou fetch('/lang') -- la connexion est acceptee puis reste en suspens SANS
+// jamais resoudre ni rejeter la promesse, tant que le firmware est bloque.
+// Le .catch() existant (montre msg_load_error) ne sert donc a rien dans ce
+// cas precis : ni .then() ni .catch() ne se declenchent jamais, la page
+// reste juste vide indefiniment sans le moindre message. Fix : timeout
+// explicite (AbortController, meme motif deja en usage ailleurs dans ce
+// fichier pour l'upload JS/le polling de generation playlist) qui force un
+// vrai rejet au bout de 15s -- /load beneficie en plus d'une retentative
+// automatique unique (15s de gel, PUIS une 2e tentative typiquement propre,
+// confirme en test reel le 2026-08-23 : 1er essai timeout, 2e reussi
+// immediatement) avant d'abandonner et d'afficher msg_load_error.
+function fetchTimeout(u,o,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);return fetch(u,Object.assign({},o,{signal:c.signal})).finally(()=>clearTimeout(t));}
+function fetchLoadRetry(){return fetchTimeout('/load',{},15000).catch(()=>fetchTimeout('/load',{},15000)).then(r=>r.json());}
+function loadConfig(){const draft=loadDraft();return fetchLoadRetry().then(d=>{
   // v113 -- BUG REEL corrige : une chaine VIDE laissee dans le brouillon
   // (ex. un champ nombre momentanement vide pendant une frappe, sauvegarde
   // par saveDraft() a CHAQUE evenement 'input') passait le test
@@ -1351,7 +1391,7 @@ function loadConfig(){const draft=loadDraft();return fetch('/load').then(r=>r.js
   if(draft)_formDirty=true; // reboot/reprise doivent quand meme avertir : la config.ini reelle n'a pas ce brouillon
 }).catch(()=>showMsg(tr('msg_load_error'),false));}
 localStorage.setItem('dmd_last_section','basic');
-fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}return loadConfig();}).catch(()=>{applyLang();return loadConfig();}).finally(hidePageLoadingOverlay);
+fetchTimeout('/lang',{},15000).then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}return loadConfig();}).catch(()=>{applyLang();return loadConfig();}).finally(hidePageLoadingOverlay);
 document.getElementById('basicForm').addEventListener('input',()=>{_formDirty=true;saveDraft();});
 </script>
 </body>
@@ -1716,7 +1756,12 @@ async function generatePlaylist(){
   }
   setPageBusy(false);
 }
-function loadConfig(){const draft=loadDraft();return fetch('/load').then(r=>r.json()).then(d=>{
+// v64 -- BUG REEL corrige, voir le commentaire complet dans WEB_CONFIG_HTML
+// (page Affichage) -- meme fix duplique ici (gel reseau du DMD => fetch qui
+// ne resout ni ne rejette jamais, .catch() existant inutile dans ce cas).
+function fetchTimeout(u,o,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);return fetch(u,Object.assign({},o,{signal:c.signal})).finally(()=>clearTimeout(t));}
+function fetchLoadRetry(){return fetchTimeout('/load',{},15000).catch(()=>fetchTimeout('/load',{},15000)).then(r=>r.json());}
+function loadConfig(){const draft=loadDraft();return fetchLoadRetry().then(d=>{
   // v113 -- BUG REEL corrige : une chaine VIDE laissee dans le brouillon
   // (ex. un champ nombre momentanement vide pendant une frappe, sauvegarde
   // par saveDraft() a CHAQUE evenement 'input') passait le test
@@ -1733,7 +1778,7 @@ function loadConfig(){const draft=loadDraft();return fetch('/load').then(r=>r.js
   if(draft)_formDirty=true;
 }).catch(()=>showMsg(tr('msg_load_error'),false));}
 localStorage.setItem('dmd_last_section','playlist');
-fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}return loadConfig();}).catch(()=>{applyLang();return loadConfig();}).then(loadGenDirs).finally(hidePageLoadingOverlay);
+fetchTimeout('/lang',{},15000).then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}return loadConfig();}).catch(()=>{applyLang();return loadConfig();}).then(loadGenDirs).finally(hidePageLoadingOverlay);
 document.getElementById('playlistForm').addEventListener('input',()=>{_formDirty=true;saveDraft();});
 </script>
 </body>
@@ -1962,7 +2007,12 @@ function scanWiFi(){
     if(savedSsid&&!found){const o=new Option(savedSsid,savedSsid,true,true);sel.add(o);}
   }).catch(()=>{sel.innerHTML='';const opt=document.createElement('option');opt.value=savedSsid;opt.textContent=savedSsid||tr('opt_scan_error');sel.appendChild(opt);});
 }
-function loadConfig(){const draft=loadDraft();fetch('/load').then(r=>r.json()).then(d=>{
+// v64 -- BUG REEL corrige, voir le commentaire complet dans WEB_CONFIG_HTML
+// (page Affichage) -- meme fix duplique ici (gel reseau du DMD => fetch qui
+// ne resout ni ne rejette jamais, .catch() existant inutile dans ce cas).
+function fetchTimeout(u,o,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);return fetch(u,Object.assign({},o,{signal:c.signal})).finally(()=>clearTimeout(t));}
+function fetchLoadRetry(){return fetchTimeout('/load',{},15000).catch(()=>fetchTimeout('/load',{},15000)).then(r=>r.json());}
+function loadConfig(){const draft=loadDraft();fetchLoadRetry().then(d=>{
   // v113 -- BUG REEL corrige : une chaine VIDE laissee dans le brouillon
   // (ex. un champ nombre momentanement vide pendant une frappe, sauvegarde
   // par saveDraft() a CHAQUE evenement 'input') passait le test
@@ -1990,7 +2040,7 @@ function loadConfig(){const draft=loadDraft();fetch('/load').then(r=>r.json()).t
   if(draft)_formDirty=true; // reboot/reprise doivent quand meme avertir : la config.ini reelle n'a pas ce brouillon
 }).catch(()=>showMsg(tr('msg_load_error'),false));}
 localStorage.setItem('dmd_last_section','network');
-fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}loadConfig();}).catch(()=>{applyLang();loadConfig();}).finally(hidePageLoadingOverlay);
+fetchTimeout('/lang',{},15000).then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}loadConfig();}).catch(()=>{applyLang();loadConfig();}).finally(hidePageLoadingOverlay);
 document.getElementById('networkForm').addEventListener('input',()=>{_formDirty=true;saveDraft();});
 </script>
 </body>
@@ -2242,7 +2292,15 @@ function dmdResume(){checkEssentialFields().then(ok=>{if(!ok)return;if(_formDirt
 // faux positifs trop frequents -- ni le JS ni le serveur ne peuvent
 // distinguer les deux cas, une connexion qui se ferme se ressemble dans
 // tous les cas).
-function loadConfig(){const draft=loadDraft();fetch('/load').then(r=>r.json()).then(d=>{
+// v64 -- BUG REEL corrige, voir le commentaire complet dans WEB_CONFIG_HTML
+// (page Affichage) -- meme fix duplique ici (gel reseau du DMD => fetch qui
+// ne resout ni ne rejette jamais, .catch() existant inutile dans ce cas).
+// C'est cette page precisement qui a revele le bug (champs Horloge vides,
+// clock_interval/clock_duration restes a 0 en config.ini faute d'avoir pu
+// etre corriges via un formulaire jamais rempli).
+function fetchTimeout(u,o,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);return fetch(u,Object.assign({},o,{signal:c.signal})).finally(()=>clearTimeout(t));}
+function fetchLoadRetry(){return fetchTimeout('/load',{},15000).catch(()=>fetchTimeout('/load',{},15000)).then(r=>r.json());}
+function loadConfig(){const draft=loadDraft();fetchLoadRetry().then(d=>{
   // v113 -- BUG REEL corrige : une chaine VIDE laissee dans le brouillon
   // (ex. un champ nombre momentanement vide pendant une frappe, sauvegarde
   // par saveDraft() a CHAQUE evenement 'input') passait le test
@@ -2273,7 +2331,7 @@ function loadConfig(){const draft=loadDraft();fetch('/load').then(r=>r.json()).t
   enforceClockDefaults();
 }).catch(()=>showMsg(tr('msg_load_error'),false));}
 localStorage.setItem('dmd_last_section','clock');
-fetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}loadConfig();}).catch(()=>{applyLang();loadConfig();}).finally(hidePageLoadingOverlay);
+fetchTimeout('/lang',{},15000).then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}loadConfig();}).catch(()=>{applyLang();loadConfig();}).finally(hidePageLoadingOverlay);
 document.getElementById('clockForm').addEventListener('input',()=>{_formDirty=true;saveDraft();});
 </script>
 </body>

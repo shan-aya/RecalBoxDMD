@@ -1,7 +1,34 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v3
+# Version actuelle : v4
+#
+# v4 - 2026-08-23 - safe-modify - BUG REEL corrige (trouve en fusionnant le
+#   lot de 613 .hi frais recoltes par direct_harvest.py cette nuit) :
+#   `is_valid_bcd4()` valide n'importe quel octet dont les 2 nibbles sont
+#   <=9 -- or les octets ASCII imprimables courants (espace 0x20, chiffres
+#   '0'-'9' = 0x30-0x39) ont TOUJOURS des nibbles valides par coincidence
+#   (0x30='0' -> nibbles 3,0 ; 0x20=espace -> nibbles 2,0), donc un champ
+#   texte/remplissage adjacent au vrai score (souvent des espaces ou des
+#   "0" de padding) peut passer la validation BCD et etre pris pour un
+#   score valide. Symptome observe en nombre sur ce lot : des jeux avec un
+#   "score" affichant des motifs clairement issus de texte ASCII brut
+#   (ex. 30303030, 20202020) au lieu d'un vrai nombre BCD. Sur 613 fichiers
+#   analyses, 126 marques FORTE par l'heuristique d'origine -- verification
+#   manuelle poussee (3 passes : rang1=0, filtre "?"/echelle/noms 1-lettre,
+#   motif ASCII pur) a fait tomber ce nombre a 80 reellement fiables. Fix
+#   : `is_valid_bcd4()` rejette desormais un champ score si TOUS ses octets
+#   sont dans la plage remplissage/texte ASCII (0x20 ou 0x30-0x39) --
+#   n'exclut quasiment aucun vrai score (un score reel a 4 octets qui
+#   tomberait ENTIEREMENT par coincidence dans cette plage etroite est
+#   extremement improbable), mais elimine la source la plus frequente de
+#   faux-positifs constatee ce soir. Les 3 autres categories de faux-
+#   positifs rencontrees (score au rang 1 = 0 -- deja gere par le filtre
+#   FORTE existant si combine a une verification manuelle ; noms "?" partout
+#   -- charset/decalage faux ; echelle incoherente entre rangs) restent
+#   NON automatisees -- nécessitent encore une relecture des resultats
+#   avant fusion definitive dans hiscore_manifest.json, ne pas fusionner le
+#   fichier de sortie a l'aveugle meme apres ce fix.
 #
 # v3 - 2026-08-23 - safe-modify - 2 bugs corriges apres validation reelle
 #   par l'utilisateur (willow verifie a l'ecran attract, sans avoir besoin
@@ -60,6 +87,13 @@ def is_valid_bcd4(b4):
     for byte in b4:
         if (byte >> 4) > 9 or (byte & 0xF) > 9:
             return False
+    # v4 -- rejette un champ dont TOUS les octets sont dans la plage
+    # remplissage/texte ASCII (espace 0x20, chiffres '0'-'9' 0x30-0x39) --
+    # ces octets ont des nibbles nibble-valides par pure coincidence (voir
+    # changelog), la cause la plus frequente de faux score BCD trouvee en
+    # pratique sur le lot du 2026-08-23.
+    if all(b == 0x20 or 0x30 <= b <= 0x39 for b in b4):
+        return False
     return True
 
 
