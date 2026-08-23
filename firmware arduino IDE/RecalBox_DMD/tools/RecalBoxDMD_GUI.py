@@ -2,7 +2,72 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v49
+# Version actuelle : v52
+#
+# v52 — 2026-08-23 — safe-modify — Retour utilisateur : "la fenetre de
+#      copie SD est vide" -- bug DEJA CORRIGE sur master (v51-v54, jamais
+#      porte vers cette branche dev, divergee juste avant ce fix -- dernier
+#      commit commun 450dd26). Porte le fix complet depuis master (diff
+#      isole 3d48f31..edac447, en excluant le travail v50 sans rapport
+#      "langue des images systeme") :
+#      - v51 master : BUG REEL racine -- _center_toplevel(dlg) etait
+#        appelee dans _on_mode6_flash_done() (popup "Explorer SD/Explorer
+#        temp/Fermer", LE dialogue "fin de copie SD" concerne) et dans la
+#        popup de nettoyage de _on_quit_app_clicked(), juste apres la
+#        creation du Toplevel, AVANT le pack()/grid() de tous ses widgets
+#        -- le calcul de centrage se basait donc sur winfo_reqwidth()/
+#        reqheight() d'une fenetre encore VIDE (~1x1) au lieu de sa taille
+#        reelle une fois remplie, plaçant son coin superieur-gauche au
+#        centre de root et laissant tout le contenu deborder hors champ --
+#        exactement le symptome "fenetre vide" signale. Fix : appel
+#        deplace apres le pack()/grid() de tous les widgets dans ces 2
+#        dialogues (les 14 autres, deja dans le bon ordre, inchanges).
+#      - v52 master : DPI-awareness (SetProcessDpiAwareness, repli
+#        SetProcessDPIAware) declaree avant tk.Tk() + nouvelle
+#        _clamp_to_root_monitor() (MonitorFromWindow/GetMonitorInfo, PAS
+#        winfo_screenwidth/height qui ne renvoie que le moniteur PRIMAIRE)
+#        appelee dans _center_toplevel() -- protection residuelle pour un
+#        setup multi-ecrans (popup ne peut plus finir sur un autre ecran
+#        que celui de l'outil, meme si le calcul de centrage derive).
+#      - v53 master : root elle-meme n'avait jusqu'ici JAMAIS de position
+#        explicite au lancement (geometry() sans +x+y) -- Tk la placait
+#        selon son propre defaut, empiriquement pres du coin haut-gauche.
+#        Fix : root explicitement centree sur l'ecran primaire au
+#        demarrage.
+#      - v54 master : lecon permanente conservee -- _center_toplevel()
+#        loggue desormais toute exception (print) au lieu de l'avaler
+#        silencieusement (ancien "except Exception: pass").
+#      Verifie : les 3 patchs distincts (call sites, DPI/clamp, root
+#      centree) recompiles/importes proprement (py_compile OK, cle de
+#      traduction inchangee -- ce fix ne touche aucun texte UI). PAS
+#      ENCORE reteste sur materiel/poste utilisateur reel apres portage
+#      (le bug d'origine avait ete confirme resolu sur master par
+#      l'utilisateur avant le portage ici).
+#
+# v51 — 2026-08-23 — safe-modify — Retour utilisateur : Mode 6 et Mode 7
+#      restaient figes sur self.sd_dir/"systems" (dossier de travail
+#      temporaire), impossible de les faire pointer directement sur une
+#      vraie carte SD externe deja preparee sans repasser par tout le
+#      pipeline Mode 1/2/3. Bouton "choisir dossier" reactive pour ces 2
+#      modes (retire de la liste des modes desactives, qui ne contient
+#      plus que 2/9/10/11 -- ceux-la ont une vraie raison structurelle :
+#      telechargement GitHub ou dependance a un mode precedent qui ne
+#      s'applique pas a Mode 6/7). _pipeline_mode_6()/_pipeline_mode_7()
+#      lisent desormais cfg.roms_root (dossier choisi) au lieu du chemin
+#      fige -- la sortie (games_cache.bin/systems_cache.dat) reste ecrite
+#      dans le dossier de travail habituel, inchange. Nouvelle cle
+#      "mode6_pick_btn" (FR/EN/ES, parite verifiee) -- "mode7_pick_btn"
+#      existait deja. Textes d'aide Mode 6/7 (3 langues) mis a jour (ne
+#      disent plus "aucun dossier a choisir").
+#
+# v50 — 2026-08-23 — safe-modify — Repli du seuil flag "L" (onglet
+#      Parametres) ramene de 5000 a 800 (retour utilisateur, chantier
+#      "bucket" -- voir DECISIONS.md RecalBox_DMD et RecalBoxDMD_prefs.py
+#      v8) : 5000 n'avait de sens que pour l'ancien calcul PAR SYSTEME
+#      ENTIER (evitait de marquer a tort de petits systemes "lents" a
+#      cause d'un seul gros sous-dossier) -- avec le flag L desormais
+#      calcule PAR BUCKET alphabetique, ce probleme n'existe plus par
+#      construction, 800 (seuil d'origine) redevient pertinent PAR BUCKET.
 #
 # v49 — 2026-08-13 — safe-modify — Texte long du panneau Mode 9 (FR/EN/ES)
 #      mis a jour pour citer les 6 scripts installes (ajout de Reboot DMD,
@@ -902,6 +967,7 @@ UI_TRANSLATIONS = {
         "mode_label": "Mode",
         "roms_pick_btn": "Choisir dossier ROMs",
         "mode7_pick_btn": 'Choisir le dossier "systems" contenant "_defaults"',
+        "mode6_pick_btn": 'Choisir le dossier "systems" (images converties)',
         "images_pick_btn": "Choix des dossiers Images",
         "start_btn": "DÉMARRER",
         "detect_systems_btn": "Détection des systèmes (gamelist.xml)",
@@ -1344,6 +1410,7 @@ UI_TRANSLATIONS = {
         "mode_label": "Mode",
         "roms_pick_btn": "Choose ROMs folder",
         "mode7_pick_btn": 'Choose the "systems" folder containing "_defaults"',
+        "mode6_pick_btn": 'Choose the "systems" folder (converted images)',
         "images_pick_btn": "Choose images folders",
         "start_btn": "START",
         "detect_systems_btn": "Detect systems (gamelist.xml)",
@@ -2100,6 +2167,7 @@ UI_TRANSLATIONS = {
             "Haga clic en No para OMITIR y conservar los archivos actuales."
         ),
         "mode7_pick_btn": 'Elegir la carpeta "systems" que contiene "_defaults"',
+        "mode6_pick_btn": 'Elegir la carpeta "systems" (imágenes convertidas)',
         "default_image_btn": "Elegir su imagen de respaldo",
         "default_image_dialog_title": "Elegir la imagen de respaldo",
         "default_image_dialog_intro": (
@@ -2217,6 +2285,29 @@ class RetroBoxLEDGui:
         # Dossier final choisi par l'utilisateur (copie depuis sd_dir/tems de travail).
         self._final_output_dir: Optional[Path] = None
 
+        # v52, safe-modify (chantier "bucket", porte depuis master) :
+        # declaration DPI-awareness AVANT la moindre fenetre (doit preceder
+        # tk.Tk() pour avoir un effet). Sans elle, Windows virtualise le DPI
+        # d'une appli non declaree "consciente", ce qui peut fausser les
+        # coordonnees que Tk rapporte ensuite (winfo_x/y, geometry()) selon
+        # le moniteur de demarrage -- cause connue de popups Tk mal
+        # repositionnes sur un setup multi-ecrans. PROCESS_SYSTEM_DPI_AWARE
+        # (1) en priorite, repli sur l'ancienne API (Vista+, moins precise
+        # mais suffisante ici) si Shcore indisponible (Windows 7 sans mise a
+        # jour de plateforme).
+        if sys.platform == "win32":
+            try:
+                import ctypes
+
+                ctypes.windll.shcore.SetProcessDpiAwareness(1)
+            except Exception:
+                try:
+                    import ctypes
+
+                    ctypes.windll.user32.SetProcessDPIAware()
+                except Exception:
+                    pass
+
         self.root = tk.Tk()
         self.root.title("RecalBoxDMD Toolkit - GUI")
         self.root.configure(bg="#F3F3F3")
@@ -2325,12 +2416,14 @@ class RetroBoxLEDGui:
         )
 
         # Seuil flag "L" (build_systems_cache(), onglet Parametres, v45) --
-        # persiste dans RecalBoxDMD_prefs.json (v7). Repli 5000 sur toute
-        # valeur invalide (fichier prefs corrompu/edite a la main).
+        # persiste dans RecalBoxDMD_prefs.json (v7/v8). Repli 800 sur toute
+        # valeur invalide (fichier prefs corrompu/edite a la main) -- v8 :
+        # 800, pas 5000, le seuil s'applique desormais PAR BUCKET (chantier
+        # "bucket"), pas par systeme entier.
         try:
-            _saved_threshold = int(prefs.get("slow_threshold") or 5000)
+            _saved_threshold = int(prefs.get("slow_threshold") or 800)
         except (TypeError, ValueError):
-            _saved_threshold = 5000
+            _saved_threshold = 800
         self._slow_threshold_var = tk.IntVar(value=_saved_threshold)
 
         # ── Onglet PLAYLIST : etat separe de self.sd_dir (qui designe le
@@ -2481,7 +2574,26 @@ class RetroBoxLEDGui:
         # l'onglet Main est plutot resserre pour tenir dans 750px (voir
         # _build_mode6_panel : listbox lecteurs reduite, paddings reduits).
         self.root.minsize(1100, 750)
-        self.root.geometry("1100x750")
+        # v53, safe-modify (chantier "bucket", porte depuis master) :
+        # fenetre principale explicitement CENTREE sur l'ecran primaire au
+        # lancement -- root n'avait jusqu'ici JAMAIS de position explicite
+        # (geometry() ne donnait que WxH), donc Tk la placait selon son
+        # propre defaut (~130,130 sur la machine de test, empiriquement pres
+        # du coin haut-gauche de l'ecran primaire, pas du tout centre). Tous
+        # les popups "correctement centres" par ailleurs (ex:
+        # _prompt_sd_card_dialog, _on_mode6_flash_done) heritent de cette
+        # meme position bancale puisqu'ils se centrent relativement a root.
+        # winfo_screenwidth/height (PAS MonitorFromWindow -- root n'a pas
+        # encore d'HWND stable tant qu'elle n'a pas ete mappee/dessinee)
+        # donnent les dimensions de l'ecran PRIMAIRE Windows, un point de
+        # reference simple et raisonnable pour un lancement sans signal sur
+        # le moniteur voulu par l'utilisateur.
+        self.root.update_idletasks()
+        _screen_w = self.root.winfo_screenwidth()
+        _screen_h = self.root.winfo_screenheight()
+        _x = max(0, (_screen_w - 1100) // 2)
+        _y = max(0, (_screen_h - 750) // 2)
+        self.root.geometry(f"1100x750+{_x}+{_y}")
         # Interdire le redimensionnement en plein écran / maximisé.
         self.root.resizable(False, False)
         self.root.grid_propagate(True)
@@ -4727,8 +4839,8 @@ class RetroBoxLEDGui:
                 "3": "Le mode 3 récupère exclusivement les images présentes dans votre dossier ROMS, en se basant sur le fichier gamelist.xml.\n\nImportant : choisissez d'abord la « Version Recalbox » ci-dessous (10.x / 9.x / legacy) — elle détermine quelle balise du gamelist.xml est utilisée. Cliquez « Comment scraper ? » pour savoir quoi cocher dans l'onglet Scraper de Recalbox.\n\nMarche à suivre :\n1. « Choisir dossier ROMs »\n2. « Détection des systèmes (gamelist.xml) »\n3. Sélectionnez les systèmes à traiter\n4. « Démarrer »",
                 "4": "Le mode 4 convertit les images PNG en raw565 et les GIF en raw565pack accompagnés de méta-données. Cette conversion concerne uniquement les formats raw.\n\nMarche à suivre :\n1. « Choisir dossier IMAGES »\n2. « Sélection des dossiers images »\n3. Sélectionnez les dossiers à convertir\n4. « Démarrer » (un dossier de sortie vous sera demandé)",
                 "5": "Le mode 5 convertit les images PNG et raw565 pour les redimensionner en 128x32 pixels.\n\nMarche à suivre :\n1. « Choisir dossier IMAGES »\n2. « Sélection des dossiers images »\n3. Sélectionnez les dossiers à convertir\n4. « Démarrer » (un dossier de sortie vous sera demandé)",
-                "6": "Le mode 6 génère uniquement le fichier games_cache.bin, qui correspond au cache des jeux.\n\nMarche à suivre :\nExécutez d'abord le Mode 3 (extraction gamelist.xml) si ce n'est pas déjà fait, puis revenez ici et cliquez directement sur « Démarrer » — aucun dossier à choisir.",
-                "7": "Le mode 7 génère uniquement le fichier systems_cache.dat, qui représente l’index des systèmes.\n\nMarche à suivre :\nExécutez d'abord le Mode 2 (téléchargement _defaults) si ce n'est pas déjà fait, puis revenez ici et cliquez directement sur « Démarrer » — aucun dossier à choisir.",
+                "6": "Le mode 6 génère uniquement le fichier games_cache.bin, qui correspond au cache des jeux.\n\nMarche à suivre :\nExécutez d'abord le Mode 3 (extraction gamelist.xml), OU choisissez directement le dossier « systems » d'une carte SD déjà préparée, puis cliquez sur « Démarrer ».",
+                "7": "Le mode 7 génère uniquement le fichier systems_cache.dat, qui représente l’index des systèmes.\n\nMarche à suivre :\nExécutez d'abord le Mode 2 (téléchargement _defaults), OU choisissez directement le dossier « systems » d'une carte SD déjà préparée, puis cliquez sur « Démarrer ».",
                 "8": "Le mode 8 vérifie les images manquantes en parcourant les gamelist.xml du dossier ROMs. Le rapport liste les images absentes avec le chemin attendu selon le profil Recalbox sélectionné.\n\nMarche à suivre :\n1. « Choisir dossier ROMs »\n2. Choisissez la « Version Recalbox »\n3. « Lancer la vérification »\n4. « Ouvrir le rapport »\nOptionnel : « Comparer avec le support final » puis « Ouvrir le rapport final ».",
                 "9": "Installe/met à jour les scripts utilisateur Recalbox (WiFi Recovery, Config Web, Reboot, Luminosité +10%/-10%, pont marquee) directement sur le partage réseau de la Recalbox (\\\\<ip>\\share), sans passer par le DMD.\n\nMarche à suivre :\n1. Vérifiez/saisissez l'adresse IP ou le nom réseau de la Recalbox (pré-rempli si détecté automatiquement ou déjà utilisé).\n2. « Installer / Mettre à jour »\n3. Sur la Recalbox : START > PARAMÈTRES AVANCÉS > SCRIPTS UTILISATEUR.",
                 "10": "Choisissez l'image de secours (default.raw565) affichée quand aucune image spécifique n'est disponible pour un jeu ou un système. Action autonome et immédiate, sans dossier ROMs ni pipeline.\n\nMarche à suivre :\n1. « Choisir son image de secours »\n2. Sélectionnez une image de la galerie ou importez la vôtre.\nLe choix s'applique immédiatement au dossier de travail.",
@@ -4740,8 +4852,8 @@ class RetroBoxLEDGui:
                 "3": "Mode 3: pulls images only from your ROM folder via gamelist.xml.\n\nImportant: pick the \"Recalbox version\" below first (10.x / 9.x / legacy) — it determines which gamelist.xml tag is used. Click \"How to scrape?\" to see what to enable in Recalbox's Scraper tab.\n\nSteps:\n1. « Choose ROMs folder »\n2. « Detect systems (gamelist.xml) »\n3. Select the systems to process\n4. « Start »",
                 "4": "Mode 4: converts PNG → raw565 and GIF → raw565pack + meta (raw-only conversion).\n\nSteps:\n1. « Choose images folder »\n2. « Select image folders »\n3. Select the folders to convert\n4. « Start » (you'll be asked for an output folder)",
                 "5": "Mode 5: converts PNG and raw565 images to 128x32.\n\nSteps:\n1. « Choose images folder »\n2. « Select image folders »\n3. Select the folders to convert\n4. « Start » (you'll be asked for an output folder)",
-                "6": "Mode 6: generates only games_cache.bin (games cache).\n\nSteps:\nRun Mode 3 first (gamelist extraction) if not done yet, then come back and click « Start » directly — no folder to choose.",
-                "7": "Mode 7: generates only systems_cache.dat (systems index).\n\nSteps:\nRun Mode 2 first (_defaults download) if not done yet, then come back and click « Start » directly — no folder to choose.",
+                "6": "Mode 6: generates only games_cache.bin (games cache).\n\nSteps:\nRun Mode 3 first (gamelist extraction), OR pick the \"systems\" folder of an already-prepared SD card directly, then click « Start ».",
+                "7": "Mode 7: generates only systems_cache.dat (systems index).\n\nSteps:\nRun Mode 2 first (_defaults download), OR pick the \"systems\" folder of an already-prepared SD card directly, then click « Start ».",
                 "8": "Mode 8: checks missing images by scanning gamelist.xml in the ROMs folder. The report lists missing images with the expected path according to the selected Recalbox profile.\n\nSteps:\n1. « Choose ROMs folder »\n2. Pick the « Recalbox version »\n3. « Start check »\n4. « Open report »\nOptional: « Compare with final media » then « Open final report ».",
                 "9": "Installs/updates the Recalbox user scripts (WiFi Recovery, Web Config, Reboot, Brightness +10%/-10%, marquee bridge) directly on the Recalbox network share (\\\\<ip>\\share), without going through the DMD.\n\nSteps:\n1. Check/enter the Recalbox IP address or network name (pre-filled if auto-detected or already used).\n2. « Install / Update »\n3. On the Recalbox: START > ADVANCED SETTINGS > USER SCRIPTS.",
                 "10": "Choose the fallback image (default.raw565) shown when no specific image is available for a game or system. Standalone, immediate action, no ROMs folder or pipeline involved.\n\nSteps:\n1. « Choose your fallback image »\n2. Pick an image from the gallery or import your own.\nThe choice is applied immediately to the working folder.",
@@ -4753,8 +4865,8 @@ class RetroBoxLEDGui:
                 "3": "Modo 3: extrae solo imágenes desde tu carpeta ROMs vía gamelist.xml.\n\nImportante: elige primero la « Versión de Recalbox » abajo (10.x / 9.x / legacy) — determina la etiqueta del gamelist.xml usada. Haz clic en « Cómo hacer el scrape? » para saber qué activar en la pestaña Scraper de Recalbox.\n\nPasos:\n1. « Elegir carpeta ROMs »\n2. « Detectar sistemas (gamelist.xml) »\n3. Seleccione los sistemas a procesar\n4. « Iniciar »",
                 "4": "Modo 4: convierte PNG → raw565 y GIF → raw565pack + meta (conversión “raw-only”).\n\nPasos:\n1. « Elegir carpeta de imágenes »\n2. « Selección de carpetas de imágenes »\n3. Seleccione las carpetas a convertir\n4. « Iniciar » (se le pedirá una carpeta de salida)",
                 "5": "Modo 5: convierte las imágenes PNG y raw565 a 128x32.\n\nPasos:\n1. « Elegir carpeta de imágenes »\n2. « Selección de carpetas de imágenes »\n3. Seleccione las carpetas a convertir\n4. « Iniciar » (se le pedirá una carpeta de salida)",
-                "6": "Modo 6: genera solo games_cache.bin (caché de juegos).\n\nPasos:\nEjecute primero el Modo 3 (extracción gamelist) si no lo ha hecho, luego vuelva aquí y haga clic directamente en « Iniciar » — no hay que elegir carpeta.",
-                "7": "Modo 7: genera solo systems_cache.dat (índice de sistemas).\n\nPasos:\nEjecute primero el Modo 2 (descarga _defaults) si no lo ha hecho, luego vuelva aquí y haga clic directamente en « Iniciar » — no hay que elegir carpeta.",
+                "6": "Modo 6: genera solo games_cache.bin (caché de juegos).\n\nPasos:\nEjecute primero el Modo 3 (extracción gamelist), O elija directamente la carpeta \"systems\" de una tarjeta SD ya preparada, luego haga clic en « Iniciar ».",
+                "7": "Modo 7: genera solo systems_cache.dat (índice de sistemas).\n\nPasos:\nEjecute primero el Modo 2 (descarga _defaults), O elija directamente la carpeta \"systems\" de una tarjeta SD ya preparada, luego haga clic en « Iniciar ».",
                 "8": "Modo 8: verifica las imagenes faltantes escaneando los gamelist.xml en la carpeta ROMs. El informe enumera las imagenes faltantes con la ruta esperada segun el perfil de Recalbox seleccionado.\n\nPasos:\n1. « Elegir carpeta ROMs »\n2. Elija la « Versión de Recalbox »\n3. « Iniciar verificación »\n4. « Abrir informe »\nOpcional: « Comparar con el soporte final » luego « Abrir informe final ».",
                 "9": "Instala/actualiza los scripts de usuario de Recalbox (WiFi Recovery, Config Web, Reboot, Brillo +10%/-10%, puente marquee) directamente en el recurso compartido de red de la Recalbox (\\\\<ip>\\share), sin pasar por el DMD.\n\nPasos:\n1. Compruebe/introduzca la IP o el nombre de red de la Recalbox (rellenado automáticamente si se detecta o ya se usó).\n2. « Instalar / Actualizar »\n3. En la Recalbox: START > CONFIGURACIÓN AVANZADA > SCRIPTS DE USUARIO.",
                 "10": "Elija la imagen de respaldo (default.raw565) que se muestra cuando no hay una imagen especifica disponible para un juego o sistema. Accion autonoma e inmediata, sin carpeta ROMs ni proceso.\n\nPasos:\n1. « Elegir su imagen de respaldo »\n2. Seleccione una imagen de la galeria o importe la suya.\nLa eleccion se aplica de inmediato a la carpeta de trabajo.",
@@ -5671,9 +5783,13 @@ class RetroBoxLEDGui:
                     ui["mode7_pick_btn"]
                     if mode == "7"
                     else (
-                        ui.get("images_pick_btn", ui["roms_pick_btn"])
-                        if mode in ("4", "5")
-                        else ui["roms_pick_btn"]
+                        ui["mode6_pick_btn"]
+                        if mode == "6"
+                        else (
+                            ui.get("images_pick_btn", ui["roms_pick_btn"])
+                            if mode in ("4", "5")
+                            else ui["roms_pick_btn"]
+                        )
                     )
                 )
             )
@@ -5910,9 +6026,13 @@ class RetroBoxLEDGui:
                     ui["mode7_pick_btn"]
                     if mode == "7"
                     else (
-                        ui["images_pick_btn"]
-                        if mode in ("4", "5")
-                        else ui["roms_pick_btn"]
+                        ui["mode6_pick_btn"]
+                        if mode == "6"
+                        else (
+                            ui["images_pick_btn"]
+                            if mode in ("4", "5")
+                            else ui["roms_pick_btn"]
+                        )
                     )
                 )
             )
@@ -5928,14 +6048,31 @@ class RetroBoxLEDGui:
 
         # Gestion du bouton choisir dossier dans l'onglet Avancé
         # Mode 2 : masqué (téléchargement GitHub) + message dans le path_box label
-        # Mode 6 : masqué + popup (doit exécuter mode 3 d'abord)
-        # Mode 7 : masqué + popup (doit exécuter mode 2 d'abord)
+        # Mode 6 : visible, label "Choisir le dossier systems" (v51, meme
+        #   retour utilisateur que Mode 7 -- voir son commentaire complet
+        #   ci-dessous -- le champ restait fige sur self.sd_dir/"systems",
+        #   impossible de construire games_cache.bin directement depuis une
+        #   vraie carte SD externe deja convertie sans repasser par tout le
+        #   pipeline Mode 1/3. build_cache() (RecalBoxDMD_tool.py) ne lit
+        #   que systems_dir en entree, meme raisonnement que Mode 7 :
+        #   aucune dependance structurelle qui justifie de bloquer le choix
+        #   du dossier d'entree. _pipeline_mode_6() mis a jour pour lire
+        #   cfg.roms_root au lieu du chemin fige.
+        # Mode 7 : visible, label "Choisir le dossier systems" (v51, retour
+        #   utilisateur : le champ restait fige sur le dossier temporaire de
+        #   travail (self.sd_dir), impossible de generer systems_cache.dat
+        #   directement depuis une vraie carte SD externe sans repasser par
+        #   tout le pipeline Mode 1/2. Mode 7 n'a pourtant aucune raison
+        #   structurelle d'etre restreint comme Mode 2 (pas de
+        #   telechargement GitHub, pas de dependance a un mode precedent --
+        #   build_systems_cache() ne lit que systems_dir/_defaults/, deja
+        #   valide independamment via smoke-test).
         # Mode 4/5 : visible, label "Choisir dossier IMAGES"
         # Mode 3 : visible, label normal
         # Mode 1 : visible, label normal
         if hasattr(self, "btn_pick_roms_adv"):
-            # Modes 2/6/7/9/10/11 : bouton désactivé (mais gardé visible pour la stabilité du fond)
-            if mode in ("2", "6", "7", "9", "10", "11"):
+            # Modes 2/9/10/11 : bouton désactivé (mais gardé visible pour la stabilité du fond)
+            if mode in ("2", "9", "10", "11"):
                 try:
                     self.btn_pick_roms_adv.config(state="disabled")
                 except Exception:
@@ -5993,6 +6130,21 @@ class RetroBoxLEDGui:
                         self.btn_pick_roms_adv.config(
                             text=ui.get("images_pick_btn", "Choisir dossier IMAGES")
                         )
+                    except Exception:
+                        pass
+                elif mode == "7":
+                    # v51 -- Mode 7 desormais dans cette branche "active"
+                    # (voir commentaire plus haut) : label dedie deja
+                    # existant (mode7_pick_btn), sinon on tombe ici sur le
+                    # libelle generique ROMs, incorrect pour ce mode.
+                    try:
+                        self.btn_pick_roms_adv.config(text=ui["mode7_pick_btn"])
+                    except Exception:
+                        pass
+                elif mode == "6":
+                    # v51 -- meme motif que Mode 7 (voir son commentaire).
+                    try:
+                        self.btn_pick_roms_adv.config(text=ui["mode6_pick_btn"])
                     except Exception:
                         pass
                 else:
@@ -8368,7 +8520,16 @@ class RetroBoxLEDGui:
         print("[GUI] DONE mode 5 (conversion 128x32)")
 
     def _pipeline_mode_6(self, toolkit, cfg: GuiConfig) -> None:
-        systems_out = self.sd_dir / "systems"
+        # v51 -- Entree = cfg.roms_root (dossier "systems" choisi par
+        # l'utilisateur, voir _on_mode_changed()) au lieu du chemin fige
+        # self.sd_dir / "systems" -- retour utilisateur (meme motif que
+        # Mode 7, voir son commentaire complet) : impossible auparavant de
+        # construire games_cache.bin directement depuis une vraie carte SD
+        # externe deja convertie sans repasser par tout le pipeline
+        # Mode 1/3. La sortie (games_cache.bin) reste ecrite dans
+        # self.sd_dir (comportement inchange -- meme convention que
+        # Mode 7, ou seule l'entree devient choisissable).
+        systems_out = cfg.roms_root
         if not systems_out.exists():
             print("[GUI] Mode 6: dossier systems/ introuvable.")
             return
@@ -9631,6 +9792,11 @@ class RetroBoxLEDGui:
     def _center_toplevel(self, win: tk.Toplevel) -> None:
         # Centre la popup au milieu de la fenêtre principale
 
+        # v54, safe-modify (chantier "bucket", porte depuis master) : garde
+        # la lecon de la chasse au bug "popup SD card hors fenetre" -- ancien
+        # "except Exception: pass" masquait silencieusement toute erreur ici
+        # sans aucune trace exploitable ; une eventuelle exception reste
+        # desormais loguee.
         try:
             root_x = self.root.winfo_x()
             root_y = self.root.winfo_y()
@@ -9640,9 +9806,66 @@ class RetroBoxLEDGui:
             h = win.winfo_reqheight()
             x = root_x + (root_w - w) // 2
             y = root_y + (root_h - h) // 2
+            x, y = self._clamp_to_root_monitor(x, y, w, h)
             win.geometry(f"+{x}+{y}")
+        except Exception as e:
+            print(f"⚠️  _center_toplevel({win!r}) a echoue : {e!r}")
+
+    def _clamp_to_root_monitor(self, x: int, y: int, w: int, h: int) -> tuple[int, int]:
+        """
+        v52, safe-modify (chantier "bucket", porte depuis master) : confine
+        (x, y) a l'interieur du moniteur Windows REEL qui contient root
+        (MonitorFromWindow + GetMonitorInfo), pas winfo_screenwidth()/
+        winfo_screenheight() qui ne renvoie QUE les dimensions du moniteur
+        PRIMAIRE sous Tk -- source du bug "popup fin de copie SD hors
+        fenetre / coin haut-gauche de l'ecran" sur un setup multi-ecrans
+        (moniteur secondaire hors de l'etendue du moniteur primaire, ex:
+        portrait). Meme si le calcul de centrage dans _center_toplevel()
+        derive encore un peu (DPI virtualise, arrondi...), la popup ne peut
+        plus finir sur un autre ecran que celui de l'outil. No-op (retourne
+        x, y tels quels) hors Windows ou en cas d'echec de l'appel API.
+        """
+        if sys.platform != "win32":
+            return x, y
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            hwnd = self.root.winfo_id()
+            MONITOR_DEFAULTTONEAREST = 2
+            hmon = ctypes.windll.user32.MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)
+
+            class _RECT(ctypes.Structure):
+                _fields_ = [
+                    ("left", wintypes.LONG),
+                    ("top", wintypes.LONG),
+                    ("right", wintypes.LONG),
+                    ("bottom", wintypes.LONG),
+                ]
+
+            class _MONITORINFO(ctypes.Structure):
+                _fields_ = [
+                    ("cbSize", wintypes.DWORD),
+                    ("rcMonitor", _RECT),
+                    ("rcWork", _RECT),
+                    ("dwFlags", wintypes.DWORD),
+                ]
+
+            info = _MONITORINFO()
+            info.cbSize = ctypes.sizeof(_MONITORINFO)
+            if not ctypes.windll.user32.GetMonitorInfoW(hmon, ctypes.byref(info)):
+                return x, y
+
+            wa = info.rcWork
+            # min(..., wa.right - w) peut descendre sous wa.left si le
+            # moniteur est plus etroit que la popup (cas degenerate) -- le
+            # max() exterieur reste prioritaire, la popup peut alors
+            # legerement deborder a droite plutot que de disparaitre.
+            x = max(wa.left, min(x, wa.right - w))
+            y = max(wa.top, min(y, wa.bottom - h))
         except Exception:
             pass
+        return x, y
 
     def _on_mode8_check_clicked(self):
         self._on_start_clicked()
@@ -10178,7 +10401,6 @@ class RetroBoxLEDGui:
         dlg.transient(self.root)
         dlg.grab_set()
         dlg.configure(bg=bg)
-        self._center_toplevel(dlg)
 
         lbl = tk.Label(
             dlg,
@@ -10259,6 +10481,18 @@ class RetroBoxLEDGui:
             font=("TkDefaultFont", 10, "bold"),
         )
         btn_close.pack(fill="x", pady=2)
+
+        # v51, safe-modify (chantier "bucket", porte depuis master) : BUG
+        # REEL corrige (retour utilisateur : "la fenetre de copie SD est
+        # vide") -- _center_toplevel(dlg) etait appelee juste apres la
+        # creation du Toplevel, AVANT le pack() du Label et des 3 boutons --
+        # le calcul se basait donc sur winfo_reqwidth()/reqheight() d'une
+        # fenetre encore vide (~1x1) au lieu de sa taille reelle une fois
+        # remplie, placant le coin superieur-gauche au centre de la fenetre
+        # principale et laissant le reste du dialogue deborder hors champ
+        # (percu comme une fenetre "vide"). Fix : appel deplace ICI, apres
+        # le pack() de tous les widgets.
+        self._center_toplevel(dlg)
 
     def _on_quit_app_clicked(self) -> None:
         ui = self._get_ui_t()
@@ -10489,8 +10723,6 @@ class RetroBoxLEDGui:
         dlg.grab_set()
         dlg.configure(bg=bg)
 
-        self._center_toplevel(dlg)
-
         lbl = tk.Label(
             dlg,
             text=(
@@ -10535,6 +10767,12 @@ class RetroBoxLEDGui:
             bg=bg_action, fg="#000000", bd=2, relief="solid",
         )
         ok_btn.grid(row=0, column=1, padx=6)
+
+        # v51, safe-modify (chantier "bucket", porte depuis master) : meme
+        # bug/meme fix que _on_mode6_flash_done() (voir son commentaire
+        # complet) -- appel deplace apres le pack()/grid() de tous les
+        # widgets, plus avant.
+        self._center_toplevel(dlg)
 
     def _wait_for_threads_then_exit(self) -> None:
         if self._is_processing():

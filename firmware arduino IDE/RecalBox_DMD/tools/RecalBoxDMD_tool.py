@@ -1,7 +1,53 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v35
+# Version actuelle : v37
+#
+# v37 - 2026-08-23 - safe-modify - Retour utilisateur : "le cadre de
+#      selection de la carte SD est toujours vide, aucun lecteur dedans"
+#      -- bug DEJA CORRIGE sur master (commit 88d2f1b), jamais porte vers
+#      cette branche dev (divergee juste avant ce fix). Root cause : wmic.exe
+#      est retire par defaut sur les builds recentes de Windows 11 --
+#      _list_removable_drives()/_ex() reposaient exclusivement dessus,
+#      subprocess levait FileNotFoundError, avalee par l'ancien
+#      "except Exception: pass" -- liste vide silencieuse quel que soit
+#      l'etat reel des lecteurs. Fix porte tel quel : nouvelle fonction
+#      commune _query_logical_disks() qui interroge WMI via
+#      Get-CimInstance (PowerShell, present nativement sur toutes les
+#      versions de Windows supportees, pas le CLI wmic.exe deprecie),
+#      parsing CSV via le module csv standard. Repli sur l'ancien wmic
+#      conserve en dernier recours (best effort). Comportement inchange
+#      pour les 4 sites d'appel existants (GUI Mode 1/6/8, CLI Mode 6/8) --
+#      memes types de retour (tuples), aucun site d'appel modifie.
+#
+# v36 - 2026-08-23 - safe-modify - Chantier "bucket" : flag "lent" (L,
+#      declenche l'ecran masque d'attente cote firmware) calcule PAR SOUS-
+#      DOSSIER ALPHABETIQUE (bucket) au lieu de PAR SYSTEME ENTIER --
+#      penalisait inutilement un sous-dossier peu peuple des qu'un AUTRE
+#      sous-dossier du meme systeme faisait depasser le seuil au total
+#      agrege. Porte depuis le worktree dev-slow-flag-per-bucket (v29,
+#      jamais merge) vers dev-core-reassignment. _bucket_letter_for_stem
+#      (stem) : nouvelle fonction, factorise la regle de bucket (1ere
+#      lettre du nom sans extension, majuscule, '#' si non-alpha/vide)
+#      auparavant dupliquee dans _alpha_subdir()/_alpha_subdir_if_needed()
+#      -- ces deux fonctions l'appellent desormais au lieu de reimplementer
+#      le calcul, comportement strictement inchange. build_systems_cache()
+#      : count_ext_over() (comptage recursif os.walk sur tout l'arbre)
+#      remplace par count_ext_over_per_bucket() (scan NON recursif
+#      os.scandir de chacun des 27 sous-dossiers + des eventuels fichiers
+#      residuels laisses "a plat" -- assignes a leur bucket via
+#      _bucket_letter_for_stem()). systems_cache.dat gagne un 4eme champ
+#      optionnel (27 caracteres 'L'/'N', ordre de LETTERS), ecrit apres le
+#      flag agrege (toujours calcule, OR de tous les buckets, pour compat
+#      firmware non modifie). Cote firmware : voir changelog de
+#      RecalBox_DMD.ino v124 (meme plan, plus un bug d'initialisation
+#      heap evite en portant, absent de la branche source).
+#      IMPORTANT : slow_threshold s'applique desormais PAR BUCKET (pas
+#      par systeme entier) -- valeur par defaut ramenee de 5000 a 800 en
+#      consequence (voir RecalBoxDMD_prefs.py v8/RecalBoxDMD_GUI.py v50,
+#      retour utilisateur explicite : le 5000 avait ete introduit
+#      uniquement pour compenser l'ancien calcul agrege par systeme
+#      entier, qui n'existe plus).
 #
 # v35 - 2026-08-13 - safe-modify - Support des 2 nouveaux scripts Recalbox
 #      "Luminosite DMD +10%.sh"/"-10%.sh" (marquee/cmd/brightness_up et
@@ -1516,10 +1562,21 @@ def _calc_bigram_idx(name: str) -> int:
 #   dst="/systems/nes/123.raw565"    -> "/systems/nes/#/123.raw565"
 #   dst avec _defaults/              -> inchangé
 # --------------------------------------------------
+def _bucket_letter_for_stem(stem: str) -> str:
+    """
+    Regle du bucket alphabetique (1ere lettre du nom de fichier SANS
+    extension, majuscule, '#' si non-alpha ou nom vide) -- factorisee ici
+    (chantier "bucket") car dupliquee auparavant dans _alpha_subdir()/
+    _alpha_subdir_if_needed() (meme calcul, deux endroits). Reutilisee
+    aussi par le comptage par bucket de build_systems_cache() (flag L par
+    sous-dossier). Meme regle que bucketLetterForFilename() cote firmware.
+    """
+    first = stem[0].upper() if stem else "?"
+    return first if first.isalpha() else "#"
+
+
 def _alpha_subdir(dst: Path) -> Path:
-    name = dst.stem
-    first = name[0].upper() if name else "?"
-    subdir = first if first.isalpha() else "#"
+    subdir = _bucket_letter_for_stem(dst.stem)
     new_dir = dst.parent / subdir
     new_dir.mkdir(parents=True, exist_ok=True)
     return new_dir / dst.name
@@ -1536,9 +1593,7 @@ def _alpha_subdir(dst: Path) -> Path:
 def _alpha_subdir_if_needed(dst: Path) -> Path:
     if "_defaults" in dst.parts:
         return dst
-    name = dst.stem
-    first = name[0].upper() if name else "?"
-    expected_subdir = first if first.isalpha() else "#"
+    expected_subdir = _bucket_letter_for_stem(dst.stem)
     if dst.parent.name == expected_subdir:
         return dst
     return _alpha_subdir(dst)
@@ -4100,16 +4155,20 @@ def build_systems_cache(
     Scanne systems_dir/_defaults/ — un fichier par système (gif prioritaire).
 
     slow_threshold : nombre de fichiers .raw565/.raw565pack/.meta au-dela
-    duquel un systeme recoit le flag "L" (lent). None (par defaut) = lu
-    depuis la preference utilisateur "slow_threshold" (onglet Parametres,
-    v33) -- source unique pour tous les appelants (GUI Mode 1/3/8, CLI),
-    repli 5000 sur toute erreur de lecture/conversion.
+    duquel un BUCKET (sous-dossier alphabetique A..Z/#, voir chantier
+    "bucket") recoit le flag "L" (lent). None (par defaut) = lu depuis
+    la preference utilisateur "slow_threshold" (onglet Parametres, v33)
+    -- source unique pour tous les appelants (GUI Mode 1/3/8, CLI), repli
+    800 sur toute erreur de lecture/conversion (v8 RecalBoxDMD_prefs.py :
+    800, pas 5000 -- ce seuil s'applique desormais PAR BUCKET, pas par
+    systeme entier, le 5000 n'avait de sens que dans l'ancien calcul
+    agrege).
     """
     if slow_threshold is None:
         try:
-            slow_threshold = int(prefs.get("slow_threshold") or 5000)
+            slow_threshold = int(prefs.get("slow_threshold") or 800)
         except (TypeError, ValueError):
-            slow_threshold = 5000
+            slow_threshold = 800
 
     defaults_dir = systems_dir / "_defaults"
     if not defaults_dir.exists():
@@ -4319,31 +4378,53 @@ def build_systems_cache(
 
             name, ftype = entries[stem]
 
-            # LENT : plus de 800 PNG OU GIF (mais pas les deux)
-            # -> XOR : (png_over ^ gif_over)
+            # Flag "lent" (L) par SOUS-DOSSIER ALPHABETIQUE (bucket #/A..Z),
+            # PAS par systeme entier (chantier "bucket", porte depuis le
+            # worktree dev-slow-flag-per-bucket) : compte NON recursivement
+            # (os.scandir) chaque bucket + les eventuels fichiers residuels
+            # laisses "a plat" directement sous system_dir (contenu genere
+            # par une version anterieure de l'outil, avant l'ajout du
+            # bucketing alphabetique) -- ceux-ci sont assignes a leur
+            # bucket via _bucket_letter_for_stem(), la MEME regle que celle
+            # qui les aurait ranges au moment de l'ecriture. slow_threshold
+            # (reglable, onglet Parametres -- v8 RecalBoxDMD_prefs.py :
+            # defaut 800, PAS 5000 -- le 5000 n'avait de sens que pour
+            # l'ancien calcul agrege par systeme entier, voir son
+            # changelog) applique PAR BUCKET desormais, OR logique entre
+            # les 3 extensions, identique a l'ancienne logique mais
+            # appliquee par bucket plutot qu'a l'arbre entier.
             system_dir = systems_dir / name
 
-            def count_ext_over(base: Path, ext_lower: str, limit: int) -> bool:
-                # Retourne True dès qu'on dépasse "limit"
-                count = 0
-                for _root, _dirs, files in os.walk(base):
-                    for fn in files:
-                        if fn.lower().endswith(ext_lower):
-                            count += 1
-                            if count > limit:
-                                return True
-                return False
+            def count_ext_over_per_bucket(base: Path, ext_lower: str, limit: int) -> dict:
+                counts = {letter: 0 for letter in LETTERS}
+                for letter in LETTERS:
+                    bucket_dir = base / letter
+                    if not bucket_dir.is_dir():
+                        continue
+                    for entry in os.scandir(bucket_dir):
+                        if entry.is_file() and entry.name.lower().endswith(ext_lower):
+                            counts[letter] += 1
+                # Residus non bucketises (a plat directement sous system_dir)
+                for entry in os.scandir(base):
+                    if entry.is_file() and entry.name.lower().endswith(ext_lower):
+                        letter = _bucket_letter_for_stem(Path(entry.name).stem)
+                        counts[letter] += 1
+                return {letter: (c > limit) for letter, c in counts.items()}
 
-            raw565_over = False
-            raw565pack_over = False
-            meta_over = False
+            raw565_over_b = {letter: False for letter in LETTERS}
+            raw565pack_over_b = {letter: False for letter in LETTERS}
+            meta_over_b = {letter: False for letter in LETTERS}
             if system_dir.exists() and system_dir.is_dir():
-                raw565_over = count_ext_over(system_dir, ".raw565", slow_threshold)
-                raw565pack_over = count_ext_over(system_dir, ".raw565pack", slow_threshold)
-                meta_over = count_ext_over(system_dir, ".meta", slow_threshold)
+                raw565_over_b = count_ext_over_per_bucket(system_dir, ".raw565", slow_threshold)
+                raw565pack_over_b = count_ext_over_per_bucket(system_dir, ".raw565pack", slow_threshold)
+                meta_over_b = count_ext_over_per_bucket(system_dir, ".meta", slow_threshold)
 
-            slow_flag = "L" if (raw565_over or raw565pack_over or meta_over) else "N"
-            out.write(f"{ftype} {name} {slow_flag}\n")
+            bucket_flags = "".join(
+                "L" if (raw565_over_b[letter] or raw565pack_over_b[letter] or meta_over_b[letter]) else "N"
+                for letter in LETTERS
+            )
+            slow_flag = "L" if "L" in bucket_flags else "N"
+            out.write(f"{ftype} {name} {slow_flag} {bucket_flags}\n")
             print(tr("sysc_line")(ftype, name))
 
             if progress_cb is not None:
@@ -4398,80 +4479,85 @@ def mode_systems_cache(sd_dir: Path):
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _list_removable_drives():
+def _format_size_gb(size_str) -> str:
+    """Convertit une taille en octets (chaine, telle que renvoyee par WMI)
+    en chaine lisible "X.X GB". "? GB" si vide/non convertible (ex: lecteur
+    de carte SD sans carte inseree -- Size remonte vide dans ce cas)."""
+    try:
+        size_gb = int(str(size_str).strip()) / (1024**3)
+        return f"{size_gb:.1f} GB"
+    except Exception:
+        return "? GB"
+
+
+def _query_logical_disks(drive_type: int = 2) -> list:
     """
-    Liste les lecteurs amovibles sur Windows via WMI (wmic).
-    Retourne une liste de tuples (lettre, label, taille_lisible).
+    Interroge WMI pour lister les lecteurs logiques d'un DriveType donne
+    (2 = amovible, valeur utilisee par les 2 fonctions appelantes).
+
+    Chantier "bucket" -- porte depuis master (commit 88d2f1b, jamais
+    integre a cette branche dev, divergee juste avant ce fix) : remplace
+    l'ancien appel direct a "wmic logicaldisk" (bug utilisateur -- carte SD
+    visible dans l'Explorateur Windows mais jamais detectee par le tool,
+    "cadre de selection vide, aucun lecteur dedans"). Root cause confirmee
+    sur master en reproduisant en direct : wmic.exe est retire par defaut
+    sur les builds recentes de Windows 11, donc subprocess.check_output(
+    ["wmic", ...]) levait FileNotFoundError -- avalee par l'ancien "except
+    Exception: pass", ce qui rendait la liste vide silencieusement quel que
+    soit l'etat reel des lecteurs. Get-CimInstance interroge le meme sous-
+    systeme WMI mais via PowerShell (present nativement sur toutes les
+    versions de Windows supportees), pas le CLI wmic.exe deprecie/retire.
+
+    Repli sur l'ancien "wmic" en dernier recours (machine ou PowerShell
+    serait absent/bloque -- cas tres rare/inhabituel) : best effort, non
+    garanti.
+
+    Retourne une liste de dict avec cles DeviceID/VolumeName/Size/
+    FileSystem (chaines ; Size peut etre vide si le lecteur n'a pas de
+    media insere, ex: lecteur de carte SD vide).
     """
+    import csv
+    import io
     import subprocess
 
-    drives = []
+    ps_cmd = (
+        f'Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DriveType={drive_type}" '
+        "| Select-Object DeviceID,VolumeName,Size,FileSystem "
+        "| ConvertTo-Csv -NoTypeInformation"
+    )
     try:
         out = subprocess.check_output(
-            [
-                "wmic",
-                "logicaldisk",
-                "where",
-                "drivetype=2",
-                "get",
-                "DeviceID,VolumeName,Size",
-                "/format:csv",
-            ],
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
             text=True,
             stderr=subprocess.DEVNULL,
+            timeout=15,
         )
-        for line in out.splitlines():
-            line = line.strip()
-            if not line or line.startswith("Node"):
-                continue
-            parts = line.split(",")
-            if len(parts) < 4:
-                continue
-            _, device, size_str, label = parts[0], parts[1], parts[2], parts[3]
-            letter = device.strip()
-            label = label.strip() or "NO LABEL"
-            try:
-                size_gb = int(size_str.strip()) / (1024**3)
-                size_s = f"{size_gb:.1f} GB"
-            except Exception:
-                size_s = "? GB"
-            if letter:
-                drives.append((letter, label, size_s))
+        rows = [row for row in csv.DictReader(io.StringIO(out)) if row.get("DeviceID")]
+        if rows or out.strip():
+            # Sortie CSV exploitee avec succes (meme si 0 lecteur trouve) :
+            # ne PAS tomber sur le repli wmic dans ce cas, sinon un systeme
+            # sans lecteur amovible re-basculerait inutilement dessus.
+            return rows
     except Exception:
         pass
-    return drives
 
-
-def _list_removable_drives_ex():
-    """
-    Fonction soeur de _list_removable_drives() (celle-ci NON modifiee : 4
-    sites d'appel existants font un unpacking strict a 3 valeurs) --
-    rajoute le systeme de fichiers via wmic logicaldisk ... get
-    DeviceID,FileSystem,VolumeName,Size /format:csv. Attention : les
-    colonnes /format:csv sortent triees par ordre ALPHABETIQUE du nom de
-    propriete demande, pas par l'ordre donne a "get" -- verifie
-    empiriquement (wmic direct hors Python) : "DeviceID,FileSystem,
-    VolumeName,Size" -> ordre reel "Node,DeviceID,FileSystem,Size,
-    VolumeName". Retourne une liste de tuples (lettre, label, taille_lisible,
-    filesystem).
-    """
-    import subprocess
-
-    drives = []
+    # Repli wmic (best effort, machines ou powershell serait indisponible).
     try:
         out = subprocess.check_output(
             [
                 "wmic",
                 "logicaldisk",
                 "where",
-                "drivetype=2",
+                f"drivetype={drive_type}",
                 "get",
                 "DeviceID,FileSystem,VolumeName,Size",
                 "/format:csv",
             ],
             text=True,
             stderr=subprocess.DEVNULL,
+            timeout=15,
         )
+        rows = []
         for line in out.splitlines():
             line = line.strip()
             if not line or line.startswith("Node"):
@@ -4479,19 +4565,54 @@ def _list_removable_drives_ex():
             parts = line.split(",")
             if len(parts) < 5:
                 continue
+            # Colonnes /format:csv triees par ordre ALPHABETIQUE du nom de
+            # propriete, pas par l'ordre donne a "get" -- verifie
+            # empiriquement : "DeviceID,FileSystem,VolumeName,Size" -> ordre
+            # reel "Node,DeviceID,FileSystem,Size,VolumeName".
             device, fs, size_str, label = parts[1], parts[2], parts[3], parts[4]
-            letter = device.strip()
-            label = label.strip() or "NO LABEL"
-            fs = fs.strip() or "?"
-            try:
-                size_gb = int(size_str.strip()) / (1024**3)
-                size_s = f"{size_gb:.1f} GB"
-            except Exception:
-                size_s = "? GB"
-            if letter:
-                drives.append((letter, label, size_s, fs))
+            rows.append(
+                {
+                    "DeviceID": device.strip(),
+                    "FileSystem": fs.strip(),
+                    "Size": size_str.strip(),
+                    "VolumeName": label.strip(),
+                }
+            )
+        return rows
     except Exception:
-        pass
+        return []
+
+
+def _list_removable_drives():
+    """
+    Liste les lecteurs amovibles sur Windows.
+    Retourne une liste de tuples (lettre, label, taille_lisible).
+    """
+    drives = []
+    for d in _query_logical_disks(drive_type=2):
+        letter = (d.get("DeviceID") or "").strip()
+        if not letter:
+            continue
+        label = (d.get("VolumeName") or "").strip() or "NO LABEL"
+        drives.append((letter, label, _format_size_gb(d.get("Size"))))
+    return drives
+
+
+def _list_removable_drives_ex():
+    """
+    Fonction soeur de _list_removable_drives() (celle-ci NON modifiee : 4
+    sites d'appel existants font un unpacking strict a 3 valeurs) --
+    rajoute le systeme de fichiers. Retourne une liste de tuples (lettre,
+    label, taille_lisible, filesystem).
+    """
+    drives = []
+    for d in _query_logical_disks(drive_type=2):
+        letter = (d.get("DeviceID") or "").strip()
+        if not letter:
+            continue
+        label = (d.get("VolumeName") or "").strip() or "NO LABEL"
+        fs = (d.get("FileSystem") or "").strip() or "?"
+        drives.append((letter, label, _format_size_gb(d.get("Size")), fs))
     return drives
 
 

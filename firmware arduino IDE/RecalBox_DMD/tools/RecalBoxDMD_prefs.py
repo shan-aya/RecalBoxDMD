@@ -1,7 +1,17 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v7
+# Version actuelle : v8
+#
+# v8 - 2026-08-23 - safe-modify - Valeur par defaut de "slow_threshold"
+#      ramenee de 5000 a 800 (retour utilisateur, chantier "bucket" -- voir
+#      DECISIONS.md RecalBox_DMD) : le seuil avait ete remonte a 5000 (v32
+#      RecalBoxDMD_tool.py) uniquement pour eviter que le comptage PAR
+#      SYSTEME ENTIER (avant le bucket alphabetique) marque a tort de
+#      nombreux petits systemes comme "lents" a cause d'un seul gros sous-
+#      dossier. Avec le flag L desormais calcule PAR BUCKET alphabetique
+#      (A..Z/#), ce probleme n'existe plus par construction -- 800 (seuil
+#      d'origine, pre-v31) redevient pertinent PAR BUCKET.
 #
 # v7 - 2026-08-11 - safe-modify - Ajout de la preference "slow_threshold"
 #      (seuil de nombre de fichiers .raw565/.raw565pack/.meta au-dela duquel
@@ -54,7 +64,7 @@ _DEFAULTS = {
     "recalbox_profile": "10.x",  # "10.x", "9.x", "legacy" (Mode 1)
     "default_fallback_image": "",  # chemin PNG source pour default.raw565 ("" = defaut projet)
     "recalbox_ip": "",  # nom reseau ou IP Recalbox pour l'installation des scripts (Mode 1 + Mode 9)
-    "slow_threshold": "5000",  # seuil flag L (build_systems_cache) -- reglable, onglet Parametres
+    "slow_threshold": "800",  # seuil flag L PAR BUCKET (build_systems_cache) -- reglable, onglet Parametres (v8: 5000->800, voir changelog)
 }
 
 

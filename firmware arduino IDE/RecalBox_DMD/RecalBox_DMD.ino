@@ -1,7 +1,58 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v123
+// Version actuelle : v124
+//
+// v124 - 2026-08-23 - safe-modify - Chantier "bucket" : flag "lent" (L,
+//   declenche l'ecran masque d'attente pendant le chargement d'un jeu)
+//   calcule et stocke PAR SOUS-DOSSIER ALPHABETIQUE (bucket, A..Z/#) au
+//   lieu de PAR SYSTEME ENTIER -- penalisait inutilement un sous-dossier
+//   peu peuple des qu'un AUTRE sous-dossier du meme systeme faisait
+//   depasser le seuil au total agrege. Porte depuis le worktree
+//   dev-slow-flag-per-bucket (firmware v37, jamais merge ni teste sur
+//   materiel reel -- compile seulement) vers dev-core-reassignment,
+//   adapte a l'etat actuel du fichier (divergence significative depuis
+//   le point de depart de cette branche dev, tout le travail hi-score/
+//   resync/alertes de cette session n'existait pas encore cote bucket) :
+//   - Nouvelles structures : BUCKET_COUNT=27, BUCKET_LETTERS[]=
+//     "#ABCDEFGHIJKLMNOPQRSTUVWXYZ" (doit rester synchro avec LETTERS
+//     cote RecalBoxDMD_tool.py), sysCachePerLetterVals[SYS_CACHE_MAX][27]
+//     (heap, malloc dans setup() a cote des autres tableaux sysCache*).
+//   - systems_cache.dat gagne un 4e champ optionnel (27 caracteres
+//     'L'/'N', ordre BUCKET_LETTERS) : "<val> <sysName> <slowFlag>
+//     <bucketFlags27>". Retrocompatibilite dans les 2 sens (comme le
+//     plan d'origine) : un firmware NON MODIFIE qui lit un fichier a 4
+//     champs continue de fonctionner (charAt(0) sur le 3e champ, ignore
+//     silencieusement le 4e) ; un firmware MODIFIE qui lit un ANCIEN
+//     fichier a 2/3 champs bascule automatiquement en repli sur le flag
+//     systeme agrege pour tous les buckets. Validation par caractere (un
+//     octet isole invalide/corrompu ne casse que ce bucket-la).
+//   - Nouvelles fonctions : bucketLetterForFilename(fname), sysBucketSlowFlag
+//     (sysName, bucketLetter) (lookup par bucket avec repli sur
+//     sysCacheSlowVals[i]) -- celle-ci appelle desormais aussi
+//     ensureSysDefaultCacheLoaded() (mecanisme de chargement paresseux
+//     v43, posterieur au plan d'origine cote bucket -- absent de la
+//     branche dev source, ajoute ici pour rester coherent avec
+//     sysDefaultType()/sysDefaultSlowFlag()).
+//   - 2 call sites mis a jour (les seuls existants, verifie identiques a
+//     ceux de la branche source) : CMD_GAME et drawPng(). Logs Serial
+//     enrichis d'un champ "bucket=".
+//   - BUG REEL EVITE (trouve en portant, absent de la branche source) :
+//     buildSysDefaultCache() (repli firmware, emprunte UNIQUEMENT si
+//     systems_cache.dat est absent au boot) ne calcule aucune donnee par
+//     bucket (decision actee, comme dans le plan d'origine) -- MAIS sans
+//     initialiser sysCachePerLetterVals pour ces entrees, celui-ci
+//     restait de la memoire heap NON INITIALISEE (malloc, pas calloc)
+//     jusqu'au prochain reboot (loadSysDefaultCache() memset scorrectement
+//     a '?' sur un fichier a 3 champs, mais ce chemin de repli n'appelle
+//     jamais loadSysDefaultCache()) -- sysBucketSlowFlag() aurait pu lire
+//     un octet parasite egal par hasard a 'L'/'N'. Fix : memset('?', ...)
+//     explicite ajoute dans buildSysDefaultCache(), meme sentinel que le
+//     parseur.
+//   - Cote outil PC : voir changelog RecalBoxDMD_tool.py (meme plan,
+//     seuil par defaut ramene de 5000 a 800 -- voir RecalBoxDMD_prefs.py
+//     v8/RecalBoxDMD_GUI.py v50, retour utilisateur explicite : le 5000
+//     n'avait de sens que pour l'ancien calcul par systeme entier).
 //
 // v123 - 2026-08-23 - safe-modify - Resynchro RB au demarrage/reconnexion
 //   (retour utilisateur : verifier que le DMD ne repasse pas en playlist
@@ -2192,6 +2243,60 @@ char sysDefaultSlowFlag(const String &sysName)
   return 'N';
 }
 
+// Flag "lent" (L) par sous-dossier alphabetique (bucket), voir plan
+// "flag L par bucket alphabetique" (chantier "bucket", portage depuis le
+// worktree dev-slow-flag-per-bucket, v37/v29) -- complement de
+// sysCacheSlowVals (flag agrege par systeme, inchange, conserve comme
+// repli). Chaque caractere vaut 'L'/'N' (donnee reelle) ou '?' (pas de
+// donnee pour ce bucket -- ancien systems_cache.dat a 3 champs, ou 4e
+// champ absent/invalide pour cette ligne -- repli automatique sur
+// sysCacheSlowVals[i] dans sysBucketSlowFlag()). Ordre des colonnes =
+// BUCKET_LETTERS.
+#define BUCKET_COUNT 27
+static const char BUCKET_LETTERS[] = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ"; // doit rester synchro avec LETTERS (RecalBoxDMD_tool.py)
+static char (*sysCachePerLetterVals)[BUCKET_COUNT] = nullptr; // SYS_CACHE_MAX x 27 (heap)
+
+// 1ere lettre du nom de fichier (avec ou sans extension, seul le 1er
+// caractere compte), majuscule, '#' si non-alpha/vide -- factorise la
+// regle deja presente dans alphaSubdirPath() (voir plus bas), reutilisee
+// ici pour deriver le bucket d'un jeu/fichier au moment de decider
+// isSlow. Meme regle que _bucket_letter_for_stem() cote outil PC.
+static char bucketLetterForFilename(const String &fname)
+{
+  if (fname.length() == 0) return '#';
+  char first = (char)toupper((unsigned char)fname.charAt(0));
+  return isAlpha(first) ? first : '#';
+}
+
+// Flag "lent" par bucket, avec repli sur le flag systeme agrege
+// (sysCacheSlowVals) si la donnee par bucket est absente (ancien cache,
+// 4e champ manquant/invalide) ou si le systeme est inconnu au niveau
+// bucket. sysDefaultSlowFlag() reste utilisee telle quelle ailleurs
+// (choix du visuel du masque, qui reste par systeme).
+char sysBucketSlowFlag(const String &sysName, char bucketLetter)
+{
+  ensureSysDefaultCacheLoaded();
+  bucketLetter = (char)toupper((unsigned char)bucketLetter);
+  for (int i = 0; i < sysCacheCount; i++)
+  {
+    if (sysName == sysCacheKeys[i])
+    {
+      if (sysCachePerLetterVals)
+      {
+        const char *p = strchr(BUCKET_LETTERS, bucketLetter);
+        if (p)
+        {
+          int idx = (int)(p - BUCKET_LETTERS);
+          char c = sysCachePerLetterVals[i][idx];
+          if (c == 'L' || c == 'N') return c; // donnee par bucket disponible
+        }
+      }
+      return sysCacheSlowVals[i]; // repli: flag systeme agrege
+    }
+  }
+  return 'N'; // systeme totalement inconnu
+}
+
 #define SYS_CACHE_FILE "/systems_cache.dat"
 
 bool loadSysDefaultCache()
@@ -2207,8 +2312,10 @@ bool loadSysDefaultCache()
     if (val != 'g' && val != 'p' && val != 'B') continue;
 
     // Format attendu:
-    //   <val> <sysName> <slowFlag>
-    // Avec compatibilitÃ©:
+    //   <val> <sysName> <slowFlag> <bucketFlags27>
+    // Avec compatibilitÃ© (chantier "bucket", 4e champ optionnel) :
+    //   <val> <sysName> <slowFlag>   (pas de donnee par bucket -- ancien
+    //                                 fichier ou firmware/outil PC non a jour)
     //   <val> <sysName>              (slowFlag implicitement 'N')
     String rest = line.substring(2);
     rest.trim();
@@ -2217,17 +2324,49 @@ bool loadSysDefaultCache()
     String sysName = (sp2 >= 0) ? rest.substring(0, sp2) : rest;
 
     char slow = 'N';
+    String bucketStr = ""; // vide => pas de donnee par bucket (ancien format 3 champs)
     if (sp2 >= 0)
     {
       String flag = rest.substring(sp2 + 1);
       flag.trim();
-      if (flag.length() > 0) slow = flag.charAt(0);
+      if (flag.length() > 0)
+      {
+        slow = flag.charAt(0);
+        int sp3 = flag.indexOf(' ');
+        if (sp3 >= 0)
+        {
+          bucketStr = flag.substring(sp3 + 1);
+          bucketStr.trim();
+        }
+      }
     }
 
     strncpy(sysCacheKeys[sysCacheCount], sysName.c_str(), 31);
     sysCacheKeys[sysCacheCount][31] = '\0';
     sysCacheVals[sysCacheCount] = val;
     sysCacheSlowVals[sysCacheCount] = slow;
+
+    // Sentinel '?' par defaut : "pas de donnee pour ce bucket" -> repli
+    // sur sysCacheSlowVals[i] dans sysBucketSlowFlag(). Validation
+    // STRICTE de la longueur (27) avant utilisation, ET par caractere
+    // (un octet isole invalide/corrompu ne casse que ce bucket-la, pas
+    // toute la ligne) -- robuste a un 4e champ absent (ancien firmware/
+    // ancien fichier), tronque ou corrompu.
+    if (sysCachePerLetterVals)
+    {
+      memset(sysCachePerLetterVals[sysCacheCount], '?', BUCKET_COUNT);
+      if (bucketStr.length() == BUCKET_COUNT)
+      {
+        for (int k = 0; k < BUCKET_COUNT; k++)
+        {
+          char c = bucketStr.charAt(k);
+          if (c == 'l') c = 'L';
+          if (c == 'n') c = 'N';
+          if (c == 'L' || c == 'N') sysCachePerLetterVals[sysCacheCount][k] = c;
+        }
+      }
+    }
+
     sysCacheCount++;
   }
   f.close();
@@ -2333,6 +2472,17 @@ void buildSysDefaultCache()
       // n'est emprunte que si /systems_cache.dat est absent de la SD.
       countPngGifOverRec("/systems/" + sysName, 5000, pngCount, gifCount, pngOver, gifOver);
       sysCacheSlowVals[sysCacheCount] = (pngOver || gifOver) ? 'L' : 'N';
+      // Chantier "bucket" : ce repli (scan recursif, pas de decoupage par
+      // bucket -- decision actee, voir sysBucketSlowFlag()) ne calcule
+      // aucune donnee par bucket. BUG EVITE (trouve en portant le chantier
+      // bucket) : sans ce memset, sysCachePerLetterVals[sysCacheCount]
+      // resterait de la memoire heap NON INITIALISEE (malloc, pas calloc)
+      // pour cette entree -- sysBucketSlowFlag() pourrait alors lire un
+      // octet parasite egal par hasard a 'L'/'N' et retourner une valeur
+      // bucket bidon au lieu de retomber correctement sur le flag systeme
+      // agrege ci-dessus. Sentinel '?' explicite = meme comportement que
+      // loadSysDefaultCache() sur une ligne a 3 champs (repli garanti).
+      if (sysCachePerLetterVals) memset(sysCachePerLetterVals[sysCacheCount], '?', BUCKET_COUNT);
       sysCacheCount++;
     }
     entry.close();
@@ -3636,10 +3786,18 @@ bool drawPng(const String &path)
   };
 
   String sysName = extractSysNameFromSystemsPath(path);
-  char slowFlag = sysDefaultSlowFlag(sysName);
+
+  // Bucket derive du nom de fichier (dernier segment de path, avec ou
+  // sans extension -- seule la 1ere lettre compte) : flag lent par
+  // sous-dossier alphabetique au lieu de par systeme entier (chantier
+  // "bucket").
+  int lastSlashForBucket = path.lastIndexOf('/');
+  String fnameForBucket = (lastSlashForBucket >= 0) ? path.substring(lastSlashForBucket + 1) : path;
+  char bucketLetter = bucketLetterForFilename(fnameForBucket);
+  char slowFlag = sysBucketSlowFlag(sysName, bucketLetter);
   bool isSlow = (slowFlag == 'L' || slowFlag == 'l');
 
-  Serial.println("[PNG-RAW] missing raw -> sysName=" + sysName + " slowFlag=" + String(slowFlag) + " isSlow=" + String(isSlow));
+  Serial.println("[PNG-RAW] missing raw -> sysName=" + sysName + " bucket=" + String(bucketLetter) + " slowFlag=" + String(slowFlag) + " isSlow=" + String(isSlow));
 
   // 3) fallback "toujours rÃ©actif" si systÃ¨me lent: on n'essaie pas de dÃ©coder PNG
   String defPng = "/systems/_defaults/default.png";
@@ -5507,7 +5665,11 @@ void processPendingMqttCommand()
     if(imageFolder.length()>0)
       gameBase="/systems/"+sysName+"/"+imageFolder+"/"+romName;
 
-    char slowFlag=sysDefaultSlowFlag(sysName);
+    // Bucket derive de romName (deja extrait ci-dessus, sans cout SD
+    // supplementaire) : flag lent par sous-dossier alphabetique au lieu
+    // de par systeme entier (chantier "bucket").
+    char bucketLetter = bucketLetterForFilename(romName);
+    char slowFlag=sysBucketSlowFlag(sysName, bucketLetter);
     bool isSlow=(slowFlag=='L'||slowFlag=='l');
     bool needDrawMask = false;
     bool maskDrawn = false;
@@ -5520,6 +5682,7 @@ void processPendingMqttCommand()
     // le declenchement du crash mqttTask/LWIP.
     if (CMD_GAME_DEBUG_LOGS) Serial.println("[DIAG] enter sys=" + sysName
                    + " rom=" + romName
+                   + " bucket=" + String(bucketLetter)
                    + " slowFlag=" + String(slowFlag)
                    + " isSlow=" + String(isSlow)
                    + " gameBase=" + gameBase);
@@ -5703,6 +5866,7 @@ void processPendingMqttCommand()
       // DEBUG pour comprendre pourquoi le jeu n'est pas affichÃ© (vs mask) -- voir CMD_GAME_DEBUG_LOGS
       if (CMD_GAME_DEBUG_LOGS) Serial.println("[CMD_GAME] debug sys=" + sysName
                    + " rom=" + romName
+                   + " bucket=" + String(bucketLetter)
                    + " cached=" + String(cached)
                    + " isSlow=" + String(isSlow)
                    + " gameBase=" + gameBase
@@ -7491,10 +7655,11 @@ void setup()
     sysCacheKeys = (char (*)[32])malloc(sizeof(char[32]) * SYS_CACHE_MAX);
     sysCacheVals = (char*)malloc(SYS_CACHE_MAX);
     sysCacheSlowVals = (char*)malloc(SYS_CACHE_MAX);
+    sysCachePerLetterVals = (char (*)[BUCKET_COUNT])malloc(sizeof(char[BUCKET_COUNT]) * SYS_CACHE_MAX);
     gamesIdx = (GamesSysIdx*)malloc(sizeof(GamesSysIdx) * GAMES_IDX_MAX);
   }
 
-  if (!sysCacheKeys || !sysCacheVals || !sysCacheSlowVals || !gamesIdx)
+  if (!sysCacheKeys || !sysCacheVals || !sysCacheSlowVals || !sysCachePerLetterVals || !gamesIdx)
   {
     Serial.println("[MEM] heap alloc failed - halting");
     while (1) { delay(100); yield(); }
