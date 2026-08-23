@@ -74,9 +74,14 @@ sys.path.insert(0, os.path.dirname(__file__))
 from parse_hiscore_dat import parse_hiscore_dat, compute_offsets  # noqa: E402
 
 SCRATCH = os.path.dirname(__file__)
+# v5 - 2026-08-23 - safe-modify - Chemins parametrables (--dat/--hidir/
+#   --manifest/--out) au lieu de codes en dur sur FBNeo -- reutilise pour
+#   MAME0278 (voir DECISIONS.md "Récolte MAME0278", process complet
+#   tranche 1). Defauts inchanges (retro-compatibles avec l'usage FBNeo
+#   d'origine sans argument).
 DAT_PATH = os.path.join(SCRATCH, "hiscore_fbneo.dat")
 HI_DIR = os.path.join(SCRATCH, "phase2_hi")
-MANIFEST_PATH = os.path.join(SCRATCH, "hiscore_manifest.json")
+MANIFEST_PATH = os.path.join(SCRATCH, "userscripts", "hiscore_manifest.json")
 OUT_PATH = os.path.join(SCRATCH, "phase2_new_entries.json")
 
 CANDIDATE_STRIDES = [6, 7, 8, 9, 10, 11, 12, 13, 14]
@@ -207,9 +212,22 @@ def offset_for_order(order, name_size):
 
 
 def main():
-    entries = parse_hiscore_dat(DAT_PATH)
-    hi_files = sorted(glob.glob(os.path.join(HI_DIR, "*.hi")))
-    with open(MANIFEST_PATH, encoding="utf-8") as f:
+    dat_path = DAT_PATH
+    hi_dir = HI_DIR
+    manifest_path = MANIFEST_PATH
+    out_path = OUT_PATH
+    if "--dat" in sys.argv:
+        dat_path = sys.argv[sys.argv.index("--dat") + 1]
+    if "--hidir" in sys.argv:
+        hi_dir = sys.argv[sys.argv.index("--hidir") + 1]
+    if "--manifest" in sys.argv:
+        manifest_path = sys.argv[sys.argv.index("--manifest") + 1]
+    if "--out" in sys.argv:
+        out_path = sys.argv[sys.argv.index("--out") + 1]
+
+    entries = parse_hiscore_dat(dat_path)
+    hi_files = sorted(glob.glob(os.path.join(hi_dir, "*.hi")))
+    with open(manifest_path, encoding="utf-8") as f:
         manifest = json.load(f)
 
     new_entries = {}
@@ -262,9 +280,9 @@ def main():
                 "source": "phase2-static-heuristic",
             }
 
-    with open(OUT_PATH, "w", encoding="utf-8") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump(new_entries, f, indent=2)
-    print(f"\n{len(new_entries)} jeu(x) FORTE prets a fusionner -> {OUT_PATH}")
+    print(f"\n{len(new_entries)} jeu(x) FORTE prets a fusionner -> {out_path}")
     print(f"{len(hi_files) - len(new_entries)} jeu(x) non fusionnes (moyenne/FAIBLE) -- verification humaine necessaire")
 
 
