@@ -2,7 +2,64 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v20
+# Version actuelle : v24
+#
+# v24 - 2026-08-24 - safe-modify - DIAGNOSTIC ajoute (bsp/bss/bslp/now sur la
+#   ligne BROWSE), PUIS RESULTAT LU EN DIRECT : le mecanisme v22/v23 est en
+#   fait CORRECT, fausse alerte du test precedent (lecture du log SANS les
+#   valeurs reelles, avant ce diagnostic). Preuve directe (reboot RB1,
+#   12:43:20-21) : evenement "3do" -> bss=0, publie normalement ; evenement
+#   "lastplayed" (MEME seconde) -> bss=1, correctement SUPPRIME par
+#   BOOT_SWEEP_MIN_PUBLISH_INTERVAL_S (juste LAST_SYSTEM mis a jour en
+#   silence) ; 1s plus tard, vrai silence -> "BOOT SWEEP termine" ->
+#   publish_settled_position() publie la position FINALE reellement
+#   atteinte ("lastplayed") -- c'est le flush de fin de sequence qui
+#   fonctionne comme prevu (meme mecanisme que le mode demo), PAS une
+#   republication en violation de la limite de frequence comme suppose a
+#   tort au tour precedent. Champs de diagnostic laisses en place (cout
+#   negligeable, utiles si un futur souci similaire doit etre debogue).
+#   Reserve honnete : seul un sweep a 2 evenements (3do->lastplayed) a pu
+#   etre reproduit ce soir (cache gamelist ES probablement deja chaud apres
+#   plusieurs redemarrages) -- jamais le sweep complet a ~70 systemes de
+#   l'incident d'origine. Le mecanisme est verifie correct sur le principe
+#   (limite de frequence + flush final), pas stress-teste a cette echelle.
+#
+# v23 - 2026-08-24 - safe-modify - v22 BUGUE, reproduit a l'identique en test
+#   reel immediat (2e reboot RB1 consecutif, meme session) : "BOOT SWEEP
+#   termine" toujours declenche 1s apres BOOT settle, avant le vrai debut du
+#   sweep (12:31:58 vs sweep reel a 12:32:39). Cause : boot_sweep_seen_any
+#   etait bien calcule/mis a 1 dans le case gamelistbrowsing|systembrowsing),
+#   mais JAMAIS EXIGE dans la condition de desarmement du timeout (oubli
+#   pur et simple -- le code ecrit ne correspondait pas a l'intention
+#   documentee dans le changelog v22). Fix reel : condition corrigee en
+#   "[ boot_sweep_pending -eq 1 ] && [ boot_sweep_seen_any -eq 1 ]".
+# v21 - 2026-08-24 - safe-modify - v20 INSUFFISANT, confirme en test reel
+#   immediat (retour utilisateur : "test rb1 avec reboot" puis "vu qu il est
+#   en rc-4 il va rien recevoir ton dmd" -- observation en direct qui a
+#   permis de voir le vrai probleme). Test : kill+relance ES (12:09-12:10),
+#   EVENT=start observe a 12:10:41, mais le sweep systembrowsing ne commence
+#   QUE 42s plus tard (12:11:23 -- ES fait d'autres taches internes avant
+#   d'attaquer sa liste de systemes). La fenetre de grace glissante v20 est
+#   ancree sur BOOT_TIME et ne glisse QUE si des evenements arrivent deja --
+#   avec un ecart initial de 42s (largement > 10s) avant le tout premier
+#   evenement du sweep, la fenetre est deja perimee AVANT MEME que le sweep
+#   commence -- le tout premier systembrowsing passe donc tel quel, sans
+#   filtrage, exactement comme avant v20. Mecanisme v20 entierement remplace
+#   (pas un correctif dessus) : boot_sweep_pending (arme dans start), dans
+#   la branche "pas de vraie partie en cours") reste actif DEPUIS start)
+#   JUSQU'AU PREMIER VRAI SILENCE observe (meme detection -W1 que fin de
+#   rafale/mode demo) -- ne depend plus d'AUCUN delai fixe depuis le boot,
+#   couvre le sweep quelle que soit sa date de debut ou sa duree reelle.
+#   Pendant boot_sweep_pending, meme mecanisme de limite de frequence que le
+#   mode demo (v18, DEMO_MIN_PUBLISH_INTERVAL_S) plutot qu'un blocage total
+#   (un sweep peut durer largement plus d'une minute -- un DMD completement
+#   fige tout ce temps serait percu comme casse) : boot_sweep_suppress
+#   calcule une fois par evenement, combine (ET logique, jamais en
+#   remplacement) avec le "throttled" existant aux 3 points de publication
+#   du case gamelistbrowsing|systembrowsing). Desarme aussi immediatement
+#   sur toute transition definitive (rungame/endgame/stop), meme philosophie
+#   que throttled/burst_count -- une vraie action utilisateur ne doit jamais
+#   rester en attente a cause d'un sweep suppose en cours.
 #
 # v20 - 2026-08-24 - safe-modify - BUG REEL trouve en enquetant sur un crash
 #   firmware (retour utilisateur : "on a quand meme une serie de modif qui
@@ -480,6 +537,38 @@ DEMO_MIN_PUBLISH_INTERVAL_S=3
 demo_last_publish_ts=0
 demo_throttled=0
 
+# v21 -- remplace l'ancienne fenetre de grace boot fixe/glissante (v20,
+# voir changelog v21 complet en entete pour le detail de son insuffisance
+# constatee en test reel : le sweep systeme d'ES peut ne commencer que 40+
+# secondes apres l'evenement start, largement hors de portee d'une fenetre
+# ancree sur un delai depuis le boot). boot_sweep_pending reste actif DEPUIS
+# start) JUSQU'AU PREMIER vrai silence observe (meme detection -W1 que fin
+# de rafale/demo) -- couvre le sweep quelle que soit sa date de debut/duree
+# reelle. Pendant boot_sweep_pending, meme mecanisme de limite que le mode
+# demo (v18) : publication au maximum toutes les
+# BOOT_SWEEP_MIN_PUBLISH_INTERVAL_S secondes, position mise a jour
+# silencieusement sinon -- jamais un silence TOTAL (contrairement a une
+# rafale courte, un sweep peut durer plus d'une minute, un DMD fige tout ce
+# temps serait percu comme casse).
+BOOT_SWEEP_MIN_PUBLISH_INTERVAL_S=3
+boot_sweep_pending=0
+boot_sweep_last_publish_ts=0
+# v22 -- BUG REEL trouve en test reel IMMEDIAT sur v21 (reboot RB1 complet,
+# meme session) : "BOOT SWEEP termine (silence reel observe)" s'est
+# declenche a 12:19:55, SEULEMENT 1s apres "BOOT settle", alors que le vrai
+# sweep systembrowsing n'a demarre QUE 35s plus tard (12:20:30) -- le
+# timeout -W1 (1s sans evenement) se declenchait sur le silence NORMAL
+# precedant le sweep (ES encore en train de charger/initialiser autre
+# chose), pas sur sa fin -- boot_sweep_pending se desarmait donc AVANT MEME
+# que le sweep commence, qui passait ensuite entierement non filtre, meme
+# symptome qu'avant v20 pour une raison differente. Fix : le timeout
+# n'implique "sweep termine" que si AU MOINS UN evenement
+# systembrowsing/gamelistbrowsing a deja ete vu depuis l'armement (voir
+# boot_sweep_seen_any, mis a 1 dans le case correspondant) -- tant qu'aucun
+# n'est encore arrive, un silence n'est que le delai normal AVANT le sweep,
+# pas sa fin, et ne doit jamais desarmer.
+boot_sweep_seen_any=0
+
 # v6 -- etat du detecteur de rafale (voir changelog v6 ci-dessus).
 # v7 -- seuil remonte de 3 a 5 (retour utilisateur : 3 trop restrictif).
 # v11 -- seuil remonte a 50 (desactivation de fait, voir changelog v11 --
@@ -514,7 +603,7 @@ throttled=0
 # de l'interpolation et le log affichait "seuil=/s" (vide) au lieu de
 # "seuil=10/s" -- bug constate au demarrage reel, corrige en deplacant le
 # log apres la declaration.
-echo "$(date) - Marquee bridge started (v20, grace boot glissante systembrowsing/gamelistbrowsing, rundemo/startgameclip -> marquee du jeu demo/clip, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
+echo "$(date) - Marquee bridge started (v24, diagnostic bsp/bss/bslp/now ajoute sur BROWSE, rundemo/startgameclip -> marquee du jeu demo/clip, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
 
 while true; do
     PREV_EVENT="$event"
@@ -526,7 +615,7 @@ while true; do
     # en sortie de boucle ne peut donc survenir QUE si throttled=1 (timeout)
     # ou (tres improbable) message vide recu -- traite pareil, sans
     # consequence (le case *) plus bas ignore deja les events vides).
-    if [ "$throttled" -eq 1 ] || [ "$demo_throttled" -eq 1 ]; then
+    if [ "$throttled" -eq 1 ] || [ "$demo_throttled" -eq 1 ] || [ "$boot_sweep_pending" -eq 1 ]; then
         event=$(mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 \
             -t "Recalbox/EmulationStation/Event" -C 1 -W 1 2>/dev/null | tr -d '\r')
     else
@@ -559,6 +648,24 @@ while true; do
                 echo "$(date '+%H:%M:%S') DEMO sequence rapide terminee -- publication position stabilisee" >> "$LOG"
                 send_mqtt_retain "game" "${DEMO_SYSTEM}/${DEMO_ROM}"
             fi
+        fi
+        # v21 -- meme principe (voir changelog v21) : plus aucun evenement
+        # depuis >=1s (timeout -W1) pendant boot_sweep_pending -- soit le
+        # sweep interne d'ES vient de se terminer, soit il n'a en fait
+        # jamais eu lieu (demarrage avec peu de systemes) -- premier VRAI
+        # silence observe depuis start), on desarme definitivement (jusqu'au
+        # prochain start) et publie la position finale reellement atteinte.
+        # v22 -- BUG REEL : boot_sweep_seen_any calcule mais JAMAIS EXIGE ici
+        # (oubli constate en test reel immediat -- meme symptome que v21,
+        # desarmement premature reproduit a l'identique). Fix reel cette
+        # fois : le timeout ne compte comme "sweep termine" QUE si au moins
+        # un evenement du sweep a deja ete vu -- sinon ce n'est que le
+        # silence normal AVANT que le sweep commence, on l'ignore et on
+        # reste arme.
+        if [ "$boot_sweep_pending" -eq 1 ] && [ "$boot_sweep_seen_any" -eq 1 ]; then
+            boot_sweep_pending=0
+            echo "$(date '+%H:%M:%S') BOOT SWEEP termine (silence reel observe) -- publication position stabilisee, reactivite normale retablie" >> "$LOG"
+            publish_settled_position
         fi
         continue
     fi
@@ -600,6 +707,13 @@ while true; do
                 fi
             else
                 send_mqtt_retain "default" "1"
+                # v21 -- arme la detection du sweep systeme post-boot (voir
+                # changelog v21 complet en entete) -- seulement dans cette
+                # branche (pas de vraie partie en cours) : un sweep ES n'a
+                # de sens que si on redemarre dans le menu, pas en jeu.
+                boot_sweep_pending=1
+                boot_sweep_last_publish_ts=0
+                boot_sweep_seen_any=0
 
                 # Attendre la fin de la rafale automatique de boot
                 sleep 5
@@ -616,19 +730,27 @@ while true; do
             ;;
 
         gamelistbrowsing|systembrowsing)
-            # Ignorer la rafale pendant les 10s après le boot -- v20 : fenetre
-            # GLISSANTE (voir changelog v20 complet en entete) : BOOT_TIME est
-            # remis a "now" a CHAQUE evenement ignore ici, donc la grace se
-            # prolonge tant que les evenements arrivent a moins de 10s
-            # d'ecart (balayage systeme automatise d'ES au demarrage, qui
-            # peut durer largement plus d'une minute) -- se termine des le
-            # premier vrai silence >=10s, sans jamais retarder une navigation
-            # humaine normale une fois ce silence observe.
             now=$(date +%s)
-            if [ "$BOOT_TIME" -gt 0 ] && [ $((now - BOOT_TIME)) -lt 10 ]; then
-                BOOT_TIME=$now
-                echo "$(date '+%H:%M:%S') BROWSE ignored (boot settle, glissant)" >> "$LOG"
-                continue
+
+            # v21 -- remplace l'ancienne fenetre de grace boot fixe/glissante
+            # (v20, insuffisante -- voir changelog v21 complet en entete) :
+            # pendant boot_sweep_pending (voir son armement dans start), la
+            # publication est limitee comme le mode demo (au plus 1 toutes
+            # les BOOT_SWEEP_MIN_PUBLISH_INTERVAL_S) au lieu d'etre bloquee
+            # ou totalement libre -- boot_sweep_suppress calcule ici, reutilise
+            # dans les 3 points de publication existants plus bas (meme
+            # gating que "throttled", combine avec lui, jamais en remplacement).
+            boot_sweep_suppress=0
+            if [ "$boot_sweep_pending" -eq 1 ]; then
+                # v22 -- marque qu'un evenement du sweep a bien ete vu (voir
+                # changelog v22) -- seul ce qui autorise desormais un futur
+                # timeout a etre interprete comme "sweep termine".
+                boot_sweep_seen_any=1
+                if [ $((now - boot_sweep_last_publish_ts)) -lt "$BOOT_SWEEP_MIN_PUBLISH_INTERVAL_S" ]; then
+                    boot_sweep_suppress=1
+                else
+                    boot_sweep_last_publish_ts=$now
+                fi
             fi
 
             # v6 -- detecteur de rafale : compte les survols dans la MEME
@@ -681,7 +803,7 @@ while true; do
             system=$(normalize_system "$system_raw")
             game_path=$(extract_field "$_snap" "GamePath")
 
-            echo "$(date '+%H:%M:%S') BROWSE raw=$system_raw norm=$system game=$game_path in_game=$IN_GAME throttled=$throttled" >> "$LOG"
+            echo "$(date '+%H:%M:%S') BROWSE raw=$system_raw norm=$system game=$game_path in_game=$IN_GAME throttled=$throttled bsp=$boot_sweep_pending bss=$boot_sweep_suppress bslp=$boot_sweep_last_publish_ts now=$now" >> "$LOG"
 
             if [ "$IN_GAME" -eq 1 ]; then
                 echo "$(date '+%H:%M:%S') BROWSE ignored (in game)" >> "$LOG"
@@ -698,8 +820,9 @@ while true; do
                         # jour LAST_SYSTEM/LAST_ROM silencieusement SANS
                         # publier -- la publication effective se fera au
                         # "BURST end" (timeout) plus haut, avec la position
-                        # la plus recente.
-                        if [ "$throttled" -eq 0 ]; then
+                        # la plus recente. v21 -- meme principe combine pour
+                        # boot_sweep_suppress (voir son calcul plus haut).
+                        if [ "$throttled" -eq 0 ] && [ "$boot_sweep_suppress" -eq 0 ]; then
                             send_mqtt_retain "system" "$system"
                         fi
                     fi
@@ -717,7 +840,7 @@ while true; do
                         if [ "$rom" != "$LAST_ROM" ] || [ "$system" != "$LAST_SYSTEM" ]; then
                             LAST_SYSTEM="$system"
                             LAST_ROM="$rom"
-                            if [ "$throttled" -eq 0 ]; then
+                            if [ "$throttled" -eq 0 ] && [ "$boot_sweep_suppress" -eq 0 ]; then
                                 send_mqtt_retain "game" "${system}/${rom}"
                             fi
                         else
@@ -729,7 +852,7 @@ while true; do
                 if [ "$system" != "$LAST_SYSTEM" ] || [ -n "$LAST_ROM" ]; then
                     LAST_SYSTEM="$system"
                     LAST_ROM=""
-                    if [ "$throttled" -eq 0 ]; then
+                    if [ "$throttled" -eq 0 ] && [ "$boot_sweep_suppress" -eq 0 ]; then
                         send_mqtt_retain "system" "$system"
                     fi
                 else
@@ -744,9 +867,13 @@ while true; do
             # v6 -- transition definitive (vraie action utilisateur), pas un
             # simple survol -- reinitialise le detecteur de rafale pour ne
             # jamais laisser ce cas etre retarde par un throttle en cours.
+            # v21 -- boot_sweep_pending desarme ici aussi, meme logique : un
+            # vrai lancement de jeu prouve qu'on n'est plus dans le sweep
+            # automatise post-boot, inutile d'attendre un silence.
             burst_count=0
             burst_qualifying_streak=0
             throttled=0
+            boot_sweep_pending=0
             IN_GAME=1
             # v8 -- lecture atomique (voir changelog v8).
             _snap=$(read_state_snapshot)
@@ -771,6 +898,7 @@ while true; do
             burst_count=0
             burst_qualifying_streak=0
             throttled=0
+            boot_sweep_pending=0
             IN_GAME=0
             LAST_ROM=""
             system_raw=$(read_state "SystemId")
@@ -789,6 +917,7 @@ while true; do
             burst_count=0
             burst_qualifying_streak=0
             throttled=0
+            boot_sweep_pending=0
             echo "$(date '+%H:%M:%S') STOP -> playlist" >> "$LOG"
             IN_GAME=0
             LAST_ROM=""
