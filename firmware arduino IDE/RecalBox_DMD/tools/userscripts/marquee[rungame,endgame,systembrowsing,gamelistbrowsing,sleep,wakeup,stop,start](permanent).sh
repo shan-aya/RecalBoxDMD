@@ -2,7 +2,52 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v19
+# Version actuelle : v20
+#
+# v20 - 2026-08-24 - safe-modify - BUG REEL trouve en enquetant sur un crash
+#   firmware (retour utilisateur : "on a quand meme une serie de modif qui
+#   amene ce crash a se produire... il faut enqueter"). Correlation directe
+#   serial DMD <-> marquee_mqtt.log sur la fenetre exacte du crash (23/08
+#   20:49-20:52) : AUCUN trafic bucket/CMD_GAME cote DMD pendant toute cette
+#   fenetre (bucket et le chantier "veille" hors de cause pour CET incident
+#   precis) -- en revanche, marquee.sh venait de redemarrer (20:49:43, reboot
+#   RB/relance ES) puis ES a balaye la TOTALITE de sa liste de systemes en
+#   interne au demarrage : ~70 EVENT=systembrowsing a la suite, ~1/s,
+#   PENDANT PLUS D'UNE MINUTE (20:50:25 a >20:51:37), chacun republie tel
+#   quel en marquee/cmd/system (throttled=0 sur chaque ligne du log). CE
+#   FLUX ECHAPPE COMPLETEMENT aux 2 garde-fous existants :
+#   - la fenetre de grace boot (BOOT_TIME, ci-dessous) ne couvrait que 10s
+#     fixes -- trop courte, le balayage ES dure largement plus longtemps
+#     pour une collection de systemes consequente ;
+#   - le detecteur anti-rafale (BURST_THRESHOLD/BURST_SUSTAIN_SECONDS) ne
+#     compte que les evenements dans la MEME seconde d'horloge -- un debit
+#     de ~1/s ne l'atteint JAMAIS, quelle que soit la duree.
+#   EXACTEMENT le meme trou architectural deja identifie et corrige pour le
+#   mode demo (v18, "BUG REEL #2" -- taux modere mais SOUTENU, invisible au
+#   detecteur instantane) -- mais ce fix (DEMO_MIN_PUBLISH_INTERVAL_S)
+#   n'avait ete branche QUE sur le case rundemo|startgameclip, jamais sur
+#   gamelistbrowsing|systembrowsing ou le meme trou existait depuis toujours
+#   (present bien avant cette session, aucun commit anterieur n'a jamais
+#   touche a ce mecanisme -- pas une regression bucket/resync/veille, un
+#   angle mort pre-existant simplement jamais autant expose qu'avec un
+#   redemarrage RB1 pendant cette session de tests intensifs).
+#   Ce flux soutenu correlait directement, cote DMD, avec les cycles
+#   d'echec de reconnexion MQTT observes dans la meme fenetre (charge SD/
+#   MQTT/heap concurrente bien plus elevee que l'idle normal) et precede de
+#   pres le crash observe (abort() a 20:52:46, <700ms apres un [MQTT]
+#   connected) -- explique plausiblement AUSSI les symptomes "difficulte de
+#   connexion/lenteur" rapportes comme co-occurrents, pas juste le crash
+#   isole.
+#   Fix retenu : fenetre de grace boot rendue GLISSANTE (BOOT_TIME remis a
+#   "now" a CHAQUE evenement ignore pendant la grace) au lieu d'un delai fixe
+#   one-shot -- se prolonge automatiquement tant que les evenements
+#   continuent d'arriver rapprocjes (<10s d'ecart), se termine des le premier
+#   vrai silence >=10s (fin du balayage automatise OU navigation humaine
+#   normale, deja assez espacee). Aucun impact sur la navigation humaine
+#   normale hors de cette fenetre post-boot (le detecteur de rafale usuel,
+#   inchange, reste seul juge ensuite) -- meme philosophie que le mecanisme
+#   de fin de rafale/demo deja existant (detection par silence, pas par
+#   delai fixe).
 #
 # v19 - 2026-08-23 - safe-modify - BUG REEL trouve par retour utilisateur
 #   direct ("il existe 1 mode demo : lance des jeux et un mode demo video :
@@ -469,7 +514,7 @@ throttled=0
 # de l'interpolation et le log affichait "seuil=/s" (vide) au lieu de
 # "seuil=10/s" -- bug constate au demarrage reel, corrige en deplacant le
 # log apres la declaration.
-echo "$(date) - Marquee bridge started (v19, rundemo/startgameclip -> marquee du jeu demo/clip, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
+echo "$(date) - Marquee bridge started (v20, grace boot glissante systembrowsing/gamelistbrowsing, rundemo/startgameclip -> marquee du jeu demo/clip, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
 
 while true; do
     PREV_EVENT="$event"
@@ -571,10 +616,18 @@ while true; do
             ;;
 
         gamelistbrowsing|systembrowsing)
-            # Ignorer la rafale pendant les 10s après le boot
+            # Ignorer la rafale pendant les 10s après le boot -- v20 : fenetre
+            # GLISSANTE (voir changelog v20 complet en entete) : BOOT_TIME est
+            # remis a "now" a CHAQUE evenement ignore ici, donc la grace se
+            # prolonge tant que les evenements arrivent a moins de 10s
+            # d'ecart (balayage systeme automatise d'ES au demarrage, qui
+            # peut durer largement plus d'une minute) -- se termine des le
+            # premier vrai silence >=10s, sans jamais retarder une navigation
+            # humaine normale une fois ce silence observe.
             now=$(date +%s)
             if [ "$BOOT_TIME" -gt 0 ] && [ $((now - BOOT_TIME)) -lt 10 ]; then
-                echo "$(date '+%H:%M:%S') BROWSE ignored (boot settle)" >> "$LOG"
+                BOOT_TIME=$now
+                echo "$(date '+%H:%M:%S') BROWSE ignored (boot settle, glissant)" >> "$LOG"
                 continue
             fi
 
