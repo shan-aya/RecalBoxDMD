@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# direct_harvest_mame0278_rb2.py v6 -- variante de direct_harvest_mame0278.py
+# direct_harvest_mame0278_rb2.py v8 -- variante de direct_harvest_mame0278.py
 # (RB1, JAMMA/CRT) adaptee au materiel x86/X11 (ex. Steam Deck, pas de
 # CRT/JAMMA, manette integree, controleur graphique nécessitant DISPLAY).
 # Ligne de lancement capturee en reel le 2026-08-23 (jeu lance normalement
@@ -81,10 +81,25 @@
 # forcer une VRAIE partie (SCORE au HUD des les premieres secondes) au
 # lieu d'esperer tomber sur le bon instant du cycle passif. Desactivable
 # via --no-input pour comparaison cote a cote avec l'ancien comportement.
+# Teste sur 30 roms neuves : 0/30 .hi peuples (le taux depend d'abord de
+# hiscore.dat, pas de la methode de capture -- axe separe), mais 2/4
+# screenshots verifies nettement ameliores (HI-SCORE visible au lieu
+# d'ecran fige). darkseal (1/4) toujours bloque en cinematique -- credit
+# envoye trop tot, avant que le jeu accepte l'input.
+#
+# v7 -- 2 essais credit+start espaces (BOOT_SETTLE_S puis mi-dwell) au
+# lieu d'un seul, pour couvrir le cas "jeu pas encore pret au 1er essai"
+# (darkseal). Pas de boucle continue sur tout le dwell : appuyer sur
+# START en repetition PENDANT une vraie partie deja demarree risquerait
+# de basculer en pause/menu sur les jeux ou START sert a ca une fois en
+# jeu (pas juste "commencer").
 import subprocess, time, socket, os, sys
 
 os.environ["DISPLAY"] = ":0"
 os.environ["XDG_RUNTIME_DIR"] = "/run/user/0"
+
+sys.path.insert(0, os.path.dirname(__file__))
+from rb2_input_device import detect_steam_deck_device  # noqa: E402
 
 ROM_LIST_FILE = sys.argv[1] if len(sys.argv) > 1 else "/tmp/priority_mame0278.txt"
 LOG = "/tmp/direct_harvest_mame0278_log.txt"
@@ -99,14 +114,19 @@ LOG = "/tmp/direct_harvest_mame0278_log.txt"
 # persiste entre les runs, contrairement au calcul depuis un fichier de
 # liste qu'il faudrait reconstruire manuellement a chaque fois.
 ATTEMPTED_FILE = "/tmp/direct_harvest_mame0278_attempted.txt"
+# v8 - 2026-08-24 - safe-modify - /dev/input/eventN n'est PLUS code en
+# dur (bug reel : casse a chaque redemarrage de RB2, numerotation kernel
+# non stable -- voir rb2_input_device.py et DECISIONS.md "piege
+# event14/reboot RB2"). Resolu dynamiquement au demarrage (DEVICE_PATH).
+DEVICE_PATH = detect_steam_deck_device()
 LAUNCH_TEMPLATE = (
     "python3 /usr/bin/emulatorlauncher.pyc "
     "-p1index 0 -p1guid 0300f617de2800000512000010010000 -p1name \"Steam Deck\" "
-    "-p1nbaxes 10 -p1nbhats 0 -p1nbbuttons 22 -p1devicepath /dev/input/event14 "
+    "-p1nbaxes 10 -p1nbhats 0 -p1nbbuttons 22 -p1devicepath {device} "
     "-p1physicalpath \"pci-0000:04:00.4-usb-0:3:1.2\" "
-    "-system mame -rom /recalbox/share/roms/mame/mame0278/{rom}.zip -emulator libretro -core mame0278 "
+    "-system mame -rom /recalbox/share/roms/mame/mame0278/{{rom}}.zip -emulator libretro -core mame0278 "
     "-ratio auto -videobackend default -rotation 0 -resolution 1280x800 -systemtype arcade"
-)
+).format(device=DEVICE_PATH)
 LOAD_WAIT_S = 20
 BOOT_SETTLE_S = 4  # v6 -- laisse le jeu finir son boot avant d'envoyer credit+start
 DWELL_S = 15
@@ -222,13 +242,33 @@ def harvest_one(rom, attempted):
         return
 
     log(">>> {} lance (pid={})".format(rom, pid))
-    time.sleep(BOOT_SETTLE_S)
 
-    if not NO_INPUT:
+    if NO_INPUT:
+        log("    attente {}s (dwell passif seul)".format(DWELL_S))
+        time.sleep(DWELL_S)
+    else:
+        # v7 - 2026-08-24 - safe-modify - 2 essais espaces au lieu d'un
+        # seul (retour sur le test v6 : darkseal toujours bloque en
+        # cinematique -- le credit envoye a BOOT_SETTLE_S=4s arrivait
+        # probablement AVANT que le jeu accepte l'input, pendant son
+        # propre logo/boot non-skippable). Un 2e essai a mi-dwell couvre
+        # ce cas SANS spammer START en continu -- appuyer sur START
+        # repetitivement PENDANT une vraie partie deja demarree risquerait
+        # de basculer en pause/menu sur les jeux ou START sert a ca une
+        # fois en jeu (pas juste "commencer"), donc 2 essais max, pas une
+        # boucle continue sur tout le dwell.
+        time.sleep(BOOT_SETTLE_S)
         send_credit_and_start()
-
-    log("    attente {}s ({})".format(DWELL_S, "credit+start envoyes" if not NO_INPUT else "dwell passif seul"))
-    time.sleep(DWELL_S)
+        remaining = DWELL_S - BOOT_SETTLE_S
+        if remaining > 4:
+            half = remaining // 2
+            time.sleep(half)
+            send_credit_and_start()
+            log("    attente terminee (2 essais credit+start, dwell {}s)".format(DWELL_S))
+            time.sleep(remaining - half)
+        else:
+            log("    attente terminee (1 essai credit+start, dwell {}s trop court pour un 2e)".format(DWELL_S))
+            time.sleep(max(0, remaining))
 
     send_screenshot()
     time.sleep(1)  # laisse RetroArch ecrire le fichier avant le QUIT

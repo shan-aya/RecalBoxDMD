@@ -3,7 +3,11 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v1
+# Version actuelle : v2
+#
+# v2 - 2026-08-24 - safe-modify - /dev/input/eventN resolu dynamiquement
+#   (rb2_input_device.py) au lieu d'un chemin code en dur -- voir
+#   DECISIONS.md "piege event14/reboot RB2".
 #
 # v1 - 2026-08-23 - safe-modify - Creation initiale. 2e passe de la
 #   methode "verite d'abord" (voir build_entry_from_truth.py, DECISIONS.md
@@ -40,16 +44,23 @@ import subprocess, time, socket, os, sys
 os.environ["DISPLAY"] = ":0"
 os.environ["XDG_RUNTIME_DIR"] = "/run/user/0"
 
+sys.path.insert(0, os.path.dirname(__file__))
+from rb2_input_device import detect_steam_deck_device  # noqa: E402
+
 LOG = "/tmp/rb2_ram_truth_log.txt"
 DUMP_DIR = "/tmp/ramtruth"
+# v2 - 2026-08-24 - safe-modify - /dev/input/eventN n'est PLUS code en
+# dur (bug reel : casse a chaque redemarrage de RB2 -- voir
+# rb2_input_device.py et DECISIONS.md "piege event14/reboot RB2").
+DEVICE_PATH = detect_steam_deck_device()
 LAUNCH_TEMPLATE = (
     "python3 /usr/bin/emulatorlauncher.pyc "
     "-p1index 0 -p1guid 0300f617de2800000512000010010000 -p1name \"Steam Deck\" "
-    "-p1nbaxes 10 -p1nbhats 0 -p1nbbuttons 22 -p1devicepath /dev/input/event14 "
+    "-p1nbaxes 10 -p1nbhats 0 -p1nbbuttons 22 -p1devicepath {device} "
     "-p1physicalpath \"pci-0000:04:00.4-usb-0:3:1.2\" "
-    "-system mame -rom /recalbox/share/roms/mame/mame0278/{rom}.zip -emulator libretro -core mame0278 "
+    "-system mame -rom /recalbox/share/roms/mame/mame0278/{{rom}}.zip -emulator libretro -core mame0278 "
     "-ratio auto -videobackend default -rotation 0 -resolution 1280x800 -systemtype arcade"
-)
+).format(device=DEVICE_PATH)
 LOAD_WAIT_S = 20
 DWELL_S = 15
 QUIT_WAIT_S = 15

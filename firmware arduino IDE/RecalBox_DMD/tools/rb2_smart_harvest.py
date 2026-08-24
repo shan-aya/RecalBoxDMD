@@ -3,7 +3,11 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v1
+# Version actuelle : v2
+#
+# v2 - 2026-08-24 - safe-modify - /dev/input/eventN resolu dynamiquement
+#   (rb2_input_device.py) au lieu d'un chemin code en dur -- voir
+#   DECISIONS.md "piege event14/reboot RB2".
 #
 # v1 - 2026-08-24 - safe-modify - Creation initiale. Remplace le mode
 #   "lot avec parametres fixes identiques pour tous" de
@@ -75,6 +79,7 @@ os.environ["XDG_RUNTIME_DIR"] = "/run/user/0"
 sys.path.insert(0, os.path.dirname(__file__))
 from parse_hiscore_dat import parse_hiscore_dat, compute_offsets  # noqa: E402
 from rb2_ram_truth_capture import udp_client as ram_socket, read_core_ram_chunk, dump_region  # noqa: E402
+from rb2_input_device import detect_steam_deck_device  # noqa: E402
 
 GAMELIST_PATH = "/recalbox/share/roms/mame/gamelist.xml"
 HISCORE_DAT_PATH = "/usr/share/libretro-mame/mame0278/plugins/hiscore/hiscore.dat"
@@ -85,14 +90,18 @@ LOG = "/tmp/rb2_smart_harvest_log.txt"
 LOG_JSONL = "/tmp/rb2_smart_harvest_log.jsonl"
 ATTEMPTED_FILE = "/tmp/rb2_smart_harvest_attempted.txt"
 
+# v2 - 2026-08-24 - safe-modify - /dev/input/eventN resolu dynamiquement
+# (rb2_input_device.py) au lieu d'un chemin code en dur -- voir
+# DECISIONS.md "piege event14/reboot RB2".
+DEVICE_PATH = detect_steam_deck_device()
 LAUNCH_TEMPLATE = (
     "python3 /usr/bin/emulatorlauncher.pyc "
     "-p1index 0 -p1guid 0300f617de2800000512000010010000 -p1name \"Steam Deck\" "
-    "-p1nbaxes 10 -p1nbhats 0 -p1nbbuttons 22 -p1devicepath /dev/input/event14 "
+    "-p1nbaxes 10 -p1nbhats 0 -p1nbbuttons 22 -p1devicepath {device} "
     "-p1physicalpath \"pci-0000:04:00.4-usb-0:3:1.2\" "
-    "-system mame -rom /recalbox/share/roms/mame/mame0278/{rom}.zip -emulator libretro -core mame0278 "
+    "-system mame -rom /recalbox/share/roms/mame/mame0278/{{rom}}.zip -emulator libretro -core mame0278 "
     "-ratio auto -videobackend default -rotation 0 -resolution 1280x800 -systemtype arcade"
-)
+).format(device=DEVICE_PATH)
 QUIT_WAIT_S = 15
 
 # --- categorisation par genre -------------------------------------------
