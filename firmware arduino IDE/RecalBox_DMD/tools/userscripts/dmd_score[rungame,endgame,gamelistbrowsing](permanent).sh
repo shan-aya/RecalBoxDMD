@@ -5,7 +5,43 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v29
+# Version actuelle : v32
+#
+# v32 - 2026-08-24 - safe-modify - v31 CORRIGE (retour utilisateur, meme
+#   session : "pour le mode veille demo de jeu on reste bcp plus longtemps
+#   sur un jeu... le probleme est different, on peut laisser l'affichage
+#   overlay sur ce mode specifique") -- rundemo RETIRE du groupe "marquee
+#   seul", rejoint gamelistbrowsing (round-robin overlay complet, comme
+#   avant v31). SEUL startgameclip reste en marquee-only desormais (duree
+#   fixe ~30s, trop courte) -- rundemo (duree variable, generalement bien
+#   plus longue : lancement + presentation avant affichage reel) garde le
+#   comportement complet. Voir le commentaire pres du case startgameclip)
+#   pour le raisonnement complet.
+#
+# v31 - 2026-08-24 - safe-modify - rundemo/startgameclip separes du case
+#   gamelistbrowsing : ne declenchent plus le round-robin overlay (hiscore/
+#   infos/description), marquee seul pendant la veille demo/gameclip. Voir
+#   le commentaire complet pres du nouveau case rundemo|startgameclip)
+#   plus bas -- raisonnement complet (fragilite MQTT keepalive + temps
+#   d'affichage trop court pour une sequence complete) documente la.
+#
+# v30 - 2026-08-23 - safe-modify - BUG REEL RECURRENT corrige (retour
+#      utilisateur explicite : "souci rencontre de multiples fois... la
+#      methode est a revoir pour le transfert des reglages") :
+#      features_watcher() ecrasait INCONDITIONNELLEMENT FEATURES_FILE avec
+#      tout message recu sur marquee/status/features, meme tronque -- un
+#      seul message corrompu suffisait a casser TOUS les panneaux d'info/
+#      description/RA sur TOUS les jeux simultanement (feat_enabled()/
+#      feat_value() ne trouvent alors plus aucune cle valide). Confirme en
+#      direct : la valeur RETENUE sur le broker elle-meme etait deja
+#      tronquee ("2;dwell_seconds=3" au lieu des 11 champs complets), donc
+#      pas une corruption locale a ce script -- voir aussi RecalBox_DMD.ino
+#      v126 (garde de sanite cote firmware AVANT publish, complementaire).
+#      Fix : features_line_complete() valide la presence des 11 cles
+#      attendues avant d'accepter un message -- tout message incomplet est
+#      REJETE (logue, cache existant conserve tel quel) plutot qu'accepte
+#      aveuglement.
+#
 #
 # v29 - 2026-08-23 - safe-modify - "startgameclip" ajoute au case (retour
 #   utilisateur : "il existe 1 mode demo : lance des jeux et un mode demo
@@ -940,13 +976,49 @@ round_robin() {
     done
 }
 
+# v30 -- BUG REEL RECURRENT (retour utilisateur explicite : "souci
+# rencontre de multiples fois... la methode est a revoir pour le transfert
+# des reglages") : marquee/status/features peut arriver TRONQUE (observe en
+# direct : "2;dwell_seconds=3" au lieu de la chaine complete a 11 champs,
+# aussi bien dans la valeur RETENUE sur le broker que dans ce cache -- donc
+# pas une corruption locale a ce script, la troncature remonte au firmware,
+# voir son changelog RecalBox_DMD.ino). L'ANCIEN code ecrasait
+# INCONDITIONNELLEMENT $FEATURES_FILE avec CE QUI ARRIVE, meme tronque --
+# UN SEUL message corrompu suffisait a casser tous les panneaux d'un coup
+# (feat_enabled()/feat_value() ne trouvent alors plus aucune cle valide,
+# TOUS les jeux perdent leurs panneaux simultanement, pas juste celui en
+# cours). Fix (2e ligne de defense, complement du garde cote firmware) :
+# validation de completude AVANT d'ecraser le cache -- un message qui ne
+# contient pas les 11 cles attendues est REJETE (cache existant conserve
+# tel quel, jamais efface par du contenu douteux) plutot qu'accepte
+# aveuglement. Cause racine exacte de la troncature encore non confirmee
+# avec certitude (suspect : concatenation String cote firmware sous
+# pression heap) -- ce garde protege quelle que soit la cause, cote
+# reception.
+FEATURES_REQUIRED_KEYS="hiscore_ingame hiscore_browse info_ingame info_browse description_ingame description_browse ra_ingame ra_browse repeat_cycles repeat_browse_cycles dwell_seconds"
+
+features_line_complete() {
+    line="$1"
+    for k in $FEATURES_REQUIRED_KEYS; do
+        case "$line" in
+            *"${k}="*) ;;
+            *) return 1 ;;
+        esac
+    done
+    return 0
+}
+
 # v2 -- sous-processus DEDIE (marquee/status/features RETENU cote DMD --
 # 1ere lecture immediate a la souscription, meme si ce script demarre
 # apres le DMD).
 features_watcher() {
     mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/status/features" 2>/dev/null | \
     while IFS= read -r line; do
-        printf '%s\n' "$line" > "$FEATURES_FILE"
+        if features_line_complete "$line"; then
+            printf '%s\n' "$line" > "$FEATURES_FILE"
+        else
+            echo "$(date '+%H:%M:%S') FEATURES rejete (message incomplet/corrompu, cache conserve): $line" >> "$LOG"
+        fi
     done
 }
 features_watcher &
@@ -1235,7 +1307,7 @@ publish_one_panel() {
     return 1
 }
 
-echo "$(date) - DMD score bridge started (v29, rundemo/startgameclip -> panneaux d'info du jeu demo/clip (equivalent survol de liste) + hi-score generique + round-robin infini + interruption inter-pages + dwell/ratios reglables)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v32, startgameclip = marquee seul (plus de round-robin overlay, duree trop courte) mais rundemo garde l'overlay complet + features_watcher valide le message avant d'ecraser le cache + hi-score generique + round-robin infini + dwell/ratios reglables)" >> "$LOG"
 # Efface une session/etat perime d'un lancement precedent.
 : > "$GAME_SESSION_FILE"
 : > "$BROWSE_STATE_FILE"
@@ -1342,21 +1414,56 @@ while IFS= read -r event; do
             LAST_BROWSE_ROM=""
             echo "$(date '+%H:%M:%S') SLEEP (round-robin ingame/browse arretes)" >> "$LOG"
             ;;
-        gamelistbrowsing|rundemo|startgameclip)
+        startgameclip)
+            # v31 - 2026-08-24 - safe-modify - BUG REEL trouve en enquetant
+            # sur des deconnexions MQTT courtes (rc=-4) survenant pendant la
+            # veille gameclip, correlees cote firmware a un rendu CMD_GAME/
+            # MODE_GIF (gifRawPackMode=1) tenant le DMD occupe pour une duree
+            # anormalement longue (~27s observes en direct) -- mecanisme de
+            # fragilite keepalive deja documente depuis v83 (17/08,
+            # PubSubClient/mqttClient.loop() bloque sur une lecture socket
+            # lente), mais jamais autant EXPOSE qu'avec ce mode veille non
+            # surveille (avant, ce chemin de rendu n'etait sollicite que
+            # pendant une vraie partie jouee, rare/attendue). Retour
+            # utilisateur : gameclip change de jeu toutes les ~30s pile --
+            # rarement assez de temps pour qu'une sequence round-robin
+            # hiscore/infos/description arrive a son terme avant d'etre
+            # coupee par le clip suivant, donc autant ne jamais la demarrer
+            # ici. Le marquee lui-meme (publie independamment par
+            # marquee.sh, ce script n'y participe pas) reste affiche
+            # normalement -- seul le DECLENCHEMENT du round-robin overlay
+            # est desactive.
+            #
+            # rundemo (vrais lancements de jeu en veille demo) VOLONTAIREMENT
+            # PAS inclus ici (retour utilisateur explicite, meme session) :
+            # contrairement a gameclip (duree fixe ~30s), un jeu demo reste
+            # affiche bien plus longtemps en pratique (temps de lancement/
+            # presentation avant que le jeu ne soit reellement visible) --
+            # assez de temps pour qu'une sequence complete ait une chance
+            # d'aboutir. rundemo rejoint donc gamelistbrowsing ci-dessous,
+            # comportement inchange pour ce cas precis.
+            : > "$GAME_SESSION_FILE"
+            LAST_BROWSE_SYS=""
+            LAST_BROWSE_ROM=""
+            # BROWSE_STATE_FILE tout de meme vide : invalide proprement tout
+            # round-robin browse deja en vol issu d'une navigation humaine
+            # precedente -- ne doit jamais continuer a s'afficher par-dessus
+            # du contenu clip.
+            : > "$BROWSE_STATE_FILE"
+            ;;
+
+        gamelistbrowsing|rundemo)
             # v28 -- "rundemo" ajoute (retour utilisateur : "en mode clip &
             # demo afficher marquee + panneaux d'info equivalent au survol
             # de liste du jeu concerne") -- meme evenement reel decouvert et
-            # cable cote marquee.sh v18 (voir son changelog complet). v29 --
-            # "startgameclip" ajoute : retour utilisateur, RB a en realite 2
-            # modes distincts (screensaver.type=demo -> "rundemo", vrai
-            # lancement jeu ; screensaver.type=gameclip -> "startgameclip",
-            # lecture d'un clip .mp4) -- les 2 peuplent SystemId/GamePath de
-            # la MEME facon dans es_state.inf, exactement comme un survol de
-            # liste. Reutilise tel quel tout le mecanisme dwell+
-            # round_robin("browse") ci-dessous pour les 2 -- ni un jeu demo
-            # ni un clip video ne sont "en jeu" (round-robin "ingame" reserve
-            # a un vrai rungame), ce sont bien des equivalents survol/
-            # consultation, exactement le comportement demande.
+            # cable cote marquee.sh v18 (voir son changelog complet).
+            # Reutilise tel quel tout le mecanisme dwell+round_robin
+            # ("browse") ci-dessous -- ni un jeu demo n'est "en jeu"
+            # (round-robin "ingame" reserve a un vrai rungame), c'est bien
+            # un equivalent survol/consultation. v31 -- startgameclip retire
+            # de ce case (voir son propre case ci-dessus, raisonnement
+            # complet la-bas) : dwell trop court pour ce mode specifique,
+            # PAS pour rundemo qui reste ici inchange.
             #
             # v10 -- symetrique du fix rungame ci-dessus : un round-robin
             # "ingame" encore en vol (retour rapide a la liste juste apres
