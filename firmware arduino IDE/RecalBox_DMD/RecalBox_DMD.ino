@@ -1,7 +1,48 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v130
+// Version actuelle : v133
+//
+// v133 - 2026-08-24 - safe-modify - v132 ETENDU (retour utilisateur : "le
+//   dmd est en rc -2" -- persiste plusieurs minutes AVANT MEME d'atteindre
+//   l'etape subscribe, donc le filet v132 axe sur
+//   consecutiveSubscribeFailCycles ne peut structurellement rien pour ce
+//   cas precis, jamais atteint). Meme dernier recours (WiFi.disconnect()/
+//   begin()/setSleep(false)) ajoute pour le cas ou mqttClient.connect()
+//   lui-meme echoue de facon soutenue (rc=-2/-4) -- declenche par une DUREE
+//   (WIFI_FORCE_RESET_CONNECT_FAIL_MS=90s, ~6 tentatives a MQTT_RETRY_MS=
+//   15s) plutot qu'un nombre de cycles, puisque ce cas n'incremente aucun
+//   compteur de cycles dedie existant.
+//
+// v132 - 2026-08-24 - safe-modify - BUG REEL confirme en direct (retour
+//   utilisateur : "il se connecte bien au boot mais jamais a la RB" --
+//   coince en boucle "3 subscribe() en echec" sans jamais atteindre une
+//   connexion saine, meme apres un power-cycle physique complet, meme
+//   signature exacte des blocages ~10s que celle chassee toute la soiree,
+//   voir DECISIONS.md). Le cycle de recul existant (mqttClient.disconnect()
+//   + backoff progressif, v98/v104) reste au niveau MQTT/socket seul -- ne
+//   force jamais de reinitialisation WiFi complete. Ajoute : au-dela de
+//   WIFI_FORCE_RESET_AFTER_SUBSCRIBE_FAIL_CYCLES cycles consecutifs, force
+//   un vrai cycle WiFi.disconnect()/begin()/setSleep(false) (meme motif
+//   que maintainWiFi()) en plus du disconnect MQTT existant -- dernier
+//   recours quand le niveau MQTT seul ne suffit jamais a se debloquer.
+//
+// v131 - 2026-08-24 - safe-modify - Piste WiFi power-save reprise (retour
+//   utilisateur : reprendre les recherches sur ce sujet) : WiFi.setSleep
+//   (false) (fix documente Espressif pour exactement ce symptome -- TX
+//   bloque pendant plusieurs secondes, radio endormie jusqu'au prochain
+//   DTIM) etait deja pose une fois au tout premier boot, mais JAMAIS
+//   reapplique apres un WiFi.disconnect()+WiFi.begin() -- ni dans
+//   maintainWiFi() (reconnexion WiFi en cours d'uptime), ni dans les
+//   retries de la boucle de connexion initiale. WiFi.disconnect() peut
+//   reinitialiser cet etat cote driver (meme famille de bug deja identifie
+//   et corrige pour l'IP fixe, qui elle etait deja reappliquee). Reapplique
+//   aux 2 endroits. PAS CONFIRME comme LA cause exacte du probleme
+//   keepalive/emission chasse toute la soiree (aucun WiFi.status()!=
+//   WL_CONNECTED observe pendant les episodes, mais l'etat power-save reel
+//   n'est pas observable depuis l'API Arduino) -- fix a cout nul, applique
+//   par coherence/prudence. Voir DECISIONS.md pour le detail complet de
+//   l'enquete.
 //
 // v130 - 2026-08-24 - safe-modify - DIAGNOSTIC suite : v129 mesure sur
 //   materiel confirme que les 2 premiers subscribe() apres connect()
@@ -6573,6 +6614,16 @@ void mqttTask(void *param)
   int consecutiveSubscribeFailCycles = 0;
   const unsigned long SUBSCRIBE_BACKOFF_STEP_MS = 5000UL;
   const unsigned long SUBSCRIBE_BACKOFF_MAX_MS = 60000UL;
+  // v132 suite -- BUG REEL confirme en direct (retour utilisateur : "le
+  // dmd est en rc -2" -- persiste plusieurs minutes, AVANT MEME d'atteindre
+  // l'etape subscribe, donc le filet de securite v132 axe sur
+  // consecutiveSubscribeFailCycles ne peut structurellement rien pour ce
+  // cas precis). Meme raisonnement etendu au niveau connect() lui-meme :
+  // 0 = pas de serie d'echecs en cours ; sinon, horodatage du DEBUT de la
+  // serie actuelle (independant de lastMqttConnectedMs, dont la semantique
+  // est deja utilisee ailleurs -- voir MQTT_OFFLINE_FALLBACK_MS).
+  unsigned long connectFailStreakSinceMs = 0;
+  const unsigned long WIFI_FORCE_RESET_CONNECT_FAIL_MS = 90000UL; // ~6 tentatives a MQTT_RETRY_MS=15s
 
   for(;;)
   {
@@ -6641,6 +6692,7 @@ void mqttTask(void *param)
       {
         Serial.println("[MQTT] connected");
         lastMqttConnectedMs=millis();
+        connectFailStreakSinceMs=0; // v132 suite -- vrai succes connect(), serie d'echecs terminee
         lastRecalboxDisconnectedAlertMs=0; // reautorise l'alerte immediate en cas de future deconnexion
         recalboxDisconnectedAlertCount=0;
         // v89 (2026-08-17) -- BUG REEL confirme sur materiel : le DMD
@@ -6710,6 +6762,9 @@ void mqttTask(void *param)
         // sortie anticipee des que le seuil est atteint, au lieu d'attendre
         // les 15 tentatives.
         const int SUBSCRIBE_FAIL_THRESHOLD = 3;
+        // v131 suite -- voir commentaire complet pres de son utilisation
+        // plus bas (WiFi.disconnect()/begin() force en dernier recours).
+        const int WIFI_FORCE_RESET_AFTER_SUBSCRIBE_FAIL_CYCLES = 3;
         const char *subscribeTopics[] = {
           "marquee/cmd/stop", "marquee/cmd/default", "marquee/cmd/system", "marquee/cmd/game",
           "marquee/cmd/show_config", "marquee/cmd/wifi_recovery", "marquee/cmd/reboot",
@@ -6764,6 +6819,31 @@ void mqttTask(void *param)
                          + " (cycle consecutif #" + String(consecutiveSubscribeFailCycles)
                          + ", recul " + String(backoffMs) + "ms avant nouvelle tentative)");
           mqttClient.disconnect();
+          // v131 suite -- BUG REEL confirme en direct (retour utilisateur :
+          // "il se connecte bien au boot mais jamais a la RB" -- coince en
+          // boucle de reconnexion MQTT sans jamais atteindre une connexion
+          // saine, meme apres un power-cycle complet). Le cycle existant
+          // (mqttClient.disconnect() + recul + nouveau connect()) reste au
+          // niveau MQTT/socket -- mais l'enquete meme soiree (DECISIONS.md)
+          // a confirme cote broker que le DMD n'emet plus RIEN du tout
+          // apres connect() (timeout keepalive broker sans le moindre
+          // paquet recu), ce qui pointe vers le chemin d'EMISSION WiFi
+          // lui-meme, pas juste la session MQTT. Au-dela d'un seuil de
+          // cycles consecutifs, force donc un vrai cycle WiFi complet
+          // (disconnect()/begin()/setSleep(false), meme motif que
+          // maintainWiFi()) en plus du simple mqttClient.disconnect() --
+          // dernier recours si le niveau MQTT seul n'a jamais suffi a se
+          // debloquer sur plusieurs cycles.
+          if (consecutiveSubscribeFailCycles >= WIFI_FORCE_RESET_AFTER_SUBSCRIBE_FAIL_CYCLES)
+          {
+            Serial.println("[WIFI] force reconnect complet (subscribe() en echec depuis " + String(consecutiveSubscribeFailCycles) + " cycles consecutifs malgre le recul MQTT)");
+            WiFi.disconnect();
+            delay(100);
+            applyStaticIP();
+            WiFi.begin(wifiSSID.c_str(), wifiPassword.c_str());
+            WiFi.setSleep(false);
+            consecutiveSubscribeFailCycles = 0;
+          }
           vTaskDelay(pdMS_TO_TICKS(backoffMs));
         }
         else
@@ -6801,6 +6881,26 @@ void mqttTask(void *param)
         Serial.println("[MQTT] failed rc="+String(mqttClient.state())+" (free="+String(ESP.getFreeHeap())
                        +" maxalloc="+String(ESP.getMaxAllocHeap())+")");
         unsigned long now=millis();
+        // v132 suite -- voir declaration de connectFailStreakSinceMs plus
+        // haut : couvre le cas ou mqttClient.connect() lui-meme echoue de
+        // facon soutenue (rc=-2/-4), AVANT MEME d'atteindre l'etape
+        // subscribe -- le filet de securite v132 (consecutiveSubscribeFail
+        // Cycles) ne peut rien pour ce cas, jamais atteint. Meme dernier
+        // recours (WiFi.disconnect()/begin()/setSleep(false)) que pour le
+        // cas subscribe, mais declenche par une DUREE plutot qu'un nombre
+        // de cycles (rc=-2/-4 n'incremente aucun compteur de cycles dedie).
+        if (connectFailStreakSinceMs == 0) connectFailStreakSinceMs = now;
+        else if (now - connectFailStreakSinceMs >= WIFI_FORCE_RESET_CONNECT_FAIL_MS)
+        {
+          Serial.println("[WIFI] force reconnect complet (connect() MQTT en echec soutenu depuis "
+                         + String((now - connectFailStreakSinceMs) / 1000) + "s malgre WiFi.status()=connecte)");
+          WiFi.disconnect();
+          delay(100);
+          applyStaticIP();
+          WiFi.begin(wifiSSID.c_str(), wifiPassword.c_str());
+          WiFi.setSleep(false);
+          connectFailStreakSinceMs = 0;
+        }
         // Alerte "RecalBox non connectee" (2026-08-05, demande utilisateur)
         // -- uniquement rc==-2 (MQTT_CONNECT_FAILED, echec de connexion TCP
         // au broker) : WiFi deja confirme OK a ce point (garde plus haut
@@ -7010,7 +7110,11 @@ void setupWiFiFromConfig()
   const int WIFI_CONNECT_ATTEMPTS = 3;
   const unsigned long WIFI_ATTEMPT_TIMEOUT_MS = 9000;
   for (int attempt = 0; attempt < WIFI_CONNECT_ATTEMPTS; attempt++) {
-    if (attempt > 0) { WiFi.disconnect(); delay(100); }
+    // v131 -- meme raisonnement que maintainWiFi() (voir son commentaire
+    // complet) : WiFi.disconnect() peut reinitialiser l'etat power-save
+    // pose une seule fois plus haut (avant la 1ere tentative) -- reapplique
+    // ici aussi pour qu'un simple retry au boot ne perde jamais ce reglage.
+    if (attempt > 0) { WiFi.disconnect(); delay(100); WiFi.setSleep(false); }
     WiFi.begin(wifiSSID.c_str(),wifiPassword.c_str());
     unsigned long start=millis();
     while(WiFi.status()!=WL_CONNECTED&&(millis()-start)<WIFI_ATTEMPT_TIMEOUT_MS){
@@ -7145,6 +7249,27 @@ void maintainWiFi()
   // coupure WiFi transitoire).
   applyStaticIP();
   WiFi.begin(wifiSSID.c_str(),wifiPassword.c_str());
+  // v131 -- MEME PRINCIPE que le fix IP fixe juste au-dessus (retour
+  // utilisateur : cycles courts de deconnexion MQTT non expliques,
+  // enquete DECISIONS.md -- cause racine confirmee cote broker : le DMD
+  // n'emet plus rien pendant 10-25s juste apres un connect() MQTT reussi,
+  // symptome classique du mode power-save WiFi ESP32 par defaut
+  // (WIFI_PS_MIN_MODEM, radio periodiquement endormie jusqu'au prochain
+  // cycle DTIM) -- voir doc Espressif, wifi-performance-and-power-save).
+  // WiFi.setSleep(false) EST deja pose une fois au tout premier boot
+  // (setup(), avant WiFi.begin()) mais JAMAIS reapplique ici : exactement
+  // comme l'IP fixe, WiFi.disconnect()+WiFi.begin() peut reinitialiser cet
+  // etat cote driver -- toute reconnexion WiFi en cours d'uptime (RSSI,
+  // hoquet AP, etc., independante des reconnexions MQTT elles-memes)
+  // pouvait donc laisser le power-save se reactiver silencieusement pour
+  // le reste de la session, sans jamais etre repose. Pas encore confirme
+  // comme LA cause exacte (aucun WiFi.status()!=WL_CONNECTED observe
+  // pendant les episodes chasses cette nuit -- mais l'etat power-save
+  // reel du driver n'est pas observable depuis l'API Arduino, seule une
+  // reconnexion anterieure non tracee peut l'avoir declenche) -- fix a
+  // cout nul, applique par prudence/coherence avec le fix IP fixe deja
+  // en place pour exactement la meme classe de probleme.
+  WiFi.setSleep(false);
 }
 
 // --------------------------------------------------
