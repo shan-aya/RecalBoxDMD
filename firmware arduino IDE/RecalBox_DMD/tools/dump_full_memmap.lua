@@ -1,4 +1,14 @@
--- dump_full_memmap.lua v1 -- 2026-08-24
+-- dump_full_memmap.lua v2 -- 2026-08-24
+-- v2 : ajoute un 2e dump, les ioport (DIP switches / boutons) --
+-- demande utilisateur ("difficulte du jeu, nombre de joueurs" sont
+-- generalement des DIP, pas de la RAM -- lecture directe via l'API Lua
+-- ioport, PAS de recherche en RAM pour ca). Noms de proprietes Lua
+-- INCERTAINS (jamais testes) -- ecrit large (tous les candidats
+-- plausibles en safe()) pour decouvrir empiriquement lesquels
+-- resolvent, meme methode que pour la carte memoire ci-dessous.
+-- Fichier separe (IOPORT_OUT) pour ne rien risquer sur le dump memmap
+-- deja valide : toute la section est enveloppee en safe(), une
+-- erreur ici ne peut pas casser le dump principal.
 -- Enumere la carte memoire COMPLETE (tous les CPU/address spaces) d'un
 -- jeu MAME via l'API Lua native (manager.machine.memory), independamment
 -- de READ_CORE_RAM/RetroArch (qui ne couvre que ~30-50% des drivers --
@@ -67,3 +77,60 @@ end
 
 out:write("#done\n")
 out:close()
+
+-- === section ioport (DIP switches / boutons) -- v2 === --
+local IOPORT_OUT = os.getenv("IOPORT_OUT") or "/tmp/mame_lua_ioports.txt"
+local iout = io.open(IOPORT_OUT, "w")
+if iout then
+    iout:write("#game\t" .. romname .. "\n")
+    local ports = safe(function() return manager.machine.ioport.ports end)
+    if ports then
+        for ptag, port in pairs(ports) do
+            local fields = safe(function() return port.fields end)
+            if fields then
+                for fname, field in pairs(fields) do
+                    local ftype = safe(function() return field.type end)
+                    local mask = safe(function() return field.mask end)
+                    local player = safe(function() return field.player end)
+                    local defvalue = safe(function() return field.defvalue end)
+                    local default_value = safe(function() return field.default_value end)
+                    local sensitivity = safe(function() return field.sensitivity end)
+                    local way = safe(function() return field.way end)
+                    local live = safe(function() return field.live end)
+                    local live_value = live and safe(function() return live.value end)
+                    iout:write(string.format(
+                        "FIELD\t%s\t%s\ttype=%s\tmask=%s\tplayer=%s\tdefvalue=%s\tdefault_value=%s\tsensitivity=%s\tway=%s\tlive_value=%s\n",
+                        tostring(ptag), tostring(fname),
+                        tostring(ftype), tostring(mask), tostring(player),
+                        tostring(defvalue), tostring(default_value),
+                        tostring(sensitivity), tostring(way), tostring(live_value)))
+
+                    local settings = safe(function() return field.settings end)
+                    if settings then
+                        local ok_pairs = safe(function()
+                            for sval, sname in pairs(settings) do
+                                iout:write(string.format(
+                                    "SETTING_PAIRS\t%s\t%s\t%s\t%s\n",
+                                    tostring(ptag), tostring(fname), tostring(sval), tostring(sname)))
+                            end
+                            return true
+                        end)
+                        if not ok_pairs then
+                            safe(function()
+                                for _, setting in ipairs(settings) do
+                                    local sname = safe(function() return setting.name end)
+                                    local svalue = safe(function() return setting.value end)
+                                    iout:write(string.format(
+                                        "SETTING_IPAIRS\t%s\t%s\tvalue=%s\tname=%s\n",
+                                        tostring(ptag), tostring(fname), tostring(svalue), tostring(sname)))
+                                end
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+    end
+    iout:write("#done\n")
+    iout:close()
+end
