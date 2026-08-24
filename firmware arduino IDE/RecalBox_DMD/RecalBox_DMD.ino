@@ -1,7 +1,54 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v126
+// Version actuelle : v130
+//
+// v130 - 2026-08-24 - safe-modify - DIAGNOSTIC suite : v129 mesure sur
+//   materiel confirme que les 2 premiers subscribe() apres connect()
+//   bloquent chacun ~9-10s SUR CHAQUE tentative (pas une lenteur broker qui
+//   repond tard -- une ecriture qui attend un accuse jamais recu), le 3e
+//   echouant instantanement (4/0ms). Ajoute ici : etat connected() juste
+//   AVANT chaque tentative de subscribe, pour voir si la connexion est deja
+//   tombee cote client avant meme d'ecrire.
+//
+// v129 - 2026-08-24 - safe-modify - DIAGNOSTIC (pas un fix) : le fix v128
+//   (delay(1)) n'a EU AUCUN EFFET mesurable sur le cycle de deconnexion
+//   "3 subscribe() en echec" -- verifie en direct, intervalle connect->echec
+//   quasi identique (~38.8s) avant ET apres, sur des contenus differents --
+//   invalide l'hypothese "contention SD/rendu rawpack" du v128. Timing fin
+//   ajoute par tentative de subscribe() (voir subscribeChecked()) pour voir
+//   EXACTEMENT ou passe le temps au lieu de continuer a deviner.
+//
+// v128 - 2026-08-24 - safe-modify - Deconnexions MQTT courtes pendant la
+//   veille gameclip (retour utilisateur : "on a ce probleme depuis les
+//   ajouts", confirme en direct -- subscribe() en echec observe 12min apres
+//   un boot RB1, en pleine sequence gameclip 30s). Cause trouvee : les 2
+//   boucles d'attente inter-frames (case MODE_PLAYLIST et case MODE_GIF)
+//   utilisaient delay(0) (~taskYIELD(), quasi aucun temps rendu a
+//   l'ordonnanceur) -- gifRawPackMode=1 (rendu marquee par jeu, sollicite en
+//   continu par gameclip/demo depuis le cablage veille de cette session,
+//   auparavant reserve a une vraie partie jouee) fait un SD.read() a CHAQUE
+//   frame via drawGifRaw565Frame(), dont le propre commentaire (deja present
+//   avant cette session) documente ce point precis comme "le point de
+//   contention le plus frequent... deadlock mqttTask/LWIP". delay(0)->
+//   delay(1) aux 2 sites (vrai yield d'au moins 1 tick) -- n'affecte pas la
+//   duree totale d'attente ni la fluidite visible, laisse une fenetre reelle
+//   au traitement WiFi/LWIP pendant les lectures SD repetees. Voir
+//   DECISIONS.md pour le detail complet de l'enquete.
+//
+// v127 - 2026-08-24 - safe-modify - broadcastFeatureStatus() : methode
+//   ENTIEREMENT REVUE (retour utilisateur explicite, meme demande que v126 :
+//   "la methode est a revoir", pas juste un patch). Validation live du
+//   garde v126 la nuit meme : 3 troncatures reelles observees sur le
+//   broker (ex. "2;dwell_seconds=3"), toujours meme signature (prefixe de
+//   longueur variable perdu, suffixe intact) -- compatible avec un echec
+//   de reallocation en cours d'une longue chaine de ~20 concatenations
+//   String. Remplace par un buffer FIXE sur la pile (snprintf) -- ZERO
+//   allocation heap pour construire ce message, supprime le mecanisme
+//   suspecte a la racine plutot que de continuer a le contourner apres
+//   coup. Garde de sanite v126 conservee en filet de securite
+//   complementaire (cout negligeable). Voir le commentaire complet pres de
+//   la fonction pour le detail.
 //
 // v126 - 2026-08-23 - safe-modify - BUG REEL RECURRENT corrige (retour
 //   utilisateur explicite : "souci rencontre de multiples fois... la
@@ -6611,14 +6658,48 @@ void mqttTask(void *param)
         // de garantie absolue si le reseau reste degrade en continu, mais
         // couvre le cas d'une instabilite passagere juste apres connect()).
         int subscribeFailCount = 0;
+        // v128 -- DIAGNOSTIC temporaire (retour utilisateur : cycle de
+        // deconnexion tres regulier ~38.8s observe plusieurs fois, avant ET
+        // apres le fix delay(1) -- donc pas lie au rendu comme suppose. Le
+        // commentaire v98 ci-dessous chiffre deja "chacun ~20s (2x le socket
+        // timeout 10s)" pour un topic en echec complet (1er essai + retry) --
+        // 38.8s ~ 2 topics au plafond -- mais jamais mesure directement.
+        // Timestamp avant/apres CHAQUE tentative pour voir EXACTEMENT ou
+        // passe le temps, plutot que de continuer a deviner par arithmetique.
+        // v129 suite -- DIAGNOSTIC : mesure sur materiel montre les 2
+        // premiers subscribe() apres connect() bloquant chacun ~9-10s SUR
+        // CHAQUE tentative (essai1 ET essai2), le 3e echouant instantanement
+        // (4ms/0ms) -- signature d'une ecriture qui attend un accuse jamais
+        // recu sur un socket deja mort, PAS une lenteur broker qui repond
+        // tard. Ajoute ici : etat mqttClient.connected() juste AVANT chaque
+        // tentative, pour voir si la connexion est deja tombee cote client
+        // avant meme d'essayer d'ecrire (confirmerait/infirmerait un socket
+        // deja rompu au moment du 1er subscribe(), pas seulement au 3e).
         auto subscribeChecked = [&subscribeFailCount](const char *topic) {
-          if (mqttClient.subscribe(topic)) return;
-          delay(50);
-          if (!mqttClient.subscribe(topic))
+          bool preConnected = mqttClient.connected();
+          unsigned long t0 = millis();
+          bool ok1 = mqttClient.subscribe(topic);
+          unsigned long t1 = millis();
+          if (ok1)
           {
-            Serial.println("[MQTT] subscribe ECHEC (apres 1 retry) -> " + String(topic));
-            subscribeFailCount++;
+            Serial.println("[SUBDIAG] " + String(topic) + " OK 1er essai (" + String(t1 - t0) + "ms) preConnected=" + String(preConnected));
+            return;
           }
+          delay(50);
+          bool preConnected2 = mqttClient.connected();
+          unsigned long t2 = millis();
+          bool ok2 = mqttClient.subscribe(topic);
+          unsigned long t3 = millis();
+          if (ok2)
+          {
+            Serial.println("[SUBDIAG] " + String(topic) + " OK retry (essai1=" + String(t1 - t0) + "ms, essai2=" + String(t3 - t2) + "ms) preConnected=" + String(preConnected) + "/" + String(preConnected2));
+            return;
+          }
+          Serial.println("[MQTT] subscribe ECHEC (apres 1 retry) -> " + String(topic)
+                         + " [SUBDIAG essai1=" + String(t1 - t0) + "ms essai2=" + String(t3 - t2)
+                         + "ms preConnected=" + String(preConnected) + "/" + String(preConnected2)
+                         + " postConnected=" + String(mqttClient.connected()) + "]");
+          subscribeFailCount++;
         };
         // v98 -- BUG REEL confirme sur materiel : le check du seuil (voir
         // SUBSCRIBE_FAIL_THRESHOLD plus bas) ne s'executait qu'APRES cette
@@ -7147,43 +7228,48 @@ void loadConfig()
 void broadcastFeatureStatus()
 {
   if (mqttClient.state() != 0) return; // pas connecte, rien a publier
-  String payload = "hiscore_ingame=" + String(featHiscoreIngame ? "1" : "0")
-                  + ";hiscore_browse=" + String(featHiscoreBrowse ? "1" : "0")
-                  + ";info_ingame=" + String(featInfoIngame ? "1" : "0")
-                  + ";info_browse=" + String(featInfoBrowse ? "1" : "0")
-                  + ";description_ingame=" + String(featDescriptionIngame ? "1" : "0")
-                  + ";description_browse=" + String(featDescriptionBrowse ? "1" : "0")
-                  + ";ra_ingame=" + String(featRaIngame ? "1" : "0")
-                  + ";ra_browse=" + String(featRaBrowse ? "1" : "0")
-                  + ";repeat_cycles=" + String(featRepeatCycles)
-                  + ";repeat_browse_cycles=" + String(featRepeatBrowseCycles)
-                  + ";dwell_seconds=" + String(featDwellSeconds);
-  // v126 -- BUG REEL RECURRENT (retour utilisateur explicite : "souci
-  // rencontre de multiples fois... la methode est a revoir pour le
-  // transfert des reglages") : confirme en direct sur materiel que la
-  // valeur RETENUE sur le broker elle-meme pouvait etre tronquee (ex.
-  // "2;dwell_seconds=3" au lieu de la chaine complete a 11 champs) --
-  // donc la troncature part bien d'ICI (ce publish), pas d'une corruption
-  // ulterieure cote reseau/RB. Cause racine exacte non confirmee avec
-  // certitude (suspect : la concatenation String ci-dessus, sous pression
-  // heap -- ce point du code tourne juste apres un connect() MQTT reussi,
-  // moment ou le heap est deja scrute dans plusieurs autres bugs de ce
-  // fichier). Garde de sanite AVANT publish : quelle que soit la cause
-  // exacte, ne JAMAIS propager une valeur visiblement cassee -- un seul
-  // message tronque suffisait a casser TOUS les panneaux d'info/description
-  // simultanement cote RB (dmd_score.sh), pas seulement un affichage
-  // isole. startsWith() sur le 1er champ (le premier a disparaitre dans la
-  // corruption observee) + longueur minimale (chaine complete ~178
-  // caracteres, marge large a 100). 2e ligne de defense complementaire
-  // cote RB (dmd_score.sh v30) : rejette aussi tout message incomplet a
-  // la reception, cache existant conserve.
-  if (!payload.startsWith("hiscore_ingame=") || payload.length() < 100)
+  // v127 -- METHODE ENTIEREMENT REVUE (retour utilisateur explicite : "la
+  // methode est a revoir pour le transfert des reglages", pas juste un
+  // patch par-dessus). Validation live du garde v126 CETTE MEME SOIREE :
+  // 3 troncatures reelles observees sur le broker (ex. "2;dwell_seconds=3"),
+  // A CHAQUE fois avec la MEME signature -- un PREFIXE de longueur variable
+  // perdu, le SUFFIXE toujours intact -- compatible avec un echec de
+  // reallocation survenant EN COURS d'une longue chaine de concatenations
+  // String (l'ancienne construction enchainait ~20 operator+ successifs,
+  // chacun creant un objet temporaire avec sa propre allocation/liberation
+  // heap, juste apres un connect() MQTT reussi -- moment ou le heap est
+  // deja scrute dans plusieurs autres bugs de ce fichier). Plutot que de
+  // continuer a detecter puis rejeter la corruption apres coup (v126, garde
+  // toujours en place ci-dessous en filet de securite complementaire),
+  // supprime le mecanisme suspecte A LA RACINE : buffer FIXE sur la PILE
+  // (snprintf) -- ZERO allocation heap pour construire ce message, donc
+  // structurellement impossible qu'un echec de realloc EN COURS DE CHAINE
+  // le corrompe. 256o : chaine complete ~178 caracteres au maximum
+  // (repeat_cycles/repeat_browse_cycles a 2 chiffres, marge large).
+  char buf[256];
+  int n = snprintf(buf, sizeof(buf),
+    "hiscore_ingame=%d;hiscore_browse=%d;info_ingame=%d;info_browse=%d;"
+    "description_ingame=%d;description_browse=%d;ra_ingame=%d;ra_browse=%d;"
+    "repeat_cycles=%d;repeat_browse_cycles=%d;dwell_seconds=%d",
+    featHiscoreIngame ? 1 : 0, featHiscoreBrowse ? 1 : 0,
+    featInfoIngame ? 1 : 0, featInfoBrowse ? 1 : 0,
+    featDescriptionIngame ? 1 : 0, featDescriptionBrowse ? 1 : 0,
+    featRaIngame ? 1 : 0, featRaBrowse ? 1 : 0,
+    featRepeatCycles, featRepeatBrowseCycles, featDwellSeconds);
+  // v126 -- garde de sanite CONSERVEE en filet de securite complementaire
+  // (defense en profondeur, cout negligeable) : n<0 = erreur snprintf,
+  // n>=sizeof(buf) = aurait ete tronque par la taille du buffer (jamais
+  // attendu ici vu la marge, mais verifie explicitement plutot que de
+  // supposer). 2e ligne de defense independante cote RB (dmd_score.sh v30) :
+  // rejette aussi tout message incomplet a la reception, cache existant
+  // conserve.
+  if (n <= 0 || n >= (int)sizeof(buf) || strncmp(buf, "hiscore_ingame=", 15) != 0)
   {
-    Serial.println("[MQTT] broadcastFeatureStatus ABANDON (payload suspect, longueur=" + String(payload.length()) + "): " + payload);
+    Serial.println("[MQTT] broadcastFeatureStatus ABANDON (snprintf n=" + String(n) + "): " + String(buf));
     return;
   }
-  mqttClient.publish("marquee/status/features", payload.c_str(), true);
-  Serial.println("[MQTT] marquee/status/features -> " + payload);
+  mqttClient.publish("marquee/status/features", buf, true);
+  Serial.println(String("[MQTT] marquee/status/features -> ") + buf);
 }
 
 bool isValidPlaylistLine(String line){line.trim();return line.length()&&line[0]!='#'&&line[0]!=';'&&line[0]=='/';}
@@ -8378,7 +8464,11 @@ void loop()
       // suivante (aucun impact visuel, le GIF en cours continue).
       if(nextGifPath.length()==0 && ESP.getMaxAllocHeap()>=PREFETCH_NEXT_GIF_MIN_HEAP)nextGifPath=getNextGif();
       unsigned long t=millis();
-      while((long)(millis()-t)<fd){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(0);}
+      // v128 -- delay(0)->delay(1), meme raisonnement/meme fix que la boucle
+      // jumelle case MODE_GIF (rawpack) plus bas -- voir son commentaire
+      // complet. Ce site touche SD moins souvent (prefetch, pas par frame)
+      // mais c'est exactement le meme motif, applique par coherence.
+      while((long)(millis()-t)<fd){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(1);}
       // Pre-chargement opportuniste (deja optionnel avant : ne fait rien si
       // nextGifFile est deja pris). sdAccessMutex retire (2026-08-10).
       if(nextGifPath.length()>0&&!nextGifFile){
@@ -8399,7 +8489,21 @@ void loop()
       }
       if(fd<=0)fd=10;
       unsigned long t=millis();
-      while((long)(millis()-t)<fd){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(0);}
+      // v128 -- delay(0) -> delay(1) (retour utilisateur : deconnexions MQTT
+      // courtes pendant la veille gameclip, correlees a un rendu MODE_GIF/
+      // gifRawPackMode=1 prolonge -- voir DECISIONS.md). Cause trouvee :
+      // drawGifRaw565Frame() (appelee par gifPlayFrameCompat() juste avant
+      // cette boucle) fait un SD.read() a CHAQUE frame, en continu pendant
+      // toute la duree de l'animation -- son propre commentaire, deja
+      // present avant cette session, documente ce point precis comme "le
+      // point de contention le plus frequent... deadlock mqttTask/LWIP".
+      // delay(0) (~taskYIELD(), quasi aucun temps rendu a l'ordonnanceur)
+      // remplace par delay(1) (vrai yield d'au moins 1 tick) -- laisse une
+      // fenetre reelle au traitement WiFi/LWIP pendant les lectures SD
+      // repetees. N'affecte pas la duree totale d'attente (la boucle
+      // continue de cibler fd ms, juste avec des iterations moins
+      // frequentes/plus efficaces) ni la fluidite visible de l'animation.
+      while((long)(millis()-t)<fd){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(1);}
     }
     break;
 
