@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# direct_harvest_mame0278_rb2.py v4 -- variante de direct_harvest_mame0278.py
+# direct_harvest_mame0278_rb2.py v6 -- variante de direct_harvest_mame0278.py
 # (RB1, JAMMA/CRT) adaptee au materiel x86/X11 (ex. Steam Deck, pas de
 # CRT/JAMMA, manette integree, controleur graphique nécessitant DISPLAY).
 # Ligne de lancement capturee en reel le 2026-08-23 (jeu lance normalement
@@ -64,6 +64,23 @@
 # atteint) charge au demarrage -- un rom deja tente cette campagne est
 # desormais saute au meme titre qu'un rom deja peuple, quel que soit le
 # nombre de redemarrages du script.
+#
+# v5 -- dwell configurable (--dwell N) : plusieurs jeux du lot 1 captures
+# pendant un ecran de CHARGEMENT (bloxeed noir, cpsoccer compteur "DECO
+# CASSETTE SYSTEM") -- .hi peuple mais memoire non pertinente au moment
+# de la capture. Teste : dwell 30s (50 roms) -> 16% de .hi peuples contre
+# ~8.6% a dwell 15s sur la tranche 1 -- mieux, mais pas suffisant seul.
+#
+# v6 -- 2026-08-24 - safe-modify - simule un CREDIT + START via
+# l'interface reseau RetroArch (PLAYER1_SELECT x2 puis PLAYER1_START,
+# apres BOOT_SETTLE_S) au lieu d'attendre passivement un cycle attract-
+# mode qui peut ne jamais afficher de score sur les jeux a intro longue.
+# Valide en reel : sur 3wondersb (bloque sur ecran d'histoire meme a 45s
+# de dwell PASSIF), credit+start fait apparaitre un vrai ecran GAMESELECT
+# 10s plus tard -- la simulation d'input fonctionne reellement. Objectif :
+# forcer une VRAIE partie (SCORE au HUD des les premieres secondes) au
+# lieu d'esperer tomber sur le bon instant du cycle passif. Desactivable
+# via --no-input pour comparaison cote a cote avec l'ancien comportement.
 import subprocess, time, socket, os, sys
 
 os.environ["DISPLAY"] = ":0"
@@ -91,9 +108,11 @@ LAUNCH_TEMPLATE = (
     "-ratio auto -videobackend default -rotation 0 -resolution 1280x800 -systemtype arcade"
 )
 LOAD_WAIT_S = 20
+BOOT_SETTLE_S = 4  # v6 -- laisse le jeu finir son boot avant d'envoyer credit+start
 DWELL_S = 15
 QUIT_WAIT_S = 15
 SAVE_GLOB = "/recalbox/share/saves/mame/mame0278/hiscore/{rom}.hi"
+NO_INPUT = False  # v6 -- desactivable via --no-input pour comparaison
 
 
 def log(msg):
@@ -131,6 +150,26 @@ def send_screenshot():
 
 def send_quit():
     send_udp(b"QUIT\n")
+
+
+def send_credit_and_start():
+    # v6 - 2026-08-24 - safe-modify - simule un credit + start via
+    # l'interface reseau RetroArch (meme port 55355, commandes fire-and-
+    # forget -- pas de reponse, contrairement a READ_CORE_RAM/GET_STATUS).
+    # Valide en reel ce soir : sur 3wondersb (bloque sur ecran d'histoire
+    # meme a 45s de dwell PASSIF), credit+start fait apparaitre un vrai
+    # ecran GAMESELECT 10s plus tard -- la simulation d'input fonctionne
+    # reellement, pas juste acceptee silencieusement sans effet. Objectif :
+    # forcer une VRAIE partie (SCORE au HUD des les premieres secondes)
+    # au lieu d'esperer tomber sur le bon instant du cycle attract-mode
+    # passif (methode des lots 1/2 de la nuit precedente, peu fiable sur
+    # les jeux a intro longue). 2 credits envoyes (certains jeux/bornes
+    # 2 joueurs exigent 2 credits pour demarrer) puis 1 start.
+    for _ in range(2):
+        send_udp(b"PLAYER1_SELECT\n")
+        time.sleep(0.5)
+    time.sleep(0.5)
+    send_udp(b"PLAYER1_START\n")
 
 
 def wait_gone(pid, timeout_s):
@@ -182,7 +221,13 @@ def harvest_one(rom, attempted):
         mark_attempted(rom)
         return
 
-    log(">>> {} lance (pid={}), attente {}s".format(rom, pid, DWELL_S))
+    log(">>> {} lance (pid={})".format(rom, pid))
+    time.sleep(BOOT_SETTLE_S)
+
+    if not NO_INPUT:
+        send_credit_and_start()
+
+    log("    attente {}s ({})".format(DWELL_S, "credit+start envoyes" if not NO_INPUT else "dwell passif seul"))
     time.sleep(DWELL_S)
 
     send_screenshot()
@@ -216,6 +261,23 @@ def harvest_one(rom, attempted):
 
 
 def main():
+    global DWELL_S, NO_INPUT
+    if "--no-input" in sys.argv:
+        # v6 -- desactive le credit+start (dwell passif seul, comportement
+        # v5) -- utile pour comparer les deux methodes cote a cote.
+        NO_INPUT = True
+    if "--dwell" in sys.argv:
+        # v5 - 2026-08-23 - safe-modify - dwell configurable (retour
+        # utilisateur : plusieurs jeux du lot 1 captures pendant un
+        # ecran de CHARGEMENT -- bloxeed (noir), cpsoccer (compteur
+        # "DECO CASSETTE SYSTEM" pas encore a 000) -- .hi peuple mais
+        # memoire non pertinente au moment de la capture. Hypothese a
+        # tester : un dwell plus long avant SCREENSHOT/QUIT laisse le
+        # temps au chargement de se terminer sur ces jeux specifiques
+        # (diversite materielle MAME bien plus large que FBNeo, ex.
+        # systemes a cassette simulee -- voir DECISIONS.md). Defaut
+        # inchange (15s) tant que l'hypothese n'est pas validee.
+        DWELL_S = int(sys.argv[sys.argv.index("--dwell") + 1])
     with open(ROM_LIST_FILE) as f:
         roms = [l.strip() for l in f if l.strip()]
     attempted = set()
