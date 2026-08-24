@@ -1,7 +1,33 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v124
+// Version actuelle : v126
+//
+// v126 - 2026-08-23 - safe-modify - BUG REEL RECURRENT corrige (retour
+//   utilisateur explicite : "souci rencontre de multiples fois... la
+//   methode est a revoir pour le transfert des reglages") :
+//   broadcastFeatureStatus() (marquee/status/features, topic retenu lu par
+//   dmd_score.sh cote RB pour savoir quels panneaux hiscore/info/
+//   description/RA afficher) pouvait publier une valeur TRONQUEE -- confirme
+//   en direct sur materiel : la valeur RETENUE sur le broker elle-meme
+//   etait deja tronquee ("2;dwell_seconds=3" au lieu des 11 champs
+//   complets), pas seulement une corruption du cache local du script RB.
+//   Consequence reelle observee : TOUS les panneaux info/description
+//   disparaissaient d'un coup, sur TOUS les jeux, jusqu'a republication
+//   manuelle de la valeur correcte. Cause racine exacte non confirmee avec
+//   certitude (suspect : concatenation String sous pression heap, ce point
+//   du code tourne juste apres un connect() MQTT reussi). Garde de sanite
+//   ajoute AVANT le publish (startsWith/longueur minimale) : n'envoie
+//   jamais une valeur visiblement cassee. Complement cote RB : dmd_score.sh
+//   v30 rejette aussi tout message incomplet a la reception (cache existant
+//   conserve plutot qu'ecrase par du contenu douteux) -- defense sur les 2
+//   bouts de la chaine, la cause exacte de la troncature restant a
+//   confirmer avec certitude si elle se reproduit malgre ces gardes.
+//
+// v125 - 2026-08-23 - safe-modify - RETRO_VERSION (splash boot, ecran
+//   physique du DMD) passee de "Raw565 Ed. devCORE0" a "Raw565 Ed. dev13"
+//   (retour utilisateur, etiquette de build informative uniquement, aucun
+//   changement de comportement).
 //
 // v124 - 2026-08-23 - safe-modify - Chantier "bucket" : flag "lent" (L,
 //   declenche l'ecran masque d'attente pendant le chargement d'un jeu)
@@ -7132,6 +7158,30 @@ void broadcastFeatureStatus()
                   + ";repeat_cycles=" + String(featRepeatCycles)
                   + ";repeat_browse_cycles=" + String(featRepeatBrowseCycles)
                   + ";dwell_seconds=" + String(featDwellSeconds);
+  // v126 -- BUG REEL RECURRENT (retour utilisateur explicite : "souci
+  // rencontre de multiples fois... la methode est a revoir pour le
+  // transfert des reglages") : confirme en direct sur materiel que la
+  // valeur RETENUE sur le broker elle-meme pouvait etre tronquee (ex.
+  // "2;dwell_seconds=3" au lieu de la chaine complete a 11 champs) --
+  // donc la troncature part bien d'ICI (ce publish), pas d'une corruption
+  // ulterieure cote reseau/RB. Cause racine exacte non confirmee avec
+  // certitude (suspect : la concatenation String ci-dessus, sous pression
+  // heap -- ce point du code tourne juste apres un connect() MQTT reussi,
+  // moment ou le heap est deja scrute dans plusieurs autres bugs de ce
+  // fichier). Garde de sanite AVANT publish : quelle que soit la cause
+  // exacte, ne JAMAIS propager une valeur visiblement cassee -- un seul
+  // message tronque suffisait a casser TOUS les panneaux d'info/description
+  // simultanement cote RB (dmd_score.sh), pas seulement un affichage
+  // isole. startsWith() sur le 1er champ (le premier a disparaitre dans la
+  // corruption observee) + longueur minimale (chaine complete ~178
+  // caracteres, marge large a 100). 2e ligne de defense complementaire
+  // cote RB (dmd_score.sh v30) : rejette aussi tout message incomplet a
+  // la reception, cache existant conserve.
+  if (!payload.startsWith("hiscore_ingame=") || payload.length() < 100)
+  {
+    Serial.println("[MQTT] broadcastFeatureStatus ABANDON (payload suspect, longueur=" + String(payload.length()) + "): " + payload);
+    return;
+  }
   mqttClient.publish("marquee/status/features", payload.c_str(), true);
   Serial.println("[MQTT] marquee/status/features -> " + payload);
 }
@@ -7213,7 +7263,7 @@ int buildOffsetIndex()
 // --------------------------------------------------
 // Splash screen â€” version au dÃ©marrage (info=1 uniquement)
 // --------------------------------------------------
-#define RETRO_VERSION "Raw565 Ed. devCORE0"
+#define RETRO_VERSION "Raw565 Ed. dev13"
 
 void showSplashScreen()
 {
