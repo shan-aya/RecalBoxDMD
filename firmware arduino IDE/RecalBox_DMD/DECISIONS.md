@@ -501,8 +501,28 @@ Réutilisation de la session RAM déjà capturée (`inthunt`, partie pilotée av
 - **`lives_reserve` (`0xe41c4`)** : vies en réserve (hors vaisseau en jeu). Lu par comptage d'icônes sur 3 captures zoomées (`PLAY_2=2`, `PLAY_3=1`, `PLAY_6=0`) — un seul offset survit aux 3 observations, trace complète sur les 15 phases cohérente (0 avant credit/start, 2 au début, décroît, reste à 0 après perte totale).
 - **`credit_current` (`0xe02b8`)** : crédit courant disponible (correspond au texte HUD "CREDIT NN"). Piège évité : 2 autres adresses (`0xe02ae`/`0xe02b0`) matchaient aussi `BOOT_SETTLE=0`/`POST_CREDIT=2` mais s'avèrent être un compteur BRUT de pièces insérées qui ne décrémente JAMAIS — une 3e observation (`POST_START=1`, crédit consommé au lancement) les a écartées, ne laissant que la bonne adresse (celle qui redescend, cohérente avec "CREDIT 01" vu sur toutes les captures de la session).
 - **Fichier final** : `tools/hiscore_recipes/inthunt.json` — 3 éléments (`score_1p`/`lives_reserve`/`credit_current`), chacun vérifié sur ≥3 observations indépendantes, format RecalBox officiel.
-- **`continue`** : non trouvé séparément — le compteur "CONTINUE 5" vu à l'écran est un décompte de temps (timer d'affichage de l'écran continue, pas un compteur de continues restants/utilisés) sur ce jeu précis, pas d'adresse dédiée cherchée pour l'instant (a` reprendre si jugé utile).
+- **`continue`** : le compteur "CONTINUE N" vu à l'écran est un décompte de temps (timer d'affichage de l'écran continue), pas un compteur de continues restants/utilisés — **conclusion révisée section 12** : pas besoin d'adresse dédiée, `credit_current` déjà trouvé ici EST le bon champ (mécanisme officiel RecalBox confirmé).
 - **Statut** : `inthunt` est le 1er jeu "complet" au sens demandé (score+vies+crédit, tous vérifiés) — prêt à servir de base pour le retour au créateur RB quand demandé.
+
+## Suite immédiate (12) — exemple de recette officielle trouvé sur RB2 + mécanisme "continue" élucidé avec certitude (2026-08-25)
+
+**Demande utilisateur** : "regarde si tu as un exemple de recette ds le dossier rb".
+
+- **Trouvé** : `/recalbox/share/system/challenges/{current,moves,standing}.json` sur RB2 — `current.json` est la recette + classement EN COURS D'UTILISATION RÉELLE (challenge du mois, Blazing Star/fbneo, 885 soumissions). Structure officielle exacte :
+  ```json
+  "score": {"len":4,"addr":"1ba4","endian":"big","format":"bcd","byteSwap":true,"multiplier":1,"sysramOffset":"1ba4",
+    "ingame":{"addr":"13b1","value":255,"sysramOffset":"13b1"}},
+  "credit": {"max":0,"addr":"1ba2","sysramOffset":"1ba2"}
+  ```
+  `"roms":[{"name":...}]` (liste, supporte les clones), pas de champ `"lives"` sur cet exemple précis (optionnel).
+- **`ScoreWatch.py` lu en détail (`configgen/challenge/`)** — élucide le mécanisme complet de détection/invalidation d'un continue, **aucune adresse dédiée "continue_used" n'existe dans le schéma officiel** :
+  1. **Mode moderne (avec `score.ingame`)** : le gate `ingame` segmente la session en "runs". Le champ `credit` est surveillé en DELTA (pas en valeur absolue) : toute variation (hausse = pièce insérée, OU **baisse mid-run après une grâce de 5s = crédit stocké consommé, typiquement un continue accepté**) entache l'attempt courant (`clean=false`, exclu du classement) — commentaire du code : *"A coin inserted OR a stocked credit consumed mid-run is a continue"*. Détection redondante indépendante par le score lui-même : si le score s'effondre à moins de 1/4 de son maximum EN RESTANT ingame (gate jamais retombé) → considéré comme un continue plutôt qu'un redémarrage propre, entache aussi.
+  2. **Fallback legacy (sans `score.ingame`)** : `credit.max` compare le total de pièces **insérées** (hausses cumulées uniquement) sur toute la session à `max` — filet de sécurité, pas le mécanisme principal.
+  3. Champ `lives` officiel confirmé dans le schéma (`manifest["lives"]`: `addr`/`sysramOffset`/`counts` "reserve" (défaut) ou "total"/`emptyValue`) — correspond EXACTEMENT à notre `lives_reserve` déjà trouvé pour `inthunt`.
+- **Nos 2 tests `hiscore_probe` v0.0.22 (2 crédits) puis v0.0.23 (5 crédits, `PLAY_START`/coin-holds étendus)** confirment ce mécanisme sur `inthunt` :
+  - **2 crédits** : capture réelle de l'écran "CONTINUE" avec countdown ("CONTINUE 7") mais **CREDIT 00** au même instant (2e crédit déjà consommé par une vie bonus automatique plus tôt, mécanisme distinct) → countdown expire faute de crédit → capture "GAME OVER" qui suit. Aucun continue possible ici — cohérent avec l'architecture RB Challenge qui n'alloue qu'1 seul crédit au lancement (donc en pratique, aucun continue n'est même *possible* pour un run officiel).
+  - **5 crédits** : capture réelle de l'écran "CONTINUE" avec **CREDIT 03 disponible** → notre appui START périodique (v0.0.22, toutes les 170 frames) l'accepte → `credit_current` décrémente en RAM (3→2, confirmé) → le score **NE reprend PAS** à sa valeur d'avant (repart bas, ~200, puis reclimbe) : `inthunt` ne préserve pas le score sur un continue, il relance une partie neuve — mais ça n'a pas d'importance pour la détection, exactement le comportement que `ScoreWatch.py` sait détecter via le delta credit + l'effondrement du score.
+- **Conclusion actée** : `credit_current` (`0xe02b8`, déjà trouvé section 11) EST le champ nécessaire et suffisant pour l'anti-continue, au format officiel (`manifest["credit"]`). Recette `tools/hiscore_recipes/inthunt.json` réécrite au format officiel exact (objet unique `roms`/`score`/`credit`/`lives`, plus imbriqué que l'ancien format "liste à plat") — **complète et prête**, seul `score.ingame` (gate optionnel, non requis ici) manque encore.
 
 ## Suite immédiate (4) — vérité d'abord sur `inthunt` : START ne prenait jamais effet, bug distinct du credit (2026-08-25)
 

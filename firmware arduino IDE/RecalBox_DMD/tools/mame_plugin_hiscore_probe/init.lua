@@ -57,7 +57,7 @@
 
 local exports = {
 	name = 'hiscore_probe',
-	version = '0.0.21',
+	version = '0.0.22',
 	description = 'RAM snapshot diff probe (safe-modify, hi-score generique)',
 	license = 'BSD-3-Clause',
 	author = { name = 'safe-modify' } }
@@ -486,17 +486,29 @@ function hiscore_probe.startplugin()
 		-- point jamais tranche lors des essais precedents sur inthunt --
 		-- score reste reste a 0 mais fenetre de test bien plus courte
 		-- alors).
+		-- v22 - 2026-08-25 - safe-modify - 1er essai "continue" avec 2
+		-- credits seulement : le 2e credit a ete consomme AVANT l'ecran
+		-- CONTINUE (vie bonus auto a une mort precedente, mecanisme
+		-- distinct), donc l'ecran CONTINUE est bien apparu ("CONTINUE 7"
+		-- countdown confirme par capture ecran) mais CREDIT 00 au meme
+		-- moment -- countdown expire faute de credit, GAME OVER (capture
+		-- ecran "GAME OVER" qui suit confirme). Aucun vrai continue n'a
+		-- pu etre accepte. On monte a 5 credits pour garantir qu'il en
+		-- reste au moins un disponible quand l'ecran CONTINUE apparait.
 		PHASES = {
 			{at = 1400, action = "snap", name = "BOOT_SETTLE"},
 			{at = 1410, action = "hold", field = coin_field, duration = 30},
 			{at = 1500, action = "hold", field = coin_field, duration = 30},
-			{at = 1570, action = "snap", name = "POST_CREDIT"},
-			{at = 1580, action = "hold", field = start_field, duration = 60},
-			{at = 1760, action = "snap", name = "POST_START"},
+			{at = 1590, action = "hold", field = coin_field, duration = 30},
+			{at = 1680, action = "hold", field = coin_field, duration = 30},
+			{at = 1770, action = "hold", field = coin_field, duration = 30},
+			{at = 1860, action = "snap", name = "POST_CREDIT"},
+			{at = 1870, action = "hold", field = start_field, duration = 60},
+			{at = 2050, action = "snap", name = "POST_START"},
 		}
 
-		local PLAY_START = 1800
-		local PLAY_END = 1800 + 6000  -- ~70s de jeu pilote a ~85fps
+		local PLAY_START = 2060
+		local PLAY_END = 2060 + 6000  -- ~70s de jeu pilote a ~85fps
 
 		-- avance continue (perpendiculaire au balayage) sur toute la
 		-- fenetre -- sans ca le joueur reste statique pres du point de
@@ -526,6 +538,23 @@ function hiscore_probe.startplugin()
 				field = toggle and down_field or up_field, duration = dur})
 			move_t = move_t + CYCLE_FRAMES
 			toggle = not toggle
+		end
+
+		-- v22 - 2026-08-25 - safe-modify - retour utilisateur : le "RB
+		-- Challenge" est en 1CC (1 seul credit) -- si le joueur utilise
+		-- un continue, son score NE DOIT PAS etre retenu. Objectif :
+		-- trouver l'adresse/flag "continue utilise" pour pouvoir
+		-- invalider un score le cas echeant. Necessite un exemple
+		-- POSITIF (continue reellement accepte) pour comparer au cas
+		-- deja capture (credit_current reste inchange toute la partie
+		-- -- confirme qu'aucun continue n'avait ete accepte jusqu'ici).
+		-- Appui periodique sur START pendant toute la fenetre de jeu
+		-- (accepte un continue s'il apparait -- generalement sans effet
+		-- indesirable pendant le jeu normal sur la plupart des drivers).
+		local start_t = PLAY_START
+		while start_t < PLAY_END do
+			table.insert(PHASES, {at = start_t, action = "hold", field = start_field, duration = 30})
+			start_t = start_t + 170
 		end
 
 		-- snapshots reguliers tout du long (toutes les 500 frames, ~6s)

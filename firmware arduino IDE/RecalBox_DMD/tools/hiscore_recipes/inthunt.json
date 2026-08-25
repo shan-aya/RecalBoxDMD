@@ -1,53 +1,32 @@
-[
-  {
-    "element": "score_1p",
-    "romname": "inthunt",
+{
+  "roms": [{"name": "inthunt"}],
+  "system": "mame",
+  "score": {
     "addr": "ea488",
     "sysramOffset": "a488",
     "len": 1,
     "format": "binary",
     "endian": "big",
     "multiplier": 100,
-    "verified_on": [
-      "PLAY_3=1000",
-      "PLAY_4=1800",
-      "PLAY_5=2900"
-    ],
-    "read_core_live": "no",
-    "note": "endian sans effet reel (1 octet) ; les 3 autres variantes generees (endian little, len=2) sont des artefacts triviaux de la meme adresse. Double preuve independante (demo attract-mode + vraie partie pilotee), voir DECISIONS.md."
+    "_verified_on": ["PLAY_3=1000", "PLAY_4=1800", "PLAY_5=2900"],
+    "_note": "endian sans effet reel (1 octet) ; les 3 autres variantes generees (endian little, len=2) sont des artefacts triviaux de la meme adresse. Double preuve independante (demo attract-mode + vraie partie pilotee)."
   },
-  {
-    "element": "lives_reserve",
-    "romname": "inthunt",
-    "addr": "e41c4",
-    "sysramOffset": "141c4",
-    "len": 1,
-    "format": "binary",
-    "endian": "big",
-    "multiplier": 1,
-    "verified_on": [
-      "PLAY_2=2",
-      "PLAY_3=1",
-      "PLAY_6=0"
-    ],
-    "read_core_live": "no",
-    "note": "vies EN RESERVE (n'inclut pas le vaisseau en jeu -- 2 = 3 vies au total au demarrage standard). Lu par comptage d'icones sur capture zoomee, pas de texte HUD direct pour cet element. Trace complete sur les 15 phases coherente (0 avant credit/start, 2 en debut de partie, decroit, reste a 0 apres perte totale)."
-  },
-  {
-    "element": "credit_current",
-    "romname": "inthunt",
+  "credit": {
     "addr": "e02b8",
     "sysramOffset": "2b8",
-    "len": 1,
-    "format": "binary",
-    "endian": "big",
-    "multiplier": 1,
-    "verified_on": [
-      "BOOT_SETTLE=0",
-      "POST_CREDIT=2",
-      "POST_START=1"
-    ],
-    "read_core_live": "no",
-    "note": "credit COURANT disponible (correspond au texte HUD 'CREDIT NN'). 2 credits inseres (session de test), passe a 1 des START (1 credit consomme pour lancer la partie) -- coherent avec 'CREDIT 01' vu sur toutes les captures de cette session. Distinct de 0xe02ae/0xe02b0 (compteur brut de pieces inserees, ne decremente jamais -- ecarte par cette 3e observation)."
-  }
-]
+    "max": 0,
+    "_verified_on": ["BOOT_SETTLE=0", "POST_CREDIT=2ou5", "POST_START=1ou4 (1 credit consomme au START)"],
+    "_note": "credit COURANT disponible (texte HUD 'CREDIT NN'). Distinct de 0xe02ae/0xe02b0 (compteur BRUT de pieces inserees, ne decremente jamais -- ecarte par observation POST_START). Comportement de continue CONFIRME sur 2 tests reels : (a) 2 credits inseres -> ecran 'CONTINUE' countdown apparait bien mais CREDIT 00 au meme instant (2e credit deja consomme par une vie bonus auto plus tot) -> countdown expire, GAME OVER (aucun continue possible, coherent avec l'architecture RB Challenge = exactement 1 credit alloue) ; (b) 5 credits inseres -> ecran CONTINUE avec CREDIT 03 disponible -> notre appui START periodique accepte le continue, credit decremente (confirme en RAM), score REPART BAS (pas de preservation du score -- ce jeu ne 'continue' pas la meme partie, il en relance une neuve). Dans les 2 cas, la variation du champ credit est exactement le signal que le ScoreWatch.py officiel de RecalBox utilise pour detecter/entacher un continue (voir DECISIONS.md section 12) -- AUCUNE adresse dediee 'continue_used' n'existe ni n'est necessaire."
+  },
+  "lives": {
+    "addr": "e41c4",
+    "sysramOffset": "141c4",
+    "counts": "reserve",
+    "_verified_on": ["PLAY_2=2", "PLAY_3=1", "PLAY_6=0"],
+    "_note": "vies EN RESERVE (n'inclut pas le vaisseau en jeu). Champ officiel ScoreWatch.py (manifest['lives'], counts='reserve' est la valeur par defaut)."
+  },
+  "_missing": {
+    "ingame": "gate optionnel (score.ingame, ex. Blazing Star: addr 0x13b1==255) non trouve pour inthunt -- ameliorerait la segmentation par run mais n'est PAS necessaire ici : l'architecture RB Challenge (credit unique alloue) + le fallback credit.max couvrent deja le besoin 1CC."
+  },
+  "_status": "recette complete (score+credit+lives), format officiel RecalBox (cf /recalbox/share/system/challenges/current.json, jeu Blazing Star, exemple reel trouve sur RB2), verifiee sur materiel."
+}
