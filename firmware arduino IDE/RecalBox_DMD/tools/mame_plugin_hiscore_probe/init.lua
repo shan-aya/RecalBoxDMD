@@ -57,7 +57,7 @@
 
 local exports = {
 	name = 'hiscore_probe',
-	version = '0.0.3',
+	version = '0.0.12',
 	description = 'RAM snapshot diff probe (safe-modify, hi-score generique)',
 	license = 'BSD-3-Clause',
 	author = { name = 'safe-modify' } }
@@ -82,6 +82,9 @@ function hiscore_probe.startplugin()
 	local PHASES = {}
 	local coin_field = nil
 	local start_field = nil
+	local fire_field = nil
+	local down_field = nil
+	local up_field = nil
 
 	local EXCLUDE_KEYWORDS = {"gfx", "palette", "scroll", "object", "sprite",
 		"vram", "tile", "qsound", "bg_", "fg_", "video", "char"}
@@ -148,6 +151,24 @@ function hiscore_probe.startplugin()
 		return false
 	end
 
+	-- v5 - 2026-08-25 - safe-modify - BUG REEL trouve par verite d'abord :
+	-- sur `inthunt`, le credit prenait bien effet ("CREDIT 01" visible
+	-- a l'ecran, confirme par capture) mais START restait totalement
+	-- sans effet meme jusqu'a PLAY_8 (toujours l'ecran titre, capture
+	-- reelle) -- alors que coin_field/start_field sont TOUS LES DEUX
+	-- trouves. Relecture du code source du plugin "autofire" (deja lu
+	-- comme reference cette session) : il REAFFIRME set_value()/
+	-- clear_value() a CHAQUE FRAME tant que la touche physique est
+	-- tenue (boucle process_frame -> process_button appelee en boucle,
+	-- pas un seul appel ponctuel). Notre "press" ne faisait qu'UN SEUL
+	-- appel set_value(1) -- suffisant pour un detecteur a FRONT MONTANT
+	-- (le credit, edge-triggered sur la plupart des drivers -- d'ou son
+	-- succes), mais probablement insuffisant pour un bouton lu comme
+	-- MAINTENU sur plusieurs frames (start, sur ce driver en tout cas).
+	-- Fix : liste de holds actifs, reaffirme set_value(1) CHAQUE frame
+	-- tant que le hold est actif, clear_value() une seule fois a la fin.
+	local active_holds = {}  -- { {field=, until_frame=}, ... }
+
 	local function process_frame()
 		if not snap_file then return end  -- pas encore initialise pour cette machine (avant le 1er prestart)
 		local ok, err = pcall(function()
@@ -156,6 +177,30 @@ function hiscore_probe.startplugin()
 				snap_file:write(string.format("#heartbeat\t%d\n", frame_count))
 				snap_file:flush()
 			end
+
+			-- reaffirme chaque hold actif CETTE frame (avant tout le
+			-- reste, pour ne jamais sauter une frame de maintien)
+			for i = #active_holds, 1, -1 do
+				local h = active_holds[i]
+				if frame_count < h.until_frame then
+					safe(function() h.field:set_value(1) end)
+					-- v12 - 2026-08-25 - safe-modify - DIAGNOSTIC : verifie
+					-- si set_value() est reellement vu "presse" en relisant
+					-- le champ juste apres (field.live.value si accessible)
+					-- -- sur inthunt, tir maintenu ET tapote donnent un
+					-- resultat final IDENTIQUE (meme frame exacte), suspect
+					-- d'un tir sans aucun effet reel.
+					if frame_count % 60 == 0 and snap_file then
+						local live = safe(function() return h.field.live end)
+						local lv = live and safe(function() return live.value end)
+						snap_file:write(string.format("#hold_readback\t%d\t%s\n", frame_count, tostring(lv)))
+					end
+				else
+					safe(function() h.field:clear_value() end)
+					table.remove(active_holds, i)
+				end
+			end
+
 			if pending then
 				step_snapshot()
 			end
@@ -164,14 +209,15 @@ function hiscore_probe.startplugin()
 				if p.action == "snap" then
 					start_snapshot(p.name)
 					step_snapshot()
-				elseif p.action == "press" then
-					if p.field then safe(function() p.field:set_value(1) end) end
-				elseif p.action == "release" then
-					if p.field then safe(function() p.field:clear_value() end) end
+				elseif p.action == "hold" then
+					if p.field then
+						table.insert(active_holds, {field = p.field, until_frame = frame_count + p.duration})
+						safe(function() p.field:set_value(1) end)
+					end
 				end
 				next_idx = next_idx + 1
 			end
-			if next_idx > #PHASES and (not pending) and snap_file then
+			if next_idx > #PHASES and (not pending) and #active_holds == 0 and snap_file then
 				snap_file:write("#done\n")
 				snap_file:close()
 				snap_file = nil
@@ -241,6 +287,40 @@ function hiscore_probe.startplugin()
 
 		local COIN_NAMES = {"Coin 1", "Coin1", "Coin A", "Service 1"}
 		local START_NAMES = {"1 Player Start", "P1 Start", "Start 1", "1P Start", "Start"}
+		-- v6 - 2026-08-25 - safe-modify - demande utilisateur explicite :
+		-- ajouter un tir automatique pendant le dwell pour generer un
+		-- vrai score (sans ca, un jeu qui demarre vraiment reste a
+		-- score=0 toute la session, comme confirme sur `inthunt` --
+		-- aucun candidat "score" ne peut alors etre valide par verite
+		-- d'abord). Noms usuels du bouton de tir principal.
+		local FIRE_NAMES = {"Button 1", "P1 Button 1", "1P Button 1"}
+		-- v8 - 2026-08-25 - safe-modify - le tir seul ne suffit pas
+		-- (confirme sur inthunt : score reste a 0, le sous-marin reste
+		-- immobile faute de mouvement -- capture reelle) -- ajoute un
+		-- mouvement tenu pendant le dwell, en plus du tir, pour
+		-- explorer et croiser des ennemis.
+		-- v9 - 2026-08-25 - safe-modify - demande utilisateur : direction
+		-- generalisee selon le type de scrolling du jeu (info venant du
+		-- genre gamelist.xml, cote externe -- ce script Lua n'a pas
+		-- acces au XML) -- lu via MOVE_DIRECTION (env, defaut "down").
+		-- Scroll horizontal -> mouvement vertical (down/up) pour
+		-- balayer l'ecran ; scroll vertical -> mouvement horizontal
+		-- (right/left).
+		-- v10 - 2026-08-25 - safe-modify - retour utilisateur : le
+		-- mouvement doit etre CYCLIQUE (alterner les 2 sens), pas
+		-- maintenu dans une seule direction en continu -- confirme par
+		-- capture reelle que "down" seul coince le sous-marin contre le
+		-- fond. OPPOSITE_DIR donne le sens oppose a alterner.
+		local MOVE_DIRECTION = os.getenv("MOVE_DIRECTION") or "down"
+		local MOVE_NAMES_BY_DIR = {
+			down = {"P1 Down", "Down", "1P Down"},
+			up = {"P1 Up", "Up", "1P Up"},
+			right = {"P1 Right", "Right", "1P Right"},
+			left = {"P1 Left", "Left", "1P Left"},
+		}
+		local OPPOSITE_DIR = {down = "up", up = "down", right = "left", left = "right"}
+		local DOWN_NAMES = MOVE_NAMES_BY_DIR[MOVE_DIRECTION] or MOVE_NAMES_BY_DIR.down
+		local UP_NAMES = MOVE_NAMES_BY_DIR[OPPOSITE_DIR[MOVE_DIRECTION] or "up"] or MOVE_NAMES_BY_DIR.up
 		local ports2 = safe(function() return manager.machine.ioport.ports end)
 		local function find_field(names)
 			if not ports2 then return nil end
@@ -256,13 +336,23 @@ function hiscore_probe.startplugin()
 			end
 			return nil
 		end
-		local coin_ptag, coin_fname, start_ptag, start_fname
+		local coin_ptag, coin_fname, start_ptag, start_fname, fire_ptag, fire_fname
 		coin_field, coin_ptag, coin_fname = find_field(COIN_NAMES)
 		start_field, start_ptag, start_fname = find_field(START_NAMES)
+		fire_field, fire_ptag, fire_fname = find_field(FIRE_NAMES)
+		local down_ptag, down_fname, up_ptag, up_fname
+		down_field, down_ptag, down_fname = find_field(DOWN_NAMES)
+		up_field, up_ptag, up_fname = find_field(UP_NAMES)
 		snap_file:write(string.format("#coin_field_found\t%s\t%s\t%s\n",
 			tostring(coin_field ~= nil), tostring(coin_ptag), tostring(coin_fname)))
 		snap_file:write(string.format("#start_field_found\t%s\t%s\t%s\n",
 			tostring(start_field ~= nil), tostring(start_ptag), tostring(start_fname)))
+		snap_file:write(string.format("#fire_field_found\t%s\t%s\t%s\n",
+			tostring(fire_field ~= nil), tostring(fire_ptag), tostring(fire_fname)))
+		snap_file:write(string.format("#down_field_found\t%s\t%s\t%s\n",
+			tostring(down_field ~= nil), tostring(down_ptag), tostring(down_fname)))
+		snap_file:write(string.format("#up_field_found\t%s\t%s\t%s\n",
+			tostring(up_field ~= nil), tostring(up_ptag), tostring(up_fname)))
 		if coin_field then
 			snap_file:write(string.format("#coin_field_mask\t%s\n", tostring(safe(function() return coin_field.mask end))))
 			snap_file:write(string.format("#coin_field_type\t%s\n", tostring(safe(function() return coin_field.type end))))
@@ -300,25 +390,89 @@ function hiscore_probe.startplugin()
 		-- start. Diagnostic complementaire ajoute plus haut (log du
 		-- port/masque/type du champ trouve) pour confirmer ou ecarter
 		-- une hypothese "mauvais champ" en parallele.
+		-- v6 - 2026-08-25 - safe-modify - BUG REEL trouve par verite
+		-- d'abord sur `progear` : meme avec le "hold" reaffirme chaque
+		-- frame (v5), seul 1 credit sur 2 prenait effet ("INSERT 1 MORE
+		-- COIN"/"CREDITS: 0(1/2)" fige jusqu'a PLAY_8, capture reelle) --
+		-- le candidat "+10 par etape" precedemment trouve etait donc
+		-- FAUX (jeu jamais demarre). Hypothese : l'ecart de 10 frames
+		-- entre les 2 holds credit est trop court pour ce driver (pas
+		-- assez de temps a "0" entre les deux appuis pour que le
+		-- compteur de pieces les distingue). Ecart porte a 60 frames.
 		PHASES = {
 			{at = 1400, action = "snap", name = "BOOT_SETTLE"},
-			{at = 1410, action = "press", field = coin_field},
-			{at = 1440, action = "release", field = coin_field},
-			{at = 1450, action = "press", field = coin_field},
-			{at = 1480, action = "release", field = coin_field},
-			{at = 1520, action = "snap", name = "POST_CREDIT"},
-			{at = 1530, action = "press", field = start_field},
-			{at = 1560, action = "release", field = start_field},
-			{at = 1680, action = "snap", name = "POST_START"},
-			{at = 1740, action = "snap", name = "PLAY_1"},
-			{at = 1800, action = "snap", name = "PLAY_2"},
-			{at = 1860, action = "snap", name = "PLAY_3"},
-			{at = 1920, action = "snap", name = "PLAY_4"},
-			{at = 1980, action = "snap", name = "PLAY_5"},
-			{at = 2040, action = "snap", name = "PLAY_6"},
-			{at = 2100, action = "snap", name = "PLAY_7"},
-			{at = 2160, action = "snap", name = "PLAY_8"},
+			{at = 1410, action = "hold", field = coin_field, duration = 30},
+			{at = 1500, action = "hold", field = coin_field, duration = 30},
+			{at = 1570, action = "snap", name = "POST_CREDIT"},
+			{at = 1580, action = "hold", field = start_field, duration = 60},
+			{at = 1760, action = "snap", name = "POST_START"},
+			-- v6 : tir continu pendant tout le dwell (POST_START -> fin
+			-- de PLAY_8 + marge) -- sans ca le score reste a 0 toute la
+			-- session sur un jeu qui demarre vraiment (confirme sur
+			-- inthunt par capture reelle). Duree large (620 frames,
+			-- couvre 1770->2390) pour ne jamais s'arreter avant la
+			-- derniere lecture RAM de PLAY_8.
+			-- v7 - 2026-08-25 - safe-modify - DIAGNOSTIC/experimental :
+			-- sur `inthunt`, la cinematique post-start ("URGENT
+			-- COMMAND...") dure plus longtemps que tout le budget PLAY_
+			-- 1..8 precedent (confirme par capture reelle : toujours la
+			-- meme cinematique, score fige a 0, meme a l'ancien PLAY_8).
+			-- PLAY_1 repousse loin (3600, ~30s de marge supplementaire
+			-- apres POST_START) pour laisser la cinematique se terminer
+			-- avant de commencer a echantillonner -- experimental, a
+			-- confirmer/ajuster par une nouvelle capture.
+			-- v9 : ecart entre echantillons PLAY_N porte a 300 frames
+			-- (~3.5s a ~85fps observe) au lieu de 60 -- retour
+			-- utilisateur : "les ennemis mettent plusieurs secondes a
+			-- arriver apres le debut du jeu", l'ancien espacement
+			-- (~1s/echantillon, ~5s de PLAY_1 a PLAY_8) etait trop court
+			-- pour capturer une vraie rencontre. Couvre desormais ~25s
+			-- de jeu reel entre PLAY_1 et PLAY_8.
+			{at = 3600, action = "snap", name = "PLAY_1"},
+			{at = 3900, action = "snap", name = "PLAY_2"},
+			{at = 4200, action = "snap", name = "PLAY_3"},
+			{at = 4500, action = "snap", name = "PLAY_4"},
+			{at = 4800, action = "snap", name = "PLAY_5"},
+			{at = 5100, action = "snap", name = "PLAY_6"},
+			{at = 5400, action = "snap", name = "PLAY_7"},
+			{at = 5700, action = "snap", name = "PLAY_8"},
 		}
+
+		-- v10 : mouvement CYCLIQUE (alterne down_field/up_field) au lieu
+		-- d'un maintien continu -- genere une serie de holds courts
+		-- alternes sur toute la duree du dwell, puis fusionne/trie avec
+		-- le reste de PHASES (l'algorithme de process_frame suppose un
+		-- ordre croissant strict sur .at).
+		local CYCLE_FRAMES = 120
+		local move_t = 1770
+		local move_end = 1770 + 3630
+		local toggle = true  -- true=direction principale (down), false=opposee (up)
+		while move_t < move_end do
+			local dur = math.min(CYCLE_FRAMES, move_end - move_t)
+			table.insert(PHASES, {at = move_t, action = "hold",
+				field = toggle and down_field or up_field, duration = dur})
+			move_t = move_t + CYCLE_FRAMES
+			toggle = not toggle
+		end
+
+		-- v11 - 2026-08-25 - safe-modify - retour utilisateur : aucun
+		-- projectile visible sur capture rapprochee malgre le tir
+		-- "tenu" (champ correctement trouve : P1 Button 1 sur :P1_P2).
+		-- Hypothese testee : ce driver attend un TAPOTEMENT (plusieurs
+		-- appuis courts distincts), pas un maintien continu -- motif
+		-- courant pour un jeu sans autofire natif. Remplace le hold
+		-- unique par une serie d'appuis courts repetes (4 frames ON /
+		-- 4 frames OFF) sur toute la duree du dwell.
+		local FIRE_ON = 4
+		local FIRE_OFF = 4
+		local fire_t = 1770
+		local fire_end = 1770 + 3630
+		while fire_t < fire_end do
+			table.insert(PHASES, {at = fire_t, action = "hold", field = fire_field, duration = FIRE_ON})
+			fire_t = fire_t + FIRE_ON + FIRE_OFF
+		end
+
+		table.sort(PHASES, function(a, b) return a.at < b.at end)
 		snap_file:flush()
 	end
 
