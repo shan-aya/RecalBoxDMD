@@ -102,7 +102,19 @@ function hiscore_probe.startplugin()
 	-- Fix : "vram" ne doit matcher que hors du cas "nvram" (recherche
 	-- de toutes les occurrences de "vram", ignore celles precedees de
 	-- "n").
+	-- v24f - 2026-08-25 - safe-modify - diagnostic : recherche du score
+	-- `inthunt` infructueuse dans la zone deja capturee ;
+	-- dump_full_memmap.lua (sans filtre) revele une 2e zone RAM 64 Ko
+	-- (:maincpu program 000d0000-000dffff, label "vram_data", geree par
+	-- m92_state::vram_w) exclue par le meme mot-cle "vram" --
+	-- potentiellement de la VRAM graphique legitime (tilemaps de
+	-- scrolling), potentiellement pas. NO_EXCLUDE=1 desactive TOUT
+	-- filtre d'exclusion pour ce diagnostic ponctuel (jamais par defaut
+	-- -- l'exclusion reste utile normalement, cf commentaire
+	-- MAX_ZONE_SIZE plus haut sur les gros buffers graphiques).
+	local NO_EXCLUDE = os.getenv("NO_EXCLUDE") == "1"
 	local function is_excluded_name(name)
+		if NO_EXCLUDE then return false end
 		if not name or name == "" then return false end
 		local low = string.lower(name)
 		for _, kw in ipairs(EXCLUDE_KEYWORDS) do
@@ -308,9 +320,19 @@ function hiscore_probe.startplugin()
 					-- image affichee, qui reste figee). safe() large : API
 					-- jamais testee dans ce contexte libretro, aucune
 					-- garantie qu'elle existe/fonctionne ici.
-					safe(function() manager.machine:pause() end)
+					local ok_pause = safe(function() manager.machine:pause() return true end)
+					local paused_now = safe(function() return manager.machine.paused end)
+					if snap_file then
+						snap_file:write(string.format("#pause_call_ok\t%s\t#paused_readback\t%s\n",
+							tostring(ok_pause), tostring(paused_now)))
+						snap_file:flush()
+					end
 				elseif p.action == "unpause" then
-					safe(function() manager.machine:unpause() end)
+					local ok_unpause = safe(function() manager.machine:unpause() return true end)
+					if snap_file then
+						snap_file:write(string.format("#unpause_call_ok\t%s\n", tostring(ok_unpause)))
+						snap_file:flush()
+					end
 				end
 				next_idx = next_idx + 1
 			end
@@ -343,7 +365,17 @@ function hiscore_probe.startplugin()
 		if devices then
 			for tag, dev in pairs(devices) do
 				local low_tag = string.lower(tag)
-				if not (string.find(low_tag, "audio", 1, true) or string.find(low_tag, "sound", 1, true)) then
+				-- v24h - 2026-08-25 - safe-modify - diagnostic score
+				-- inthunt : recherche exhaustive (valeur ET delta/ratio)
+				-- infructueuse sur toute la RAM :maincpu -- dernier
+				-- candidat non teste : le CPU son (tag ":soundcpu",
+				-- contient "sound") est TOUJOURS exclu ici, meme avec
+				-- NO_EXCLUDE (qui ne desactive que le filtre sur le LABEL
+				-- de zone, pas ce filtre sur le TAG de device).
+				-- NO_EXCLUDE inclut aussi ce filtre pour ce diagnostic
+				-- ponctuel (improbable que le score y soit, mais a
+				-- ecarter proprement avant de conclure).
+				if NO_EXCLUDE or not (string.find(low_tag, "audio", 1, true) or string.find(low_tag, "sound", 1, true)) then
 					local spaces = safe(function() return dev.spaces end)
 					if spaces then
 						for spname, space in pairs(spaces) do
@@ -686,10 +718,37 @@ function hiscore_probe.startplugin()
 		-- reperer a quel moment (s'il arrive) le score bouge reellement
 		local SNAP_INTERVAL = RECON_MODE and tonumber(os.getenv("RECON_INTERVAL")) or 500
 		SNAP_INTERVAL = SNAP_INTERVAL or 60
+		-- v24e - 2026-08-25 - safe-modify - retour utilisateur ("tu peux
+		-- aussi mettre le jeu en pause") applique a la recherche du
+		-- score : la recherche exhaustive (search_score_full.py, 4
+		-- observations, tous formats/tailles/multiplicateurs, TOUTE la
+		-- zone RAM) ne trouve AUCUN candidat -- suspicion : le score
+		-- REEL au moment exact du snapshot RAM ne correspond pas au
+		-- score AFFICHE sur la capture ecran (arrivee en retard, latence
+		-- SCREENSHOT documentee ailleurs) puisque le score change EN
+		-- CONTINU pendant le jeu actif (contrairement au credit, qui ne
+		-- change que rarement -- explique pourquoi credit a pu etre
+		-- retrouve sans probleme avec la meme methode). SNAP_PAUSE=1 :
+		-- apres CHAQUE snapshot PLAY_N (une fois la lecture RAM
+		-- terminee, ~100 frames de marge), met le jeu en PAUSE pendant
+		-- SNAP_PAUSE_HOLD frames -- le score affiche ne peut alors PLUS
+		-- bouger, la capture ecran (quelle que soit sa latence) montrera
+		-- forcement la MEME valeur que celle deja lue en RAM.
+		local SNAP_PAUSE = os.getenv("SNAP_PAUSE") == "1"
+		local SNAP_PAUSE_HOLD = tonumber(os.getenv("SNAP_PAUSE_HOLD")) or 300
 		local snap_t = PLAY_START + 60
 		local snap_i = 1
 		while snap_t < PLAY_END do
 			table.insert(PHASES, {at = snap_t, action = "snap", name = "PLAY_" .. snap_i})
+			if SNAP_PAUSE then
+				-- v24g - marge relevee 100->200 frames : avec NO_EXCLUDE
+				-- (4 zones, ~133 Ko, ~130 frames necessaires a
+				-- BYTES_PER_FRAME=1024), 100 frames de marge etait
+				-- INSUFFISANT -- la pause pouvait declencher AVANT que la
+				-- lecture RAM ne soit terminee.
+				table.insert(PHASES, {at = snap_t + 200, action = "pause"})
+				table.insert(PHASES, {at = snap_t + 200 + SNAP_PAUSE_HOLD, action = "unpause"})
+			end
 			snap_t = snap_t + SNAP_INTERVAL
 			snap_i = snap_i + 1
 		end
