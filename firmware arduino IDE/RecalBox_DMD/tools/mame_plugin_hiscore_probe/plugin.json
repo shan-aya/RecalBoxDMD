@@ -1,0 +1,10 @@
+{
+	"plugin": {
+		"name": "hiscore_probe",
+		"description": "RAM snapshot diff probe (safe-modify, hi-score generique)",
+		"version": "0.0.1",
+		"author": "safe-modify",
+		"type": "plugin",
+		"start": "true"
+	}
+}
