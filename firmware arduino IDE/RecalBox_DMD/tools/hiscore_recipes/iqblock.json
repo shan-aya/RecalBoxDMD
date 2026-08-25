@@ -1,0 +1,25 @@
+{
+  "roms": [{"name": "iqblock"}],
+  "system": "mame",
+  "genre": "Puzzle-Game / Tomber",
+  "score": {
+    "addr": "fdfe",
+    "sysramOffset": "dfe",
+    "len": 2,
+    "format": "binary",
+    "endian": "little",
+    "multiplier": 1,
+    "_verified_on": ["PLAY_8=200", "PLAY_10=500", "PLAY_12=1200"],
+    "_note": "1 seule zone RAM sur ce jeu (rambase 0xf000-0xffff, 4096o). len=2/3/4 tous compatibles avec les 3 observations (octets hauts nuls pour ces valeurs) -- artefact trivial, len=2 retenu (compteur 16 bits standard)."
+  },
+  "credit": {
+    "addr": "fe0a",
+    "sysramOffset": "e0a",
+    "_verified_on_pattern": "BOOT_SETTLE=0, POST_CREDIT=5 (5 credits inseres par le plugin), POST_START=4 (1 consomme au lancement), STABLE=4 sur les 12 phases PLAY suivantes",
+    "_note": "AUCUN texte CREDIT visible a l'ecran sur ce jeu (contrairement a inthunt) -- methode differente pour cette recette : le nombre EXACT de credits inseres est connu a l'avance (controle par le plugin, 5), utilise comme verite-terrain au lieu d'une lecture visuelle. 3 candidats trouves avec le motif generique (0 puis 1-9 puis N-1), 1 seul correspond exactement a la quantite REELLEMENT inseree (5) -- les 2 autres (BOOT=0,POST_CREDIT=1,POST_START=0) sont des faux positifs generiques ecartes par ce recoupement quantitatif."
+  },
+  "_missing": {
+    "lives": "aucun HUD 'vies' visible sur ce jeu -- absent du schema officiel ici aussi (comme Blazing Star), pas cherche."
+  },
+  "_status": "1ere recette du genre Puzzle-Game/Tomber -- valide la methode generalisee (FORWARD_DIRECTION=none, mouvement cyclique gauche/droite, tir=rotation) sur un genre sans scrolling. A confronter sur d'autres jeux du meme genre (hors liste priorite) avant de considerer la methode fiable pour ce genre."
+}

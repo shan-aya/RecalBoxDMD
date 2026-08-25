@@ -89,11 +89,36 @@ function hiscore_probe.startplugin()
 
 	local EXCLUDE_KEYWORDS = {"gfx", "palette", "scroll", "object", "sprite",
 		"vram", "tile", "qsound", "bg_", "fg_", "video", "char"}
+	-- v23 - 2026-08-25 - safe-modify - BUG REEL trouve par verite d'abord
+	-- sur `columns` (genre Puzzle-Game/Tomber, hardware Sega System C) :
+	-- la seule zone RAM CPU utile de ce driver (:maincpu program
+	-- 00e00000-0084001f/0084001f... 00e00000-00e0ffff, 64 Ko) porte le
+	-- label "nvram" (RAM de travail sauvegardee par pile, PAS de la
+	-- video RAM) -- mais "nvram" contient "vram" comme sous-chaine, donc
+	-- le mot-cle EXCLUDE_KEYWORDS "vram" (destine a exclure la VRAM
+	-- graphique) l'excluait aussi PAR ACCIDENT. Resultat : #zones=1 sur
+	-- ce jeu, uniquement :gen_vdp/videoram (inutile pour score/credit),
+	-- confirme par dump_full_memmap.lua (carte complete, sans filtre).
+	-- Fix : "vram" ne doit matcher que hors du cas "nvram" (recherche
+	-- de toutes les occurrences de "vram", ignore celles precedees de
+	-- "n").
 	local function is_excluded_name(name)
 		if not name or name == "" then return false end
 		local low = string.lower(name)
 		for _, kw in ipairs(EXCLUDE_KEYWORDS) do
-			if string.find(low, kw, 1, true) then return true end
+			if kw == "vram" then
+				local pos = 1
+				while true do
+					local s, e = string.find(low, "vram", pos, true)
+					if not s then break end
+					if s == 1 or string.sub(low, s - 1, s - 1) ~= "n" then
+						return true
+					end
+					pos = e + 1
+				end
+			elseif string.find(low, kw, 1, true) then
+				return true
+			end
 		end
 		return false
 	end
@@ -357,8 +382,16 @@ function hiscore_probe.startplugin()
 		-- = HAUT, pas droite). Remplace par une variable d'environnement
 		-- dediee et explicite (FORWARD_DIRECTION), independante de
 		-- MOVE_DIRECTION -- plus fiable qu'un mapping devine.
+		-- v23 - 2026-08-25 - safe-modify - retour utilisateur : on
+		-- generalise a d'autres types de jeux (ex. puzzle a chute) qui
+		-- n'ont PAS de scrolling -- un maintien "avant" continu n'a pas
+		-- de sens pour ces genres. FORWARD_DIRECTION="none" desactive
+		-- entierement la phase de maintien (forward_field reste nil,
+		-- aucune phase "hold" inseree pour elle).
 		local FORWARD_DIRECTION = os.getenv("FORWARD_DIRECTION") or "right"
-		local FORWARD_NAMES = MOVE_NAMES_BY_DIR[FORWARD_DIRECTION] or MOVE_NAMES_BY_DIR.right
+		local FORWARD_NAMES = FORWARD_DIRECTION ~= "none"
+			and (MOVE_NAMES_BY_DIR[FORWARD_DIRECTION] or MOVE_NAMES_BY_DIR.right)
+			or nil
 		local ports2 = safe(function() return manager.machine.ioport.ports end)
 		-- v20 - 2026-08-25 - safe-modify - BUG REEL trouve par verite
 		-- d'abord sur `gbusters` (retour utilisateur en direct : "tu n'as
@@ -374,7 +407,7 @@ function hiscore_probe.startplugin()
 		-- d'exclusion que le plugin officiel "autofire"
 		-- (is_supported_input(), deja lu comme reference cette session).
 		local function find_field(names)
-			if not ports2 then return nil end
+			if not ports2 or not names then return nil end
 			for _, n in ipairs(names) do
 				for ptag, port in pairs(ports2) do
 					local fields = safe(function() return port.fields end)
@@ -510,61 +543,100 @@ function hiscore_probe.startplugin()
 		local PLAY_START = 2060
 		local PLAY_END = 2060 + 6000  -- ~70s de jeu pilote a ~85fps
 
-		-- avance continue (perpendiculaire au balayage) sur toute la
-		-- fenetre -- sans ca le joueur reste statique pres du point de
-		-- depart et ne rencontre jamais les ennemis plus loin dans le
-		-- niveau (confirme par capture reelle : tir visible mais aucun
-		-- ennemi croise en ~90s sans avancer)
-		if forward_field then
-			table.insert(PHASES, {at = PLAY_START, action = "hold", field = forward_field,
-				duration = PLAY_END - PLAY_START})
+		-- v23 - 2026-08-25 - safe-modify - BUG REEL trouve par verite
+		-- d'abord sur `columns` (genre Puzzle-Game/Tomber) : capture
+		-- ecran ("SELECT LEVEL / HINTS WILL BE GIVEN UNTILL LEVEL 3. /
+		-- TIME 8") -- un ecran de SELECTION intermediaire (niveau ici,
+		-- potentiellement perso/mode sur d'autres jeux) existe entre
+		-- START et le vrai jeu sur certains drivers, avec un countdown.
+		-- Notre tir en tapotement demarrait EN MEME TEMPS que le 1er
+		-- appui START periodique deja existant -- suspicion forte que
+		-- le tir (bouton generique, potentiellement lu comme "changer
+		-- de niveau" sur cet ecran) interfere/reinitialise ce countdown,
+		-- empechant sa confirmation. Fix : fenetre "calme" de
+		-- CONFIRM_DELAY frames juste apres POST_START, avec SEULEMENT
+		-- un appui START (deja planifie via la boucle periodique
+		-- ci-dessous qui demarre a PLAY_START) -- tir/mouvement/avance
+		-- ne demarrent qu'apres, laissant un ecran de selection
+		-- eventuel se faire confirmer sans interference.
+		local CONFIRM_DELAY = 180
+		local ACTION_START = PLAY_START + CONFIRM_DELAY
+
+		-- v23 - 2026-08-25 - safe-modify - retour utilisateur (`columns`,
+		-- genre Puzzle-Game/Tomber) : "il faut que tu te serves de tes
+		-- captures pour aligner des formes ou des couleurs" -- decision :
+		-- lire l'etat RAM en direct (grille + piece courante) plutot que
+		-- des captures ecran. Prealable indispensable : retrouver COMMENT
+		-- couleurs/grille sont codees en RAM (aucune doc, jeu jamais
+		-- analyse). RECON_MODE=1 : aucune action apres START (pas de
+		-- tir/mouvement/avance/appui START periodique) -- les pieces
+		-- tombent SEULES, previsible et propre, snapshots RAPPROCHES
+		-- (RECON_INTERVAL frames) pour correler proprement avec des
+		-- captures ecran (elles aussi demandees plus souvent par le
+		-- script shell, cote polling) sans le flou de synchronisation
+		-- d'un pilotage actif simultane.
+		local RECON_MODE = os.getenv("RECON_MODE") == "1"
+
+		if not RECON_MODE then
+			-- avance continue (perpendiculaire au balayage) sur toute la
+			-- fenetre -- sans ca le joueur reste statique pres du point de
+			-- depart et ne rencontre jamais les ennemis plus loin dans le
+			-- niveau (confirme par capture reelle : tir visible mais aucun
+			-- ennemi croise en ~90s sans avancer)
+			if forward_field then
+				table.insert(PHASES, {at = ACTION_START, action = "hold", field = forward_field,
+					duration = PLAY_END - ACTION_START})
+			end
+
+			-- tir en tapotement (4 frames ON / 4 OFF) sur toute la fenetre
+			local fire_t = ACTION_START
+			while fire_t < PLAY_END do
+				table.insert(PHASES, {at = fire_t, action = "hold", field = fire_field, duration = 4})
+				fire_t = fire_t + 8
+			end
+
+			-- mouvement cyclique (alterne down_field/up_field toutes les
+			-- 120 frames) sur toute la fenetre
+			local CYCLE_FRAMES = 120
+			local move_t = ACTION_START
+			local toggle = true
+			while move_t < PLAY_END do
+				local dur = math.min(CYCLE_FRAMES, PLAY_END - move_t)
+				table.insert(PHASES, {at = move_t, action = "hold",
+					field = toggle and down_field or up_field, duration = dur})
+				move_t = move_t + CYCLE_FRAMES
+				toggle = not toggle
+			end
+
+			-- v22 - 2026-08-25 - safe-modify - retour utilisateur : le "RB
+			-- Challenge" est en 1CC (1 seul credit) -- si le joueur utilise
+			-- un continue, son score NE DOIT PAS etre retenu. Objectif :
+			-- trouver l'adresse/flag "continue utilise" pour pouvoir
+			-- invalider un score le cas echeant. Necessite un exemple
+			-- POSITIF (continue reellement accepte) pour comparer au cas
+			-- deja capture (credit_current reste inchange toute la partie
+			-- -- confirme qu'aucun continue n'avait ete accepte jusqu'ici).
+			-- Appui periodique sur START pendant toute la fenetre de jeu
+			-- (accepte un continue s'il apparait -- generalement sans effet
+			-- indesirable pendant le jeu normal sur la plupart des drivers).
+			local start_t = PLAY_START
+			while start_t < PLAY_END do
+				table.insert(PHASES, {at = start_t, action = "hold", field = start_field, duration = 30})
+				start_t = start_t + 170
+			end
 		end
 
-		-- tir en tapotement (4 frames ON / 4 OFF) sur toute la fenetre
-		local fire_t = PLAY_START
-		while fire_t < PLAY_END do
-			table.insert(PHASES, {at = fire_t, action = "hold", field = fire_field, duration = 4})
-			fire_t = fire_t + 8
-		end
-
-		-- mouvement cyclique (alterne down_field/up_field toutes les
-		-- 120 frames) sur toute la fenetre
-		local CYCLE_FRAMES = 120
-		local move_t = PLAY_START
-		local toggle = true
-		while move_t < PLAY_END do
-			local dur = math.min(CYCLE_FRAMES, PLAY_END - move_t)
-			table.insert(PHASES, {at = move_t, action = "hold",
-				field = toggle and down_field or up_field, duration = dur})
-			move_t = move_t + CYCLE_FRAMES
-			toggle = not toggle
-		end
-
-		-- v22 - 2026-08-25 - safe-modify - retour utilisateur : le "RB
-		-- Challenge" est en 1CC (1 seul credit) -- si le joueur utilise
-		-- un continue, son score NE DOIT PAS etre retenu. Objectif :
-		-- trouver l'adresse/flag "continue utilise" pour pouvoir
-		-- invalider un score le cas echeant. Necessite un exemple
-		-- POSITIF (continue reellement accepte) pour comparer au cas
-		-- deja capture (credit_current reste inchange toute la partie
-		-- -- confirme qu'aucun continue n'avait ete accepte jusqu'ici).
-		-- Appui periodique sur START pendant toute la fenetre de jeu
-		-- (accepte un continue s'il apparait -- generalement sans effet
-		-- indesirable pendant le jeu normal sur la plupart des drivers).
-		local start_t = PLAY_START
-		while start_t < PLAY_END do
-			table.insert(PHASES, {at = start_t, action = "hold", field = start_field, duration = 30})
-			start_t = start_t + 170
-		end
-
-		-- snapshots reguliers tout du long (toutes les 500 frames, ~6s)
-		-- pour pouvoir reperer a quel moment (s'il arrive) le score
-		-- bouge reellement
+		-- snapshots reguliers tout du long -- RECON_MODE : rapproches
+		-- (RECON_INTERVAL, defaut 60 frames/~0.7s) pour suivre la chute
+		-- piece par piece ; sinon 500 frames/~6s comme avant, pour
+		-- reperer a quel moment (s'il arrive) le score bouge reellement
+		local SNAP_INTERVAL = RECON_MODE and tonumber(os.getenv("RECON_INTERVAL")) or 500
+		SNAP_INTERVAL = SNAP_INTERVAL or 60
 		local snap_t = PLAY_START + 60
 		local snap_i = 1
 		while snap_t < PLAY_END do
 			table.insert(PHASES, {at = snap_t, action = "snap", name = "PLAY_" .. snap_i})
-			snap_t = snap_t + 500
+			snap_t = snap_t + SNAP_INTERVAL
 			snap_i = snap_i + 1
 		end
 
