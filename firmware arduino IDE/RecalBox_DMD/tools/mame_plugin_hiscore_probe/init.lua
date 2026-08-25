@@ -57,7 +57,7 @@
 
 local exports = {
 	name = 'hiscore_probe',
-	version = '0.0.12',
+	version = '0.0.16',
 	description = 'RAM snapshot diff probe (safe-modify, hi-score generique)',
 	license = 'BSD-3-Clause',
 	author = { name = 'safe-modify' } }
@@ -120,6 +120,23 @@ function hiscore_probe.startplugin()
 	local function start_snapshot(phase)
 		pending = {phase = phase, zone_idx = 1, addr = zones[1] and zones[1].astart or nil, buffers = {}}
 		for i = 1, #zones do pending.buffers[i] = {} end
+		-- v14/v15/v16 - 2026-08-25 - safe-modify - TENTATIVE ABANDONNEE :
+		-- manager.machine.video:snapshot() (avec ou sans argument nom de
+		-- fichier) etait envisagee pour eliminer la latence du sondage
+		-- externe (~1s, cause probable de l'echec a correler un score
+		-- >600 sur inthunt). Resultat confirme sur matiere reelle :
+		-- l'appel Lua reussit TOUJOURS (pcall ok, aucune erreur, 30/30
+		-- phases) mais NE PRODUIT JAMAIS AUCUN FICHIER (verifie par
+		-- `ls`/`find` sur tout le systeme apres coup) -- cette API MAME
+		-- native semble interceptee/ignoree silencieusement dans ce
+		-- contexte libretro (le core mame0278 gere probablement son
+		-- propre pipeline de sortie video, sans relayer les appels
+		-- video:snapshot() de MAME vers un vrai fichier disque). NE PAS
+		-- RETENTER cette piste sans preuve nouvelle -- rester sur la
+		-- methode externe (commande reseau SCREENSHOT, deja fiable tout
+		-- au long de ce projet) et compenser sa latence par un
+		-- espacement de phases plus large plutot que chercher a
+		-- l'eliminer cote MAME.
 	end
 
 	local function step_snapshot()
@@ -399,80 +416,29 @@ function hiscore_probe.startplugin()
 		-- entre les 2 holds credit est trop court pour ce driver (pas
 		-- assez de temps a "0" entre les deux appuis pour que le
 		-- compteur de pieces les distingue). Ecart porte a 60 frames.
-		PHASES = {
-			{at = 1400, action = "snap", name = "BOOT_SETTLE"},
-			{at = 1410, action = "hold", field = coin_field, duration = 30},
-			{at = 1500, action = "hold", field = coin_field, duration = 30},
-			{at = 1570, action = "snap", name = "POST_CREDIT"},
-			{at = 1580, action = "hold", field = start_field, duration = 60},
-			{at = 1760, action = "snap", name = "POST_START"},
-			-- v6 : tir continu pendant tout le dwell (POST_START -> fin
-			-- de PLAY_8 + marge) -- sans ca le score reste a 0 toute la
-			-- session sur un jeu qui demarre vraiment (confirme sur
-			-- inthunt par capture reelle). Duree large (620 frames,
-			-- couvre 1770->2390) pour ne jamais s'arreter avant la
-			-- derniere lecture RAM de PLAY_8.
-			-- v7 - 2026-08-25 - safe-modify - DIAGNOSTIC/experimental :
-			-- sur `inthunt`, la cinematique post-start ("URGENT
-			-- COMMAND...") dure plus longtemps que tout le budget PLAY_
-			-- 1..8 precedent (confirme par capture reelle : toujours la
-			-- meme cinematique, score fige a 0, meme a l'ancien PLAY_8).
-			-- PLAY_1 repousse loin (3600, ~30s de marge supplementaire
-			-- apres POST_START) pour laisser la cinematique se terminer
-			-- avant de commencer a echantillonner -- experimental, a
-			-- confirmer/ajuster par une nouvelle capture.
-			-- v9 : ecart entre echantillons PLAY_N porte a 300 frames
-			-- (~3.5s a ~85fps observe) au lieu de 60 -- retour
-			-- utilisateur : "les ennemis mettent plusieurs secondes a
-			-- arriver apres le debut du jeu", l'ancien espacement
-			-- (~1s/echantillon, ~5s de PLAY_1 a PLAY_8) etait trop court
-			-- pour capturer une vraie rencontre. Couvre desormais ~25s
-			-- de jeu reel entre PLAY_1 et PLAY_8.
-			{at = 3600, action = "snap", name = "PLAY_1"},
-			{at = 3900, action = "snap", name = "PLAY_2"},
-			{at = 4200, action = "snap", name = "PLAY_3"},
-			{at = 4500, action = "snap", name = "PLAY_4"},
-			{at = 4800, action = "snap", name = "PLAY_5"},
-			{at = 5100, action = "snap", name = "PLAY_6"},
-			{at = 5400, action = "snap", name = "PLAY_7"},
-			{at = 5700, action = "snap", name = "PLAY_8"},
-		}
-
-		-- v10 : mouvement CYCLIQUE (alterne down_field/up_field) au lieu
-		-- d'un maintien continu -- genere une serie de holds courts
-		-- alternes sur toute la duree du dwell, puis fusionne/trie avec
-		-- le reste de PHASES (l'algorithme de process_frame suppose un
-		-- ordre croissant strict sur .at).
-		local CYCLE_FRAMES = 120
-		local move_t = 1770
-		local move_end = 1770 + 3630
-		local toggle = true  -- true=direction principale (down), false=opposee (up)
-		while move_t < move_end do
-			local dur = math.min(CYCLE_FRAMES, move_end - move_t)
-			table.insert(PHASES, {at = move_t, action = "hold",
-				field = toggle and down_field or up_field, duration = dur})
-			move_t = move_t + CYCLE_FRAMES
-			toggle = not toggle
+		-- v13 - 2026-08-25 - safe-modify - DIAGNOSTIC TEMPORAIRE :
+		-- decouverte majeure par capture manuelle (commandes reseau
+		-- PLAYER1_SELECT/START envoyees HORS de ce plugin, jeu lance
+		-- normalement) -- l'attract mode d'inthunt joue une VRAIE demo
+		-- de gameplay avec un score REEL non nul ("1P 00000400"/
+		-- "2P 00000100" observes sur capture d'ecran), overlay
+		-- "INSERT COIN" toujours present (la demo tourne independamment
+		-- de l'etat credit). Nos propres holds credit/start/tir
+		-- interferaient probablement avec cette demo scriptee -- tout
+		-- retire ici. Uniquement des snapshots reguliers pendant que la
+		-- demo tourne naturellement, pour capturer la RAM au moment ou
+		-- un score reel est affiche (a correler avec une capture
+		-- SCREENSHOT externe prise au meme instant via le meme
+		-- mecanisme que test_visual_play.sh).
+		PHASES = {}
+		local snap_t = 600
+		local snap_end = 6000
+		local snap_i = 1
+		while snap_t < snap_end do
+			table.insert(PHASES, {at = snap_t, action = "snap", name = "DEMO_" .. snap_i})
+			snap_t = snap_t + 180
+			snap_i = snap_i + 1
 		end
-
-		-- v11 - 2026-08-25 - safe-modify - retour utilisateur : aucun
-		-- projectile visible sur capture rapprochee malgre le tir
-		-- "tenu" (champ correctement trouve : P1 Button 1 sur :P1_P2).
-		-- Hypothese testee : ce driver attend un TAPOTEMENT (plusieurs
-		-- appuis courts distincts), pas un maintien continu -- motif
-		-- courant pour un jeu sans autofire natif. Remplace le hold
-		-- unique par une serie d'appuis courts repetes (4 frames ON /
-		-- 4 frames OFF) sur toute la duree du dwell.
-		local FIRE_ON = 4
-		local FIRE_OFF = 4
-		local fire_t = 1770
-		local fire_end = 1770 + 3630
-		while fire_t < fire_end do
-			table.insert(PHASES, {at = fire_t, action = "hold", field = fire_field, duration = FIRE_ON})
-			fire_t = fire_t + FIRE_ON + FIRE_OFF
-		end
-
-		table.sort(PHASES, function(a, b) return a.at < b.at end)
 		snap_file:flush()
 	end
 
