@@ -1,18 +1,36 @@
-# Adresses hi-score validées — chantier `hiscore_probe` (MAME0278)
+# Adresses hi-score validées — chantier `hiscore_probe` (MAME0278) — RB Challenge
 
-Suivi des adresses de score trouvées par le plugin MAME `hiscore_probe`
-(`tools/mame_plugin_hiscore_probe/`) — méthode : pilotage automatique
-(credit+start+tir+mouvement) ou démo attract-mode, snapshots RAM
-réguliers, croisement avec des captures d'écran réelles ("vérité
-d'abord"). Voir `DECISIONS.md` (sections "Suite immédiate (3) à (9)")
-pour le détail complet de la méthode et des découvertes.
+Document préparé pour le RB Challenge (liste des 16 jeux "CHALLENGE",
+voir tableau en bas) — suivi des adresses de score trouvées par le
+plugin MAME `hiscore_probe` (`tools/mame_plugin_hiscore_probe/`),
+créé cette session pour identifier automatiquement, jeu par jeu,
+l'adresse RAM du score affiché en HUD, en vue de l'afficher sur les
+marquees DMD.
 
-**Comment vérifier une adresse ci-dessous** : lancer le jeu sur RB2/MAME
-0.278, insérer un crédit, jouer jusqu'à obtenir un score non nul, lire
-la valeur à l'adresse indiquée (ex. via le debugger MAME `-debug`, ou
-`READ_CORE_RAM <addr_hex> <n>` en commande réseau RetroArch SI le
-driver le supporte — voir DECISIONS.md, non garanti pour tous les
-drivers), comparer à ce qui est affiché à l'écran.
+**Méthode** : plugin MAME réel (pas un `-autoboot_script`, plafonnait
+à ~150 frames — voir DECISIONS.md) qui pilote automatiquement
+credit→start→tir→mouvement pendant ~90s, prend des snapshots RAM
+réguliers, et croise avec des captures d'écran réelles ("vérité
+d'abord") pour identifier quel octet correspond au score visible.
+Détail complet de la méthode, des bugs trouvés et des décisions dans
+`DECISIONS.md` (sections "Suite immédiate (3) à (9)", 2026-08-25).
+
+**Pour reproduire/étendre sur un autre jeu** : déployer
+`tools/mame_plugin_hiscore_probe/` (instructions de déploiement
+complètes en tête de `init.lua` — chemin plugin écrivable,
+`pluginspath` en liste, activation via `plugin.ini`) puis lancer le
+jeu avec `hiscore_probe` actif ; régler `MOVE_DIRECTION`/
+`FORWARD_DIRECTION` (variables d'environnement) selon le sens de
+scroll du jeu (voir exemples ci-dessous pour `inthunt`/`gbusters`).
+Sortie : `/tmp/mame_lua_snapshot.txt` (valeurs RAM par phase) à
+croiser avec des captures d'écran prises aux mêmes instants.
+
+**Comment vérifier une adresse ci-dessous** : lancer le jeu, insérer un
+crédit, jouer jusqu'à obtenir un score non nul, lire la valeur à
+l'adresse indiquée (debugger MAME `-debug`, ou `READ_CORE_RAM
+<addr_hex> <n>` en commande réseau RetroArch SI le driver le supporte
+— non garanti pour tous les drivers, voir DECISIONS.md), comparer à
+ce qui est affiché à l'écran.
 
 ## Légende statut
 
