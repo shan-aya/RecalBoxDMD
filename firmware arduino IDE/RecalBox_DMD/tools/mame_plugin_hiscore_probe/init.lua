@@ -57,7 +57,7 @@
 
 local exports = {
 	name = 'hiscore_probe',
-	version = '0.0.17',
+	version = '0.0.19',
 	description = 'RAM snapshot diff probe (safe-modify, hi-score generique)',
 	license = 'BSD-3-Clause',
 	author = { name = 'safe-modify' } }
@@ -85,6 +85,7 @@ function hiscore_probe.startplugin()
 	local fire_field = nil
 	local down_field = nil
 	local up_field = nil
+	local forward_field = nil
 
 	local EXCLUDE_KEYWORDS = {"gfx", "palette", "scroll", "object", "sprite",
 		"vram", "tile", "qsound", "bg_", "fg_", "video", "char"}
@@ -338,6 +339,18 @@ function hiscore_probe.startplugin()
 		local OPPOSITE_DIR = {down = "up", up = "down", right = "left", left = "right"}
 		local DOWN_NAMES = MOVE_NAMES_BY_DIR[MOVE_DIRECTION] or MOVE_NAMES_BY_DIR.down
 		local UP_NAMES = MOVE_NAMES_BY_DIR[OPPOSITE_DIR[MOVE_DIRECTION] or "up"] or MOVE_NAMES_BY_DIR.up
+		-- v18 - 2026-08-25 - safe-modify - retour utilisateur : "un
+		-- scrolling horizontal n'impose pas forcement un deplacement
+		-- horizontal, c'est souvent le joueur qui se deplace pour
+		-- avancer dans le decor -- ici on reste statique en tirant
+		-- (mouvement haut-bas uniquement), il faut aussi aller vers
+		-- l'avant". Confirme par capture reelle : tir visible (vrai
+		-- projectile a l'ecran) mais score toujours 0 apres ~90s de
+		-- pilotage sans jamais avancer. FORWARD_NAMES = perpendiculaire
+		-- au mouvement de balayage (right si scroll horizontal =
+		-- balayage vertical, et vice-versa).
+		local FORWARD_NAMES_BY_DIR = {down = "right", up = "right", right = "down", left = "down"}
+		local FORWARD_NAMES = MOVE_NAMES_BY_DIR[FORWARD_NAMES_BY_DIR[MOVE_DIRECTION] or "right"] or MOVE_NAMES_BY_DIR.right
 		local ports2 = safe(function() return manager.machine.ioport.ports end)
 		local function find_field(names)
 			if not ports2 then return nil end
@@ -357,9 +370,12 @@ function hiscore_probe.startplugin()
 		coin_field, coin_ptag, coin_fname = find_field(COIN_NAMES)
 		start_field, start_ptag, start_fname = find_field(START_NAMES)
 		fire_field, fire_ptag, fire_fname = find_field(FIRE_NAMES)
-		local down_ptag, down_fname, up_ptag, up_fname
+		local down_ptag, down_fname, up_ptag, up_fname, forward_ptag, forward_fname
 		down_field, down_ptag, down_fname = find_field(DOWN_NAMES)
 		up_field, up_ptag, up_fname = find_field(UP_NAMES)
+		forward_field, forward_ptag, forward_fname = find_field(FORWARD_NAMES)
+		snap_file:write(string.format("#forward_field_found\t%s\t%s\t%s\n",
+			tostring(forward_field ~= nil), tostring(forward_ptag), tostring(forward_fname)))
 		snap_file:write(string.format("#coin_field_found\t%s\t%s\t%s\n",
 			tostring(coin_field ~= nil), tostring(coin_ptag), tostring(coin_fname)))
 		snap_file:write(string.format("#start_field_found\t%s\t%s\t%s\n",
@@ -430,24 +446,75 @@ function hiscore_probe.startplugin()
 		-- un score reel est affiche (a correler avec une capture
 		-- SCREENSHOT externe prise au meme instant via le meme
 		-- mecanisme que test_visual_play.sh).
-		PHASES = {}
-		-- v17 - 2026-08-25 - safe-modify - piste retenue apres l'echec de
-		-- la capture native (v14-v16, cf. commentaire plus haut) :
-		-- espacement des phases porte de 180 a 500 frames (~2s -> ~6s a
-		-- ~85fps observe) pour que la latence du sondage externe
-		-- (jusqu'a ~1s) devienne une fraction beaucoup plus faible de
-		-- l'intervalle entre 2 echantillons, au lieu de chercher a
-		-- l'eliminer cote MAME (confirme impossible). Nombre de phases
-		-- reduit en consequence pour garder une duree totale
-		-- raisonnable.
-		local snap_t = 600
-		local snap_end = 6600
+		-- v18 - 2026-08-25 - safe-modify - retour utilisateur explicite :
+		-- "il vaut mieux inserer des credits et jouer MAIS pour traiter
+		-- les 3000 jeux de mame je vais pas pouvoir jouer moi meme c'est
+		-- toi qui va devoir le faire" -- l'approche "demo attract-mode a
+		-- score reel" (v13-v17) ne generalise PAS (2/2 jeux testes apres
+		-- inthunt -- willow, gbusters -- n'ont pas de demo a score
+		-- exploitable, confirme par observation directe utilisateur sur
+		-- l'ecran physique). Retour a la sequence PILOTEE (credit+start+
+		-- tir+mouvement, deja construite v0.0.6-v0.0.12) mais avec une
+		-- fenetre de jeu BEAUCOUP plus longue (~85s au lieu de ~5s) et
+		-- des snapshots reguliers tout du long, pour verifier une bonne
+		-- fois si le pilotage automatique peut generer un vrai kill (le
+		-- point jamais tranche lors des essais precedents sur inthunt --
+		-- score reste reste a 0 mais fenetre de test bien plus courte
+		-- alors).
+		PHASES = {
+			{at = 1400, action = "snap", name = "BOOT_SETTLE"},
+			{at = 1410, action = "hold", field = coin_field, duration = 30},
+			{at = 1500, action = "hold", field = coin_field, duration = 30},
+			{at = 1570, action = "snap", name = "POST_CREDIT"},
+			{at = 1580, action = "hold", field = start_field, duration = 60},
+			{at = 1760, action = "snap", name = "POST_START"},
+		}
+
+		local PLAY_START = 1800
+		local PLAY_END = 1800 + 6000  -- ~70s de jeu pilote a ~85fps
+
+		-- avance continue (perpendiculaire au balayage) sur toute la
+		-- fenetre -- sans ca le joueur reste statique pres du point de
+		-- depart et ne rencontre jamais les ennemis plus loin dans le
+		-- niveau (confirme par capture reelle : tir visible mais aucun
+		-- ennemi croise en ~90s sans avancer)
+		if forward_field then
+			table.insert(PHASES, {at = PLAY_START, action = "hold", field = forward_field,
+				duration = PLAY_END - PLAY_START})
+		end
+
+		-- tir en tapotement (4 frames ON / 4 OFF) sur toute la fenetre
+		local fire_t = PLAY_START
+		while fire_t < PLAY_END do
+			table.insert(PHASES, {at = fire_t, action = "hold", field = fire_field, duration = 4})
+			fire_t = fire_t + 8
+		end
+
+		-- mouvement cyclique (alterne down_field/up_field toutes les
+		-- 120 frames) sur toute la fenetre
+		local CYCLE_FRAMES = 120
+		local move_t = PLAY_START
+		local toggle = true
+		while move_t < PLAY_END do
+			local dur = math.min(CYCLE_FRAMES, PLAY_END - move_t)
+			table.insert(PHASES, {at = move_t, action = "hold",
+				field = toggle and down_field or up_field, duration = dur})
+			move_t = move_t + CYCLE_FRAMES
+			toggle = not toggle
+		end
+
+		-- snapshots reguliers tout du long (toutes les 500 frames, ~6s)
+		-- pour pouvoir reperer a quel moment (s'il arrive) le score
+		-- bouge reellement
+		local snap_t = PLAY_START + 60
 		local snap_i = 1
-		while snap_t < snap_end do
-			table.insert(PHASES, {at = snap_t, action = "snap", name = "DEMO_" .. snap_i})
+		while snap_t < PLAY_END do
+			table.insert(PHASES, {at = snap_t, action = "snap", name = "PLAY_" .. snap_i})
 			snap_t = snap_t + 500
 			snap_i = snap_i + 1
 		end
+
+		table.sort(PHASES, function(a, b) return a.at < b.at end)
 		snap_file:flush()
 	end
 
