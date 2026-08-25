@@ -57,7 +57,7 @@
 
 local exports = {
 	name = 'hiscore_probe',
-	version = '0.0.1',
+	version = '0.0.2',
 	description = 'RAM snapshot diff probe (safe-modify, hi-score generique)',
 	license = 'BSD-3-Clause',
 	author = { name = 'safe-modify' } }
@@ -94,8 +94,25 @@ function hiscore_probe.startplugin()
 		return false
 	end
 
-	local MAX_ZONE_SIZE = 32768
-	local BYTES_PER_FRAME = 128
+	-- v2 - 2026-08-25 - safe-modify - BUG REEL trouve en analysant les 5
+	-- jeux (nemo/msgogo/mtwins/gogomile/willow) qui finissaient avec
+	-- #zones=0 malgre coin/start bien trouves : ces jeux ont une zone
+	-- de RAM de travail bien reelle et souvent NOMMEE explicitement
+	-- "mainram" (CPS1 : 00ff0000-00ffffff, 64 Ko) mais l'ancien plafond
+	-- MAX_ZONE_SIZE=32768 l'excluait PUREMENT par taille (aucun mot-cle
+	-- ne matchait) -- confirme en comparant au dump memmap complet
+	-- (dump_full_memmap.lua, sans plafond). Plafond releve a 128 Ko
+	-- (couvre ce cas courant tout en excluant toujours les gros buffers
+	-- graphiques, ex. CPS1 gfxram 00900000-0092ffff/192 Ko, deja exclu
+	-- par mot-cle "gfx" independamment de la taille). BYTES_PER_FRAME
+	-- releve en consequence (128 -> 1024, une zone 64 Ko passe de ~512
+	-- frames/8.5s a ~64 frames/1s) pour ne pas allonger excessivement
+	-- la duree de session -- le plafond ~150 frames qui motivait un
+	-- decoupage tres prudent etait specifique a -autoboot_script (voir
+	-- DECISIONS.md), un vrai plugin n'a pas montre cette limite meme a
+	-- 840+ frames.
+	local MAX_ZONE_SIZE = 131072
+	local BYTES_PER_FRAME = 1024
 
 	local function start_snapshot(phase)
 		pending = {phase = phase, zone_idx = 1, addr = zones[1] and zones[1].astart or nil, buffers = {}}
