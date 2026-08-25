@@ -211,6 +211,16 @@ function hiscore_probe.startplugin()
 	-- Fix : liste de holds actifs, reaffirme set_value(1) CHAQUE frame
 	-- tant que le hold est actif, clear_value() une seule fois a la fin.
 	local active_holds = {}  -- { {field=, until_frame=}, ... }
+	-- v24c - 2026-08-25 - safe-modify - 1er essai poke PONCTUEL (une
+	-- seule ecriture) INVALIDE : RAM confirmee ecrite (0xff lu en
+	-- retour) mais le HUD affiche une valeur qui ne correspond a AUCUN
+	-- des octets traces (ni la valeur pokee, ni la valeur d'avant/apres)
+	-- -- la commande SCREENSHOT externe (latence documentee ailleurs,
+	-- ~1s+) arrive largement apres que le jeu ait deja re-ecrase notre
+	-- poke par son propre calcul. Meme fix que pour les boutons "hold" :
+	-- reaffirmer l'ecriture CHAQUE frame pendant une duree, pas un coup
+	-- unique, pour survivre a la latence de capture.
+	local active_pokes = {}  -- { {space=, addr=, value=, until_frame=}, ... }
 
 	local function process_frame()
 		if not snap_file then return end  -- pas encore initialise pour cette machine (avant le 1er prestart)
@@ -244,6 +254,17 @@ function hiscore_probe.startplugin()
 				end
 			end
 
+			-- reaffirme chaque poke actif CETTE frame (meme motif que
+			-- active_holds ci-dessus)
+			for i = #active_pokes, 1, -1 do
+				local pk = active_pokes[i]
+				if frame_count < pk.until_frame then
+					safe(function() pk.space:write_u8(pk.addr, pk.value) end)
+				else
+					table.remove(active_pokes, i)
+				end
+			end
+
 			if pending then
 				step_snapshot()
 			end
@@ -257,10 +278,43 @@ function hiscore_probe.startplugin()
 						table.insert(active_holds, {field = p.field, until_frame = frame_count + p.duration})
 						safe(function() p.field:set_value(1) end)
 					end
+				elseif p.action == "poke" then
+					-- v24 - 2026-08-25 - safe-modify - retour utilisateur
+					-- (relecture externe de la recette inthunt) : "len":1
+					-- plafonne le score a 25500, jamais exerce par nos
+					-- observations (max ~6300 atteint). Plutot que
+					-- d'attendre une (longue, incertaine) vraie partie qui
+					-- depasse ce seuil, ecrire directement une valeur de
+					-- test connue en RAM et lire ce que le jeu AFFICHE
+					-- ensuite -- verification directe et deterministe de
+					-- la largeur reelle du champ score. v24c : maintenue
+					-- (active_pokes) au lieu d'un coup unique, voir plus
+					-- haut.
+					for zi, z in ipairs(zones) do
+						if p.addr >= z.astart and p.addr <= z.aend then
+							table.insert(active_pokes, {space = z.space, addr = p.addr,
+								value = p.value, until_frame = frame_count + (p.duration or 120)})
+							safe(function() z.space:write_u8(p.addr, p.value) end)
+							break
+						end
+					end
+				elseif p.action == "pause" then
+					-- v24d - 2026-08-25 - safe-modify - retour utilisateur
+					-- ("tu peux aussi mettre le jeu en pause") : bien plus
+					-- robuste que reaffirmer l'ecriture N frames -- pendant
+					-- une vraie pause MAME, le jeu ne peut PLUS re-ecraser
+					-- notre poke, quelle que soit la latence de la
+					-- commande SCREENSHOT externe (elle capture la derniere
+					-- image affichee, qui reste figee). safe() large : API
+					-- jamais testee dans ce contexte libretro, aucune
+					-- garantie qu'elle existe/fonctionne ici.
+					safe(function() manager.machine:pause() end)
+				elseif p.action == "unpause" then
+					safe(function() manager.machine:unpause() end)
 				end
 				next_idx = next_idx + 1
 			end
-			if next_idx > #PHASES and (not pending) and #active_holds == 0 and snap_file then
+			if next_idx > #PHASES and (not pending) and #active_holds == 0 and #active_pokes == 0 and snap_file then
 				snap_file:write("#done\n")
 				snap_file:close()
 				snap_file = nil
@@ -638,6 +692,45 @@ function hiscore_probe.startplugin()
 			table.insert(PHASES, {at = snap_t, action = "snap", name = "PLAY_" .. snap_i})
 			snap_t = snap_t + SNAP_INTERVAL
 			snap_i = snap_i + 1
+		end
+
+		-- v24 - 2026-08-25 - safe-modify - POKE_ADDR/POKE_VALUE (hex) :
+		-- ecrit UNE valeur de test connue en RAM juste apres POST_START
+		-- (avant tout pilotage), puis snapshot+screenshot immediats --
+		-- verification directe/deterministe de la largeur reelle d'un
+		-- champ (ex. le score plafonne-t-il vraiment a 1 octet ?), sans
+		-- attendre qu'une vraie partie atteigne la valeur en question.
+		-- v24b - 2026-08-25 - safe-modify - 1er essai (POKE_AT=PLAY_START)
+		-- INVALIDE : capture reelle montre RAM=0xff confirme (POKE_CHECK
+		-- et PLAY_1) mais HUD affiche "00000000" quand meme -- ce point
+		-- de la fenetre tombe pendant la cinematique d'introduction
+		-- ("URGENT COMMAND...", ecran non-interactif avant le vrai
+		-- gameplay, deja documente ailleurs) ou le score affiche est un
+		-- gabarit fixe, PAS encore lu en direct. POKE_AT_OFFSET (frames
+		-- apres PLAY_START, defaut profond dans la fenetre) permet de
+		-- rejouer le poke pendant du gameplay reel confirme actif.
+		local POKE_ADDR = os.getenv("POKE_ADDR") and tonumber(os.getenv("POKE_ADDR"), 16)
+		local POKE_VALUE = os.getenv("POKE_VALUE") and tonumber(os.getenv("POKE_VALUE"), 16)
+		local POKE_AT_OFFSET = tonumber(os.getenv("POKE_AT_OFFSET")) or 3000
+		if POKE_ADDR and POKE_VALUE then
+			-- v24c - 2026-08-25 - safe-modify - poke MAINTENU (duration,
+			-- reaffirme chaque frame via active_pokes) au lieu d'un coup
+			-- unique -- 2e essai (poke ponctuel, offset profond) toujours
+			-- INVALIDE : RAM confirmee (0xff), mais l'ecran affiche une
+			-- 3e valeur qui ne correspond ni a l'avant ni a l'apres,
+			-- signe que la commande SCREENSHOT externe (latence
+			-- documentee) arrive largement apres que le jeu ait deja
+			-- re-ecrase notre ecriture ponctuelle. Plusieurs points de
+			-- controle espaces PENDANT le maintien, pour maximiser la
+			-- chance qu'au moins un screenshot arrive alors que la
+			-- valeur pokee est encore visible.
+			local POKE_DURATION = tonumber(os.getenv("POKE_DURATION")) or 300
+			local poke_at = PLAY_START + POKE_AT_OFFSET
+			table.insert(PHASES, {at = poke_at, action = "poke", addr = POKE_ADDR, value = POKE_VALUE,
+				duration = POKE_DURATION})
+			table.insert(PHASES, {at = poke_at + 60, action = "snap", name = "POKE_CHECK_1"})
+			table.insert(PHASES, {at = poke_at + 150, action = "snap", name = "POKE_CHECK_2"})
+			table.insert(PHASES, {at = poke_at + 250, action = "snap", name = "POKE_CHECK_3"})
 		end
 
 		table.sort(PHASES, function(a, b) return a.at < b.at end)

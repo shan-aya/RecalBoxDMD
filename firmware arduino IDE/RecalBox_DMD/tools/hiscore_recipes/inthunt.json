@@ -1,6 +1,7 @@
 {
   "roms": [{"name": "inthunt"}],
   "system": "mame",
+  "_system_note": "verifie specifiquement sur le core mame0278 (RetroArch/libretro). Adresses NON transposables a fbneo (meme rom, mapping memoire different -- cf retour externe : 0x11000 en BCD nibbles inverses cote fbneo contre 0xea488 ici). Le champ 'system' determine ou le frontend cherche la rom -- a fixer explicitement selon le core reellement utilise par le challenge.",
   "score": {
     "addr": "ea488",
     "sysramOffset": "a488",
@@ -9,24 +10,26 @@
     "endian": "big",
     "multiplier": 100,
     "_verified_on": ["PLAY_3=1000", "PLAY_4=1800", "PLAY_5=2900"],
-    "_note": "endian sans effet reel (1 octet) ; les 3 autres variantes generees (endian little, len=2) sont des artefacts triviaux de la meme adresse. Double preuve independante (demo attract-mode + vraie partie pilotee)."
+    "_note": "endian sans effet reel (1 octet) ; les 3 autres variantes generees (endian little, len=2) sont des artefacts triviaux de la meme adresse. Double preuve independante (demo attract-mode + vraie partie pilotee).",
+    "_INVALIDE_2026-08-25": "FAUSSE ADRESSE, confirme par poke direct (hiscore_probe v24, action 'poke' + maintien actif) : ecriture MAINTENUE (reaffirmee chaque frame, confirmee en RAM sur plusieurs points de controle) de 0xff PUIS de 0x64 a cette adresse -- dans les 2 cas (2 essais independants, 6 captures ecran au total pendant le maintien), le score AFFICHE reste totalement inchange (memes '00001901' exacts dans les 2 essais, valeur du jeu reel non affectee). La corelation observee initialement (octet ~ score/100 sur les valeurs basses) etait donc COINCIDENTELLE, pas causale -- possiblement un compteur derive (ex. temps/frame-based) qui progresse a un rythme similaire au score pendant un pilotage automatique reproductible, sans etre la source reelle du HUD. Recette score A REFAIRE en recherchant par POKE DIRECT (methode desormais etablie comme fiable, contrairement au simple recoupement d'observations passives qui peut produire un faux positif) plutot que par correlation."
   },
   "credit": {
     "addr": "e02b8",
     "sysramOffset": "2b8",
     "max": 0,
     "_verified_on": ["BOOT_SETTLE=0", "POST_CREDIT=2ou5", "POST_START=1ou4 (1 credit consomme au START)"],
-    "_note": "credit COURANT disponible (texte HUD 'CREDIT NN'). Distinct de 0xe02ae/0xe02b0 (compteur BRUT de pieces inserees, ne decremente jamais -- ecarte par observation POST_START). Comportement de continue CONFIRME sur 2 tests reels : (a) 2 credits inseres -> ecran 'CONTINUE' countdown apparait bien mais CREDIT 00 au meme instant (2e credit deja consomme par une vie bonus auto plus tot) -> countdown expire, GAME OVER (aucun continue possible, coherent avec l'architecture RB Challenge = exactement 1 credit alloue) ; (b) 5 credits inseres -> ecran CONTINUE avec CREDIT 03 disponible -> notre appui START periodique accepte le continue, credit decremente (confirme en RAM), score REPART BAS (pas de preservation du score -- ce jeu ne 'continue' pas la meme partie, il en relance une neuve). Dans les 2 cas, la variation du champ credit est exactement le signal que le ScoreWatch.py officiel de RecalBox utilise pour detecter/entacher un continue (voir DECISIONS.md section 12) -- AUCUNE adresse dediee 'continue_used' n'existe ni n'est necessaire."
+    "_note": "CONFIRME PAR POKE DIRECT (2026-08-25, hiscore_probe v24, maintien actif) : ecriture de 9 -> HUD affiche exactement 'CREDIT 09'. Adresse validee par effet observe, pas seulement correlee. credit COURANT disponible (texte HUD 'CREDIT NN'). Distinct de 0xe02ae/0xe02b0 (compteur BRUT de pieces inserees, ne decremente jamais -- ecarte par observation POST_START). Comportement de continue CONFIRME sur 2 tests reels : (a) 2 credits inseres -> ecran 'CONTINUE' countdown apparait bien mais CREDIT 00 au meme instant (2e credit deja consomme par une vie bonus auto plus tot) -> countdown expire, GAME OVER (aucun continue possible, coherent avec l'architecture RB Challenge = exactement 1 credit alloue) ; (b) 5 credits inseres -> ecran CONTINUE avec CREDIT 03 disponible -> notre appui START periodique accepte le continue, credit decremente (confirme en RAM), score REPART BAS (pas de preservation du score -- ce jeu ne 'continue' pas la meme partie, il en relance une neuve). Dans les 2 cas, la variation du champ credit est exactement le signal que le ScoreWatch.py officiel de RecalBox utilise pour detecter/entacher un continue (voir DECISIONS.md section 12) -- AUCUNE adresse dediee 'continue_used' n'existe ni n'est necessaire."
   },
   "lives": {
     "addr": "e41c4",
-    "sysramOffset": "141c4",
+    "sysramOffset": "41c4",
     "counts": "reserve",
     "_verified_on": ["PLAY_2=2", "PLAY_3=1", "PLAY_6=0"],
-    "_note": "vies EN RESERVE (n'inclut pas le vaisseau en jeu). Champ officiel ScoreWatch.py (manifest['lives'], counts='reserve' est la valeur par defaut)."
+    "_note": "vies EN RESERVE (n'inclut pas le vaisseau en jeu). Champ officiel ScoreWatch.py (manifest['lives'], counts='reserve' est la valeur par defaut).",
+    "_QUESTIONABLE_2026-08-25": "Poke direct (hiscore_probe v24, maintien actif) NON CONCLUANT : valeur pokee a 5 PUIS a 2 (RAM confirmee dans les 2 cas) -- dans les 2 essais, capture zoomee du coin bas-gauche montre UNE SEULE icone de vaisseau visible, jamais 2 ni 5. Pas aussi net que le score (qui etait totalement fige/deconnecte) mais PAS confirme non plus -- soit l'affichage ne montre qu'un indicateur binaire 'prochain vaisseau' (pas un compte visuel), soit l'observation passive originale (PLAY_2='2 icones') etait un mauvais comptage. A reverifier avant de considerer ce champ fiable."
   },
   "_missing": {
-    "ingame": "gate optionnel (score.ingame, ex. Blazing Star: addr 0x13b1==255) non trouve pour inthunt -- ameliorerait la segmentation par run mais n'est PAS necessaire ici : l'architecture RB Challenge (credit unique alloue) + le fallback credit.max couvrent deja le besoin 1CC."
+    "ingame": "CORRECTION (retour externe) : contrairement a ce qu'on affirmait ici, ce gate est NECESSAIRE, pas juste optionnel -- l'adresse score a ete validee via 2 preuves independantes DONT la demo attract-mode, ce qui prouve que la demo ecrit AUSSI ce champ. Sans 'ingame', ScoreWatch.py se rabat sur _scoreMoved (le score a bouge au moins une fois) qui se declenche tout aussi bien pendant une demo -- piege documente pour Espgaluda dans leur base ('la demo ecrit le score en continu, gate indispensable'). L'argument 'credit unique => pas de risque' protege du continue, PAS de la contamination par l'attract-mode. Gate non trouve pour l'instant -- a chercher (candidat plausible : field qui vaut une valeur fixe pendant une VRAIE partie, distincte pendant l'attract/demo)."
   },
-  "_status": "recette complete (score+credit+lives), format officiel RecalBox (cf /recalbox/share/system/challenges/current.json, jeu Blazing Star, exemple reel trouve sur RB2), verifiee sur materiel."
+  "_status": "INCOMPLETE. score INVALIDE (fausse adresse, confirme par poke direct 2 valeurs distinctes, aucun effet HUD). lives QUESTIONABLE (poke non concluant, 1 seule icone quelle que soit la valeur poke). credit CONFIRME PAR POKE (HUD exact). gate ingame manquant (attract-mode risque de contaminer un run reel). Format officiel RecalBox (cf /recalbox/share/system/challenges/current.json, jeu Blazing Star). Prochaine etape : rechercher la vraie adresse score par poke systematique (candidats a definir), reverifier lives."
 }
