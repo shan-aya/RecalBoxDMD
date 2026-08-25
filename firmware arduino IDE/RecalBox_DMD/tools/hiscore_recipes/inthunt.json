@@ -1,5 +1,6 @@
 [
   {
+    "element": "score_1p",
     "romname": "inthunt",
     "addr": "ea488",
     "sysramOffset": "a488",
@@ -13,6 +14,40 @@
       "PLAY_5=2900"
     ],
     "read_core_live": "no",
-    "note": "endian sans effet reel (1 octet) ; les 3 autres variantes generees (endian little, len=2) sont des artefacts triviaux de la meme adresse -- voir hiscore_recipe_builder.py. Double preuve independante (demo attract-mode + vraie partie pilotee), voir DECISIONS.md."
+    "note": "endian sans effet reel (1 octet) ; les 3 autres variantes generees (endian little, len=2) sont des artefacts triviaux de la meme adresse. Double preuve independante (demo attract-mode + vraie partie pilotee), voir DECISIONS.md."
+  },
+  {
+    "element": "lives_reserve",
+    "romname": "inthunt",
+    "addr": "e41c4",
+    "sysramOffset": "141c4",
+    "len": 1,
+    "format": "binary",
+    "endian": "big",
+    "multiplier": 1,
+    "verified_on": [
+      "PLAY_2=2",
+      "PLAY_3=1",
+      "PLAY_6=0"
+    ],
+    "read_core_live": "no",
+    "note": "vies EN RESERVE (n'inclut pas le vaisseau en jeu -- 2 = 3 vies au total au demarrage standard). Lu par comptage d'icones sur capture zoomee, pas de texte HUD direct pour cet element. Trace complete sur les 15 phases coherente (0 avant credit/start, 2 en debut de partie, decroit, reste a 0 apres perte totale)."
+  },
+  {
+    "element": "credit_current",
+    "romname": "inthunt",
+    "addr": "e02b8",
+    "sysramOffset": "2b8",
+    "len": 1,
+    "format": "binary",
+    "endian": "big",
+    "multiplier": 1,
+    "verified_on": [
+      "BOOT_SETTLE=0",
+      "POST_CREDIT=2",
+      "POST_START=1"
+    ],
+    "read_core_live": "no",
+    "note": "credit COURANT disponible (correspond au texte HUD 'CREDIT NN'). 2 credits inseres (session de test), passe a 1 des START (1 credit consomme pour lancer la partie) -- coherent avec 'CREDIT 01' vu sur toutes les captures de cette session. Distinct de 0xe02ae/0xe02b0 (compteur brut de pieces inserees, ne decremente jamais -- ecarte par cette 3e observation)."
   }
 ]
