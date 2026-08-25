@@ -57,7 +57,7 @@
 
 local exports = {
 	name = 'hiscore_probe',
-	version = '0.0.19',
+	version = '0.0.21',
 	description = 'RAM snapshot diff probe (safe-modify, hi-score generique)',
 	license = 'BSD-3-Clause',
 	author = { name = 'safe-modify' } }
@@ -346,20 +346,45 @@ function hiscore_probe.startplugin()
 		-- (mouvement haut-bas uniquement), il faut aussi aller vers
 		-- l'avant". Confirme par capture reelle : tir visible (vrai
 		-- projectile a l'ecran) mais score toujours 0 apres ~90s de
-		-- pilotage sans jamais avancer. FORWARD_NAMES = perpendiculaire
-		-- au mouvement de balayage (right si scroll horizontal =
-		-- balayage vertical, et vice-versa).
-		local FORWARD_NAMES_BY_DIR = {down = "right", up = "right", right = "down", left = "down"}
-		local FORWARD_NAMES = MOVE_NAMES_BY_DIR[FORWARD_NAMES_BY_DIR[MOVE_DIRECTION] or "right"] or MOVE_NAMES_BY_DIR.right
+		-- pilotage sans jamais avancer.
+		-- v21 - 2026-08-25 - safe-modify - BUG REEL trouve par verite
+		-- d'abord sur `gbusters` (retour utilisateur en direct : "ici
+		-- c'est un scrolling vertical donc on inverse... coince dans le
+		-- decor a droite et tu tires a droite donc 0 kill") : la
+		-- deduction automatique "avant = perpendiculaire au balayage"
+		-- devinait TOUJOURS "right" quel que soit le sens de balayage --
+		-- fausse pour un scroll VERTICAL (balayage gauche/droite, avance
+		-- = HAUT, pas droite). Remplace par une variable d'environnement
+		-- dediee et explicite (FORWARD_DIRECTION), independante de
+		-- MOVE_DIRECTION -- plus fiable qu'un mapping devine.
+		local FORWARD_DIRECTION = os.getenv("FORWARD_DIRECTION") or "right"
+		local FORWARD_NAMES = MOVE_NAMES_BY_DIR[FORWARD_DIRECTION] or MOVE_NAMES_BY_DIR.right
 		local ports2 = safe(function() return manager.machine.ioport.ports end)
+		-- v20 - 2026-08-25 - safe-modify - BUG REEL trouve par verite
+		-- d'abord sur `gbusters` (retour utilisateur en direct : "tu n'as
+		-- fait aucun insert coin" / "le texte est PLEASE INSERT COIN") :
+		-- le "coin_field" trouve etait en realite le champ DIP SWITCH
+		-- "Coin A" sur le port :DSW1 (reglage de configuration de la
+		-- monnayeur, PAS l'entree live de credit) -- bug deja identifie
+		-- (ordre non deterministe de pairs()) mais jamais corrige avant
+		-- de tomber dessus en vrai. Fix double : (1) parcourt les NOMS
+		-- dans l'ordre de PRIORITE (pas les champs dans un ordre
+		-- aleatoire), (2) exclut explicitement tout champ dont
+		-- type_class est "dipswitch" ou "config" -- meme logique
+		-- d'exclusion que le plugin officiel "autofire"
+		-- (is_supported_input(), deja lu comme reference cette session).
 		local function find_field(names)
 			if not ports2 then return nil end
-			for ptag, port in pairs(ports2) do
-				local fields = safe(function() return port.fields end)
-				if fields then
-					for fname, field in pairs(fields) do
-						for _, n in ipairs(names) do
-							if fname == n then return field, ptag, fname end
+			for _, n in ipairs(names) do
+				for ptag, port in pairs(ports2) do
+					local fields = safe(function() return port.fields end)
+					if fields then
+						local field = fields[n]
+						if field then
+							local tclass = safe(function() return field.type_class end)
+							if tclass ~= "dipswitch" and tclass ~= "config" then
+								return field, ptag, n
+							end
 						end
 					end
 				end
