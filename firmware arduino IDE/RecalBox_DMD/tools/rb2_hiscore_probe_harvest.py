@@ -154,7 +154,13 @@ def main():
         print(__doc__)
         return
     rom_list_file = sys.argv[1]
-    timeout_s = 90
+    # v3 - 2026-08-25 - safe-modify - defaut releve (90 -> 150s) suite
+    # au BOOT_SETTLE du plugin releve a 1400 frames (~23s) pour corriger
+    # le piege intro non-interactive longue (voir DECISIONS.md/plugin
+    # v0.0.3) -- une session complete (~2080 frames) peut desormais
+    # depasser 40s de temps emule, 90s devenait trop juste avec les
+    # marges de chargement/E-S.
+    timeout_s = 150
     if "--timeout-s" in sys.argv:
         timeout_s = int(sys.argv[sys.argv.index("--timeout-s") + 1])
 

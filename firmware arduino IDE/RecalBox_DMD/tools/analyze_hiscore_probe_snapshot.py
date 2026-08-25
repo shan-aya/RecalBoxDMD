@@ -67,13 +67,23 @@ def score_candidates(zones, snaps, phases, min_distinct):
 
 
 def credit_diff(zones, snaps):
-    if ("BOOT_SETTLE", 1) not in snaps or ("POST_CREDIT", 1) not in snaps:
-        return []
-    a, b = snaps[("BOOT_SETTLE", 1)], snaps[("POST_CREDIT", 1)]
-    if len(a) != len(b):
-        return []
-    astart = int(zones[1][2], 16)
-    return [(astart + i, a[i], b[i]) for i in range(len(a)) if a[i] != b[i]]
+    # v2 - 2026-08-25 - safe-modify - BUG REEL trouve par "verite d'abord"
+    # (captures reelles sur progear) : ne comparait QUE la zone 1, alors
+    # qu'un jeu a plusieurs zones (ex. progear en a 4) et que le vrai
+    # changement peut etre dans n'importe laquelle -- credit_diff=0
+    # rapporte a tort sur progear (le credit fonctionnait en realite,
+    # 69 octets changes en zone 4/mainram, invisibles avec l'ancien
+    # code qui ne regardait que la zone 1). Parcourt maintenant TOUTES
+    # les zones.
+    diffs = []
+    for zidx in zones:
+        a = snaps.get(("BOOT_SETTLE", zidx))
+        b = snaps.get(("POST_CREDIT", zidx))
+        if a is None or b is None or len(a) != len(b):
+            continue
+        astart = int(zones[zidx][2], 16)
+        diffs.extend((astart + i, a[i], b[i]) for i in range(len(a)) if a[i] != b[i])
+    return diffs
 
 
 def main():

@@ -57,7 +57,7 @@
 
 local exports = {
 	name = 'hiscore_probe',
-	version = '0.0.2',
+	version = '0.0.3',
 	description = 'RAM snapshot diff probe (safe-modify, hi-score generique)',
 	license = 'BSD-3-Clause',
 	author = { name = 'safe-modify' } }
@@ -249,34 +249,75 @@ function hiscore_probe.startplugin()
 				if fields then
 					for fname, field in pairs(fields) do
 						for _, n in ipairs(names) do
-							if fname == n then return field end
+							if fname == n then return field, ptag, fname end
 						end
 					end
 				end
 			end
 			return nil
 		end
-		coin_field = find_field(COIN_NAMES)
-		start_field = find_field(START_NAMES)
-		snap_file:write(string.format("#coin_field_found\t%s\n", tostring(coin_field ~= nil)))
-		snap_file:write(string.format("#start_field_found\t%s\n", tostring(start_field ~= nil)))
+		local coin_ptag, coin_fname, start_ptag, start_fname
+		coin_field, coin_ptag, coin_fname = find_field(COIN_NAMES)
+		start_field, start_ptag, start_fname = find_field(START_NAMES)
+		snap_file:write(string.format("#coin_field_found\t%s\t%s\t%s\n",
+			tostring(coin_field ~= nil), tostring(coin_ptag), tostring(coin_fname)))
+		snap_file:write(string.format("#start_field_found\t%s\t%s\t%s\n",
+			tostring(start_field ~= nil), tostring(start_ptag), tostring(start_fname)))
+		if coin_field then
+			snap_file:write(string.format("#coin_field_mask\t%s\n", tostring(safe(function() return coin_field.mask end))))
+			snap_file:write(string.format("#coin_field_type\t%s\n", tostring(safe(function() return coin_field.type end))))
+		end
 
+		-- v3 - 2026-08-25 - safe-modify - BUG REEL trouve par "verite
+		-- d'abord" (captures SCREENSHOT reelles demandees explicitement
+		-- par l'utilisateur) : sur `progear`, BOOT_SETTLE=180 (3s)
+		-- tombe encore en PLEIN dans l'intro non-interactive (warning
+		-- legal USA/Canada/Mexico -> logo QSound -> logo CAVE) --
+		-- confirme visuellement a 3 instants differents (BOOT_SETTLE/
+		-- POST_CREDIT/POST_START), TOUJOURS le meme ecran de warning.
+		-- Mesure directe (captures toutes les 5s) : l'ecran titre reel
+		-- ("INSERT 2 COINS") n'apparait que vers t=20s (~1100-1200
+		-- frames), pas 3s -- meme famille de piege que `darkseal` deja
+		-- documente ailleurs dans ce depot (intro non-interactive
+		-- longue, deviner un instant fixe court ne peut pas marcher).
+		-- Explique tres probablement `credit_diff=0` observe sur
+		-- dynagear/inthunt/kamenrid/progear/pzloop2/tbyahhoo (aucun
+		-- octet ne bouge -- normal, la partie n'a jamais commence).
+		-- `progear` demande en plus explicitement "INSERT 2 COINS" --
+		-- 2e appui credit ajoute (harmless pour les jeux a 1 credit,
+		-- laisse juste un credit en banque).
+		-- BOOT_SETTLE releve a 1400 (~23s, marge sur les 20s mesures) --
+		-- accepte une session sensiblement plus longue par jeu en
+		-- echange de la fiabilite, plus de plafond d'infrastructure
+		-- avec un vrai plugin (voir DECISIONS.md) donc ce compromis est
+		-- maintenant praticable sans risque technique.
+		-- v4 - 2026-08-25 - safe-modify - DIAGNOSTIC : sur `progear`,
+		-- meme arrive au bon ecran titre interactif (fix v3 confirme
+		-- par capture reelle), le credit reste sans AUCUN effet
+		-- (credit_diff=0 en RAM, "CREDITS: 0(0/2)" inchange sur 3
+		-- captures). Hypothese testee ici : appui trop court (6 frames/
+		-- 100ms) -- allonge a 30 frames (0.5s) par appui, sur credit ET
+		-- start. Diagnostic complementaire ajoute plus haut (log du
+		-- port/masque/type du champ trouve) pour confirmer ou ecarter
+		-- une hypothese "mauvais champ" en parallele.
 		PHASES = {
-			{at = 180, action = "snap", name = "BOOT_SETTLE"},
-			{at = 190, action = "press", field = coin_field},
-			{at = 196, action = "release", field = coin_field},
-			{at = 240, action = "snap", name = "POST_CREDIT"},
-			{at = 250, action = "press", field = start_field},
-			{at = 256, action = "release", field = start_field},
-			{at = 360, action = "snap", name = "POST_START"},
-			{at = 420, action = "snap", name = "PLAY_1"},
-			{at = 480, action = "snap", name = "PLAY_2"},
-			{at = 540, action = "snap", name = "PLAY_3"},
-			{at = 600, action = "snap", name = "PLAY_4"},
-			{at = 660, action = "snap", name = "PLAY_5"},
-			{at = 720, action = "snap", name = "PLAY_6"},
-			{at = 780, action = "snap", name = "PLAY_7"},
-			{at = 840, action = "snap", name = "PLAY_8"},
+			{at = 1400, action = "snap", name = "BOOT_SETTLE"},
+			{at = 1410, action = "press", field = coin_field},
+			{at = 1440, action = "release", field = coin_field},
+			{at = 1450, action = "press", field = coin_field},
+			{at = 1480, action = "release", field = coin_field},
+			{at = 1520, action = "snap", name = "POST_CREDIT"},
+			{at = 1530, action = "press", field = start_field},
+			{at = 1560, action = "release", field = start_field},
+			{at = 1680, action = "snap", name = "POST_START"},
+			{at = 1740, action = "snap", name = "PLAY_1"},
+			{at = 1800, action = "snap", name = "PLAY_2"},
+			{at = 1860, action = "snap", name = "PLAY_3"},
+			{at = 1920, action = "snap", name = "PLAY_4"},
+			{at = 1980, action = "snap", name = "PLAY_5"},
+			{at = 2040, action = "snap", name = "PLAY_6"},
+			{at = 2100, action = "snap", name = "PLAY_7"},
+			{at = 2160, action = "snap", name = "PLAY_8"},
 		}
 		snap_file:flush()
 	end
