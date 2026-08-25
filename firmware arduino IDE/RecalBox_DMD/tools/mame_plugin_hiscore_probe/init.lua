@@ -57,7 +57,7 @@
 
 local exports = {
 	name = 'hiscore_probe',
-	version = '0.0.16',
+	version = '0.0.17',
 	description = 'RAM snapshot diff probe (safe-modify, hi-score generique)',
 	license = 'BSD-3-Clause',
 	author = { name = 'safe-modify' } }
@@ -431,12 +431,21 @@ function hiscore_probe.startplugin()
 		-- SCREENSHOT externe prise au meme instant via le meme
 		-- mecanisme que test_visual_play.sh).
 		PHASES = {}
+		-- v17 - 2026-08-25 - safe-modify - piste retenue apres l'echec de
+		-- la capture native (v14-v16, cf. commentaire plus haut) :
+		-- espacement des phases porte de 180 a 500 frames (~2s -> ~6s a
+		-- ~85fps observe) pour que la latence du sondage externe
+		-- (jusqu'a ~1s) devienne une fraction beaucoup plus faible de
+		-- l'intervalle entre 2 echantillons, au lieu de chercher a
+		-- l'eliminer cote MAME (confirme impossible). Nombre de phases
+		-- reduit en consequence pour garder une duree totale
+		-- raisonnable.
 		local snap_t = 600
-		local snap_end = 6000
+		local snap_end = 6600
 		local snap_i = 1
 		while snap_t < snap_end do
 			table.insert(PHASES, {at = snap_t, action = "snap", name = "DEMO_" .. snap_i})
-			snap_t = snap_t + 180
+			snap_t = snap_t + 500
 			snap_i = snap_i + 1
 		end
 		snap_file:flush()
