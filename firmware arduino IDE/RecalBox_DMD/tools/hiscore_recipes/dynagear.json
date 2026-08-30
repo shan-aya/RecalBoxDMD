@@ -12,8 +12,14 @@
     "_verified_on": ["obs04=4530", "obs08=10940", "obs12=25070"],
     "_note": "3/3 observations EXACTES. Session jouee manuellement (credit reel insere par l'utilisateur), fenetre RAM auto-sondee (0x0-0x80000, 512 Ko). Format le plus simple : binaire LE plat, pas de byteSwap ni de multiplicateur necessaires. Note : un candidat proche (meme adresse, +-200) etait deja apparu lors d'un test anterieur sur une capture plus ancienne/moins propre -- confirme ici exactement avec des donnees plus propres."
   },
+  "credit": {
+    "addr": "44",
+    "sysramOffset": "44",
+    "max": 0,
+    "_verified_on": ["obs14=6", "obs20=10"],
+    "_CANDIDAT_NON_CONFIRME": "2 offsets candidats (0x44 et 0x78fd), 0x44 retenu (proche de l'adresse score 0x241, meme region basse). Seulement 2 valeurs distinctes. A confirmer avant usage en production."
+  },
   "_missing": {
-    "credit": "pas encore cherche.",
     "lives": "pas encore cherche -- coeurs (vies) et 'ROGER x1' (personnage/continue ?) visibles a l'ecran.",
     "ingame": "pas encore cherche."
   },
