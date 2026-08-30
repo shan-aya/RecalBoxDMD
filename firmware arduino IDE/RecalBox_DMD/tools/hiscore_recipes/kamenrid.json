@@ -12,8 +12,14 @@
     "_verified_on": ["obs05=1990", "obs10=13450"],
     "_note": "2/2 observations EXACTES. Trouve avec la fenetre RAM auto-sondee (0x0-0x100000, 1 Mo -- ce jeu a une fenetre bien plus grande que le defaut 0x10000/0x20000 devine a l'aveugle au debut de la session). Piece manquante identifiee par question directe de l'utilisateur : multiplicateur x10 (score stocke divise par 10), jamais teste dans les recherches precedentes (swap_search.py v1/v2 ne testaient aucun multiplicateur). Format le plus simple = binaire LE plat, PAS de byteSwap necessaire pour ce jeu contrairement a pzloop2/mtwins/willow/gogomile. Valeurs croisees avec le tableau RANKING affiche a l'ecran (10eme place = 13450, coherent)."
   },
+  "credit": {
+    "addr": "30",
+    "sysramOffset": "30",
+    "max": 0,
+    "_verified_on": ["obs01=4", "obs20=3"],
+    "_CANDIDAT_NON_CONFIRME": "seulement 2 valeurs distinctes (3 et 4). A confirmer avec une 3e observation avant usage en production."
+  },
   "_missing": {
-    "credit": "pas encore cherche -- CREDIT N observe clairement a l'ecran (ex. CREDIT 3), bon candidat pour une prochaine recherche.",
     "lives": "pas encore cherche.",
     "ingame": "pas encore cherche -- transition GAME OVER/ecran titre observee, bon point de depart."
   },
