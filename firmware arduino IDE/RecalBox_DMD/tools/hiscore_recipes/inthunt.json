@@ -12,8 +12,14 @@
     "_verified_on": ["obs04=200", "obs08=1701", "obs11=2301"],
     "_note": "3/3 observations EXACTES. Session jouee manuellement (credit reel, CREDIT 04->03 confirme a l'ecran), fenetre RAM auto-sondee (0x0-0x20000). Remplace l'ancienne entree fbneo (score.addr='ea488'/'a488' -- valeurs MAME0278, jamais valides sur fbneo, voir DECISIONS.md section 17) et l'adresse 0x11000 fournie par le createur RB (invalidee empiriquement le 2026-08-26 -- interessant : la vraie adresse 0x11220 n'en est distante que de 0x220 = 544 octets, peut-etre un decalage de version core/mesure cote createur)."
   },
+  "credit": {
+    "addr": "112b8",
+    "sysramOffset": "112b8",
+    "max": 0,
+    "_verified_on": ["obs04/08=4", "obs11/14=3"],
+    "_CANDIDAT_NON_CONFIRME": "seulement 2 valeurs distinctes (3 et 4), petites -- bien moins specifique qu'un score a grande plage. Un seul offset survit malgre 48 combinaisons de format testees (signal positif), mais PAS verifie par une 3e observation independante ni par poke. A confirmer avant usage en production."
+  },
   "_missing": {
-    "credit": "pas encore cherche -- 'CREDIT 04' etc. bien visible a l'ecran, bon candidat.",
     "lives": "pas encore cherche.",
     "ingame": "pas encore cherche -- 'PUSH 2P BUTTON' reste affiche meme en jeu reel sur ce titre, pas un indicateur fiable d'attract-mode pour ce jeu."
   },
