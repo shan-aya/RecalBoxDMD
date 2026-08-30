@@ -3,7 +3,18 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v2
+# Version actuelle : v3
+#
+# v3 - 2026-08-30 - safe-modify - Ajout du MULTIPLICATEUR (1/10/100,
+#   score stocke divise par ce facteur) et des tailles 1 et 3 octets,
+#   jamais testes avant -- trou reel dans la recherche identifie par
+#   question directe de l'utilisateur ("il est logiquement impossible
+#   de stocker un score ailleurs qu'en RAM si on n'ecrit rien sur le
+#   disque -- donc c'est qu'on a pas trouve ou c'est sous quel
+#   encodage ?"). A debloque kamenrid d'un coup (addr=0xb1a, binaire LE
+#   plat, multiplicateur x10, 0 candidat avant sans le multiplicateur
+#   malgre une fenetre RAM complete de 1 Mo et des donnees de verite
+#   propres) -- voir DECISIONS.md "Suite immediate (20)".
 #
 # v2 - 2026-08-30 - safe-modify - Ajout du format "digits" (1 chiffre
 #   decimal brut par octet -- format officiel ScoreWatch.py::decode_score,
@@ -31,10 +42,12 @@
 #
 #   Adresses confirmees avec cet outil (2026-08-30) : pzloop2=0x8508
 #   (binaire), mtwins=0x1530 (BCD), willow=0x834a (BCD),
-#   gogomile=0x4c8 (binaire) -- toutes en variante mot-swap.
+#   gogomile=0x4c8 (binaire), kamenrid=0xb1a (binaire, x10) -- toutes en
+#   variante mot-swap sauf kamenrid (LE plat).
 """Recherche exacte (ou tolerante) d'une adresse score, avec variantes
-de byteSwap (mots 16 bits inverses) en plus de BCD/binaire BE/LE
-classique -- sur des dumps deja captures par rb2_fbneo_manual_wide_capture.py.
+de byteSwap (mots 16 bits inverses) et de multiplicateur, en plus de
+BCD/binaire/digits BE/LE classique -- sur des dumps deja captures par
+rb2_fbneo_manual_wide_capture.py.
 
 Usage: swap_search.py <run_dir> <tolerance> "phase1=val1" "phase2=val2" ...
 Ex.  : swap_search.py pzloop2/20260829-173818 0 obs04=0 obs08=159100
@@ -97,29 +110,33 @@ def main():
 
     length = min(len(d) for d in dumps.values())
     hits = []
-    for size in (2, 4, 5, 6, 7, 8):
+    for size in (1, 2, 3, 4, 5, 6, 7, 8):
         for offset in range(length - size + 1):
             raws = {p: dumps[p][offset:offset + size] for p, _ in obs}
             for variant_name in variants(raws[obs[0][0]]).keys():
                 for fmt in ("bcd", "binary", "digits"):
-                    ok = True
-                    decoded = {}
-                    for phase, visible in obs:
-                        v = variants(raws[phase])[variant_name]
-                        if fmt == "bcd":
-                            val = bcd_value(v)
-                        elif fmt == "digits":
-                            val = digits_value(v)
-                        else:
-                            val = int.from_bytes(v, "big")
-                        if val is None or abs(val - visible) > tol:
-                            ok = False
-                            break
-                        decoded[phase] = val
-                    if ok:
-                        hits.append((offset, size, variant_name, fmt, decoded))
+                    for mult in (1, 10, 100):
+                        ok = True
+                        decoded = {}
+                        for phase, visible in obs:
+                            if visible % mult:
+                                ok = False
+                                break
+                            v = variants(raws[phase])[variant_name]
+                            if fmt == "bcd":
+                                raw_val = bcd_value(v)
+                            elif fmt == "digits":
+                                raw_val = digits_value(v)
+                            else:
+                                raw_val = int.from_bytes(v, "big")
+                            if raw_val is None or abs(raw_val * mult - visible) > tol:
+                                ok = False
+                                break
+                            decoded[phase] = raw_val * mult
+                        if ok:
+                            hits.append((offset, size, variant_name, fmt, mult, decoded))
     for h in hits:
-        print("addr=0x{:x} size={} variant={} fmt={} decoded={}".format(*h))
+        print("addr=0x{:x} size={} variant={} fmt={} mult={} decoded={}".format(*h))
     print("total: {}".format(len(hits)))
 
 
