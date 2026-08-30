@@ -1,0 +1,21 @@
+{
+  "roms": [{"name": "nemo"}],
+  "system": "fbneo",
+  "score": {
+    "addr": "83aa",
+    "sysramOffset": "83aa",
+    "len": 2,
+    "format": "bcd",
+    "endian": "little",
+    "byteSwap": false,
+    "multiplier": 1,
+    "_verified_on": ["obs03=0", "obs06=1800", "obs08=3000"],
+    "_note": "3/3 observations EXACTES. Session jouee manuellement (credit reel), fenetre RAM auto-sondee (0x0-0x10000, plafond reel confirme). 37 correspondances au total (obs=0 produit beaucoup de doublons/variantes triviales, toutes autour de la meme adresse 0x83aa-0x83ab) -- candidat le plus simple retenu (2 octets, BCD LE, sans byteSwap ni multiplicateur). Session anterieure (2026-08-29, capture auto) etait en attract-mode uniquement, jamais une vraie partie -- voir DECISIONS.md."
+  },
+  "_missing": {
+    "credit": "pas encore cherche.",
+    "lives": "pas encore cherche -- 'NEMO=1' visible a l'ecran (nombre de vies ?), barre VITAL separee.",
+    "ingame": "pas encore cherche -- 'PUSH START' reste affiche meme en jeu reel sur ce titre (probablement un prompt 2e joueur, pas un indicateur fiable d'attract-mode pour ce jeu precis)."
+  },
+  "_status": "score CONFIRME (3/3 exact). credit/lives/ingame gate NON trouves -- recipe incomplete au sens du schema officiel RecalBox. Credit auto fbneo abandonne pour ce jeu -- capture obtenue via jeu manuel reel."
+}
