@@ -3,7 +3,19 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v1
+# Version actuelle : v2
+#
+# v2 - 2026-08-30 - safe-modify - Ajout du format "digits" (1 chiffre
+#   decimal brut par octet -- format officiel ScoreWatch.py::decode_score,
+#   commentaire du code "Osman & co") + tailles etendues 5-8 octets pour
+#   l'accommoder. Retestee sur les outils officiels RecalBox telecharges
+#   et lus en entier (ramSearch.py/ScoreWatch.py, /usr/lib/python3.11/
+#   site-packages/configgen/challenge/ sur RB2) : confirme que notre
+#   variante "wordLE_be" est mathematiquement equivalente a l'algorithme
+#   byteSwap officiel (raw[i^1], echange les 2 octets ADJACENTS de chaque
+#   mot -- pas les 2 mots entiers comme suppose en v1) une fois combinee
+#   a endian=big. `ramSearch.py` officiel NE teste PAS byteSwap du tout --
+#   notre recherche va plus loin que l'outil stock RecalBox sur ce point.
 #
 # v1 - 2026-08-30 - safe-modify - Creation initiale. Recherche EXACTE
 #   (avec tolerance optionnelle) d'une adresse score dans des dumps
@@ -42,6 +54,17 @@ def bcd_value(raw):
     return int("".join(digits)) if digits else None
 
 
+def digits_value(raw):
+    """1 chiffre decimal par octet -- format officiel ScoreWatch.py
+    fmt=="digits", commentaire "Osman & co"."""
+    digits = []
+    for byte in raw:
+        if byte > 9:
+            return None
+        digits.append(str(byte))
+    return int("".join(digits)) if digits else None
+
+
 def variants(raw):
     """Toutes les permutations plausibles d'un bloc de 2 ou 4 octets."""
     n = len(raw)
@@ -74,16 +97,21 @@ def main():
 
     length = min(len(d) for d in dumps.values())
     hits = []
-    for size in (2, 4):
+    for size in (2, 4, 5, 6, 7, 8):
         for offset in range(length - size + 1):
             raws = {p: dumps[p][offset:offset + size] for p, _ in obs}
             for variant_name in variants(raws[obs[0][0]]).keys():
-                for fmt in ("bcd", "binary"):
+                for fmt in ("bcd", "binary", "digits"):
                     ok = True
                     decoded = {}
                     for phase, visible in obs:
                         v = variants(raws[phase])[variant_name]
-                        val = bcd_value(v) if fmt == "bcd" else int.from_bytes(v, "big")
+                        if fmt == "bcd":
+                            val = bcd_value(v)
+                        elif fmt == "digits":
+                            val = digits_value(v)
+                        else:
+                            val = int.from_bytes(v, "big")
                         if val is None or abs(val - visible) > tol:
                             ok = False
                             break
