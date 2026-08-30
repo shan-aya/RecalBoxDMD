@@ -758,3 +758,36 @@ Réutilisation de la session RAM déjà capturée (`inthunt`, partie pilotée av
 **Suite immédiate — `kamenrid` recapturé manuellement (4 crédits réels insérés par l'utilisateur), fenêtre 1 Mo auto-sondée, PUIS 5e adresse confirmée grâce à une question directe de l'utilisateur** : recherche exacte + tolérante (±50) sur la fenêtre COMPLÈTE (1 Mo, confirmée par sondage) avec `swap_search.py` v2 (BCD/binaire/digits × BE/LE/mot-swap, tailles 2/4-8) = **0 candidat**, malgré 2 observations de vérité solides (`obs05=1990`, `obs10=13450`, la 2e confirmée en double par le tableau RANKING affiché à l'écran). Question directe de l'utilisateur ("il est logiquement impossible de stocker un score ailleurs qu'en RAM si on n'écrit rien sur le disque — donc c'est qu'on n'a pas trouvé, ou sous quel encodage ?") a fait identifier un vrai trou dans la recherche : **aucun multiplicateur jamais testé** (ni taille 1/3 octet). `swap_search.py` v3 ajoute multiplicateur {1,10,100} + tailles 1/3 → **6 candidats trouvés, tous à la même adresse `0xb1a`, multiplicateur ×10, binaire LE plat (pas de byteSwap nécessaire pour ce jeu, contrairement aux 4 précédents)** — 2/2 observations EXACTES. Recette écrite (`tools/hiscore_recipes/kamenrid.json`). **5e jeu confirmé.** Leçon méthodologique actée : avant de conclure à un "compteur matériel hors RAM" (hypothèse `inthunt`), vérifier systématiquement qu'aucun multiplicateur/taille n'a été oublié — l'espace de recherche n'était pas aussi exhaustif qu'il y paraissait.
 
 **Piste proposée par l'utilisateur pour la suite (pas encore implémentée)** : au lieu de comparer des valeurs figées à intervalle fixe (8-10s), sonder la RAM en continu à haute fréquence PENDANT que le score visible change, pour corréler les instants exacts de changement (RAM qui bouge en même temps que le score à l'écran) plutôt que de faire correspondre des valeurs ponctuelles — méthode plus puissante, mais demande un nouvel outil dédié et une nouvelle session de jeu instrumentée. À construire si les prochains jeux (`msgogo`/`dynagear`/`jjsquawk`) résistent aussi à la recherche par valeur+multiplicateur.
+
+## Suite immédiate (21) — campagne complète score+credit sur fbneo, méthodologie stabilisée pour une future automatisation (2026-08-30/31 nuit)
+
+**Objectif de cette section : servir de référence complète pour une future mise en production automatisée de la recherche de recipe** (retour utilisateur explicite : "garde trace de toutes ces recherches pour la future mise en production de l'automatisation").
+
+### Méthodologie stabilisée (validée sur 9 jeux)
+
+1. **Lancement "pur"** (`tools/launch_only.sh` — pas encore committé dans `tools/`, actuellement dans le worktree RB2 `/recalbox/share/system/rb_challenge_probe/`) : lance `emulatorlauncher.pyc` SANS AUCUNE simulation d'input, l'utilisateur insère crédit/vies réels à la manette physique. Remplace définitivement toute tentative d'automatisation du crédit (3 motifs testés et abandonnés cette même nuit — pulse unique, maintien 60Hz, motif mame0278 2×SELECT+START — voir section 20 ; confirmé structurellement absent même de l'outillage officiel RecalBox `NetCmd.py`).
+2. **Capture passive** (`tools/rb2_fbneo_manual_wide_capture.py` v3) : détecte le process, sonde la vraie fenêtre `READ_CORE_RAM` (`probe_ram_ceiling()`, jamais un défaut fixe deviné), archive screenshot+dump RAM à intervalle réglable (`--interval`, défaut 8s — **abaissé à 2s pour la chasse aux petites valeurs** comme `credit`, où une fenêtre de capture plus fine réduit le risque de rater une transition entre deux insertions rapides de pièces).
+3. **Recherche d'adresse** (`tools/swap_search.py` v3) : BCD/binaire/digits × BE/LE/byteSwap × tailles 1-8 × multiplicateur {1,10,100} — recherche EXACTE sur des observations lues à l'œil sur les screenshots. Fenêtres réelles très variables selon le jeu (32 Ko à 1 Mo) — TOUJOURS sonder avant de fixer une taille, ne jamais réutiliser un défaut d'un autre jeu.
+
+### Résultats consolidés (9 jeux, score CONFIRMÉ sur tous)
+
+| Jeu | score.addr | format | endian | byteSwap | mult | credit.addr (NON confirmé, 2 obs seulement) |
+|---|---|---|---|---|---|---|
+| `pzloop2` | `8508` | binary | big | true | 1 | — (free play, 0 credit constant) |
+| `mtwins` | `1530` | bcd | big | true | 1 | `f3f` |
+| `willow` | `834a` | bcd | big | true | 1 | `82a2` (ambigu avec `82a3`) |
+| `gogomile` | `4c8` | binary | big | true | 1 | `64ee` |
+| `kamenrid` | `b1a` | binary | little | false | **10** | `30` |
+| `dynagear` | `241` | binary | little | false | 1 | `44` (ambigu avec `78fd`) |
+| `jjsquawk` | `5616` | binary | little | false | 1 | `42` (ambigu, 4 candidats : `42`/`5f4e`/`ff92`/`ffc2`) |
+| `nemo` | `83aa` | bcd | little | false | 1 | `82ad` (ambigu avec `82aa`, proche du score — cohérent) |
+| `inthunt` | `11220` | bcd | little | false | 1 | `112b8` |
+
+**Tous les fichiers `tools/hiscore_recipes/<rom>.json` correspondants sont committés** (un commit par jeu cette nuit, historique complet dans `git log`). Chaque `credit` est marqué explicitement `_CANDIDAT_NON_CONFIRME` — trouvé sur seulement 2 observations distinctes (contre 2-4 pour les scores, avec une plage de valeurs bien plus large donc bien plus fiable). **Ne pas déployer les champs `credit` en production sans une 3e observation de confirmation.**
+
+### Ce qui reste à faire (prochaine session)
+
+- **`lives`** : nécessite de capturer un vrai changement de valeur (le joueur doit perdre une vie pendant la capture, pas juste insérer des crédits) — pas encore tenté. Plusieurs jeux affichent une BARRE (VITAL/LIFE) plutôt qu'un compteur numérique discret — moins directement exploitable pour le champ `lives` du schéma officiel (qui attend un entier). Jeux avec un vrai compteur numérique déjà repéré à l'écran : `dynagear` ("ROGER x1"), `nemo` ("NEMO=1"), potentiellement `willow` ("P=N") — mais AUCUNE variation encore observée dans les captures actuelles (valeur toujours identique sur toutes les observations disponibles), donc adresse pas trouvable avec les données déjà en main.
+- **`ingame` (gate)** : en cours (cette session, suite immédiate) — objectif : trouver un byte qui distingue de façon fiable une vraie partie (score qui bouge, crédit consommé) d'un état titre/attract-mode/menu. Contrairement à `lives`, les données existent déjà (captures boot + gameplay dans les mêmes sessions) — pas besoin de rejouer.
+- **`msgogo`/`progear`** : toujours 0 candidat pour le score malgré fenêtre complète + multiplicateur. Piste non tentée : corrélation temporelle RAM↔score (proposée par l'utilisateur, nécessite un outil dédié).
+- **`joemacr`** : pas d'entrée `hiscore.dat`, jamais résolu malgré 4 méthodes distinctes cette nuit-là. `gbusters`/`osman` : RAM totalement illisible via `READ_CORE_RAM` (indépendant de toute méthode de recherche). `tbyahhoo`/`whoopee` : rom absente de RB2.
