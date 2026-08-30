@@ -1,0 +1,21 @@
+{
+  "roms": [{"name": "jjsquawk"}],
+  "system": "fbneo",
+  "score": {
+    "addr": "5616",
+    "sysramOffset": "5616",
+    "len": 2,
+    "format": "binary",
+    "endian": "little",
+    "byteSwap": false,
+    "multiplier": 1,
+    "_verified_on": ["obs02=0", "obs05=1030", "obs07=1370"],
+    "_note": "3/3 observations EXACTES. 2e tentative sur ce jeu -- la 1ere capture (auto, plus tot dans la nuit) n'etait probablement pas une vraie partie creditee (retour utilisateur direct : 'sur le jeu la partie ne s'etait pas declenchee malgre ton credit'). Recapture manuelle (credit reel insere par l'utilisateur), fenetre RAM auto-sondee (0x0-0x100000, 1 Mo). Format le plus simple : binaire LE plat, pas de byteSwap ni de multiplicateur necessaires."
+  },
+  "_missing": {
+    "credit": "pas encore cherche.",
+    "lives": "pas encore cherche -- barre LIFE (segments) visible a l'ecran, pas un compteur discret classique.",
+    "ingame": "pas encore cherche -- 'Push start button!' vu en alternance avec le score, bon point de depart."
+  },
+  "_status": "score CONFIRME (3/3 exact). credit/lives/ingame gate NON trouves -- recipe incomplete au sens du schema officiel RecalBox. Credit auto fbneo abandonne pour ce jeu -- capture obtenue via jeu manuel reel."
+}
