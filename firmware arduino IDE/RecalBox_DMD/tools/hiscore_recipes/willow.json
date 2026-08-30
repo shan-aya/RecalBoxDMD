@@ -12,8 +12,14 @@
     "_verified_on": ["play_02=1050", "play_04=300"],
     "_note": "2/2 observations EXACTES. Trouve via READ_CORE_RAM + swap_search.py. Score non-monotone entre les 2 observations (1050 puis 300) -- coherent avec une perte de vie/redemarrage entre les deux (P=0 puis P=1 vu sur les captures, compteur de continue)."
   },
+  "credit": {
+    "addr": "82a2",
+    "sysramOffset": "82a2",
+    "max": 0,
+    "_verified_on": ["obs06=7", "obs12=9"],
+    "_CANDIDAT_NON_CONFIRME": "2 offsets adjacents (0x82a2/0x82a3) matchent tous les 2 -- pas departage. Seulement 2 valeurs distinctes. A confirmer avant usage en production."
+  },
   "_missing": {
-    "credit": "pas encore cherche.",
     "lives": "pas encore cherche -- VITAL (barre) et 'P=N' (compteur de continue/partie) vus a l'ecran, ni l'un ni l'autre isole en RAM.",
     "ingame": "pas encore cherche."
   },
