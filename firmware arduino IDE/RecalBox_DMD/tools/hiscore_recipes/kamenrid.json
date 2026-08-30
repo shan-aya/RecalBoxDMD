@@ -16,12 +16,12 @@
     "addr": "30",
     "sysramOffset": "30",
     "max": 0,
-    "_verified_on": ["obs01=4", "obs20=3"],
-    "_CANDIDAT_NON_CONFIRME": "seulement 2 valeurs distinctes (3 et 4). A confirmer avec une 3e observation avant usage en production."
+    "_verified_on": ["session1 obs01=4", "session1 obs20=3", "session2 obs01=5", "session2 obs17=4"],
+    "_note": "CONFIRME sur 2 sessions independantes (relancees a des heures differentes), 3 valeurs distinctes (3/4/5) toutes exactes. Fiable pour usage."
   },
   "_missing": {
-    "lives": "pas encore cherche.",
+    "lives": "PAS un compteur discret pour ce jeu -- barre d'energie (E<->F) qui baisse a chaque collision, game over quand vide. Le champ 'lives' du schema officiel ne s'applique probablement pas tel quel ici (pas d'entier a chercher).",
     "ingame": "pas encore cherche -- transition GAME OVER/ecran titre observee, bon point de depart."
   },
-  "_status": "score CONFIRME (2/2 exact, multiplicateur x10). credit/lives/ingame gate NON trouves -- recipe incomplete au sens du schema officiel RecalBox. Credit auto fbneo abandonne pour ce jeu (3 motifs testes sans succes, voir DECISIONS.md 'Suite immediate 20') -- capture obtenue via jeu manuel reel (4 credits inseres par l'utilisateur)."
+  "_status": "score CONFIRME (2/2 exact, multiplicateur x10). credit CONFIRME (2 sessions independantes, 3 valeurs distinctes). lives sans objet (barre d'energie, pas un compteur entier). ingame gate NON trouve. Credit auto fbneo abandonne pour ce jeu (3 motifs testes sans succes, voir DECISIONS.md 'Suite immediate 20') -- captures obtenues via jeu manuel reel."
 }
