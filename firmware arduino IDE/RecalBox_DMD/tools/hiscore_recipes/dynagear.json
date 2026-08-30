@@ -1,0 +1,21 @@
+{
+  "roms": [{"name": "dynagear"}],
+  "system": "fbneo",
+  "score": {
+    "addr": "241",
+    "sysramOffset": "241",
+    "len": 2,
+    "format": "binary",
+    "endian": "little",
+    "byteSwap": false,
+    "multiplier": 1,
+    "_verified_on": ["obs04=4530", "obs08=10940", "obs12=25070"],
+    "_note": "3/3 observations EXACTES. Session jouee manuellement (credit reel insere par l'utilisateur), fenetre RAM auto-sondee (0x0-0x80000, 512 Ko). Format le plus simple : binaire LE plat, pas de byteSwap ni de multiplicateur necessaires. Note : un candidat proche (meme adresse, +-200) etait deja apparu lors d'un test anterieur sur une capture plus ancienne/moins propre -- confirme ici exactement avec des donnees plus propres."
+  },
+  "_missing": {
+    "credit": "pas encore cherche.",
+    "lives": "pas encore cherche -- coeurs (vies) et 'ROGER x1' (personnage/continue ?) visibles a l'ecran.",
+    "ingame": "pas encore cherche."
+  },
+  "_status": "score CONFIRME (3/3 exact). credit/lives/ingame gate NON trouves -- recipe incomplete au sens du schema officiel RecalBox. Credit auto fbneo abandonne pour ce jeu -- capture obtenue via jeu manuel reel."
+}
