@@ -12,8 +12,14 @@
     "_verified_on": ["play_02=9840", "play_04=21860"],
     "_note": "2/2 observations EXACTES. Trouve via READ_CORE_RAM + swap_search.py. Un 2e groupe d'adresses miroir (0x6684/0x6686, memes valeurs) egalement present dans le dump -- 0x4c8 retenu comme adresse primaire (la plus basse), le miroir n'est pas documente ici."
   },
+  "credit": {
+    "addr": "64ee",
+    "sysramOffset": "64ee",
+    "max": 0,
+    "_verified_on": ["obs02=2", "obs12=9"],
+    "_CANDIDAT_NON_CONFIRME": "seulement 2 valeurs distinctes. A confirmer avant usage en production."
+  },
   "_missing": {
-    "credit": "pas encore cherche.",
     "lives": "pas encore cherche -- compteur de vies visible (icone canard) mais jamais isole en RAM.",
     "ingame": "pas encore cherche."
   },
