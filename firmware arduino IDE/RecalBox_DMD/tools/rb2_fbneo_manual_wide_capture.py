@@ -3,7 +3,20 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v2
+# Version actuelle : v3
+#
+# v3 - 2026-08-30 - safe-modify - Retour utilisateur ("il faut que tu
+#   testes la RAM avant de programmer tes screenshots pour caler la
+#   taille de cette derniere") : la fenetre par defaut (0x20000) etait
+#   devinee a l'aveugle -- plusieurs jeux ce soir avaient une fenetre
+#   READ_CORE_RAM reelle bien plus grande (jusqu'a 0x100000, voir
+#   DECISIONS.md "Suite immediate 19"), jamais capturee car jamais
+#   demandee. Ajoute probe_ram_ceiling() : sonde la vraie limite juste
+#   apres detection du jeu, AVANT de commencer la boucle de capture --
+#   --dump-size devient un PLAFOND optionnel (sonde quand meme, mais ne
+#   depasse jamais la valeur donnee) plutot qu'une taille fixe imposee.
+#
+# v2 - 2026-08-29
 #
 # v2 - 2026-08-29 - safe-modify - 1er test reel (joemacr, 17 observations,
 #   3 scores lus a l'oeil 300/2000/6100) : 0 candidat trouve par
@@ -121,6 +134,24 @@ def read_ram(addr, size):
         return None
 
 
+PROBE_POINTS = (0x10000, 0x18000, 0x20000, 0x30000, 0x40000, 0x60000,
+                0x80000, 0x100000, 0x200000, 0x400000)
+
+
+def probe_ram_ceiling(cap=None):
+    """Sonde des tailles croissantes, retourne la plus grande qui repond
+    reellement -- jamais > cap si fourni, jamais > 0x400000."""
+    ok_size = 0x10000
+    for size in PROBE_POINTS:
+        if cap is not None and size > cap:
+            break
+        data = read_ram(size - 16, 16)
+        if data is None or len(data) == 0:
+            break
+        ok_size = size
+    return ok_size
+
+
 def dump_ram(path, base, size):
     data = bytearray()
     addr = base
@@ -176,12 +207,14 @@ def main():
     parser.add_argument("--interval", type=float, default=8.0,
                          help="secondes entre 2 captures (defaut 8)")
     parser.add_argument("--dump-base", default="0x0")
-    parser.add_argument("--dump-size", default="0x20000")
+    parser.add_argument("--dump-size", default=None,
+                         help="plafond optionnel (hex) -- sans cette option, la fenetre est "
+                              "sondee automatiquement juste apres le lancement du jeu")
     parser.add_argument("--wait-launch", type=int, default=120,
                          help="secondes a attendre que l'utilisateur lance le jeu (defaut 120)")
     args = parser.parse_args()
     dump_base = int(args.dump_base, 0)
-    dump_size = int(args.dump_size, 0)
+    dump_size_cap = int(args.dump_size, 0) if args.dump_size else None
 
     session_dir = os.path.join(OUT_ROOT, args.rom, now())
     os.makedirs(session_dir, exist_ok=True)
@@ -204,8 +237,11 @@ def main():
             args.rom, args.wait_launch))
         return
 
-    log(">>> '{}' detecte (pid={}), capture demarree dans {}".format(args.rom, pid, session_dir))
-    log("    dump RAM 0x{:x}-0x{:x} toutes les {}s -- AUCUNE coupure automatique,".format(
+    log(">>> '{}' detecte (pid={}) -- sondage de la vraie fenetre RAM...".format(args.rom, pid))
+    time.sleep(2)  # laisse le core finir son init avant de sonder
+    dump_size = probe_ram_ceiling(dump_size_cap)
+    log(">>> capture demarree dans {}".format(session_dir))
+    log("    dump RAM 0x{:x}-0x{:x} (fenetre sondee) toutes les {}s -- AUCUNE coupure automatique,".format(
         dump_base, dump_base + dump_size, args.interval))
     log("    s'arrete quand tu quittes le jeu, ou `touch {}`".format(stop_flag))
 
