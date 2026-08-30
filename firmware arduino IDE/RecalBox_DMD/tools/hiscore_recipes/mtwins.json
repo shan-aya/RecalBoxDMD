@@ -1,0 +1,21 @@
+{
+  "roms": [{"name": "mtwins"}],
+  "system": "fbneo",
+  "score": {
+    "addr": "1530",
+    "sysramOffset": "1530",
+    "len": 4,
+    "format": "bcd",
+    "endian": "big",
+    "byteSwap": true,
+    "multiplier": 1,
+    "_verified_on": ["play_02=840 (exact)", "play_04=400 (exact)", "after_start=420 (decode=430, ecart 10)"],
+    "_note": "2/3 observations EXACTES, 1 a +-10 (bruit residuel de capture negligeable sur une valeur a 3 chiffres, pas un signal contraire -- verifie manuellement octet par octet, cf DECISIONS.md section 19). Trouve via READ_CORE_RAM + swap_search.py."
+  },
+  "_missing": {
+    "credit": "pas encore cherche.",
+    "lives": "pas encore cherche -- barre VITAL observee a l'ecran (pas un compteur discret classique), a investiguer si un vrai champ 'vies' existe separement.",
+    "ingame": "pas encore cherche -- une sequence CONTINUE PLAY?/countdown a ete observee dans la session de reference, utile comme point de depart pour chercher ce gate."
+  },
+  "_status": "score CONFIRME (2/3 exact + 1 quasi-exact). credit/lives/ingame gate NON trouves -- recipe incomplete au sens du schema officiel RecalBox."
+}

@@ -1,0 +1,21 @@
+{
+  "roms": [{"name": "gogomile"}],
+  "system": "fbneo",
+  "score": {
+    "addr": "4c8",
+    "sysramOffset": "4c8",
+    "len": 4,
+    "format": "binary",
+    "endian": "big",
+    "byteSwap": true,
+    "multiplier": 1,
+    "_verified_on": ["play_02=9840", "play_04=21860"],
+    "_note": "2/2 observations EXACTES. Trouve via READ_CORE_RAM + swap_search.py. Un 2e groupe d'adresses miroir (0x6684/0x6686, memes valeurs) egalement present dans le dump -- 0x4c8 retenu comme adresse primaire (la plus basse), le miroir n'est pas documente ici."
+  },
+  "_missing": {
+    "credit": "pas encore cherche.",
+    "lives": "pas encore cherche -- compteur de vies visible (icone canard) mais jamais isole en RAM.",
+    "ingame": "pas encore cherche."
+  },
+  "_status": "score CONFIRME (2/2 exact). credit/lives/ingame gate NON trouves -- recipe incomplete au sens du schema officiel RecalBox."
+}

@@ -1,0 +1,21 @@
+{
+  "roms": [{"name": "pzloop2"}],
+  "system": "fbneo",
+  "score": {
+    "addr": "8508",
+    "sysramOffset": "8508",
+    "len": 4,
+    "format": "binary",
+    "endian": "big",
+    "byteSwap": true,
+    "multiplier": 1,
+    "_verified_on": ["obs04=0", "obs08=159100", "obs11=165000", "obs14=182500"],
+    "_note": "4/4 observations EXACTES (aucune tolerance necessaire). Trouve via READ_CORE_RAM (fenetre 0-0x10000, 65536 octets max lisibles pour ce driver) + swap_search.py (variante byteSwap, mathematiquement equivalente a l'algorithme officiel ScoreWatch.py::decode_score verifie par lecture directe du code source). Session reelle creditee (free play confirme, jamais 'INSERT COIN' pendant la partie observee)."
+  },
+  "_missing": {
+    "credit": "pas encore cherche -- session jouee en free play (0CREDIT(s) affiche en continu), la vraie valeur credit en RAM (creditee/non-creditee) n'a pas ete isolee.",
+    "lives": "pas encore cherche -- pas de compteur de vies distinct repere sur les captures (jeu de puzzle, pas de vies classiques observees a l'ecran).",
+    "ingame": "pas encore cherche -- gate a trouver pour distinguer une vraie partie de l'attract-mode (meme si la session de reference etait deja une vraie partie creditee)."
+  },
+  "_status": "score CONFIRME (4/4 exact). credit/lives/ingame gate NON trouves -- recipe incomplete au sens du schema officiel RecalBox (cf current.json/Blazing Star qui a systematiquement score.ingame + credit)."
+}

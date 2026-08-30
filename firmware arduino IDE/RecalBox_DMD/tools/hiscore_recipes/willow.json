@@ -1,0 +1,21 @@
+{
+  "roms": [{"name": "willow"}],
+  "system": "fbneo",
+  "score": {
+    "addr": "834a",
+    "sysramOffset": "834a",
+    "len": 4,
+    "format": "bcd",
+    "endian": "big",
+    "byteSwap": true,
+    "multiplier": 1,
+    "_verified_on": ["play_02=1050", "play_04=300"],
+    "_note": "2/2 observations EXACTES. Trouve via READ_CORE_RAM + swap_search.py. Score non-monotone entre les 2 observations (1050 puis 300) -- coherent avec une perte de vie/redemarrage entre les deux (P=0 puis P=1 vu sur les captures, compteur de continue)."
+  },
+  "_missing": {
+    "credit": "pas encore cherche.",
+    "lives": "pas encore cherche -- VITAL (barre) et 'P=N' (compteur de continue/partie) vus a l'ecran, ni l'un ni l'autre isole en RAM.",
+    "ingame": "pas encore cherche."
+  },
+  "_status": "score CONFIRME (2/2 exact). credit/lives/ingame gate NON trouves -- recipe incomplete au sens du schema officiel RecalBox."
+}
