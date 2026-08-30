@@ -12,8 +12,14 @@
     "_verified_on": ["play_02=840 (exact)", "play_04=400 (exact)", "after_start=420 (decode=430, ecart 10)"],
     "_note": "2/3 observations EXACTES, 1 a +-10 (bruit residuel de capture negligeable sur une valeur a 3 chiffres, pas un signal contraire -- verifie manuellement octet par octet, cf DECISIONS.md section 19). Trouve via READ_CORE_RAM + swap_search.py."
   },
+  "credit": {
+    "addr": "f3f",
+    "sysramOffset": "f3f",
+    "max": 0,
+    "_verified_on": ["obs04=3", "obs08=7"],
+    "_CANDIDAT_NON_CONFIRME": "seulement 2 valeurs distinctes. A confirmer avant usage en production."
+  },
   "_missing": {
-    "credit": "pas encore cherche.",
     "lives": "pas encore cherche -- barre VITAL observee a l'ecran (pas un compteur discret classique), a investiguer si un vrai champ 'vies' existe separement.",
     "ingame": "pas encore cherche -- une sequence CONTINUE PLAY?/countdown a ete observee dans la session de reference, utile comme point de depart pour chercher ce gate."
   },
