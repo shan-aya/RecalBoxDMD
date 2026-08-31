@@ -1,8 +1,51 @@
 #!/bin/ash
+# v27 -- verrou anti-relance (voir son commentaire complet plus bas, "v12")
+# deplace ICI, tout en haut du fichier, AVANT tout le reste (changelog
+# compris -- les commentaires ne coutent presque rien a l'interpreteur, mais
+# le verrou doit passer avant la MOINDRE commande executee). Cause : retour
+# utilisateur + investigation (2026-08-31, saut alphabetique rapide) --
+# EmulationStation relance ce script A CHAQUE evenement (voir commentaire
+# v5 historique plus bas), verrou deja en place pour eviter l'accumulation
+# de processus, MAIS le verrou etait verifie APRES ~440 lignes de fichier
+# (dont un premier fork+exec de `date` et une ecriture disque de trace a
+# CHAQUE invocation, meme dupliquee) -- pendant une rafale de navigation
+# soutenue (5-8 evenements/s, jusqu'a 40s observees), ça represente
+# potentiellement 150-300+ lancements-et-sorties du script, chacun avec ce
+# cout, en concurrence CPU avec EmulationStation lui-meme. Hypothese non
+# encore confirmee comme cause unique du delai observe (ES continue de
+# publier des evenements plusieurs dizaines de secondes apres l'arret visuel
+# de la navigation cote RB1, cf. DECISIONS.md/memoire projet) mais c'est le
+# mecanisme le plus concret trouve en diffant ce qui a change au meme commit
+# que le shuffle (aca6ef3, 18/08) -- absent avant. Ce fix ne resout donc pas
+# forcement le probleme a lui seul, mais reduit au strict minimum (fork+exec
+# sh, mkdir, kill -0, exit -- aucun sous-processus `date` ni ecriture disque)
+# le cout de CHAQUE invocation dupliquee, condition necessaire pour tester
+# proprement si cette piste est la bonne. Le TRACE log (diagnostic ferme du
+# chantier boot-sweep v20-v24, "fix definitif" -- voir changelog) ne
+# s'execute plus que pour l'instance qui obtient reellement le verrou.
+LOCKDIR="/tmp/marquee_singleton.lock"
+if ! mkdir "$LOCKDIR" 2>/dev/null; then
+    oldpid=$(cat "$LOCKDIR/pid" 2>/dev/null)
+    if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then
+        exit 0
+    fi
+    rmdir "$LOCKDIR" 2>/dev/null
+    if ! mkdir "$LOCKDIR" 2>/dev/null; then
+        exit 0
+    fi
+fi
+echo $$ > "$LOCKDIR/pid"
+echo "$(date '+%H:%M:%S.%N') TRACE proceeding pid=$$ ppid=$PPID arg0=$0" >> /tmp/marquee_trace.log
+LOG="/recalbox/share/system/logs/marquee_mqtt.log"
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v26
+# Version actuelle : v27
+#
+# v27 - 2026-08-31 - safe-modify - verrou anti-relance deplace tout en haut
+#   du fichier (voir commentaire complet ci-dessus) -- reduit au minimum le
+#   cout de chaque invocation dupliquee par EmulationStation pendant une
+#   rafale de navigation.
 #
 # v26 - 2026-08-31 - safe-modify - BUG REEL corrige (retour utilisateur :
 #   navigation SOUS le seuil reel de 5/s, le shuffle se declenche quand
@@ -437,39 +480,9 @@
 #   game_info (cout heap/CPU non-nul, a eviter pendant un simple defilement
 #   rapide de liste).
 
-echo "$(date '+%H:%M:%S.%N') TRACE start pid=$$ ppid=$PPID arg0=$0" >> /tmp/marquee_trace.log
-
-# v12 -- verrou anti-relance rendu ATOMIQUE (mkdir au lieu d'un fichier PID
-# check-then-write) -- BUG REEL reconfirme sur materiel (2026-08-20) : 4
-# instances simultanees de dmd_achievement.sh (meme verrou fichier PID que
-# celui-ci) trouvees vivantes en meme temps malgre le "fix" v5/v1.1 --
-# EmulationStation peut lancer plusieurs invocations dans la MEME seconde
-# (ex. rafale d'evenements au boot), et la sequence "verifier si le fichier
-# existe" PUIS "ecrire son propre PID" n'est PAS une operation atomique :
-# plusieurs instances peuvent toutes lire "pas de verrou" avant qu'aucune
-# n'ait eu le temps d'ecrire le sien. mkdir EST atomique sur ce systeme de
-# fichiers (tmpfs) -- un seul appel concurrent peut reussir, garanti par le
-# noyau, fermant la fenetre de course entierement (contrairement au fichier
-# PID simple). Verrou perime (proprietaire mort) detecte et reclame via
-# rmdir+nouveau mkdir -- si la reclamation perd elle-meme la course contre
-# une autre instance, sortie propre (comportement identique a avant).
-LOCKDIR="/tmp/marquee_singleton.lock"
-if ! mkdir "$LOCKDIR" 2>/dev/null; then
-    oldpid=$(cat "$LOCKDIR/pid" 2>/dev/null)
-    if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then
-        echo "$(date '+%H:%M:%S.%N') TRACE exit pid=$$ (oldpid=$oldpid alive)" >> /tmp/marquee_trace.log
-        exit 0
-    fi
-    rmdir "$LOCKDIR" 2>/dev/null
-    if ! mkdir "$LOCKDIR" 2>/dev/null; then
-        echo "$(date '+%H:%M:%S.%N') TRACE exit pid=$$ (course perdue a la reclamation)" >> /tmp/marquee_trace.log
-        exit 0
-    fi
-fi
-echo $$ > "$LOCKDIR/pid"
-echo "$(date '+%H:%M:%S.%N') TRACE proceeding pid=$$" >> /tmp/marquee_trace.log
-
-LOG="/recalbox/share/system/logs/marquee_mqtt.log"
+# v27 -- verrou + TRACE log qui vivaient ICI ont ete deplaces tout en haut
+# du fichier (juste apres le shebang) -- voir le commentaire complet la-bas.
+# Ne pas les reintroduire ici : LOCKDIR/LOG sont deja definis a ce stade.
 
 read_state() {
     grep "^${1}=" "/tmp/es_state.inf" 2>/dev/null | cut -d= -f2- | tr -d '\r\n '
@@ -628,7 +641,7 @@ throttled=0
 # de l'interpolation et le log affichait "seuil=/s" (vide) au lieu de
 # "seuil=10/s" -- bug constate au demarrage reel, corrige en deplacant le
 # log apres la declaration.
-echo "$(date) - Marquee bridge started (v26, fix streak !SHUFFLE perimee apres une pause de navigation, diagnostic bc/bqs ajoute sur BROWSE (compteurs internes detecteur de rafale), rundemo/startgameclip -> marquee du jeu demo/clip, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
+echo "$(date) - Marquee bridge started (v27, verrou anti-relance deplace tout en haut du fichier (cout minimal par relance dupliquee ES), fix streak !SHUFFLE perimee apres une pause de navigation, diagnostic bc/bqs ajoute sur BROWSE (compteurs internes detecteur de rafale), rundemo/startgameclip -> marquee du jeu demo/clip, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
 
 while true; do
     PREV_EVENT="$event"

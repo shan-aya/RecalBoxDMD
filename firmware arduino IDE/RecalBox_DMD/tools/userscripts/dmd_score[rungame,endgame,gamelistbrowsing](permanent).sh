@@ -1,11 +1,34 @@
 #!/bin/ash
+# v35 -- verrou anti-relance deplace ICI, tout en haut du fichier, AVANT le
+# changelog -- meme motif/meme investigation que marquee.sh v27 (voir son
+# commentaire complet) : ES relance ce script a chaque evenement
+# gamelistbrowsing (present dans son propre nom de hooks), verrou deja en
+# place mais verifie ~550 lignes plus loin -- reduit au minimum le travail
+# fait par chaque relance dupliquee pendant une rafale de navigation.
+LOCKDIR="/tmp/dmd_score_singleton.lock"
+if ! mkdir "$LOCKDIR" 2>/dev/null; then
+    oldpid=$(cat "$LOCKDIR/pid" 2>/dev/null)
+    if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then
+        exit 0
+    fi
+    rmdir "$LOCKDIR" 2>/dev/null
+    if ! mkdir "$LOCKDIR" 2>/dev/null; then
+        exit 0
+    fi
+fi
+echo $$ > "$LOCKDIR/pid"
 # Pont MQTT hiscore FBNeo + infos/description jeu -> DMD (marquee/cmd/score,
 # canal UNIQUE, architecture "DMD bete" v110 -- voir RecalBox_DMD.ino)
 #
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v34
+# Version actuelle : v35
+#
+# v35 - 2026-08-31 - safe-modify - verrou anti-relance deplace tout en haut
+#   du fichier (voir commentaire complet ci-dessus) -- reduit au minimum le
+#   cout de chaque invocation dupliquee par EmulationStation pendant une
+#   rafale de navigation. Meme investigation que marquee.sh v27.
 #
 # v34 - 2026-08-31 - safe-modify - v33 INSUFFISANT (retour utilisateur,
 #   reproduit "parfois" -- pas systematique -- meme apres v33) : le hi-score/
@@ -544,18 +567,8 @@
 # voir memoire projet "Faisabilite highscore/level DMD"). Un jeu FBNeo
 # inconnu de cette table est simplement ignore (aucune publication).
 
-LOCKDIR="/tmp/dmd_score_singleton.lock"
-if ! mkdir "$LOCKDIR" 2>/dev/null; then
-    oldpid=$(cat "$LOCKDIR/pid" 2>/dev/null)
-    if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then
-        exit 0
-    fi
-    rmdir "$LOCKDIR" 2>/dev/null
-    if ! mkdir "$LOCKDIR" 2>/dev/null; then
-        exit 0
-    fi
-fi
-echo $$ > "$LOCKDIR/pid"
+# v35 -- verrou qui vivait ICI deplace tout en haut du fichier (voir
+# commentaire complet la-bas). Ne pas le reintroduire ici.
 
 LOG="/recalbox/share/system/logs/dmd_score.log"
 SCRIPT_DIR=$(dirname "$0")
@@ -1361,7 +1374,7 @@ publish_one_panel() {
     return 1
 }
 
-echo "$(date) - DMD score bridge started (v34, fix race condition 1ere page/envoi non gardee (hiscore/desc/info) + fix race condition publish_one_panel() v33 -- revalide l'etat avant python3/envoi, startgameclip = marquee seul mais rundemo garde l'overlay complet + features_watcher valide le message avant d'ecraser le cache + hi-score generique + round-robin infini + dwell/ratios reglables)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v35, verrou anti-relance deplace tout en haut du fichier (cout minimal par relance dupliquee ES) + fix race condition 1ere page/envoi non gardee (hiscore/desc/info) + fix race condition publish_one_panel() v33 -- revalide l'etat avant python3/envoi, startgameclip = marquee seul mais rundemo garde l'overlay complet + features_watcher valide le message avant d'ecraser le cache + hi-score generique + round-robin infini + dwell/ratios reglables)" >> "$LOG"
 # Efface une session/etat perime d'un lancement precedent.
 : > "$GAME_SESSION_FILE"
 : > "$BROWSE_STATE_FILE"
