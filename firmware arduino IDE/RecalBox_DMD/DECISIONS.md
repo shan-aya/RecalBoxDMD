@@ -618,20 +618,20 @@ C'était la donnée la plus attendue depuis le début de la ronde 2 (v138, instr
 
 **Questions utilisateur traitées (même soirée)** : (1) piste matérielle (ce DMD précis) pas exclue mais peu probable — les durées `essai1`/`essai2` sont systématiquement très proches d'une valeur ronde ~10000ms (timeout logiciel probable, pas un aléa RF), RSSI toujours correct (-29 à -39 dBm) ; jamais testé sur un 2e ESP32 pour confirmer. (2) le délai `!SHUFFLE` (~24s) reste séparé et non reconfirmé après le fix v27/v35 — voir section dédiée plus bas. (3) improbable que corriger la surcharge de relance marquee.sh réduise la prévalence de CE blocage réseau : les cycles d'échec `subscribe()` tournent en boucle à rythme quasi fixe (~89s) de façon CONTINUE, y compris pendant des périodes sans aucune navigation RB1 active (observé de 19:20 à 19:41, span de 20+ minutes) — pointe vers un mécanisme autonome côté DMD, pas déclenché par la charge de navigation.
 
-**Nouvelle capture précise au niveau paquet (sniffer AF_PACKET maison, `mini_sniffer2.py`, tcpdump toujours indisponible sur RB)** — affine significativement la conclusion du 24/08 ("le broker ne reçoit RIEN") :
+**Capture précise au niveau paquet (sniffer AF_PACKET maison, `mini_sniffer2.py`, tcpdump toujours indisponible sur RB)** — 2 itérations, la 1ère contenait une fausse piste corrigée par la 2e :
 
-```
-19:46:52.328 SYN / SYN-ACK / ACK (handshake TCP OK)
-19:46:52.340 DMD->broker ACK PSH len=27 (CONNECT MQTT)
-19:46:52.340 broker->DMD CONNACK len=4
-19:46:52.549 broker RETRANSMET le MEME CONNACK (209ms plus tard -- DMD ne l'avait pas encore ACK)
-19:46:52.580 DMD->broker ACK PSH len=6  <- dernier octet jamais emis par le DMD
---- SILENCE TOTAL, 2 SENS CONFONDUS, PENDANT 23 SECONDES ---
-19:47:15.782 broker->DMD FIN (timeout keepalive broker)
-19:47:15.811 DMD ACK le FIN (mais son propre seq n'a JAMAIS avance depuis 52.580)
-```
+- **1ère capture (sans dump du contenu payload)** : semblait montrer un envoi DMD "de 6 octets" juste après le CONNACK, puis plus rien pendant 23s — interprété à tort comme un envoi MQTT PARTIEL qui se bloquerait en plein milieu.
+- **2e capture (`mini_sniffer2.py` v2, dump hex du payload ajouté) — CORRECTION** : ces "6 octets" sont en réalité du **bourrage Ethernet standard** (`payload=000000000000`, six zéros) — une trame TCP plus courte que la taille de trame minimale (60 octets) est complétée à zéro par la carte réseau, mon sniffer comptait ce padding comme du contenu applicatif. Le vrai contenu décodé (CONNECT 27 octets bien formé : `10190004...4d515454...`, MQTT v4, client "esp32-marquee" ; CONNACK 4 octets `20020000`, **rc=0, accepté**) est parfaitement propre. **Le vrai déroulé** :
 
-Le paquet de 6 octets est trop court pour un `SUBSCRIBE` MQTT complet (~24+ octets attendus pour "marquee/cmd/stop") — ressemble à un **envoi PARTIEL qui se bloque en plein milieu**, pas un blocage total dès le départ comme conclu le 24/08. Point notable supplémentaire : **zéro retransmission TCP observée côté DMD pendant les 23s** (un stack TCP standard retenterait plusieurs fois avec backoff exponentiel sur une donnée non-ACKée) -- suggère que le DMD ne pense même pas avoir de donnée en attente de renvoi, cohérent avec un blocage AU-DESSUS du TCP (bibliothèque MQTT/couche applicative) plutôt qu'un pur problème de retransmission réseau. Prochaine étape possible : décoder le contenu exact de ce paquet de 6 octets (type de trame MQTT) pour savoir précisément QUOI le DMD tentait d'envoyer au moment du blocage.
+  ```
+  20:06:08.278 DMD->broker CONNECT (27 octets, decode complet, valide)
+  20:06:08.278 broker->DMD CONNACK (rc=0, ACCEPTE)
+  20:06:08.5xx DMD ACK le CONNACK correctement (juste du padding, aucune vraie donnee)
+  --- SILENCE TOTAL, AUCUNE TENTATIVE D'ENVOI MEME PARTIELLE, PENDANT 25 SECONDES ---
+  20:06:33.757 broker->DMD FIN (timeout keepalive)
+  ```
+
+  **Conclusion révisée** : ce n'est PAS un envoi qui se bloque en cours de transmission — c'est un envoi (le premier `SUBSCRIBE`) qui **ne part JAMAIS**, alors que la connexion MQTT est établie avec succès des deux côtés (CONNACK accepté, TCP sain, ACK correctement échangés). Zéro tentative de retransmission TCP observée (cohérent : il n'y a rien en attente de renvoi puisque rien n'a été envoyé). **Recentre le suspect** : moins probable un blocage bas niveau WiFi/lwIP (qui aurait dû au moins tenter un envoi) — plus probable un blocage DANS la bibliothèque MQTT cliente elle-même (PubSubClient), qui ne parvient jamais à passer la main jusqu'à l'appel réseau sous-jacent. Prochaine piste évoquée avec l'utilisateur : remplacer PubSubClient (bloquant/minimaliste) par une bibliothèque MQTT asynchrone (`AsyncMqttClient`/`espMqttClient`) plutôt que de chercher à "remplacer le driver WiFi" (blob proprietaire Espressif, non remplaçable sur ce matériel de toute façon). Test complémentaire évoqué (pas encore fait) : reproduire le même épisode en pointant le DMD vers RB2 (192.168.0.49, Steam Deck x86, matériel/OS totalement différent) — vu que le blocage semble se produire entièrement côté DMD indépendamment du broker, ce test confirmerait probablement "c'est le DMD" plutôt que d'isoler une cause côté RB1.
 
 ## Suite même session (31/08 après-midi) — enquête délai shuffle sur saut alphabétique + marquee.sh v27/dmd_score.sh v35
 
