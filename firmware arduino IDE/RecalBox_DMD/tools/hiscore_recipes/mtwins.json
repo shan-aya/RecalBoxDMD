@@ -16,8 +16,8 @@
     "addr": "f3f",
     "sysramOffset": "f3f",
     "max": 0,
-    "_verified_on": ["obs04=3", "obs08=7"],
-    "_CANDIDAT_NON_CONFIRME": "seulement 2 valeurs distinctes. A confirmer avant usage en production."
+    "_verified_on": ["obs04=3 (session1)", "obs08=7 (session1)", "obs04=2 (session2, verification independante)"],
+    "_status": "CONFIRME -- 3 observations independantes exactes, dont une session separee (2026-08-30 22h)."
   },
   "_missing": {
     "lives": "pas encore cherche -- barre VITAL observee a l'ecran (pas un compteur discret classique), a investiguer si un vrai champ 'vies' existe separement.",
