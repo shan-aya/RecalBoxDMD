@@ -878,3 +878,24 @@ Outil dédié écrit (`ingame_search.py`, PAS committé — reste à porter dans
 **Observation utilisateur en direct (`kamenrid`, mode attract regardé physiquement)** : la démo attract-mode est nettement plus courte qu'une vraie partie et joue à 2 joueurs (IA vs IA), contrairement à une partie réelle 1 joueur — piste potentielle (un champ "nombre de joueurs actifs" pourrait servir de proxy indirect) mais pas encore exploitée pour identifier une adresse précise.
 
 **Décision actée** : `ingame` mis de côté pour cette session — la méthode de diff brute ne suffit pas seule, il faudrait soit une méthode plus ciblée (comparer specifiquement autour des adresses `credit`/`score` déjà confirmées, qui sont probablement dans la même région mémoire que le gate), soit s'appuyer sur un détail d'affichage distinctif à identifier au cas par cas par observation directe. **`score` (9/9 jeux) et `credit` (8/9, candidats à confirmer) restent le livrable solide de cette nuit.**
+
+### Suite (même nuit, fin de session) — validation croisée de 2 candidats credit, accès RB2 perdu ensuite
+
+Sur demande utilisateur ("valider les candidats credit"), 2 jeux revérifiés avec une **session de jeu complètement séparée** (nouveau lancement, nouvelles observations, aucune donnée réutilisée de la session initiale) :
+
+- **`mtwins` (`0xf3f`) : CONFIRMÉ** — 3e observation indépendante exacte (`CREDIT 2` → `02` en RAM, aucun écart).
+- **`kamenrid` (`0x30`) : CONFIRMÉ** — 2 observations supplémentaires indépendantes exactes (`CREDIT 5`→`05`, `CREDIT 4`→`04`), 4 valeurs distinctes au total (3/4/5) toutes exactes sur 2 sessions.
+- **`kamenrid.lives` clarifié comme SANS OBJET** : observation utilisateur en jeu — pas de compteur de vies discret, une barre d'énergie (E↔F) baisse à chaque collision jusqu'au game over. Le champ `lives` du schéma officiel ne s'applique probablement pas tel quel à ce jeu (rien à chercher comme entier).
+
+**Accès RB2 perdu en cours de session** ("je n'ai plus accès à RB2 pour jouer") — plus de nouvelle capture possible pour l'instant. **État final de la nuit, tout committé** :
+
+| Statut | Jeux |
+|---|---|
+| score CONFIRMÉ + credit CONFIRMÉ (≥3 obs indépendantes) | `mtwins`, `kamenrid` |
+| score CONFIRMÉ + credit candidat (2 obs seulement, non revérifié) | `willow`, `gogomile`, `dynagear`, `jjsquawk`, `nemo`, `inthunt` |
+| score CONFIRMÉ, pas de credit pertinent | `pzloop2` (free play) |
+| score introuvable malgré fenêtre complète + multiplicateur | `msgogo`, `progear` |
+| `lives`/`ingame` | explorés (outils `ingame_search.py` écrit), non aboutis pour aucun jeu — à reprendre |
+| Hors périmètre | `joemacr` (pas d'entrée hiscore.dat), `gbusters`/`osman` (RAM illisible), `tbyahhoo`/`whoopee` (rom absente) |
+
+**Prochaine session** : revalider les 6 credits candidats restants (même méthode : relancer, nouvelle session, comparer à l'adresse déjà trouvée plutôt que de rechercher à l'aveugle — c'est rapide, `check_hiscore_offset.py` suffit, pas besoin de refaire tourner `swap_search.py`) ; reprendre `lives` avec des sessions où le joueur perd délibérément une vie/vaisseau (pas juste insère des crédits) ; reprendre `ingame` avec une méthode plus ciblée.
