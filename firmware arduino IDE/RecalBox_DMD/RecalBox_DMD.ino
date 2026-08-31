@@ -1,7 +1,80 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v136
+// Version actuelle : v139
+//
+// v139 - 2026-09-01 - safe-modify - RESULTAT DECISIF ronde 2 (voir v138 +
+//   DECISIONS.md) : heartbeat CPU0 confirme hb reel~=hb attendu pendant un
+//   subscribe() bloque -- CPU0 PAS affame, vrai blocage bas niveau. Sniffer
+//   paquet maison (mini_sniffer2.py, tcpdump indisponible sur RB) localise
+//   PRECISEMENT le blocage : CONNECT/CONNACK(rc=0) s'echangent parfaitement,
+//   puis le DMD n'emet plus RIEN (pas meme un envoi partiel) pendant ~9-10s
+//   -- le 1er SUBSCRIBE ne part jamais. Cause trouvee en lisant le code
+//   source du coeur Arduino-ESP32 (NetworkClient.cpp, PubSubClient::write()
+//   -> _client->write() -> NetworkClient::write()) : boucle de RETRY interne
+//   au coeur, WIFI_CLIENT_MAX_WRITE_RETRY=10 x WIFI_CLIENT_SELECT_TIMEOUT_US
+//   =1000000 (1s) = jusqu'a 10s d'attente via select() AVANT le moindre appel
+//   send() si le socket ne devient jamais "ecrit-pret" -- correspond
+//   EXACTEMENT aux essai1=8.7-10s/essai2=9.9-10s mesures. Ces constantes sont
+//   des #define en dur dans un .cpp du coeur (pas overridable depuis ce
+//   fichier). Fix : mqttSubscribeFast() -- construit et envoie le paquet
+//   MQTT SUBSCRIBE (meme format que PubSubClient::subscribe(), QoS1) via un
+//   send()/select() MAISON sur le fd brut de wifiClientMqtt, budget
+//   BEAUCOUP plus court (3 essais x 300ms = 900ms max au lieu de 10s) --
+//   remplace les 2 appels mqttClient.subscribe() dans subscribeChecked().
+//   N'ecrit dans AUCUN etat interne de PubSubClient (compteur de paquet ID
+//   independant) -- le broker traite un SUBSCRIBE bien forme identiquement
+//   quel que soit qui l'a construit, aucune raison que la reception cote
+//   broker s'en trouve affectee. Objectif : si le socket est reellement
+//   bloque, echouer en <1s au lieu de 10s -- le cycle actuel de ~89s/echec
+//   contient jusqu'a ~20-30s de blocage pur dans ces 2 appels, ce fix ne
+//   resout pas la cause racine (toujours inconnue, probablement un etat
+//   lwIP/socket interne au driver ESP-IDF, potentiellement declenche par le
+//   CONNACK retransmis observe juste avant chaque episode) mais devrait
+//   accelerer tres nettement la detection d'echec et donc la reconnexion.
+//   PAS ENCORE TESTE SUR MATERIEL au moment de cet ecrit.
+//
+// v138 - 2026-08-26 - safe-modify - Heartbeat CPU0 (diagnostic bissection
+//   MQTT round 2, voir DECISIONS.md) : v137 teste sur materiel (RB1 frais,
+//   scripts head v25/v33) -- resultat NEGATIF, echec subscribe() reproduit
+//   des t=~100s, heap HAUT (7016-9104 libres) pendant les echecs -- infirme
+//   l'hypothese heap comme cause de ce mecanisme precis. Nouvelle tache
+//   FreeRTOS independante (heartbeatTask(), coeur 0 = meme coeur que
+//   loop(), tick toutes les 20ms) pour trancher : le CPU0 est-il vraiment
+//   bloque en syscall reseau pendant les ~9-10s de subscribe(), ou juste
+//   affame/preempte par autre chose (rendu GIF, lecture SD/SPI deja connue
+//   bloquante) pendant ce temps ? Le SUBDIAG existant (v129-136) mesure le
+//   temps ecoule AUTOUR de l'appel, pas le temps reellement passe dans le
+//   blocage lui-meme -- ne peut pas distinguer les 2 hypotheses. Compteur
+//   echantillonne avant/apres chaque tentative dans subscribeChecked(),
+//   logue en "hb=<ticks reels>/<ticks attendus>" sur les 3 branches (OK 1er
+//   essai, OK retry, ECHEC final). Note : une contention mqttTask-vs-loop()
+//   sur le meme coeur avait deja ete testee une fois (v107, 18/08, deplace
+//   mqttTask() entier vers le coeur 1) -- resultat REFUTE a l'epoque (meme
+//   signature de tempete), mais ce test grossier ne mesurait pas
+//   directement si CPU0 stallait au moment precis d'un subscribe() -- ce
+//   heartbeat le mesure enfin, directement. NON ENCORE TESTE SUR MATERIEL
+//   au moment de cet ecrit.
+//
+// v137 - 2026-08-26 - safe-modify - Reduction heap sysCachePerLetterVals
+//   (piste trouvee en bissection MQTT round 2, voir DECISIONS.md) : cette
+//   allocation (ajoutee en v124 "bucket", d7e5c34) coutait 8100 octets
+//   permanents (BUCKET_COUNT=27 x SYS_CACHE_MAX=300), dimensionnee sur le
+//   MEME plafond que sysCacheKeys/Vals/SlowVals alors que ces 3 tableaux
+//   servent a TOUT systeme connu (jusqu'a 300, marge large et deja
+//   necessaire) tandis que sysCachePerLetterVals ne sert QUE le detail
+//   optionnel par bucket -- un systeme au-dela du nouveau plafond degrade
+//   simplement vers le flag agrege par systeme (repli deja existant et
+//   deja teste, aucune regression fonctionnelle). Nouveau plafond dedie
+//   BUCKET_CACHE_MAX=96 (tres large pour le nombre reel de systemes
+//   RecalBox, tout en coupant l'allocation a 2592 octets, -5508 vs avant).
+//   TESTE SUR MATERIEL (RB1 frais, 26/08) : resultat NEGATIF -- echec
+//   subscribe() reproduit des t=~100s de navigation reelle, cascade en
+//   deconnexion forcee, HEAP HAUT (7016-9104 libres) pendant tous les
+//   echecs -- infirme directement l'hypothese heap pour ce mecanisme
+//   precis (voir DECISIONS.md pour le detail complet). Le patch reste une
+//   amelioration heap legitime en soi (aucune regression fonctionnelle
+//   constatee) mais n'est plus un candidat-fix pour le bug principal.
 //
 // v136 - 2026-08-24 - safe-modify - DIAGNOSTIC suite (retour utilisateur :
 //   motif reproduit en boucle fiable ~30-90s sous v135 -- 10 cycles
@@ -2314,6 +2387,8 @@ typedef uint8_t BitOrder; // Workaround: Adafruit_BusIO attend BitOrder (AVR) ma
 #include "nvs_flash.h"
 #include "ff.h" // Partie C (plan cache_master_gifs) -- f_getlabel()/f_setlabel(), renommage etiquette volume SD au boot
 #include "clock_themes.h"
+#include <lwip/sockets.h> // v139 -- select()/send() bas niveau pour mqttSubscribeFast()
+#include <errno.h> // v139 -- EAGAIN/EWOULDBLOCK
 
 // Declarations anticipees: web_config.h (inclus juste apres) utilise ces
 // symboles avant leur definition/textuelle plus bas dans ce .ino -- l'auto-
@@ -2420,8 +2495,14 @@ char sysDefaultSlowFlag(const String &sysName)
 // sysCacheSlowVals[i] dans sysBucketSlowFlag()). Ordre des colonnes =
 // BUCKET_LETTERS.
 #define BUCKET_COUNT 27
+// v137 -- plafond DEDIE, plus petit que SYS_CACHE_MAX (voir changelog
+// v137 ci-dessus) : sysCachePerLetterVals ne sert que le detail optionnel
+// par bucket, avec repli deja existant sur le flag agrege par systeme
+// pour tout indice i >= BUCKET_CACHE_MAX. 96 reste tres large pour le
+// nombre reel de systemes RecalBox.
+#define BUCKET_CACHE_MAX 96
 static const char BUCKET_LETTERS[] = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ"; // doit rester synchro avec LETTERS (RecalBoxDMD_tool.py)
-static char (*sysCachePerLetterVals)[BUCKET_COUNT] = nullptr; // SYS_CACHE_MAX x 27 (heap)
+static char (*sysCachePerLetterVals)[BUCKET_COUNT] = nullptr; // BUCKET_CACHE_MAX x 27 (heap)
 
 // 1ere lettre du nom de fichier (avec ou sans extension, seul le 1er
 // caractere compte), majuscule, '#' si non-alpha/vide -- factorise la
@@ -2448,7 +2529,11 @@ char sysBucketSlowFlag(const String &sysName, char bucketLetter)
   {
     if (sysName == sysCacheKeys[i])
     {
-      if (sysCachePerLetterVals)
+      // v137 -- borne sur BUCKET_CACHE_MAX (< SYS_CACHE_MAX desormais) :
+      // un systeme dont l'indice depasse ce plafond dedie n'a jamais eu de
+      // donnee par bucket ecrite pour lui (voir loadSysDefaultCache()) --
+      // repli normal et attendu sur le flag agrege, pas une erreur.
+      if (sysCachePerLetterVals && i < BUCKET_CACHE_MAX)
       {
         const char *p = strchr(BUCKET_LETTERS, bucketLetter);
         if (p)
@@ -2519,7 +2604,8 @@ bool loadSysDefaultCache()
     // (un octet isole invalide/corrompu ne casse que ce bucket-la, pas
     // toute la ligne) -- robuste a un 4e champ absent (ancien firmware/
     // ancien fichier), tronque ou corrompu.
-    if (sysCachePerLetterVals)
+    // v137 -- meme borne BUCKET_CACHE_MAX qu'a la lecture (sysBucketSlowFlag).
+    if (sysCachePerLetterVals && sysCacheCount < BUCKET_CACHE_MAX)
     {
       memset(sysCachePerLetterVals[sysCacheCount], '?', BUCKET_COUNT);
       if (bucketStr.length() == BUCKET_COUNT)
@@ -2649,7 +2735,8 @@ void buildSysDefaultCache()
       // bucket bidon au lieu de retomber correctement sur le flag systeme
       // agrege ci-dessus. Sentinel '?' explicite = meme comportement que
       // loadSysDefaultCache() sur une ligne a 3 champs (repli garanti).
-      if (sysCachePerLetterVals) memset(sysCachePerLetterVals[sysCacheCount], '?', BUCKET_COUNT);
+      // v137 -- meme borne BUCKET_CACHE_MAX que loadSysDefaultCache()/sysBucketSlowFlag().
+      if (sysCachePerLetterVals && sysCacheCount < BUCKET_CACHE_MAX) memset(sysCachePerLetterVals[sysCacheCount], '?', BUCKET_COUNT);
       sysCacheCount++;
     }
     entry.close();
@@ -3404,6 +3491,80 @@ WiFiClient   wifiClientMqtt;
 PubSubClient mqttClient(wifiClientMqtt);
 String       lastSysName = "";
 String       displayedMaskSysName = "";
+
+// v139 -- voir changelog v139 en entete pour le contexte complet. Contourne
+// NetworkClient::write() (coeur Arduino-ESP32, NetworkClient.cpp) qui peut
+// bloquer jusqu'a WIFI_CLIENT_MAX_WRITE_RETRY(10) x
+// WIFI_CLIENT_SELECT_TIMEOUT_US(1s) = 10s via sa propre boucle select()
+// interne AVANT le moindre send() si le socket ne devient jamais
+// "ecrit-pret" -- constantes en dur dans un .cpp du coeur, non overridables
+// depuis ce fichier. Reconstruit le MEME paquet MQTT SUBSCRIBE que
+// PubSubClient::subscribe() (fixe header type=8/QoS1 + ID paquet 2 octets +
+// longueur topic 2 octets + topic + octet QoS), envoye via send()/select()
+// MAISON avec un budget BEAUCOUP plus court. Compteur d'ID de paquet
+// INDEPENDANT de celui de PubSubClient (this->nextMsgId est prive,
+// inaccessible) -- sans consequence, le broker ne fait aucun lien entre nos
+// souscriptions et les eventuels PUBLISH/PUBACK QoS>0 de PubSubClient sur ce
+// firmware (aucun publish QoS>0 fait par ce DMD).
+static uint16_t g_fastSubMsgId = 1;
+
+// Sonde ecrit-pret avec budget COURT (ms), remplace l'attente 1s x 10
+// essais du coeur par une seule fenetre select() configurable.
+static bool socketWritableQuick(int fd, uint32_t timeoutMs)
+{
+  if (fd < 0) return false;
+  fd_set set;
+  struct timeval tv;
+  FD_ZERO(&set);
+  FD_SET(fd, &set);
+  tv.tv_sec = timeoutMs / 1000;
+  tv.tv_usec = (timeoutMs % 1000) * 1000;
+  int rc = select(fd + 1, NULL, &set, NULL, &tv);
+  return (rc > 0 && FD_ISSET(fd, &set));
+}
+
+// Retourne true si le paquet SUBSCRIBE complet a ete envoye (send() a
+// accepte tous les octets) -- ne garantit PAS la reception du SUBACK (comme
+// PubSubClient::subscribe() lui-meme, qui ne l'attend pas non plus). $qos
+// attendu 0 ou 1 (meme limite que PubSubClient).
+bool mqttSubscribeFast(WiFiClient &client, const char *topic, uint8_t qos, uint32_t perAttemptMs, uint8_t maxAttempts)
+{
+  int fd = client.fd();
+  if (fd < 0 || topic == nullptr) return false;
+  size_t topicLen = strlen(topic);
+  if (topicLen == 0 || topicLen > 250) return false; // marge large, largeur remaining-length 1 octet suffisante
+
+  // Variable header (ID paquet, QoS1 impose par le protocole pour un
+  // SUBSCRIBE meme si $qos demande=0, meme convention que PubSubClient::
+  // subscribe() -- MQTTSUBSCRIBE|MQTTQOS1 code en dur cote appelant) +
+  // payload (longueur topic 2 octets + topic + 1 octet qos).
+  uint16_t msgId = g_fastSubMsgId++;
+  if (g_fastSubMsgId == 0) g_fastSubMsgId = 1;
+
+  uint8_t remLen = (uint8_t)(2 + 2 + topicLen + 1); // < 128, pas besoin du codage multi-octets
+  uint8_t buf[8 + 256];
+  size_t pos = 0;
+  buf[pos++] = 0x82; // type=8 (SUBSCRIBE), flags=0010 (QoS1 obligatoire)
+  buf[pos++] = remLen;
+  buf[pos++] = (uint8_t)(msgId >> 8);
+  buf[pos++] = (uint8_t)(msgId & 0xFF);
+  buf[pos++] = (uint8_t)(topicLen >> 8);
+  buf[pos++] = (uint8_t)(topicLen & 0xFF);
+  memcpy(buf + pos, topic, topicLen);
+  pos += topicLen;
+  buf[pos++] = qos;
+
+  size_t sent = 0;
+  for (uint8_t attempt = 0; attempt < maxAttempts && sent < pos; attempt++)
+  {
+    if (!socketWritableQuick(fd, perAttemptMs)) continue; // pas ecrit-pret cette fenetre, on retente (budget court)
+    int res = send(fd, buf + sent, pos - sent, MSG_DONTWAIT);
+    if (res > 0) sent += (size_t)res;
+    else if (res < 0 && errno != EAGAIN && errno != EWOULDBLOCK) break; // socket vraiment casse, inutile d'insister
+  }
+  return sent == pos;
+}
+
 
 struct MqttCommand
 {
@@ -6605,6 +6766,41 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
 }
 
 // --------------------------------------------------
+// v137 -- Heartbeat CPU0 (diagnostic bissection round 2, voir DECISIONS.md)
+// --------------------------------------------------
+// Instrument pour trancher entre 2 hypotheses jamais distinguees jusqu'ici
+// pour le blocage subscribe() ~9-10s (WiFi/RSSI/heap tous sains a chaque
+// fois, cote broker confirme ne rien recevoir du DMD) :
+//   (a) un vrai blocage bas niveau (syscall socket/lwIP) pendant l'appel
+//   (b) la tache qui appelle subscribe() n'a simplement pas la main
+//       pendant ~9-10s (CPU0 accapare par autre chose -- rendu GIF,
+//       lecture SD/SPI deja documentee comme bloquante ailleurs) -- le
+//       SUBDIAG existant mesure le temps ecoule AUTOUR de tout l'appel,
+//       pas le temps reellement passe dans le syscall bloquant lui-meme,
+//       donc ne peut pas distinguer (a) de (b).
+// Tache independante, tres legere, epinglee sur le MEME coeur que loop()
+// (LoopCore=0) : incremente un compteur toutes les ~20ms. Si ce compteur
+// continue d'avancer normalement pendant un subscribe() bloque -> (a),
+// vrai blocage reseau. S'il se fige lui aussi -> (b), famine CPU0, piste
+// a rediriger vers le rendu/SD plutot que MQTT/lwIP. Note : une
+// contention mqttTask-vs-loop() sur le meme coeur a deja ete testee une
+// fois (v107, 18/08) en deplacant mqttTask() entier vers le coeur 1 --
+// resultat REFUTE (meme signature de tempete observee), mais ce test
+// grossier ne mesurait pas directement si CPU0 stallait reellement au
+// moment precis d'un subscribe() -- ce heartbeat le mesure enfin.
+static volatile uint32_t g_heartbeatCounter = 0;
+
+static void heartbeatTask(void *param)
+{
+  (void)param;
+  for (;;)
+  {
+    g_heartbeatCounter++;
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+
+// --------------------------------------------------
 // MQTT task
 // --------------------------------------------------
 void mqttTask(void *param)
@@ -6783,12 +6979,23 @@ void mqttTask(void *param)
           bool preRawSocket = wifiClientMqtt.connected();
           wl_status_t preWifiStatus = WiFi.status();
           int32_t preRssi = WiFi.RSSI();
+          // v137 -- heartbeat CPU0 (voir commentaire pres de sa declaration) :
+          // echantillonne avant/apres chaque tentative, log en tick attendus
+          // vs reels pour reperer une famine de tache sans faire le calcul a
+          // la main a chaque fois (20ms/tick).
+          uint32_t hb0 = g_heartbeatCounter;
           unsigned long t0 = millis();
-          bool ok1 = mqttClient.subscribe(topic);
+          // v139 -- mqttSubscribeFast() remplace mqttClient.subscribe()
+          // (voir son commentaire complet + changelog v139) : meme paquet
+          // MQTT envoye, mais budget d'attente 900ms max (3x300ms) au lieu
+          // de jusqu'a 10s via la boucle select() interne du coeur ESP32.
+          bool ok1 = mqttSubscribeFast(wifiClientMqtt, topic, 0, 300, 3);
           unsigned long t1 = millis();
+          uint32_t hb1 = g_heartbeatCounter;
           if (ok1)
           {
-            Serial.println("[SUBDIAG] " + String(topic) + " OK 1er essai (" + String(t1 - t0) + "ms) preConnected=" + String(preConnected));
+            Serial.println("[SUBDIAG] " + String(topic) + " OK 1er essai (" + String(t1 - t0) + "ms) preConnected=" + String(preConnected)
+                           + " hb=" + String(hb1 - hb0) + "/" + String((t1 - t0) / 20));
             return;
           }
           // v136 -- meme sonde juste apres l'echec du 1er essai (bloquant
@@ -6798,18 +7005,28 @@ void mqttTask(void *param)
           wl_status_t postWifiStatus1 = WiFi.status();
           delay(50);
           bool preConnected2 = mqttClient.connected();
+          uint32_t hb2 = g_heartbeatCounter;
           unsigned long t2 = millis();
-          bool ok2 = mqttClient.subscribe(topic);
+          bool ok2 = mqttSubscribeFast(wifiClientMqtt, topic, 0, 300, 3); // v139, voir 1er essai
           unsigned long t3 = millis();
+          uint32_t hb3 = g_heartbeatCounter;
           if (ok2)
           {
-            Serial.println("[SUBDIAG] " + String(topic) + " OK retry (essai1=" + String(t1 - t0) + "ms, essai2=" + String(t3 - t2) + "ms) preConnected=" + String(preConnected) + "/" + String(preConnected2));
+            Serial.println("[SUBDIAG] " + String(topic) + " OK retry (essai1=" + String(t1 - t0) + "ms, essai2=" + String(t3 - t2) + "ms) preConnected=" + String(preConnected) + "/" + String(preConnected2)
+                           + " hb=" + String(hb1 - hb0) + "/" + String((t1 - t0) / 20) + "," + String(hb3 - hb2) + "/" + String((t3 - t2) / 20));
             return;
           }
+          // v137 -- hb=<reel1>/<attendu1>,<reel2>/<attendu2> : si <reel> est
+          // proche de <attendu> pendant les 2 blocages -> CPU0 tournait
+          // normalement, vrai blocage bas niveau (a). Si <reel> s'effondre
+          // (proche de 0) alors que <attendu> est ~450-500 (9-10s/20ms) ->
+          // CPU0 affame par autre chose au meme moment (b), piste a rediriger
+          // vers le rendu/SD plutot que MQTT/lwIP.
           Serial.println("[MQTT] subscribe ECHEC (apres 1 retry) -> " + String(topic)
                          + " [SUBDIAG essai1=" + String(t1 - t0) + "ms essai2=" + String(t3 - t2)
                          + "ms preConnected=" + String(preConnected) + "/" + String(preConnected2)
                          + " postConnected=" + String(mqttClient.connected())
+                         + " hb=" + String(hb1 - hb0) + "/" + String((t1 - t0) / 20) + "," + String(hb3 - hb2) + "/" + String((t3 - t2) / 20)
                          // v136 -- socket brut (avant essai1 / apres essai1 / final), etat
                          // radio (avant essai1 / final), RSSI (avant essai1 / final), heap
                          // libre au moment de l'echec definitif.
@@ -7898,6 +8115,11 @@ void setup()
   brownout_ll_reset_config(false, 0, BROWNOUT_RESET_LEVEL_CHIP);
   Serial.begin(115200); delay(1000);
 
+  // v137 -- heartbeat CPU0, demarre le plus tot possible (voir commentaire
+  // pres de heartbeatTask()) pour couvrir toute la sequence de boot, y
+  // compris les tout premiers subscribe() juste apres connect().
+  xTaskCreatePinnedToCore(heartbeatTask, "heartbeat", 1536, nullptr, 1, nullptr, 0);
+
   // v99 -- BUG REEL confirme sur materiel (hash ELF verifie + addr2line,
   // reproduit 2x d'affilee) : crash COMPLETEMENT DIFFERENT de tous les autres
   // de cette session -- pas dans notre code du tout, mais DANS le driver
@@ -7981,7 +8203,9 @@ void setup()
     sysCacheKeys = (char (*)[32])malloc(sizeof(char[32]) * SYS_CACHE_MAX);
     sysCacheVals = (char*)malloc(SYS_CACHE_MAX);
     sysCacheSlowVals = (char*)malloc(SYS_CACHE_MAX);
-    sysCachePerLetterVals = (char (*)[BUCKET_COUNT])malloc(sizeof(char[BUCKET_COUNT]) * SYS_CACHE_MAX);
+    // v137 -- BUCKET_CACHE_MAX (< SYS_CACHE_MAX) : 2592 octets au lieu de
+    // 8100, voir changelog v137 en tete de fichier.
+    sysCachePerLetterVals = (char (*)[BUCKET_COUNT])malloc(sizeof(char[BUCKET_COUNT]) * BUCKET_CACHE_MAX);
     gamesIdx = (GamesSysIdx*)malloc(sizeof(GamesSysIdx) * GAMES_IDX_MAX);
   }
 
