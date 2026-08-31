@@ -582,6 +582,24 @@ Reprise sur `HANDOFF_SESSION_2026-08-26.md`. RB1 éteinte au démarrage de la se
 
 **Validation matériel** : les 2 daemons tournent en v26/v34 sans erreur de syntaxe (`sh -n` propre côté RB1) ni régression sur ~5min de navigation réelle (burst réel déclenché et retombé proprement, hi-score publié correctement sur 2 jeux distincts `1941`/`19xx`). La fenêtre de course exacte (hi-score v34) n'a pas été délibérément forcée en direct pendant ce test — cohérent avec son caractère "pas systématique", le fix reste validé par relecture de code plutôt que par répétition en conditions réelles. **Non commité à la fin de cette étape** (voir suite immédiate pour le commit).
 
+## RÉSULTAT DÉCISIF ronde 2 (31/08 soir) — heartbeat CPU0 confirme un vrai blocage réseau bas niveau, PAS une famine CPU
+
+C'était la donnée la plus attendue depuis le début de la ronde 2 (v138, instrumentation ajoutée le 25-26/08, jamais capturée avant la coupure/`/clear`). Capturée en tâche de fond pendant que l'utilisateur testait le délai shuffle (sujet séparé, voir section suivante) :
+
+```
+19:21:59.292 [MQTT] subscribe ECHEC -> marquee/cmd/stop
+  [SUBDIAG essai1=8729ms essai2=9948ms preConnected=1/1 postConnected=1
+   hb=436/436,497/497 rawSocket=1/1/1 heap=7848]
+```
+
+**`hb` réel ≈ `hb` attendu** (436 ticks × 20ms = 8720ms ≈ 8729ms mesurés ; 497×20ms=9940ms ≈ 9948ms) — le heartbeat CPU0 n'a JAMAIS décroché pendant que `subscribe()` était bloqué ~9-10s après un `connect()` pourtant réussi (`preConnected=1/1`).
+
+**Conclusion actée selon le critère posé avant la coupure** : hb réel ≈ hb attendu → **vrai blocage bas niveau socket/lwIP/pilote WiFi ESP-IDF**, PAS une famine CPU0 (qui aurait fait s'effondrer le compteur vers 0 pendant que le temps réel continuait). **La piste heap/CPU-starvation est définitivement écartée** pour ce mécanisme précis de blocage `subscribe()`. Cohérent avec la conclusion déjà actée sur `d7e5c34`/v137 (heap infirmé) — les deux pistes pointent maintenant dans la même direction : le problème est réseau/pilote, pas applicatif.
+
+**Contexte du cycle observé** : connect() réussi (19:21:40) → `subscribe(marquee/cmd/stop)` bloque ~8.7s puis échoue → retry bloque ~10s puis échoue → `subscribe(marquee/cmd/default)` bloque encore ~10s (connexion meurt pendant ce 2e essai, `postConnected=0`) → `subscribe(marquee/cmd/system)` échoue instantanément (`preConnected=0`, déjà mort) → "3 subscribe() en echec" → déconnexion forcée, recul 60s. Cycle complet ~89s. **Cycle consécutif #134 observé** — ce n'est pas un épisode isolé, c'est un pattern permanent qui tourne en boucle depuis des heures en tâche de fond.
+
+**Prochaine étape actée** : la piste heap/CPU étant fermée, l'investigation doit se réorienter vers le niveau lwIP/socket/pilote WiFi ESP-IDF lui-même (hors de portée d'un fix rapide côté code applicatif) — sujet déjà noté comme "hors portée d'une correction rapide" lors de la découverte du symptôme original (24/08, voir plus haut) ; ce résultat confirme cette évaluation plutôt que d'ouvrir une nouvelle piste actionnable immédiatement. `WiFi.setSleep(false)` déjà présent dans le firmware reste insuffisant pour une raison encore non identifiée.
+
 ## Suite même session (31/08 après-midi) — enquête délai shuffle sur saut alphabétique + marquee.sh v27/dmd_score.sh v35
 
 Retour utilisateur en cours de session (RB1 rallumée) : lors d'une navigation rapide par saut alphabétique, le `!SHUFFLE` reste affiché "très (trop) long" avant de montrer le jeu où la navigation s'arrête. Investigation multi-étapes (voir aussi le fil complet dans la conversation) :
