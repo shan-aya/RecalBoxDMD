@@ -566,6 +566,22 @@ Réutilisation de la session RAM déjà capturée (`inthunt`, partie pilotée av
 - **`continue`** : le compteur "CONTINUE N" vu à l'écran est un décompte de temps (timer d'affichage de l'écran continue), pas un compteur de continues restants/utilisés — **conclusion révisée section 12** : pas besoin d'adresse dédiée, `credit_current` déjà trouvé ici EST le bon champ (mécanisme officiel RecalBox confirmé).
 - **Statut** : `inthunt` est le 1er jeu "complet" au sens demandé (score+vies+crédit, tous vérifiés) — prêt à servir de base pour le retour au créateur RB quand demandé.
 
+## BUG TROUVÉ, PAS ENCORE CORRIGÉ — angle mort du filet de sécurité "retour playlist" (31/08 soir)
+
+Retour utilisateur en observant le DMD en direct pendant l'épisode réseau en cours : reste bloqué à boucler sur le même marquee au lieu de retomber en playlist, alors que la connexion MQTT est clairement en difficulté depuis un moment.
+
+**Cause identifiée dans le code** (`RecalBox_DMD.ino`) : le filet de sécurité existant (`MQTT_OFFLINE_FALLBACK_MS = 60000`, repli en playlist après 60s sans connexion fonctionnelle) mesure le temps depuis le dernier `mqttClient.connect()` **réussi**, pas depuis la dernière session réellement utile :
+
+```cpp
+if(mqttClient.connect(MQTT_CLIENT)) {
+  lastMqttConnectedMs = millis();   // reset ICI, avant meme le 1er subscribe()
+  ...
+```
+
+Le check `(now-lastMqttConnectedMs)>=MQTT_OFFLINE_FALLBACK_MS` vit dans la branche `else` (connect() ÉCHOUÉ) — jamais atteinte dans le pattern actuel où `connect()` réussit systématiquement à chaque cycle (~89s), même si les `subscribe()` qui suivent échouent tous. Résultat : le chrono de 60s se remet à zéro à chaque connexion réussie, sans jamais atteindre son seuil, alors que le DMD ne reçoit plus aucune commande utile depuis potentiellement des heures. **Angle mort probablement absent au moment où ce mécanisme a été conçu** (avant que ce pattern précis "connect OK mais subscribe qui échoue en boucle" soit identifié, voir ronde 2 ci-dessous).
+
+**Statut** : bug réel confirmé par lecture de code, PAS CORRIGÉ — mis de côté à la demande explicite de l'utilisateur pour continuer l'investigation réseau en cours, à traiter dans une prochaine session (même statut que le bug `!SHUFFLE`/délai de saut alphabétique, voir plus bas). Piste de fix évidente pour plus tard : mesurer plutôt le temps depuis le dernier `subscribe()` réussi (ou depuis la dernière commande MQTT effectivement reçue), pas depuis le dernier `connect()`.
+
 ## Reprise après /clear (2026-08-31) — fix !SHUFFLE périmé (v26) + fix race condition hi-score/desc/info résiduelle (v34)
 
 Reprise sur `HANDOFF_SESSION_2026-08-26.md`. RB1 éteinte au démarrage de la session (redémarrée par l'utilisateur en cours de route, ~17min d'uptime au moment des tests) — le log `/tmp/dmd_score.log` de l'épisode `armwar` mentionné dans le handoff a été perdu (tmpfs vidé au reboot), donc l'hypothèse "jeu non supporté" n'a pas pu être re-vérifiée sur les données d'origine. En reformulant sa précision, l'utilisateur confirme : le bug concerne bien le hi-score du jeu **précédent** qui s'affiche 1 fois sur la rotation du suivant, **pas systématique** — et signale que ce n'est plus la priorité actuelle vu les soucis de fiabilité MQTT en cours (voir ronde 2 hb=/heartbeat CPU0 ci-dessus, toujours en attente).
@@ -599,6 +615,23 @@ C'était la donnée la plus attendue depuis le début de la ronde 2 (v138, instr
 **Contexte du cycle observé** : connect() réussi (19:21:40) → `subscribe(marquee/cmd/stop)` bloque ~8.7s puis échoue → retry bloque ~10s puis échoue → `subscribe(marquee/cmd/default)` bloque encore ~10s (connexion meurt pendant ce 2e essai, `postConnected=0`) → `subscribe(marquee/cmd/system)` échoue instantanément (`preConnected=0`, déjà mort) → "3 subscribe() en echec" → déconnexion forcée, recul 60s. Cycle complet ~89s. **Cycle consécutif #134 observé** — ce n'est pas un épisode isolé, c'est un pattern permanent qui tourne en boucle depuis des heures en tâche de fond.
 
 **Prochaine étape actée** : la piste heap/CPU étant fermée, l'investigation doit se réorienter vers le niveau lwIP/socket/pilote WiFi ESP-IDF lui-même (hors de portée d'un fix rapide côté code applicatif) — sujet déjà noté comme "hors portée d'une correction rapide" lors de la découverte du symptôme original (24/08, voir plus haut) ; ce résultat confirme cette évaluation plutôt que d'ouvrir une nouvelle piste actionnable immédiatement. `WiFi.setSleep(false)` déjà présent dans le firmware reste insuffisant pour une raison encore non identifiée.
+
+**Questions utilisateur traitées (même soirée)** : (1) piste matérielle (ce DMD précis) pas exclue mais peu probable — les durées `essai1`/`essai2` sont systématiquement très proches d'une valeur ronde ~10000ms (timeout logiciel probable, pas un aléa RF), RSSI toujours correct (-29 à -39 dBm) ; jamais testé sur un 2e ESP32 pour confirmer. (2) le délai `!SHUFFLE` (~24s) reste séparé et non reconfirmé après le fix v27/v35 — voir section dédiée plus bas. (3) improbable que corriger la surcharge de relance marquee.sh réduise la prévalence de CE blocage réseau : les cycles d'échec `subscribe()` tournent en boucle à rythme quasi fixe (~89s) de façon CONTINUE, y compris pendant des périodes sans aucune navigation RB1 active (observé de 19:20 à 19:41, span de 20+ minutes) — pointe vers un mécanisme autonome côté DMD, pas déclenché par la charge de navigation.
+
+**Nouvelle capture précise au niveau paquet (sniffer AF_PACKET maison, `mini_sniffer2.py`, tcpdump toujours indisponible sur RB)** — affine significativement la conclusion du 24/08 ("le broker ne reçoit RIEN") :
+
+```
+19:46:52.328 SYN / SYN-ACK / ACK (handshake TCP OK)
+19:46:52.340 DMD->broker ACK PSH len=27 (CONNECT MQTT)
+19:46:52.340 broker->DMD CONNACK len=4
+19:46:52.549 broker RETRANSMET le MEME CONNACK (209ms plus tard -- DMD ne l'avait pas encore ACK)
+19:46:52.580 DMD->broker ACK PSH len=6  <- dernier octet jamais emis par le DMD
+--- SILENCE TOTAL, 2 SENS CONFONDUS, PENDANT 23 SECONDES ---
+19:47:15.782 broker->DMD FIN (timeout keepalive broker)
+19:47:15.811 DMD ACK le FIN (mais son propre seq n'a JAMAIS avance depuis 52.580)
+```
+
+Le paquet de 6 octets est trop court pour un `SUBSCRIBE` MQTT complet (~24+ octets attendus pour "marquee/cmd/stop") — ressemble à un **envoi PARTIEL qui se bloque en plein milieu**, pas un blocage total dès le départ comme conclu le 24/08. Point notable supplémentaire : **zéro retransmission TCP observée côté DMD pendant les 23s** (un stack TCP standard retenterait plusieurs fois avec backoff exponentiel sur une donnée non-ACKée) -- suggère que le DMD ne pense même pas avoir de donnée en attente de renvoi, cohérent avec un blocage AU-DESSUS du TCP (bibliothèque MQTT/couche applicative) plutôt qu'un pur problème de retransmission réseau. Prochaine étape possible : décoder le contenu exact de ce paquet de 6 octets (type de trame MQTT) pour savoir précisément QUOI le DMD tentait d'envoyer au moment du blocage.
 
 ## Suite même session (31/08 après-midi) — enquête délai shuffle sur saut alphabétique + marquee.sh v27/dmd_score.sh v35
 
