@@ -5,7 +5,43 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v32
+# Version actuelle : v34
+#
+# v34 - 2026-08-31 - safe-modify - v33 INSUFFISANT (retour utilisateur,
+#   reproduit "parfois" -- pas systematique -- meme apres v33) : le hi-score/
+#   desc/info du jeu PRECEDENT peut encore s'afficher 1 fois apres le
+#   marquee du jeu suivant. v33 avait bien ferme la fenetre entre
+#   round_robin() et l'ENTREE de publish_one_panel(), mais pas la fenetre la
+#   PLUS LARGE -- celle qui s'ouvre PENDANT l'appel Python
+#   (dmd_hiscore_generic.py/dmd_game_info.py) lui-meme, potentiellement le
+#   point le plus lent du flux. Au retour de Python, le code enchainait
+#   directement sur le tout PREMIER send_score() de chaque fonction de
+#   pagination SANS revalider l'etat -- seules les pages SUIVANTES (apres un
+#   sleep) etaient gardees par state_still_valid(), jamais la 1ere. Meme
+#   trou dans la branche galaga/gyruss (valeur unique) de publish_hiscore(),
+#   qui n'appelait meme pas state_still_valid() du tout. Fix : garde ajoutee
+#   juste avant CHAQUE 1ere publication -- send_hiscore_paginated() (page 1),
+#   send_paginated_lines() (1ere page), send_paginated() (1ere page), et
+#   publish_hiscore() (branche valeur unique) -- ferme enfin la fenetre a
+#   l'endroit ou elle est reellement la plus large.
+#
+# v33 - 2026-08-25 - safe-modify - BUG REEL confirme par retour utilisateur
+#   direct ("on a 1 ecran de desc ou info de l'ancien jeu qui vient
+#   s'afficher 1 fois apres le marquee du nouveau") -- race condition dans
+#   round_robin()/publish_one_panel() : round_robin() verifie bien
+#   state_still_valid() juste apres son sleep (avant de choisir le type de
+#   panneau), mais publish_one_panel() enchaine ensuite directement sur
+#   python3 dmd_game_info.py (peut prendre un instant, surtout sous charge
+#   systeme -- voir chantier "fuite de zombies ES" du meme jour) PUIS
+#   l'envoi, SANS revalider l'etat juste avant. Si le contexte change
+#   pendant cet appel Python (nouveau jeu/navigation), l'ancienne boucle
+#   round_robin() -- qui avait pourtant valide l'etat un instant plus tot --
+#   envoie quand meme son contenu perime une fois, juste apres que le
+#   nouveau marquee (publie par marquee.sh, immediat) soit deja affiche.
+#   Fix : state_still_valid() ajoutee en tout premier dans
+#   publish_one_panel(), avant l'appel Python et tout envoi -- ferme la
+#   fenetre au point le plus lent/sensible du flux, reutilise la fonction
+#   deja existante (v13), aucun nouveau mecanisme.
 #
 # v32 - 2026-08-24 - safe-modify - v31 CORRIGE (retour utilisateur, meme
 #   session : "pour le mode veille demo de jeu on reste bcp plus longtemps
@@ -726,8 +762,11 @@ send_paginated_lines() {
         if [ "$n" -eq "$LINES_PER_PAGE" ]; then
             if [ "$first_page" -eq 0 ]; then
                 sleep "$dur_s"
-                state_still_valid "$sf" "$exp" || return 1
             fi
+            # v34 -- revalide aussi avant la 1ere page (pas seulement les
+            # suivantes) : le python3 qui a construit $content a pu prendre
+            # un instant, voir changelog v34 en entete.
+            state_still_valid "$sf" "$exp" || return 1
             send_score "${title}|${page}" "$dur_ms"
             first_page=0; page_count=$((page_count + 1))
             page=""; n=0
@@ -736,8 +775,8 @@ send_paginated_lines() {
     if [ -n "$page" ] && [ "$page_count" -lt "$MAX_PAGES" ]; then
         if [ "$first_page" -eq 0 ]; then
             sleep "$dur_s"
-            state_still_valid "$sf" "$exp" || return 1
         fi
+        state_still_valid "$sf" "$exp" || return 1
         send_score "${title}|${page}" "$dur_ms"
     fi
     return 0
@@ -862,8 +901,11 @@ EOF
         fi
         if [ "$first_page" -eq 0 ]; then
             sleep "$dur_s"
-            state_still_valid "$sf" "$exp" || return 1
         fi
+        # v34 -- revalide aussi avant la 1ere page, voir changelog v34 en
+        # entete (meme motif que send_paginated_lines()/
+        # send_hiscore_paginated()).
+        state_still_valid "$sf" "$exp" || return 1
         send_score "${title}|${pg}" "$dur_ms"
         first_page=0
     done
@@ -890,6 +932,10 @@ send_hiscore_paginated() {
     set -- $topn
     IFS="$old_ifs"
     r1="$1"; r2="$2"; r3="$3"; r4="$4"; r5="$5"
+
+    # v34 -- revalide avant la page 1 (jusqu'ici seule la page 2 l'etait,
+    # apres son sleep) -- voir changelog v34 en entete.
+    state_still_valid "$sf" "$exp" || return 1
 
     page1="HI-SCORE"
     [ -n "$r1" ] && page1="${page1}|${r1}"
@@ -1238,6 +1284,9 @@ publish_hiscore() {
     rest="${payload#*|}"
     if [ "$rest" = "$payload" ]; then
         # Pas de "|" du tout (jeu a valeur unique, galaga/gyruss).
+        # v34 -- revalide l'etat ici : c'est le SEUL envoi de cette branche,
+        # jamais garde jusqu'ici (voir changelog v34 en entete).
+        state_still_valid "$sf" "$exp" || return 1
         send_score "$payload" "$HISCORE_INFO_PAGE_DURATION_MS"
     else
         send_hiscore_paginated "$rest" "$sf" "$exp"
@@ -1253,6 +1302,11 @@ publish_hiscore() {
 # 1 si rien publie -- round_robin() continue quand meme au tour suivant.
 publish_one_panel() {
     sys="$1"; gpath="$2"; rom="$3"; type="$4"; sf="$5"; exp="$6"
+    # v33 -- revalide l'etat ICI, avant tout appel Python/envoi (voir
+    # changelog v33 en entete) -- ferme la fenetre de course ou l'appelant
+    # (round_robin()) avait valide l'etat un instant plus tot, mais le
+    # contexte a change PENDANT le python3 dmd_game_info.py qui suit.
+    state_still_valid "$sf" "$exp" || return 1
     case "$type" in
         hiscore)
             # v27 -- BUG REEL corrige : restait gate sur fbneo uniquement
@@ -1307,7 +1361,7 @@ publish_one_panel() {
     return 1
 }
 
-echo "$(date) - DMD score bridge started (v32, startgameclip = marquee seul (plus de round-robin overlay, duree trop courte) mais rundemo garde l'overlay complet + features_watcher valide le message avant d'ecraser le cache + hi-score generique + round-robin infini + dwell/ratios reglables)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v34, fix race condition 1ere page/envoi non gardee (hiscore/desc/info) + fix race condition publish_one_panel() v33 -- revalide l'etat avant python3/envoi, startgameclip = marquee seul mais rundemo garde l'overlay complet + features_watcher valide le message avant d'ecraser le cache + hi-score generique + round-robin infini + dwell/ratios reglables)" >> "$LOG"
 # Efface une session/etat perime d'un lancement precedent.
 : > "$GAME_SESSION_FILE"
 : > "$BROWSE_STATE_FILE"

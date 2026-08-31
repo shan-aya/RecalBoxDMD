@@ -2,7 +2,32 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v24
+# Version actuelle : v26
+#
+# v26 - 2026-08-31 - safe-modify - BUG REEL corrige (retour utilisateur :
+#   navigation SOUS le seuil reel de 5/s, le shuffle se declenche quand
+#   meme au redemarrage de la navigation apres une pause, des le tout
+#   premier marquee -- impossible d'avoir depasse 5/s a ce stade). Cause :
+#   burst_qualifying_streak n'etait reevalue QUE quand un nouvel evenement
+#   arrivait -- une pause (aucun evenement pendant plusieurs secondes)
+#   laissait la variable figee a sa valeur d'avant la pause, et le premier
+#   evenement de reprise finalisait la seconde PRECEDANT la pause (pas une
+#   vraie rafale actuelle). Fix : la streak n'est desormais finalisee que
+#   si le gap entre la nouvelle seconde et burst_window_start est <=1s
+#   (contigu) -- une vraie pause la reinitialise immediatement a 0 au lieu
+#   de completer un tour perime.
+#
+# v25 - 2026-08-25 - safe-modify - DIAGNOSTIC ajoute (retour utilisateur :
+#   ressenti de "congestion" episodique cote RB, symptome le plus parlant
+#   = le shuffle !SHUFFLE ne se declenche pas cote DMD meme en naviguant
+#   vite -- gels/sauts de marquee visibles). burst_count/burst_qualifying_
+#   streak (compteurs INTERNES du detecteur de rafale, voir v6/v16) etaient
+#   calcules mais jamais logues -- seul le declenchement final ("BURST
+#   start") l'etait. Ajoutes a la ligne BROWSE existante : permet de voir
+#   directement si le compte reel plafonne SOUS BURST_THRESHOLD=5/s meme
+#   pendant une navigation ressentie comme rapide (marquee.sh/ES en retard
+#   de traitement plutot qu'un vrai defaut de navigation utilisateur).
+#   Diagnostic pur, aucun changement de comportement.
 #
 # v24 - 2026-08-24 - safe-modify - DIAGNOSTIC ajoute (bsp/bss/bslp/now sur la
 #   ligne BROWSE), PUIS RESULTAT LU EN DIRECT : le mecanisme v22/v23 est en
@@ -603,7 +628,7 @@ throttled=0
 # de l'interpolation et le log affichait "seuil=/s" (vide) au lieu de
 # "seuil=10/s" -- bug constate au demarrage reel, corrige en deplacant le
 # log apres la declaration.
-echo "$(date) - Marquee bridge started (v24, diagnostic bsp/bss/bslp/now ajoute sur BROWSE, rundemo/startgameclip -> marquee du jeu demo/clip, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
+echo "$(date) - Marquee bridge started (v26, fix streak !SHUFFLE perimee apres une pause de navigation, diagnostic bc/bqs ajoute sur BROWSE (compteurs internes detecteur de rafale), rundemo/startgameclip -> marquee du jeu demo/clip, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
 
 while true; do
     PREV_EVENT="$event"
@@ -769,12 +794,16 @@ while true; do
             if [ "$now" = "$burst_window_start" ]; then
                 burst_count=$((burst_count + 1))
             else
-                if [ "$burst_window_start" -gt 0 ]; then
-                    if [ "$burst_count" -ge "$BURST_THRESHOLD" ]; then
-                        burst_qualifying_streak=$((burst_qualifying_streak + 1))
-                    else
-                        burst_qualifying_streak=0
-                    fi
+                # v26 -- ne finalise la streak que si le gap avec la
+                # seconde precedente est contigu (<=1s) -- une vraie pause
+                # (gap plus grand, navigation arretee un moment) casse la
+                # continuite et reinitialise immediatement a 0, au lieu de
+                # completer a tort une seconde perimee d'avant la pause
+                # (voir changelog v26 en entete).
+                if [ "$burst_window_start" -gt 0 ] && [ $((now - burst_window_start)) -le 1 ] && [ "$burst_count" -ge "$BURST_THRESHOLD" ]; then
+                    burst_qualifying_streak=$((burst_qualifying_streak + 1))
+                else
+                    burst_qualifying_streak=0
                 fi
                 burst_window_start="$now"
                 burst_count=1
@@ -803,7 +832,7 @@ while true; do
             system=$(normalize_system "$system_raw")
             game_path=$(extract_field "$_snap" "GamePath")
 
-            echo "$(date '+%H:%M:%S') BROWSE raw=$system_raw norm=$system game=$game_path in_game=$IN_GAME throttled=$throttled bsp=$boot_sweep_pending bss=$boot_sweep_suppress bslp=$boot_sweep_last_publish_ts now=$now" >> "$LOG"
+            echo "$(date '+%H:%M:%S') BROWSE raw=$system_raw norm=$system game=$game_path in_game=$IN_GAME throttled=$throttled bsp=$boot_sweep_pending bss=$boot_sweep_suppress bslp=$boot_sweep_last_publish_ts now=$now bc=$burst_count bqs=$burst_qualifying_streak" >> "$LOG"
 
             if [ "$IN_GAME" -eq 1 ]; then
                 echo "$(date '+%H:%M:%S') BROWSE ignored (in game)" >> "$LOG"
