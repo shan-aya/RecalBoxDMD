@@ -74,7 +74,21 @@ renice -n -10 -p $$ >/dev/null 2>&1
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v38
+# Version actuelle : v39
+#
+# v39 - 2026-09-01 - safe-modify - DIAGNOSTIC (pas de changement de
+#   comportement fonctionnel) pour l'investigation "desync overlay/marquee
+#   entre marquee.sh et dmd_score.sh" (DECISIONS.md, piste de depart deja
+#   actee). precise_ts() (centieme de seconde via /proc/uptime -- "date"
+#   ash/busybox n'exposant pas %N sur ce materiel, verifie) ajoute a la ligne
+#   SEND(R) existante (send_mqtt_retain(), deja loguee avec le systeme/jeu
+#   publie) -- meme horloge commune que dmd_score.sh v37, meme machine,
+#   correlation directe sans decalage possible. Objectif : capturer au
+#   prochain episode de desync reel le delai precis entre la publication du
+#   marquee de fond (ce script) et celle de l'overlay hi-score/desc/info
+#   (dmd_score.sh) pour un jeu different, condition prealable a valider avant
+#   d'implementer le fix structurel deja envisage (state_file PARTAGE ou
+#   autre).
 #
 # v38 - 2026-09-01 - safe-modify - Retrait du diagnostic pub_time (v36) --
 #   voir commentaire complet pres de send_mqtt_retain(). Demande utilisateur
@@ -777,6 +791,18 @@ read_state() {
     grep "^${1}=" "/tmp/es_state.inf" 2>/dev/null | cut -d= -f2- | tr -d '\r\n '
 }
 
+# v39 -- DIAGNOSTIC (retour utilisateur, desync overlay/marquee entre ce
+# script et dmd_score.sh, voir DECISIONS.md "BUG TROUVE, PAS ENCORE CORRIGE
+# -- desync overlay/marquee" -- meme ajout cote dmd_score.sh v37, voir son
+# commentaire complet pour le detail). "date" ash/busybox n'expose pas %N
+# (verifie sur ce materiel) -- /proc/uptime (centieme de seconde, "read"
+# builtin, aucun fork) sert d'horloge commune aux 2 scripts pour correler
+# precisement leurs publications respectives.
+precise_ts() {
+    read _pts_up _pts_rest < /proc/uptime 2>/dev/null
+    echo "$_pts_up"
+}
+
 # v8 -- BUG REEL confirme sur materiel (session 2026-08-18) : SystemId et
 # GamePath etaient lus par 2 appels SEPARES de read_state() (donc 2 lectures
 # separees de /tmp/es_state.inf) -- pas atomique : EmulationStation peut
@@ -812,7 +838,9 @@ send_mqtt_retain() {
     # nul et permanent (sous-shell "time" + fichier temporaire a CHAQUE
     # publication) desormais sans justification.
     mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -r -t "marquee/cmd/${1}" -m "$2" 2>/dev/null
-    echo "$(date '+%H:%M:%S') SEND(R) marquee/cmd/${1} = $2" >> "$LOG"
+    # v39 -- precise_ts() ajoute (voir sa declaration complete) : diagnostic
+    # desync overlay/marquee, correlation avec les logs dmd_score.sh v37.
+    echo "$(date '+%H:%M:%S') [$(precise_ts)] SEND(R) marquee/cmd/${1} = $2" >> "$LOG"
 }
 
 normalize_system() {
@@ -1141,7 +1169,7 @@ POLL_INTERVAL_S=0.15
 # de l'interpolation et le log affichait "seuil=/s" (vide) au lieu de
 # "seuil=10/s" -- bug constate au demarrage reel, corrige en deplacant le
 # log apres la declaration.
-echo "$(date) - Marquee bridge started (v38, diagnostic pub_time retire (role rempli, cout desormais injustifie) + REVERT du sondage continu v34 -- retour a la lecture EVENEMENTIELLE (zero cout CPU en idle ; vraie cause de la saturation CPU en navigation turbo trouvee ailleurs -- ES invoquait nativement les helpers python hi-score sans limite, voir dmd_score.sh v36) + doublons ES ignores par le detecteur de rafale/sweep boot (seuil ${EARLY_STABLE_SECONDS}s, marge anti-arrondi seconde entiere) + vidange non-bloquante du pipe (read -t 0) sur les evenements de rattrapage ES en retard + auto-renice -10 au demarrage (herite par mosquitto_sub/mosquitto_pub/sous-shell) + publication initiale du PROCESS et demarrage sur vrai evenement ES start) tiennent compte de es_state.inf (Action=rungame/gamelistbrowsing+position reelle) au lieu de forcer playlist inconditionnellement (v32/v33) + pipe mosquitto_sub PERSISTANT + verrou anti-relance en tete de fichier, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
+echo "$(date) - Marquee bridge started (v39, precise_ts()/proc-uptime ajoute a la ligne SEND(R) -- diagnostic desync overlay/marquee, voir DECISIONS.md + v38, diagnostic pub_time retire (role rempli, cout desormais injustifie) + REVERT du sondage continu v34 -- retour a la lecture EVENEMENTIELLE (zero cout CPU en idle ; vraie cause de la saturation CPU en navigation turbo trouvee ailleurs -- ES invoquait nativement les helpers python hi-score sans limite, voir dmd_score.sh v36) + doublons ES ignores par le detecteur de rafale/sweep boot (seuil ${EARLY_STABLE_SECONDS}s, marge anti-arrondi seconde entiere) + vidange non-bloquante du pipe (read -t 0) sur les evenements de rattrapage ES en retard + auto-renice -10 au demarrage (herite par mosquitto_sub/mosquitto_pub/sous-shell) + publication initiale du PROCESS et demarrage sur vrai evenement ES start) tiennent compte de es_state.inf (Action=rungame/gamelistbrowsing+position reelle) au lieu de forcer playlist inconditionnellement (v32/v33) + pipe mosquitto_sub PERSISTANT + verrou anti-relance en tete de fichier, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
 
 # v28 -- BUG REEL confirme sur materiel (retour utilisateur : "la vitesse
 # de defilement du DMD semble plafonnee, plus basse que la navigation

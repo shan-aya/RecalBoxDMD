@@ -23,7 +23,25 @@ echo $$ > "$LOCKDIR/pid"
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v36
+# Version actuelle : v37
+#
+# v37 - 2026-09-01 - safe-modify - DIAGNOSTIC (pas de changement de
+#   comportement fonctionnel) pour l'investigation "desync overlay/marquee
+#   entre marquee.sh et dmd_score.sh" (DECISIONS.md, piste de depart deja
+#   actee : "instrumenter les 2 scripts pour logger leur reference de jeu...
+#   et comparer precisement les timestamps"). Ajouts : precise_ts()
+#   (centieme de seconde via /proc/uptime, "date" ash/busybox n'exposant pas
+#   %N sur ce materiel -- verifie) sur les points de publication
+#   (send_score(), desormais avec sa reference de jeu $exp deja disponible
+#   chez tous ses appelants -- state_still_valid() valide deja cette meme
+#   valeur juste avant) et sur les points de detection de changement de
+#   position (BROWSE/DWELL settled/DWELL abandoned). Objectif : au prochain
+#   episode de desync observe, pouvoir correler precisement (meme horloge
+#   /proc/uptime que marquee.sh, meme machine, aucun decalage possible) le
+#   moment ou CE script publie un panneau pour un jeu donne avec le moment
+#   ou marquee.sh publie le marquee de fond pour un jeu different -- sans
+#   quoi la piste actee ("state_file PARTAGE entre les 2 scripts" ou autre
+#   fix structurel) resterait une hypothese non confirmee.
 #
 # v36 - 2026-09-01 - safe-modify - BUG REEL MAJEUR confirme sur materiel
 #   (retour utilisateur : navigation turbo -> CPU sature 100% tous coeurs,
@@ -681,6 +699,22 @@ read_state() {
     grep "^${1}=" "/tmp/es_state.inf" 2>/dev/null | cut -d= -f2- | tr -d '\r\n '
 }
 
+# v37 -- DIAGNOSTIC (retour utilisateur, desync overlay/marquee entre ce
+# script et marquee.sh, voir DECISIONS.md "BUG TROUVE, PAS ENCORE CORRIGE --
+# desync overlay/marquee" -- piste de depart actee : "instrumenter les 2
+# scripts pour logger leur reference de jeu... et comparer precisement les
+# timestamps de desync"). "date" ash/busybox n'expose pas %N (verifie sur ce
+# materiel -- retourne le "%N" litteral, non substitue -- coherent avec le
+# commentaire historique v6 de marquee.sh sur l'absence d'horloge sub-seconde
+# fiable). /proc/uptime expose 2 decimales (centieme de seconde), lu via
+# "read" (builtin ash, aucun fork) -- horloge commune aux 2 scripts (meme
+# machine), donc correlation directe et precise sans souci de decalage
+# d'horloge entre eux. Cout : une lecture de fichier, pas de sous-processus.
+precise_ts() {
+    read _pts_up _pts_rest < /proc/uptime 2>/dev/null
+    echo "$_pts_up"
+}
+
 # v2 -- lit le cache local des reglages (voir features_watcher()) --
 # renvoie vrai (0) si la cle demandee vaut 1, faux (1) sinon -- y compris
 # si le cache n'existe pas encore (comportement prudent : ne publie rien
@@ -823,7 +857,7 @@ send_paginated_lines() {
             # suivantes) : le python3 qui a construit $content a pu prendre
             # un instant, voir changelog v34 en entete.
             state_still_valid "$sf" "$exp" || return 1
-            send_score "${title}|${page}" "$dur_ms"
+            send_score "${title}|${page}" "$dur_ms" "$exp"
             first_page=0; page_count=$((page_count + 1))
             page=""; n=0
         fi
@@ -962,7 +996,7 @@ EOF
         # entete (meme motif que send_paginated_lines()/
         # send_hiscore_paginated()).
         state_still_valid "$sf" "$exp" || return 1
-        send_score "${title}|${pg}" "$dur_ms"
+        send_score "${title}|${pg}" "$dur_ms" "$exp"
         first_page=0
     done
     return 0
@@ -996,7 +1030,7 @@ send_hiscore_paginated() {
     page1="HI-SCORE"
     [ -n "$r1" ] && page1="${page1}|${r1}"
     [ -n "$r2" ] && page1="${page1}|${r2}"
-    send_score "$page1" "$HISCORE_INFO_PAGE_DURATION_MS"
+    send_score "$page1" "$HISCORE_INFO_PAGE_DURATION_MS" "$exp"
 
     page2=""
     for r in "$r3" "$r4" "$r5"; do
@@ -1006,7 +1040,7 @@ send_hiscore_paginated() {
     if [ -n "$page2" ]; then
         sleep "$HISCORE_INFO_PAGE_DURATION_S"
         state_still_valid "$sf" "$exp" || return 1
-        send_score "HI-SCORE|${page2}" "$HISCORE_INFO_PAGE_DURATION_MS"
+        send_score "HI-SCORE|${page2}" "$HISCORE_INFO_PAGE_DURATION_MS" "$exp"
     fi
 }
 
@@ -1144,11 +1178,16 @@ features_watcher &
 # toujours legerement plus longtemps que l'intervalle reel entre 2 envois.
 SCORE_TIMER_MARGIN_MS=800
 send_score() {
-    payload="$1"; dur="$2"
+    # v37 -- $3=ref (optionnel, "sys_browsing_id|system|rom" -- deja
+    # disponible chez tous les appelants via $exp, meme valeur que
+    # state_still_valid() vient de valider juste avant chaque appel) +
+    # precise_ts() : voir DECISIONS.md/commentaire complet pres de
+    # precise_ts(), diagnostic desync overlay/marquee.
+    payload="$1"; dur="$2"; ref="$3"
     [ -z "$dur" ] && dur=6000
     fw_dur=$((dur + SCORE_TIMER_MARGIN_MS))
     mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd/score" -m "@${fw_dur}|${payload}" 2>/dev/null
-    echo "$(date '+%H:%M:%S') SEND marquee/cmd/score = @${fw_dur}|${payload}" >> "$LOG"
+    echo "$(date '+%H:%M:%S') [$(precise_ts)] SEND marquee/cmd/score ref=${ref} = @${fw_dur}|${payload}" >> "$LOG"
 }
 
 # v2 -- extrait un champ ("DESCRIPTION" ou "INFOS") du payload combine
@@ -1343,7 +1382,7 @@ publish_hiscore() {
         # v34 -- revalide l'etat ici : c'est le SEUL envoi de cette branche,
         # jamais garde jusqu'ici (voir changelog v34 en entete).
         state_still_valid "$sf" "$exp" || return 1
-        send_score "$payload" "$HISCORE_INFO_PAGE_DURATION_MS"
+        send_score "$payload" "$HISCORE_INFO_PAGE_DURATION_MS" "$exp"
     else
         send_hiscore_paginated "$rest" "$sf" "$exp"
     fi
@@ -1417,7 +1456,7 @@ publish_one_panel() {
     return 1
 }
 
-echo "$(date) - DMD score bridge started (v36, helpers python (hiscore_generic/game_info/challenge) deplaces hors de userscripts/ (PYHELP_DIR=dmd_helpers/) -- ES ne peut plus les invoquer nativement sans limite, cause reelle de la saturation CPU en navigation turbo + verrou anti-relance deplace tout en haut du fichier (cout minimal par relance dupliquee ES) + fix race condition 1ere page/envoi non gardee (hiscore/desc/info) + fix race condition publish_one_panel() v33 -- revalide l'etat avant python3/envoi, startgameclip = marquee seul mais rundemo garde l'overlay complet + features_watcher valide le message avant d'ecraser le cache + hi-score generique + round-robin infini + dwell/ratios reglables)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v37, precise_ts()/ref ajoutes a send_score()/BROWSE/DWELL -- diagnostic desync overlay/marquee, voir DECISIONS.md + v36, helpers python (hiscore_generic/game_info/challenge) deplaces hors de userscripts/ (PYHELP_DIR=dmd_helpers/) -- ES ne peut plus les invoquer nativement sans limite, cause reelle de la saturation CPU en navigation turbo + verrou anti-relance deplace tout en haut du fichier (cout minimal par relance dupliquee ES) + fix race condition 1ere page/envoi non gardee (hiscore/desc/info) + fix race condition publish_one_panel() v33 -- revalide l'etat avant python3/envoi, startgameclip = marquee seul mais rundemo garde l'overlay complet + features_watcher valide le message avant d'ecraser le cache + hi-score generique + round-robin infini + dwell/ratios reglables)" >> "$LOG"
 # Efface une session/etat perime d'un lancement precedent.
 : > "$GAME_SESSION_FILE"
 : > "$BROWSE_STATE_FILE"
@@ -1612,7 +1651,7 @@ while IFS= read -r event; do
                     LAST_BROWSE_ROM="$rom"
                     dwell=$(feat_value "dwell_seconds")
                     if [ "$dwell" -lt "$DWELL_MIN_SECONDS" ]; then dwell="$DWELL_MIN_SECONDS"; fi
-                    echo "$(date '+%H:%M:%S') BROWSE sys=$system rom=$rom (dwell ${dwell}s)" >> "$LOG"
+                    echo "$(date '+%H:%M:%S') [$(precise_ts)] BROWSE sys=$system rom=$rom (dwell ${dwell}s)" >> "$LOG"
                     (
                         sleep "$dwell"
                         current=$(cat "$BROWSE_STATE_FILE" 2>/dev/null)
@@ -1628,10 +1667,10 @@ while IFS= read -r event; do
                             # utilisateur explicite : "jeu contenu dans
                             # challenge... on affiche le tableau challenge",
                             # PAS rien.
-                            echo "$(date '+%H:%M:%S') DWELL settled sys=$system rom=$rom (dernier systeme survole: $LAST_SYSTEMBROWSING_ID) -- demarrage round-robin browse" >> "$LOG"
+                            echo "$(date '+%H:%M:%S') [$(precise_ts)] DWELL settled sys=$system rom=$rom (dernier systeme survole: $LAST_SYSTEMBROWSING_ID) -- demarrage round-robin browse" >> "$LOG"
                             round_robin "browse" "$system" "$game_path" "$rom" "$BROWSE_STATE_FILE" "$state" "repeat_browse_cycles"
                         else
-                            echo "$(date '+%H:%M:%S') DWELL abandoned sys=$system rom=$rom (deplace entre-temps)" >> "$LOG"
+                            echo "$(date '+%H:%M:%S') [$(precise_ts)] DWELL abandoned sys=$system rom=$rom (deplace entre-temps)" >> "$LOG"
                         fi
                     ) &
                 fi
