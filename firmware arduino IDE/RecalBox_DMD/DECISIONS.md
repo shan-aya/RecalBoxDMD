@@ -696,6 +696,7 @@ Retour utilisateur méthodique (vidéo RB1+DMD filmés simultanément, méthode 
 - Zombies de process (`kill -0` sur zombie, etc.) — **déjà écarté le 24/08**, reconfirmé par erreur puis re-écarté sur retour utilisateur explicite.
 - `%CPU` par PID isolé — trompeur sur ce système (agrégat réel `top` montrait 0% CPU / 24% io-wait au même instant qu'un PID affichait un %CPU élevé) — toujours privilégier le résumé agrégat `top -bn1 | head -4`, jamais une colonne `%CPU` par process isolée.
 - Throttling thermique RPi5 — écarté par mesure directe (`vcgencmd get_throttled` = `0x0` en permanence, y compris à 65°C, largement sous le seuil ~80°C documenté par l'utilisateur).
+
 - `nice`/`ionice` (priorité CPU/IO du daemon) — sans effet mesuré une fois appliqués ; `ionice` indisponible de toute façon sur ce système (`mq-deadline`, pas de classes de priorité).
 - Reboot complet RB1 (élimine l'hypothèse "cruft de session accumulé") — sans effet, même comportement sur système fraîchement démarré.
 - **1er test d'isolation (marquee.sh + dmd_score.sh complètement arrêtés)** — a conclu à tort que "c'est EmulationStation seul, intrinsèquement" (même saturation CPU observée). **Cette conclusion était incomplète et fausse** — voir ci-dessous.
@@ -1010,3 +1011,39 @@ Sur demande utilisateur ("valider les candidats credit"), 2 jeux revérifiés av
 - `tools/rb2_fbneo_autopilot.py` — pipeline complet autonome (Free Play → lancement → sonde RAM → START → inputs génériques → capture périodique), remplace `rb2_fbneo_recipe_capture.py` (Codex, jamais committé, basé sur la simulation `PLAYER1_SELECT` non fonctionnelle) comme outil de référence pour toute automatisation future de ce chantier.
 
 **Prochaine étape (pas encore faite)** : (1) confirmer/infirmer `Coinage="Free Play"` sur `gogomile` avec un délai plus long avant de généraliser à `willow`/`kamenrid`/`jjsquawk`/`inthunt`/`msgogo`/`gbusters` (tous n'ont que `Coin_A`/`Coin_B`/`Coinage`, pas de `Free_Play` dédié) ; (2) affiner le pattern d'inputs génériques par genre de jeu (comme le faisait `rb2_fbneo_recipe_capture.py` via `gamelist.xml`) pour des parties plus longues/soutenues ; (3) avec ce pipeline, revalider en autonomie complète les 6 credits candidats restants + reprendre `lives`/`ingame`/`msgogo`/`progear` sans dépendre de la disponibilité de l'utilisateur pour jouer.
+
+## PISTE FORTE TROUVÉE — le blocage `subscribe()`/`connect()` MQTT (rc=-4) semble lié à RB1 en WiFi 5 GHz spécifiquement, pas au DMD (2026-09-01 soir, reprise après /clear)
+
+Reprise de l'enquête rc=-4 (voir sections "RÉSULTAT DÉCISIF ronde 2" et suivantes plus haut — jusqu'ici le suspect retenu était un blocage bas niveau socket/lwIP/PubSubClient **côté DMD**, indépendant du serveur). Protocole de test A/B construit cette session : DMD basculé successivement entre RB1 et RB2 (`recalbox_ip` via la page web, **relecture uniquement au boot** — un changement à chaud ne suffit pas, reboot nécessaire), fenêtres idle et actives (partie réelle ou trafic réseau généré artificiellement) comparées à chaque fois.
+
+**Résultats bruts (mêmes DMD/firmware v142, même réseau WiFi ambiant à chaque test)** :
+
+| Cible | Contexte | Durée | Résultat |
+| --- | --- | --- | --- |
+| RB2 (x86, WiFi 5GHz) | idle | ~53 min | propre |
+| RB2 (x86, WiFi 5GHz) | actif (partie fbneo réelle + polling `READ_CORE_RAM` UDP soutenu, 2/s) | ~25 min | propre (2927/2927 requêtes UDP OK côté RB2) |
+| RB1 (RPi5, WiFi 5GHz) | idle (juste après un `/clear`, DMD tout juste reconnecté) | ~29 min | propre |
+| RB1 (RPi5, WiFi 5GHz) | actif (partie réelle) | ~7 min | **dégradé dès le début de la navigation** (cycle `subscribe()` ECHEC régulier ~74s) |
+| RB1 (RPi5, WiFi 5GHz) | après arrêt du jeu | ~15 min | **reste dégradé** (ne se résout pas tout seul) |
+| RB1 (RPi5, WiFi 5GHz) | après redémarrage complet du broker mosquitto + daemons `marquee.sh`/`dmd_score.sh` | immédiat | **reste dégradé, identique** |
+| RB1 (RPi5, WiFi 5GHz) | après reboot du DMD lui-même (déclenché via le bug watchdog `/reboot`, voir section dédiée ci-dessous) | immédiat | **reste dégradé, PIRE** (bascule vers `rc=-4`, échec de `connect()` lui-même, pas juste `subscribe()`) |
+| **RB1 basculé en WiFi 2,4 GHz** (SSID `shan`, même AP/canal que le DMD) | idle | ~16 min (après bruit résiduel de la transition SSID) | **propre** |
+| **RB1 en WiFi 2,4 GHz** | actif (partie réelle, même scénario qui déclenchait le problème en 5GHz) | ~9 min | **propre, zéro échec** |
+
+**Ce que ça élimine** : ni un état DMD persistant (le reboot DMD n'a rien résolu), ni le broker/les daemons locaux RB1 (redémarrage complet sans effet), ni une histoire de congestion RF ambiante générique (écartée sur connaissance directe de l'environnement par l'utilisateur — canaux libres/peu utilisés), ni le trafic réseau local en tant que tel (RB2 a encaissé une charge UDP soutenue sans broncher).
+
+**Ce que ça pointe** : quelque chose de spécifique à **RB1 en bande 5 GHz** — soit le driver WiFi du RPi5 (`brcmfmac`, chip Broadcom/Cypress BCM4345/6, connu pour des soucis de stabilité dans la communauté RPi) qui se comporte mal en 5 GHz sous charge de navigation, soit un comportement de band-steering de la Freebox (le SSID court "shan" et "Freebox-shan-5ghz-11ac" pointent vers le même point d'accès physique par défaut — passer explicitement sur "shan" en a néanmoins fini par forcer une vraie connexion 2,4 GHz sur un BSSID différent, signal -43dBm). **Note de prudence** : RB2 est en x86 (chipset WiFi totalement différent) et reste lui aussi en 5 GHz sans souci — donc la bande seule n'explique pas tout, la comparaison RB1/RB2 n'isole pas proprement la bande du chipset/driver. Impossible de trancher avec certitude entre "bug driver brcmfmac en 5GHz" et "artefact du band-steering Freebox" sans un test supplémentaire (RB2 forcé en 2,4GHz, ou un autre appareil RPi5 en 5GHz).
+
+**Indice `dmesg` intéressant mais NON CONCLUANT** : au moment précis de la transition SSID (5GHz→2,4GHz), le driver `brcmfmac` de RB1 a loggé une rafale d'échecs `brcmf_set_channel: ... fail, reason -52` (scan de canaux) + plusieurs activations répétées de `brcmf_cfg80211_set_power_mgmt: power save enabled` sur ~90s — mais confirmé comme transitoire (rien depuis, vérifié en direct). Reste à voir si ce même pattern se reproduit spontanément (pas juste pendant une transition manuelle de SSID) pendant un futur épisode en 5GHz, ce qui confirmerait le lien avec le power-save mode du driver plutôt qu'avec le band-steering Freebox.
+
+**Décision pratique actée** : RB1 laissé configuré sur le SSID 2,4 GHz `shan` (`/recalbox/share/system/recalbox.conf`, `wifi.ssid=shan` — modifié cette session) tant que la vraie cause n'est pas isolée avec certitude — corrige le symptôme en pratique même si la cause exacte reste incertaine entre les 2 hypothèses ci-dessus. **PAS ENCORE de session de test longue durée (heures/jours) pour confirmer que ça tient dans la durée** — seulement ~25 min cumulées de validation directe cette session.
+
+## BUG watchdog CPU0 trouvé en testant tout ça — `WebServer::_parseRequest()` peut bloquer assez longtemps pour déclencher le TASK_WDT (2026-09-01 soir)
+
+Découvert par accident en manipulant la page web de config du DMD depuis un client HTTP scripté (PowerShell `Invoke-RestMethod`) : un `POST /save` (et, reproduit ensuite, un simple `GET /reboot` sans body) peut faire planter le DMD par déclenchement du **watchdog matériel CPU0** (`E (...) task_wdt: Task watchdog got triggered ... IDLE0 (CPU 0) ... Aborting`, reboot forcé, `cause du dernier reset : TASK_WDT (code=6)`).
+
+**Backtrace décodé** (`xtensa-esp32-elf-addr2line`, voir `compiled/RecalBox_DMD.ino.elf`) : bloqué dans `WebServer::_parseRequest()` → `Stream::readStringUntil(char)` → `Stream::timedRead()` → `NetworkClient::read()` — donc en train de **lire la requête HTTP entrante elle-même** (pas dans le handler applicatif `handleWebConfigSave()`, jamais atteint). Le serveur web ESP32 (`WebServer.h`, bibliothèque Arduino-ESP32 standard) est synchrone/bloquant — une requête dont la lecture traîne (client lent, connexion mal terminée, TCP qui traîne) peut visiblement affamer `IDLE0` assez longtemps pour déclencher le watchdog par défaut.
+
+**Reproduit 2 fois** : une fois via `POST /save` (client PowerShell), une fois via `GET /reboot` (donc pas spécifique au corps d'une requête POST — le bug est plus général dans le parsing HTTP lui-même). **PAS CORRIGÉ** — pas de garde-fou identifié/ajouté ce jour (hors sujet du chantier réseau MQTT en cours, mis de côté). Piste de fix pour plus tard : timeout de lecture explicite plus court sur le `WebServer`, ou passer à une bibliothèque HTTP asynchrone (même famille de fix que la piste déjà notée pour PubSubClient/MQTT).
+
+**Effet de bord pratique noté** : comme ce bug provoque un vrai reboot du DMD, il a été utilisé délibérément une fois comme méthode de reboot de secours (`GET /reboot` déclenche le crash → reboot, function accomplie même si le chemin est inattendu) — pas une méthode à recommander pour un usage normal (bouton "Redémarrer" de la page web, en usage humain normal via navigateur, n'a paradoxalement PAS déclenché ce bug de façon systématique — seulement lors de manipulations scriptées/rapprochées).
