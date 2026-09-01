@@ -40,7 +40,29 @@ LOG="/recalbox/share/system/logs/marquee_mqtt.log"
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v27
+# Version actuelle : v28
+#
+# v28 - 2026-09-01 - safe-modify - BUG REEL confirme sur materiel (retour
+#   utilisateur, saut alphabetique rapide : "la vitesse de defilement du
+#   DMD semble plafonnee, plus basse que la navigation possible") -- mesure
+#   precise sur une rafale de 58s : seulement 128 evenements captures par ce
+#   script contre ~440 changements reels de es_state.inf sur la MEME
+#   fenetre (poll independant 10x/s) -- ~70% des evenements REELS perdus.
+#   Cause : relancer un "mosquitto_sub -C1 [-W1]" tout neuf a CHAQUE
+#   iteration (fork+connexion TCP au broker a chaque fois) laisse une
+#   fenetre ou plus personne n'ecoute pendant le traitement synchrone de
+#   l'evenement precedent (cat es_state.inf + mosquitto_pub, chacun un
+#   sous-processus separe) -- tout evenement publie par ES pendant cette
+#   fenetre est perdu DEFINITIVEMENT (chaque "mosquitto_sub -C1" est une
+#   souscription fraiche sans file d'attente entre 2 invocations). Fix :
+#   UNE SEULE connexion mosquitto_sub PERSISTANTE (meme pattern deja en
+#   place et jamais defaillant dans dmd_score.sh) -- "read -t 1" remplace
+#   "-W 1" pour le timeout de detection de silence pendant une rafale,
+#   "read" bloquant simple sinon, tous deux sur le MEME pipe deja ouvert --
+#   plus aucun trou d'ecoute entre 2 evenements. Garde ajoutee : une lecture
+#   BLOQUANTE (sans -t) qui echoue = pipe reellement ferme (broker mort),
+#   sort proprement au lieu de boucler a 100% CPU (le verrou singleton
+#   laisse la prochaine relance par ES redemarrer le script a neuf).
 #
 # v27 - 2026-08-31 - safe-modify - verrou anti-relance deplace tout en haut
 #   du fichier (voir commentaire complet ci-dessus) -- reduit au minimum le
@@ -641,25 +663,54 @@ throttled=0
 # de l'interpolation et le log affichait "seuil=/s" (vide) au lieu de
 # "seuil=10/s" -- bug constate au demarrage reel, corrige en deplacant le
 # log apres la declaration.
-echo "$(date) - Marquee bridge started (v27, verrou anti-relance deplace tout en haut du fichier (cout minimal par relance dupliquee ES), fix streak !SHUFFLE perimee apres une pause de navigation, diagnostic bc/bqs ajoute sur BROWSE (compteurs internes detecteur de rafale), rundemo/startgameclip -> marquee du jeu demo/clip, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
+echo "$(date) - Marquee bridge started (v28, pipe mosquitto_sub PERSISTANT (fix perte ~70% des evenements en rafale, plus de relance -C1 par iteration) + verrou anti-relance en tete de fichier, fix streak !SHUFFLE perimee apres une pause de navigation, diagnostic bc/bqs ajoute sur BROWSE (compteurs internes detecteur de rafale), rundemo/startgameclip -> marquee du jeu demo/clip, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
 
+# v28 -- BUG REEL confirme sur materiel (retour utilisateur : "la vitesse
+# de defilement du DMD semble plafonnee, plus basse que la navigation
+# possible" -- mesure precise : 128 evenements captures par ce script
+# contre ~440 changements reels de es_state.inf sur la MEME fenetre de 58s,
+# soit ~70% des evenements reels PERDUS). Cause : relancer un
+# "mosquitto_sub -C1 [-W1]" TOUT NEUF a CHAQUE iteration (fork+connexion
+# TCP au broker a chaque fois) laisse une fenetre ou plus personne n'ecoute
+# pendant le traitement synchrone de l'evenement precedent (cat es_state.inf
+# + mosquitto_pub, chacun un sous-processus separe) -- tout evenement publie
+# par ES pendant cette fenetre est perdu DEFINITIVEMENT (chaque
+# "mosquitto_sub -C1" est une souscription fraiche, ne recoit que ce qui
+# est publie APRES sa connexion, aucune file d'attente entre 2 invocations).
+# Fix : UNE SEULE connexion mosquitto_sub PERSISTANTE (meme pattern deja
+# utilise et jamais defaillant dans dmd_score.sh, voir son main loop) --
+# "read -t 1" remplace "-W 1" pour le timeout de detection de silence
+# pendant une rafale, "read" bloquant simple sinon, tous deux sur le MEME
+# pipe deja ouvert -- plus aucun trou d'ecoute entre 2 evenements.
+mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 -t "Recalbox/EmulationStation/Event" 2>/dev/null | \
 while true; do
     PREV_EVENT="$event"
-    # v10 -- "-W 1" reserve au cas throttled=1 (voir changelog v10) : hors
-    # rafale, blocage pur (pas de timeout) -- zero connexion locale tant
-    # qu'aucun vrai evenement ES n'arrive, comme avant v6. Pendant une
-    # rafale, "-W 1" reste necessaire pour detecter sa fin (aucune iteration
-    # ne se produirait sinon tant qu'aucun evenement n'arrive). $event vide
-    # en sortie de boucle ne peut donc survenir QUE si throttled=1 (timeout)
-    # ou (tres improbable) message vide recu -- traite pareil, sans
-    # consequence (le case *) plus bas ignore deja les events vides).
+    # v10 -- "-W 1"/"read -t 1" (v28) reserve au cas throttled=1 (voir
+    # changelog v10) : hors rafale, blocage pur (pas de timeout) -- reactif
+    # au fil de l'eau, comme avant v6. Pendant une rafale, le timeout reste
+    # necessaire pour detecter sa fin (aucune iteration ne se produirait
+    # sinon tant qu'aucun evenement n'arrive). $event vide en sortie de
+    # boucle ne peut donc survenir QUE si throttled=1 (timeout) ou (tres
+    # improbable) message vide recu -- traite pareil, sans consequence (le
+    # case *) plus bas ignore deja les events vides).
     if [ "$throttled" -eq 1 ] || [ "$demo_throttled" -eq 1 ] || [ "$boot_sweep_pending" -eq 1 ]; then
-        event=$(mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 \
-            -t "Recalbox/EmulationStation/Event" -C 1 -W 1 2>/dev/null | tr -d '\r')
+        IFS= read -r -t 1 event
+        readRc=$?
     else
-        event=$(mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 \
-            -t "Recalbox/EmulationStation/Event" -C 1 2>/dev/null | tr -d '\r')
+        IFS= read -r event
+        readRc=$?
+        # v28 -- lecture BLOQUANTE (sans -t) qui echoue = pipe reellement
+        # ferme (mosquitto_sub mort/broker inaccessible), PAS un timeout
+        # (impossible sans -t) -- continuer en boucle serree consommerait
+        # 100% CPU pour rien. Sort proprement -- le verrou singleton laisse
+        # la prochaine relance par ES (evenement quelconque) redemarrer
+        # le script a neuf.
+        if [ "$readRc" -ne 0 ]; then
+            echo "$(date '+%H:%M:%S') mosquitto_sub pipe fermee (broker injoignable ?) -- sortie propre, relance attendue au prochain evenement ES" >> "$LOG"
+            exit 1
+        fi
     fi
+    event=$(printf '%s' "$event" | tr -d '\r')
 
     if [ -z "$event" ]; then
         # v6 -- timeout : si une rafale etait en cours, elle vient de
