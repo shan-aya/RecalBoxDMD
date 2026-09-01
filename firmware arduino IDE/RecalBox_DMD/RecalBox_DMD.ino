@@ -1,7 +1,34 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v139
+// Version actuelle : v141
+//
+// v141 - 2026-09-01 - safe-modify - Suite immediate de v140 : 1er episode
+//   reel capture au redemarrage (10:38:33, transitoire post-boot deja
+//   documente) -- SO_ERROR=0 (connexion saine du point de vue noyau/lwIP,
+//   aucune erreur pendante) MAIS l'echec est survenu bien plus vite que le
+//   budget imparti (900ms max), suggerant que select() lui-meme peut
+//   echouer/retourner tres vite (rc<0) plutot que d'attendre un vrai
+//   timeout (rc=0 apres la duree complete) -- distinction invisible
+//   jusqu'ici (les 2 cas remontaient identiquement "false" cote appelant).
+//   socketWritableQuick() remonte desormais son rc/errno BRUT de select()
+//   (parametres optionnels), logue en lastSelectRc/lastSelectErrno dans le
+//   diagnostic ECHEC. PAS ENCORE TESTE SUR MATERIEL au moment de cet ecrit.
+//
+// v140 - 2026-09-01 - safe-modify - Suite de v139 (voir son commentaire
+//   complet) : retour utilisateur, poursuite de l'investigation racine ("
+//   pourquoi le socket ne devient jamais ecrit-pret"). mqttSubscribeFast()
+//   interroge desormais SO_ERROR via getsockopt() quand l'envoi echoue
+//   (jamais ecrit-pret dans le budget imparti) -- erreur socket PENDANTE
+//   que ni select() ni un simple EAGAIN ne remontent autrement (getsockopt
+//   la lit ET la remet a zero, seul moyen standard de la voir). Objectif :
+//   distinguer si lwIP/lecoyau SAIT DEJA que la connexion est morte
+//   (ECONNRESET/ETIMEDOUT/autre, SO_ERROR!=0) au moment du blocage, ou si
+//   le socket se pretend sain (SO_ERROR=0) sans jamais progresser -- ces 2
+//   cas orientent vers des causes tres differentes (etat socket deja connu
+//   du noyau vs vrai blocage sans signal visible cote applicatif, plus
+//   evocateur d'un probleme interne au driver WiFi/pilote radio). PAS
+//   ENCORE TESTE SUR MATERIEL (attend le prochain episode reel).
 //
 // v139 - 2026-09-01 - safe-modify - RESULTAT DECISIF ronde 2 (voir v138 +
 //   DECISIONS.md) : heartbeat CPU0 confirme hb reel~=hb attendu pendant un
@@ -3510,9 +3537,15 @@ static uint16_t g_fastSubMsgId = 1;
 
 // Sonde ecrit-pret avec budget COURT (ms), remplace l'attente 1s x 10
 // essais du coeur par une seule fenetre select() configurable.
-static bool socketWritableQuick(int fd, uint32_t timeoutMs)
+// v140 -- $outRc/$outErrno optionnels (nullable) : remontent le code retour
+// BRUT de select() (et errno si <0) a l'appelant, pour distinguer "timeout
+// franc" (rc=0, a attendu tout $timeoutMs pour rien) de "select() a
+// lui-meme echoue" (rc<0, retourne probablement quasi instantanement,
+// errno donne la vraie raison -- EBADF si fd invalide/deja ferme, etc.).
+// Precedemment invisible : les 2 cas remontaient identiquement "false".
+static bool socketWritableQuick(int fd, uint32_t timeoutMs, int *outRc = nullptr, int *outErrno = nullptr)
 {
-  if (fd < 0) return false;
+  if (fd < 0) { if (outRc) *outRc = -1000; if (outErrno) *outErrno = 0; return false; }
   fd_set set;
   struct timeval tv;
   FD_ZERO(&set);
@@ -3520,6 +3553,8 @@ static bool socketWritableQuick(int fd, uint32_t timeoutMs)
   tv.tv_sec = timeoutMs / 1000;
   tv.tv_usec = (timeoutMs % 1000) * 1000;
   int rc = select(fd + 1, NULL, &set, NULL, &tv);
+  if (outRc) *outRc = rc;
+  if (outErrno) *outErrno = (rc < 0) ? errno : 0;
   return (rc > 0 && FD_ISSET(fd, &set));
 }
 
@@ -3555,12 +3590,39 @@ bool mqttSubscribeFast(WiFiClient &client, const char *topic, uint8_t qos, uint3
   buf[pos++] = qos;
 
   size_t sent = 0;
+  int lastErrno = 0;
+  int lastSelectRc = 0;
+  int lastSelectErrno = 0;
   for (uint8_t attempt = 0; attempt < maxAttempts && sent < pos; attempt++)
   {
-    if (!socketWritableQuick(fd, perAttemptMs)) continue; // pas ecrit-pret cette fenetre, on retente (budget court)
+    if (!socketWritableQuick(fd, perAttemptMs, &lastSelectRc, &lastSelectErrno)) continue; // pas ecrit-pret cette fenetre, on retente (budget court)
     int res = send(fd, buf + sent, pos - sent, MSG_DONTWAIT);
     if (res > 0) sent += (size_t)res;
-    else if (res < 0 && errno != EAGAIN && errno != EWOULDBLOCK) break; // socket vraiment casse, inutile d'insister
+    else if (res < 0)
+    {
+      lastErrno = errno;
+      if (errno != EAGAIN && errno != EWOULDBLOCK) break; // socket vraiment casse, inutile d'insister
+    }
+  }
+  // v140 -- diagnostic root-cause (voir changelog v140) : si l'envoi echoue
+  // (jamais ecrit-pret dans le budget imparti), interroge SO_ERROR --
+  // erreur socket PENDANTE que ni select() ni un send() EAGAIN ne
+  // remontent autrement (getsockopt() la lit ET la remet a zero). Objectif
+  // : voir si le noyau/lwIP sait DEJA que la connexion est morte (ECONNRESET,
+  // ETIMEDOUT...) au moment ou select() refuse "ecrit-pret", ou si le socket
+  // se pretend sain (SO_ERROR=0) alors qu'il ne progresse jamais -- ces 2 cas
+  // pointent vers des causes tres differentes (etat socket connu vs
+  // vraiment bloque sans raison visible du cote applicatif).
+  if (sent != pos)
+  {
+    int soErr = -1;
+    socklen_t soErrLen = sizeof(soErr);
+    int gsoRc = getsockopt(fd, SOL_SOCKET, SO_ERROR, &soErr, &soErrLen);
+    Serial.println("[MQTT] mqttSubscribeFast ECHEC -> " + String(topic)
+                   + " sent=" + String((unsigned)sent) + "/" + String((unsigned)pos)
+                   + " SO_ERROR=" + String(soErr) + "(gso_rc=" + String(gsoRc) + ")"
+                   + " lastErrno=" + String(lastErrno)
+                   + " lastSelectRc=" + String(lastSelectRc) + " lastSelectErrno=" + String(lastSelectErrno));
   }
   return sent == pos;
 }
