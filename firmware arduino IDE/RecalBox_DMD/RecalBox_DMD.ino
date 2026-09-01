@@ -1,7 +1,30 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v141
+// Version actuelle : v142
+//
+// v142 - 2026-09-01 - safe-modify - BUG REEL corrige par lecture de code
+//   (DECISIONS.md, "angle mort du filet de securite retour playlist", trouve
+//   31/08 soir, PAS ENCORE CORRIGE jusqu'ici) : le filet
+//   MQTT_OFFLINE_FALLBACK_MS (60s, repli en playlist) mesurait le temps
+//   depuis le dernier mqttClient.connect() REUSSI (lastMqttConnectedMs),
+//   remis a zero a CHAQUE connect() reussi -- meme si tous les subscribe()
+//   qui suivent echouent. Dans le pattern deja documente (connect() reussit
+//   toutes les ~89s mais les subscribe() echouent en boucle, v98/v104), ce
+//   chrono n'atteignait donc jamais son seuil : le DMD pouvait rester
+//   bloque a boucler sur un vieux marquee indefiniment, sans jamais
+//   retomber en playlist, alors qu'aucune commande utile n'etait recue
+//   depuis potentiellement des heures. Fix : nouveau g_lastMqttUsefulMs
+//   (voir sa declaration complete pres de mqttTaskHandle) mis a jour
+//   uniquement sur une activite MQTT reellement UTILE -- un cycle de
+//   subscribe() effectivement abouti (tous les topics souscrits, pas
+//   seulement TCP connect()) OU un message MQTT reellement RECU
+//   (onMqttMessage()) -- le filet verifie desormais CE timestamp, pas
+//   lastMqttConnectedMs (laisse en place, inchange, juste plus consulte ici
+//   -- risque nul a le garder). PAS ENCORE TESTE SUR MATERIEL en conditions
+//   reelles de coupure reseau prolongee au moment de cet ecrit (le pattern
+//   connect-OK/subscribe-KO en boucle n'est pas trivial a reproduire a la
+//   demande) -- verifie seulement par relecture de code et compilation.
 //
 // v141 - 2026-09-01 - safe-modify - Suite immediate de v140 : 1er episode
 //   reel capture au redemarrage (10:38:33, transitoire post-boot deja
@@ -3645,6 +3668,27 @@ SemaphoreHandle_t mqttCmdMutex   = nullptr;
 MqttCommand       pendingCmd;
 TaskHandle_t      mqttTaskHandle = nullptr;
 
+// v142 -- BUG REEL confirme par lecture de code (DECISIONS.md, "angle mort
+// du filet de securite retour playlist", 31/08 soir) : le filet
+// MQTT_OFFLINE_FALLBACK_MS mesurait le temps depuis le dernier connect()
+// REUSSI (lastMqttConnectedMs, local a mqttTask()), remis a zero a CHAQUE
+// connect() reussi meme si les subscribe() qui suivent echouent tous en
+// boucle -- dans le pattern documente (connect() reussit toutes les ~89s
+// mais aucun subscribe() n'aboutit), ce chrono n'atteignait donc jamais son
+// seuil, le DMD pouvant rester bloque a boucler sur un vieux marquee
+// indefiniment sans jamais retomber en playlist. Fix : nouveau timestamp
+// dedie a l'activite MQTT reellement UTILE (pas juste "connect() a reussi")
+// -- mis a jour (a) a chaque cycle de subscribe() effectivement reussi (voir
+// mqttTask(), consecutiveSubscribeFailCycles=0) et (b) a chaque message MQTT
+// RECU (onMqttMessage(), preuve la plus directe que le lien fonctionne dans
+// les 2 sens). Le filet (voir mqttTask()) verifie desormais ce timestamp-ci
+// plutot que lastMqttConnectedMs. Global (pas local a mqttTask()) car
+// onMqttMessage() doit pouvoir l'ecrire -- ecrit uniquement depuis le
+// contexte de mqttTask() (mqttClient.loop() appelle onMqttMessage() de
+// facon synchrone dans la meme tache, voir son appel dans mqttTask()), donc
+// aucune concurrence inter-tache reelle malgre les 2 sites d'ecriture.
+unsigned long g_lastMqttUsefulMs = 0;
+
 // v96 -- BUG REEL confirme sur materiel (CMD_GAME_DEBUG_LOGS active, hash ELF
 // verifie) : pendingCmd (slot unique partage par TOUTES les commandes)
 // perdait silencieusement un message si un AUTRE type de commande arrivait
@@ -6726,6 +6770,10 @@ void processPendingMqttCommand()
 // --------------------------------------------------
 void onMqttMessage(char *topic, byte *payload, unsigned int length)
 {
+  // v142 -- voir commentaire complet pres de sa declaration : un message
+  // RECU (quel qu'il soit) est la preuve la plus directe que le lien MQTT
+  // est reellement UTILE, pas seulement "connecte" au sens transport.
+  g_lastMqttUsefulMs=millis();
   String t=String(topic); String msg="";
   // reserve() : sans lui, la concatenation octet-par-octet reallouait le
   // buffer de la String a chaque caractere dans le pire cas -- ce handler
@@ -6870,6 +6918,7 @@ void mqttTask(void *param)
   (void)param;
   vTaskDelay(pdMS_TO_TICKS(MQTT_START_DELAY_MS));
   unsigned long lastMqttConnectedMs=millis();
+  g_lastMqttUsefulMs=millis(); // v142 -- meme motif que lastMqttConnectedMs ci-dessus : evite un declenchement immediat du filet si le tout 1er connect()/subscribe() met du temps
   // Compteur de cycles consecutifs "WiFi non connecte" (2026-08-05, demande
   // utilisateur) -- pilote l'alerte "No wifi, No Recalbox" (voir
   // showNoWifiRecalboxAlert()). Uniquement le WiFi lui-meme : ne compte PAS
@@ -7182,6 +7231,7 @@ void mqttTask(void *param)
         else
         {
         consecutiveSubscribeFailCycles = 0; // v104 -- connexion saine (souscriptions OK), recul reinitialise
+        g_lastMqttUsefulMs=millis(); // v142 -- souscriptions reellement abouties, voir declaration de g_lastMqttUsefulMs
         // Retenu (retain=true) : un abonne (script Recalbox) qui se connecte
         // plus tard recoit immediatement la derniere IP publiee, sans avoir
         // besoin d'etre a l'ecoute au moment exact de cette connexion.
@@ -7242,7 +7292,14 @@ void mqttTask(void *param)
           lastRecalboxDisconnectedAlertMs = now;
           recalboxDisconnectedAlertCount++;
         }
-        if((now-lastMqttConnectedMs)>=MQTT_OFFLINE_FALLBACK_MS)
+        // v142 -- verifie desormais g_lastMqttUsefulMs (derniere activite
+        // MQTT reellement UTILE : subscribe() abouti ou message recu), plus
+        // lastMqttConnectedMs (juste "connect() a reussi", remis a zero a
+        // chaque connect() meme si les subscribe() qui suivent echouent en
+        // boucle -- voir commentaire complet pres de sa declaration/le bug
+        // documente dans DECISIONS.md). lastMqttConnectedMs laisse en place
+        // inchange (informatif uniquement desormais, plus consulte ici).
+        if((now-g_lastMqttUsefulMs)>=MQTT_OFFLINE_FALLBACK_MS)
         {
           if(currentMode!=MODE_PLAYLIST&&gifCount>0&&!g_sdOpInProgress)
           {
@@ -7250,7 +7307,7 @@ void mqttTask(void *param)
             // v96 -- slot dedie (voir commentaire pres de g_pendingGame).
             if(mqttCmdMutex!=nullptr&&xSemaphoreTake(mqttCmdMutex,pdMS_TO_TICKS(100))==pdTRUE)
             {g_pendingDefault=true;xSemaphoreGive(mqttCmdMutex);}
-            lastMqttConnectedMs=now;
+            g_lastMqttUsefulMs=now; // evite de re-declencher a chaque tour tant que ca reste injoignable
           }
         }
         vTaskDelay(pdMS_TO_TICKS(MQTT_RETRY_MS)); continue;
