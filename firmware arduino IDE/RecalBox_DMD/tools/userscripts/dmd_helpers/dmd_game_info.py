@@ -2,7 +2,18 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v9
+# Version actuelle : v10
+#
+# v10 - 2026-09-01 - safe-modify - BUG REEL confirme sur materiel -- voir
+#   dmd_hiscore_generic.py v4 pour le detail complet (meme investigation,
+#   meme cause : appele directement par EmulationStation a chaque evenement
+#   gamelistbrowsing avec la convention `-action ... -statefile ... -param
+#   ...`, jamais concue pour ce fichier -- main() attend des positionnels
+#   system/game_path). Ce fichier echoue deja relativement vite dans ce cas
+#   (os.path.isfile() sur un chemin gamelist.xml invalide, pas de parsing
+#   XML gaspille) mais paie quand meme le demarrage Python a chaque
+#   evenement, sans la moindre limite de frequence -- meme fix applique par
+#   coherence/defense en profondeur.
 #
 # v9 - 2026-08-20 - safe-modify - Retour utilisateur : le libelle
 #   "Developpeur:" (12 caracteres) est abrege en "Dev:" -- l'ecran INFOS
@@ -286,6 +297,11 @@ def build_payload(game):
 
 def main():
     if len(sys.argv) < 3:
+        return 1
+    # v10 -- voir changelog v10 en tete de fichier : sortie immediate si
+    # invoque avec la convention native ES ("-action ..."), jamais celle de
+    # dmd_score.sh (positionnels, jamais prefixes par "-").
+    if sys.argv[1].startswith("-"):
         return 1
     system = sys.argv[1]
     game_path = sys.argv[2]

@@ -23,7 +23,26 @@ echo $$ > "$LOCKDIR/pid"
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v35
+# Version actuelle : v36
+#
+# v36 - 2026-09-01 - safe-modify - BUG REEL MAJEUR confirme sur materiel
+#   (retour utilisateur : navigation turbo -> CPU sature 100% tous coeurs,
+#   65C+, ralentissement RB1 generalise proportionnel a la duree de
+#   navigation -- voir DECISIONS.md pour l'investigation complete). Cause :
+#   dmd_hiscore_generic.py/dmd_game_info.py/dmd_challenge.py vivaient dans
+#   /recalbox/share/userscripts/ EN MEME TEMPS que ce script -- Emulation
+#   Station invoque NATIVEMENT tout fichier de ce dossier portant ces noms
+#   precis (mecanisme distinct du notre, convention d'arguments differente),
+#   a CHAQUE evenement gamelistbrowsing, SANS AUCUNE limite de frequence --
+#   totalement independant de ce script. Confirme par test decisif : retrait
+#   PHYSIQUE des 3 fichiers de userscripts/ (sans toucher a ce script) fait
+#   disparaitre TOTALEMENT la surcharge, 99% CPU/65C -> 0%/45C. Fix : les 3
+#   fichiers deplaces dans un sous-dossier dedie (PYHELP_DIR=
+#   "${SCRIPT_DIR}/dmd_helpers", jamais scanne par le mecanisme natif ES) --
+#   seul ce script continue de les invoquer (SCRIPT_DIR -> PYHELP_DIR sur
+#   les 3 points d'appel python3). Voir aussi dmd_hiscore_generic.py v4,
+#   dmd_game_info.py v10, dmd_challenge.py v2 (garde defensive ajoutee en
+#   parallele, insuffisante seule mais gardee en defense en profondeur).
 #
 # v35 - 2026-08-31 - safe-modify - verrou anti-relance deplace tout en haut
 #   du fichier (voir commentaire complet ci-dessus) -- reduit au minimum le
@@ -572,6 +591,30 @@ echo $$ > "$LOCKDIR/pid"
 
 LOG="/recalbox/share/system/logs/dmd_score.log"
 SCRIPT_DIR=$(dirname "$0")
+# v36 -- BUG REEL MAJEUR confirme sur materiel (retour utilisateur,
+# 2026-09-01 : navigation turbo -> CPU sature 100% tous coeurs, 65C+,
+# ralentissement generalise RB1 proportionnel a la duree de navigation --
+# voir DECISIONS.md pour l'investigation complete). Cause reelle : ce
+# script vivait dans /recalbox/share/userscripts/ EN MEME TEMPS que
+# dmd_hiscore_generic.py/dmd_game_info.py/dmd_challenge.py -- EmulationStation
+# invoque NATIVEMENT tout fichier de ce dossier portant ces noms precis
+# (mecanisme distinct du notre, convention d'arguments differente --
+# "-action gamelistbrowsing -statefile ... -param ..." au lieu des
+# positionnels system/rom utilises ci-dessous), a CHAQUE evenement
+# gamelistbrowsing, SANS AUCUNE limite de frequence -- independamment de ce
+# script (confirme par test decisif : retirer PHYSIQUEMENT ces 3 fichiers
+# de userscripts/, sans meme toucher a ce script, fait disparaitre
+# TOTALEMENT la surcharge CPU, 99% -> 0%, 65C -> 45C). Fix retenu : les 3
+# fichiers deplaces dans un sous-dossier DEDIE (PYHELP_DIR, jamais scanne
+# par le mecanisme natif ES qui ne regarde que le dossier userscripts/
+# lui-meme, pas ses sous-dossiers) -- seul CE script (via PYHELP_DIR, chemin
+# explicite) continue de les invoquer, avec la convention d'arguments
+# positionnelle qui leur est propre. hiscore_manifest.json deplace avec
+# dmd_hiscore_generic.py (meme dossier -- MANIFEST_PATH y reste relatif a
+# __file__, aucun changement necessaire cote python). current.json
+# (dmd_challenge.py) et gamelist.xml (dmd_game_info.py) restent a leurs
+# emplacements RecalBox standards, inchanges (jamais dans userscripts/).
+PYHELP_DIR="${SCRIPT_DIR}/dmd_helpers"
 HI_DIR="/recalbox/share/saves/fbneo/fbneo"
 FEATURES_FILE="/tmp/dmd_features_cache"
 # Delai entre 2 publications successives de contenus DIFFERENTS en
@@ -1270,7 +1313,7 @@ build_score_payload() {
     # le jeu n'est pas dans le manifeste, si le fichier ne fait pas la
     # taille attendue, ou en cas d'erreur -- meme prudence que les cas geres
     # en dur ci-dessus.
-    topn=$(python3 "${SCRIPT_DIR}/dmd_hiscore_generic.py" "$sys" "$rom" 2>>"$LOG")
+    topn=$(python3 "${PYHELP_DIR}/dmd_hiscore_generic.py" "$sys" "$rom" 2>>"$LOG")
     if [ -z "$topn" ]; then
         echo "$(date '+%H:%M:%S') SCORE skip $rom (jeu non supporte)" >> "$LOG"
         return
@@ -1332,7 +1375,7 @@ publish_one_panel() {
             ;;
         description)
             [ -n "$sys" ] && [ -n "$gpath" ] || return 1
-            raw=$(python3 "${SCRIPT_DIR}/dmd_game_info.py" "$sys" "$gpath" 2>>"$LOG")
+            raw=$(python3 "${PYHELP_DIR}/dmd_game_info.py" "$sys" "$gpath" 2>>"$LOG")
             [ -n "$raw" ] || return 1
             field=$(extract_field "$raw" "DESCRIPTION")
             [ -n "$field" ] || return 1
@@ -1342,7 +1385,7 @@ publish_one_panel() {
             ;;
         info)
             [ -n "$sys" ] && [ -n "$gpath" ] || return 1
-            raw=$(python3 "${SCRIPT_DIR}/dmd_game_info.py" "$sys" "$gpath" 2>>"$LOG")
+            raw=$(python3 "${PYHELP_DIR}/dmd_game_info.py" "$sys" "$gpath" 2>>"$LOG")
             [ -n "$raw" ] || return 1
             field=$(extract_field "$raw" "INFOS")
             [ -n "$field" ] || return 1
@@ -1365,7 +1408,7 @@ publish_one_panel() {
             # verifie encore lui-meme sys/rom contre current.json (defense
             # en profondeur, silencieux si pas de correspondance).
             [ -n "$sys" ] && [ -n "$rom" ] || return 1
-            lines=$(python3 "${SCRIPT_DIR}/dmd_challenge.py" "$sys" "$rom" 2>>"$LOG")
+            lines=$(python3 "${PYHELP_DIR}/dmd_challenge.py" "$sys" "$rom" 2>>"$LOG")
             [ -n "$lines" ] || return 1
             send_paginated_lines "RB CHALLENGE" "$lines" "$HISCORE_INFO_PAGE_DURATION_MS" "$HISCORE_INFO_PAGE_DURATION_S" "$sf" "$exp"
             return 0
@@ -1374,7 +1417,7 @@ publish_one_panel() {
     return 1
 }
 
-echo "$(date) - DMD score bridge started (v35, verrou anti-relance deplace tout en haut du fichier (cout minimal par relance dupliquee ES) + fix race condition 1ere page/envoi non gardee (hiscore/desc/info) + fix race condition publish_one_panel() v33 -- revalide l'etat avant python3/envoi, startgameclip = marquee seul mais rundemo garde l'overlay complet + features_watcher valide le message avant d'ecraser le cache + hi-score generique + round-robin infini + dwell/ratios reglables)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v36, helpers python (hiscore_generic/game_info/challenge) deplaces hors de userscripts/ (PYHELP_DIR=dmd_helpers/) -- ES ne peut plus les invoquer nativement sans limite, cause reelle de la saturation CPU en navigation turbo + verrou anti-relance deplace tout en haut du fichier (cout minimal par relance dupliquee ES) + fix race condition 1ere page/envoi non gardee (hiscore/desc/info) + fix race condition publish_one_panel() v33 -- revalide l'etat avant python3/envoi, startgameclip = marquee seul mais rundemo garde l'overlay complet + features_watcher valide le message avant d'ecraser le cache + hi-score generique + round-robin infini + dwell/ratios reglables)" >> "$LOG"
 # Efface une session/etat perime d'un lancement precedent.
 : > "$GAME_SESSION_FILE"
 : > "$BROWSE_STATE_FILE"

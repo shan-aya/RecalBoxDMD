@@ -37,10 +37,94 @@ fi
 echo $$ > "$LOCKDIR/pid"
 echo "$(date '+%H:%M:%S.%N') TRACE proceeding pid=$$ ppid=$PPID arg0=$0" >> /tmp/marquee_trace.log
 LOG="/recalbox/share/system/logs/marquee_mqtt.log"
+# v35 -- BUG REEL confirme sur materiel (retour utilisateur, meme session,
+# apres v34 : le sondage direct de es_state.inf elimine bien toute
+# contention MQTT -- log verifie : une seule publication propre et rapide
+# par rafale, plus de flottement -- MAIS le delai residuel persiste, mesure
+# PROPORTIONNEL a la duree de la navigation rapide qui precede, correle a
+# un ralentissement generalise de la lecture video cote RB1 lui-meme, tous
+# jeux confondus). Raisonnement utilisateur explicite qui a mene au fix :
+# "si on lit vraiment le frontend RecalBox et plus ES, on ne devrait plus
+# avoir de contention MQTT -- donc le shuffle ne devrait plus rester
+# affiche". Vrai -- et confirme par le log (plus de contention MQTT). Le
+# reste ne peut donc venir que de l'ORDONNANCEMENT du PROCESS marquee.sh
+# lui-meme sous contention systeme reelle (mesuree ce jour : chute memoire
+# ~400Mo/13s, 24% io-wait pendant la navigation) : sa boucle de sondage
+# (POLL_INTERVAL_S=0.15, voir poll_navigation_position()) peut tourner
+# beaucoup PLUS LENTEMENT en temps REEL que prevu si l'ordonnanceur ne lui
+# donne pas de temps CPU a temps, meme si tout reste coherent en interne
+# une fois qu'elle s'execute enfin (chaque tick mesure le temps ECOULE
+# depuis le precedent via date +%s, pas un delai fixe garanti) -- plus la
+# contention post-navigation est forte/longue (proportionnel a l'intensite
+# de la navigation qui vient d'avoir lieu), plus la boucle elle-meme rate
+# son rythme cible, plus la detection de fin de rafale et la publication
+# finale sont retardees d'autant, INDEPENDAMMENT du fait que la logique/le
+# MQTT restent corrects. Fix : le process qui gagne le verrou (donc le
+# daemon persistant, jamais les invocations dupliquees qui sortent
+# immediatement ci-dessus) s'auto-donne une priorite d'ordonnancement CPU
+# elevee des le demarrage (renice, root -> valeurs negatives autorisees) --
+# reste reactif meme quand RB1 est charge par autre chose (rendu ES,
+# decodage video de la liste, etc.), au lieu de rivaliser a egalite pour le
+# temps CPU. -10 (pas -20, le maximum) : marge significative sans risquer
+# d'affamer completement d'autres taches legitimes sur un systeme deja
+# charge. echec silencieux tolere (2>/dev/null) -- renice peut ne pas etre
+# disponible/autorise sur certaines configurations, ne doit jamais empecher
+# le script de demarrer.
+renice -n -10 -p $$ >/dev/null 2>&1
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v34
+# Version actuelle : v37
+#
+# v37 - 2026-09-01 - safe-modify - REVERT du sondage continu v34 (retour
+#   utilisateur explicite, APRES decouverte de la vraie cause de la
+#   saturation CPU en navigation turbo -- voir DECISIONS.md et
+#   dmd_score.sh v36 : ES invoquait nativement dmd_hiscore_generic.py/
+#   dmd_game_info.py/dmd_challenge.py sans limite, INDEPENDAMMENT de ce
+#   script -- confirme decisif par retrait physique de ces 3 fichiers,
+#   CPU 99%->0%, 65C->45C, sans toucher a marquee.sh). Le sondage continu
+#   de es_state.inf (poll_navigation_position(), POLL_INTERVAL_S=0.15s)
+#   mesurait un cout reel et PERMANENT de ~13% d'UN COEUR EN CONTINU, MEME
+#   A L'ARRET TOTAL (mesure directe /proc/pid/stat, jiffies utime+stime+
+#   cutime+cstime sur 10s d'idle reel) -- sans ameliorer le probleme qu'il
+#   visait a corriger (confirme non concluant sur materiel apres
+#   deploiement, AVANT la decouverte ci-dessus). Vrai cout permanent,
+#   benefice non demontre : retour a la lecture EVENEMENTIELLE (v28) +
+#   restauration du case gamelistbrowsing|systembrowsing) complet (logique
+#   v29/v31 inchangee, seulement redeplacee depuis poll_navigation_
+#   position(), desormais fonction MORTE laissee definie mais plus jamais
+#   appelee -- risque nul a la garder). v30 (vidange non-bloquante) RESTE
+#   active. v35 (renice -10) et v36 (diagnostic pub_time) restent actifs
+#   egalement (utiles independamment du modele de lecture).
+#
+# v36 - 2026-09-01 - safe-modify - DIAGNOSTIC (retour utilisateur : "60%
+#   CPU c'est pas une saturation, le reseau est peut-etre libre" -- mesure
+#   directe demandee au lieu de supposer). send_mqtt_retain() chronometre
+#   desormais (mot-cle shell "time", precision sous-seconde confirmee
+#   fonctionner sur cet ash/busybox) le temps REEL d'execution de l'appel
+#   mosquitto_pub lui-meme, loggue en clair sur la ligne SEND(R). But :
+#   determiner si la lenteur observee (delai proportionnel a la duree de
+#   navigation, correle a un ralentissement RB1 general) vient de l'envoi
+#   local (temps mesure ici qui grimperait) ou d'ailleurs (reseau/broker/
+#   DMD, temps mesure ici qui resterait petit meme pendant le
+#   ralentissement observe).
+#
+# v35 - 2026-09-01 - safe-modify - BUG REEL confirme sur materiel APRES v34
+#   (retour utilisateur, meme session : plus de contention MQTT confirmee
+#   par log, mais delai residuel PROPORTIONNEL a la duree de navigation
+#   rapide, correle a un ralentissement video RB1 generalise). Raisonnement
+#   utilisateur explicite : "si on lit vraiment le frontend RecalBox et plus
+#   ES, on ne devrait plus avoir de contention MQTT -- donc le shuffle ne
+#   devrait plus rester affiche". Verifie vrai. Le residu ne peut donc venir
+#   que de l'ORDONNANCEMENT du process marquee.sh lui-meme sous contention
+#   systeme reelle (mesuree ce jour : chute memoire ~400Mo/13s, 24% io-wait
+#   pendant la navigation) -- sa boucle de sondage peut tourner plus
+#   lentement en temps REEL que prevu si l'ordonnanceur ne lui donne pas de
+#   temps CPU a temps. Fix : le daemon s'auto-renice a -10 des le
+#   demarrage (juste apres l'acquisition du verrou, avant tout fork
+#   ulterieur -- herite par mosquitto_sub et le sous-shell de la boucle
+#   principale). Voir detail complet pres de l'appel "renice", juste apres
+#   le verrou en tete de fichier.
 #
 # v34 - 2026-09-01 - safe-modify - REFONTE ARCHITECTURALE (demande explicite
 #   utilisateur, meme session, apres v29-v33 : "on affiche toujours la queue
@@ -713,8 +797,22 @@ extract_field() {
 }
 
 send_mqtt_retain() {
-    mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -r -t "marquee/cmd/${1}" -m "$2" 2>/dev/null
-    echo "$(date '+%H:%M:%S') SEND(R) marquee/cmd/${1} = $2" >> "$LOG"
+    # v36 -- DIAGNOSTIC temporaire (retour utilisateur : "60% CPU c'est pas
+    # une saturation, le reseau est peut-etre libre" -- mesure directe
+    # demandee au lieu de supposer). "time" (mot-cle shell, PAS date +%N --
+    # confirme non supporte) donne une precision sous-seconde fiable sur cet
+    # ash/busybox (deja verifie fonctionner, voir bench_event2.sh). Capture
+    # le temps REEL d'execution de l'appel mosquitto_pub lui-meme -- si ce
+    # temps reste petit (quelques ms/dizaines de ms) meme pendant un
+    # ralentissement observe, la lenteur n'est PAS dans l'envoi local
+    # (pointe vers le reseau/broker/DMD, hors de portee du script) ; si ce
+    # temps grimpe (centaines de ms/secondes), la contention est bien locale
+    # (RB1) au moment de l'appel.
+    _pubtimef="/tmp/.marquee_pubtime_$$"
+    { time mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -r -t "marquee/cmd/${1}" -m "$2" 2>/dev/null; } 2> "$_pubtimef"
+    _pubtime=$(grep real "$_pubtimef" 2>/dev/null | awk '{print $2}')
+    rm -f "$_pubtimef"
+    echo "$(date '+%H:%M:%S') SEND(R) marquee/cmd/${1} = $2 [pub_time=$_pubtime]" >> "$LOG"
 }
 
 normalize_system() {
@@ -1043,7 +1141,7 @@ POLL_INTERVAL_S=0.15
 # de l'interpolation et le log affichait "seuil=/s" (vide) au lieu de
 # "seuil=10/s" -- bug constate au demarrage reel, corrige en deplacant le
 # log apres la declaration.
-echo "$(date) - Marquee bridge started (v34, position de navigation pilotee par SONDAGE DIRECT de es_state.inf (poll_navigation_position(), cadence ${POLL_INTERVAL_S}s) au lieu du flux d'evenements ES -- insensible a son rythme de publication (mesure : burst reel de 10s observe malgre tous les fixes de traitement precedents) + demo_throttled adapte au meme principe (temps ecoule, plus de timeout de lecture) + publication initiale du PROCESS et demarrage sur vrai evenement ES start) tiennent compte de es_state.inf (Action=rungame/gamelistbrowsing+position reelle) au lieu de forcer playlist inconditionnellement (v32/v33) + seuil doublon=position-stable a ${EARLY_STABLE_SECONDS}s (marge anti-arrondi seconde entiere) + verrou anti-relance en tete de fichier, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
+echo "$(date) - Marquee bridge started (v37, REVERT du sondage continu v34 -- retour a la lecture EVENEMENTIELLE (zero cout CPU en idle ; vraie cause de la saturation CPU en navigation turbo trouvee ailleurs -- ES invoquait nativement les helpers python hi-score sans limite, voir dmd_score.sh v36) + doublons ES ignores par le detecteur de rafale/sweep boot (seuil ${EARLY_STABLE_SECONDS}s, marge anti-arrondi seconde entiere) + vidange non-bloquante du pipe (read -t 0) sur les evenements de rattrapage ES en retard + DIAGNOSTIC temporaire pub_time sur mosquitto_pub (voir send_mqtt_retain()) + auto-renice -10 au demarrage (herite par mosquitto_sub/mosquitto_pub/sous-shell) + publication initiale du PROCESS et demarrage sur vrai evenement ES start) tiennent compte de es_state.inf (Action=rungame/gamelistbrowsing+position reelle) au lieu de forcer playlist inconditionnellement (v32/v33) + pipe mosquitto_sub PERSISTANT + verrou anti-relance en tete de fichier, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
 
 # v28 -- BUG REEL confirme sur materiel (retour utilisateur : "la vitesse
 # de defilement du DMD semble plafonnee, plus basse que la navigation
@@ -1065,80 +1163,99 @@ echo "$(date) - Marquee bridge started (v34, position de navigation pilotee par 
 mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 -t "Recalbox/EmulationStation/Event" 2>/dev/null | \
 while true; do
     PREV_EVENT="$event"
-    # v34 -- lecture NON-BLOQUANTE systematique ("read -t 0", confirme
-    # fonctionner correctement sous cet ash/busybox -- ne consomme rien si
-    # rien n'est deja disponible) au lieu du "read -t 1"/blocage pur d'avant
-    # (v10/v28) -- necessaire pour que le sondage direct de es_state.inf
-    # (poll_navigation_position(), voir son changelog complet) tourne a
-    # cadence FIXE (POLL_INTERVAL_S) independamment du rythme de publication
-    # des evenements ES, tout en restant instantanement reactif si un
-    # evenement est deja present (rungame/endgame/stop/sleep/wakeup/demo --
-    # inchanges, toujours evenement-pilotes, voir DECISIONS.md pour le
-    # detail complet).
-    IFS= read -r -t 0 _peek 2>/dev/null
-    if [ $? -eq 0 ]; then
+    # v37 -- REVERT du sondage continu v34 (retour utilisateur, 2026-09-01,
+    # apres decouverte de la VRAIE cause de la saturation CPU en navigation
+    # turbo -- voir DECISIONS.md et dmd_score.sh v36 : ES invoquait
+    # nativement dmd_hiscore_generic.py/dmd_game_info.py/dmd_challenge.py
+    # sans limite, INDEPENDAMMENT de ce script -- confirme decisif par
+    # retrait physique de ces 3 fichiers de userscripts/, seul fix reel,
+    # CPU 99%->0%, 65C->45C). Le sondage continu de es_state.inf
+    # (poll_navigation_position(), POLL_INTERVAL_S=0.15s) mesurait un cout
+    # reel et permanent de ~13% d'UN COEUR EN CONTINU, MEME A L'ARRET TOTAL
+    # (mesure directe via /proc/pid/stat, jiffies utime+stime+cutime+cstime
+    # sur 10s d'idle reel) -- sans ameliorer le probleme qu'il visait a
+    # corriger (confirme non concluant sur materiel APRES deploiement). Vrai
+    # cout permanent, benefice non demontre : retour a la lecture
+    # EVENEMENTIELLE (v28, "read -t 1" pendant une rafale/mode
+    # demo/boot sweep, blocage pur sinon -- zero cout CPU en idle reel,
+    # seulement des sous-process forkes en reaction a un vrai evenement
+    # recu) + restauration du case gamelistbrowsing|systembrowsing) complet
+    # (logique v29/v31 : detecteur de rafale/doublons, EARLY_STABLE_SECONDS)
+    # -- INCHANGEE depuis avant v34, simplement redeplacee ici depuis le
+    # corps de poll_navigation_position() (fonction desormais MORTE, laissee
+    # definie mais plus jamais appelee -- risque nul a la garder, evite de
+    # toucher a du code par ailleurs correct). v30 (vidange non-bloquante)
+    # RESTE active -- toujours utile face a un paquet d'evenements de
+    # rattrapage ES deja accumule, quel que soit le modele de lecture.
+    if [ "$throttled" -eq 1 ] || [ "$demo_throttled" -eq 1 ] || [ "$boot_sweep_pending" -eq 1 ]; then
+        IFS= read -r -t 1 event
+        readRc=$?
+    else
         IFS= read -r event
         readRc=$?
-        # v28 -- lecture qui echoue apres un peek positif = pipe reellement
-        # ferme (mosquitto_sub mort/broker inaccessible). Sort proprement --
-        # le verrou singleton laisse la prochaine relance par ES (evenement
-        # quelconque) redemarrer le script a neuf.
+        # v28 -- lecture BLOQUANTE (sans -t) qui echoue = pipe reellement
+        # ferme (mosquitto_sub mort/broker inaccessible), PAS un timeout
+        # (impossible sans -t) -- continuer en boucle serree consommerait
+        # 100% CPU pour rien. Sort proprement -- le verrou singleton laisse
+        # la prochaine relance par ES (evenement quelconque) redemarrer
+        # le script a neuf.
         if [ "$readRc" -ne 0 ]; then
             echo "$(date '+%H:%M:%S') mosquitto_sub pipe fermee (broker injoignable ?) -- sortie propre, relance attendue au prochain evenement ES" >> "$LOG"
             exit 1
         fi
-        event=$(printf '%s' "$event" | tr -d '\r')
+    fi
+    event=$(printf '%s' "$event" | tr -d '\r')
 
-        # v30 -- toujours utile ici (voir changelog v30 complet) : si
-        # d'autres evenements NON-navigation (rungame/endgame/stop/sleep/
-        # wakeup/demo) se sont accumules derriere un paquet de gamelistbrow-
-        # sing/systembrowsing desormais ignores (v34, voir plus bas), sauter
-        # directement au plus recent evite de les traiter un par un pour
-        # rien -- gamelistbrowsing/systembrowsing eux-memes ne coutent plus
-        # rien a "traiter" (case vide, voir plus bas), mais garder la
-        # vidange reste utile pour les VRAIS evenements d'etat qui
-        # pourraient s'accumuler derriere.
-        _drain_n=0
-        while read -t 0 -r _drain_peek 2>/dev/null; do
-            IFS= read -r _drain_next
-            [ $? -ne 0 ] && break
-            event=$(printf '%s' "$_drain_next" | tr -d '\r')
-            _drain_n=$((_drain_n + 1))
-            [ "$_drain_n" -ge 2000 ] && break
-        done
-        if [ "$_drain_n" -gt 0 ]; then
-            echo "$(date '+%H:%M:%S') DRAIN $_drain_n evenement(s) en retard sautes" >> "$LOG"
-        fi
-    else
-        event=""
-        sleep "$POLL_INTERVAL_S"
+    # v30 -- BUG REEL confirme sur materiel (retour utilisateur + sonde MQTT
+    # independante, 2026-09-01 -- voir DECISIONS.md/memoire projet). Le flux
+    # ES/Recalbox lui-meme peut se figer plusieurs secondes SANS emettre le
+    # moindre evenement pendant qu'un scroll rapide continue reellement a
+    # l'ecran, puis deverser tout le retard d'un coup. Fix : des qu'un
+    # evenement est lu, verifie (lecture non bloquante "read -t 0",
+    # comportement confirme correct sous cet ash/busybox) si D'AUTRES
+    # lignes sont DEJA disponibles dans le pipe -- si oui, saute directement
+    # a la PLUS RECENTE sans faire le traitement complet des lignes
+    # sautees ; seule la toute derniere est ensuite traitee normalement.
+    # Plafond de securite (2000 iterations) purement defensif.
+    _drain_n=0
+    while read -t 0 -r _drain_peek 2>/dev/null; do
+        IFS= read -r _drain_next
+        [ $? -ne 0 ] && break
+        event=$(printf '%s' "$_drain_next" | tr -d '\r')
+        _drain_n=$((_drain_n + 1))
+        [ "$_drain_n" -ge 2000 ] && break
+    done
+    if [ "$_drain_n" -gt 0 ]; then
+        echo "$(date '+%H:%M:%S') DRAIN $_drain_n evenement(s) en retard sautes, traitement de la position finale uniquement" >> "$LOG"
     fi
 
-    # v34 -- appelee a CHAQUE tick (evenement recu OU simple sondage) --
-    # remplace entierement la dependance a l'evenement ES pour la position
-    # de navigation affichee sur le DMD (voir son changelog complet pour le
-    # detail et la mesure qui a motive ce changement).
-    poll_navigation_position
-
-    # v34 -- demo_throttled verifie ICI sur le temps ECOULE depuis le
-    # dernier evenement rundemo/startgameclip vu (demo_last_event_ts, mis a
-    # jour dans le case correspondant plus bas), a chaque tick -- remplace
-    # le timeout de lecture "-t 1" qui n'existe plus sous cette forme (voir
-    # changelog v18 pour le raisonnement d'origine de ce mecanisme,
-    # inchange -- seul son declenchement change).
-    if [ "$demo_throttled" -eq 1 ]; then
-        _dnow=$(date +%s)
-        if [ $((_dnow - demo_last_event_ts)) -ge 1 ]; then
+    if [ -z "$event" ]; then
+        # v6 -- timeout : si une rafale etait en cours, elle vient de
+        # s'arreter (aucun survol depuis >=1s) -- publier la position
+        # courante MAINTENANT et repasser en mode reactif normal.
+        if [ "$throttled" -eq 1 ]; then
+            throttled=0
+            burst_count=0
+            burst_qualifying_streak=0
+            echo "$(date '+%H:%M:%S') BURST end -- publication position stabilisee" >> "$LOG"
+            publish_settled_position
+        fi
+        # v18 suite -- meme principe, limite de frequence demo.
+        if [ "$demo_throttled" -eq 1 ]; then
             demo_throttled=0
             if [ -n "$DEMO_SYSTEM" ] && [ -n "$DEMO_ROM" ]; then
-                demo_last_publish_ts=$_dnow
+                demo_last_publish_ts=$(date +%s)
                 echo "$(date '+%H:%M:%S') DEMO sequence rapide terminee -- publication position stabilisee" >> "$LOG"
                 send_mqtt_retain "game" "${DEMO_SYSTEM}/${DEMO_ROM}"
             fi
         fi
-    fi
-
-    if [ -z "$event" ]; then
+        # v21/v22 -- meme principe pendant boot_sweep_pending, seulement si
+        # au moins un evenement du sweep a deja ete vu.
+        if [ "$boot_sweep_pending" -eq 1 ] && [ "$boot_sweep_seen_any" -eq 1 ]; then
+            boot_sweep_pending=0
+            echo "$(date '+%H:%M:%S') BOOT SWEEP termine (silence reel observe) -- publication position stabilisee, reactivite normale retablie" >> "$LOG"
+            publish_settled_position
+        fi
         continue
     fi
 
@@ -1244,16 +1361,138 @@ while true; do
             ;;
 
         gamelistbrowsing|systembrowsing)
-            # v34 -- NO-OP desormais (voir changelog v34 complet pres de
-            # poll_navigation_position()) : la position de navigation
-            # affichee sur le DMD n'est plus du tout pilotee par cet
-            # evenement -- poll_navigation_position(), appelee a chaque tick
-            # de la boucle principale (evenement OU sondage), relit
-            # directement es_state.inf et gere l'integralite de la logique
-            # (detecteur de rafale, doublons, boot sweep, publication) qui
-            # vivait auparavant ici. Case conservee (au lieu d'etre retiree
-            # du "case") uniquement pour eviter que ces 2 noms d'evenements
-            # ne tombent dans le "*)" par defaut -- aucun cout, aucun effet.
+            # v37 -- logique RESTAUREE ici (voir changelog v37 en tete de
+            # boucle principale) -- inchangee depuis v31, seulement
+            # redeplacee hors de poll_navigation_position() (fonction
+            # desormais morte, v34 revert).
+            now=$(date +%s)
+
+            # v21 -- fenetre de grace boot glissante : pendant
+            # boot_sweep_pending, publication limitee comme le mode demo (au
+            # plus 1 toutes les BOOT_SWEEP_MIN_PUBLISH_INTERVAL_S) au lieu
+            # d'etre bloquee ou totalement libre.
+            boot_sweep_suppress=0
+            if [ "$boot_sweep_pending" -eq 1 ]; then
+                # v22 -- marque qu'un evenement du sweep a bien ete vu.
+                boot_sweep_seen_any=1
+                if [ $((now - boot_sweep_last_publish_ts)) -lt "$BOOT_SWEEP_MIN_PUBLISH_INTERVAL_S" ]; then
+                    boot_sweep_suppress=1
+                else
+                    boot_sweep_last_publish_ts=$now
+                fi
+            fi
+
+            # v29 -- position candidate lue ICI, AVANT le detecteur de
+            # rafale -- necessaire pour distinguer un VRAI changement de
+            # position d'une simple re-annonce ES de la position DEJA
+            # ATTEINTE (ES peut republier la MEME rom en boucle).
+            _snap=$(read_state_snapshot)
+            system_raw=$(extract_field "$_snap" "SystemId")
+            system=$(normalize_system "$system_raw")
+            game_path=$(extract_field "$_snap" "GamePath")
+            _cand_rom=""
+            if [ -n "$game_path" ] && [ ! -d "$game_path" ]; then
+                _cand_rom=$(basename "$game_path" | sed 's/\.[^.]*$//; s/ //g')
+            fi
+            _position_unchanged=0
+            if [ -n "$game_path" ] && [ ! -d "$game_path" ]; then
+                [ "$_cand_rom" = "$LAST_ROM" ] && [ "$system" = "$LAST_SYSTEM" ] && _position_unchanged=1
+            elif [ -n "$system" ]; then
+                [ "$system" = "$LAST_SYSTEM" ] && [ -z "$LAST_ROM" ] && _position_unchanged=1
+            fi
+
+            # v6/v16 -- detecteur de rafale : compte les survols dans la
+            # MEME seconde horloge entiere. BURST_THRESHOLD atteint sur
+            # BURST_SUSTAIN_SECONDS secondes consecutives -> throttled=1.
+            # v29 -- ignore pour un doublon (_position_unchanged=1).
+            if [ "$_position_unchanged" -eq 0 ]; then
+                if [ "$now" = "$burst_window_start" ]; then
+                    burst_count=$((burst_count + 1))
+                else
+                    # v26 -- ne finalise la streak que si le gap est
+                    # contigu (<=1s), sinon reset immediat.
+                    if [ "$burst_window_start" -gt 0 ] && [ $((now - burst_window_start)) -le 1 ] && [ "$burst_count" -ge "$BURST_THRESHOLD" ]; then
+                        burst_qualifying_streak=$((burst_qualifying_streak + 1))
+                    else
+                        burst_qualifying_streak=0
+                    fi
+                    burst_window_start="$now"
+                    burst_count=1
+                fi
+                if [ "$burst_qualifying_streak" -ge "$BURST_SUSTAIN_SECONDS" ] && [ "$throttled" -eq 0 ]; then
+                    throttled=1
+                    echo "$(date '+%H:%M:%S') BURST start (seuil $BURST_THRESHOLD/s soutenu sur ${BURST_SUSTAIN_SECONDS}s)" >> "$LOG"
+                    # v9 -- coupe-circuit anti-rafale, affichage transitoire
+                    # (animation locale firmware, RecalBox_DMD.ino v107).
+                    mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd/game" -m "!SHUFFLE" 2>/dev/null
+                    echo "$(date '+%H:%M:%S') SEND !SHUFFLE (non retenu)" >> "$LOG"
+                fi
+                last_real_change_ts="$now"
+            else
+                # v29/v31 -- doublon recu pendant une rafale/un sweep boot
+                # en cours ET au moins EARLY_STABLE_SECONDS ecoulees depuis
+                # le dernier VRAI changement -- position stabilisee,
+                # inutile d'attendre un silence total.
+                if [ "$throttled" -eq 1 ] && [ $((now - last_real_change_ts)) -ge "$EARLY_STABLE_SECONDS" ]; then
+                    throttled=0
+                    burst_count=0
+                    burst_qualifying_streak=0
+                    echo "$(date '+%H:%M:%S') BURST end (doublon ES ignore par le detecteur, position deja stable ${EARLY_STABLE_SECONDS}s+)" >> "$LOG"
+                    publish_settled_position
+                fi
+                if [ "$boot_sweep_pending" -eq 1 ] && [ "$boot_sweep_seen_any" -eq 1 ] && [ $((now - last_real_change_ts)) -ge "$EARLY_STABLE_SECONDS" ]; then
+                    boot_sweep_pending=0
+                    echo "$(date '+%H:%M:%S') BOOT SWEEP termine (doublon ES ignore par le detecteur, position deja stable ${EARLY_STABLE_SECONDS}s+)" >> "$LOG"
+                    publish_settled_position
+                fi
+            fi
+
+            echo "$(date '+%H:%M:%S') BROWSE raw=$system_raw norm=$system game=$game_path in_game=$IN_GAME throttled=$throttled bsp=$boot_sweep_pending bss=$boot_sweep_suppress bslp=$boot_sweep_last_publish_ts now=$now bc=$burst_count bqs=$burst_qualifying_streak dup=$_position_unchanged" >> "$LOG"
+
+            if [ "$IN_GAME" -eq 1 ]; then
+                echo "$(date '+%H:%M:%S') BROWSE ignored (in game)" >> "$LOG"
+                continue
+            fi
+
+            if [ -n "$game_path" ]; then
+                if [ -d "$game_path" ]; then
+                    echo "$(date '+%H:%M:%S') BROWSE subdir -> send system $system" >> "$LOG"
+                    if [ "$system" != "$LAST_SYSTEM" ] || [ -n "$LAST_ROM" ]; then
+                        LAST_SYSTEM="$system"
+                        LAST_ROM=""
+                        if [ "$throttled" -eq 0 ] && [ "$boot_sweep_suppress" -eq 0 ]; then
+                            send_mqtt_retain "system" "$system"
+                        fi
+                    fi
+                else
+                    # 2026-08-09 : "s/ //g" -- l'outil PC retire les espaces
+                    # en ecrivant les fichiers sur la carte SD DMD.
+                    rom=$(basename "$game_path" | sed 's/\.[^.]*$//; s/ //g')
+                    if [ -n "$system" ] && [ -n "$rom" ]; then
+                        if [ "$rom" != "$LAST_ROM" ] || [ "$system" != "$LAST_SYSTEM" ]; then
+                            LAST_SYSTEM="$system"
+                            LAST_ROM="$rom"
+                            if [ "$throttled" -eq 0 ] && [ "$boot_sweep_suppress" -eq 0 ]; then
+                                send_mqtt_retain "game" "${system}/${rom}"
+                            fi
+                        else
+                            echo "$(date '+%H:%M:%S') BROWSE skipped (same game)" >> "$LOG"
+                        fi
+                    fi
+                fi
+            elif [ -n "$system" ]; then
+                if [ "$system" != "$LAST_SYSTEM" ] || [ -n "$LAST_ROM" ]; then
+                    LAST_SYSTEM="$system"
+                    LAST_ROM=""
+                    if [ "$throttled" -eq 0 ] && [ "$boot_sweep_suppress" -eq 0 ]; then
+                        send_mqtt_retain "system" "$system"
+                    fi
+                else
+                    echo "$(date '+%H:%M:%S') BROWSE skipped (same system)" >> "$LOG"
+                fi
+            else
+                echo "$(date '+%H:%M:%S') BROWSE skipped (empty)" >> "$LOG"
+            fi
             ;;
 
         rungame)

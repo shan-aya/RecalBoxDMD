@@ -2,8 +2,36 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v3
+# Version actuelle : v4
 #
+# v4 - 2026-09-01 - safe-modify - BUG REEL confirme sur materiel (retour
+#   utilisateur : navigation turbo -> CPU sature 100% sur tous les coeurs,
+#   temperature grimpant a 65C+, ralentissement generalise RB1 (video,
+#   MQTT...) proportionnel a la duree de navigation). Cause trouvee par
+#   monitoring `top` repete pendant une rafale reelle : ce script est
+#   invoque directement par EmulationStation lui-meme (PPID = PID d'ES,
+#   confirme par `ps`), a CHAQUE evenement gamelistbrowsing, avec la
+#   convention d'arguments `-action gamelistbrowsing -statefile <path>
+#   -param <path>` -- JAMAIS concue pour ce fichier (main() attend des
+#   positionnels system/rom, convention de dmd_score.sh qui l'appelle
+#   correctement en parallele). Consequence : sys.argv[1]="-action",
+#   sys.argv[2]="gamelistbrowsing" -- resolve() echoue forcement (pas un
+#   vrai rom), MAIS load_manifest() (parse de hiscore_manifest.json, 432Ko)
+#   s'execute quand meme AVANT cet echec -- cout complet paye pour rien, a
+#   CHAQUE survol de liste, sans la moindre limite de frequence. Pendant
+#   une rafale de navigation rapide (dizaines d'evenements/s), ca produit
+#   un essaim de dizaines de processus Python concurrents (confirme par
+#   `top` : chaque invocation demarre un interprete + parse le manifeste),
+#   cause probable dominante de la saturation CPU observee -- independante
+#   de marquee.sh/dmd_score.sh (confirme par test d'isolation : meme
+#   comportement avec les 2 completement arretes). Fix chirurgical : sortie
+#   immediate en tete de main() si le 1er argument commence par "-"
+#   (signature exclusive de l'appel natif ES, jamais utilisee par
+#   dmd_score.sh) -- AVANT tout parsing de manifeste. Rend les appels ES
+#   natifs quasi gratuits (juste le demarrage Python) sans toucher au
+#   chemin legitime dmd_score.sh. Origine exacte de cet appel natif ES
+#   (hook RecalBox officiel ?) non elucidee -- ce fix protege sans en
+#   dependre.
 # v3 - 2026-08-23 - safe-modify - decode_int() applique desormais un
 #   facteur d'echelle optionnel (`field["scale"]`, defaut 1) apres decodage
 #   BCD/binaire. Necessaire pour les jeux qui stockent le score sous forme
@@ -232,6 +260,13 @@ def decode_separate(data, entry, charsets):
 
 def main():
     if len(sys.argv) < 3:
+        return
+    # v4 -- voir changelog v4 en tete de fichier : sortie immediate si
+    # invoque avec la convention native ES ("-action ..."), jamais celle de
+    # dmd_score.sh (positionnels system/rom, jamais prefixes par "-") --
+    # evite le cout complet de load_manifest() (parse 432Ko) pour un appel
+    # structurellement voue a l'echec.
+    if sys.argv[1].startswith("-"):
         return
     system, rom = sys.argv[1], sys.argv[2]
     try:

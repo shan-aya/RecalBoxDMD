@@ -2,7 +2,15 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v1
+# Version actuelle : v2
+#
+# v2 - 2026-09-01 - safe-modify - BUG REEL confirme sur materiel -- voir
+#   dmd_hiscore_generic.py v4 pour le detail complet (meme investigation,
+#   meme cause : appele directement par EmulationStation a chaque evenement
+#   gamelistbrowsing avec la convention `-action ... -statefile ... -param
+#   ...`, jamais concue pour ce fichier -- main() attend des positionnels
+#   system/rom). Paie le demarrage Python + l'ouverture/parsing de
+#   current.json a chaque evenement, sans la moindre limite de frequence.
 #
 # v1 - 2026-08-22 - safe-modify - Creation. Lit le classement communautaire
 #   du "Challenge" Recalbox du mois en cours (fonctionnalite officielle RB,
@@ -51,6 +59,11 @@ def clean_name(raw):
 
 def main():
     if len(sys.argv) < 3:
+        return
+    # v2 -- voir changelog v2 en tete de fichier : sortie immediate si
+    # invoque avec la convention native ES ("-action ..."), jamais celle de
+    # dmd_score.sh (positionnels, jamais prefixes par "-").
+    if sys.argv[1].startswith("-"):
         return
     system, rom = sys.argv[1], sys.argv[2]
 
