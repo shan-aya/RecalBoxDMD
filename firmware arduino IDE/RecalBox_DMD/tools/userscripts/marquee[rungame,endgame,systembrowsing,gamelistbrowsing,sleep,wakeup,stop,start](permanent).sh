@@ -74,7 +74,14 @@ renice -n -10 -p $$ >/dev/null 2>&1
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v37
+# Version actuelle : v38
+#
+# v38 - 2026-09-01 - safe-modify - Retrait du diagnostic pub_time (v36) --
+#   voir commentaire complet pres de send_mqtt_retain(). Demande utilisateur
+#   apres avoir corrige la vraie cause de la saturation CPU (dmd_score.sh
+#   v36, helpers python deplaces) : le diagnostic avait rempli son role,
+#   coutait desormais un fork+fichier temporaire par publication sans
+#   justification.
 #
 # v37 - 2026-09-01 - safe-modify - REVERT du sondage continu v34 (retour
 #   utilisateur explicite, APRES decouverte de la vraie cause de la
@@ -797,22 +804,15 @@ extract_field() {
 }
 
 send_mqtt_retain() {
-    # v36 -- DIAGNOSTIC temporaire (retour utilisateur : "60% CPU c'est pas
-    # une saturation, le reseau est peut-etre libre" -- mesure directe
-    # demandee au lieu de supposer). "time" (mot-cle shell, PAS date +%N --
-    # confirme non supporte) donne une precision sous-seconde fiable sur cet
-    # ash/busybox (deja verifie fonctionner, voir bench_event2.sh). Capture
-    # le temps REEL d'execution de l'appel mosquitto_pub lui-meme -- si ce
-    # temps reste petit (quelques ms/dizaines de ms) meme pendant un
-    # ralentissement observe, la lenteur n'est PAS dans l'envoi local
-    # (pointe vers le reseau/broker/DMD, hors de portee du script) ; si ce
-    # temps grimpe (centaines de ms/secondes), la contention est bien locale
-    # (RB1) au moment de l'appel.
-    _pubtimef="/tmp/.marquee_pubtime_$$"
-    { time mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -r -t "marquee/cmd/${1}" -m "$2" 2>/dev/null; } 2> "$_pubtimef"
-    _pubtime=$(grep real "$_pubtimef" 2>/dev/null | awk '{print $2}')
-    rm -f "$_pubtimef"
-    echo "$(date '+%H:%M:%S') SEND(R) marquee/cmd/${1} = $2 [pub_time=$_pubtime]" >> "$LOG"
+    # v38 -- diagnostic pub_time (v36) retire (retour utilisateur, une fois
+    # la vraie cause de la saturation CPU trouvee et corrigee -- voir
+    # dmd_score.sh v36/DECISIONS.md) : avait rempli son role (confirme que
+    # l'envoi local mosquitto_pub n'etait jamais la source de la lenteur,
+    # orientant l'investigation vers la vraie cause) -- ajoutait un cout non
+    # nul et permanent (sous-shell "time" + fichier temporaire a CHAQUE
+    # publication) desormais sans justification.
+    mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -r -t "marquee/cmd/${1}" -m "$2" 2>/dev/null
+    echo "$(date '+%H:%M:%S') SEND(R) marquee/cmd/${1} = $2" >> "$LOG"
 }
 
 normalize_system() {
@@ -1141,7 +1141,7 @@ POLL_INTERVAL_S=0.15
 # de l'interpolation et le log affichait "seuil=/s" (vide) au lieu de
 # "seuil=10/s" -- bug constate au demarrage reel, corrige en deplacant le
 # log apres la declaration.
-echo "$(date) - Marquee bridge started (v37, REVERT du sondage continu v34 -- retour a la lecture EVENEMENTIELLE (zero cout CPU en idle ; vraie cause de la saturation CPU en navigation turbo trouvee ailleurs -- ES invoquait nativement les helpers python hi-score sans limite, voir dmd_score.sh v36) + doublons ES ignores par le detecteur de rafale/sweep boot (seuil ${EARLY_STABLE_SECONDS}s, marge anti-arrondi seconde entiere) + vidange non-bloquante du pipe (read -t 0) sur les evenements de rattrapage ES en retard + DIAGNOSTIC temporaire pub_time sur mosquitto_pub (voir send_mqtt_retain()) + auto-renice -10 au demarrage (herite par mosquitto_sub/mosquitto_pub/sous-shell) + publication initiale du PROCESS et demarrage sur vrai evenement ES start) tiennent compte de es_state.inf (Action=rungame/gamelistbrowsing+position reelle) au lieu de forcer playlist inconditionnellement (v32/v33) + pipe mosquitto_sub PERSISTANT + verrou anti-relance en tete de fichier, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
+echo "$(date) - Marquee bridge started (v38, diagnostic pub_time retire (role rempli, cout desormais injustifie) + REVERT du sondage continu v34 -- retour a la lecture EVENEMENTIELLE (zero cout CPU en idle ; vraie cause de la saturation CPU en navigation turbo trouvee ailleurs -- ES invoquait nativement les helpers python hi-score sans limite, voir dmd_score.sh v36) + doublons ES ignores par le detecteur de rafale/sweep boot (seuil ${EARLY_STABLE_SECONDS}s, marge anti-arrondi seconde entiere) + vidange non-bloquante du pipe (read -t 0) sur les evenements de rattrapage ES en retard + auto-renice -10 au demarrage (herite par mosquitto_sub/mosquitto_pub/sous-shell) + publication initiale du PROCESS et demarrage sur vrai evenement ES start) tiennent compte de es_state.inf (Action=rungame/gamelistbrowsing+position reelle) au lieu de forcer playlist inconditionnellement (v32/v33) + pipe mosquitto_sub PERSISTANT + verrou anti-relance en tete de fichier, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
 
 # v28 -- BUG REEL confirme sur materiel (retour utilisateur : "la vitesse
 # de defilement du DMD semble plafonnee, plus basse que la navigation
