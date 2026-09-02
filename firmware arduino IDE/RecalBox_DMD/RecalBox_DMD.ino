@@ -1,7 +1,25 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v144
+// Version actuelle : v145
+//
+// v145 - 2026-09-02 - safe-modify - Delai de stabilisation COURT (150ms,
+//   vTaskDelay) insere juste apres mqttClient.connect() reussi, AVANT le
+//   tout 1er subscribeChecked()/mqttSubscribeFast(). Motif : capture
+//   tcpdump reelle (premiere fois disponible sur ce projet, RB1 -- voir
+//   memoire projet pour le detail complet) a prouve au niveau paquet que
+//   le SUBSCRIBE qui suit immediatement le CONNACK peut ne JAMAIS quitter
+//   le DMD (0 octet sur le cable pendant 14s dans un cas observe), alors
+//   que le CONNECT/CONNACK venait de s'echanger sans probleme sur la MEME
+//   connexion quelques centaines de ms plus tot -- correle (2/2 cas
+//   observes) avec un ACK client du CONNACK arrivant assez tard pour
+//   declencher une retransmission broker. Hypothese : etat transitoire
+//   cote lwIP/driver WiFi juste apres le CONNACK, pas un probleme reseau
+//   externe (broker et Freebox tous deux ecartes avec preuve directe la
+//   meme soiree). Volontairement PAS un reset socket/WiFi (casserait soit
+//   la session MQTT en cours, soit deja teste et reverte, voir v134) --
+//   juste laisser passer une courte fenetre avant de solliciter le TX.
+//   PAS ENCORE VALIDE sur materiel au moment de cet ecrit.
 //
 // v144 - 2026-09-02 - safe-modify - ESCALADE WiFi reintroduite dans
 //   mqttTask() (retiree en v134 faute de synchronisation, voir son
@@ -7130,6 +7148,28 @@ void mqttTask(void *param)
         lastMqttConnectedMs=millis();
         lastRecalboxDisconnectedAlertMs=0; // reautorise l'alerte immediate en cas de future deconnexion
         recalboxDisconnectedAlertCount=0;
+        // v145 -- delai de stabilisation COURT avant le tout 1er subscribe()
+        // (capture tcpdump reelle, session du 02/09 soir) : preuve paquet
+        // directe que le SUBSCRIBE qui suit immediatement le CONNACK ne
+        // quitte parfois jamais le DMD (0 octet sur le cable pendant
+        // plusieurs secondes, alors que le CONNECT/CONNACK venait de
+        // s'echanger sans probleme sur la MEME connexion quelques centaines
+        // de ms plus tot) -- correle avec un CONNACK dont l'ACK client
+        // arrive assez tard pour declencher une retransmission broker (2/2
+        // cycles observes avec retransmission ont aussi echoue au 1er
+        // subscribe). Hypothese : un etat transitoire cote lwIP/driver WiFi
+        // juste apres le CONNACK (traitement RX qui prive temporairement le
+        // chemin TX de ressource) plutot qu'un vrai probleme reseau externe
+        // (broker/Freebox tous deux ecartes avec preuve directe le meme
+        // soir). PAS un WiFi.disconnect()/begin() (deja tente et reverte,
+        // voir v134) -- juste laisser passer une courte fenetre avant de
+        // solliciter le TX. Ne casse rien au niveau protocole (contrairement
+        // a fermer/rouvrir le socket, qui casserait la session MQTT en
+        // cours). Valeur choisie a l'estime (~211ms observes pour le RTO de
+        // retransmission broker mesure la meme session) -- PAS ENCORE
+        // VALIDE sur l'episode reel au moment de cet ecrit, a confirmer via
+        // tcpdump si le symptome persiste malgre ce delai.
+        vTaskDelay(pdMS_TO_TICKS(150));
         // v89 (2026-08-17) -- BUG REEL confirme sur materiel : le DMD
         // restait "[MQTT] connected" mais ne recevait plus AUCUN message
         // publie par la RB (confirme cote RB : marquee.sh publiait bien),
