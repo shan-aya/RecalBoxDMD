@@ -1,7 +1,28 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v142
+// Version actuelle : v143
+//
+// v143 - 2026-09-02 - safe-modify - DIAGNOSTIC (pas de changement de
+//   comportement fonctionnel) pour l'investigation rc=-4/blocage
+//   subscribe() qui reste non resolue malgre l'elimination de RB1/de la
+//   puce ESP32 individuelle comme causes (voir DECISIONS.md) -- delai
+//   variable observe avant rechute (16min a 72min selon les sessions),
+//   compatible avec une fuite de ressource qui s'accumule PAR CYCLE
+//   connect()/subscribe() plutot qu'avec un facteur externe base sur le
+//   temps. 3 ajouts : (1) `fd=` sur la ligne d'echec `mqttSubscribeFast`
+//   -- si cette valeur ne fait QUE croitre au fil d'une session sans
+//   jamais redescendre, preuve directe d'une fuite de socket (les fd
+//   POSIX/lwIP sont normalement recycles au plus bas numero libre) ;
+//   (2) `g_totalConnectAttempts` (nouveau compteur global PERSISTANT,
+//   jamais remis a zero contrairement aux compteurs locaux existants de
+//   mqttTask()) loggue sur chaque tentative connect() (reussie ou non) --
+//   objectif : voir si la rechute correle avec un NOMBRE de cycles plutot
+//   qu'avec le temps ecoule ; (3) `ESP.getMinFreeHeap()` (plancher
+//   historique de heap libre, jamais suivi jusqu'ici) ajoute aux lignes
+//   `connecting to`/`failed rc=`/`[LOOPDIAG]` -- complete `free`/
+//   `maxalloc` deja suivis, qui ne disent rien du pire cas atteint au fil
+//   de la session. PAS ENCORE TESTE SUR MATERIEL au moment de cet ecrit.
 //
 // v142 - 2026-09-01 - safe-modify - BUG REEL corrige par lecture de code
 //   (DECISIONS.md, "angle mort du filet de securite retour playlist", trouve
@@ -3641,11 +3662,17 @@ bool mqttSubscribeFast(WiFiClient &client, const char *topic, uint8_t qos, uint3
     int soErr = -1;
     socklen_t soErrLen = sizeof(soErr);
     int gsoRc = getsockopt(fd, SOL_SOCKET, SO_ERROR, &soErr, &soErrLen);
+    // v143 -- fd= ajoute (voir entete changelog) : les fd POSIX/lwIP sont
+    // normalement recycles au plus bas numero libre -- si cette valeur ne
+    // fait QUE croitre au fil d'une session sans jamais redescendre, c'est
+    // la preuve directe d'une fuite de socket (jamais ferme correctement
+    // quelque part dans le cycle connect/subscribe/disconnect).
     Serial.println("[MQTT] mqttSubscribeFast ECHEC -> " + String(topic)
                    + " sent=" + String((unsigned)sent) + "/" + String((unsigned)pos)
                    + " SO_ERROR=" + String(soErr) + "(gso_rc=" + String(gsoRc) + ")"
                    + " lastErrno=" + String(lastErrno)
-                   + " lastSelectRc=" + String(lastSelectRc) + " lastSelectErrno=" + String(lastSelectErrno));
+                   + " lastSelectRc=" + String(lastSelectRc) + " lastSelectErrno=" + String(lastSelectErrno)
+                   + " fd=" + String(fd));
   }
   return sent == pos;
 }
@@ -3667,6 +3694,19 @@ struct MqttCommand
 SemaphoreHandle_t mqttCmdMutex   = nullptr;
 MqttCommand       pendingCmd;
 TaskHandle_t      mqttTaskHandle = nullptr;
+
+// v143 -- compteur PERSISTANT (jamais remis a zero, contrairement a
+// consecutiveSubscribeFailCycles/wifiDownStreak qui sont locaux a
+// mqttTask() et se remettent a zero des qu'un cycle reussit) du nombre
+// total de tentatives connect() depuis le boot -- objectif : distinguer
+// si la rechute du blocage subscribe()/connect() (delai variable observe,
+// 2026-09-02 : 16min a 72min selon les sessions) correle avec un NOMBRE de
+// cycles ecoules (evocateur d'une fuite de ressource qui s'accumule a
+// chaque cycle, ex. socket/fd jamais ferme) plutot qu'avec le temps reel
+// ecoule (evocateur d'un facteur externe base sur une horloge -- bail
+// DHCP, timeout AP, etc.). Loggue sur chaque connect() (reussi ou non) et
+// sur chaque echec definitif de cycle subscribe(), voir mqttTask().
+uint32_t g_totalConnectAttempts = 0;
 
 // v142 -- BUG REEL confirme par lecture de code (DECISIONS.md, "angle mort
 // du filet de securite retour playlist", 31/08 soir) : le filet
@@ -7039,9 +7079,16 @@ void mqttTask(void *param)
       // v135 -- RSSI/canal ajoutes (voir commentaire complet pres de
       // WiFi.onEvent() dans connectWiFi()) -- correle l'etat radio EXACT au
       // moment de chaque tentative, jamais capture jusqu'ici.
+      // v143 -- attempt= (g_totalConnectAttempts, voir sa declaration) +
+      // minFreeHeap= (ESP.getMinFreeHeap(), plancher historique jamais
+      // remis a zero -- complete free/maxalloc, deja suivis mais qui ne
+      // disent rien du pire cas atteint au fil de la session).
+      g_totalConnectAttempts++;
       Serial.println("[MQTT] connecting to "+recalboxIP+" (free="+String(ESP.getFreeHeap())
                      +" maxalloc="+String(ESP.getMaxAllocHeap())
-                     +" rssi="+String(WiFi.RSSI())+" ch="+String(WiFi.channel())+")");
+                     +" minFreeHeap="+String(ESP.getMinFreeHeap())
+                     +" rssi="+String(WiFi.RSSI())+" ch="+String(WiFi.channel())
+                     +" attempt="+String(g_totalConnectAttempts)+")");
       if(mqttClient.connect(MQTT_CLIENT))
       {
         // v135 -- rssi ajoute ici aussi : reference "etat radio au moment
@@ -7265,8 +7312,10 @@ void mqttTask(void *param)
         // commentaire complet pres de WiFi.onEvent() dans connectWiFi()).
         Serial.println("[MQTT] failed rc="+String(mqttClient.state())+" (free="+String(ESP.getFreeHeap())
                        +" maxalloc="+String(ESP.getMaxAllocHeap())
+                       +" minFreeHeap="+String(ESP.getMinFreeHeap())
                        +" rssi="+String(WiFi.RSSI())+" ch="+String(WiFi.channel())
-                       +" wifiStatus="+String(WiFi.status())+")");
+                       +" wifiStatus="+String(WiFi.status())
+                       +" attempt="+String(g_totalConnectAttempts)+")");
         unsigned long now=millis();
         // v134 -- v133 (force WiFi.disconnect()/begin() ici apres 90s de
         // connect() en echec soutenu) REVERTE, MEME RAISON que le retrait
@@ -8770,6 +8819,14 @@ void loop()
                      + " nextGifPathLen=" + String(nextGifPath.length())
                      + " free=" + String(ESP.getFreeHeap())
                      + " maxalloc=" + String(ESP.getMaxAllocHeap())
+                     // v143 -- minFreeHeap= (ESP.getMinFreeHeap(), plancher
+                     // historique jamais remis a zero) + connectAttempts=
+                     // (g_totalConnectAttempts) : suivi continu (pas
+                     // seulement au moment des tentatives MQTT) pour
+                     // corroborer une derive lente vs un declenchement lie
+                     // au nombre de cycles connect()/subscribe() ecoules.
+                     + " minFreeHeap=" + String(ESP.getMinFreeHeap())
+                     + " connectAttempts=" + String(g_totalConnectAttempts)
                      + " pendingType=" + String((int)pendingCmd.type)
                      + " stackMinBytes=" + String(stackMinWords * 4));
     }
