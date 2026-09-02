@@ -20,6 +20,20 @@
 //   la session MQTT en cours, soit deja teste et reverte, voir v134) --
 //   juste laisser passer une courte fenetre avant de solliciter le TX.
 //   PAS ENCORE VALIDE sur materiel au moment de cet ecrit.
+//   SUITE (meme soir, tcpdump toujours actif) : 1er episode reel capture
+//   apres flash -- le delai de 150ms fonctionne EXACTEMENT comme prevu
+//   (CONNACK a .177904, 1er SUBSCRIBE parti a .352912, ~175ms plus tard,
+//   confirme au paquet) et les 5 premiers topics (stop/default/system/
+//   game/show_config) partent tous sans probleme. MAIS le 6e topic
+//   (wifi_recovery) rebloque exactement comme avant -- le phenomene n'est
+//   donc pas limite au tout premier envoi post-CONNACK, il peut survenir
+//   apres plusieurs subscribe() reussis d'affilee aussi. Ajout : meme
+//   delai court (30ms, plus petit que les 150ms initiaux car ici on
+//   n'est plus juste apres le CONNACK/sa charge RX, juste entre 2 sends
+//   qui s'enchainaient jusqu'ici sans aucune pause) apres CHAQUE
+//   subscribe() reussi (les 2 branches OK 1er essai et OK retry), pas
+//   seulement avant le tout premier. PAS ENCORE TESTE SUR MATERIEL au
+//   moment de cet ajout.
 //
 // v144 - 2026-09-02 - safe-modify - ESCALADE WiFi reintroduite dans
 //   mqttTask() (retiree en v134 faute de synchronisation, voir son
@@ -7227,6 +7241,16 @@ void mqttTask(void *param)
           {
             Serial.println("[SUBDIAG] " + String(topic) + " OK 1er essai (" + String(t1 - t0) + "ms) preConnected=" + String(preConnected)
                            + " hb=" + String(hb1 - hb0) + "/" + String((t1 - t0) / 20));
+            // v145 suite -- meme motif que le delai avant le 1er subscribe
+            // (voir son commentaire complet plus haut) : capture tcpdump a
+            // montre que le blocage TX peut aussi survenir APRES plusieurs
+            // subscribe() reussis d'affilee (6e topic bloque alors que les
+            // 5 precedents venaient de partir sans probleme) -- pas
+            // strictement limite au tout premier envoi post-CONNACK. Meme
+            // delai court entre chaque subscribe reussi, pour la meme
+            // raison (laisser souffler le TX plutot que l'enchainer sans
+            // pause).
+            vTaskDelay(pdMS_TO_TICKS(30));
             return;
           }
           // v136 -- meme sonde juste apres l'echec du 1er essai (bloquant
@@ -7245,6 +7269,7 @@ void mqttTask(void *param)
           {
             Serial.println("[SUBDIAG] " + String(topic) + " OK retry (essai1=" + String(t1 - t0) + "ms, essai2=" + String(t3 - t2) + "ms) preConnected=" + String(preConnected) + "/" + String(preConnected2)
                            + " hb=" + String(hb1 - hb0) + "/" + String((t1 - t0) / 20) + "," + String(hb3 - hb2) + "/" + String((t3 - t2) / 20));
+            vTaskDelay(pdMS_TO_TICKS(30)); // v145 suite -- voir commentaire complet au 1er site (OK 1er essai)
             return;
           }
           // v137 -- hb=<reel1>/<attendu1>,<reel2>/<attendu2> : si <reel> est
