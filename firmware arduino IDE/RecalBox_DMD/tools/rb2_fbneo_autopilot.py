@@ -3,7 +3,21 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v1
+# Version actuelle : v2
+#
+# v2 - 2026-08-31 - safe-modify - Retour utilisateur direct apres
+#   verification sur ecran du 1er run : le pattern d'inputs "generique"
+#   unique (v1) ne faisait PAS avancer le score sur un beat-em-up
+#   (dynagear, boss combattu mais score reste a 0 -- attaque trop rare).
+#   Remplace par fbneo_game_profiles.py (nouveau module, reprend un
+#   principe deja amorce cote Codex/PLAY_PROFILES mais avec des
+#   categories affinees et une lecture directe du genre gamelist.xml)
+#   -- un pattern d'inputs different par famille de jeu (beat-em-up,
+#   plateforme-shooter, plateforme pure, shmup horizontal, run-and-gun,
+#   puzzle-viser-lancer, course, labyrinthe). Duree de jeu par defaut
+#   portee a 120s (retour utilisateur : "augmente ta duree de jeu vu
+#   que tu es autonome, ca n'a pas d'importance si tu dois jouer 2min
+#   au lieu de 30s").
 #
 # v1 - 2026-08-31 - safe-modify - Creation initiale. Pipeline complet
 #   d'auto-pilotage fbneo SANS AUCUNE intervention humaine, rendu
@@ -50,6 +64,7 @@ CHUNK = 16384
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from rb2_input_device import detect_steam_deck_device  # noqa: E402
+from fbneo_game_profiles import profile_for_rom  # noqa: E402
 
 
 def log(msg):
@@ -184,26 +199,17 @@ def launch(rom):
     return subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def play_generic(seconds, cadence=1.0):
-    """Inputs generiques (droite+bouton) -- suffisant pour faire monter
-    un score dans la plupart des jeux d'action/plateforme testes."""
-    deadline = time.time() + seconds
-    actions = (("PLAYER1_RIGHT", "PLAYER1_B"), ("PLAYER1_LEFT", "PLAYER1_A"),
-               ("PLAYER1_RIGHT", "PLAYER1_A"), ("PLAYER1_UP",))
-    index = 0
-    while time.time() < deadline:
-        for cmd in actions[index % len(actions)]:
-            send(cmd)
-        index += 1
-        time.sleep(cadence)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                       formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("rom")
-    parser.add_argument("--play-seconds", type=int, default=90)
-    parser.add_argument("--interval", type=float, default=8.0)
+    parser.add_argument("--play-seconds", type=int, default=120,
+                        help="duree totale de jeu (defaut 120s -- pas de cout en Free Play, "
+                             "retour utilisateur : autant jouer plus longtemps pour des "
+                             "screenshots plus surs)")
+    parser.add_argument("--interval", type=float, default=10.0)
     parser.add_argument("--load-wait", type=int, default=20)
     parser.add_argument("--boot-wait", type=int, default=15)
     args = parser.parse_args()
@@ -239,6 +245,9 @@ def main():
     session_dir = os.path.join(OUT_ROOT, args.rom, time.strftime("%Y%m%d-%H%M%S"))
     os.makedirs(session_dir, exist_ok=True)
 
+    category, play_fn = profile_for_rom(args.rom)
+    log(">>> profil de jeu : {} (d'apres gamelist.xml)".format(category))
+
     events = [capture_one(session_dir, 0, 0, dump_size)]
     log("    obs00 (avant START) : ram={} octets".format(events[-1]["ram_bytes"]))
 
@@ -252,7 +261,7 @@ def main():
         if not retroarch_pid(args.rom):
             log("jeu quitte de lui-meme -- arret")
             break
-        play_generic(min(args.interval, deadline - time.time()))
+        play_fn(send, min(args.interval, deadline - time.time()))
         event = capture_one(session_dir, index, 0, dump_size)
         events.append(event)
         log("    obs{:02d} : ram={} octets".format(index, event["ram_bytes"]))
