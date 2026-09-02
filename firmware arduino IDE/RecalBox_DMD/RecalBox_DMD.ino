@@ -1,7 +1,25 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v143
+// Version actuelle : v144
+//
+// v144 - 2026-09-02 - safe-modify - ESCALADE WiFi reintroduite dans
+//   mqttTask() (retiree en v134 faute de synchronisation, voir son
+//   commentaire complet pres de SUBSCRIBE_BACKOFF_MAX_MS), cette fois
+//   protegee par un vrai mutex (wifiResetMutex, voir sa declaration pres
+//   de mqttCmdMutex) partage avec maintainWiFi() (loop(), coeur 1) --
+//   plus aucun des 2 call sites WiFi.disconnect()/begin() ne peut
+//   s'executer en meme temps que l'autre. Motif : investigation broker
+//   (log mosquitto debug, session du 02/09 apres-midi) a confirme un
+//   cycle connect(14s)/disconnect volontaire/recul(60s, plafond
+//   SUBSCRIBE_BACKOFF_MAX_MS) qui se repete a l'identique pendant 10+
+//   minutes sans jamais se resoudre tout seul -- le recul MQTT seul
+//   (v104) n'a aucun mecanisme pour sortir de cette boucle quand la
+//   cause depasse le niveau MQTT. Seuil d'escalade choisi expres
+//   au-dela du plafond (15 cycles consecutifs, soit ~3 cycles pleinement
+//   au plafond apres l'avoir atteint) pour laisser large priorite au
+//   recul MQTT seul dans le cas courant. PAS ENCORE TESTE SUR MATERIEL
+//   au moment de cet ecrit -- prochaine etape.
 //
 // v143 - 2026-09-02 - safe-modify - DIAGNOSTIC (pas de changement de
 //   comportement fonctionnel) pour l'investigation rc=-4/blocage
@@ -3695,6 +3713,21 @@ SemaphoreHandle_t mqttCmdMutex   = nullptr;
 MqttCommand       pendingCmd;
 TaskHandle_t      mqttTaskHandle = nullptr;
 
+// v144 -- wifiResetMutex : protege TOUTE sequence WiFi.disconnect()/
+// WiFi.begin() contre un acces concurrent entre maintainWiFi() (tache
+// loop(), coeur 1, appelee a chaque tour) et l'escalade WiFi ajoutee dans
+// mqttTask() (coeur 0, voir WIFI_RESET_ESCALATION_THRESHOLD). Motif deja
+// identifie et documente (v132/v133 revertes en v134, voir son
+// commentaire complet pres de SUBSCRIBE_BACKOFF_MAX_MS) : ces 2 appels
+// n'etaient pas thread-safe l'un envers l'autre, une collision pouvait
+// corrompre l'etat interne du driver WiFi (observe : WiFi lui-meme
+// decrochant en boucle serree, pire que le probleme d'origine). Cette
+// fois, les 2 call sites prennent ce mutex (timeout court, non bloquant
+// pour l'appelant qui abandonne simplement ce tour si l'autre l'a deja)
+// avant de toucher WiFi.disconnect()/begin()/setSleep(), au lieu de
+// retirer l'escalade comme l'avait fait v134.
+SemaphoreHandle_t wifiResetMutex = nullptr;
+
 // v143 -- compteur PERSISTANT (jamais remis a zero, contrairement a
 // consecutiveSubscribeFailCycles/wifiDownStreak qui sont locaux a
 // mqttTask() et se remettent a zero des qu'un cycle reussit) du nombre
@@ -7273,6 +7306,45 @@ void mqttTask(void *param)
           // driver bien plus qu'un reset MQTT seul. Retire entierement --
           // seul mqttClient.disconnect() (deja existant, niveau MQTT/socket
           // uniquement, pas de risque de concurrence WiFi) subsiste ici.
+          //
+          // v144 -- ESCALADE REINTRODUITE, cette fois SYNCHRONISEE
+          // (wifiResetMutex, voir sa declaration) au lieu d'etre retiree.
+          // Motif : au plafond de recul (60s), rejouer indefiniment le
+          // meme mqttClient.disconnect() ne resout rien si la cause est
+          // plus profonde que le seul niveau MQTT (pile socket/WiFi) --
+          // observe en direct (retour utilisateur, session du 02/09) :
+          // cycle connect(14s)/disconnect/recul(60s) reproduit a
+          // l'identique pendant 10+ min sans jamais se resoudre tout
+          // seul. Seuil choisi expres AU-DELA du plafond (12 cycles pour
+          // l'atteindre + 3 de plus dessus) : laisse largement le temps
+          // au recul MQTT seul de suffire dans le cas courant
+          // (probleme transitoire), ne declenche l'action plus lourde
+          // que si ca persiste vraiment. Prend le mutex avec un timeout
+          // court (500ms) -- si maintainWiFi() le tient deja, on
+          // abandonne cette tentative SANS bloquer mqttTask(), le seuil
+          // restant depasse, on retentera au prochain cycle (~60s plus
+          // tard) plutot que d'attendre indefiniment un verrou tenu par
+          // l'autre tache.
+          const int WIFI_RESET_ESCALATION_CYCLES = 15;
+          if (consecutiveSubscribeFailCycles >= WIFI_RESET_ESCALATION_CYCLES)
+          {
+            if (wifiResetMutex!=nullptr && xSemaphoreTake(wifiResetMutex,pdMS_TO_TICKS(500))==pdTRUE)
+            {
+              Serial.println("[MQTT] escalade : " + String(consecutiveSubscribeFailCycles)
+                             + " cycles consecutifs au plafond de recul -- reset WiFi complet (WiFi.disconnect()/begin())");
+              delay(1500); WiFi.disconnect(); delay(50);
+              applyStaticIP();
+              WiFi.begin(wifiSSID.c_str(),wifiPassword.c_str());
+              WiFi.setSleep(false);
+              xSemaphoreGive(wifiResetMutex);
+              consecutiveSubscribeFailCycles = 0; // repart de zero apres l'action forte
+            }
+            else
+            {
+              Serial.println("[MQTT] escalade WiFi voulue (" + String(consecutiveSubscribeFailCycles)
+                             + " cycles) mais mutex indisponible (maintainWiFi() l'utilise) -- retente au prochain cycle");
+            }
+          }
           vTaskDelay(pdMS_TO_TICKS(backoffMs));
         }
         else
@@ -7690,6 +7762,12 @@ void maintainWiFi()
   if (g_sdOpInProgress) return;
   unsigned long now=millis();
   if(now-lastWifiReconnectAttempt<5000) return;
+  // v144 -- mutex partage avec l'escalade WiFi de mqttTask() (voir
+  // wifiResetMutex, sa declaration). Timeout court et non bloquant :
+  // si l'autre cote tient deja le mutex (son propre reset WiFi en
+  // cours), on abandonne simplement CE tour -- le cooldown 5s ci-dessus
+  // fait qu'on retentera naturellement au prochain loop().
+  if(wifiResetMutex!=nullptr && xSemaphoreTake(wifiResetMutex,pdMS_TO_TICKS(200))!=pdTRUE) return;
   lastWifiReconnectAttempt=now;
   Serial.println("[WIFI] reconnect");
   delay(1500);WiFi.disconnect();delay(50);
@@ -7720,6 +7798,7 @@ void maintainWiFi()
   // cout nul, applique par prudence/coherence avec le fix IP fixe deja
   // en place pour exactement la meme classe de probleme.
   WiFi.setSleep(false);
+  if(wifiResetMutex!=nullptr) xSemaphoreGive(wifiResetMutex); // v144
 }
 
 // --------------------------------------------------
@@ -8578,6 +8657,7 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
 
   mqttCmdMutex=xSemaphoreCreateMutex();
   pendingCmd=MqttCommand(MqttCommand::CMD_NONE,"");
+  wifiResetMutex=xSemaphoreCreateMutex(); // v144 -- voir sa declaration
   // plGenStatusMutex/sdAccessMutex retires (2026-08-10) : playlistGenStep()
   // tourne exclusivement dans loop(), plus d'acces concurrent a proteger.
   if (needWebConfigMode) {
