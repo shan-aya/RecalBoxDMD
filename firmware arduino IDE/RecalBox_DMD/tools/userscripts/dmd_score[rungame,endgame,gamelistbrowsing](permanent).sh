@@ -23,7 +23,19 @@ echo $$ > "$LOCKDIR/pid"
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v39
+# Version actuelle : v40
+#
+# v40 - 2026-09-02 - safe-modify - Veille CIBLEE (round-robin hiscore/
+#   description/info pendant rundemo) DESACTIVEE, retour utilisateur
+#   explicite : "la fonction veille ciblee n'est que cosmetique et ne pese
+#   rien face au besoin de stabilite". rundemo REJOINT startgameclip dans
+#   son bloc no-op (round-robin jamais demarre) au lieu de partager le
+#   case gamelistbrowsing) -- meme demarche que v39 (fusion des topics) :
+#   reduire l'exposition au blocage TX MQTT post-CONNACK (mur de plateforme
+#   atteint, voir DECISIONS.md/memoire projet). gamelistbrowsing) ne traite
+#   plus que la vraie navigation humaine, comportement inchange pour elle.
+#   marquee.sh v41 applique le meme choix de son cote (rundemo/startgameclip
+#   -> playlist simple) -- les 2 scripts restent coherents entre eux.
 #
 # v39 - 2026-09-02 - safe-modify - Topic marquee/cmd/score -> marquee/cmd
 #   unique (voir DECISIONS.md + RecalBox_DMD.ino v148, meme motif que
@@ -1520,7 +1532,7 @@ publish_one_panel() {
     return 1
 }
 
-echo "$(date) - DMD score bridge started (v39, topic marquee/cmd/score fusionne dans marquee/cmd (CMD=/ARG=), voir RecalBox_DMD.ino v148 + v38, round_robin() retire hiscore de la rotation si indisponible pour le rom (evite un tour ~14s perdu) + v37, precise_ts()/ref ajoutes a send_score()/BROWSE/DWELL -- diagnostic desync overlay/marquee, voir DECISIONS.md + v36, helpers python (hiscore_generic/game_info/challenge) deplaces hors de userscripts/ (PYHELP_DIR=dmd_helpers/) -- ES ne peut plus les invoquer nativement sans limite, cause reelle de la saturation CPU en navigation turbo + verrou anti-relance deplace tout en haut du fichier (cout minimal par relance dupliquee ES) + fix race condition 1ere page/envoi non gardee (hiscore/desc/info) + fix race condition publish_one_panel() v33 -- revalide l'etat avant python3/envoi, startgameclip = marquee seul mais rundemo garde l'overlay complet + features_watcher valide le message avant d'ecraser le cache + hi-score generique + round-robin infini + dwell/ratios reglables)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v40, veille ciblee (round-robin pendant rundemo) desactivee au profit de la playlist simple (priorite stabilite) + v39, topic marquee/cmd/score fusionne dans marquee/cmd (CMD=/ARG=), voir RecalBox_DMD.ino v148 + v38, round_robin() retire hiscore de la rotation si indisponible pour le rom (evite un tour ~14s perdu) + v37, precise_ts()/ref ajoutes a send_score()/BROWSE/DWELL -- diagnostic desync overlay/marquee, voir DECISIONS.md + v36, helpers python (hiscore_generic/game_info/challenge) deplaces hors de userscripts/ (PYHELP_DIR=dmd_helpers/) -- ES ne peut plus les invoquer nativement sans limite, cause reelle de la saturation CPU en navigation turbo + verrou anti-relance deplace tout en haut du fichier (cout minimal par relance dupliquee ES) + fix race condition 1ere page/envoi non gardee (hiscore/desc/info) + fix race condition publish_one_panel() v33 -- revalide l'etat avant python3/envoi, startgameclip = marquee seul mais rundemo garde l'overlay complet + features_watcher valide le message avant d'ecraser le cache + hi-score generique + round-robin infini + dwell/ratios reglables)" >> "$LOG"
 # Efface une session/etat perime d'un lancement precedent.
 : > "$GAME_SESSION_FILE"
 : > "$BROWSE_STATE_FILE"
@@ -1627,7 +1639,22 @@ while IFS= read -r event; do
             LAST_BROWSE_ROM=""
             echo "$(date '+%H:%M:%S') SLEEP (round-robin ingame/browse arretes)" >> "$LOG"
             ;;
-        startgameclip)
+        startgameclip|rundemo)
+            # v41 - 2026-09-02 - safe-modify - retour utilisateur explicite
+            # (priorite stabilite > fonctionnalite cosmetique -- "la
+            # fonction veille ciblee n'est que cosmetique et ne pese rien
+            # face au besoin de stabilite") : rundemo REJOINT desormais
+            # startgameclip dans ce bloc no-op (round-robin JAMAIS demarre),
+            # inverse du choix v31 ci-dessous qui l'en excluait
+            # deliberement -- meme demarche que le fix v40 marquee.sh
+            # (fusion des topics MQTT)/v38 round_robin() (hiscore) : reduire
+            # l'EXPOSITION au blocage TX MQTT post-CONNACK plutot que de
+            # continuer a le corriger a la source (mur de plateforme
+            # atteint, voir DECISIONS.md/memoire projet). marquee.sh v41
+            # applique le meme choix de son cote (rundemo/startgameclip ->
+            # playlist simple au lieu de marquee+jeu demo) -- les 2 scripts
+            # restent coherents entre eux.
+            #
             # v31 - 2026-08-24 - safe-modify - BUG REEL trouve en enquetant
             # sur des deconnexions MQTT courtes (rc=-4) survenant pendant la
             # veille gameclip, correlees cote firmware a un rendu CMD_GAME/
@@ -1665,18 +1692,15 @@ while IFS= read -r event; do
             : > "$BROWSE_STATE_FILE"
             ;;
 
-        gamelistbrowsing|rundemo)
-            # v28 -- "rundemo" ajoute (retour utilisateur : "en mode clip &
-            # demo afficher marquee + panneaux d'info equivalent au survol
-            # de liste du jeu concerne") -- meme evenement reel decouvert et
-            # cable cote marquee.sh v18 (voir son changelog complet).
-            # Reutilise tel quel tout le mecanisme dwell+round_robin
-            # ("browse") ci-dessous -- ni un jeu demo n'est "en jeu"
-            # (round-robin "ingame" reserve a un vrai rungame), c'est bien
-            # un equivalent survol/consultation. v31 -- startgameclip retire
-            # de ce case (voir son propre case ci-dessus, raisonnement
-            # complet la-bas) : dwell trop court pour ce mode specifique,
-            # PAS pour rundemo qui reste ici inchange.
+        gamelistbrowsing)
+            # v28 -- "rundemo" avait ete ajoute ici (retour utilisateur :
+            # "en mode clip & demo afficher marquee + panneaux d'info
+            # equivalent au survol de liste du jeu concerne") -- v41 (voir
+            # son changelog complet pres du case startgameclip|rundemo)
+            # ci-dessus) : retire d'ici, rejoint desormais startgameclip
+            # dans le bloc no-op (veille ciblee desactivee, priorite
+            # stabilite). Ce case ne traite plus QUE la vraie navigation
+            # humaine (gamelistbrowsing), comportement inchange pour elle.
             #
             # v10 -- symetrique du fix rungame ci-dessus : un round-robin
             # "ingame" encore en vol (retour rapide a la liste juste apres

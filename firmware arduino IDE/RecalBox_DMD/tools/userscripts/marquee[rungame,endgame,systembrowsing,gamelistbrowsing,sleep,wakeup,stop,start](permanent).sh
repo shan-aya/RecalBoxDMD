@@ -74,7 +74,23 @@ renice -n -10 -p $$ >/dev/null 2>&1
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v40
+# Version actuelle : v41
+#
+# v41 - 2026-09-02 - safe-modify - Veille CIBLEE (marquee + jeu demo/clip
+#   pendant rundemo/startgameclip) DESACTIVEE au profit de la PLAYLIST
+#   simple, retour utilisateur explicite : "la fonction veille ciblee n'est
+#   que cosmetique et ne pese rien face au besoin de stabilite". Meme
+#   demarche que v40 (fusion des topics) : reduire l'exposition au blocage
+#   TX MQTT post-CONNACK (mur de plateforme atteint, voir DECISIONS.md/
+#   memoire projet) plutot que de continuer a le corriger a la source. Le
+#   case rundemo|startgameclip) publie desormais "default" (playlist) UNE
+#   SEULE FOIS par entree en veille (garde demo_veille_playlist_sent,
+#   remise a 0 au reveil) au lieu de suivre le jeu demo en cours -- tout le
+#   mecanisme de tracking SystemId/GamePath/DEMO_SYSTEM/DEMO_ROM reste en
+#   place mais n'est plus atteint (return anticipe), conserve tel quel au
+#   cas ou ce choix serait revu. dmd_score.sh v40 applique le meme choix de
+#   son cote (rundemo rejoint startgameclip dans son bloc no-op round-robin)
+#   -- les 2 scripts restent coherents entre eux.
 #
 # v40 - 2026-09-02 - safe-modify - FUSION des 12 topics marquee/cmd/* en
 #   UN SEUL topic (marquee/cmd), voir RecalBox_DMD.ino v148 et DECISIONS.md
@@ -1084,6 +1100,13 @@ fi
 # de navigation que wakeup) doit restaurer au reveil.
 DEMO_SYSTEM=""
 DEMO_ROM=""
+# v41 -- garde pour n'envoyer "default" (playlist) qu'UNE SEULE FOIS par
+# entree en veille demo/gameclip, pas a chaque changement de jeu demo (voir
+# le case rundemo|startgameclip) plus bas, meme motif que demo_throttled
+# ci-dessous mais pour un evenement different) -- remis a 0 uniquement au
+# reveil (wakeup)), jamais a chaque enddemo/stopgameclip individuel (qui
+# fire a CHAQUE jeu demo, pas juste a la fin de la session de veille).
+demo_veille_playlist_sent=0
 # v18 suite -- BUG REEL trouve en test reel (ES peut enchainer les jeux
 # demo a ~1/s de facon SOUTENUE pendant plusieurs minutes -- pas juste un
 # pic isole) : le detecteur de rafale "instantanee" (>=BURST_THRESHOLD
@@ -1195,7 +1218,7 @@ POLL_INTERVAL_S=0.15
 # de l'interpolation et le log affichait "seuil=/s" (vide) au lieu de
 # "seuil=10/s" -- bug constate au demarrage reel, corrige en deplacant le
 # log apres la declaration.
-echo "$(date) - Marquee bridge started (v40, 12 topics marquee/cmd/* fusionnes en 1 seul marquee/cmd (CMD=/ARG=), voir RecalBox_DMD.ino v148 -- reduit l'exposition au blocage TX MQTT + v39, precise_ts()/proc-uptime ajoute a la ligne SEND(R) -- diagnostic desync overlay/marquee, voir DECISIONS.md + v38, diagnostic pub_time retire (role rempli, cout desormais injustifie) + REVERT du sondage continu v34 -- retour a la lecture EVENEMENTIELLE (zero cout CPU en idle ; vraie cause de la saturation CPU en navigation turbo trouvee ailleurs -- ES invoquait nativement les helpers python hi-score sans limite, voir dmd_score.sh v36) + doublons ES ignores par le detecteur de rafale/sweep boot (seuil ${EARLY_STABLE_SECONDS}s, marge anti-arrondi seconde entiere) + vidange non-bloquante du pipe (read -t 0) sur les evenements de rattrapage ES en retard + auto-renice -10 au demarrage (herite par mosquitto_sub/mosquitto_pub/sous-shell) + publication initiale du PROCESS et demarrage sur vrai evenement ES start) tiennent compte de es_state.inf (Action=rungame/gamelistbrowsing+position reelle) au lieu de forcer playlist inconditionnellement (v32/v33) + pipe mosquitto_sub PERSISTANT + verrou anti-relance en tete de fichier, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
+echo "$(date) - Marquee bridge started (v41, veille ciblee demo/gameclip desactivee au profit de la playlist simple (priorite stabilite) + v40, 12 topics marquee/cmd/* fusionnes en 1 seul marquee/cmd (CMD=/ARG=), voir RecalBox_DMD.ino v148 -- reduit l'exposition au blocage TX MQTT + v39, precise_ts()/proc-uptime ajoute a la ligne SEND(R) -- diagnostic desync overlay/marquee, voir DECISIONS.md + v38, diagnostic pub_time retire (role rempli, cout desormais injustifie) + REVERT du sondage continu v34 -- retour a la lecture EVENEMENTIELLE (zero cout CPU en idle ; vraie cause de la saturation CPU en navigation turbo trouvee ailleurs -- ES invoquait nativement les helpers python hi-score sans limite, voir dmd_score.sh v36) + doublons ES ignores par le detecteur de rafale/sweep boot (seuil ${EARLY_STABLE_SECONDS}s, marge anti-arrondi seconde entiere) + vidange non-bloquante du pipe (read -t 0) sur les evenements de rattrapage ES en retard + auto-renice -10 au demarrage (herite par mosquitto_sub/mosquitto_pub/sous-shell) + publication initiale du PROCESS et demarrage sur vrai evenement ES start) tiennent compte de es_state.inf (Action=rungame/gamelistbrowsing+position reelle) au lieu de forcer playlist inconditionnellement (v32/v33) + pipe mosquitto_sub PERSISTANT + verrou anti-relance en tete de fichier, coupe-circuit anti-rafale seuil=$BURST_THRESHOLD/s sur ${BURST_SUSTAIN_SECONDS}s consecutives, lock atomique acquis)" >> "$LOG"
 
 # v28 -- BUG REEL confirme sur materiel (retour utilisateur : "la vitesse
 # de defilement du DMD semble plafonnee, plus basse que la navigation
@@ -1621,6 +1644,7 @@ while true; do
             ;;
 
         wakeup)
+            demo_veille_playlist_sent=0 # v41 -- rearme pour la prochaine entree en veille demo/gameclip
             echo "$(date '+%H:%M:%S') WAKEUP -> reaffiche last" >> "$LOG"
             if [ -n "$LAST_ROM" ] && [ -n "$LAST_SYSTEM" ]; then
                 echo "$(date '+%H:%M:%S') WAKEUP -> jeu $LAST_SYSTEM/$LAST_ROM" >> "$LOG"
@@ -1665,6 +1689,32 @@ while true; do
         # observee) -- la meme limite de frequence (DEMO_MIN_PUBLISH_
         # INTERVAL_S=3s) protege les 2 sans jamais gener gameclip (30s >> 3s).
         rundemo|startgameclip)
+            # v41 -- retour utilisateur explicite (02/09 tard, priorite
+            # stabilite > fonctionnalite cosmetique -- "la fonction veille
+            # ciblee n'est que cosmetique et ne pese rien face au besoin de
+            # stabilite") : la veille CIBLEE (marquee + panneaux hiscore/
+            # description/info pendant demo/gameclip, tout le mecanisme
+            # ci-dessous) est DESACTIVEE au profit de la PLAYLIST simple,
+            # exactement comme dim/black/bouncing (voir sleep) plus haut) --
+            # meme demarche que le fix v40 (fusion des 12 topics MQTT) :
+            # reduire l'EXPOSITION au blocage TX MQTT post-CONNACK plutot
+            # que de continuer a le corriger a la source (mur de plateforme
+            # atteint, voir DECISIONS.md/memoire projet) -- la veille ciblee
+            # generait un flux MQTT continu et soutenu (round-robin toutes
+            # les ~14s + jusqu'a ~1/s en rafale de changement de jeu demo,
+            # deja documente comme cas extreme, voir BUG REEL #2 plus haut)
+            # pour un benefice purement cosmetique. return anticipe :
+            # publie "default" (playlist) UNE SEULE FOIS par entree en
+            # veille (garde demo_veille_playlist_sent, remise a 0 seulement
+            # au reveil) -- tout le mecanisme de tracking SystemId/GamePath/
+            # DEMO_SYSTEM/DEMO_ROM plus bas reste en place mais N'EST PLUS
+            # ATTEINT, conserve tel quel au cas ou ce choix serait revu.
+            if [ "$demo_veille_playlist_sent" != "1" ]; then
+                echo "$(date '+%H:%M:%S') DEMO/CLIP -> playlist (veille ciblee desactivee, v41)" >> "$LOG"
+                send_mqtt_retain "default" "1"
+                demo_veille_playlist_sent=1
+            fi
+            continue
             now=$(date +%s)
             # v34 -- horodatage du dernier evenement vu ICI (pas seulement
             # au moment d'une publication effective) -- voir changelog v34
