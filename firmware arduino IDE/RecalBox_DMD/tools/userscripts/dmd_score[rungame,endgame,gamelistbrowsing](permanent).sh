@@ -23,7 +23,18 @@ echo $$ > "$LOCKDIR/pid"
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v38
+# Version actuelle : v39
+#
+# v39 - 2026-09-02 - safe-modify - Topic marquee/cmd/score -> marquee/cmd
+#   unique (voir DECISIONS.md + RecalBox_DMD.ino v148, meme motif que
+#   marquee.sh v40/dmd_achievement.sh v4) : 12 topics fusionnes en 1 seul
+#   cote DMD pour reduire l'exposition au blocage TX MQTT post-CONNACK
+#   (jusqu'a 24 SUBSCRIBE en rafale par reconnexion avant ce fix, au-dessus
+#   du plafond d'environ 16 segments TCP simultanement non-accuses trouve
+#   dans le sdkconfig du core ESP32). send_score() (seul point d'envoi de
+#   ce script) publie desormais "CMD=score ARG=@<duree>|<contenu>" au lieu
+#   du contenu brut sur marquee/cmd/score. DEPLOIEMENT NON RETROCOMPATIBLE :
+#   ce script ET RecalBox_DMD.ino doivent etre a jour EN MEME TEMPS.
 #
 # v38 - 2026-09-02 - safe-modify - round_robin() : "hiscore" retire de la
 #   rotation (une seule verification par appel, pas a chaque tour) quand le
@@ -1233,7 +1244,13 @@ send_score() {
     payload="$1"; dur="$2"; ref="$3"
     [ -z "$dur" ] && dur=6000
     fw_dur=$((dur + SCORE_TIMER_MARGIN_MS))
-    mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd/score" -m "@${fw_dur}|${payload}" 2>/dev/null
+    # v39 -- topic marquee/cmd/score -> marquee/cmd unique (voir DECISIONS.md
+    # + RecalBox_DMD.ino v148, meme motif que marquee.sh v40) : 12 topics
+    # fusionnes en 1 seul cote DMD pour reduire l'exposition au blocage TX
+    # post-CONNACK. Payload prefixe "CMD=score ARG=" -- le reste (@duree|
+    # contenu) est inchange, ARG prend tout jusqu'a la fin cote DMD donc
+    # compatible avec les espaces/pipes deja presents dans ce payload.
+    mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=score ARG=@${fw_dur}|${payload}" 2>/dev/null
     echo "$(date '+%H:%M:%S') [$(precise_ts)] SEND marquee/cmd/score ref=${ref} = @${fw_dur}|${payload}" >> "$LOG"
 }
 
@@ -1503,7 +1520,7 @@ publish_one_panel() {
     return 1
 }
 
-echo "$(date) - DMD score bridge started (v38, round_robin() retire hiscore de la rotation si indisponible pour le rom (evite un tour ~14s perdu) + v37, precise_ts()/ref ajoutes a send_score()/BROWSE/DWELL -- diagnostic desync overlay/marquee, voir DECISIONS.md + v36, helpers python (hiscore_generic/game_info/challenge) deplaces hors de userscripts/ (PYHELP_DIR=dmd_helpers/) -- ES ne peut plus les invoquer nativement sans limite, cause reelle de la saturation CPU en navigation turbo + verrou anti-relance deplace tout en haut du fichier (cout minimal par relance dupliquee ES) + fix race condition 1ere page/envoi non gardee (hiscore/desc/info) + fix race condition publish_one_panel() v33 -- revalide l'etat avant python3/envoi, startgameclip = marquee seul mais rundemo garde l'overlay complet + features_watcher valide le message avant d'ecraser le cache + hi-score generique + round-robin infini + dwell/ratios reglables)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v39, topic marquee/cmd/score fusionne dans marquee/cmd (CMD=/ARG=), voir RecalBox_DMD.ino v148 + v38, round_robin() retire hiscore de la rotation si indisponible pour le rom (evite un tour ~14s perdu) + v37, precise_ts()/ref ajoutes a send_score()/BROWSE/DWELL -- diagnostic desync overlay/marquee, voir DECISIONS.md + v36, helpers python (hiscore_generic/game_info/challenge) deplaces hors de userscripts/ (PYHELP_DIR=dmd_helpers/) -- ES ne peut plus les invoquer nativement sans limite, cause reelle de la saturation CPU en navigation turbo + verrou anti-relance deplace tout en haut du fichier (cout minimal par relance dupliquee ES) + fix race condition 1ere page/envoi non gardee (hiscore/desc/info) + fix race condition publish_one_panel() v33 -- revalide l'etat avant python3/envoi, startgameclip = marquee seul mais rundemo garde l'overlay complet + features_watcher valide le message avant d'ecraser le cache + hi-score generique + round-robin infini + dwell/ratios reglables)" >> "$LOG"
 # Efface une session/etat perime d'un lancement precedent.
 : > "$GAME_SESSION_FILE"
 : > "$BROWSE_STATE_FILE"

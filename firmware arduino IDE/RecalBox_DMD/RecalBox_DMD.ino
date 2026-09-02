@@ -1,7 +1,37 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v147
+// Version actuelle : v148
+//
+// v148 - 2026-09-02 - safe-modify - FUSION des 12 topics marquee/cmd/*
+//   (stop/default/system/game/show_config/wifi_recovery/reboot/
+//   brightness/brightness_up/brightness_down/score/ingame) en UN SEUL
+//   topic (marquee/cmd). Retour utilisateur explicite : plutot que de
+//   continuer a chercher a corriger la cause racine du blocage TX post-
+//   CONNACK (mur de plateforme atteint le meme soir, voir memoire projet
+//   -- TCP_SND_BUF/SO_SNDBUF tous deux figes a la compilation), reduire
+//   directement l'EXPOSITION -- 12 topics = jusqu'a 24 envois SUBSCRIBE
+//   en rafale a chaque reconnexion, largement au-dessus du plafond
+//   d'environ 16 segments TCP simultanement non-accuses trouve dans le
+//   sdkconfig du core ce meme soir (v147). 1 seul topic = 1 seul
+//   SUBSCRIBE par reconnexion (+ mqttEventTopic, le topic ES brut,
+//   inchange car pas sous notre controle de publication).
+//   Format du payload (pas de dependance JSON ajoutee, meme esprit que
+//   extractField()/le topic evenement ES existant) : "CMD=<nom>
+//   ARG=<reste du message>" -- CMD toujours en 1er (mot simple), ARG
+//   toujours en dernier, prend tout le reste du message JUSQU'A LA FIN
+//   (pas jusqu'au prochain espace) pour rester compatible avec des
+//   arguments contenant espaces/pipes (score notamment). <nom> reprend
+//   exactement les anciens suffixes de topic -- meme logique de
+//   dispatch qu'avant, seule la SOURCE du nom de commande change (cmd
+//   extrait du payload au lieu du topic MQTT lui-meme).
+//   Cote scripts RB (marquee.sh/dmd_score.sh), tous les points de
+//   publication doivent etre mis a jour en parallele pour publier vers
+//   marquee/cmd avec ce nouveau format au lieu de marquee/cmd/<nom> --
+//   voir leurs changelogs respectifs. PAS ENCORE TESTE SUR MATERIEL au
+//   moment de cet ecrit (firmware ET scripts doivent etre deployes
+//   ENSEMBLE, changement non retrocompatible dans un sens comme dans
+//   l'autre).
 //
 // v147 - 2026-09-02 - safe-modify - TCP_SNDBUF releve a 16Ko sur le socket
 //   MQTT (extension non-standard ESP-IDF), juste apres TCP_NODELAY (v146).
@@ -6963,41 +6993,68 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
   // declaration de g_pendingGame et al.) au lieu du pendingCmd generique,
   // pour ne plus jamais etre ecrases par un type de commande different
   // (score/game_info/ingame...) arrivant juste apres dans la meme rafale.
-  if     (t=="marquee/cmd/stop")    pendingCmd=MqttCommand(MqttCommand::CMD_STOP,"");
-  else if(t=="marquee/cmd/default") g_pendingDefault = true;
-  // v102 -- BUG REEL confirme sur materiel, reproduit plusieurs fois
-  // (karatour, ctribe x2 -- la MEME commande "game" pour le MEME jeu echoue
-  // silencieusement la 1ere fois dans la rafale post-reconnexion, puis
-  // reussit normalement quelques dizaines de secondes plus tard hors
-  // rafale) : inWaitingGrace (fenetre 1.5s, re-armee a CHAQUE reconnexion
-  // via CMD_WAITING_MQTT, pas juste au 1er boot) filtrait ENCORE
-  // system/game -- alors que "default" avait deja ete explicitement retire
-  // de ce meme filtre en v45 pour EXACTEMENT la meme raison ("un message
-  // RETENU reflete toujours le dernier etat REEL connu de RB, jamais faux
-  // en soi"), argument qui s'applique identiquement a system/game.
-  // system/game etaient donc systematiquement ignores (sans aucun log,
-  // contrairement aux autres skips explicites de ce fichier) des qu'ils
-  // faisaient partie de la rafale de messages retenus livree juste apres
-  // resouscription -- expliquant precisement le symptome observe
-  // ("CMD_GAME/SYSTEM silencieux post-reconnexion", documente comme
-  // mystere non resolu avant cette decouverte). Fix : retire du filtre,
-  // meme traitement que default depuis v45.
-  else if(t=="marquee/cmd/system")  { lastSysName=msg; g_pendingSystemArg=msg; g_pendingSystem=true; }
-  else if(t=="marquee/cmd/game")    { g_pendingGameArg=msg; g_pendingGame=true; }
-  else if(t=="marquee/cmd/show_config") pendingCmd=MqttCommand(MqttCommand::CMD_SHOW_CONFIG,"");
-  else if(t=="marquee/cmd/wifi_recovery") pendingCmd=MqttCommand(MqttCommand::CMD_WIFI_RECOVERY,"");
-  else if(t=="marquee/cmd/reboot")        pendingCmd=MqttCommand(MqttCommand::CMD_REBOOT,"");
-  else if(t=="marquee/cmd/brightness")    pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS,msg);
-  else if(t=="marquee/cmd/brightness_up")   pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_UP,"");
-  else if(t=="marquee/cmd/brightness_down") pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_DOWN,"");
-  // v110 -- marquee/cmd/score reintroduit (voir entete changelog) ; payload
-  // vide ignore (rien a afficher). game_info/achievement restent retires
-  // (v104), pas redemandes par l'utilisateur.
-  else if(t=="marquee/cmd/score") { if(msg.length()>0) pendingCmd=MqttCommand(MqttCommand::CMD_SCORE,msg); }
-  // v122 -- marquee/cmd/ingame reabonne (voir g_recalboxInGame) : simple
-  // etat courant, pas une commande d'affichage -- ecrit directement ici,
-  // pas de passage par pendingCmd/le switch de processPendingMqttCommand().
-  else if(t=="marquee/cmd/ingame") g_recalboxInGame = (msg=="1");
+  // v148 -- FUSION des 12 topics marquee/cmd/* en UN SEUL topic
+  // (marquee/cmd), retour utilisateur explicite (session du 02/09 tard) :
+  // reduire l'EXPOSITION au blocage TX post-CONNACK plutot que d'attendre
+  // sa cause racine (mur de plateforme atteint, voir memoire projet) --
+  // 12 topics = jusqu'a 24 envois SUBSCRIBE en rafale a chaque
+  // reconnexion, largement au-dessus du plafond de ~16 segments TCP
+  // simultanement non-accuses trouve dans le sdkconfig du core (v147).
+  // 1 seul topic = 1 seul SUBSCRIBE par reconnexion (+ mqttEventTopic,
+  // topic ES brut inchange car pas sous notre controle de publication).
+  // Format du payload, meme esprit que extractField()/le topic evenement
+  // ES existant (paires cle=valeur separees par des espaces, pas de
+  // dependance JSON ajoutee) : "CMD=<nom> ARG=<reste du message>" --
+  // CMD toujours en 1er (mot simple, sans espace, extractField() suffit),
+  // ARG toujours en dernier et prend tout le reste du message JUSQU'A LA
+  // FIN (pas jusqu'au prochain espace) pour rester compatible avec des
+  // arguments contenant des espaces/pipes (ex. score = "@6800|DESCRIPTION|
+  // texte avec espaces"). <nom> reprend exactement les anciens suffixes
+  // de topic (stop/default/system/game/show_config/wifi_recovery/reboot/
+  // brightness/brightness_up/brightness_down/score/ingame) -- meme
+  // logique de dispatch qu'avant, seule la SOURCE du nom de commande
+  // change (cmd extrait du payload au lieu de t).
+  if (t=="marquee/cmd")
+  {
+    String cmd = extractField(msg, "CMD");
+    int argIdx = msg.indexOf("ARG=");
+    String arg = (argIdx >= 0) ? msg.substring(argIdx + 4) : "";
+    if     (cmd=="stop")    pendingCmd=MqttCommand(MqttCommand::CMD_STOP,"");
+    else if(cmd=="default") g_pendingDefault = true;
+    // v102 -- BUG REEL confirme sur materiel, reproduit plusieurs fois
+    // (karatour, ctribe x2 -- la MEME commande "game" pour le MEME jeu
+    // echoue silencieusement la 1ere fois dans la rafale post-reconnexion,
+    // puis reussit normalement quelques dizaines de secondes plus tard
+    // hors rafale) : inWaitingGrace (fenetre 1.5s, re-armee a CHAQUE
+    // reconnexion via CMD_WAITING_MQTT, pas juste au 1er boot) filtrait
+    // ENCORE system/game -- alors que "default" avait deja ete
+    // explicitement retire de ce meme filtre en v45 pour EXACTEMENT la
+    // meme raison ("un message RETENU reflete toujours le dernier etat
+    // REEL connu de RB, jamais faux en soi"), argument qui s'applique
+    // identiquement a system/game. system/game etaient donc
+    // systematiquement ignores (sans aucun log, contrairement aux autres
+    // skips explicites de ce fichier) des qu'ils faisaient partie de la
+    // rafale de messages retenus livree juste apres resouscription --
+    // expliquant precisement le symptome observe ("CMD_GAME/SYSTEM
+    // silencieux post-reconnexion", documente comme mystere non resolu
+    // avant cette decouverte). Fix : retire du filtre, meme traitement
+    // que default depuis v45.
+    else if(cmd=="system")  { lastSysName=arg; g_pendingSystemArg=arg; g_pendingSystem=true; }
+    else if(cmd=="game")    { g_pendingGameArg=arg; g_pendingGame=true; }
+    else if(cmd=="show_config") pendingCmd=MqttCommand(MqttCommand::CMD_SHOW_CONFIG,"");
+    else if(cmd=="wifi_recovery") pendingCmd=MqttCommand(MqttCommand::CMD_WIFI_RECOVERY,"");
+    else if(cmd=="reboot")        pendingCmd=MqttCommand(MqttCommand::CMD_REBOOT,"");
+    else if(cmd=="brightness")    pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS,arg);
+    else if(cmd=="brightness_up")   pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_UP,"");
+    else if(cmd=="brightness_down") pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_DOWN,"");
+    // v110 -- score : payload vide ignore (rien a afficher). game_info/
+    // achievement restent retires (v104), pas redemandes par l'utilisateur.
+    else if(cmd=="score") { if(arg.length()>0) pendingCmd=MqttCommand(MqttCommand::CMD_SCORE,arg); }
+    // v122 -- ingame (voir g_recalboxInGame) : simple etat courant, pas
+    // une commande d'affichage -- ecrit directement ici, pas de passage
+    // par pendingCmd/le switch de processPendingMqttCommand().
+    else if(cmd=="ingame") g_recalboxInGame = (arg=="1");
+  }
   else if(t==mqttEventTopic)
   {
     String ev=extractField(msg,"EVENT");
@@ -7399,14 +7456,10 @@ void mqttTask(void *param)
         // sortie anticipee des que le seuil est atteint, au lieu d'attendre
         // les 15 tentatives.
         const int SUBSCRIBE_FAIL_THRESHOLD = 3;
+        // v148 -- 12 topics fusionnes en 1 seul (marquee/cmd), voir le
+        // commentaire complet pres du dispatch dans onMqttMessage().
         const char *subscribeTopics[] = {
-          "marquee/cmd/stop", "marquee/cmd/default", "marquee/cmd/system", "marquee/cmd/game",
-          "marquee/cmd/show_config", "marquee/cmd/wifi_recovery", "marquee/cmd/reboot",
-          "marquee/cmd/brightness", "marquee/cmd/brightness_up", "marquee/cmd/brightness_down",
-          "marquee/cmd/score", // v110 -- reintroduit (voir entete changelog)
-          "marquee/cmd/ingame" // v122 -- reabonne (voir g_recalboxInGame)
-          // v104 -- marquee/cmd/game_info, achievement restent retires
-          // (port supprime, pas redemande)
+          "marquee/cmd"
         };
         const int nSubscribeTopics = sizeof(subscribeTopics) / sizeof(subscribeTopics[0]);
         for (int si = 0; si < nSubscribeTopics && subscribeFailCount < SUBSCRIBE_FAIL_THRESHOLD; si++)

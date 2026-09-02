@@ -5,7 +5,14 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v3
+# Version actuelle : v4
+#
+# v4 - 2026-09-02 - safe-modify - Topic marquee/cmd/score -> marquee/cmd
+#   unique (voir DECISIONS.md + RecalBox_DMD.ino v148, meme motif que
+#   marquee.sh v40/dmd_score.sh v39) : 12 topics fusionnes en 1 seul cote
+#   DMD pour reduire l'exposition au blocage TX MQTT post-CONNACK. Payload
+#   prefixe "CMD=score ARG=" au lieu d'etre publie brut sur marquee/cmd/score
+#   -- le contenu "SUCCES|<nom>" lui-meme est inchange.
 #
 # v2 - 2026-08-20 - safe-modify - Migration vers l'architecture "DMD bete"
 #   (voir dmd_score[...].sh pour le raisonnement complet, memoire projet
@@ -95,7 +102,7 @@ features_watcher() {
 }
 features_watcher &
 
-echo "$(date) - DMD achievement bridge started (v3, verrou atomique + architecture DMD bete)" >> "$LOG"
+echo "$(date) - DMD achievement bridge started (v4, topic marquee/cmd/score fusionne dans marquee/cmd (CMD=/ARG=), voir RecalBox_DMD.ino v148 + v3, verrou atomique + architecture DMD bete)" >> "$LOG"
 
 # -n 0 : ne rejoue pas le contenu deja present au demarrage du script. -F
 # suit meme si le fichier est recree entre-temps.
@@ -113,7 +120,7 @@ while IFS= read -r line; do
             [ -z "$name" ] && continue
             if feat_enabled "ra_ingame"; then
                 echo "$(date '+%H:%M:%S') ACHIEVEMENT $name" >> "$LOG"
-                mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd/score" -m "SUCCES|${name}" 2>/dev/null
+                mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=score ARG=SUCCES|${name}" 2>/dev/null
             else
                 echo "$(date '+%H:%M:%S') ACHIEVEMENT $name (ignore, ra_ingame desactive)" >> "$LOG"
             fi
