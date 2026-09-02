@@ -1,7 +1,24 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v146
+// Version actuelle : v147
+//
+// v147 - 2026-09-02 - safe-modify - TCP_SNDBUF releve a 16Ko sur le socket
+//   MQTT (extension non-standard ESP-IDF), juste apres TCP_NODELAY (v146).
+//   Chiffre trouve DIRECTEMENT dans le sdkconfig precompile du core
+//   (esp32-libs/3.3.11/sdkconfig, pas une supposition) :
+//   CONFIG_LWIP_TCP_SND_BUF_DEFAULT=5744, CONFIG_LWIP_TCP_MSS=1436 -- le
+//   nombre de segments simultanement non-accuses autorises decoule de ce
+//   ratio (formule lwIP standard ~4*SND_BUF/MSS, ~16 segments avec ces
+//   valeurs), pas des octets bruts (nos ~12 topics a 23-30 octets ne
+//   remplissent jamais 5744 octets en volume total, mais peuvent saturer
+//   ce compteur de SEGMENTS si les accuses trainent -- deja confirme au
+//   moins 2 fois cette soiree, CONNACK dont l'ACK client arrive assez
+//   tard pour declencher une retransmission broker). TCP_SNDBUF releve
+//   ce plafond PAR SOCKET sans reallocation immediate (lwIP alloue au
+//   fil de l'eau) -- 16Ko choisi (pas les 28+Ko parfois cites en ligne)
+//   vu le budget heap deja serre cette session (maxalloc ~4.6Ko en
+//   continu). PAS ENCORE TESTE SUR MATERIEL au moment de cet ecrit.
 //
 // v146 - 2026-09-02 - safe-modify - RECHERCHE DE CAUSE RACINE (retour
 //   utilisateur explicite : "on regle des consequences, pas la cause") --
@@ -7214,6 +7231,26 @@ void mqttTask(void *param)
             int one = 1;
             int rc = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
             Serial.println("[MQTT] TCP_NODELAY set rc=" + String(rc) + " errno=" + String(errno) + " fd=" + String(fd));
+            // v146 suite -- meme soir, chiffre trouve directement dans le
+            // sdkconfig precompile du core (esp32-libs/3.3.11/sdkconfig,
+            // pas une supposition) : CONFIG_LWIP_TCP_SND_BUF_DEFAULT=5744
+            // (TCP_MSS=1436) -- le nombre de segments simultanement non-
+            // accuses autorises decoule de ce ratio (formule lwIP standard
+            // ~4*SND_BUF/MSS, ~16 ici) et non des octets bruts (nos ~12
+            // topics a 23-30 octets ne remplissent jamais les 5744 octets
+            // en volume, mais peuvent saturer ce compteur de SEGMENTS si
+            // les accuses trainent). TCP_SNDBUF est une extension NON
+            // standard d'ESP-IDF qui permet d'augmenter ce plafond PAR
+            // SOCKET (pas de reallocation immediate de toute la taille --
+            // lwIP alloue les pbuf au fil de l'eau, ce reglage releve
+            // juste le plafond) -- valeur modeste choisie (16 Ko, pas les
+            // 28+ Ko parfois cites en ligne) vu notre budget heap deja
+            // serre cette session (maxalloc ~4.6 Ko en continu). Objectif
+            // : voir si la meme boucle de blocage recidive malgre une
+            // marge nettement plus large avant saturation.
+            int sndbufSize = 16384;
+            int rcSndbuf = setsockopt(fd, IPPROTO_TCP, TCP_SND_BUF, &sndbufSize, sizeof(sndbufSize));
+            Serial.println("[MQTT] TCP_SNDBUF set rc=" + String(rcSndbuf) + " errno=" + String(errno) + " target=" + String(sndbufSize));
           }
         }
         // v145 -- delai de stabilisation COURT avant le tout 1er subscribe()
