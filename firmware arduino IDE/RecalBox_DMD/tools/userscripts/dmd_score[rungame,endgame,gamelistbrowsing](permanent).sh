@@ -23,7 +23,19 @@ echo $$ > "$LOCKDIR/pid"
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v37
+# Version actuelle : v38
+#
+# v38 - 2026-09-02 - safe-modify - round_robin() : "hiscore" retire de la
+#   rotation (une seule verification par appel, pas a chaque tour) quand le
+#   rom n'a pas de hi-score disponible -- evite de lui reserver un tour
+#   complet (~14s) pour rien, retour utilisateur explicite : "si hi-score
+#   n'existe pas il ne faut pas le compter dans les temps de rotation et
+#   passer au panneau suivant". Trouve en creusant pourquoi certaines demos
+#   ES n'affichaient jamais leur panneau description/info (delai cumule
+#   mesure ~60-70s avant le 1er contenu reel, proche/superieur a la duree
+#   reelle de nombreuses demos ~54-100s) -- voir DECISIONS.md et memoire
+#   projet pour le detail des mesures (punisherh/tbowlp/zerowing1). Aucun
+#   changement pour un rom qui A un hi-score disponible (chemin inchange).
 #
 # v37 - 2026-09-01 - safe-modify - DIAGNOSTIC (pas de changement de
 #   comportement fonctionnel) pour l'investigation "desync overlay/marquee
@@ -1053,6 +1065,11 @@ send_hiscore_paginated() {
 round_robin() {
     ctx="$1"; sys="$2"; gpath="$3"; rom="$4"; state_file="$5"; expected="$6"; ratio_key="$7"
     idx=0
+    # v38 -- hiscore_checked/hiscore_ok : voir commentaire complet au point
+    # d'usage plus bas (retrait de "hiscore" de $types quand indisponible
+    # pour ce rom, verifie UNE SEULE FOIS par appel round_robin()).
+    hiscore_checked=0
+    hiscore_ok=1
     while true; do
         ratio=$(feat_value "$ratio_key")
         [ "$ratio" -le 0 ] && return
@@ -1060,6 +1077,36 @@ round_robin() {
         current=$(cat "$state_file" 2>/dev/null)
         [ "$current" = "$expected" ] || return
         types=$(enabled_panel_types "$ctx")
+        # v38 -- retour utilisateur explicite : "si hi-score n'existe pas il
+        # ne faut pas le compter dans les temps de rotation et passer au
+        # panneau suivant" -- jusqu'ici, un rom sans hi-score gardait quand
+        # meme sa place dans la rotation : round_robin() lui consacrait un
+        # tour complet (sleep ratio*SLIDESHOW_GAP_S, ~14s par defaut) pour
+        # rien (publish_hiscore() retombe sur "SCORE skip ... jeu non
+        # supporte", aucun envoi), retardant d'autant l'arrivee du panneau
+        # suivant (description/info) -- mesure sur materiel (DECISIONS.md,
+        # cas punisherh/tbowlp) : ~60-70s avant le 1er contenu reel, proche
+        # voire superieur a la duree de nombreuses demos ES (~54-100s
+        # observees), le panneau n'a alors JAMAIS le temps de s'afficher.
+        # Fix : disponibilite verifiee UNE SEULE FOIS par appel round_robin
+        # (pas a chaque tour -- build_score_payload() peut invoquer
+        # dmd_hiscore_generic.py, cout python3 a ne pas repeter inutilement
+        # toutes les ~14s) ; si indisponible, "hiscore" est retire de
+        # $types pour tous les tours suivants -- le round-robin alterne
+        # alors directement entre les types restants, sans jamais lui
+        # reserver de tour.
+        case "$types" in
+            *hiscore*)
+                if [ "$hiscore_checked" -eq 0 ]; then
+                    hiscore_checked=1
+                    hp_check=$(build_score_payload "$rom" "$sys")
+                    [ -n "$hp_check" ] || hiscore_ok=0
+                fi
+                if [ "$hiscore_ok" -eq 0 ]; then
+                    types=$(echo "$types" | sed 's/hiscore //')
+                fi
+                ;;
+        esac
         # v19 -- "challenge" (classement communautaire Recalbox du mois),
         # uniquement en contexte "ingame". Retour utilisateur explicite :
         # "en mode challenge je veux uniquement le tableau challenge +
@@ -1456,7 +1503,7 @@ publish_one_panel() {
     return 1
 }
 
-echo "$(date) - DMD score bridge started (v37, precise_ts()/ref ajoutes a send_score()/BROWSE/DWELL -- diagnostic desync overlay/marquee, voir DECISIONS.md + v36, helpers python (hiscore_generic/game_info/challenge) deplaces hors de userscripts/ (PYHELP_DIR=dmd_helpers/) -- ES ne peut plus les invoquer nativement sans limite, cause reelle de la saturation CPU en navigation turbo + verrou anti-relance deplace tout en haut du fichier (cout minimal par relance dupliquee ES) + fix race condition 1ere page/envoi non gardee (hiscore/desc/info) + fix race condition publish_one_panel() v33 -- revalide l'etat avant python3/envoi, startgameclip = marquee seul mais rundemo garde l'overlay complet + features_watcher valide le message avant d'ecraser le cache + hi-score generique + round-robin infini + dwell/ratios reglables)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v38, round_robin() retire hiscore de la rotation si indisponible pour le rom (evite un tour ~14s perdu) + v37, precise_ts()/ref ajoutes a send_score()/BROWSE/DWELL -- diagnostic desync overlay/marquee, voir DECISIONS.md + v36, helpers python (hiscore_generic/game_info/challenge) deplaces hors de userscripts/ (PYHELP_DIR=dmd_helpers/) -- ES ne peut plus les invoquer nativement sans limite, cause reelle de la saturation CPU en navigation turbo + verrou anti-relance deplace tout en haut du fichier (cout minimal par relance dupliquee ES) + fix race condition 1ere page/envoi non gardee (hiscore/desc/info) + fix race condition publish_one_panel() v33 -- revalide l'etat avant python3/envoi, startgameclip = marquee seul mais rundemo garde l'overlay complet + features_watcher valide le message avant d'ecraser le cache + hi-score generique + round-robin infini + dwell/ratios reglables)" >> "$LOG"
 # Efface une session/etat perime d'un lancement precedent.
 : > "$GAME_SESSION_FILE"
 : > "$BROWSE_STATE_FILE"
