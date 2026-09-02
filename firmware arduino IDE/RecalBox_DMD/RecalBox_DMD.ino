@@ -7248,9 +7248,16 @@ void mqttTask(void *param)
             // serre cette session (maxalloc ~4.6 Ko en continu). Objectif
             // : voir si la meme boucle de blocage recidive malgre une
             // marge nettement plus large avant saturation.
+            // v147 suite -- 1er essai (IPPROTO_TCP/TCP_SND_BUF) compile
+            // mais ECHOUE A L'EXECUTION (rc=-1 errno=109 ENOPROTOOPT --
+            // macro definie mais non geree par cette implementation
+            // setsockopt() de lwIP/ESP-IDF, confirme en serial reel).
+            // Bascule sur l'option POSIX standard (SOL_SOCKET/SO_SNDBUF),
+            // plus generalement supportee par lwIP que l'extension
+            // specifique tentee en 1er.
             int sndbufSize = 16384;
-            int rcSndbuf = setsockopt(fd, IPPROTO_TCP, TCP_SND_BUF, &sndbufSize, sizeof(sndbufSize));
-            Serial.println("[MQTT] TCP_SNDBUF set rc=" + String(rcSndbuf) + " errno=" + String(errno) + " target=" + String(sndbufSize));
+            int rcSndbuf = setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbufSize, sizeof(sndbufSize));
+            Serial.println("[MQTT] SO_SNDBUF set rc=" + String(rcSndbuf) + " errno=" + String(errno) + " target=" + String(sndbufSize));
           }
         }
         // v145 -- delai de stabilisation COURT avant le tout 1er subscribe()
