@@ -1,7 +1,26 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v145
+// Version actuelle : v146
+//
+// v146 - 2026-09-02 - safe-modify - RECHERCHE DE CAUSE RACINE (retour
+//   utilisateur explicite : "on regle des consequences, pas la cause") --
+//   TCP_NODELAY (desactive Nagle) applique sur le socket MQTT juste apres
+//   connect() reussi, jamais fait nulle part dans ce fichier jusqu'ici.
+//   Petits paquets SUBSCRIBE (23-30 octets, << MSS) + Nagle actif par
+//   defaut = un nouveau segment reste retenu dans le buffer d'envoi local
+//   tant que le precedent n'est pas accuse -- si un accuse est retarde
+//   (deja confirme au moins 2 fois cette soiree : CONNACK dont l'ACK
+//   client arrive assez tard pour declencher une retransmission broker),
+//   les retries de mqttSubscribeFast() (2 par topic) s'empilent dans ce
+//   MEME buffer jamais vide jusqu'a ce qu'il soit VRAIMENT plein --
+//   correspond exactement au errno=EAGAIN observe partout (buffer plein,
+//   pas juste "en attente"). Ne resout probablement pas pourquoi un
+//   accuse peut etre retarde en premier lieu (cause encore inconnue,
+//   lwIP/driver WiFi) mais retire un facteur d'amplification reel et
+//   concret, sans aucun risque (reglage standard recommande pour les
+//   protocoles MQTT). Complementaire aux delais v145 (pas un remplacement).
+//   PAS ENCORE TESTE SUR MATERIEL au moment de cet ecrit.
 //
 // v145 - 2026-09-02 - safe-modify - Delai de stabilisation COURT (150ms,
 //   vTaskDelay) insere juste apres mqttClient.connect() reussi, AVANT le
@@ -7162,6 +7181,41 @@ void mqttTask(void *param)
         lastMqttConnectedMs=millis();
         lastRecalboxDisconnectedAlertMs=0; // reautorise l'alerte immediate en cas de future deconnexion
         recalboxDisconnectedAlertCount=0;
+        // v146 -- RECHERCHE DE CAUSE RACINE (pas juste une consequence de
+        // plus a retarder, retour utilisateur explicite : "on regle des
+        // consequences, pas la cause"). TCP_NODELAY n'etait active NULLE
+        // PART dans tout ce fichier -- l'algorithme de Nagle est donc actif
+        // par defaut sur ce socket. Nos paquets SUBSCRIBE (23-30 octets)
+        // sont bien plus petits que le MSS -- avec Nagle actif, un nouveau
+        // petit segment reste RETENU dans le buffer d'envoi local tant que
+        // le segment precedent n'est pas accuse, au lieu d'etre transmis
+        // immediatement. Le broker accuse quasiment toujours instantanement
+        // (confirme au paquet), donc Nagle seul n'explique pas un blocage
+        // multi-secondes DANS LA MAJORITE des cas -- MAIS on a aussi
+        // confirme au moins 2 cycles ou l'ACK du CONNACK lui-meme arrivait
+        // assez tard pour declencher une retransmission broker (v139/ce
+        // soir) : si un accuse est retenu/retarde pour une autre raison
+        // (etat lwIP/driver WiFi transitoire, cause encore inconnue), Nagle
+        // empile alors les tentatives suivantes (mqttSubscribeFast() retente
+        // 2 fois par topic) dans ce MEME buffer jamais vide -- jusqu'a ce
+        // qu'il soit reellement plein, ce qui correspond exactement au
+        // errno=EAGAIN observe (buffer plein, pas juste "en attente").
+        // Desactiver Nagle ne resout probablement pas la cause profonde
+        // (pourquoi un accuse peut etre retarde en premier lieu) mais
+        // retire un facteur d'AMPLIFICATION reel et bien identifie -- sans
+        // aucun risque (TCP_NODELAY est le reglage standard recommande pour
+        // les protocoles a petits paquets frequents comme MQTT, la plupart
+        // des clients MQTT serieux l'activent par defaut). Applique une
+        // seule fois par connexion (fd change a chaque reconnexion).
+        {
+          int fd = wifiClientMqtt.fd();
+          if (fd >= 0)
+          {
+            int one = 1;
+            int rc = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+            Serial.println("[MQTT] TCP_NODELAY set rc=" + String(rc) + " errno=" + String(errno) + " fd=" + String(fd));
+          }
+        }
         // v145 -- delai de stabilisation COURT avant le tout 1er subscribe()
         // (capture tcpdump reelle, session du 02/09 soir) : preuve paquet
         // directe que le SUBSCRIBE qui suit immediatement le CONNACK ne
