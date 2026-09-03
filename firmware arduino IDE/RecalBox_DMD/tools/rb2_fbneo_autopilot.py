@@ -3,7 +3,21 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v4
+# Version actuelle : v5
+#
+# v5 - 2026-09-03 - safe-modify - `play_fn()` (fbneo_game_profiles.py v2)
+#   recoit maintenant `pad` (uinput) au lieu de `send` (UDP, no-op) --
+#   mouvement/attaque genre-specifiques desormais reellement actifs.
+#   Cause du saut de core inexplique du v4 (test DPAD_RIGHT+BTN_SOUTH)
+#   ELUCIDEE (retour utilisateur direct) : ce n'etait ni un bug
+#   RetroArch ni le bouton SOUTH lui-meme -- le D-PAD (BTN_DPAD_*) est
+#   lie a un systeme de raccourcis RecalBox de niveau SYSTEME (hors de
+#   portee de toute config RetroArch, confirme par un fix retroarch.cfg/
+#   overrides.cfg sans aucun effet). fbneo_game_profiles.py v2 utilise
+#   maintenant le STICK ANALOGIQUE (ABS_X/ABS_Y) pour tout deplacement,
+#   plus jamais le D-pad -- confirme sans danger sur `mtwins` (score/
+#   TIME progressent normalement, aucun saut de contenu, sur plusieurs
+#   tests dont un avec de vrais coups portes).
 #
 # v4 - 2026-09-03 - safe-modify - Remplace TOUT le mecanisme d'input
 #   PLAYER1_X en UDP:55355 -- confirme cette nuit comme un pur no-op
@@ -329,13 +343,7 @@ def main():
             break
         pad.tap(BTN_START, hold=0.1)
         time.sleep(0.3)
-        # play_fn (patterns generiques par genre) reste sur send()/UDP
-        # pour l'instant -- PAS ENCORE porte sur uinput (prudence, voir
-        # changelog v4 : le combo DPAD_RIGHT+BTN_SOUTH a provoque un
-        # saut de core inexplique lors du tout premier test uinput).
-        # Ces appuis mouvement/attaque restent donc, pour l'instant,
-        # aussi probablement des no-op -- seul START est confirme actif.
-        play_fn(send, min(args.interval, deadline - time.time()))
+        play_fn(pad, min(args.interval, deadline - time.time()))
         event = capture_one(session_dir, index, 0, dump_size)
         events.append(event)
         log("    obs{:02d} : ram={} octets".format(index, event["ram_bytes"]))

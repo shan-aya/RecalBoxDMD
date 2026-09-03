@@ -3,7 +3,29 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v1
+# Version actuelle : v2
+#
+# v2 - 2026-09-03 - safe-modify - Remplace TOUT le mecanisme UDP
+#   (PLAYER1_X, no-op confirme cette nuit) par uinput (rb2_uinput_gamepad).
+#   DEUX decouvertes cette nuit, la 2e via un retour utilisateur direct
+#   ("tu as 2 controleurs, une croix de direction qui active des
+#   raccourcis et un joystick qui deplace le personnage/vaisseaux, et 4
+#   boutons pour les actions") :
+#   1. `input_menu_toggle_btn`/`input_player1_b_btn` de RetroArch
+#      partagent le MEME index brut (3=BTN_SOUTH) sur ce controleur --
+#      confirme par grep direct de retroarchcustom.cfg.
+#   2. La VRAIE cause des sauts de contenu recurrents (Mr.Boom, 240p/244p
+#      Test Suite SNES puis Dreamcast) n'etait PAS RetroArch (un fix cote
+#      RetroArch/overrides.cfg n'a RIEN change) mais un systeme de
+#      raccourcis RecalBox de niveau SUPERIEUR, declenche specifiquement
+#      par le D-PAD (BTN_DPAD_*) -- jamais par le stick analogique ni les
+#      boutons d'action seuls (confirme : 3 taps SOUTH espaces sans DPAD
+#      = zero saut, vrai gameplay, score/TIME qui progressent).
+#   Nouveau mecanisme de mouvement : STICK ANALOGIQUE (ABS_X/ABS_Y) au
+#   lieu du D-pad, jamais BTN_DPAD_*. Boutons d'action (SOUTH=B/EAST=A)
+#   utilises directement, a un rythme modere (pas de rafale ultra-rapide
+#   comme un ancien test l'avait fait avec un ecran noir en resultat --
+#   piste non totalement elucidee, prudence gardee sur le rythme).
 #
 # v1 - 2026-08-31 - safe-modify - Creation initiale. Reprend un principe
 #   deja amorce cote Codex (rb2_fbneo_recipe_capture.py::PLAY_PROFILES/
@@ -37,11 +59,22 @@ course a besoin d'accelerer+diriger, PAS de bouton d'attaque).
 Usage (import) :
     from fbneo_game_profiles import profile_for_rom
     category, play_fn = profile_for_rom("dynagear")
-    play_fn(send, seconds)   # send = fonction qui envoie 1 commande UDP
+    play_fn(pad, seconds)   # pad = rb2_uinput_gamepad.VirtualGamepad deja cree()
+
+v2 (uinput) : `pad` remplace `send` -- deplacement via `pad.abs_move(ABS_X/ABS_Y, valeur)`
+(stick analogique, JAMAIS le D-pad -- confirme lie a des raccourcis
+RecalBox de niveau systeme), actions via `pad.tap(BTN_SOUTH/EAST/..., hold=...)`.
 """
 import os
+import sys
 import time
 import xml.etree.ElementTree as ET
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from rb2_uinput_gamepad import (BTN_SOUTH, BTN_EAST, BTN_NORTH, BTN_WEST,  # noqa: E402
+                                 BTN_TL, BTN_TR, ABS_X, ABS_Y)
+
+STICK_MAX = 32000  # marge sous 32767 (absmax reel), evite tout clamp
 
 GAMELIST_PATHS = (
     "/recalbox/share/roms/fbneo/gamelist.xml",
@@ -111,66 +144,78 @@ def classify(genre_text):
 
 
 # --- patterns d'inputs par categorie -----------------------------------
-# Chaque fonction recoit (send, seconds) et boucle jusqu'a expiration.
-# `send(cmd)` envoie UNE commande UDP fire-and-forget (ex. "PLAYER1_B").
+# Chaque fonction recoit (pad, seconds) et boucle jusqu'a expiration.
+# `pad` = rb2_uinput_gamepad.VirtualGamepad deja cree(). Deplacement
+# TOUJOURS via le stick analogique (ABS_X/ABS_Y) -- jamais le D-pad
+# (confirme lie a des raccourcis RecalBox de niveau systeme, hors de
+# portee de toute config RetroArch). `pad.tap(BTN_x)` pour les actions.
 
-def _beat_em_up(send, seconds):
+def _stick(pad, dx, dy):
+    """dx/dy dans {-1, 0, 1} -- deplacement analogique simple."""
+    pad.abs_move(ABS_X, dx * STICK_MAX)
+    pad.abs_move(ABS_Y, dy * STICK_MAX)
+
+
+def _stick_center(pad):
+    pad.abs_move(ABS_X, 0)
+    pad.abs_move(ABS_Y, 0)
+
+
+def _beat_em_up(pad, seconds):
     """Marche + attaque QUASI CONTINUE (retour d'observation directe :
     un pattern trop pauvre en boutons laisse le score a 0 meme en plein
     combat de boss)."""
     deadline = time.time() + seconds
     tick = 0
     while time.time() < deadline:
-        send("PLAYER1_B")
-        send("PLAYER1_A")
+        pad.tap(BTN_SOUTH, hold=0.04)
+        pad.tap(BTN_EAST, hold=0.04)
         phase = (tick // 20) % 4
         if phase == 0:
-            send("PLAYER1_RIGHT")
+            _stick(pad, 1, 0)
         elif phase == 1:
-            send("PLAYER1_RIGHT")
-            send("PLAYER1_UP")
+            _stick(pad, 1, -1)
         elif phase == 2:
-            send("PLAYER1_LEFT")
+            _stick(pad, -1, 0)
         else:
-            send("PLAYER1_RIGHT")
-            send("PLAYER1_DOWN")
+            _stick(pad, 1, 1)
         tick += 1
         time.sleep(0.1)
+    _stick_center(pad)
 
 
-def _platform_shooter(send, seconds):
+def _platform_shooter(pad, seconds):
     """Marche + tir a distance quasi continu (willow/jjsquawk :
     scrolling horizontal, arme a portee)."""
     deadline = time.time() + seconds
     tick = 0
     while time.time() < deadline:
-        send("PLAYER1_B")
-        if tick % 15 < 12:
-            send("PLAYER1_RIGHT")
-        else:
-            send("PLAYER1_LEFT")
+        pad.tap(BTN_SOUTH, hold=0.04)
+        _stick(pad, 1 if tick % 15 < 12 else -1, 0)
         if tick % 40 < 5:
-            send("PLAYER1_A")  # saut ponctuel (obstacles/plateformes)
+            pad.tap(BTN_EAST, hold=0.04)  # saut ponctuel (obstacles/plateformes)
         tick += 1
         time.sleep(0.1)
+    _stick_center(pad)
 
 
-def _platform_pure(send, seconds):
+def _platform_pure(pad, seconds):
     """Plateforme pure (joemacr, run & jump) : avance + saut regulier,
     attaque ponctuelle."""
     deadline = time.time() + seconds
     tick = 0
     while time.time() < deadline:
-        send("PLAYER1_RIGHT")
+        _stick(pad, 1, 0)
         if tick % 10 < 3:
-            send("PLAYER1_A")  # saut
+            pad.tap(BTN_EAST, hold=0.04)  # saut
         if tick % 25 < 3:
-            send("PLAYER1_B")  # attaque/action ponctuelle
+            pad.tap(BTN_SOUTH, hold=0.04)  # attaque/action ponctuelle
         tick += 1
         time.sleep(0.15)
+    _stick_center(pad)
 
 
-def _shmup_horizontal(send, seconds):
+def _shmup_horizontal(pad, seconds):
     """Shoot'em up horizontal (inthunt/progear/gbusters) : tir CONTINU
     (indispensable, un shmup sans tir continu ne marque jamais de
     points), deplacement vertical dominant (esquive), le scrolling
@@ -178,36 +223,36 @@ def _shmup_horizontal(send, seconds):
     deadline = time.time() + seconds
     tick = 0
     while time.time() < deadline:
-        send("PLAYER1_B")  # tir -- envoye a CHAQUE tick, pas en option
+        pad.tap(BTN_SOUTH, hold=0.03)  # tir -- envoye a CHAQUE tick, pas en option
         phase = (tick // 15) % 4
         if phase == 0:
-            send("PLAYER1_UP")
+            _stick(pad, 0, -1)
         elif phase == 1:
-            send("PLAYER1_DOWN")
+            _stick(pad, 0, 1)
         elif phase == 2:
-            send("PLAYER1_UP")
-            send("PLAYER1_RIGHT")
+            _stick(pad, 1, -1)
         else:
-            send("PLAYER1_DOWN")
-            send("PLAYER1_RIGHT")
+            _stick(pad, 1, 1)
         tick += 1
         time.sleep(0.08)
+    _stick_center(pad)
 
 
-def _run_and_gun(send, seconds):
+def _run_and_gun(pad, seconds):
     """Run and gun (gbusters) : avance + tir continu, saut ponctuel."""
     deadline = time.time() + seconds
     tick = 0
     while time.time() < deadline:
-        send("PLAYER1_B")
-        send("PLAYER1_RIGHT")
+        pad.tap(BTN_SOUTH, hold=0.04)
+        _stick(pad, 1, 0)
         if tick % 20 < 4:
-            send("PLAYER1_A")
+            pad.tap(BTN_EAST, hold=0.04)
         tick += 1
         time.sleep(0.1)
+    _stick_center(pad)
 
 
-def _puzzle_aim_throw(send, seconds):
+def _puzzle_aim_throw(pad, seconds):
     """Puzzle-Game / Lancer (pzloop2/msgogo) : PAS de deplacement
     continu -- vise (gauche/droite bref) puis tire, cycle repete.
     Un pattern de "marche" ici ne sert a rien (le personnage/canon est
@@ -217,62 +262,62 @@ def _puzzle_aim_throw(send, seconds):
     while time.time() < deadline:
         aim_phase = tick % 6
         if aim_phase < 2:
-            send("PLAYER1_LEFT")
+            _stick(pad, -1, 0)
         elif aim_phase < 4:
-            send("PLAYER1_RIGHT")
+            _stick(pad, 1, 0)
         else:
-            send("PLAYER1_B")  # tir/lancer
+            _stick_center(pad)
+            pad.tap(BTN_SOUTH, hold=0.04)  # tir/lancer
         tick += 1
         time.sleep(0.2)
+    _stick_center(pad)
 
 
-def _racing(send, seconds):
+def _racing(pad, seconds):
     """Course/Conduite (kamenrid) : accelerer (maintenu) + diriger --
     PAS de bouton d'attaque au sens classique, confirme par observation
     directe (vue circuit/vitesse, pas de combat)."""
     deadline = time.time() + seconds
     tick = 0
     while time.time() < deadline:
-        send("PLAYER1_UP")  # accelerer, maintenu en continu
         phase = (tick // 15) % 3
-        if phase == 1:
-            send("PLAYER1_LEFT")
-        elif phase == 2:
-            send("PLAYER1_RIGHT")
+        dx = -1 if phase == 1 else (1 if phase == 2 else 0)
+        _stick(pad, dx, -1)  # -1 en Y = accelerer (maintenu en continu)
         if tick % 10 == 0:
-            send("PLAYER1_B")  # arme/objet ponctuel si le jeu en a un
+            pad.tap(BTN_SOUTH, hold=0.04)  # arme/objet ponctuel si le jeu en a un
         tick += 1
         time.sleep(0.1)
+    _stick_center(pad)
 
 
-def _maze_action(send, seconds):
+def _maze_action(pad, seconds):
     """Action/Labyrinthe (gogomile) : deplacement omnidirectionnel +
     attaque, pas de direction dominante claire (labyrinthe)."""
     deadline = time.time() + seconds
-    dirs = ("PLAYER1_RIGHT", "PLAYER1_DOWN", "PLAYER1_LEFT", "PLAYER1_UP")
+    dirs = ((1, 0), (0, 1), (-1, 0), (0, -1))
     tick = 0
     while time.time() < deadline:
-        send(dirs[(tick // 15) % 4])
-        send("PLAYER1_B")
+        dx, dy = dirs[(tick // 15) % 4]
+        _stick(pad, dx, dy)
+        pad.tap(BTN_SOUTH, hold=0.04)
         tick += 1
         time.sleep(0.1)
+    _stick_center(pad)
 
 
-def _generic(send, seconds):
+def _generic(pad, seconds):
     """Repli pour un genre non reconnu -- melange large, moins efficace
     que les patterns dedies mais evite de rester totalement passif."""
     deadline = time.time() + seconds
     tick = 0
     while time.time() < deadline:
-        send("PLAYER1_B")
-        if tick % 20 < 12:
-            send("PLAYER1_RIGHT")
-        else:
-            send("PLAYER1_LEFT")
+        pad.tap(BTN_SOUTH, hold=0.04)
+        _stick(pad, 1 if tick % 20 < 12 else -1, 0)
         if tick % 30 < 3:
-            send("PLAYER1_A")
+            pad.tap(BTN_EAST, hold=0.04)
         tick += 1
         time.sleep(0.1)
+    _stick_center(pad)
 
 
 PROFILES = {
