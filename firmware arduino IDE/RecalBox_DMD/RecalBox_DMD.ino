@@ -1,7 +1,25 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v149
+// Version actuelle : v150
+//
+// v150 - 2026-09-03 - safe-modify - Fix collision de retain MQTT
+//   game/system/default/ingame (trouve par revue de code avant passage sur
+//   master, jamais reproduit en direct). Ces 4 etats partageaient depuis
+//   v148 le meme topic retenu marquee/cmd -- le retain MQTT etant PAR
+//   TOPIC, 2 send_mqtt_retain() consecutifs (ex. rungame : "game" puis
+//   "ingame") ecrasaient silencieusement le retain l'un de l'autre AU
+//   NIVEAU DU BROKER, defaisant le fix de resynchronisation v123/
+//   marquee.sh v17 (2026-08-23) des qu'une reconnexion survenait apres une
+//   telle sequence. Fix : ces 4 etats recuperent chacun leur propre topic
+//   retenu dedie (marquee/cmd/game|system|default|ingame), tout le reste
+//   reste sur marquee/cmd (jamais retenu pour ces commandes, aucune
+//   collision possible). Voir commentaires complets pres de
+//   subscribeTopics[] et du dispatch dans onMqttMessage(). Cote script,
+//   send_mqtt_retain() (marquee.sh) publie desormais vers
+//   marquee/cmd/<nom> au lieu de marquee/cmd -- DEPLOIEMENT NON
+//   RETROCOMPATIBLE, ce firmware ET marquee.sh doivent etre a jour EN MEME
+//   TEMPS (meme contrainte que v148).
 //
 // v149 - 2026-09-03 - safe-modify - CMD_SCORE ne levait jamais l'ecran
 //   d'attente "RecalBox connectee" (CMD_WAITING_MQTT/
@@ -7044,7 +7062,12 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
   // brightness/brightness_up/brightness_down/score/ingame) -- meme
   // logique de dispatch qu'avant, seule la SOURCE du nom de commande
   // change (cmd extrait du payload au lieu de t).
-  if (t=="marquee/cmd")
+  // v150 -- game/system/default/ingame arrivent desormais sur leur propre
+  // topic retenu dedie (voir commentaire complet pres de subscribeTopics[]),
+  // meme format de payload "CMD=<nom> ARG=<valeur>" qu'avant -- extraction
+  // et dispatch identiques, seule la condition d'entree est elargie.
+  if (t=="marquee/cmd" || t=="marquee/cmd/game" || t=="marquee/cmd/system"
+      || t=="marquee/cmd/default" || t=="marquee/cmd/ingame")
   {
     String cmd = extractField(msg, "CMD");
     int argIdx = msg.indexOf("ARG=");
@@ -7488,8 +7511,32 @@ void mqttTask(void *param)
         const int SUBSCRIBE_FAIL_THRESHOLD = 3;
         // v148 -- 12 topics fusionnes en 1 seul (marquee/cmd), voir le
         // commentaire complet pres du dispatch dans onMqttMessage().
+        // v150 -- BUG REEL trouve par revue de code avant passage sur master
+        // (jamais reproduit en direct, trouve par lecture) : game/system/
+        // default/ingame partageaient TOUS le meme topic retenu marquee/cmd
+        // depuis v148 -- le retain MQTT est PAR TOPIC (le broker ne garde
+        // qu'UN SEUL message retenu par topic), donc 2 send_mqtt_retain()
+        // consecutifs (ex. rungame : "game" puis "ingame", marquee.sh lignes
+        // ~1602-1603) ecrasaient silencieusement le retain l'un de l'autre
+        // AU NIVEAU DU BROKER -- pas juste cote firmware. Un DMD qui se
+        // reconnecte apres une telle sequence ne recevait plus que le DERNIER
+        // etat retenu, jamais les autres, defaisant silencieusement le fix
+        // de resynchronisation v123/marquee.sh v17 (2026-08-23). Fix : ces 4
+        // etats "collants" (game/system/default/ingame) recuperent chacun
+        // leur propre topic retenu dedie -- tout le reste (score/achievement/
+        // stop/show_config/wifi_recovery/reboot/brightness*) reste sur le
+        // topic unique marquee/cmd (jamais retenu pour ces commandes-la, donc
+        // aucune collision possible entre elles). Meme format de payload
+        // (CMD=<nom> ARG=<valeur>), seul le topic change -- voir dispatch
+        // dans onMqttMessage() pour la meme extraction appliquee aux 5
+        // topics. 1(cmd)+4(etats)+1(evenement ES brut) = 6 topics au total,
+        // toujours 54% de moins que les 12+1 d'origine.
         const char *subscribeTopics[] = {
-          "marquee/cmd"
+          "marquee/cmd",
+          "marquee/cmd/game",
+          "marquee/cmd/system",
+          "marquee/cmd/default",
+          "marquee/cmd/ingame"
         };
         const int nSubscribeTopics = sizeof(subscribeTopics) / sizeof(subscribeTopics[0]);
         for (int si = 0; si < nSubscribeTopics && subscribeFailCount < SUBSCRIBE_FAIL_THRESHOLD; si++)

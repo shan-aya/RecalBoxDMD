@@ -74,7 +74,24 @@ renice -n -10 -p $$ >/dev/null 2>&1
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v41
+# Version actuelle : v42
+#
+# v42 - 2026-09-03 - safe-modify - Fix collision de retain MQTT trouve par
+#   revue de code avant passage sur master (jamais reproduit en direct,
+#   voir RecalBox_DMD.ino v150 pour le detail complet). game/system/
+#   default/ingame partageaient depuis v40 le meme topic retenu marquee/cmd
+#   -- le retain MQTT etant PAR TOPIC, 2 send_mqtt_retain() consecutifs
+#   (ex. rungame : "game" puis "ingame") ecrasaient silencieusement le
+#   retain l'un de l'autre AU NIVEAU DU BROKER, defaisant le fix de
+#   resynchronisation v123/v17 des qu'une reconnexion DMD survenait apres
+#   une telle sequence. Fix : send_mqtt_retain() publie desormais vers
+#   marquee/cmd/<nom> (topic dedie par etat) au lieu de marquee/cmd --
+#   DEPLOIEMENT NON RETROCOMPATIBLE, ce script ET RecalBox_DMD.ino (v150+)
+#   doivent etre a jour EN MEME TEMPS. Signature de send_mqtt_retain()
+#   inchangee ($1=suffixe, $2=valeur), aucun appelant a modifier -- seul le
+#   topic construit a l'interieur change. send_score()/les 2 envois
+#   directs !SHUFFLE restent sur marquee/cmd non retenu, inchanges (jamais
+#   concernes par cette collision).
 #
 # v41 - 2026-09-02 - safe-modify - Veille CIBLEE (marquee + jeu demo/clip
 #   pendant rundemo/startgameclip) DESACTIVEE au profit de la PLAYLIST
@@ -879,7 +896,11 @@ send_mqtt_retain() {
     # tout le reste jusqu'a la fin cote DMD, compatible avec des valeurs a
     # espaces/pipes comme le score). Signature de cette fonction INCHANGEE
     # ($1=suffixe, $2=valeur) -- aucun appelant a modifier.
-    mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -r -t "marquee/cmd" -m "CMD=${1} ARG=$2" 2>/dev/null
+    # v42 -- topic dedie marquee/cmd/${1} (voir changelog v42 en tete de
+    # fichier) : ${1} vaut toujours game/system/default/ingame ici (seuls
+    # suffixes utilises avec send_mqtt_retain() dans tout ce script), donc
+    # ce chemin ne cree jamais plus de 4 topics distincts.
+    mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -r -t "marquee/cmd/${1}" -m "CMD=${1} ARG=$2" 2>/dev/null
     # v39 -- precise_ts() ajoute (voir sa declaration complete) : diagnostic
     # desync overlay/marquee, correlation avec les logs dmd_score.sh v37.
     echo "$(date '+%H:%M:%S') [$(precise_ts)] SEND(R) marquee/cmd/${1} = $2" >> "$LOG"
