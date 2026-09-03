@@ -2,7 +2,60 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v52
+# Version actuelle : v53
+#
+# v53 — 2026-09-03 — safe-modify — Bug remonte par un utilisateur du build
+#      GitHub (RecalBoxDMD_GUI_v5438.exe, publie depuis master/main) :
+#      "RuntimeError: main thread is not in main loop" visible dans le log
+#      de l'appli (PAS un crash -- sys.stdout/stderr redirige globalement
+#      vers la file de logs des le debut de __init__, donc toute exception
+#      non rattrapee sur un thread d'arriere-plan finit dans le log au lieu
+#      de la vraie console). Diagnostic confirme par capture d'ecran
+#      utilisateur : la ligne apparait AVANT tout le reste du log filtre
+#      "Alertes+Erreurs" (donc au tout debut de la session), mais n'a ete
+#      REMARQUEE par l'utilisateur qu'au clic "Demarrer" du Mode 1 --
+#      _start_worker() bascule automatiquement sur l'onglet Logs a ce
+#      moment-la (was_idle), rendant visible pour la premiere fois un
+#      message en realite deja present depuis le lancement de l'appli.
+#      Cause racine reelle : _start_mode9_autodetect() (sonde reseau SMB)
+#      est appelee EN PLEIN MILIEU de __init__ (construction du panneau
+#      Mode 9), tres largement AVANT root.mainloop() (tout en fin de
+#      fichier, run()) -- tout le reste de la construction du GUI (autres
+#      onglets, theme, decoupage d'images...) s'execute encore apres. Si le
+#      reseau repond vite, le thread de sonde peut finir et appeler
+#      self.root.after(0, ...) AVANT que mainloop() ne soit actif -- Tk
+#      attend le thread principal jusqu'a 1s (WaitForMainloop, cote C)
+#      avant de lever cette RuntimeError precise. Meme risque latent (pas
+#      confirme reproduit, corrige par prudence) pour _mode9_thread
+#      (installation Mode 9 elle-meme) et pour une fermeture de l'appli
+#      pendant que l'un de ces 2 threads est encore actif. Fix (3 volets) :
+#      - **Le vrai fix** : self._start_mode9_autodetect() n'est plus
+#        appelee en direct depuis __init__, mais via
+#        self.root.after(0, self._start_mode9_autodetect) -- programme
+#        depuis le thread principal lui-meme (aucun risque cross-thread a
+#        la programmation), ne se declenche qu'une fois la boucle
+#        d'evenements Tcl reellement active. Le thread d'arriere-plan
+#        (celui qui appelle self.root.after() depuis un AUTRE thread) ne
+#        peut alors plus jamais demarrer avant mainloop().
+#      - Filet de securite pour la fermeture : nouveau flag
+#        self._app_closing (init a False), positionne a True juste avant
+#        chacun des 2 vrais root.destroy() (popup "rien en cours" et
+#        _wait_for_threads_then_exit()) ; _start_mode9_autodetect()/
+#        _mode9_install_worker() le verifient avant tout
+#        self.root.after(...), + except (RuntimeError, tk.TclError) en
+#        filet pour la fenetre de course residuelle (flag pas encore vu,
+#        destroy() survenant juste apres le check).
+#      - _is_processing() suit desormais aussi _mode9_thread (comme
+#        _worker/_mode6_flash_thread) : l'installation Mode 9 ecrit
+#        reellement sur le partage SMB de l'utilisateur, au meme titre que
+#        le pipeline principal/le flash SD -- fermer l'appli en plein
+#        milieu ne doit pas l'abandonner dans un thread orphelin. La sonde
+#        d'auto-detection (sans effet de bord, juste un pre-remplissage
+#        UI) reste volontairement HORS _is_processing() : l'y ajouter
+#        aurait rendu "Quitter" bloquant plusieurs dizaines de secondes
+#        des l'ouverture de l'appli sur un reseau sans Recalbox.
+#      Porte a l'identique sur master (meme code, non diverge sur cette
+#      zone) dans la meme session.
 #
 # v52 — 2026-08-23 — safe-modify — Retour utilisateur : "la fenetre de
 #      copie SD est vide" -- bug DEJA CORRIGE sur master (v51-v54, jamais
@@ -2389,6 +2442,12 @@ class RetroBoxLEDGui:
         # meme session (l'utilisateur ne doit pas la re-cocher a chaque fois
         # s'il annule puis rouvre la popup).
         self._quit_keep_temp_dir = False
+        # v53, safe-modify -- vrai des que la fermeture reelle de l'appli
+        # est engagee (juste avant chaque root.destroy()). Les threads
+        # d'arriere-plan non suivis par _is_processing() (sonde reseau
+        # Mode 9, ex.) doivent le consulter avant tout self.root.after(...),
+        # voir entete de fichier.
+        self._app_closing = False
 
         self._theme_var = tk.StringVar(value="")
         # Label "Aléatoire" localisé
@@ -5570,7 +5629,20 @@ class RetroBoxLEDGui:
         # Detection auto en arriere-plan : Path(UNC).exists() peut prendre
         # plusieurs secondes si le nom ne resout pas -- jamais appele sur le
         # thread principal (ni a la construction du GUI, ni au clic radio).
-        self._start_mode9_autodetect()
+        # v53, safe-modify -- appel differe via after(0) plutot qu'immediat :
+        # ce point du __init__ (construction du panneau Mode 9) s'execute
+        # BIEN AVANT root.mainloop() (tout en fin de fichier, run()), et la
+        # construction du reste du GUI qui suit peut prendre plus d'1s. Si
+        # le reseau repond vite, le thread pouvait finir et appeler
+        # self.root.after(...) AVANT que mainloop() ne soit actif -- Tk
+        # attend le thread principal jusqu'a 1s puis leve "RuntimeError:
+        # main thread is not in main loop" (confirme reproduit par un
+        # utilisateur, visible dans le log de l'appli -- voir entete de
+        # fichier). after(0, ...) programme depuis le thread principal
+        # lui-meme (aucun risque de ce cote), et ne se declenche qu'une
+        # fois la boucle d'evenements Tcl reellement active -- le thread
+        # d'arriere-plan ne peut alors plus demarrer trop tot.
+        self.root.after(0, self._start_mode9_autodetect)
 
     # language + mode logic
     # ---------------------------------------------------------
@@ -8718,6 +8790,12 @@ class RetroBoxLEDGui:
             return True
         if self._mode6_flash_thread and self._mode6_flash_thread.is_alive():
             return True
+        # v53, safe-modify -- l'installation Mode 9 ecrit reellement sur le
+        # partage SMB de l'utilisateur, au meme titre que le pipeline
+        # principal/le flash SD : fermer l'appli en plein milieu ne doit
+        # pas l'abandonner dans un thread orphelin (voir entete de fichier).
+        if self._mode9_thread and self._mode9_thread.is_alive():
+            return True
         return any(t.is_alive() for t in list(self._active_workers))
 
     def _cleanup_sd_dir(self) -> None:
@@ -9175,8 +9253,19 @@ class RetroBoxLEDGui:
                 host = self.tkmod.detect_recalbox_share()
             except Exception:
                 host = None
-            if host:
-                self.root.after(0, self._on_mode9_autodetect_result, host)
+            # v53, safe-modify -- ce thread n'est pas suivi par
+            # _is_processing() (sonde reseau, pas un vrai traitement) : si
+            # l'appli s'est fermee entre-temps (root deja detruite, thread
+            # principal sorti de mainloop()), self.root.after() plante en
+            # "RuntimeError: main thread is not in main loop". Flag verifie
+            # avant l'appel + except en filet pour la fenetre de course
+            # residuelle (flag pas encore vu, destroy() survenant juste
+            # apres le check).
+            if host and not self._app_closing:
+                try:
+                    self.root.after(0, self._on_mode9_autodetect_result, host)
+                except (RuntimeError, tk.TclError):
+                    pass
 
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -9241,7 +9330,16 @@ class RetroBoxLEDGui:
         finally:
             sys.stdout = old_stdout
             sys.stderr = old_stderr
-        self.root.after(0, self._on_mode9_install_done, ok, total, error)
+        # v53, safe-modify -- meme garde que _start_mode9_autodetect() :
+        # self._mode9_thread est desormais suivi par _is_processing() (donc
+        # attendu par _wait_for_threads_then_exit() dans le cas normal),
+        # mais ce filet couvre la fermeture directe (aucun traitement vu au
+        # moment du clic "Quitter") ainsi que la fenetre de course residuelle.
+        if not self._app_closing:
+            try:
+                self.root.after(0, self._on_mode9_install_done, ok, total, error)
+            except (RuntimeError, tk.TclError):
+                pass
 
     def _on_mode9_install_done(
         self, ok: int, total: int, error: Optional[str]
@@ -10752,6 +10850,7 @@ class RetroBoxLEDGui:
                 dlg.destroy()
             except Exception:
                 pass
+            self._app_closing = True
             try:
                 self.root.destroy()
             except Exception:
@@ -10781,6 +10880,7 @@ class RetroBoxLEDGui:
 
         if not self._quit_keep_temp_dir:
             self._cleanup_sd_dir()
+        self._app_closing = True
         try:
             self.root.destroy()
         except Exception:
