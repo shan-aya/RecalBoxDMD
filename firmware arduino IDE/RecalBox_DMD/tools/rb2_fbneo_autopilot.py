@@ -3,7 +3,46 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v2
+# Version actuelle : v4
+#
+# v4 - 2026-09-03 - safe-modify - Remplace TOUT le mecanisme d'input
+#   PLAYER1_X en UDP:55355 -- confirme cette nuit comme un pur no-op
+#   silencieux (ces commandes n'existent pas dans la Network Control
+#   Interface officielle de RetroArch, verifie sur la doc officielle).
+#   TOUTES les conclusions "positives" precedentes de ce fichier basees
+#   sur ce mecanisme (dynagear v1/v2, inthunt/mtwins v3) sont donc a
+#   considerer INVALIDEES -- voir DECISIONS.md pour le detail complet
+#   de l'enquete (y compris une fausse conclusion positive faite puis
+#   corrigee la nuit meme via un test temoin zero-input).
+#
+#   Nouveau mecanisme (rb2_uinput_gamepad.py, CONFIRME 2/2 sur mtwins ET
+#   dynagear avec temoin/comparaison propre) : cree un vrai peripherique
+#   noyau (uinput) clone du device Steam Deck reel, AVANT le lancement
+#   du jeu, et passe son /dev/input/eventN en -p1devicepath a
+#   emulatorlauncher.pyc -- RetroArch lie alors reellement le joueur 1 a
+#   ce clone (un clone cree APRES le lancement n'a AUCUN effet, meme
+#   avec un GUID identique -- confirme par un temoin dedie).
+#   `send()`/PLAYER1_X retires de la boucle START ; play_fn() (patterns
+#   generiques par genre) reste sur `send()` pour l'instant -- PAS
+#   ENCORE PORTE sur uinput (prudence : le tout premier test uinput
+#   avec DPAD_RIGHT+BTN_SOUTH combines a provoque un saut de core vers
+#   un autre jeu, mecanisme non identifie -- ne pas generaliser
+#   aveuglement avant d'avoir isole quel bouton/combo en est la cause).
+#
+# v3 - 2026-09-02 - safe-modify - Retour utilisateur en observation
+#   DIRECTE sur l'ecran physique (pas juste sur la RAM) : le test v2 sur
+#   inthunt montrait une "vraie" progression de score en RAM
+#   (400->2900->3100), a tort interprete comme preuve de partie reelle
+#   -- l'utilisateur confirme que TOUTE la session est restee en
+#   attract-mode (titre "FREE PLAY" clignotant, 2P actif) -- EXACTEMENT
+#   le meme piege deja documente le 25/08 sur ce meme jeu (l'attract-
+#   mode d'inthunt joue une demo scriptee avec un VRAI score qui
+#   progresse). Lecon actee : une progression RAM seule n'est PAS une
+#   preuve suffisante de partie reelle, il faut croiser avec le texte a
+#   l'ecran. Fix tente (pas encore reverifie) : START renvoye avant
+#   CHAQUE cycle de jeu au lieu d'une seule fois au debut -- la fenetre
+#   d'acceptation semble limitee a un instant precis du cycle titre/
+#   attract, ratee par un appui unique.
 #
 # v2 - 2026-08-31 - safe-modify - Retour utilisateur direct apres
 #   verification sur ecran du 1er run : le pattern d'inputs "generique"
@@ -65,6 +104,7 @@ CHUNK = 16384
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from rb2_input_device import detect_steam_deck_device  # noqa: E402
 from fbneo_game_profiles import profile_for_rom  # noqa: E402
+from rb2_uinput_gamepad import VirtualGamepad, BTN_START  # noqa: E402
 
 
 def log(msg):
@@ -183,8 +223,13 @@ def set_freeplay(rom):
     return changed
 
 
-def launch(rom):
-    device = detect_steam_deck_device()
+def launch(rom, devicepath=None):
+    # v4 -- devicepath permet de forcer -p1devicepath sur le clone
+    # uinput (cree AVANT cet appel) au lieu du device physique reel --
+    # c'est ce lien fait AU LANCEMENT qui determine quel device
+    # RetroArch ecoute reellement pour le joueur 1 (confirme cette
+    # nuit : un clone cree APRES le lancement n'a aucun effet).
+    device = devicepath or detect_steam_deck_device()
     cmd = [
         "python3", "/usr/bin/emulatorlauncher.pyc",
         "-p1index", "0", "-p1guid", "0300f617de2800000512000010010000",
@@ -226,7 +271,21 @@ def main():
         log("!! rom introuvable : {}".format(ROM_TEMPLATE.format(rom=args.rom)))
         return
 
-    process = launch(args.rom)
+    # v4 -- le clone uinput DOIT exister AVANT le lancement et son
+    # /dev/input/eventN doit etre passe en -p1devicepath : c'est ce
+    # lien fait AU LANCEMENT qui determine quel device RetroArch ecoute
+    # reellement pour le joueur 1 (confirme 2/2 sur mtwins et dynagear
+    # -- un clone cree apres coup n'a structurellement aucun effet,
+    # meme avec un GUID identique au device reel).
+    pad = VirtualGamepad().create()
+    vpath = pad.event_path()
+    if not vpath:
+        log("!! event_path() introuvable pour le clone uinput -- abandon")
+        pad.destroy()
+        return
+    log(">>> clone uinput cree, event_path={}".format(vpath))
+
+    process = launch(args.rom, devicepath=vpath)
     pid = None
     for _ in range(args.load_wait):
         pid = retroarch_pid(args.rom)
@@ -235,6 +294,7 @@ def main():
         time.sleep(1)
     if not pid:
         log("!! jamais lance apres {}s -- abandon".format(args.load_wait))
+        pad.destroy()
         return
     log(">>> lance (pid={}), attente boot {}s".format(pid, args.boot_wait))
     time.sleep(2)
@@ -251,8 +311,14 @@ def main():
     events = [capture_one(session_dir, 0, 0, dump_size)]
     log("    obs00 (avant START) : ram={} octets".format(events[-1]["ram_bytes"]))
 
-    log(">>> UN SEUL appui START (Free Play -- pas de credit necessaire)")
-    send("PLAYER1_START")
+    # v4 -- START envoye via le clone uinput (BTN_START, vrai device
+    # noyau lie au joueur 1), plus via UDP (confirme no-op). Toujours
+    # renvoye avant CHAQUE cycle (comportement v3 conserve par prudence,
+    # meme si le nouveau mecanisme semble accepter START a tout moment
+    # une fois le device correctement lie -- pas de fenetre de timing
+    # etroite observee sur mtwins/dynagear).
+    log(">>> START (uinput) envoye avant chaque cycle (Free Play -- pas de credit necessaire)")
+    pad.tap(BTN_START, hold=0.1)
     time.sleep(3)
 
     index = 1
@@ -261,6 +327,14 @@ def main():
         if not retroarch_pid(args.rom):
             log("jeu quitte de lui-meme -- arret")
             break
+        pad.tap(BTN_START, hold=0.1)
+        time.sleep(0.3)
+        # play_fn (patterns generiques par genre) reste sur send()/UDP
+        # pour l'instant -- PAS ENCORE porte sur uinput (prudence, voir
+        # changelog v4 : le combo DPAD_RIGHT+BTN_SOUTH a provoque un
+        # saut de core inexplique lors du tout premier test uinput).
+        # Ces appuis mouvement/attaque restent donc, pour l'instant,
+        # aussi probablement des no-op -- seul START est confirme actif.
         play_fn(send, min(args.interval, deadline - time.time()))
         event = capture_one(session_dir, index, 0, dump_size)
         events.append(event)
@@ -270,6 +344,7 @@ def main():
     with open(os.path.join(session_dir, "run.json"), "w", encoding="utf-8") as f:
         json.dump({"rom": args.rom, "dump_size": dump_size, "events": events}, f, indent=2)
 
+    pad.destroy()
     send("QUIT")
     time.sleep(3)
     pid2 = retroarch_pid(args.rom)
