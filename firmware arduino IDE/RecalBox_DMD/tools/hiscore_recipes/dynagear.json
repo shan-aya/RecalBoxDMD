@@ -19,9 +19,23 @@
     "_verified_on": ["obs14=6", "obs20=10"],
     "_CANDIDAT_NON_CONFIRME": "2 offsets candidats (0x44 et 0x78fd), 0x44 retenu (proche de l'adresse score 0x241, meme region basse). Seulement 2 valeurs distinctes. A confirmer avant usage en production."
   },
+  "lives": {
+    "addr": "23f",
+    "sysramOffset": "23f",
+    "len": 1,
+    "format": "binary",
+    "endian": "little",
+    "byteSwap": false,
+    "multiplier": 1,
+    "_verified_on": [
+      "session1 : obs00-03=2, obs04-06=1 (1 vie perdue, 'ROGER x1'->'ROGER x0'), obs08-09=2 (game over -> restart Free Play)",
+      "session2 (independante) : obs00-04=2->1, obs05=0 EXACTEMENT PENDANT L'ECRAN 'GAME OVER' (capture confirmee), obs06=1 (ecran hiscore BEST WORKERS), obs07-09=2 (restart)"
+    ],
+    "_note": "2 sessions autonomes independantes (pilotage uinput, dynagear), toutes deux coherentes. Convention : la RAM stocke le TOTAL de vies (active+reserve) ; le HUD 'ROGER xN' affiche N=total-1 (la reserve seule) ; a 0 vie totale = ecran GAME OVER. Un 2e candidat (0x1e7/487) avait le meme comportement sur la 1ere session mais a DIVERGE sur la 2e (reste bloque a 1 pile pendant l'ecran GAME OVER, alors que 0x23f est bien tombe a 0 exactement a ce moment) -- 0x1e7 ecarte (variable voisine/laggarde, pas la bonne), 0x23f retenu comme la vraie adresse. Cohérent aussi structurellement : 0x23f est a seulement 2 octets de l'adresse score deja confirmee (0x241), plausible dans une meme structure d'etat joueur.",
+    "_status": "CONFIRME -- candidat UNIQUE apres recoupement precis des 2 sessions (outil tools/search_state_byte.py, contrainte obs05=0 pendant l'ecran GAME OVER de la session 2 exclut a elle seule le second candidat 0x1e7). Pas de poke direct possible sur fbneo (contrairement a mame) mais 2 sessions independantes + une transition tres precise (0 exact pendant GAME OVER) constituent une preuve solide."
+  },
   "_missing": {
-    "lives": "pas encore cherche -- coeurs (vies) et 'ROGER x1' (personnage/continue ?) visibles a l'ecran.",
     "ingame": "pas encore cherche."
   },
-  "_status": "score CONFIRME (3/3 exact). credit/lives/ingame gate NON trouves -- recipe incomplete au sens du schema officiel RecalBox. Credit auto fbneo abandonne pour ce jeu -- capture obtenue via jeu manuel reel."
+  "_status": "score CONFIRME (3/3 exact). lives : candidat fort (2 transitions coherentes sur 1 session, ambigu avec un mirroir 0x1e7). credit/ingame gate NON trouves -- recipe incomplete au sens du schema officiel RecalBox. Credit auto fbneo abandonne pour ce jeu -- capture obtenue via jeu manuel reel (score/credit) et pilotage autonome uinput (lives)."
 }
