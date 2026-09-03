@@ -70,3 +70,14 @@ tools/RecalBoxDMD_prefs.json
 
 # Keep firmware source
 !RecalBox_DMD.ino
+
+# PyInstaller / cx_Freeze build scratch (pas la sortie finale des
+# installeurs -- tools/dist/ et tools/build/ deja couverts par build//dist/
+# plus haut ; ceci est le repertoire scratch specifique a cx_Freeze/
+# setup_msi.py) -- synchronise depuis master, ce worktree ne l'avait pas
+tools/build_msi_exe/
+
+# Dossier de build/release consolide (merged.bin + scripts RB + outils
+# Windows portable/exe/msi) -- genere localement, volumineux (~250 Mo),
+# jamais versionne
+_release/
