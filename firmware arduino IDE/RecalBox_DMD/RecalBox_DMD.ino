@@ -1,7 +1,30 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v151
+// Version actuelle : v152
+//
+// v152 - 2026-09-03 - safe-modify - Patch EXTERNE (pas dans ce fichier) sur
+//   PubSubClient.cpp, qui protege l'envoi du paquet CONNECT MQTT contre le
+//   meme piege de blocage deja diagnostique et corrige pour les pages web
+//   (web_config.h v48-v50 : write() de la bibliotheque reseau peut s'etirer
+//   sur plusieurs secondes a cause d'une boucle de retry interne non
+//   configurable, compteur qui se reset a chaque octet qui passe).
+//   connect() envoyait le paquet CONNECT via ce chemin non protege,
+//   expliquant une partie des ~19-20s observes avant un rc=-4
+//   (MQTT_CONNECTION_TIMEOUT), en plus des ~10s deja expliques par l'attente
+//   CONNACK elle-meme (deja bornee par socketTimeout). Fichier modifie :
+//   D:\CROQUIS ARDUINO IDE\libraries\PubSubClient\src\PubSubClient.cpp
+//   (HORS DEPOT GIT -- installation Arduino locale a cette machine, backup
+//   manuel fait avant modification : PubSubClient.cpp.bak_2026-09-03_avant_fastwrite
+//   dans ce meme dossier). Nouvelle fonction pubsubFastWrite() : meme
+//   principe que mqttSubscribeFast() (RecalBox_DMD.ino) -- envoi par petits
+//   blocs via le fd brut + select(), abandon rapide (budget 2s total) des
+//   qu'un bloc ne progresse plus du tout. IMPORTANT : ce projet depend
+//   desormais d'une bibliotheque PubSubClient patchee localement -- une
+//   reinstallation/mise a jour de la bibliotheque sur une AUTRE machine (ou
+//   apres reinstallation de celle-ci) perdrait ce patch silencieusement,
+//   voir commentaire complet dans PubSubClient.cpp lui-meme pour le detail.
+//   PAS ENCORE VALIDE SUR MATERIEL REEL au moment de ce commit.
 //
 // v151 - 2026-09-03 - safe-modify - Nouvelle escalade "recreation de
 //   socket" pour connect() MQTT en echec soutenu (rc=-2/-4), discutee en
