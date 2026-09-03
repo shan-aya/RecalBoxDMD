@@ -20,6 +20,18 @@
 //   marquee/cmd/<nom> au lieu de marquee/cmd -- DEPLOIEMENT NON
 //   RETROCOMPATIBLE, ce firmware ET marquee.sh doivent etre a jour EN MEME
 //   TEMPS (meme contrainte que v148).
+//   Nettoyage pre-merge master (meme revue de code) : le fix v149
+//   (g_mqttConnectedScreenUntilMs=0 sur "vrai message recu") generalise a
+//   CMD_SHOW_CONFIG/CMD_BRIGHTNESS/CMD_BRIGHTNESS_UP/CMD_BRIGHTNESS_DOWN
+//   (ne le faisaient pas encore -- CMD_WIFI_RECOVERY/CMD_REBOOT non
+//   concernes, ils redemarrent immediatement). g_mqttWaitingUntilMs/
+//   MQTT_WAITING_GRACE_MS retires (code mort confirme -- inWaitingGrace,
+//   leur seul lecteur, avait deja ete retire en v102). heartbeatTask()/
+//   [DIAG] currentMode signales "obsoletes" par une revue automatisee mais
+//   VERIFIES actifs (donnees hb= dans [SUBDIAG], transitions de mode dans
+//   les logs de cette meme nuit) -- conserves, pas de suppression a
+//   l'aveugle d'un outil de diagnostic pendant que le bug de fond MQTT
+//   reste non resolu.
 //
 // v149 - 2026-09-03 - safe-modify - CMD_SCORE ne levait jamais l'ecran
 //   d'attente "RecalBox connectee" (CMD_WAITING_MQTT/
@@ -3617,16 +3629,12 @@ uint8_t clockNeonR = 255, clockNeonG = 40, clockNeonB = 120; // defaults match N
 String recalboxIP     = "";
 String mqttEventTopic = "marquee/event";
 const unsigned long MQTT_OFFLINE_FALLBACK_MS = 60000;
-// Duree minimale d'affichage de l'image de secours (CMD_WAITING_MQTT) a la
-// connexion MQTT -- sans ca, un message RETENU (mosquitto -r, publie par le
-// pont marquee lors d'une session precedente : "system=lastplayed" par ex.)
-// arrive quasi instantanement a la souscription et ecrase l'image de
-// secours avant meme qu'elle soit visible (bug remonte : "il prend le
-// premier mqtt lastplayed"). Un vrai message d'evenement RB (ex: le
-// "system" envoye par le pont marquee ~5s apres son propre demarrage)
-// arrive largement apres cette fenetre, donc n'est jamais bloque.
-const unsigned long MQTT_WAITING_GRACE_MS = 1500;
-unsigned long g_mqttWaitingUntilMs = 0;
+// v150 -- nettoyage pre-merge master (revue de code) : MQTT_WAITING_GRACE_MS/
+// g_mqttWaitingUntilMs retires. Servaient a inWaitingGrace (fenetre de grace
+// filtrant system/game trop tot apres connexion) -- ce filtre lui-meme a ete
+// retire en v102 (system/game traites comme default depuis v45, plus jamais
+// filtres), laissant ces 2 declarations en ecriture seule (2 sites
+// d'ecriture, zero lecture) depuis. Voir DECISIONS.md pour le detail.
 
 // Drapeau "ecran d'attente RecalBox connectee actif" (CMD_WAITING_MQTT) --
 // pose (non-zero) a l'affichage de l'image de secours + texte, remis a 0 des
@@ -5505,7 +5513,6 @@ void webDmdResume()
     if (mqttCmdMutex != nullptr && xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(100)) == pdTRUE)
     {
       pendingCmd = MqttCommand(MqttCommand::CMD_WAITING_MQTT, "");
-      g_mqttWaitingUntilMs = millis() + MQTT_WAITING_GRACE_MS;
       xSemaphoreGive(mqttCmdMutex);
     }
   }
@@ -6793,6 +6800,13 @@ void processPendingMqttCommand()
     // l'affichage deja declenche par handleDmdOpen() quand la page web est
     // ouverte normalement.
     if (g_sdOpInProgress) { Serial.println("[MQTT] show_config ignored (web deja ouvert)"); break; }
+    // v150 -- un CMD_SHOW_CONFIG est un vrai message MQTT au meme titre que
+    // CMD_GAME/CMD_SYSTEM/CMD_DEFAULT/CMD_SCORE (qui levent deja ce drapeau,
+    // voir nettoyage pre-merge master) -- change de mode d'affichage de
+    // toute facon juste apres, mais evite que le clignotement "en attente"
+    // reprenne si jamais MODE_CONFIG est quitte sans autre message entre
+    // temps.
+    g_mqttConnectedScreenUntilMs = 0;
     clearFirstBoot();
     webDmdSetMainMsg("WEB DMD CONFIG");
     // Ligne 2 : message complet (defile automatiquement si >128px, cf boucle
@@ -6831,13 +6845,21 @@ void processPendingMqttCommand()
     break;
 
   // Luminosite en direct via MQTT (v70) : cmd.arg = pourcentage 0-100 en
-  // texte (ex. publie par "mosquitto_pub -t marquee/cmd/brightness -m 50").
+  // texte (ex. publie par "mosquitto_pub -t marquee/cmd -m 'CMD=brightness
+  // ARG=50'" depuis v148 -- topic unique, plus marquee/cmd/brightness).
   // RAM uniquement (comme les autres commandes MQTT) -- pas de reecriture
   // de /config.ini ici, ca reste le role explicite de "Sauvegarder" sur la
   // page web. setBrightness8() est sans risque a appeler a tout moment
   // (reecrit juste les bits OE/PWM du buffer DMA deja actif).
   case MqttCommand::CMD_BRIGHTNESS:
   {
+    // v150 -- meme raisonnement que CMD_SCORE/CMD_SHOW_CONFIG (nettoyage
+    // pre-merge master) : un vrai message MQTT recu, meme s'il ne change ni
+    // currentMode ni currentPngPath (la luminosite seule n'affecte que le
+    // PWM du buffer DMA deja affiche) -- sans ca, l'ecran "RecalBox
+    // connectee" pouvait continuer a clignoter indefiniment alors que du
+    // trafic MQTT reel passait bel et bien.
+    g_mqttConnectedScreenUntilMs = 0;
     int pct = cmd.arg.toInt();
     if (pct >= 0 && pct <= 100) {
       screenBrightness = map(pct, 0, 100, 0, 255);
@@ -6850,18 +6872,20 @@ void processPendingMqttCommand()
   }
 
   // Pas de luminosite relatif +10%/-10% via MQTT (v77) : declenche par un
-  // script Recalbox (mosquitto_pub -t marquee/cmd/brightness_up -m "" ou
-  // marquee/cmd/brightness_down), payload ignore. Contrairement a
-  // CMD_BRIGHTNESS ci-dessus (RAM only), ces 2 commandes PERSISTENT la
-  // nouvelle valeur dans /config.ini via writeConfigFlag() -- choix
-  // utilisateur explicite, un +10%/-10% declenche depuis un script doit
-  // survivre a un reboot sans passer par le bouton "Sauvegarder" web.
+  // script Recalbox ("mosquitto_pub -t marquee/cmd -m 'CMD=brightness_up'"
+  // ou "CMD=brightness_down" depuis v148 -- topic unique), payload ignore.
+  // Contrairement a CMD_BRIGHTNESS ci-dessus (RAM only), ces 2 commandes
+  // PERSISTENT la nouvelle valeur dans /config.ini via writeConfigFlag() --
+  // choix utilisateur explicite, un +10%/-10% declenche depuis un script
+  // doit survivre a un reboot sans passer par le bouton "Sauvegarder" web.
   // Ecriture SD conditionnelle (seulement si la valeur clampee change
   // reellement, ex. deja a 100% et +10% redemande) pour ne pas ecrire sur
   // la SD inutilement.
   case MqttCommand::CMD_BRIGHTNESS_UP:
   case MqttCommand::CMD_BRIGHTNESS_DOWN:
   {
+    // v150 -- meme motif que CMD_BRIGHTNESS juste au-dessus.
+    g_mqttConnectedScreenUntilMs = 0;
     int curPct = (int)round(screenBrightness * 100.0 / 255.0);
     int delta  = (cmd.type == MqttCommand::CMD_BRIGHTNESS_UP) ? 10 : -10;
     int newPct = constrain(curPct + delta, 0, 100);
@@ -7033,9 +7057,9 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
   // v102 -- inWaitingGrace (le filtre lui-meme) retire : voir le commentaire
   // complet pres du dispatch system/game plus bas, qui etait le DERNIER
   // usage de cette variable (system/game desormais traites comme default,
-  // v45). g_mqttWaitingUntilMs/MQTT_WAITING_GRACE_MS laisses en place
-  // (ecrits mais plus lus) au cas ou un futur filtre en aurait a nouveau
-  // besoin -- cout nul, evite de toucher a plus de sites que necessaire.
+  // v45). g_mqttWaitingUntilMs/MQTT_WAITING_GRACE_MS retires a leur tour en
+  // v150 (nettoyage pre-merge master) -- restaient ecrits sans plus jamais
+  // etre lus depuis ce retrait, code mort confirme par revue.
 
   // v96 -- default/system/game passent desormais par leur slot dedie (voir
   // declaration de g_pendingGame et al.) au lieu du pendingCmd generique,
@@ -7665,7 +7689,6 @@ void mqttTask(void *param)
           if(!g_sdOpInProgress)
           {
             pendingCmd=MqttCommand(MqttCommand::CMD_WAITING_MQTT,"");
-            g_mqttWaitingUntilMs=millis()+MQTT_WAITING_GRACE_MS;
           }
           xSemaphoreGive(mqttCmdMutex);
         }
