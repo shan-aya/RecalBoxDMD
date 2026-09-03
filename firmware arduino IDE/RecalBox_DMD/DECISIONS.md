@@ -1324,6 +1324,18 @@ Outils : `tools/rb2_uinput_gamepad.py` (committé, réutilisable — la mécaniq
 
 **Outil `tools/search_state_byte.py` validé 2/2** (dynagear + nemo) comme méthode fiable et réutilisable pour tout futur champ nécessitant une corrélation observation↔valeur (lives sur d'autres jeux, éventuellement `ingame` gate).
 
+### Suite immédiate (même nuit) — reprise de la liste `lives` jamais tentée : `gogomile` confirmé (session longue), `msgogo`/`inthunt` inconcluants, `willow`/`gbusters` bloqués
+
+**Demande utilisateur** : "fais gogomile" puis "fini la liste après pour lives (ceux jamais tenté)".
+
+- **`gogomile`** — session portée à 200s (nécessaire : cinématique d'intro narrative ~70s avant le jeu réel). Candidat **UNIQUE dès la 1ère recherche** sur toute la fenêtre RAM (128 Ko) : `0x3dc`. Comportement cohérent sur 16/16 observations (0 avant START, 3 dès l'intro — dip switch `Lives=3` par défaut déjà initialisé, 3 en jeu réel avec 2 icônes de réserve visibles, 2 après une vie perdue par expiration du chronomètre de niveau — mécanisme différent d'un coup subi mais cohérent). `tools/hiscore_recipes/gogomile.json` mis à jour — candidat fort, 1 seule session (pas encore recoupé par une 2e indépendante comme `dynagear`/`nemo`).
+- **`msgogo`** — INCONCLUANT : session longue (150s) rejouée, reste bloqué sur le même état `STAGE 1` figé tout du long (score 0, aucune mort observée) — confirme le diagnostic déjà posé plus tôt cette nuit : le pattern `puzzle_aim_throw` générique est structurellement inefficace sur ce jeu (probablement pensé pour une visée précise, pas un balayage gauche/droite aveugle). Aucune transition à corréler.
+- **`inthunt`** — INCONCLUANT, pour une raison différente : une vraie transition de mort a bien été détectée (écran `CONTINUE` avec barre de décompte entre `obs06`/`obs07`, un signe fiable de vraie partie — l'attract-mode ne déclenche jamais cet écran) mais **aucun affichage numérique ou en icônes du nombre de vies n'apparaît dans le HUD** sur aucune des 14 captures (contrairement à `dynagear`/`nemo`/`gogomile`) — impossible d'établir une valeur attendue fiable à corréler sans ce repère visuel. Chantier à reprendre avec une méthode différente (ex. repérer le HUD précis au moment exact du respawn après `CONTINUE`, ou accepter de chercher "à l'aveugle" sur la zone mémoire déjà identifiée pour `credit`/`score`).
+- **`willow`** — toujours bloqué (Free Play ne prend pas, `INSERT COIN` persiste, déjà documenté plus tôt cette nuit).
+- **`gbusters`** — toujours bloqué structurellement (`READ_CORE_RAM` totalement inerte, connu de longue date, indépendant de ce chantier).
+
+**Bilan `lives` de la nuit** : 3 jeux avec un candidat solide (`dynagear`, `nemo` CONFIRMÉS 2/2 sessions ; `gogomile` fort, 1 session) sur les 7 jeux tentés au total.
+
 **Bilan de la nuit sur le pipeline mouvement+attaque** : 3 sessions propres et validées avec le fix `BTN_SOUTH`-retiré — `mtwins` (score 1240), `kamenrid` (racing, score 2910), `nemo` (beat_em_up, score 1800) — zéro saut de contenu, zéro processus résiduel, scores réels et substantiels à chaque fois. Un 4e essai (`pzloop2`) a révélé une limite PRÉ-EXISTANTE et distincte (pas de Free Play disponible pour ce rom précis sur ce RB2), pas un défaut du pipeline lui-même.
 
 ### Suite immédiate (même nuit) — campagne de capture RAM relancée avec le pipeline corrigé, sur les 6 candidats credit + score manquants
