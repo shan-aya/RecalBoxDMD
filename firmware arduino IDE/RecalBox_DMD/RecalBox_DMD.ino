@@ -1,7 +1,30 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v148
+// Version actuelle : v149
+//
+// v149 - 2026-09-03 - safe-modify - CMD_SCORE ne levait jamais l'ecran
+//   d'attente "RecalBox connectee" (CMD_WAITING_MQTT/
+//   g_mqttConnectedScreenUntilMs, v45 -- reste affiche indefiniment
+//   jusqu'au "prochain vrai message MQTT"). CMD_GAME/CMD_SYSTEM/
+//   CMD_DEFAULT levent tous les 3 ce drapeau (g_mqttConnectedScreenUntilMs
+//   = 0), mais CMD_SCORE ne le touchait pas. Bug reel trouve en direct sur
+//   materiel (retour utilisateur precis : "le message RecalBox connectee
+//   avait remplace le marquee du jeu en cours dans la boucle d'affichage",
+//   PENDANT une vraie partie) : si une reconnexion MQTT survient PENDANT
+//   qu'un round-robin hiscore continue d'envoyer des CMD_SCORE (scenario
+//   du soir), g_modeBeforeScore sauvegarde l'ecran "connectee" (mode actif
+//   a ce moment) comme mode a restaurer -- le DMD boucle alors
+//   indefiniment score/ecran-connectee sans jamais revenir au marquee
+//   reel, jusqu'au prochain CMD_GAME/CMD_SYSTEM/CMD_DEFAULT (qui n'arrive
+//   qu'au prochain changement de navigation/jeu, pas pendant une partie en
+//   cours). Fix : g_mqttConnectedScreenUntilMs=0 ajoute dans CMD_SCORE,
+//   cohabitant avec les 3 autres commandes qui le font deja -- un score
+//   recu compte desormais comme un "vrai message" au meme titre,
+//   coherent avec le commentaire de CMD_WAITING_MQTT lui-meme. Voir
+//   DECISIONS.md pour le detail complet de l'episode (3 hypotheses
+//   successives ecartees avant celle-ci, qui est verifiee par lecture de
+//   code directe, pas une deduction).
 //
 // v148 - 2026-09-02 - safe-modify - FUSION des 12 topics marquee/cmd/*
 //   (stop/default/system/game/show_config/wifi_recovery/reboot/
@@ -6842,6 +6865,13 @@ void processPendingMqttCommand()
   case MqttCommand::CMD_SCORE:
   {
     if (g_sdOpInProgress) { Serial.println("[MQTT] score ignore (web open)"); break; }
+    // v149 -- un CMD_SCORE est un "vrai message MQTT" au meme titre que
+    // CMD_GAME/CMD_SYSTEM/CMD_DEFAULT (qui levent deja ce drapeau) : sans
+    // cette ligne, un score recu pendant l'ecran "RecalBox connectee"
+    // (CMD_WAITING_MQTT) memorisait CET ECRAN comme mode a restaurer
+    // (juste en dessous) -- le DMD restait alors coince en boucle
+    // score/ecran-connectee indefiniment. Voir changelog v149 + DECISIONS.md.
+    g_mqttConnectedScreenUntilMs = 0;
     // v110 -- ne memorise le mode a restaurer QUE si on n'est pas deja en
     // train d'afficher un score (sinon un 2e score arrivant pendant
     // l'affichage du 1er ecraserait g_modeBeforeScore avec MODE_SCORE
