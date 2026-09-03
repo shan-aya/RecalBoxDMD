@@ -1,7 +1,36 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v150
+// Version actuelle : v151
+//
+// v151 - 2026-09-03 - safe-modify - Nouvelle escalade "recreation de
+//   socket" pour connect() MQTT en echec soutenu (rc=-2/-4), discutee en
+//   detail avec l'utilisateur avant implementation. Contexte : v133/v134
+//   (2026-08-24) avaient deja tente un dernier recours pour ce cas precis
+//   (WiFi.disconnect()/begin() force apres 90s) mais REVERTE -- collision
+//   non synchronisee avec maintainWiFi() sur les 2 coeurs, WiFi reel
+//   decrochant en boucle serree, situation pire qu'avant. Cette collision
+//   precise est resolue depuis ce soir (wifiResetMutex, v144), mais
+//   plutot que reintroduire un reset WiFi (cout reel : coupure totale du
+//   canal web pendant la reassociation, utilise activement ce soir pour
+//   diagnostiquer/rebasculer le DMD), piste alternative retenue : rester
+//   ENTIEREMENT au niveau TCP/socket, jamais teste avant sur ce projet.
+//   wifiClientMqtt (WiFiClient global, jamais recree depuis le tout
+//   premier boot -- meme objet/etat interne reutilise sur potentiellement
+//   des centaines de cycles connect/deconnect) est explicitement ferme
+//   (stop()) et reconstruit a neuf apres SOCKET_RECREATE_ESCALATION_CYCLES
+//   (5, ~170s vu le rythme reel observe cette nuit) echecs connect()
+//   consecutifs -- mqttClient.setClient() rappele explicitement ensuite
+//   pour garantir que PubSubClient resynchronise proprement son etat
+//   interne (pas suppose implicite). AUCUN appel WiFi.* : ne touche pas a
+//   l'association radio, pas de risque de collision avec maintainWiFi(),
+//   pas besoin de wifiResetMutex (wifiClientMqtt n'est manipule que par
+//   mqttTask()). Seuil delibere ni trop bas (perdrait la capacite a
+//   distinguer un hoquet auto-resolu -- majorite des rc=-4 de cette nuit
+//   se resolvent seuls a la tentative suivante) ni aussi haut que
+//   l'escalade WiFi existante (code neuf jamais valide sur materiel,
+//   prudence sur la frequence d'exposition tant que non confirme sain).
+//   PAS ENCORE VALIDE SUR MATERIEL REEL au moment de ce commit.
 //
 // v150 - 2026-09-03 - safe-modify - Fix collision de retain MQTT
 //   game/system/default/ingame (trouve par revue de code avant passage sur
@@ -7249,6 +7278,17 @@ void mqttTask(void *param)
   int consecutiveSubscribeFailCycles = 0;
   const unsigned long SUBSCRIBE_BACKOFF_STEP_MS = 5000UL;
   const unsigned long SUBSCRIBE_BACKOFF_MAX_MS = 60000UL;
+  // v151 -- compteur jumeau pour le chemin connect() lui-meme en echec
+  // (rc=-2/-4, AVANT meme d'atteindre subscribe -- consecutiveSubscribeFailCycles
+  // ne peut structurellement rien pour ce cas, jamais atteint, meme
+  // constat que celui qui avait motive v133/v134 en 2026-08-24). Discussion
+  // explicite avec l'utilisateur (2026-09-03) sur le bon seuil : ni le 1er
+  // echec (perdrait la capacite a distinguer un hoquet auto-resolu d'un
+  // vrai episode soutenu -- la grande majorite des rc=-4 de cette nuit se
+  // resolvent seuls des la tentative suivante), ni un seuil aussi haut que
+  // WIFI_RESET_ESCALATION_CYCLES (chemin different, coute plus cher) --
+  // seuil modere retenu, cf. SOCKET_RECREATE_ESCALATION_CYCLES plus bas.
+  int consecutiveConnectFailCycles = 0;
 
   for(;;)
   {
@@ -7747,10 +7787,37 @@ void mqttTask(void *param)
             g_lastMqttUsefulMs=now; // evite de re-declencher a chaque tour tant que ca reste injoignable
           }
         }
+        // v151 -- escalade "recreation de socket" pour connect() en echec
+        // soutenu (rc=-2/-4). Contrairement a l'escalade WiFi (v144,
+        // consecutiveSubscribeFailCycles), celle-ci reste ENTIEREMENT au
+        // niveau TCP/socket : ferme le fd sous-jacent et reconstruit
+        // wifiClientMqtt de zero, sans toucher au WiFi (pas de
+        // WiFi.disconnect()/begin(), donc aucun risque de collision avec
+        // maintainWiFi() -- pas besoin de wifiResetMutex ici,
+        // wifiClientMqtt n'est touche que par cette tache). Objectif :
+        // vider un eventuel etat lwIP/buffer coince sur CET objet reutilise
+        // depuis le tout premier boot (jamais recree avant ce soir), sans
+        // payer le cout d'une reassociation WiFi complete. Seuil choisi
+        // avec l'utilisateur : ni trop tot (perdrait la capacite a
+        // distinguer un hoquet auto-resolu -- la majorite des rc=-4
+        // observes cette nuit se resolvent seuls des la tentative
+        // suivante), ni aussi haut que l'escalade WiFi (chemin de code
+        // neuf, jamais teste sur ce materiel -- prudence).
+        consecutiveConnectFailCycles++;
+        const int SOCKET_RECREATE_ESCALATION_CYCLES = 5;
+        if (consecutiveConnectFailCycles >= SOCKET_RECREATE_ESCALATION_CYCLES)
+        {
+          Serial.println("[MQTT] escalade socket : " + String(consecutiveConnectFailCycles)
+                          + " echecs connect() consecutifs -- recreation de wifiClientMqtt (TCP seul, WiFi non touche)");
+          wifiClientMqtt.stop();
+          wifiClientMqtt = WiFiClient();
+          mqttClient.setClient(wifiClientMqtt);
+          consecutiveConnectFailCycles = 0; // repart de zero apres l'action
+        }
         vTaskDelay(pdMS_TO_TICKS(MQTT_RETRY_MS)); continue;
       }
     }
-    else lastMqttConnectedMs=millis();
+    else { lastMqttConnectedMs=millis(); consecutiveConnectFailCycles = 0; }
 
     mqttClient.loop();
     vTaskDelay(pdMS_TO_TICKS(20));
