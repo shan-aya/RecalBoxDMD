@@ -81,3 +81,7 @@ tools/build_msi_exe/
 # Windows portable/exe/msi) -- genere localement, volumineux (~250 Mo),
 # jamais versionne
 _release/
+
+# Logs du moniteur serie DMD (tools/DMD_Serial_Monitor.ps1) -- personnels a
+# chaque session de debug, jamais versionnes
+tools/serial_logs/
