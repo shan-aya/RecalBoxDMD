@@ -19,9 +19,23 @@
     "_verified_on": ["obs08=2", "obs19=9"],
     "_CANDIDAT_NON_CONFIRME": "2 offsets candidats (0x82aa/0x82ad), 0x82ad retenu (plus de formats concordants). Proche de l'adresse score confirmee (0x83aa), coherent avec la meme region memoire. Seulement 2 valeurs distinctes. A confirmer avant usage en production."
   },
+  "lives": {
+    "addr": "8399",
+    "sysramOffset": "8399",
+    "len": 1,
+    "format": "binary",
+    "endian": "little",
+    "byteSwap": false,
+    "multiplier": 1,
+    "_verified_on": [
+      "session1 (pilotage autonome uinput, 90s) : candidat UNIQUE trouve d'emblee sur toute la fenetre RAM (64 Ko) avec obs01-02=2 ('NEMO=1'), obs03-04=1 ('NEMO=0'), obs05=0 (ecran GAME OVER), obs06-07=2 (redemarrage Free Play)",
+      "session2 (independante, 90s, 2 cycles de mort complets) : correspondance EXACTE sur 11/11 observations -- obs01-02=2, obs03=1, obs04-05=0 (GAME OVER puis ecran titre), obs06-07=2 (restart), obs08=1, obs09-10=0 (2e GAME OVER, ecran RANKING BEST 5)"
+    ],
+    "_note": "Convention identique a dynagear (meme moteur/structure Capcom CPS1) : la RAM stocke le TOTAL de vies (active+reserve), le HUD 'NEMO=N' affiche N=total-1. Adresse coherente structurellement : a seulement 17 octets de l'adresse score deja confirmee (0x83aa). Trouve et confirme via tools/search_state_byte.py.",
+    "_status": "CONFIRME -- candidat unique des la 1ere session, recoupe exactement sur une 2e session independante incluant 2 cycles de mort/game-over complets (11/11 points de controle exacts)."
+  },
   "_missing": {
-    "lives": "pas encore cherche -- 'NEMO=1' visible a l'ecran (nombre de vies ?), barre VITAL separee.",
     "ingame": "pas encore cherche -- 'PUSH START' reste affiche meme en jeu reel sur ce titre (probablement un prompt 2e joueur, pas un indicateur fiable d'attract-mode pour ce jeu precis)."
   },
-  "_status": "score CONFIRME (3/3 exact). credit/lives/ingame gate NON trouves -- recipe incomplete au sens du schema officiel RecalBox. Credit auto fbneo abandonne pour ce jeu -- capture obtenue via jeu manuel reel."
+  "_status": "score CONFIRME (3/3 exact). lives CONFIRME (2/2 sessions, 11/11 points de controle sur la 2e). credit candidat non confirme, ingame gate non trouve -- recipe partiellement incomplete au sens du schema officiel RecalBox. Credit auto fbneo abandonne pour ce jeu -- capture score/credit obtenue via jeu manuel reel, lives obtenu via pilotage autonome uinput."
 }
