@@ -19,9 +19,22 @@
     "_verified_on": ["obs02=2", "obs12=9"],
     "_CANDIDAT_NON_CONFIRME": "seulement 2 valeurs distinctes. A confirmer avant usage en production."
   },
+  "lives": {
+    "addr": "3dc",
+    "sysramOffset": "3dc",
+    "len": 1,
+    "format": "binary",
+    "endian": "little",
+    "byteSwap": false,
+    "multiplier": 1,
+    "_verified_on": [
+      "pilotage autonome uinput, session unique 200s (necessaire : longue cinematique d'intro ~70s avant le jeu reel) : obs00=0 (avant START), obs01-04=3 (deja initialise, ecrans d'intro), obs05=1 (transitoire, changement d'ecran), obs06-11=3 (jeu reel, 2 icones de reserve visibles), obs12-15=2 (1 seule icone, 1 vie perdue -- coincide avec un chronometre de niveau tombe a 0 puis reinitialise a 78)"
+    ],
+    "_note": "Candidat UNIQUE trouve d'emblee sur toute la fenetre RAM (128 Ko) avec tools/search_state_byte.py. Convention identique aux autres jeux fbneo de ce chantier (dynagear/nemo) : la RAM stocke le TOTAL de vies (active+reserve = 3, dip switch Lives par defaut), les icones affichees a l'ecran montrent la reserve seule (total-1). Perte de vie ici causee par l'expiration du chronometre de niveau (pas un coup subi), mecanisme different des autres jeux mais le comportement RAM reste coherent.",
+    "_CANDIDAT_NON_CONFIRME": "1 seule session (contrairement a dynagear/nemo qui ont 2 sessions independantes) -- candidat tres coherent en interne (16/16 observations logiques) mais pas encore recoupe par une 2e session independante."
+  },
   "_missing": {
-    "lives": "pas encore cherche -- compteur de vies visible (icone canard) mais jamais isole en RAM.",
     "ingame": "pas encore cherche."
   },
-  "_status": "score CONFIRME (2/2 exact). credit/lives/ingame gate NON trouves -- recipe incomplete au sens du schema officiel RecalBox."
+  "_status": "score CONFIRME (2/2 exact). lives candidat fort (1 session, tres coherent, pas encore recoupe). credit candidat non confirme, ingame gate non trouve -- recipe partiellement incomplete au sens du schema officiel RecalBox."
 }
