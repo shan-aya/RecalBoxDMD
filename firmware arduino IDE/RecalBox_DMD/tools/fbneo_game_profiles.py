@@ -3,7 +3,28 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v2
+# Version actuelle : v3
+#
+# v3 - 2026-09-03 - safe-modify - CORRECTION de la conclusion du v2 (le
+#   D-pad n'etait PAS la seule cause) apres un nouveau saut de contenu
+#   reproduit sur `kamenrid` (profil racing, stick SEUL + BTN_SOUTH,
+#   jamais de D-pad) -- deux tentatives de fix cote config RetroArch
+#   (`input_menu_toggle_btn` desactive dans le vrai fichier
+#   `--appendconfig`, avec ET sans guillemets) SANS AUCUN EFFET. Lecture
+#   directe de `frontend.log` (log EmulationStation, pas RetroArch) :
+#   ES detecte notre clone comme un 2e CONTROLEUR INDEPENDANT ("Player 2
+#   Steam Deck (virtual)") et lance lui-meme les ROMs de test
+#   (`[Run] Command: ... -system 240ptestsuite ...`) -- le mecanisme
+#   reel implique probablement RGUI (menu_toggle=SOUTH) qui finit par
+#   faire sortir RetroArch vers ES, qui recoit alors nos appuis suivants
+#   comme de la navigation. Confirme empiriquement : SOUTH en usage
+#   SOUTENU (~1 tap/s sur 35s+) = saut systematique ; EAST/WEST/NORTH en
+#   usage soutenu identique = AUCUN saut, PID stable, vrai gameplay
+#   (score progresse, ex. 300 avec EAST seul). BTN_SOUTH RETIRE de tous
+#   les profils (remplace par EAST comme action principale, NORTH/WEST
+#   comme actions secondaires) -- plus jamais utilise dans une boucle
+#   automatisee, meme si structurellement ce serait le bouton "B"
+#   naturel de la plupart des jeux 2-boutons.
 #
 # v2 - 2026-09-03 - safe-modify - Remplace TOUT le mecanisme UDP
 #   (PLAYER1_X, no-op confirme cette nuit) par uinput (rb2_uinput_gamepad).
@@ -71,8 +92,13 @@ import time
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from rb2_uinput_gamepad import (BTN_SOUTH, BTN_EAST, BTN_NORTH, BTN_WEST,  # noqa: E402
+from rb2_uinput_gamepad import (BTN_EAST, BTN_NORTH, BTN_WEST,  # noqa: E402
                                  BTN_TL, BTN_TR, ABS_X, ABS_Y)
+# BTN_SOUTH volontairement PAS importe/utilise -- voir changelog v3 :
+# entangle avec input_menu_toggle_btn de RetroArch, un usage soutenu
+# finit par faire sortir la session vers EmulationStation (confirme
+# empiriquement, pas juste theorique -- 2 tentatives de fix cote config
+# RetroArch sans effet).
 
 STICK_MAX = 32000  # marge sous 32767 (absmax reel), evite tout clamp
 
@@ -168,8 +194,8 @@ def _beat_em_up(pad, seconds):
     deadline = time.time() + seconds
     tick = 0
     while time.time() < deadline:
-        pad.tap(BTN_SOUTH, hold=0.04)
         pad.tap(BTN_EAST, hold=0.04)
+        pad.tap(BTN_WEST, hold=0.04)
         phase = (tick // 20) % 4
         if phase == 0:
             _stick(pad, 1, 0)
@@ -190,10 +216,10 @@ def _platform_shooter(pad, seconds):
     deadline = time.time() + seconds
     tick = 0
     while time.time() < deadline:
-        pad.tap(BTN_SOUTH, hold=0.04)
+        pad.tap(BTN_EAST, hold=0.04)
         _stick(pad, 1 if tick % 15 < 12 else -1, 0)
         if tick % 40 < 5:
-            pad.tap(BTN_EAST, hold=0.04)  # saut ponctuel (obstacles/plateformes)
+            pad.tap(BTN_NORTH, hold=0.04)  # saut ponctuel (obstacles/plateformes)
         tick += 1
         time.sleep(0.1)
     _stick_center(pad)
@@ -209,7 +235,7 @@ def _platform_pure(pad, seconds):
         if tick % 10 < 3:
             pad.tap(BTN_EAST, hold=0.04)  # saut
         if tick % 25 < 3:
-            pad.tap(BTN_SOUTH, hold=0.04)  # attaque/action ponctuelle
+            pad.tap(BTN_WEST, hold=0.04)  # attaque/action ponctuelle
         tick += 1
         time.sleep(0.15)
     _stick_center(pad)
@@ -223,7 +249,7 @@ def _shmup_horizontal(pad, seconds):
     deadline = time.time() + seconds
     tick = 0
     while time.time() < deadline:
-        pad.tap(BTN_SOUTH, hold=0.03)  # tir -- envoye a CHAQUE tick, pas en option
+        pad.tap(BTN_EAST, hold=0.03)  # tir -- envoye a CHAQUE tick, pas en option
         phase = (tick // 15) % 4
         if phase == 0:
             _stick(pad, 0, -1)
@@ -243,10 +269,10 @@ def _run_and_gun(pad, seconds):
     deadline = time.time() + seconds
     tick = 0
     while time.time() < deadline:
-        pad.tap(BTN_SOUTH, hold=0.04)
+        pad.tap(BTN_EAST, hold=0.04)
         _stick(pad, 1, 0)
         if tick % 20 < 4:
-            pad.tap(BTN_EAST, hold=0.04)
+            pad.tap(BTN_NORTH, hold=0.04)
         tick += 1
         time.sleep(0.1)
     _stick_center(pad)
@@ -267,7 +293,7 @@ def _puzzle_aim_throw(pad, seconds):
             _stick(pad, 1, 0)
         else:
             _stick_center(pad)
-            pad.tap(BTN_SOUTH, hold=0.04)  # tir/lancer
+            pad.tap(BTN_EAST, hold=0.04)  # tir/lancer
         tick += 1
         time.sleep(0.2)
     _stick_center(pad)
@@ -284,7 +310,7 @@ def _racing(pad, seconds):
         dx = -1 if phase == 1 else (1 if phase == 2 else 0)
         _stick(pad, dx, -1)  # -1 en Y = accelerer (maintenu en continu)
         if tick % 10 == 0:
-            pad.tap(BTN_SOUTH, hold=0.04)  # arme/objet ponctuel si le jeu en a un
+            pad.tap(BTN_EAST, hold=0.04)  # arme/objet ponctuel si le jeu en a un
         tick += 1
         time.sleep(0.1)
     _stick_center(pad)
@@ -299,7 +325,7 @@ def _maze_action(pad, seconds):
     while time.time() < deadline:
         dx, dy = dirs[(tick // 15) % 4]
         _stick(pad, dx, dy)
-        pad.tap(BTN_SOUTH, hold=0.04)
+        pad.tap(BTN_EAST, hold=0.04)
         tick += 1
         time.sleep(0.1)
     _stick_center(pad)
@@ -311,10 +337,10 @@ def _generic(pad, seconds):
     deadline = time.time() + seconds
     tick = 0
     while time.time() < deadline:
-        pad.tap(BTN_SOUTH, hold=0.04)
+        pad.tap(BTN_EAST, hold=0.04)
         _stick(pad, 1 if tick % 20 < 12 else -1, 0)
         if tick % 30 < 3:
-            pad.tap(BTN_EAST, hold=0.04)
+            pad.tap(BTN_NORTH, hold=0.04)
         tick += 1
         time.sleep(0.1)
     _stick_center(pad)
