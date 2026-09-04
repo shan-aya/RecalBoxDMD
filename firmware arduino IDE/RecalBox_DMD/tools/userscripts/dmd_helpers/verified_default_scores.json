@@ -2878,5 +2878,364 @@
     ],
     "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
     "date": "2026-09-05"
+  },
+  "fbneo_cyvernj": {
+    "lines": [
+      "1 AAA 1000000",
+      "2 BBB 900000",
+      "3 CCC 800000",
+      "4 DDD 700000",
+      "5 EEE 600000",
+      "6 FFF 500000",
+      "7 GGG 400000",
+      "8 ABG 363250",
+      "9 HHH 300000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_daisenpu": {
+    "lines": [
+      "1 ABC 40000",
+      "2 DEF 39000",
+      "3 GHI 38000",
+      "4 JKL 37000",
+      "5 MNO 36000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_dbreed": {
+    "lines": [
+      "1 NABE 275800",
+      "2 ROKUJIZO 202700",
+      "3 MOICHI 153500",
+      "4 YOSHIGON 133100",
+      "5 AAAAA 130600",
+      "6 FAN 129800",
+      "7 HANIWA 127200",
+      "8 KF 126300",
+      "9 ABG 89300"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_ddonpachj": {
+    "lines": [
+      "1 OSD 5905065",
+      "2 HS 5544337",
+      "3 OSS 5327080",
+      "4 NAI 4440155",
+      "5 OKS 3562165"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_ddsomb": {
+    "lines": [
+      "1 ERLING 100000",
+      "2 GYGAX 90000",
+      "3 JMWORD 80000",
+      "4 ALMA 70000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_ddtodd": {
+    "lines": [
+      "1 GYGAX 60000",
+      "2 DIANA 58000",
+      "3 WOLFGANG 56000",
+      "4 HERBERT 54000",
+      "5 MARK 52000",
+      "6 MARGARET 50000",
+      "7 THOMAS 48000",
+      "8 WILLIAM 46000",
+      "9 SHOKO 44070"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_deathsml": {
+    "lines": [
+      "1 KEN 10000000",
+      "2 JUN 9000000",
+      "3 TAK 8000000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_defcmnd": {
+    "lines": [
+      "1 DRJ 20000",
+      "2 SED 18000",
+      "3 LED 16000",
+      "4 PGD 14000",
+      "5 ERB 12000",
+      "6 MRS 10000",
+      "7 KJF 8000",
+      "8 TMH 6000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_defender": {
+    "lines": [
+      "1 DRJ 24220",
+      "2 SAM 18315",
+      "3 LED 15920",
+      "4 PGD 14285",
+      "5 ERB 12520",
+      "6 MRS 11035",
+      "7 SSR 8265",
+      "8 TMH 6010"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_demoderm": {
+    "lines": [
+      "1 ABG 40300",
+      "2 JLN 10000",
+      "3 TIN 10000",
+      "4 DLN 10000",
+      "5 MIN 10000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_detatwin": {
+    "lines": [
+      "1 MO 57300",
+      "2 TOM 52500",
+      "3 RS 50000",
+      "4 HA 49000",
+      "5 CHU 46000",
+      "6 KI 44200",
+      "7 JOY 40000",
+      "8 AS 39000",
+      "9 GB 38000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_dfeveron": {
+    "lines": [
+      "1 BEA 2000000",
+      "2 TAT 1800000",
+      "3 TAC 1600000",
+      "4 KCA 1400000",
+      "5 VE 1200000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_digdug": {
+    "lines": [
+      "1 NN 10000",
+      "2 AA 10000",
+      "3 MM 10000",
+      "4 CC 10000",
+      "5 OO 10000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_dimahoud": {
+    "lines": [
+      "1 MDK 1000000",
+      "2 AAU 800000",
+      "3 HTS 600000",
+      "4 OSE 400000",
+      "5 VAN 200000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_djboyj": {
+    "lines": [
+      "1 TZR 120000",
+      "2 VFR 100000",
+      "3 SDR 80000",
+      "4 RZV 50000",
+      "5 TDR 30000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_dogyuun": {
+    "lines": [
+      "1 TOA 370000",
+      "2 DDD 340000",
+      "3 OOO 310000",
+      "4 GGG 280000",
+      "5 YYY 250000",
+      "6 UUU 220000",
+      "7 UUU2 190000",
+      "8 NNN 160000",
+      "9 N9 130000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_donpachi": {
+    "lines": [
+      "1 TAR 800000",
+      "2 ODE 700000",
+      "3 AV 600000",
+      "4 PFE 500000",
+      "5 LOR 400000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_dsmbl": {
+    "lines": [
+      "1 MRM 10000000",
+      "2 IID 9000000",
+      "3 TYM 8000000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_espgal2": {
+    "lines": [
+      "1 TAC 6970500",
+      "2 DRK 6000000",
+      "3 TMZ 5000000",
+      "4 FRD 4000000",
+      "5 ITM 3000000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_esprade": {
+    "lines": [
+      "1 ACR 3000000",
+      "2 YUC 2500001",
+      "3 TOK 2000002",
+      "4 UNO 1500003",
+      "5 JIJ 1000004"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_feversos": {
+    "lines": [
+      "1 BEA 2000000",
+      "2 TAT 1800000",
+      "3 TAC 1600000",
+      "4 KCA 1400000",
+      "5 VE 1200000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_fhawkj": {
+    "lines": [
+      "1 N1 50000",
+      "2 N2 45000",
+      "3 N3 40000",
+      "4 N4 35000",
+      "5 N5 30000",
+      "6 N6 25000",
+      "7 N7 20000",
+      "8 N8 15000",
+      "9 N9 10000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_firebarr": {
+    "lines": [
+      "1 SHARA 6505000",
+      "2 MACCOY 6450000",
+      "3 RRAVA 6400000",
+      "4 YAMACHIN 6350000",
+      "5 DENCHAN 6300000",
+      "6 RIKEI 6250000",
+      "7 HIVA 6200000",
+      "8 COREI 6150000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_fireshrkd": {
+    "lines": [
+      "1 N1 70000",
+      "2 N2 68000",
+      "3 N3 66000",
+      "4 N4 64000",
+      "5 N5 62000",
+      "6 N6 60000",
+      "7 N7 58000",
+      "8 N8 56000",
+      "9 N9 54000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_fixeight": {
+    "lines": [
+      "1 KAN 655300",
+      "2 EKO 619400",
+      "3 SAN 558200",
+      "4 HA 527500",
+      "5 CH 466200",
+      "6 IYA 435600",
+      "7 HOY 394700",
+      "8 AS 337100",
+      "9 ARE 232500"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_fnshark": {
+    "lines": [
+      "1 N1 30000",
+      "2 N2 29000",
+      "3 N3 28000",
+      "4 N4 26000",
+      "5 N5 25000",
+      "6 N6 23000",
+      "7 N7 22000",
+      "8 N8 21000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_forgottn": {
+    "lines": [
+      "1 NIN 10000",
+      "2 ABG 9000",
+      "3 EGW 9000",
+      "4 KOJ 8000",
+      "5 TOK 7000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_fshark": {
+    "lines": [
+      "1 ABG 105250",
+      "2 N2 30000",
+      "3 N3 29000",
+      "4 N4 28000",
+      "5 N5 27000",
+      "6 N6 26000",
+      "7 N7 25000",
+      "8 N8 24000",
+      "9 N9 23000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_futari10": {
+    "lines": [
+      "1 KDK 6880571",
+      "2 NMR 4000000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
   }
 }
