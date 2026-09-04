@@ -1367,3 +1367,11 @@ Outils : `tools/rb2_uinput_gamepad.py` (committé, réutilisable — la mécaniq
 **`mtwins`** : structure bien plus complexe (longue séquence BCD monotone décroissante par paliers de 50, ne ressemble pas à une table de classement classique — probablement une table de bonus/points interne au jeu) — pas de motif de rang exploitable trouvé ce soir, laissé de côté.
 
 **Bilan** : le pilotage autonome confirme fonctionner comme mécanisme de génération de `.hi` (9/9), et la méthode "vérité d'abord" appliquée directement au `.hi` (sans avoir besoin d'un joueur humain ni d'un score record) a produit une 1ère nouvelle entrée manifeste validée ce soir. **Prochaine étape suggérée** : répéter sur `gogomile`/`msgogo` (hexdump manuel), puis lancer une vraie campagne sur des roms fbneo JAMAIS tentées (pas seulement les 9 déjà pilotées cette nuit) pour mesurer un gain de taux de remplissage à plus grande échelle — nécessite de sélectionner un lot parmi les ~2383 roms fbneo présentes+dans le manifeste+sans `.hi` sur RB2 (liste obtenue ce soir, `tools/rb_challenge_probe/check_manifest_presence.py`, scratchpad non committé).
+
+## ⚠️ À RETIRER avant tout passage en production/master : endpoint HTTP `/log` (firmware v153, 2026-09-03 nuit)
+
+`handleWebConfigMqttLog()` (`RecalBox_DMD.ino`, route `/log` enregistrée dans `web_config.h`) est un **ajout temporaire de confort de développement**, pas une fonctionnalité destinée à rester en production. Demande explicite utilisateur au moment de l'ajout : "note cet ajout pour pouvoir le retirer du firmware de production."
+
+**Contexte** : DMD débranché de l'USB pendant une session de surveillance nocturne, besoin d'un mini suivi de stabilité (heap/RSSI/mode/tentatives connect + 10 derniers messages MQTT) via WiFi le temps de cette session, sans repasser par un serveur telnet complet (retiré en v18 pour coût RAM/CPU — voir plus haut dans ce fichier).
+
+**À faire avant un build destiné à la distribution/master** : retirer `handleWebConfigMqttLog()` (`RecalBox_DMD.ino`, juste après `mqttLogAdd()`) + sa déclaration anticipée et l'enregistrement de route `webServer->on("/log", ...)` dans `web_config.h`. `mqttLog[]`/`mqttLogAdd()`/`MQTT_LOG_SIZE` eux-mêmes sont antérieurs à ce soir et restent utiles indépendamment (alimentés par `onMqttMessage()`) — ne pas les retirer, seulement l'endpoint HTTP qui les expose.

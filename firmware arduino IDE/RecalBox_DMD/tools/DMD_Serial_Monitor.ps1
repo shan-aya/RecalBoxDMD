@@ -8,6 +8,18 @@
 # bluetooth_name dans le web config du DMD) -- fonctionne sans modification
 # dans les 2 cas, pas besoin de savoir a l'avance lequel est actif.
 #
+# v2 (2026-09-04) -- demande utilisateur ("si port USB detecte, serial
+# classique complet dans le script, sinon proposition ouverture page web
+# endpoint") : si AUCUN port serie n'est detecte (DMD debranche), bascule
+# automatiquement sur un suivi WiFi via l'endpoint HTTP /log du firmware
+# (v153+, RecalBox_DMD.ino/web_config.h) -- poll toutes les 3s, log ecrit
+# pareil dans serial_logs/. Beaucoup plus limite que le Serial complet (pas
+# de GIF/BOOT/etc., juste heap/RSSI/mode/tentatives connect + 10 derniers
+# messages MQTT, deja le scope demande : stabilite/pertes de connexion, pas
+# un diagnostic complet). Teste les 2 IP preferentielles constatees
+# empiriquement sur ce reseau (192.168.0.51/.52, la Freebox alterne entre
+# les 2 selon les power cycles, pas un reglage fixe cote DMD).
+#
 # Usage : double-clic sur DMD_Serial_Monitor.bat (ou lancer ce .ps1
 # directement). Si un seul port candidat est trouve, il est utilise
 # automatiquement. Si plusieurs (ou aucun) candidat evident, une liste
@@ -17,6 +29,51 @@ $ErrorActionPreference = 'Stop'
 $logDir = "$PSScriptRoot\serial_logs"
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $lastPortFile = "$logDir\.last_port"
+
+# Fallback WiFi (voir commentaire v2 ci-dessus) -- utilise uniquement si
+# aucun port serie n'est detecte du tout.
+function Start-WifiLogFallback {
+    $candidateIPs = @('192.168.0.51', '192.168.0.52')
+    Write-Host "Aucun port serie detecte -- recherche du DMD sur le reseau (IP connues : $($candidateIPs -join ', '))..." -ForegroundColor Yellow
+    $dmdUri = $null
+    foreach ($ip in $candidateIPs) {
+        try {
+            $r = Invoke-WebRequest -Uri "http://$ip/log" -UseBasicParsing -TimeoutSec 5
+            if ($r.StatusCode -eq 200) { $dmdUri = "http://$ip/log"; Write-Host "DMD trouve sur $ip" -ForegroundColor Green; break }
+        } catch { }
+    }
+    if (-not $dmdUri) {
+        Write-Host "DMD introuvable (ni port serie, ni web sur $($candidateIPs -join '/')). Branche le DMD en USB, verifie l'appairage Bluetooth (ESP32-GIF), ou verifie qu'il est allume et connecte au WiFi." -ForegroundColor Red
+        Read-Host "Appuie sur Entree pour fermer"
+        exit 1
+    }
+
+    $stamp = Get-Date -Format 'yyyy-MM-dd_HHmmss'
+    $outFile = "$logDir\dmd_wifilog_$stamp.txt"
+    Write-Host "=== Suivi WiFi (/log, poll 3s) -- $dmdUri -- log: $outFile ===" -ForegroundColor Cyan
+    Write-Host "(pas le Serial complet -- juste stabilite/pertes de connexion : heap/RSSI/mode/tentatives + 10 derniers messages MQTT)" -ForegroundColor DarkGray
+    Write-Host "(Ctrl+C ou ferme la fenetre pour arreter)" -ForegroundColor DarkGray
+    "" | Out-File -FilePath $outFile -Encoding utf8
+    $lastContent = ""
+    while ($true) {
+        try {
+            $r = Invoke-WebRequest -Uri $dmdUri -UseBasicParsing -TimeoutSec 5
+            if ($r.Content -ne $lastContent) {
+                $ts = Get-Date -Format "HH:mm:ss.fff"
+                $out = "----- $ts -----`n$($r.Content)"
+                Write-Host $out
+                Add-Content -Path $outFile -Value $out -Encoding utf8
+                $lastContent = $r.Content
+            }
+        } catch {
+            $ts = Get-Date -Format "HH:mm:ss.fff"
+            $out = "$ts [ERREUR] DMD injoignable : $($_.Exception.Message)"
+            Write-Host $out -ForegroundColor Red
+            Add-Content -Path $outFile -Value $out -Encoding utf8
+        }
+        Start-Sleep -Seconds 3
+    }
+}
 
 function Get-CandidatePorts {
     $names = [System.IO.Ports.SerialPort]::GetPortNames()
@@ -37,9 +94,8 @@ Write-Host "Recherche des ports serie disponibles..." -ForegroundColor DarkGray
 $candidates = Get-CandidatePorts
 
 if (-not $candidates -or $candidates.Count -eq 0) {
-    Write-Host "Aucun port serie detecte. Branche le DMD en USB ou verifie l'appairage Bluetooth (nom attendu: ESP32-GIF), puis relance ce programme." -ForegroundColor Red
-    Read-Host "Appuie sur Entree pour fermer"
-    exit 1
+    Start-WifiLogFallback
+    exit 0
 }
 
 $likely = $candidates | Where-Object { $_.Likely }
