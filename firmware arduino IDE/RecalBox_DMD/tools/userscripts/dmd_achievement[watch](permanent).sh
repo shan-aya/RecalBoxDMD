@@ -5,7 +5,13 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v4
+# Version actuelle : v5
+#
+# v5 - 2026-09-04 - safe-modify - Verrou anti-relance extrait vers
+#   dmd_helpers/singleton_lock.sh, voir marquee.sh v43 pour le detail
+#   complet (meme bloc duplique a l'identique dans les 3 scripts, nettoyage
+#   differe puis repris ce soir). Comportement au runtime inchange (meme
+#   LOCKDIR "dmd_achievement_singleton", meme logique mkdir/pid/kill -0).
 #
 # v4 - 2026-09-02 - safe-modify - Topic marquee/cmd/score -> marquee/cmd
 #   unique (voir DECISIONS.md + RecalBox_DMD.ino v148, meme motif que
@@ -69,18 +75,10 @@
 #   boot), et "verifier si le fichier existe" PUIS "ecrire son propre PID"
 #   n'est pas atomique. mkdir EST atomique sur ce systeme de fichiers
 #   (tmpfs), fermant la fenetre de course entierement.
-LOCKDIR="/tmp/dmd_achievement_singleton.lock"
-if ! mkdir "$LOCKDIR" 2>/dev/null; then
-    oldpid=$(cat "$LOCKDIR/pid" 2>/dev/null)
-    if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then
-        exit 0
-    fi
-    rmdir "$LOCKDIR" 2>/dev/null
-    if ! mkdir "$LOCKDIR" 2>/dev/null; then
-        exit 0
-    fi
-fi
-echo $$ > "$LOCKDIR/pid"
+# v5 - 2026-09-04 - safe-modify - Extrait vers dmd_helpers/singleton_lock.sh,
+#   voir marquee.sh v43 pour le detail complet (meme bloc duplique a
+#   l'identique dans les 3 scripts, nettoyage differe puis repris ce jour).
+. /recalbox/share/userscripts/dmd_helpers/singleton_lock.sh dmd_achievement 2>/dev/null || exit 1
 
 LOG="/recalbox/share/system/logs/dmd_achievement_mqtt.log"
 RA_LOG="/recalbox/share/system/logs/retroarch.log"

@@ -1,40 +1,20 @@
 #!/bin/ash
 # v27 -- verrou anti-relance (voir son commentaire complet plus bas, "v12")
-# deplace ICI, tout en haut du fichier, AVANT tout le reste (changelog
-# compris -- les commentaires ne coutent presque rien a l'interpreteur, mais
-# le verrou doit passer avant la MOINDRE commande executee). Cause : retour
-# utilisateur + investigation (2026-08-31, saut alphabetique rapide) --
-# EmulationStation relance ce script A CHAQUE evenement (voir commentaire
-# v5 historique plus bas), verrou deja en place pour eviter l'accumulation
-# de processus, MAIS le verrou etait verifie APRES ~440 lignes de fichier
-# (dont un premier fork+exec de `date` et une ecriture disque de trace a
-# CHAQUE invocation, meme dupliquee) -- pendant une rafale de navigation
-# soutenue (5-8 evenements/s, jusqu'a 40s observees), ça represente
-# potentiellement 150-300+ lancements-et-sorties du script, chacun avec ce
-# cout, en concurrence CPU avec EmulationStation lui-meme. Hypothese non
-# encore confirmee comme cause unique du delai observe (ES continue de
-# publier des evenements plusieurs dizaines de secondes apres l'arret visuel
-# de la navigation cote RB1, cf. DECISIONS.md/memoire projet) mais c'est le
-# mecanisme le plus concret trouve en diffant ce qui a change au meme commit
-# que le shuffle (aca6ef3, 18/08) -- absent avant. Ce fix ne resout donc pas
-# forcement le probleme a lui seul, mais reduit au strict minimum (fork+exec
-# sh, mkdir, kill -0, exit -- aucun sous-processus `date` ni ecriture disque)
-# le cout de CHAQUE invocation dupliquee, condition necessaire pour tester
-# proprement si cette piste est la bonne. Le TRACE log (diagnostic ferme du
-# chantier boot-sweep v20-v24, "fix definitif" -- voir changelog) ne
-# s'execute plus que pour l'instance qui obtient reellement le verrou.
-LOCKDIR="/tmp/marquee_singleton.lock"
-if ! mkdir "$LOCKDIR" 2>/dev/null; then
-    oldpid=$(cat "$LOCKDIR/pid" 2>/dev/null)
-    if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then
-        exit 0
-    fi
-    rmdir "$LOCKDIR" 2>/dev/null
-    if ! mkdir "$LOCKDIR" 2>/dev/null; then
-        exit 0
-    fi
-fi
-echo $$ > "$LOCKDIR/pid"
+# deplace ICI, tout en haut du fichier, AVANT tout le reste -- le verrou
+# doit passer avant la MOINDRE commande executee (voir v43 ci-dessous pour
+# le detail de cette contrainte, toujours respectee par l'extraction).
+# v43 -- extrait vers dmd_helpers/singleton_lock.sh (nettoyage differe lors
+# de la revue pre-merge master du 2026-09-03, voir DECISIONS.md
+# "Explicitement PAS fait" -- repris ici) : ce bloc etait duplique a
+# l'identique dans marquee.sh/dmd_score.sh/dmd_achievement.sh, seul le nom
+# du verrou differait. Chemin ABSOLU (pas de calcul de SCRIPT_DIR ici --
+# couterait un fork/exec supplementaire AVANT le verrou, exactement ce que
+# ce fix v27 cherchait a eviter) -- coherent avec les autres chemins deja
+# codes en dur dans ce fichier (ex. LOG plus bas). "|| exit 1" = garde
+# fail-closed si dmd_helpers/ est absent (deja arrive une fois sur ce
+# projet, package incomplet) : le script s'arrete plutot que de tourner
+# sans protection anti-relance.
+. /recalbox/share/userscripts/dmd_helpers/singleton_lock.sh marquee 2>/dev/null || exit 1
 echo "$(date '+%H:%M:%S.%N') TRACE proceeding pid=$$ ppid=$PPID arg0=$0" >> /tmp/marquee_trace.log
 LOG="/recalbox/share/system/logs/marquee_mqtt.log"
 # v35 -- BUG REEL confirme sur materiel (retour utilisateur, meme session,
@@ -74,7 +54,23 @@ renice -n -10 -p $$ >/dev/null 2>&1
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v42
+# Version actuelle : v43
+#
+# v43 - 2026-09-04 - safe-modify - Verrou anti-relance extrait vers
+#   dmd_helpers/singleton_lock.sh -- code identique retire d'ici, de
+#   dmd_score.sh (v41) et dmd_achievement.sh (v5), seul le nom du verrou
+#   passe en argument. Nettoyage explicitement differe lors de la revue
+#   pre-merge master du 2026-09-03 (voir DECISIONS.md, "Explicitement PAS
+#   fait"), repris ce soir. Chemin ABSOLU utilise (pas de SCRIPT_DIR calcule
+#   ici) : eviter un fork/exec supplementaire avant meme le verrou, exactement
+#   ce que le fix v27 ci-dessous cherchait a eviter. Comportement au runtime
+#   INCHANGE (meme LOCKDIR, meme logique mkdir/pid/kill -0) -- verifie via
+#   `sh -n` sur les 4 fichiers concernes (ce script + les 2 autres +
+#   singleton_lock.sh) avant commit. DEPLOIEMENT : dmd_helpers/ doit etre a
+#   jour EN MEME TEMPS que ce script (deja une dependance obligatoire pour
+#   dmd_score.sh -- pas un nouveau risque de deploiement, juste elargi a
+#   marquee.sh/dmd_achievement.sh) -- garde fail-closed ajoutee ("|| exit 1")
+#   si jamais dmd_helpers/ manquait au deploiement.
 #
 # v42 - 2026-09-03 - safe-modify - Fix collision de retain MQTT trouve par
 #   revue de code avant passage sur master (jamais reproduit en direct,

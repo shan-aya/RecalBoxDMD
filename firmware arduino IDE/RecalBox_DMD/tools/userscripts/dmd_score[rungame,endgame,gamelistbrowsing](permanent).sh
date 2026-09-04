@@ -5,25 +5,33 @@
 # gamelistbrowsing (present dans son propre nom de hooks), verrou deja en
 # place mais verifie ~550 lignes plus loin -- reduit au minimum le travail
 # fait par chaque relance dupliquee pendant une rafale de navigation.
-LOCKDIR="/tmp/dmd_score_singleton.lock"
-if ! mkdir "$LOCKDIR" 2>/dev/null; then
-    oldpid=$(cat "$LOCKDIR/pid" 2>/dev/null)
-    if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then
-        exit 0
-    fi
-    rmdir "$LOCKDIR" 2>/dev/null
-    if ! mkdir "$LOCKDIR" 2>/dev/null; then
-        exit 0
-    fi
-fi
-echo $$ > "$LOCKDIR/pid"
+# v41 -- extrait vers dmd_helpers/singleton_lock.sh, voir marquee.sh v43
+# pour le detail complet (meme bloc duplique a l'identique dans les 3
+# scripts, nettoyage differe puis repris le 2026-09-04).
+. /recalbox/share/userscripts/dmd_helpers/singleton_lock.sh dmd_score 2>/dev/null || exit 1
 # Pont MQTT hiscore FBNeo + infos/description jeu -> DMD (marquee/cmd/score,
 # canal UNIQUE, architecture "DMD bete" v110 -- voir RecalBox_DMD.ino)
 #
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v40
+# Version actuelle : v42
+#
+# v42 - 2026-09-04 - safe-modify - Cache mono-emplacement pour
+#   dmd_game_info.py (voir get_game_info(), commentaire complet juste avant
+#   extract_field()) : description et info l'invoquaient chacun separement
+#   avec les MEMES arguments (sys/gpath) pour la MEME donnee statique --
+#   double invocation python3 par rotation complete round-robin, evitable.
+#   Piste remontee par la revue pre-merge master du 2026-09-03 (voir
+#   DECISIONS.md, "Explicitement PAS fait"), reprise ici. Comportement de
+#   sortie inchange (extract_field() recoit exactement le meme payload
+#   qu'avant, cache ou pas) -- verifie via `sh -n`.
+#
+# v41 - 2026-09-04 - safe-modify - Verrou anti-relance extrait vers
+#   dmd_helpers/singleton_lock.sh, voir marquee.sh v43 pour le detail
+#   complet (meme bloc duplique a l'identique dans les 3 scripts, nettoyage
+#   differe puis repris ce soir). Comportement au runtime inchange (meme
+#   LOCKDIR "dmd_score_singleton", meme logique mkdir/pid/kill -0).
 #
 # v40 - 2026-09-02 - safe-modify - Veille CIBLEE (round-robin hiscore/
 #   description/info pendant rundemo) DESACTIVEE, retour utilisateur
@@ -1266,6 +1274,35 @@ send_score() {
     echo "$(date '+%H:%M:%S') [$(precise_ts)] SEND marquee/cmd/score ref=${ref} = @${fw_dur}|${payload}" >> "$LOG"
 }
 
+# v42 -- cache mono-emplacement (sys+gpath) pour dmd_game_info.py : les cas
+# "description" et "info" de publish_one_panel() l'invoquaient CHACUN
+# separement avec les MEMES arguments alors qu'il renvoie deja les 2 champs
+# combines en 1 seul appel (voir extract_field() juste apres) -- round_robin()
+# les affiche a des tours SEPARES de la rotation, ce qui doublait
+# l'invocation python3 (demarrage interpreteur + parse XML) par rotation
+# complete pour EXACTEMENT la meme donnee statique. Piste remontee par la
+# revue pre-merge master du 2026-09-03 (voir DECISIONS.md, "Explicitement
+# PAS fait"), reprise ici. Cache invalide des que sys/gpath changent (nouveau
+# jeu) -- ce sont deja les seules cles dont depend la sortie de
+# dmd_game_info.py, donc suffisantes pour garantir un cache correct. Portee
+# du cache : les variables globales survivent tant que dure LE round_robin()
+# en cours (chaque appel round_robin ... & demarre un NOUVEAU processus
+# forke, donc un cache neuf -- jamais de staleness entre 2 parties/sessions
+# de navigation differentes).
+_GI_CACHE_SYS=""
+_GI_CACHE_GPATH=""
+_GI_CACHE_RAW=""
+get_game_info() {
+    _gi_sys="$1"; _gi_gpath="$2"
+    if [ "$_gi_sys" = "$_GI_CACHE_SYS" ] && [ "$_gi_gpath" = "$_GI_CACHE_GPATH" ] && [ -n "$_GI_CACHE_RAW" ]; then
+        echo "$_GI_CACHE_RAW"
+        return 0
+    fi
+    _gi_raw=$(python3 "${PYHELP_DIR}/dmd_game_info.py" "$_gi_sys" "$_gi_gpath" 2>>"$LOG")
+    _GI_CACHE_SYS="$_gi_sys"; _GI_CACHE_GPATH="$_gi_gpath"; _GI_CACHE_RAW="$_gi_raw"
+    echo "$_gi_raw"
+}
+
 # v2 -- extrait un champ ("DESCRIPTION" ou "INFOS") du payload combine
 # genere par dmd_game_info.py (format "LABEL|contenu|LABEL|contenu|...").
 # v6 -- BUG REEL corrige (trouve en test reel sur materiel : INFOS
@@ -1490,7 +1527,7 @@ publish_one_panel() {
             ;;
         description)
             [ -n "$sys" ] && [ -n "$gpath" ] || return 1
-            raw=$(python3 "${PYHELP_DIR}/dmd_game_info.py" "$sys" "$gpath" 2>>"$LOG")
+            raw=$(get_game_info "$sys" "$gpath")
             [ -n "$raw" ] || return 1
             field=$(extract_field "$raw" "DESCRIPTION")
             [ -n "$field" ] || return 1
@@ -1500,7 +1537,7 @@ publish_one_panel() {
             ;;
         info)
             [ -n "$sys" ] && [ -n "$gpath" ] || return 1
-            raw=$(python3 "${PYHELP_DIR}/dmd_game_info.py" "$sys" "$gpath" 2>>"$LOG")
+            raw=$(get_game_info "$sys" "$gpath")
             [ -n "$raw" ] || return 1
             field=$(extract_field "$raw" "INFOS")
             [ -n "$field" ] || return 1
