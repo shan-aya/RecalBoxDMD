@@ -1778,5 +1778,322 @@
     ],
     "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
     "date": "2026-09-05"
+  },
+  "mame0278_block": {
+    "lines": [
+      "1 OTA 300000",
+      "2 AKI 240000",
+      "3 SAK 180000",
+      "4 KUW 90000",
+      "5 ABG 46950"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_blockcar": {
+    "lines": [
+      "1 PEW 50000",
+      "2 MAT 45000",
+      "3 SIO 40000",
+      "4 TER 35000",
+      "5 KWA 30000",
+      "6 HIT 25000",
+      "7 KAT 20000",
+      "8 KRA 15000",
+      "9 VIS 10000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_blockout": {
+    "lines": [
+      "1 TOM 10000",
+      "2 SYO 9000",
+      "3 KIS 8000",
+      "4 KAI 7000",
+      "5 KEN 6000",
+      "6 GEN 5000",
+      "7 OBI 4000",
+      "8 YAM 3000",
+      "9 HIN 2000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bloodbro": {
+    "lines": [
+      "1 ABG 70700",
+      "2 TAD 20000",
+      "3 TAD2 19800",
+      "4 TAD3 19800",
+      "5 AB 15800"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bloodwar": {
+    "lines": [
+      "1 NAO 300000",
+      "2 TOM 290000",
+      "3 KON 280000",
+      "4 YU 270000",
+      "5 TOK 260000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_blswhstl": {
+    "lines": [
+      "1 MO 57300",
+      "2 TOM 52500",
+      "3 RS 50000",
+      "4 HA 49000",
+      "5 CHU 46000",
+      "6 KI 44200",
+      "7 JOY 40000",
+      "8 AS 39000",
+      "9 GB 38000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bluehawk": {
+    "lines": [
+      "1 BY 100000",
+      "2 NC 50000",
+      "3 YAN 40000",
+      "4 BIH 30000",
+      "5 BHR 20000",
+      "6 MYJ 10000",
+      "7 MOT 9000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_blueprnt": {
+    "lines": [
+      "1 ABG 5000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_blzntrnd": {
+    "lines": [
+      "1 SEI 140000",
+      "2 HIS 130000",
+      "3 KEN 120000",
+      "4 CAZ 110000",
+      "5 HID 100000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bmaster": {
+    "lines": [
+      "1 ZZZ 277100",
+      "2 N2 203400",
+      "3 AAA 199700",
+      "4 ABB 80600",
+      "5 N5 52800",
+      "6 BBB 50900"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bnglngby": {
+    "lines": [
+      "1 NON 50000",
+      "2 KIK 47500",
+      "3 YAM 45000",
+      "4 SAS 42500",
+      "5 KMA 40000",
+      "6 ATV 37500",
+      "7 OKU 35000",
+      "8 ITA 32500",
+      "9 HEC 30000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bnj": {
+    "lines": [
+      "1 SAW 10012",
+      "2 KIS 7684",
+      "3 SUZ 5328",
+      "4 ABG 4020",
+      "5 KIT 3236"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bnzabros": {
+    "lines": [
+      "1 OHE 314400",
+      "2 KAG 280200",
+      "3 SAI 243100",
+      "4 KUS 182000",
+      "5 HID 181100",
+      "6 NAM 122200",
+      "7 AOK 98000",
+      "8 KAN 41200",
+      "9 KAO 23600"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_boblbobl": {
+    "lines": [
+      "1 IF 30000",
+      "2 MTJ 30000",
+      "3 NSO 30000",
+      "4 KIM 30000",
+      "5 VSH 30000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bodyslam": {
+    "lines": [
+      "1 ITO 30000",
+      "2 EN 25000",
+      "3 MIN 10000",
+      "4 ARO 10000",
+      "5 O 10000",
+      "6 N542 10000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bogeyman": {
+    "lines": [
+      "1 TECHNOS1 100000",
+      "2 TECHNOS2 90000",
+      "3 TECHNOS3 80000",
+      "4 TECHNOS4 70000",
+      "5 TECHNOS5 60000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bombjack": {
+    "lines": [
+      "1 TT 10000",
+      "2 EE 10000",
+      "3 HH 10000",
+      "4 KK 10000",
+      "5 AA 10000",
+      "6 NN 10000",
+      "7 LL 10000",
+      "8 TT2 10000",
+      "9 DD 10000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bombkick": {
+    "lines": [
+      "1 YUNSUNG 123000",
+      "2 ABG 112700",
+      "3 OHYES 98000",
+      "4 OKGOOD 7600",
+      "5 THANKYOU 5400"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bombrman": {
+    "lines": [
+      "1 MANTRO 36400",
+      "2 AKI 32700",
+      "3 YK 15800",
+      "4 MAGCOY 13200",
+      "5 NANAO 12400",
+      "6 MOYOR 7000",
+      "7 OSHIKU 3800"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bonkadv": {
+    "lines": [
+      "1 MTJ 51620",
+      "2 HONMA 50890",
+      "3 YUUKI 43260",
+      "4 AKIRA 31570",
+      "5 TERUHIRO 24980"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bonzeadv": {
+    "lines": [
+      "1 SSB 50000",
+      "2 TOM 48700",
+      "3 TET 46330",
+      "4 KAI 45290",
+      "5 HPX 32500"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_boogwing": {
+    "lines": [
+      "1 KAZ 40000",
+      "2 WIL 30000",
+      "3 NAO 3500",
+      "4 TAC 200"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_boomrang": {
+    "lines": [
+      "1 YT 77700",
+      "2 DK 48000",
+      "3 YS 36000",
+      "4 MS 32000",
+      "5 KH 24000",
+      "6 KN 18000",
+      "7 MN 16000",
+      "8 MK 12000",
+      "9 AS 8000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bootcamp": {
+    "lines": [
+      "1 KT 225000",
+      "2 SY 214800",
+      "3 HO 200010",
+      "4 MN 184100",
+      "5 AO 160760",
+      "6 NS 88500",
+      "7 TO 58100",
+      "8 EN 44600",
+      "9 ST 31330"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_borench": {
+    "lines": [
+      "1 MIN 200000",
+      "2 HID 100000",
+      "3 UCH 90000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bosco": {
+    "lines": [
+      "1 NN 20000",
+      "2 AA 20000",
+      "3 MM 20000",
+      "4 CC 20000",
+      "5 OO 20000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
   }
 }
