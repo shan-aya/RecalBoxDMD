@@ -1,7 +1,43 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v154
+// Version actuelle : v156
+//
+// v156 - 2026-09-04 - safe-modify - Cooldown maintainWiFi() rendu
+//   progressif (5s base, +5s/cycle sans succes, plafond 30s, reset a la
+//   base des qu'une connexion aboutit -- voir consecutiveWifiReconnectCycles
+//   et le corps de maintainWiFi()) : corrige le vrai coupable identifie
+//   pour l'episode v155 ci-dessous (le cooldown fixe de 5s interrompait
+//   chaque tentative WiFi.begin() avant qu'elle ait pu vraiment aboutir en
+//   conditions degradees -- raison=8, auto-initie cote DMD, PAS une
+//   collision avec le mutex qui faisait deja correctement son travail).
+//   Escalade WiFi (v144) REACTIVEE (WIFI_RESET_ESCALATION_ENABLED=true) --
+//   synchronise desormais aussi lastWifiReconnectAttempt juste apres son
+//   propre WiFi.begin(), pour que maintainWiFi() ne retente pas
+//   immediatement par-dessus. PAS ENCORE VALIDE SUR MATERIEL REEL au
+//   moment de ce commit (compile OK, flash en cours).
+//
+// v155 - 2026-09-04 - safe-modify - Deux retraits suite a l'episode
+//   d'escalade WiFi reel de ce soir (13:33:16-13:36:55, ~3min39 de boucle
+//   disconnect/reconnect malgre wifiResetMutex v144, voir DECISIONS.md) :
+//   (1) escalade WiFi (v144, WIFI_RESET_ESCALATION_CYCLES) desactivee
+//   temporairement via WIFI_RESET_ESCALATION_ENABLED=false -- code
+//   conserve intact, cause exacte (suspicion : cooldown 5s de
+//   maintainWiFi() trop court pour laisser WiFi.begin() vraiment aboutir
+//   en conditions degradees, boucle de retry auto-entretenue une fois le
+//   1er disconnect declenche) pas encore confirmee/corrigee. (2) endpoint
+//   /log (v153/v154) retire completement : question utilisateur directe
+//   ("le endpoint peut il degrader la connexion ?") -- reponse OUI,
+//   confirme par le code : handleWebConfigMqttLog() utilisait
+//   webServer->send() standard, PAS la voie protegee (sendGzipHtml()
+//   fast-abandon, v48-v50) ; or le commentaire v62 pres de
+//   webServer->handleClient() dans loop() documente deja qu'un handler
+//   HTTP qui bloque y bloque TOUTE l'iteration loop(), donc
+//   maintainWiFi() et processPendingMqttCommand() avec lui -- un client
+//   qui stagne en pleine reponse (WiFi degrade, exactement le moment ou
+//   on l'utiliserait) pouvait donc aggraver le probleme qu'il servait a
+//   surveiller. mqttLog[]/mqttLogAdd()/MQTT_LOG_SIZE conserves (passifs,
+//   aucun cout reseau, utiles independamment).
 //
 // v154 - 2026-09-04 - safe-modify - /log (v153) passe de text/plain a une
 //   mini page HTML avec <meta http-equiv="refresh" content="3"> -- retour
@@ -3627,6 +3663,7 @@ String wifiSubnet                = "";
 String wifiDNS1                  = "";
 String wifiDNS2                  = "";
 unsigned long lastWifiReconnectAttempt = 0;
+int consecutiveWifiReconnectCycles = 0; // v155 -- recul progressif du cooldown maintainWiFi(), voir sa declaration
 
 bool   bluetoothEnabled = false;
 String bluetoothName    = "ESP32-GIF";
@@ -4066,52 +4103,20 @@ void mqttLogAdd(const String &topic, const String &msg)
   if (mqttLogCount < MQTT_LOG_SIZE) mqttLogCount++;
 }
 
-// v152 -- corps de la fonction declaree en avance dans web_config.h (voir
-// son commentaire complet la-bas). Dump du buffer mqttLog[] (10 derniers
-// messages MQTT recus) + une ligne d'etat courant (heap/RSSI/mode/
-// tentatives connect) equivalente a [LOOPDIAG].
-// v153 (suite, 2026-09-04) -- passe de text/plain a une mini page HTML
-// avec <meta refresh> (3s) : retour utilisateur, la page ne se
-// rafraichissait pas seule dans un navigateur ouvert en continu (texte
-// brut, aucun mecanisme de reload -- l'en-tete HTTP Refresh: seul n'est
-// plus fiable sur les navigateurs modernes, le meta tag reste le plus
-// largement supporte). htmlEscape() minimal sur les parties dynamiques
-// (topic/msg) par prudence, meme si le format de payload de ce projet n'a
-// jamais contenu de caractere HTML special jusqu'ici.
-static String htmlEscapeSmall(const String &s)
-{
-  String r = s;
-  r.replace("&", "&amp;");
-  r.replace("<", "&lt;");
-  r.replace(">", "&gt;");
-  return r;
-}
-
-void handleWebConfigMqttLog()
-{
-  String body;
-  body += "heap_free=" + String(ESP.getFreeHeap());
-  body += " heap_maxalloc=" + String(ESP.getMaxAllocHeap());
-  body += " rssi=" + String(WiFi.RSSI());
-  body += " mode=" + String((int)currentMode);
-  body += " connectAttempts=" + String(g_totalConnectAttempts);
-  body += " mqttConnected=" + String(mqttClient.connected() ? "1" : "0");
-  body += "\n\n";
-  int count = mqttLogCount;
-  int start = (count < MQTT_LOG_SIZE) ? 0 : mqttLogHead;
-  for (int i = 0; i < count; i++)
-  {
-    MqttLogEntry &e = mqttLog[(start + i) % MQTT_LOG_SIZE];
-    body += String(e.ts) + "ms [" + htmlEscapeSmall(e.topic) + "] " + htmlEscapeSmall(e.msg) + "\n";
-  }
-  if (count == 0) body += "(aucun message MQTT recu depuis le boot)\n";
-
-  String html = "<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"3\">"
-                "<meta charset=\"utf-8\"><title>DMD /log</title></head>"
-                "<body style=\"font-family:monospace;background:#111;color:#0f0\">"
-                "<pre>" + body + "</pre></body></html>";
-  webServer->send(200, "text/html", html);
-}
+// v155 -- endpoint HTTP /log (v153/v154, surveillance WiFi temporaire)
+// RETIRE : webServer->send() ici emprunte le meme chemin d'ecriture reseau
+// (NetworkClient::write(), retry interne non configurable) deja identifie
+// comme source de blocage pour les pages web_config (v48-v50) ET pour le
+// paquet CONNECT MQTT (PubSubClient, v152) -- voir commentaire v62 pres de
+// webServer->handleClient() dans loop() : un handler HTTP qui bloque y
+// bloque TOUTE l'iteration loop(), donc maintainWiFi() et
+// processPendingMqttCommand() avec lui. Un client qui stagne en cours de
+// reponse (WiFi degrade -- exactement le moment ou on surveillerait via cet
+// endpoint) pouvait donc aggraver activement le probleme qu'il servait a
+// observer. Retire le 2026-09-04 sur decision utilisateur apres cette
+// analyse (deja marque a retirer avant production dans DECISIONS.md,
+// avance ici). mqttLog[]/mqttLogAdd()/MQTT_LOG_SIZE conserves (utiles
+// independamment, purement passifs -- aucun cout reseau).
 
 // --------------------------------------------------
 // Helpers
@@ -7776,8 +7781,29 @@ void mqttTask(void *param)
           // restant depasse, on retentera au prochain cycle (~60s plus
           // tard) plutot que d'attendre indefiniment un verrou tenu par
           // l'autre tache.
+          // v155 -- REACTIVEE apres correctif du vrai coupable identifie
+          // (2026-09-04) : premier declenchement reel en conditions
+          // reelles ce soir-la (13:33:16) avait ete suivi d'une boucle
+          // serree WiFi.disconnect()/reconnect (raison=8, auto-initiee
+          // cote DMD) pendant 3min39 avant retablissement seul --
+          // reproduisant le symptome ayant fait retirer v132/v133 en
+          // v134, malgre le mutex (v144) cense fermer cette fenetre.
+          // Analyse ("creuse un peu autour du mutex") : le mutex
+          // empechait bien la collision entre les 2 call sites, mais la
+          // boucle observee n'en etait pas une -- raison=8 confirme que
+          // c'est maintainWiFi() SEULE qui se redeclenchait toutes les
+          // 5s (son cooldown fixe d'alors), trop vite pour laisser une
+          // tentative WiFi.begin() precedente vraiment aboutir en
+          // conditions degradees, interrompant chaque tentative avant
+          // qu'elle ait pu reussir. Corrige : cooldown de maintainWiFi()
+          // rendu progressif (voir consecutiveWifiReconnectCycles, sa
+          // declaration, et le corps de maintainWiFi()). Cette escalade
+          // synchronise maintenant aussi lastWifiReconnectAttempt juste
+          // apres son propre WiFi.begin() : evite que maintainWiFi()
+          // retente immediatement par-dessus des le prochain loop().
+          const bool WIFI_RESET_ESCALATION_ENABLED = true;
           const int WIFI_RESET_ESCALATION_CYCLES = 15;
-          if (consecutiveSubscribeFailCycles >= WIFI_RESET_ESCALATION_CYCLES)
+          if (WIFI_RESET_ESCALATION_ENABLED && consecutiveSubscribeFailCycles >= WIFI_RESET_ESCALATION_CYCLES)
           {
             if (wifiResetMutex!=nullptr && xSemaphoreTake(wifiResetMutex,pdMS_TO_TICKS(500))==pdTRUE)
             {
@@ -7787,6 +7813,7 @@ void mqttTask(void *param)
               applyStaticIP();
               WiFi.begin(wifiSSID.c_str(),wifiPassword.c_str());
               WiFi.setSleep(false);
+              lastWifiReconnectAttempt = millis(); // v155 -- laisse cette tentative respirer avant que maintainWiFi() n'en retente une autre par-dessus
               xSemaphoreGive(wifiResetMutex);
               consecutiveSubscribeFailCycles = 0; // repart de zero apres l'action forte
             }
@@ -8233,20 +8260,43 @@ void setupWiFiFromConfig()
 void maintainWiFi()
 {
   if(!wifiEnabled||wifiSSID.length()==0) return;
-  if(WiFi.status()==WL_CONNECTED) return;
+  if(WiFi.status()==WL_CONNECTED) { consecutiveWifiReconnectCycles=0; return; } // v155 -- reconnexion reussie, recul reinitialise
   // Ne pas reconnecter en mode AP (fallback) ou si config web ouverte
   if (WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA) return;
   if (g_sdOpInProgress) return;
   unsigned long now=millis();
-  if(now-lastWifiReconnectAttempt<5000) return;
+  // v155 -- cooldown PROGRESSIF (etait fixe 5000ms). Suspecte d'etre trop
+  // court pour laisser une tentative WiFi.begin() vraiment aboutir
+  // (association + DHCP) en conditions degradees -- chaque nouvel appel
+  // interrompait alors la tentative precedente avant qu'elle ait pu
+  // reussir, via un nouveau WiFi.disconnect(), creant une boucle de retry
+  // auto-entretenue (raison=8, deconnexion auto-initiee cote DMD).
+  // Reproduit en direct le 2026-09-04 (13:33-13:36, 3min39, voir
+  // DECISIONS.md) juste apres le tout premier declenchement reel de
+  // l'escalade WiFi (v144) -- le mutex (wifiResetMutex) empechait bien
+  // la collision entre les 2 call sites, mais ne protegeait pas
+  // maintainWiFi() seule contre ses propres reprises trop rapprochees.
+  // Meme principe que le recul deja en place cote MQTT
+  // (SUBSCRIBE_BACKOFF_STEP_MS/MAX_MS) : cooldown croit par cycle
+  // consecutif sans succes, plafonne, repart a la base des qu'une
+  // connexion aboutit (reset ci-dessus).
+  const unsigned long WIFI_RECONNECT_COOLDOWN_BASE_MS = 5000;
+  const unsigned long WIFI_RECONNECT_COOLDOWN_STEP_MS = 5000;
+  const unsigned long WIFI_RECONNECT_COOLDOWN_MAX_MS  = 30000;
+  unsigned long cooldown = WIFI_RECONNECT_COOLDOWN_BASE_MS
+                          + (unsigned long)consecutiveWifiReconnectCycles * WIFI_RECONNECT_COOLDOWN_STEP_MS;
+  if (cooldown > WIFI_RECONNECT_COOLDOWN_MAX_MS) cooldown = WIFI_RECONNECT_COOLDOWN_MAX_MS;
+  if(now-lastWifiReconnectAttempt<cooldown) return;
   // v144 -- mutex partage avec l'escalade WiFi de mqttTask() (voir
   // wifiResetMutex, sa declaration). Timeout court et non bloquant :
   // si l'autre cote tient deja le mutex (son propre reset WiFi en
-  // cours), on abandonne simplement CE tour -- le cooldown 5s ci-dessus
+  // cours), on abandonne simplement CE tour -- le cooldown ci-dessus
   // fait qu'on retentera naturellement au prochain loop().
   if(wifiResetMutex!=nullptr && xSemaphoreTake(wifiResetMutex,pdMS_TO_TICKS(200))!=pdTRUE) return;
   lastWifiReconnectAttempt=now;
-  Serial.println("[WIFI] reconnect");
+  consecutiveWifiReconnectCycles++; // v155 -- ce cycle n'a pas encore prouve son succes, recul augmente pour le prochain
+  Serial.println("[WIFI] reconnect (cycle " + String(consecutiveWifiReconnectCycles)
+                 + ", cooldown etait " + String(cooldown) + "ms)");
   delay(1500);WiFi.disconnect();delay(50);
   // Reappliquer l'IP fixe: WiFi.disconnect() reinitialise la config IP de
   // l'interface, sans reappel ici toute reconnexion repassait silencieusement
