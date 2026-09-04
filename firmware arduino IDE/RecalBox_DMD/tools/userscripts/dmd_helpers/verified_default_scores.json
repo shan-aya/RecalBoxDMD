@@ -4,5 +4,83 @@
     "lines": "tableau de chaines 'rang nom score', meme convention que le format de sortie de dmd_hiscore_generic.py",
     "source": "comment la valeur a ete obtenue (ex. capture ecran apres vraie partie jouee via credit uinput)",
     "date": "date de capture, AAAA-MM-JJ"
+  },
+  "mame0278_10yard": {
+    "lines": [
+      "1 BMB 36500",
+      "2 RAD 34900",
+      "3 P.P 33100",
+      "4 FAL 31700",
+      "5 ZIB 29900",
+      "6 TOZ 28300",
+      "7 LWP 27100",
+      "8 JUF 25700",
+      "9 TCZ 24500"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_1941": {
+    "lines": [
+      "1 ABG 47000",
+      "2 CAP 30000",
+      "3 COM 29000",
+      "4 CAP2 28000",
+      "5 COM2 27000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_1942": {
+    "lines": [
+      "1 ABG 236320",
+      "2 CAPCOM 40000",
+      "3 ALL 35000",
+      "4 RIGHT 30000",
+      "5 RESERVED 25000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_1943": {
+    "lines": [
+      "1 ABG 96500",
+      "2 TAC 20000",
+      "3 YAM 15000",
+      "4 POO 10000",
+      "5 MR. 7000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_1944": {
+    "lines": [
+      "1 CAP1 1000000",
+      "2 COM1 900000",
+      "3 CAP2 800000",
+      "4 COM2 700000",
+      "5 CAP3 600000",
+      "6 COM3 500000",
+      "7 CAP4 400000",
+      "8 COM4 300000",
+      "9 CAP5 200000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_1944d": {
+    "lines": [
+      "1 CAP1 1000000",
+      "2 COM1 900000",
+      "3 CAP2 800000",
+      "4 COM2 700000",
+      "5 CAP3 600000",
+      "6 COM3 500000",
+      "7 CAP4 400000",
+      "8 COM4 300000",
+      "9 CAP5 200000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
   }
 }
