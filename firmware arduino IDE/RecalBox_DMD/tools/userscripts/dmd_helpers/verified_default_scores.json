@@ -1185,5 +1185,294 @@
     ],
     "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
     "date": "2026-09-05"
+  },
+  "mame0278_battlera": {
+    "lines": [
+      "1 AKI 100000",
+      "2 ZEN 90000",
+      "3 UMO 80000",
+      "4 MAK 70000",
+      "5 EE 60000",
+      "6 RGB 50000",
+      "7 J01 40000",
+      "8 DES 30000",
+      "9 JUN 20000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_battles": {
+    "lines": [
+      "1 N1 50000",
+      "2 N2 45000",
+      "3 N3 40000",
+      "4 N4 35000",
+      "5 N5 30000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_battlex": {
+    "lines": [
+      "1 ABG 560",
+      "2 ABG2 240",
+      "3 ABG3 240",
+      "4 ABG4 240"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_battlnts": {
+    "lines": [
+      "1 ABG 29120",
+      "2 TOP 12400",
+      "3 GUN 11700",
+      "4 NSA 9800",
+      "5 KT 9400",
+      "6 MSX 9000",
+      "7 VHP 7700",
+      "8 RPG 7100",
+      "9 WEC 6600"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_battroad": {
+    "lines": [
+      "1 ITOUATA 45600",
+      "2 RHARRAN 43500",
+      "3 EEDEITO 38600",
+      "4 MBOTGSS 30000",
+      "5 AYEAUH 29800",
+      "6 CTADTGI 27400",
+      "7 OTTOOIM 25600",
+      "8 RLTUUOI 18400",
+      "9 PEEMMON 16300"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bayroute": {
+    "lines": [
+      "1 P1 1000000",
+      "2 P2 900000",
+      "3 P3 800000",
+      "4 P4 700000",
+      "5 P5 600000",
+      "6 P6 500000",
+      "7 P7 400000",
+      "8 P8 300000",
+      "9 P9 200000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bballs": {
+    "lines": [
+      "1 RJH1 9000",
+      "2 RJH2 8100",
+      "3 RJH3 7200",
+      "4 RJH4 6300",
+      "5 RJH5 5400"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bbbxing": {
+    "lines": [
+      "1 KOI 100000",
+      "2 ZZY 90000",
+      "3 MIA 80000",
+      "4 YAM 70000",
+      "5 ISH 60000",
+      "6 TAK 40000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bbros": {
+    "lines": [
+      "1 MS 100000",
+      "2 MK 80000",
+      "3 TU 70000",
+      "4 KH 60000",
+      "5 YN 50000",
+      "6 YK 40000",
+      "7 YF 30000",
+      "8 MN 20000",
+      "9 MM 10000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bbusters": {
+    "lines": [
+      "1 AAA1 230000",
+      "2 AAA2 210000",
+      "3 AAA3 190000",
+      "4 AAA4 170000",
+      "5 AAA5 150000",
+      "6 AAA6 130000",
+      "7 AAA7 110000",
+      "8 AAA8 90000",
+      "9 AAA9 70000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bchopper": {
+    "lines": [
+      "1 YTAGAMI 127630",
+      "2 YSHINIZU 119390",
+      "3 MHAMADA 98710",
+      "4 TTANABE 71090",
+      "5 MISHIDA 60550",
+      "6 KODAGIRI 54170",
+      "7 RSHOBU 53610",
+      "8 MONOKOT 47950",
+      "9 TSUNITA 31230"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bcrusher": {
+    "lines": [
+      "1 MIC 50000",
+      "2 MIC2 40000",
+      "3 MIC3 30000",
+      "4 MIC4 20000",
+      "5 MIC5 10000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_beezer": {
+    "lines": [
+      "1 TAB 5555",
+      "2 PPP 5050",
+      "3 TT 4545",
+      "4 AL 4040",
+      "5 EP 3535",
+      "6 OOO 3030",
+      "7 FFF 2525",
+      "8 KC 2020",
+      "9 CB 1515"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_berabohm": {
+    "lines": [
+      "1 BERABOW 20000",
+      "2 BAKUDA 20000",
+      "3 UNBABA 20000",
+      "4 ZORTAN 20000",
+      "5 MITEGUY 20000",
+      "6 KANAME 20000",
+      "7 STAMPER 20000",
+      "8 FUKBIKI 20000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_berenstn": {
+    "lines": [
+      "1 REH 9991",
+      "2 AST 9099",
+      "3 PMW 6909",
+      "4 BJU 6502",
+      "5 ORO 4040"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_berlwall": {
+    "lines": [
+      "1 HK 34020",
+      "2 HM 32530",
+      "3 TW 30360",
+      "4 Aya 29050",
+      "5 Sak 27400",
+      "6 Mat 21490",
+      "7 AY 16000",
+      "8 YM 12000",
+      "9 HT 9300"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bermudat": {
+    "lines": [
+      "1 TOKYO1 30000",
+      "2 TOKYO2 29000",
+      "3 TOKYO3 28000",
+      "4 TOKYO4 27000",
+      "5 TOKYO5 26000",
+      "6 TOKYO6 25000",
+      "7 TOKYO7 24000",
+      "8 TOKYO8 23000",
+      "9 TOKYO9 22000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_berzerk": {
+    "lines": [
+      "1 ABG 900",
+      "2 ABG2 760"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bestleag": {
+    "lines": [
+      "1 JAL 10",
+      "2 PHA 8",
+      "3 SST 6",
+      "4 CHI 4",
+      "5 CON 2"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bgaregga": {
+    "lines": [
+      "1 N1 1000000",
+      "2 N2 900000",
+      "3 N3 800000",
+      "4 N4 700000",
+      "5 N5 600000",
+      "6 N6 500000",
+      "7 N7 400000",
+      "8 ABG 326880"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bigkong": {
+    "lines": [
+      "1 N1 7650",
+      "2 N2 6100",
+      "3 N3 5900",
+      "4 N4 5050",
+      "5 N5 4300"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bigrun": {
+    "lines": [
+      "1 KAN 300000",
+      "2 SIM 298000",
+      "3 NAH 296000",
+      "4 FUN 294000",
+      "5 OKA 292000",
+      "6 SHI 290000",
+      "7 IDS 288000",
+      "8 ISH 286000",
+      "9 YUI 284000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
   }
 }
