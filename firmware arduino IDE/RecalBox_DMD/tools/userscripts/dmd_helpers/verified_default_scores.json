@@ -3237,5 +3237,293 @@
     ],
     "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
     "date": "2026-09-05"
+  },
+  "fbneo_futari15": {
+    "lines": [
+      "1 KDK 6880571",
+      "2 NMR 4000000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_futaribl": {
+    "lines": [
+      "1 ISO 53837836",
+      "2 NMR 40000000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_gaiden": {
+    "lines": [
+      "1 RYUKEN 10000",
+      "2 HANZOU 10000",
+      "3 SHIZOU 10000",
+      "4 SASUKE 10000",
+      "5 NINJA 10000",
+      "6 KATANA 10000",
+      "7 NINPOU 10000",
+      "8 BUSHI 10000",
+      "9 KABUTO 10000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_galaga88j": {
+    "lines": [
+      "1 AAA1 50000",
+      "2 AAA2 50000",
+      "3 AAA3 40000",
+      "4 AAA4 40000",
+      "5 AAA5 30000",
+      "6 AAA6 30000",
+      "7 AAA7 20000",
+      "8 AAA8 20000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_gallop": {
+    "lines": [
+      "1 OVB 63810",
+      "2 TAG 62030",
+      "3 HVA 60140",
+      "4 DOH 59110",
+      "5 MSG 43030",
+      "6 TZN 34030",
+      "7 MIZ 25200",
+      "8 SMT 22300",
+      "9 NKN 16000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_galpanicb": {
+    "lines": [
+      "1 TGN 50000",
+      "2 OBN 45000",
+      "3 MTS 40000",
+      "4 YKM 35000",
+      "5 MRI 30000",
+      "6 UTO 25000",
+      "7 SAE 20000",
+      "8 NGV 15000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_galsnew": {
+    "lines": [
+      "1 TGN 50000",
+      "2 OBN 45000",
+      "3 MTS 40000",
+      "4 YKM 35000",
+      "5 MRI 30000",
+      "6 SAE 25000",
+      "7 TOV 20000",
+      "8 NGV 15000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_galwars2": {
+    "lines": [
+      "1 DRJ 24220",
+      "2 SAM 18345",
+      "3 LED 15920",
+      "4 PGD 14285",
+      "5 ERB 12520",
+      "6 MRS 11035",
+      "7 SSR 8265",
+      "8 TMH 6010"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_gberetb": {
+    "lines": [
+      "1 ABG 42100",
+      "2 ATN 33000",
+      "3 KDI 30000",
+      "4 KEF 29000",
+      "5 OFS 26000",
+      "6 BAW 23000",
+      "7 CBX 20000",
+      "8 IMF 19000",
+      "9 TUA 16000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_gemini": {
+    "lines": [
+      "1 GTV 50000",
+      "2 MRO 49270",
+      "3 NUK 48380",
+      "4 TSU 47860",
+      "5 RYU 46900",
+      "6 VOS 45220",
+      "7 INA 44760",
+      "8 BMW 43110",
+      "9 HAR 42490"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_geostorm": {
+    "lines": [
+      "1 ABG 9101",
+      "2 EAS 5000",
+      "3 WES 4000",
+      "4 SOU 3000",
+      "5 NOR 2000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_ghouls": {
+    "lines": [
+      "1 HX 35000",
+      "2 MS 30000",
+      "3 SU 25000",
+      "4 CAP 20000",
+      "5 COM 15000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_ghox": {
+    "lines": [
+      "1 N1 75000",
+      "2 N2 69000",
+      "3 N3 63000",
+      "4 N4 57000",
+      "5 N5 51000",
+      "6 N6 45000",
+      "7 N7 39000",
+      "8 N8 33000",
+      "9 N9 27000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_gigawing": {
+    "lines": [
+      "1 CAP 20000000",
+      "2 COM 19000000",
+      "3 RYU 18000000",
+      "4 KEN 17000000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_gradius2": {
+    "lines": [
+      "1 HM 57500",
+      "2 TT 37600",
+      "3 MY 30000",
+      "4 KT 25000",
+      "5 TH 20000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_gradius3": {
+    "lines": [
+      "1 HM 57300",
+      "2 TOM 37500",
+      "3 YI 30000",
+      "4 MI 25000",
+      "5 M4I 20000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_grindstm": {
+    "lines": [
+      "1 N1 500000",
+      "2 N2 450000",
+      "3 N3 400000",
+      "4 N4 350000",
+      "5 N5 300000",
+      "6 N6 250000",
+      "7 N7 200000",
+      "8 N8 150000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_gunforc2": {
+    "lines": [
+      "1 EAS 5500",
+      "2 WES 4000",
+      "3 SOU 3000",
+      "4 NOR 2000",
+      "5 YA 1000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_gunlock": {
+    "lines": [
+      "1 ABE 1000000",
+      "2 NAK 900000",
+      "3 MIS 800000",
+      "4 SOY 700000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_hook": {
+    "lines": [
+      "1 NAK 333100",
+      "2 BUU 327200",
+      "3 SHO 307200",
+      "4 HNY 299900",
+      "5 ROK 235500"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_hotchase": {
+    "lines": [
+      "1 ABG 2738010",
+      "2 MT 100000",
+      "3 YI 90000",
+      "4 N4R 80000",
+      "5 KUK 70000",
+      "6 CH 60000",
+      "7 BAM 50000",
+      "8 HS 40000",
+      "9 TF 30000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_hyprduel": {
+    "lines": [
+      "1 ABG 150521",
+      "2 KEITH 100000",
+      "3 LISA 64000",
+      "4 LLOYD 32000",
+      "5 ABG2 24191"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_imgfight": {
+    "lines": [
+      "1 ABIKO 420900",
+      "2 AYAKO 414100",
+      "3 NABE 363700",
+      "4 SYUS 251200",
+      "5 OHGI 172400",
+      "6 MOMOKO 126800",
+      "7 KOSAS 111100",
+      "8 AKIO 85400",
+      "9 KANAE 72200"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
   }
 }
