@@ -1,0 +1,8 @@
+{
+  "_readme": "Tables hi-score par defaut VERIFIEES MANUELLEMENT (capture d'ecran + lecture directe, methode 'verite d'abord'), pour les jeux dont le .hi reel n'a jamais pu etre obtenu via hiscore.dat (aucun declencheur qui s'arme, meme apres une vraie partie jouee -- voir DECISIONS.md 2026-09-04). Cle = '<sys>_<rom>' (ex. 'mame0278_1941'). N'est JAMAIS prioritaire sur un vrai .hi -- dmd_score.sh verifie toujours dmd_hiscore_generic.py EN PREMIER, cette table n'est consultee qu'en repli. Ajouter une entree via add_verified_score.py, pas a la main (garde le format coherent).",
+  "_format_entree": {
+    "lines": "tableau de chaines 'rang nom score', meme convention que le format de sortie de dmd_hiscore_generic.py",
+    "source": "comment la valeur a ete obtenue (ex. capture ecran apres vraie partie jouee via credit uinput)",
+    "date": "date de capture, AAAA-MM-JJ"
+  }
+}

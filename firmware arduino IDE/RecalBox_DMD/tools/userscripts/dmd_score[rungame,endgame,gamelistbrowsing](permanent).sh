@@ -15,7 +15,28 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v43
+# Version actuelle : v44
+#
+# v44 - 2026-09-04 - safe-modify - build_score_payload() : niveau 2
+#   intercale entre le .hi reel et le placeholder v43 -- table VERIFIEE
+#   MANUELLEMENT (dmd_helpers/verified_default_scores.json, lookup via
+#   dmd_helpers/dmd_hiscore_verified.py) pour un jeu ou meme une vraie
+#   partie credit+jouee jusqu'au game over (percee credit MAME de ce
+#   soir, voir commit "insertion credit reelle via impulsion courte
+#   uinput") ne produit aucun .hi -- aucune adresse hiscore.dat ne
+#   s'arme pour ce jeu specifiquement. L'ecran hi-score interne du jeu
+#   est alors lu directement sur une capture d'ecran reelle (methode
+#   "verite d'abord", jamais invente) et enregistre via
+#   add_verified_score.py. Cascade finale : (1) .hi reel, toujours
+#   verifie en premier -- (2) table verifiee manuellement -- (3)
+#   placeholder generique shan_aya/RecalBox. Chaque niveau cede
+#   automatiquement sa place au precedent des qu'il devient disponible,
+#   sans rien a nettoyer (dmd_hiscore_generic.py est toujours appele en
+#   premier, $topn n'est plus vide des qu'un vrai .hi existe). Demande
+#   utilisateur explicite ("il faudrait qu'il cede sa place si un .hi
+#   existe vraiment"), scope volontairement restreint a `fbneo|mame*`
+#   (meme raison que v43 : aucun equivalent hiscore.dat/.hi cote
+#   consoles).
 #
 # v43 - 2026-09-04 - safe-modify - build_score_payload() : repli
 #   PLACEHOLDER pour les jeux arcade (fbneo/mame*) sans .hi reel encore
@@ -1493,25 +1514,43 @@ build_score_payload() {
     # en dur ci-dessus.
     topn=$(python3 "${PYHELP_DIR}/dmd_hiscore_generic.py" "$sys" "$rom" 2>>"$LOG")
     if [ -z "$topn" ]; then
-        # v41 -- repli PLACEHOLDER (demande utilisateur explicite, 2026-09-04) :
-        # plutot que de ne rien afficher pour un jeu arcade sans .hi
-        # reel disponible (jeu jamais joue/peuple), afficher une table
-        # factice "RE/CAL/BOX" (score 0) pour que le panneau hi-score
-        # existe quand meme dans la rotation, au lieu de sauter
-        # silencieusement ce jeu. PUREMENT un repli d'AFFICHAGE -- ne
-        # touche JAMAIS le fichier .hi lui-meme (contrairement a l'idee
-        # ecartee de creer un faux .hi sur disque : teste ce soir,
-        # confirme qu'un .hi existant n'est PAS reecrase par un simple
-        # chargement du jeu -- un vrai .hi finirait donc bloque derriere
-        # un faux fichier si on l'ecrivait sur disque). Des qu'un vrai
-        # .hi est peuple (campagnes de recolte en cours), ce placeholder
-        # disparait tout seul au prochain appel (dmd_hiscore_generic.py
-        # renvoie alors du contenu reel, $topn n'est plus vide).
-        # Scope volontairement restreint a l'arcade (fbneo/mame*) --
-        # seuls ces systemes ont une chance reelle d'etre un jour
-        # peuples par ce mecanisme (voir memoire projet : le chantier
-        # hi-score generique est explicitement limite a l'arcade, les
-        # consoles n'ont pas d'equivalent hiscore.dat/.hi).
+        # v43 -- niveau 2 : table VERIFIEE MANUELLEMENT (demande utilisateur
+        # explicite, 2026-09-04) -- pour un jeu ou meme une vraie partie
+        # credit+jouee jusqu'au game over ne produit aucun .hi (aucune
+        # adresse hiscore.dat ne s'arme pour ce jeu, ex. 1941/mame0278),
+        # mais dont l'ecran hi-score interne du jeu a ete lu directement
+        # sur une capture d'ecran reelle (methode "verite d'abord", jamais
+        # invente) et enregistre via add_verified_score.py dans
+        # verified_default_scores.json. TOUJOURS verifie APRES le .hi reel
+        # ci-dessus (jamais prioritaire dessus) -- cede automatiquement sa
+        # place des qu'un vrai .hi apparait, sans rien a nettoyer, car
+        # dmd_hiscore_generic.py est appele EN PREMIER et $topn ne sera
+        # alors plus vide.
+        topn_verified=$(python3 "${PYHELP_DIR}/dmd_hiscore_verified.py" "$sys" "$rom" 2>>"$LOG")
+        if [ -n "$topn_verified" ]; then
+            echo "HI-SCORE|${topn_verified}"
+            echo "$(date '+%H:%M:%S') SCORE $rom (VERIFIE-MANUEL) -> ${topn_verified}" >> "$LOG" 1>&2
+            return
+        fi
+        # v41 -- repli PLACEHOLDER niveau 3 (demande utilisateur explicite,
+        # 2026-09-04) : plutot que de ne rien afficher pour un jeu arcade
+        # sans .hi reel ET sans table verifiee manuellement (niveau 2
+        # ci-dessus), afficher une table factice "RE/CAL/BOX" (score 0)
+        # pour que le panneau hi-score existe quand meme dans la rotation,
+        # au lieu de sauter silencieusement ce jeu. PUREMENT un repli
+        # d'AFFICHAGE -- ne touche JAMAIS le fichier .hi lui-meme
+        # (contrairement a l'idee ecartee de creer un faux .hi sur disque :
+        # teste ce soir, confirme qu'un .hi existant n'est PAS reecrase par
+        # un simple chargement du jeu -- un vrai .hi finirait donc bloque
+        # derriere un faux fichier si on l'ecrivait sur disque). Des qu'un
+        # vrai .hi est peuple (campagnes de recolte en cours) OU qu'une
+        # table verifiee manuellement est ajoutee (niveau 2), ce placeholder
+        # disparait tout seul au prochain appel. Scope volontairement
+        # restreint a l'arcade (fbneo/mame*) -- seuls ces systemes ont une
+        # chance reelle d'etre un jour peuples par ces mecanismes (voir
+        # memoire projet : le chantier hi-score generique est explicitement
+        # limite a l'arcade, les consoles n'ont pas d'equivalent
+        # hiscore.dat/.hi).
         case "$sys" in
             fbneo|mame*)
                 echo "HI-SCORE|1 shan_aya 2026|2 RecalBox 2026"
