@@ -2095,5 +2095,284 @@
     ],
     "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
     "date": "2026-09-05"
+  },
+  "mame0278_brapboys": {
+    "lines": [
+      "1 AB 5450",
+      "2 CD 4280",
+      "3 EF 3970",
+      "4 GH 2780",
+      "5 IJ 1650"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_breywood": {
+    "lines": [
+      "1 AOK 48000",
+      "2 SAD 32000",
+      "3 YUM 12000",
+      "4 KOB 8000",
+      "5 AKI 5800"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_brickzn": {
+    "lines": [
+      "1 N1 30000",
+      "2 N2 25600",
+      "3 N3 21000",
+      "4 N4 17300",
+      "5 N5 12000",
+      "6 N6 10800",
+      "7 N7 9700",
+      "8 N8 8500",
+      "9 N9 4900"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_brival": {
+    "lines": [
+      "1 BIL 200000",
+      "2 ARD 150000",
+      "3 CHN 100000",
+      "4 JXN 80000",
+      "5 ASK 50000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_brix": {
+    "lines": [
+      "1 MJK 15000",
+      "2 ERO 15000",
+      "3 DGJ 15000",
+      "4 VEC 15000",
+      "5 MDF 15000",
+      "6 VAS 15000",
+      "7 SJP 15000",
+      "8 EDH 15000",
+      "9 AMS 15000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_brkblast": {
+    "lines": [
+      "1 TRO 50000",
+      "2 ABG 40000",
+      "3 DAI 30000",
+      "4 TED 20000",
+      "5 PAN 10000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_brkthruj": {
+    "lines": [
+      "1 AME 15000",
+      "2 KIT 12000",
+      "3 IHU 10000",
+      "4 NOK 9000",
+      "5 AO 8000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bronx": {
+    "lines": [
+      "1 KOU 70000",
+      "2 KRA 70000",
+      "3 SAS 70000",
+      "4 WAK 70000",
+      "5 ABE 70000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_brubber": {
+    "lines": [
+      "1 ABG 51476",
+      "2 SAW 10012",
+      "3 KIS 7684",
+      "4 SUZ 5328",
+      "5 KIT 3236"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bshark": {
+    "lines": [
+      "1 YAM 777000",
+      "2 AMO 655360",
+      "3 TOA 596300",
+      "4 TSU 498600",
+      "5 SHI 390000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bssoccer": {
+    "lines": [
+      "1 KR 5",
+      "2 IT 4",
+      "3 US 3",
+      "4 MX 2"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_btime": {
+    "lines": [
+      "1 ABG 38650",
+      "2 KEN 28000",
+      "3 HI 10100",
+      "4 GON 9400",
+      "5 HK 6550"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_btlkroad": {
+    "lines": [
+      "1 AAA 20000",
+      "2 BBB 19000",
+      "3 CCC 18000",
+      "4 ABG 17700",
+      "5 DDD 17000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bub68705": {
+    "lines": [
+      "1 IF 30000",
+      "2 MTJ 30000",
+      "3 NSO 30000",
+      "4 KIM 30000",
+      "5 VSH 30000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bubblem": {
+    "lines": [
+      "1 FJT 300000",
+      "2 HAR 250000",
+      "3 MEL 200000",
+      "4 FUR 150000",
+      "5 USI 100000",
+      "6 AKI 80000",
+      "7 KMY 60000",
+      "8 FUK 40000",
+      "9 YSK 20000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bubbletr": {
+    "lines": [
+      "1 ZIP 100",
+      "2 ZAP 90",
+      "3 ZIP2 80",
+      "4 ZAP2 70",
+      "5 ZIP3 60",
+      "6 ZAP3 50",
+      "7 ZIP4 40",
+      "8 ZAP4 30",
+      "9 ZIP5 20"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bubl2000": {
+    "lines": [
+      "1 FREAK 2000000",
+      "2 GERM 1500000",
+      "3 LUX 1000000",
+      "4 FILOU 700000",
+      "5 RAY 300000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bublbob2": {
+    "lines": [
+      "1 ABG 256850",
+      "2 KPL 30000",
+      "3 KSK 25000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bublbobl": {
+    "lines": [
+      "1 ABG 67530",
+      "2 IF 30000",
+      "3 MTJ 30000",
+      "4 NSO 30000",
+      "5 KIM 30000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bublbust": {
+    "lines": [
+      "1 ABG 127270",
+      "2 ABG2 118930",
+      "3 TF 10000",
+      "4 HAS 9000",
+      "5 NOB 8000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bublcave": {
+    "lines": [
+      "1 ABG 35400",
+      "2 OLY 30000",
+      "3 RTW 30000",
+      "4 JSA 30000",
+      "5 DLW 30000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bublpong": {
+    "lines": [
+      "1 IF 30000",
+      "2 MTJ 30000",
+      "3 NSO 30000",
+      "4 KIM 30000",
+      "5 VSH 30000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_bubsymphb": {
+    "lines": [
+      "1 KEPPEL 30000",
+      "2 HARUMIK 25000",
+      "3 KUZUKAWA 20000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_buccanrs": {
+    "lines": [
+      "1 AGO 263420",
+      "2 ADC 175160",
+      "3 EFG 168340",
+      "4 MNO 139250",
+      "5 ADC2 126530",
+      "6 EFG2 118970",
+      "7 MNO2 105090",
+      "8 ADC3 90530",
+      "9 EFG3 82750"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
   }
 }
