@@ -2374,5 +2374,324 @@
     ],
     "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
     "date": "2026-09-05"
+  },
+  "fbneo_aerfboot": {
+    "lines": [
+      "1 AAA 100000",
+      "2 BBB 90000",
+      "3 CCC 80000",
+      "4 DDD 70000",
+      "5 EEE 60000",
+      "6 FFF 50000",
+      "7 GGG 40000",
+      "8 HHH 30000",
+      "9 III 20000"
+    ],
+    "source": "reutilise depuis mame0278_aerfboot (meme rom/meme table, verifie ce soir), meme jeu sur fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_aerolitos": {
+    "lines": [
+      "1 ABG 1880"
+    ],
+    "source": "reutilise depuis mame0278_aerolitos (meme rom/meme table, verifie ce soir), meme jeu sur fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_arknoid2": {
+    "lines": [
+      "1 SSB 100000",
+      "2 KEI 80000",
+      "3 OGR 60000",
+      "4 GWK 40000",
+      "5 TKN 20000"
+    ],
+    "source": "reutilise depuis mame0278_arknoid2 (meme rom/meme table, verifie ce soir), meme jeu sur fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_assault": {
+    "lines": [
+      "1 BLAZER 30000",
+      "2 GROBDA 25000",
+      "3 LEOPARD 20000",
+      "4 PANTHER 18000",
+      "5 LYNX 15000"
+    ],
+    "source": "reutilise depuis mame0278_assault (meme rom/meme table, verifie ce soir), meme jeu sur fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_asterock": {
+    "lines": [
+      "1 ABG 470"
+    ],
+    "source": "reutilise depuis mame0278_asterock (meme rom/meme table, verifie ce soir), meme jeu sur fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_bombjack": {
+    "lines": [
+      "1 TT 10000",
+      "2 EE 10000",
+      "3 HH 10000",
+      "4 KK 10000",
+      "5 AA 10000",
+      "6 NN 10000",
+      "7 LL 10000",
+      "8 TT2 10000",
+      "9 DD 10000"
+    ],
+    "source": "reutilise depuis mame0278_bombjack (meme rom/meme table, verifie ce soir), meme jeu sur fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_brkblast": {
+    "lines": [
+      "1 TRO 50000",
+      "2 ABG 40000",
+      "3 DAI 30000",
+      "4 TED 20000",
+      "5 PAN 10000"
+    ],
+    "source": "reutilise depuis mame0278_brkblast (meme rom/meme table, verifie ce soir), meme jeu sur fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_agalletah": {
+    "lines": [
+      "1 NA1 700000",
+      "2 NA2 650000",
+      "3 NA3 600000",
+      "4 NA4 550000",
+      "5 NA5 500000",
+      "6 NA6 450000",
+      "7 NA7 400000",
+      "8 NA8 350000",
+      "9 NA9 300000",
+      "10 ABG 267530"
+    ],
+    "source": "reutilise depuis mame0278_agallet (variante/clone du meme jeu, meme table attendue), fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_agalletaj": {
+    "lines": [
+      "1 NA1 700000",
+      "2 NA2 650000",
+      "3 NA3 600000",
+      "4 NA4 550000",
+      "5 NA5 500000",
+      "6 NA6 450000",
+      "7 NA7 400000",
+      "8 NA8 350000",
+      "9 NA9 300000",
+      "10 ABG 267530"
+    ],
+    "source": "reutilise depuis mame0278_agallet (variante/clone du meme jeu, meme table attendue), fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_agalletat": {
+    "lines": [
+      "1 NA1 700000",
+      "2 NA2 650000",
+      "3 NA3 600000",
+      "4 NA4 550000",
+      "5 NA5 500000",
+      "6 NA6 450000",
+      "7 NA7 400000",
+      "8 NA8 350000",
+      "9 NA9 300000",
+      "10 ABG 267530"
+    ],
+    "source": "reutilise depuis mame0278_agallet (variante/clone du meme jeu, meme table attendue), fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_agalleth": {
+    "lines": [
+      "1 NA1 700000",
+      "2 NA2 650000",
+      "3 NA3 600000",
+      "4 NA4 550000",
+      "5 NA5 500000",
+      "6 NA6 450000",
+      "7 NA7 400000",
+      "8 NA8 350000",
+      "9 NA9 300000",
+      "10 ABG 267530"
+    ],
+    "source": "reutilise depuis mame0278_agallet (variante/clone du meme jeu, meme table attendue), fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_agalletj": {
+    "lines": [
+      "1 NA1 700000",
+      "2 NA2 650000",
+      "3 NA3 600000",
+      "4 NA4 550000",
+      "5 NA5 500000",
+      "6 NA6 450000",
+      "7 NA7 400000",
+      "8 NA8 350000",
+      "9 NA9 300000",
+      "10 ABG 267530"
+    ],
+    "source": "reutilise depuis mame0278_agallet (variante/clone du meme jeu, meme table attendue), fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_agalletk": {
+    "lines": [
+      "1 NA1 700000",
+      "2 NA2 650000",
+      "3 NA3 600000",
+      "4 NA4 550000",
+      "5 NA5 500000",
+      "6 NA6 450000",
+      "7 NA7 400000",
+      "8 NA8 350000",
+      "9 NA9 300000",
+      "10 ABG 267530"
+    ],
+    "source": "reutilise depuis mame0278_agallet (variante/clone du meme jeu, meme table attendue), fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_agallett": {
+    "lines": [
+      "1 NA1 700000",
+      "2 NA2 650000",
+      "3 NA3 600000",
+      "4 NA4 550000",
+      "5 NA5 500000",
+      "6 NA6 450000",
+      "7 NA7 400000",
+      "8 NA8 350000",
+      "9 NA9 300000",
+      "10 ABG 267530"
+    ],
+    "source": "reutilise depuis mame0278_agallet (variante/clone du meme jeu, meme table attendue), fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_agalletu": {
+    "lines": [
+      "1 NA1 700000",
+      "2 NA2 650000",
+      "3 NA3 600000",
+      "4 NA4 550000",
+      "5 NA5 500000",
+      "6 NA6 450000",
+      "7 NA7 400000",
+      "8 NA8 350000",
+      "9 NA9 300000",
+      "10 ABG 267530"
+    ],
+    "source": "reutilise depuis mame0278_agallet (variante/clone du meme jeu, meme table attendue), fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_arkanoidja": {
+    "lines": [
+      "1 SSB 50000",
+      "2 SND 45000",
+      "3 TOR 40000",
+      "4 ONJ 35000",
+      "5 AKR 30000"
+    ],
+    "source": "reutilise depuis mame0278_arkanoid (variante/clone du meme jeu, meme table attendue), fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_arknoid2b": {
+    "lines": [
+      "1 SSB 100000",
+      "2 KEI 80000",
+      "3 OGR 60000",
+      "4 GWK 40000",
+      "5 TKN 20000"
+    ],
+    "source": "reutilise depuis mame0278_arknoid2 (variante/clone du meme jeu, meme table attendue), fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_arknoid2j": {
+    "lines": [
+      "1 SSB 100000",
+      "2 KEI 80000",
+      "3 OGR 60000",
+      "4 GWK 40000",
+      "5 TKN 20000"
+    ],
+    "source": "reutilise depuis mame0278_arknoid2 (variante/clone du meme jeu, meme table attendue), fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_arknoid2u": {
+    "lines": [
+      "1 SSB 100000",
+      "2 KEI 80000",
+      "3 OGR 60000",
+      "4 GWK 40000",
+      "5 TKN 20000"
+    ],
+    "source": "reutilise depuis mame0278_arknoid2 (variante/clone du meme jeu, meme table attendue), fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_assaultj": {
+    "lines": [
+      "1 BLAZER 30000",
+      "2 GROBDA 25000",
+      "3 LEOPARD 20000",
+      "4 PANTHER 18000",
+      "5 LYNX 15000"
+    ],
+    "source": "reutilise depuis mame0278_assault (variante/clone du meme jeu, meme table attendue), fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_assaultp": {
+    "lines": [
+      "1 BLAZER 30000",
+      "2 GROBDA 25000",
+      "3 LEOPARD 20000",
+      "4 PANTHER 18000",
+      "5 LYNX 15000"
+    ],
+    "source": "reutilise depuis mame0278_assault (variante/clone du meme jeu, meme table attendue), fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_asterockv": {
+    "lines": [
+      "1 ABG 470"
+    ],
+    "source": "reutilise depuis mame0278_asterock (variante/clone du meme jeu, meme table attendue), fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_bagmanm2": {
+    "lines": [
+      "1 FANCHOIS 18900",
+      "2 GASTOUNET 17900",
+      "3 PIERROT 16000",
+      "4 JOJO 15100",
+      "5 JB 14200"
+    ],
+    "source": "reutilise depuis mame0278_bagman (variante/clone du meme jeu, meme table attendue), fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_bombjack2": {
+    "lines": [
+      "1 TT 10000",
+      "2 EE 10000",
+      "3 HH 10000",
+      "4 KK 10000",
+      "5 AA 10000",
+      "6 NN 10000",
+      "7 LL 10000",
+      "8 TT2 10000",
+      "9 DD 10000"
+    ],
+    "source": "reutilise depuis mame0278_bombjack (variante/clone du meme jeu, meme table attendue), fbneo",
+    "date": "2026-09-05"
+  },
+  "fbneo_bombjackt": {
+    "lines": [
+      "1 TT 10000",
+      "2 EE 10000",
+      "3 HH 10000",
+      "4 KK 10000",
+      "5 AA 10000",
+      "6 NN 10000",
+      "7 LL 10000",
+      "8 TT2 10000",
+      "9 DD 10000"
+    ],
+    "source": "reutilise depuis mame0278_bombjack (variante/clone du meme jeu, meme table attendue), fbneo",
+    "date": "2026-09-05"
   }
 }
