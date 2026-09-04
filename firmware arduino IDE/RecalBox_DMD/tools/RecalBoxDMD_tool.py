@@ -1,7 +1,48 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v37
+# Version actuelle : v38
+#
+# v38 - 2026-09-04 - safe-modify - Toujours en dev/core-reassignment, RIEN
+#   publie sur GitHub (branche main/master) a ce stade -- ces changements
+#   corrigent le CODE de l'installeur pour quand une publication aura lieu,
+#   le depot GitHub public reste lui-meme inchange pour l'instant (verifie :
+#   contient encore les anciens noms de scripts manuels et ne contient PAS
+#   dmd_score[...].sh/dmd_achievement[...].sh/dmd_helpers/ -- decalage
+#   attendu tant que dev n'est pas fusionne/publie).
+#   (1) 5 scripts manuels renommes ("DMD" en premier au lieu de la fin,
+#   retour utilisateur : regroupe les 5 dans le tri alphabetique du
+#   gestionnaire de contenu Recalbox) -- _MANUAL_SCRIPT_MARKERS mis a jour,
+#   _LEGACY_MANUAL_SCRIPT_NAMES ajoute (anciens noms, utilises UNIQUEMENT
+#   pour detection/suppression lors d'une reinstallation, jamais pour de
+#   nouveaux telechargements).
+#   (2) dmd_helpers/ (helpers Python hi-score/infos/description + manifest
+#   + singleton_lock.sh, v156/v42 firmware+scripts) etait ENTIEREMENT
+#   absent du perimetre de cet installeur -- _list_recalbox_dmd_helpers_files()/
+#   stage_recalbox_scripts_locally()/install_staged_scripts_to_share()/
+#   install_staged_scripts_via_ssh() le gerent desormais (sous-dossier
+#   distinct, tout fichier present copie tel quel, absence cote GitHub
+#   traitee comme "0 fichier", pas une erreur).
+#   (3) Nettoyage des fichiers STALES ajoute (demande explicite
+#   utilisateur : "bien verifier qu'il supprime les anciens") -- APRES la
+#   copie des nouveaux fichiers, jamais avant (garde les anciens
+#   fonctionnels si la copie echoue en cours de route). 2 mecanismes
+#   distincts selon le type : scripts manuels via une liste explicite de
+#   noms legacy connus (_LEGACY_MANUAL_SCRIPT_NAMES) ; scripts d'evenement
+#   via la "famille" du nom (partie avant le premier "[", voir
+#   _event_script_family()) -- detecte et supprime automatiquement
+#   d'anciennes variantes d'un meme script dont la liste d'evenements entre
+#   crochets a change entre versions (meme classe de probleme que les
+#   fichiers "_disabled_stale_..." deja trouves a la main sur RB1, voir
+#   DECISIONS.md). dmd_helpers/ volontairement EXCLU de ce nettoyage --
+#   aucune convention de famille/renommage n'y existe encore. Implemente
+#   en filesystem (_remove_stale_files_fs(), SMB -- pathlib gere les UNC
+#   nativement) ET en SFTP (_sftp_remove_stale_files(), repli SSH).
+#   py_compile verifie OK. PAS ENCORE TESTE EN CONDITIONS REELLES (aucune
+#   Recalbox avec les anciens noms encore installes disponible ce soir
+#   pour un vrai test de migration) -- a valider au prochain deploiement
+#   via ce tool specifiquement (le deploiement direct plink/pscp de ce
+#   soir n'est pas passe par ce code).
 #
 # v37 - 2026-08-23 - safe-modify - Retour utilisateur : "le cadre de
 #      selection de la carte SD est toujours vide, aucun lecteur dedans"
@@ -694,6 +735,7 @@ TRANSLATIONS = {
         "mode9_autodetect_ok": lambda host: f"✅ Recalbox détectée automatiquement : {host}",
         "mode9_result_ok": lambda n: f"   ✅ {n}",
         "mode9_result_fail": lambda n, e: f"   ❌ {n} — {e}",
+        "mode9_result_removed": lambda n: f"   🗑️ {n} (ancienne version, supprimée)",
         "mode9_share_unreachable": lambda host: f"❌ Partage réseau introuvable ({host or 'aucune cible'}) — vérifie que la Recalbox est allumée et joignable.",
         "mode9_guest_blocked": "❌ Accès invité SMB bloqué par la stratégie de sécurité Windows (pas un problème réseau/IP) — active \"Autoriser les connexions invité non sécurisées\" : PowerShell en Administrateur -> Set-SmbClientConfiguration -EnableInsecureGuestLogons $true -Force, puis réessaie.",
         "mode9_smb_fallback_ssh": "⚠️  Partage SMB injoignable — tentative de repli via SSH (identifiants Recalbox par défaut)...",
@@ -937,6 +979,7 @@ TRANSLATIONS = {
         "mode9_autodetect_ok": lambda host: f"✅ Recalbox auto-detected: {host}",
         "mode9_result_ok": lambda n: f"   ✅ {n}",
         "mode9_result_fail": lambda n, e: f"   ❌ {n} — {e}",
+        "mode9_result_removed": lambda n: f"   🗑️ {n} (old version, removed)",
         "mode9_share_unreachable": lambda host: f"❌ Network share not found ({host or 'no target'}) — check that the Recalbox is powered on and reachable.",
         "mode9_guest_blocked": "❌ SMB guest access blocked by Windows security policy (not a network/IP problem) — enable \"insecure guest logons\": PowerShell as Administrator -> Set-SmbClientConfiguration -EnableInsecureGuestLogons $true -Force, then try again.",
         "mode9_smb_fallback_ssh": "⚠️  SMB share unreachable — trying SSH fallback (default Recalbox credentials)...",
@@ -1181,6 +1224,7 @@ TRANSLATIONS = {
         "mode9_autodetect_ok": lambda host: f"✅ Recalbox detectada automáticamente: {host}",
         "mode9_result_ok": lambda n: f"   ✅ {n}",
         "mode9_result_fail": lambda n, e: f"   ❌ {n} — {e}",
+        "mode9_result_removed": lambda n: f"   🗑️ {n} (versión antigua, eliminada)",
         "mode9_share_unreachable": lambda host: f"❌ Recurso compartido no encontrado ({host or 'sin destino'}) — comprueba que la Recalbox esté encendida y accesible.",
         "mode9_guest_blocked": "❌ Acceso invitado SMB bloqueado por la política de seguridad de Windows (no es un problema de red/IP) — activa \"inicios de sesión de invitado no seguros\": PowerShell como Administrador -> Set-SmbClientConfiguration -EnableInsecureGuestLogons $true -Force, luego vuelve a intentarlo.",
         "mode9_smb_fallback_ssh": "⚠️  Recurso compartido SMB inalcanzable — probando repliegue por SSH (credenciales por defecto de Recalbox)...",
@@ -3625,11 +3669,97 @@ GITHUB_SCRIPTS_RAW_BASE = "https://raw.githubusercontent.com/shan-aya/RecalBoxDM
 # tools/ est a plat sur GitHub (pas de sous-dossier scripts/manual|events) --
 # route chaque .sh vers userscripts/manual (lancement manuel depuis Recalbox)
 # ou userscripts/ (scripts d'evenement) selon son nom.
-_MANUAL_SCRIPT_MARKERS = ("Config Web DMD", "WiFi Recovery", "Reboot DMD", "Luminosite DMD")
+# v38 -- noms renommes ("DMD" en premier au lieu de la fin, retour
+# utilisateur : regroupe les 5 scripts DMD ensemble dans le tri
+# alphabetique du gestionnaire de contenu Recalbox, au lieu d'etre
+# disperses parmi d'autres scripts non-DMD). Marqueurs mis a jour en
+# consequence.
+_MANUAL_SCRIPT_MARKERS = ("DMD Config Web", "DMD WiFi Recovery", "DMD Reboot", "DMD Luminosite")
+
+# v38 -- noms D'AVANT le renommage ci-dessus -- utilises UNIQUEMENT pour
+# detecter et supprimer d'anciennes copies deja installees lors d'une
+# reinstallation (voir install_staged_scripts_to_share()/_via_ssh()),
+# jamais pour de nouveaux telechargements. Sans ca, une Recalbox deja
+# equipee de l'ancien build se retrouve avec 10 scripts manuels (5
+# anciens + 5 nouveaux) au lieu de 5 apres mise a jour -- meme classe de
+# probleme que les copies de dmd_score[...].sh perimees deja rencontrees
+# apres un changement de la liste d'evenements entre crochets (voir
+# DECISIONS.md, fichiers "_disabled_stale_..." trouves sur RB1).
+_LEGACY_MANUAL_SCRIPT_NAMES = (
+    "Config Web DMD(sync)(progress).sh",
+    "WiFi Recovery DMD.sh",
+    "Reboot DMD.sh",
+    "Luminosite DMD +10%.sh",
+    "Luminosite DMD -10%.sh",
+)
 
 
 def _is_manual_script(fname: str) -> bool:
     return any(marker in fname for marker in _MANUAL_SCRIPT_MARKERS)
+
+
+def _event_script_family(fname: str) -> Optional[str]:
+    """Extrait la "famille" d'un script d'evenement -- la partie AVANT le
+    premier "[" (ex. "dmd_score" pour "dmd_score[rungame,endgame](...).sh").
+    Retourne None si fname ne contient pas de "[" (scripts manuels, ou
+    tout fichier hors convention) -- ne jamais toucher a un fichier dont
+    on ne peut pas etablir la famille avec certitude. Sert a reperer
+    d'anciennes variantes d'un meme script (liste d'evenements entre
+    crochets differente d'une version a l'autre) pour les supprimer avant
+    d'installer la nouvelle -- risque de collision avec un script tiers
+    quasi nul (motif tres specifique a ce projet)."""
+    idx = fname.find("[")
+    return fname[:idx] if idx > 0 else None
+
+
+def _remove_stale_files_fs(dst_dir: Path, new_names) -> int:
+    """Supprime, dans dst_dir (chemin filesystem normal OU UNC
+    \\\\host\\share\\..., pathlib traite les deux identiquement sous
+    Windows), les fichiers stales par rapport a new_names (voir
+    _find_stale_files() -- is_manual determine automatiquement d'apres le
+    nom du dossier, "manual" ou non). N'echoue jamais bruyamment : une
+    suppression individuelle en echec (permission, fichier deja parti) est
+    juste signalee, n'interrompt pas les suivantes. Retourne le nombre de
+    fichiers effectivement supprimes."""
+    if not dst_dir.exists():
+        return 0
+    is_manual = dst_dir.name == "manual"
+    existing_names = [p.name for p in dst_dir.iterdir() if p.is_file()]
+    stale = _find_stale_files(existing_names, new_names, is_manual)
+    removed = 0
+    for name in sorted(stale):
+        try:
+            (dst_dir / name).unlink()
+            removed += 1
+            print(tr("mode9_result_removed")(name))
+        except OSError as e:
+            print(tr("mode9_result_fail")(name, e))
+    return removed
+
+
+def _find_stale_files(existing_names, new_names, is_manual: bool):
+    """Calcule la liste des noms de fichiers PRESENTS dans existing_names
+    qui doivent etre supprimes avant/apres l'installation de new_names --
+    soit un nom legacy connu (manuel, voir _LEGACY_MANUAL_SCRIPT_NAMES),
+    soit une autre variante de la MEME famille (evenement, voir
+    _event_script_family()) que l'un des fichiers qu'on installe. Ne
+    retourne jamais un nom present dans new_names lui-meme (on ne
+    supprime jamais ce qu'on vient d'installer)."""
+    stale = set()
+    if is_manual:
+        for name in existing_names:
+            if name in _LEGACY_MANUAL_SCRIPT_NAMES and name not in new_names:
+                stale.add(name)
+        return stale
+    new_families = {_event_script_family(n) for n in new_names}
+    new_families.discard(None)
+    for name in existing_names:
+        if name in new_names:
+            continue
+        fam = _event_script_family(name)
+        if fam is not None and fam in new_families:
+            stale.add(name)
+    return stale
 
 
 def detect_recalbox_share() -> Optional[str]:
@@ -3711,37 +3841,100 @@ def _list_recalbox_script_files():
     ]
 
 
+# v38 -- dmd_helpers/ (helpers Python hi-score/infos/description + manifest
+# + verrou anti-relance partage, voir singleton_lock.sh) n'etait PAS gere
+# par ce module jusqu'ici -- seuls les .sh a plat de tools/ etaient
+# consideres (voir _list_recalbox_script_files() ci-dessus). Or
+# dmd_score[...].sh en depend au runtime (echoue silencieusement sans),
+# et depuis v156/v42 les 3 scripts d'evenement EGALEMENT (verrou
+# singleton_lock.sh) -- une installation qui l'omet laisse une Recalbox
+# non fonctionnelle sans message d'erreur clair cote utilisateur. Fonction
+# separee de _list_recalbox_script_files() : ce sous-dossier melange
+# .py/.json/.sh, aucun filtrage par extension pertinent ici (tout fichier
+# present doit etre copie tel quel).
+def _list_recalbox_dmd_helpers_files():
+    """Interroge l'API GitHub (tools/dmd_helpers/) pour la liste des
+    fichiers du sous-dossier dmd_helpers. Retourne None (message deja
+    imprime) si l'appel API echoue pour une raison autre que "dossier
+    absent", [] si le dossier n'existe pas encore cote GitHub (pas une
+    erreur en soi -- peut simplement ne pas avoir ete publie), sinon la
+    liste des entrees fichier (dicts "name"/"type")."""
+    import urllib.request
+    import urllib.error
+    import json
+
+    url = f"{GITHUB_SCRIPTS_API_BASE}/dmd_helpers"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "recalbox-toolkit"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            files = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return []
+        is_rl, detail = _describe_github_api_error(e)
+        if is_rl:
+            print(tr("github_rate_limit_msg")(detail))
+        else:
+            print(tr("dl_fail_api"))
+            print(f"   {detail}")
+        return None
+    except Exception as e:
+        is_rl, detail = _describe_github_api_error(e)
+        if is_rl:
+            print(tr("github_rate_limit_msg")(detail))
+        else:
+            print(tr("dl_fail_api"))
+            print(f"   {detail}")
+        return None
+
+    return [f for f in files if f.get("type") == "file"]
+
+
 def stage_recalbox_scripts_locally(dest_dir: Path, progress_cb=None) -> tuple:
     r"""
     Telecharge les scripts utilisateur Recalbox depuis GitHub vers un
     dossier LOCAL (dest_dir/manual/ pour les scripts a lancement manuel,
+    dest_dir/dmd_helpers/ pour les helpers Python/manifest/verrou partage,
     dest_dir/ pour les scripts d'evenement) -- meme arborescence que le
     partage reseau \\<host>\share\userscripts\..., pour que l'utilisateur
     puisse les copier lui-meme plus tard (glisser-deposer) si l'install
     reseau automatique (install_staged_scripts_to_share) a echoue ou n'a
     pas ete tentee. Ne necessite aucun acces reseau a une Recalbox, juste
     Internet (GitHub). Retourne (fichiers_ok, fichiers_total) ; (0, 0) si
-    l'appel API GitHub echoue.
+    l'appel API GitHub echoue (dmd_helpers/ absent cote GitHub n'est PAS
+    un echec -- compte simplement 0 fichier supplementaire, voir
+    _list_recalbox_dmd_helpers_files()).
     """
     import urllib.request
 
     script_files = _list_recalbox_script_files()
     if not script_files:
         return (0, 0)
+    helper_files = _list_recalbox_dmd_helpers_files()
+    if helper_files is None:
+        helper_files = []
 
     manual_dir = dest_dir / "manual"
+    helpers_dir = dest_dir / "dmd_helpers"
     manual_dir.mkdir(parents=True, exist_ok=True)
     dest_dir.mkdir(parents=True, exist_ok=True)
+    if helper_files:
+        helpers_dir.mkdir(parents=True, exist_ok=True)
 
+    all_entries = [(f, "event") for f in script_files] + [(f, "helper") for f in helper_files]
     ok_count = 0
-    total_count = len(script_files)
-    for i, f in enumerate(script_files, 1):
+    total_count = len(all_entries)
+    for i, (f, kind) in enumerate(all_entries, 1):
         fname = f["name"]
         if progress_cb is not None:
             progress_cb("stage_recalbox_scripts", i, total_count, fname)
-        raw_url = f"{GITHUB_SCRIPTS_RAW_BASE}/{urllib.request.quote(fname)}"
-        dst_dir = manual_dir if _is_manual_script(fname) else dest_dir
-        dst = dst_dir / fname
+        if kind == "helper":
+            raw_url = f"{GITHUB_SCRIPTS_RAW_BASE}/dmd_helpers/{urllib.request.quote(fname)}"
+            dst = helpers_dir / fname
+        else:
+            raw_url = f"{GITHUB_SCRIPTS_RAW_BASE}/{urllib.request.quote(fname)}"
+            dst_dir = manual_dir if _is_manual_script(fname) else dest_dir
+            dst = dst_dir / fname
         try:
             urllib.request.urlretrieve(raw_url, dst)
             ok_count += 1
@@ -3756,7 +3949,13 @@ def install_staged_scripts_to_share(staged_dir: Path, recalbox_host: str, progre
     Copie vers le partage reseau \\<recalbox_host>\share\userscripts\...
     des scripts DEJA telecharges localement par stage_recalbox_scripts_locally
     (evite un second telechargement GitHub quand une mise en scene locale a
-    deja ete faite -- toujours le cas en Mode 1 desormais). Retourne
+    deja ete faite -- toujours le cas en Mode 1 desormais), y compris
+    dmd_helpers/ (v38). Nettoie aussi les fichiers STALES (anciens noms
+    manuels d'avant renommage, anciennes variantes de scripts d'evenement
+    -- voir _remove_stale_files_fs()/_find_stale_files()) APRES avoir posé
+    les nouveaux fichiers, jamais avant : si l'ecriture des nouveaux
+    fichiers echoue en cours de route, on prefere garder les anciens en
+    place (fonctionnels) plutot que se retrouver sans rien. Retourne
     (fichiers_ok, fichiers_total) ; (0, 0) si recalbox_host est vide, le
     dossier local est vide, ou le partage est injoignable.
     """
@@ -3778,29 +3977,46 @@ def install_staged_scripts_to_share(staged_dir: Path, recalbox_host: str, progre
         return (0, 0)
 
     manual_src = staged_dir / "manual"
+    helpers_src = staged_dir / "dmd_helpers"
     src_files = []
     if manual_src.exists():
-        src_files += [(p, True) for p in sorted(manual_src.glob("*.sh"))]
-    src_files += [(p, False) for p in sorted(staged_dir.glob("*.sh"))]
+        src_files += [(p, "manual") for p in sorted(manual_src.glob("*.sh"))]
+    if helpers_src.exists():
+        src_files += [(p, "helper") for p in sorted(helpers_src.iterdir()) if p.is_file()]
+    src_files += [(p, "event") for p in sorted(staged_dir.glob("*.sh"))]
 
     manual_dst = share_root / "userscripts" / "manual"
+    helpers_dst = share_root / "userscripts" / "dmd_helpers"
     events_dst = share_root / "userscripts"
     manual_dst.mkdir(parents=True, exist_ok=True)
     events_dst.mkdir(parents=True, exist_ok=True)
+    if helpers_src.exists():
+        helpers_dst.mkdir(parents=True, exist_ok=True)
+
+    dst_dir_for = {"manual": manual_dst, "helper": helpers_dst, "event": events_dst}
 
     ok_count = 0
     total_count = len(src_files)
-    for i, (src, is_manual) in enumerate(src_files, 1):
+    new_names_by_dir = {}
+    for i, (src, kind) in enumerate(src_files, 1):
         fname = src.name
         if progress_cb is not None:
             progress_cb("install_recalbox_scripts", i, total_count, fname)
-        dst = (manual_dst if is_manual else events_dst) / fname
+        dst_dir = dst_dir_for[kind]
+        dst = dst_dir / fname
+        new_names_by_dir.setdefault(dst_dir, set()).add(fname)
         try:
             shutil.copyfile(src, dst)
             ok_count += 1
             print(tr("mode9_result_ok")(fname))
         except Exception as e:
             print(tr("mode9_result_fail")(fname, e))
+
+    # Nettoyage APRES la copie (voir docstring) -- helpers_dst exclu : ses
+    # fichiers ne suivent pas la convention de famille par "[" et ne sont
+    # jamais renommes entre versions jusqu'ici, rien de stale a y detecter.
+    for dst_dir in (manual_dst, events_dst):
+        _remove_stale_files_fs(dst_dir, new_names_by_dir.get(dst_dir, set()))
 
     return (ok_count, total_count)
 
@@ -3862,16 +4078,44 @@ def _ssh_connect_recalbox(recalbox_host: str):
         return None
 
 
-def _sftp_ensure_userscripts_dirs(sftp) -> str:
-    """Cree (si besoin) les dossiers userscripts/ et userscripts/manual/
-    distants. Retourne le chemin du sous-dossier manual/."""
+def _sftp_ensure_userscripts_dirs(sftp) -> tuple:
+    """Cree (si besoin) les dossiers userscripts/, userscripts/manual/ et
+    userscripts/dmd_helpers/ distants (v38 -- ajout de dmd_helpers/).
+    Retourne (manual_dst, helpers_dst)."""
     manual_dst = f"{RECALBOX_SSH_USERSCRIPTS_PATH}/manual"
-    for remote_dir in (RECALBOX_SSH_USERSCRIPTS_PATH, manual_dst):
+    helpers_dst = f"{RECALBOX_SSH_USERSCRIPTS_PATH}/dmd_helpers"
+    for remote_dir in (RECALBOX_SSH_USERSCRIPTS_PATH, manual_dst, helpers_dst):
         try:
             sftp.mkdir(remote_dir)
         except IOError:
             pass  # existe deja
-    return manual_dst
+    return manual_dst, helpers_dst
+
+
+def _sftp_remove_stale_files(sftp, remote_dir: str, new_names) -> int:
+    """Equivalent SFTP de _remove_stale_files_fs() -- meme logique
+    (_find_stale_files()), sur un dossier distant via sftp.listdir()/
+    sftp.remove() plutot que pathlib. is_manual determine d'apres le
+    dernier segment du chemin distant ("manual" ou non)."""
+    import stat as stat_module
+    try:
+        existing_names = [
+            n for n in sftp.listdir(remote_dir)
+            if not stat_module.S_ISDIR(sftp.stat(f"{remote_dir}/{n}").st_mode)
+        ]
+    except IOError:
+        return 0
+    is_manual = remote_dir.rstrip("/").rsplit("/", 1)[-1] == "manual"
+    stale = _find_stale_files(existing_names, new_names, is_manual)
+    removed = 0
+    for name in sorted(stale):
+        try:
+            sftp.remove(f"{remote_dir}/{name}")
+            removed += 1
+            print(tr("mode9_result_removed")(name))
+        except IOError as e:
+            print(tr("mode9_result_fail")(name, e))
+    return removed
 
 
 def install_staged_scripts_via_ssh(staged_dir: Path, recalbox_host: str, progress_cb=None) -> tuple:
@@ -3881,19 +4125,26 @@ def install_staged_scripts_via_ssh(staged_dir: Path, recalbox_host: str, progres
     bloque les ports 445/139 mais autorise le port 22 (cas reel
     rencontre). Copie les scripts DEJA telecharges localement
     (stage_recalbox_scripts_locally) vers
-    /recalbox/share/userscripts/... via SFTP, avec les identifiants par
-    defaut Recalbox (root/root). Retourne (fichiers_ok, fichiers_total) ;
-    (0, 0) si paramiko indisponible, hote vide, dossier local vide, ou
-    connexion SSH impossible.
+    /recalbox/share/userscripts/... via SFTP, y compris dmd_helpers/
+    (v38), avec les identifiants par defaut Recalbox (root/root). Nettoie
+    aussi les fichiers stales APRES la copie (voir
+    install_staged_scripts_to_share(), meme raisonnement -- garder les
+    anciens fonctionnels si la copie des nouveaux echoue en cours de
+    route). Retourne (fichiers_ok, fichiers_total) ; (0, 0) si paramiko
+    indisponible, hote vide, dossier local vide, ou connexion SSH
+    impossible.
     """
     if not recalbox_host or not staged_dir.exists():
         return (0, 0)
 
     manual_src = staged_dir / "manual"
+    helpers_src = staged_dir / "dmd_helpers"
     src_files = []
     if manual_src.exists():
-        src_files += [(p, True) for p in sorted(manual_src.glob("*.sh"))]
-    src_files += [(p, False) for p in sorted(staged_dir.glob("*.sh"))]
+        src_files += [(p, "manual") for p in sorted(manual_src.glob("*.sh"))]
+    if helpers_src.exists():
+        src_files += [(p, "helper") for p in sorted(helpers_src.iterdir()) if p.is_file()]
+    src_files += [(p, "event") for p in sorted(staged_dir.glob("*.sh"))]
     if not src_files:
         return (0, 0)
 
@@ -3906,12 +4157,20 @@ def install_staged_scripts_via_ssh(staged_dir: Path, recalbox_host: str, progres
     try:
         sftp = client.open_sftp()
         try:
-            manual_dst = _sftp_ensure_userscripts_dirs(sftp)
-            for i, (src, is_manual) in enumerate(src_files, 1):
+            manual_dst, helpers_dst = _sftp_ensure_userscripts_dirs(sftp)
+            remote_dir_for = {
+                "manual": manual_dst,
+                "helper": helpers_dst,
+                "event": RECALBOX_SSH_USERSCRIPTS_PATH,
+            }
+            new_names_by_dir = {}
+            for i, (src, kind) in enumerate(src_files, 1):
                 fname = src.name
                 if progress_cb is not None:
                     progress_cb("install_recalbox_scripts", i, total_count, fname)
-                remote_path = f"{manual_dst if is_manual else RECALBOX_SSH_USERSCRIPTS_PATH}/{fname}"
+                remote_dir = remote_dir_for[kind]
+                remote_path = f"{remote_dir}/{fname}"
+                new_names_by_dir.setdefault(remote_dir, set()).add(fname)
                 try:
                     sftp.put(str(src), remote_path)
                     sftp.chmod(remote_path, 0o755)
@@ -3919,6 +4178,11 @@ def install_staged_scripts_via_ssh(staged_dir: Path, recalbox_host: str, progres
                     print(tr("mode9_result_ok")(fname))
                 except Exception as e:
                     print(tr("mode9_result_fail")(fname, e))
+
+            # Nettoyage APRES la copie -- helpers_dst exclu (meme motif que
+            # cote SMB, voir install_staged_scripts_to_share()).
+            for remote_dir in (manual_dst, RECALBOX_SSH_USERSCRIPTS_PATH):
+                _sftp_remove_stale_files(sftp, remote_dir, new_names_by_dir.get(remote_dir, set()))
         finally:
             sftp.close()
     finally:
