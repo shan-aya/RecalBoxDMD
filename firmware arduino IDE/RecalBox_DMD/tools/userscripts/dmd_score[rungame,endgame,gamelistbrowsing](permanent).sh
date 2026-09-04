@@ -15,7 +15,33 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v42
+# Version actuelle : v43
+#
+# v43 - 2026-09-04 - safe-modify - build_score_payload() : repli
+#   PLACEHOLDER pour les jeux arcade (fbneo/mame*) sans .hi reel encore
+#   disponible -- demande utilisateur explicite ("on cree un tableau
+#   factice... affiche si il n'y a pas de .hi a afficher"), en reponse
+#   directe a l'idee ecartee juste avant (creer un faux .hi SUR DISQUE) :
+#   teste en direct ce soir sur `asteroid` (mame0278, deja peuple) --
+#   remplacer son .hi par un contenu bidon PUIS relancer le jeu (meme
+#   cycle chargement+fast-forward+quit que la campagne de recolte) NE
+#   L'ECRASE PAS (mtime/contenu inchanges). Le plugin hiscore MAME
+#   n'a donc pas de logique "si le fichier existe deja, le rafraichir au
+#   prochain chargement" -- un faux .hi ecrit sur disque bloquerait
+#   durablement un vrai .hi futur derriere lui, sans certitude qu'une
+#   VRAIE partie jouee le debloquerait non plus (non teste, aurait
+#   demande un mecanisme de pilotage MAME pas encore construit).
+#   Solution retenue, bien plus simple et sans risque : repli PUREMENT
+#   D'AFFICHAGE, ne touche JAMAIS le fichier .hi -- quand
+#   dmd_hiscore_generic.py ne renvoie rien (jeu jamais peuple), affiche
+#   une table factice "1 shan_aya 2026|2 RecalBox 2026" (demande
+#   utilisateur explicite) au lieu de sauter silencieusement le panneau
+#   hi-score. Des qu'un vrai .hi
+#   est peuple par une campagne de recolte, ce placeholder disparait
+#   tout seul au prochain appel (aucun etat a nettoyer, purement
+#   stateless). Scope volontairement restreint a `fbneo|mame*` -- les
+#   consoles n'ont pas d'equivalent hiscore.dat/.hi, un placeholder y
+#   serait affiche indefiniment sans jamais se resoudre.
 #
 # v42 - 2026-09-04 - safe-modify - Cache mono-emplacement pour
 #   dmd_game_info.py (voir get_game_info(), commentaire complet juste avant
@@ -1467,6 +1493,32 @@ build_score_payload() {
     # en dur ci-dessus.
     topn=$(python3 "${PYHELP_DIR}/dmd_hiscore_generic.py" "$sys" "$rom" 2>>"$LOG")
     if [ -z "$topn" ]; then
+        # v41 -- repli PLACEHOLDER (demande utilisateur explicite, 2026-09-04) :
+        # plutot que de ne rien afficher pour un jeu arcade sans .hi
+        # reel disponible (jeu jamais joue/peuple), afficher une table
+        # factice "RE/CAL/BOX" (score 0) pour que le panneau hi-score
+        # existe quand meme dans la rotation, au lieu de sauter
+        # silencieusement ce jeu. PUREMENT un repli d'AFFICHAGE -- ne
+        # touche JAMAIS le fichier .hi lui-meme (contrairement a l'idee
+        # ecartee de creer un faux .hi sur disque : teste ce soir,
+        # confirme qu'un .hi existant n'est PAS reecrase par un simple
+        # chargement du jeu -- un vrai .hi finirait donc bloque derriere
+        # un faux fichier si on l'ecrivait sur disque). Des qu'un vrai
+        # .hi est peuple (campagnes de recolte en cours), ce placeholder
+        # disparait tout seul au prochain appel (dmd_hiscore_generic.py
+        # renvoie alors du contenu reel, $topn n'est plus vide).
+        # Scope volontairement restreint a l'arcade (fbneo/mame*) --
+        # seuls ces systemes ont une chance reelle d'etre un jour
+        # peuples par ce mecanisme (voir memoire projet : le chantier
+        # hi-score generique est explicitement limite a l'arcade, les
+        # consoles n'ont pas d'equivalent hiscore.dat/.hi).
+        case "$sys" in
+            fbneo|mame*)
+                echo "HI-SCORE|1 shan_aya 2026|2 RecalBox 2026"
+                echo "$(date '+%H:%M:%S') SCORE $rom (PLACEHOLDER, pas encore de .hi reel)" >> "$LOG" 1>&2
+                return
+                ;;
+        esac
         echo "$(date '+%H:%M:%S') SCORE skip $rom (jeu non supporte)" >> "$LOG"
         return
     fi
