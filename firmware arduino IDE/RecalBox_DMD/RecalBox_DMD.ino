@@ -1,7 +1,22 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v152
+// Version actuelle : v153
+//
+// v153 - 2026-09-03 - safe-modify - Endpoint HTTP GET /log (demande
+//   utilisateur, DMD debranche de l'USB pendant une session de surveillance
+//   nocturne -- besoin d'un mini suivi via WiFi, juste stabilite/pertes de
+//   connexion, PAS un diagnostic complet, ca reste le role de l'USB).
+//   Alternative volontairement plus legere qu'un serveur telnet complet
+//   (retire en v18, cout RAM/CPU) -- reutilise le webServer deja actif, pas
+//   de nouveau port/serveur. handleWebConfigMqttLog() (corps dans ce
+//   fichier, declaration anticipee dans web_config.h -- inclus AVANT la
+//   declaration de mqttLog[]/currentMode/etc., ordre oblige) : dump du
+//   buffer mqttLog[] existant (10 derniers messages MQTT recus, deja
+//   alimente par mqttLogAdd()) + une ligne d'etat courant (heap/RSSI/mode/
+//   tentatives connect) equivalente a [LOOPDIAG]. Compilation verifiee OK
+//   (66% flash/28% RAM). PAS ENCORE FLASHE (DMD debranche de l'USB au
+//   moment de ce commit) -- a deployer au prochain branchement.
 //
 // v152 - 2026-09-03 - safe-modify - Patch EXTERNE (pas dans ce fichier) sur
 //   PubSubClient.cpp, qui protege l'envoi du paquet CONNECT MQTT contre le
@@ -4040,6 +4055,31 @@ void mqttLogAdd(const String &topic, const String &msg)
   mqttLog[mqttLogHead] = { topic, msg, millis() };
   mqttLogHead = (mqttLogHead + 1) % MQTT_LOG_SIZE;
   if (mqttLogCount < MQTT_LOG_SIZE) mqttLogCount++;
+}
+
+// v152 -- corps de la fonction declaree en avance dans web_config.h (voir
+// son commentaire complet la-bas). Dump du buffer mqttLog[] (10 derniers
+// messages MQTT recus) + une ligne d'etat courant (heap/RSSI/mode/
+// tentatives connect) equivalente a [LOOPDIAG].
+void handleWebConfigMqttLog()
+{
+  String out;
+  out += "heap_free=" + String(ESP.getFreeHeap());
+  out += " heap_maxalloc=" + String(ESP.getMaxAllocHeap());
+  out += " rssi=" + String(WiFi.RSSI());
+  out += " mode=" + String((int)currentMode);
+  out += " connectAttempts=" + String(g_totalConnectAttempts);
+  out += " mqttConnected=" + String(mqttClient.connected() ? "1" : "0");
+  out += "\n\n";
+  int count = mqttLogCount;
+  int start = (count < MQTT_LOG_SIZE) ? 0 : mqttLogHead;
+  for (int i = 0; i < count; i++)
+  {
+    MqttLogEntry &e = mqttLog[(start + i) % MQTT_LOG_SIZE];
+    out += String(e.ts) + "ms [" + e.topic + "] " + e.msg + "\n";
+  }
+  if (count == 0) out += "(aucun message MQTT recu depuis le boot)\n";
+  webServer->send(200, "text/plain", out);
 }
 
 // --------------------------------------------------

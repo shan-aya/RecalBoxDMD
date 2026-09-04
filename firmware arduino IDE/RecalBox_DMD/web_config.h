@@ -4793,6 +4793,18 @@ static void handleWebConfigClockPreview()
 
 static void handleWebConfigReboot() { webServer->send(200, "text/plain", "REBOOT"); delay(500); ESP.restart(); }
 
+// v152 -- endpoint HTTP leger de visibilite a distance (demande utilisateur,
+// 2026-09-03 nuit : DMD debranche de l'USB, plus de Serial visible, besoin
+// d'un mini suivi via WiFi -- juste stabilite/pertes de connexion, pas de
+// diagnostic complet, ca reste le role de l'USB). Alternative volontairement
+// plus legere qu'un serveur telnet complet (retire en v18, cout RAM/CPU) --
+// reutilise le webServer deja actif, pas de nouveau port/serveur. Definition
+// dans RecalBox_DMD.ino (pas ici) : web_config.h est inclus (ligne ~2726)
+// AVANT la declaration de mqttLog[]/currentMode/g_totalConnectAttempts/
+// mqttClient (~ligne 4032+) -- declaration anticipee ici, corps de la
+// fonction juste apres mqttLogAdd() dans le .ino.
+void handleWebConfigMqttLog();
+
 static void handleWebConfigScanWiFi()
 {
   int n = WiFi.scanComplete();
@@ -5133,6 +5145,7 @@ void setupWebConfig()
   webServer->on("/clock-preview", HTTP_POST, handleWebConfigClockPreview);
   webServer->on("/save", HTTP_POST, handleWebConfigSave);
   webServer->on("/reboot", handleWebConfigReboot);
+  webServer->on("/log", handleWebConfigMqttLog);
   webServer->begin();
   Serial.println("[WEB] Interface config sur http://" + WiFi.localIP().toString());
   // DIAGNOSTIC TEMPORAIRE (2026-08-02) -- verifie que la redefinition de
