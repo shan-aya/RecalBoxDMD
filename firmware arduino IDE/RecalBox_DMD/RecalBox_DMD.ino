@@ -1,7 +1,16 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v153
+// Version actuelle : v154
+//
+// v154 - 2026-09-04 - safe-modify - /log (v153) passe de text/plain a une
+//   mini page HTML avec <meta http-equiv="refresh" content="3"> -- retour
+//   utilisateur, la page ne se rafraichissait pas seule dans un navigateur
+//   ouvert en continu. htmlEscapeSmall() ajoute par prudence sur les
+//   parties dynamiques (topic/msg). DMD_Serial_Monitor.ps1 (tools/) mis a
+//   jour en parallele pour extraire le contenu de <pre> proprement au lieu
+//   d'afficher le HTML brut. Rappel : /log reste a retirer avant tout
+//   passage en production/master, voir DECISIONS.md.
 //
 // v153 - 2026-09-03 - safe-modify - Endpoint HTTP GET /log (demande
 //   utilisateur, DMD debranche de l'USB pendant une session de surveillance
@@ -4061,25 +4070,47 @@ void mqttLogAdd(const String &topic, const String &msg)
 // son commentaire complet la-bas). Dump du buffer mqttLog[] (10 derniers
 // messages MQTT recus) + une ligne d'etat courant (heap/RSSI/mode/
 // tentatives connect) equivalente a [LOOPDIAG].
+// v153 (suite, 2026-09-04) -- passe de text/plain a une mini page HTML
+// avec <meta refresh> (3s) : retour utilisateur, la page ne se
+// rafraichissait pas seule dans un navigateur ouvert en continu (texte
+// brut, aucun mecanisme de reload -- l'en-tete HTTP Refresh: seul n'est
+// plus fiable sur les navigateurs modernes, le meta tag reste le plus
+// largement supporte). htmlEscape() minimal sur les parties dynamiques
+// (topic/msg) par prudence, meme si le format de payload de ce projet n'a
+// jamais contenu de caractere HTML special jusqu'ici.
+static String htmlEscapeSmall(const String &s)
+{
+  String r = s;
+  r.replace("&", "&amp;");
+  r.replace("<", "&lt;");
+  r.replace(">", "&gt;");
+  return r;
+}
+
 void handleWebConfigMqttLog()
 {
-  String out;
-  out += "heap_free=" + String(ESP.getFreeHeap());
-  out += " heap_maxalloc=" + String(ESP.getMaxAllocHeap());
-  out += " rssi=" + String(WiFi.RSSI());
-  out += " mode=" + String((int)currentMode);
-  out += " connectAttempts=" + String(g_totalConnectAttempts);
-  out += " mqttConnected=" + String(mqttClient.connected() ? "1" : "0");
-  out += "\n\n";
+  String body;
+  body += "heap_free=" + String(ESP.getFreeHeap());
+  body += " heap_maxalloc=" + String(ESP.getMaxAllocHeap());
+  body += " rssi=" + String(WiFi.RSSI());
+  body += " mode=" + String((int)currentMode);
+  body += " connectAttempts=" + String(g_totalConnectAttempts);
+  body += " mqttConnected=" + String(mqttClient.connected() ? "1" : "0");
+  body += "\n\n";
   int count = mqttLogCount;
   int start = (count < MQTT_LOG_SIZE) ? 0 : mqttLogHead;
   for (int i = 0; i < count; i++)
   {
     MqttLogEntry &e = mqttLog[(start + i) % MQTT_LOG_SIZE];
-    out += String(e.ts) + "ms [" + e.topic + "] " + e.msg + "\n";
+    body += String(e.ts) + "ms [" + htmlEscapeSmall(e.topic) + "] " + htmlEscapeSmall(e.msg) + "\n";
   }
-  if (count == 0) out += "(aucun message MQTT recu depuis le boot)\n";
-  webServer->send(200, "text/plain", out);
+  if (count == 0) body += "(aucun message MQTT recu depuis le boot)\n";
+
+  String html = "<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"3\">"
+                "<meta charset=\"utf-8\"><title>DMD /log</title></head>"
+                "<body style=\"font-family:monospace;background:#111;color:#0f0\">"
+                "<pre>" + body + "</pre></body></html>";
+  webServer->send(200, "text/html", html);
 }
 
 // --------------------------------------------------

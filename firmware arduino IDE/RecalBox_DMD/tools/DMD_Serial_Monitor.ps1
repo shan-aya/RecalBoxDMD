@@ -58,12 +58,21 @@ function Start-WifiLogFallback {
     while ($true) {
         try {
             $r = Invoke-WebRequest -Uri $dmdUri -UseBasicParsing -TimeoutSec 5
-            if ($r.Content -ne $lastContent) {
+            # v153 (firmware) sert desormais une mini page HTML (<meta refresh>
+            # pour un navigateur ouvert en continu) au lieu de text/plain --
+            # extrait le contenu de <pre>...</pre> pour un affichage propre ici.
+            $raw = $r.Content
+            $content = if ($raw -match '(?s)<pre>(.*?)</pre>') {
+                [System.Net.WebUtility]::HtmlDecode($matches[1])
+            } else {
+                $raw
+            }
+            if ($content -ne $lastContent) {
                 $ts = Get-Date -Format "HH:mm:ss.fff"
-                $out = "----- $ts -----`n$($r.Content)"
+                $out = "----- $ts -----`n$content"
                 Write-Host $out
                 Add-Content -Path $outFile -Value $out -Encoding utf8
-                $lastContent = $r.Content
+                $lastContent = $content
             }
         } catch {
             $ts = Get-Date -Format "HH:mm:ss.fff"
