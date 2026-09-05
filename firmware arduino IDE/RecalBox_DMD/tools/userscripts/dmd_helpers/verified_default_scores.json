@@ -7019,5 +7019,126 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_detatwin": {
+    "lines": [
+      "1 MO 57300",
+      "2 TOM 52500",
+      "3 RS 50000",
+      "4 HA 49000",
+      "5 CHU 46000",
+      "6 KI 44200",
+      "7 JOY 40000",
+      "8 AS 39000",
+      "9 GB 38000"
+    ],
+    "source": "identique a fbneo_detatwin/mame0278_blswhstl, copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_ddpdfk": {
+    "lines": [
+      "1 OSD 66985826",
+      "2 ICM 9000000",
+      "3 WAK 8000000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_deadconx": {
+    "lines": [
+      "1 JIR 6000",
+      "2 YAG 5000",
+      "3 ZEN 4000",
+      "4 YOU 3000",
+      "5 KOU 2000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_deathsml": {
+    "lines": [
+      "1 KEN 10000000",
+      "2 JUN 9000000",
+      "3 TAK 8000000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_defcmnd": {
+    "lines": [
+      "1 DRJ 20000",
+      "2 SED 18000",
+      "3 LED 16000",
+      "4 PGO 14285",
+      "5 ERB 12000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_defender": {
+    "lines": [
+      "1 DRJ 24220",
+      "2 SAM 18345",
+      "3 LED 15920",
+      "4 PGO 14285",
+      "5 ERB 12520"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_dfeveron": {
+    "lines": [
+      "1 BEA 2000000",
+      "2 TAT 1800000",
+      "3 TAC 1600000",
+      "4 KCA 1400000",
+      "5 VE 1200000"
+    ],
+    "source": "identique a fbneo_dfeveron, copie directe (confirme la lecture visuelle independante)",
+    "date": "2026-09-05"
+  },
+  "mame0278_digdug": {
+    "lines": [
+      "1 NN 10000",
+      "2 AA 10000",
+      "3 MM 10000",
+      "4 CC 10000",
+      "5 OO 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_dimahoo": {
+    "lines": [
+      "1 MDK 1000000",
+      "2 AAU 800000",
+      "3 HTS 600000",
+      "4 DSE 400000",
+      "5 ABG 209410"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_dinohunt": {
+    "lines": [
+      "1 CP 100000",
+      "2 SYS 90000",
+      "3 TEM 80000",
+      "4 DA 70000",
+      "5 YKI 60000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_dogyuun": {
+    "lines": [
+      "1 TOA 370000",
+      "2 DDD 340000",
+      "3 OOO 310000",
+      "4 GGG 280000",
+      "5 YYY 250000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
