@@ -9973,5 +9973,131 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_mrheli": {
+    "lines": [
+      "1 YTAGAMI 127630",
+      "2 YSHINIZU 119390",
+      "3 MHAMADA 98710",
+      "4 TTANABE 71090",
+      "5 MISHIDA 60550"
+    ],
+    "source": "identique a mame0278_bchopper (deja note ~mame0278_bchopper dans DECISIONS.md), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_mnight": {
+    "lines": [
+      "1 FUZISAVA 50000",
+      "2 SHICHIJYO 40000",
+      "3 MINOMAY 30000",
+      "4 SHIMADA 25000",
+      "5 HAYASHI 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_moegonta": {
+    "lines": [
+      "1 ABC 100000",
+      "2 DEF 90000",
+      "3 GHI 80000",
+      "4 JKL 70000",
+      "5 MNO 60000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_mofflott": {
+    "lines": [
+      "1 HK 20000",
+      "2 TK 19000",
+      "3 SM 18000",
+      "4 KK 17000",
+      "5 MM 16000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_monkelf": {
+    "lines": [
+      "1 JAL 100000",
+      "2 BR 90000",
+      "3 RL 80000",
+      "4 PA 70000",
+      "5 LK 60000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_monymony": {
+    "lines": [
+      "1 ABG 44500"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_moomesa": {
+    "lines": [
+      "1 ABG 1235",
+      "2 AAA 100",
+      "3 BBB 100",
+      "4 CCC 100",
+      "5 DDD 100"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_moonwar": {
+    "lines": [
+      "1 RAO 20430",
+      "2 JON 16120",
+      "3 ARM 13990",
+      "4 AJM 11780",
+      "5 TJC 9860"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_mosaic": {
+    "lines": [
+      "1 TOP 50000",
+      "2 MOS 45000",
+      "3 AIC 40000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_motos": {
+    "lines": [
+      "1 MORITARO 10000",
+      "2 OKADAMAN 7650",
+      "3 TAGUCHIN 7580",
+      "4 OKUBOMAN 5550",
+      "5 SASATARO 5540"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_mouja": {
+    "lines": [
+      "1 AOI 100000",
+      "2 AOI2 90000",
+      "3 AOI3 80000",
+      "4 AOI4 70000",
+      "5 AOI5 60000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_mpang": {
+    "lines": [
+      "1 KUW 200000",
+      "2 MIY 100000",
+      "3 KAT 70000",
+      "4 IDA 50000",
+      "5 MAT 40000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
