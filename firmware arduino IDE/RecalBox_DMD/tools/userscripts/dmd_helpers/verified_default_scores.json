@@ -8327,5 +8327,123 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_growl": {
+    "lines": [
+      "1 TS 15000",
+      "2 AAA 14600",
+      "3 ABG 11600",
+      "4 HF 9000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gryzor": {
+    "lines": [
+      "1 KKK 25800",
+      "2 SSS 22200",
+      "3 KKK2 19500",
+      "4 HHH 13800",
+      "5 KKK3 13000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gseeker": {
+    "lines": [
+      "1 TN 577750",
+      "2 BN 409290",
+      "3 HAY 269910",
+      "4 LIN 124600",
+      "5 LAB 86430"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gsword": {
+    "lines": [
+      "1 TAITO 100000",
+      "2 TAITO 100000",
+      "3 TAITO 100000",
+      "4 TAITO 50000",
+      "5 TAITO 50000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_guiness": {
+    "lines": [
+      "1 YAS 40000",
+      "2 KTA 35000",
+      "3 SHO 30000",
+      "4 KBE 25000",
+      "5 KAS 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gulfstrm": {
+    "lines": [
+      "1 JDCH 100000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gunball": {
+    "lines": [
+      "1 JB 1000000",
+      "2 HB 900000",
+      "3 NB 800000",
+      "4 SK 700000",
+      "5 SK2 600000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gunbird": {
+    "lines": [
+      "1 ABG 147600"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gunbustr": {
+    "lines": [
+      "1 SOY 500000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gunforce": {
+    "lines": [
+      "1 NS 127300",
+      "2 NK 104200",
+      "3 TT 89700",
+      "4 YI 71700",
+      "5 ROK 59300"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gunnail": {
+    "lines": [
+      "1 ABG 44100",
+      "2 SMK 1964",
+      "3 ADA 1789",
+      "4 NRR 1191",
+      "5 CIA 648"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gunsmoke": {
+    "lines": [
+      "1 IAK 80000",
+      "2 IOY 60000",
+      "3 ABG 50700",
+      "4 KEI 40000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
