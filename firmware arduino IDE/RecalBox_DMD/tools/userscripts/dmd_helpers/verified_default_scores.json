@@ -11516,5 +11516,104 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_ridleofp": {
+    "lines": [
+      "1 REC 30000",
+      "2 IXT 29000",
+      "3 BAR 28000",
+      "4 DO 27000",
+      "5 LPH 26000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_ringking": {
+    "lines": [
+      "1 GUN 305000",
+      "2 DBD 222000",
+      "3 CBB 210000",
+      "4 SIS 155000",
+      "5 DDS 80000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_riotcity": {
+    "lines": [
+      "1 SUN 90000",
+      "2 EAU 80000",
+      "3 GOD 75000",
+      "4 ACE 70000",
+      "5 SKY 65000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_riskchal": {
+    "lines": [
+      "1 UCKEY 200000",
+      "2 HIYA 170000",
+      "3 ANIKI 150000",
+      "4 UNYA 120000",
+      "5 ROK 100000"
+    ],
+    "source": "identique a mame0278_gussun (meme table), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_roadf": {
+    "lines": [
+      "1 RR 96300",
+      "2 WEC 89900",
+      "3 JNZ 74100",
+      "4 HDP 62100",
+      "5 GJR 57200"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_roadrunn": {
+    "lines": [
+      "1 JAY 22430",
+      "2 EDC 22150",
+      "3 VSQ 21860",
+      "4 BMS 21620",
+      "5 AXS 20890"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_robby": {
+    "lines": [
+      "1 MURPHY 50000",
+      "2 LEWIS 48000",
+      "3 ED209 47000",
+      "4 SCIVAX 46000",
+      "5 SWORDMST 43000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_robocop": {
+    "lines": [
+      "1 FFF 50000",
+      "2 NOR 40000",
+      "3 ABG 32100",
+      "4 TT 30000",
+      "5 TSI 25000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_robokid": {
+    "lines": [
+      "1 DAJ 52187",
+      "2 LEO 50218",
+      "3 BFU 41266",
+      "4 JEA 41250",
+      "5 KID 31920"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
