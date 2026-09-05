@@ -14859,5 +14859,1579 @@
     ],
     "source": "identique a mame0278_sichuan2 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2",
     "date": "2026-09-05"
+  },
+  "mame0278_99lstwarb": {
+    "lines": [
+      "1 ICHIBAN 50000",
+      "2 NIBAN 50000",
+      "3 SANBAN 50000",
+      "4 YONBAN 50000",
+      "5 GOBAN 50000"
+    ],
+    "source": "identique a fbneo_99lstwarb (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_abcopj": {
+    "lines": [
+      "1 RGV 10000000",
+      "2 RVF 9000000",
+      "3 YZF 8000000",
+      "4 ZXR 7000000",
+      "5 YZR 6000000",
+      "6 NSR 5000000",
+      "7 CUB 4000000"
+    ],
+    "source": "identique a fbneo_abcopj (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_aerfboo2": {
+    "lines": [
+      "1 AAA 100000",
+      "2 BBB 90000",
+      "3 CCC 80000",
+      "4 DDD 70000",
+      "5 EEE 60000",
+      "6 FFF 50000",
+      "7 GGG 40000",
+      "8 HHH 30000",
+      "9 III 20000"
+    ],
+    "source": "identique a fbneo_aerfboo2 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_agalletah": {
+    "lines": [
+      "1 NA1 700000",
+      "2 NA2 650000",
+      "3 NA3 600000",
+      "4 NA4 550000",
+      "5 NA5 500000",
+      "6 NA6 450000",
+      "7 NA7 400000",
+      "8 NA8 350000",
+      "9 NA9 300000",
+      "10 ABG 267530"
+    ],
+    "source": "identique a fbneo_agalletah (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_agalletaj": {
+    "lines": [
+      "1 NA1 700000",
+      "2 NA2 650000",
+      "3 NA3 600000",
+      "4 NA4 550000",
+      "5 NA5 500000",
+      "6 NA6 450000",
+      "7 NA7 400000",
+      "8 NA8 350000",
+      "9 NA9 300000",
+      "10 ABG 267530"
+    ],
+    "source": "identique a fbneo_agalletaj (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_agalletat": {
+    "lines": [
+      "1 NA1 700000",
+      "2 NA2 650000",
+      "3 NA3 600000",
+      "4 NA4 550000",
+      "5 NA5 500000",
+      "6 NA6 450000",
+      "7 NA7 400000",
+      "8 NA8 350000",
+      "9 NA9 300000",
+      "10 ABG 267530"
+    ],
+    "source": "identique a fbneo_agalletat (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_agalleth": {
+    "lines": [
+      "1 NA1 700000",
+      "2 NA2 650000",
+      "3 NA3 600000",
+      "4 NA4 550000",
+      "5 NA5 500000",
+      "6 NA6 450000",
+      "7 NA7 400000",
+      "8 NA8 350000",
+      "9 NA9 300000",
+      "10 ABG 267530"
+    ],
+    "source": "identique a fbneo_agalleth (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_agalletj": {
+    "lines": [
+      "1 NA1 700000",
+      "2 NA2 650000",
+      "3 NA3 600000",
+      "4 NA4 550000",
+      "5 NA5 500000",
+      "6 NA6 450000",
+      "7 NA7 400000",
+      "8 NA8 350000",
+      "9 NA9 300000",
+      "10 ABG 267530"
+    ],
+    "source": "identique a fbneo_agalletj (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_agalletk": {
+    "lines": [
+      "1 NA1 700000",
+      "2 NA2 650000",
+      "3 NA3 600000",
+      "4 NA4 550000",
+      "5 NA5 500000",
+      "6 NA6 450000",
+      "7 NA7 400000",
+      "8 NA8 350000",
+      "9 NA9 300000",
+      "10 ABG 267530"
+    ],
+    "source": "identique a fbneo_agalletk (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_agallett": {
+    "lines": [
+      "1 NA1 700000",
+      "2 NA2 650000",
+      "3 NA3 600000",
+      "4 NA4 550000",
+      "5 NA5 500000",
+      "6 NA6 450000",
+      "7 NA7 400000",
+      "8 NA8 350000",
+      "9 NA9 300000",
+      "10 ABG 267530"
+    ],
+    "source": "identique a fbneo_agallett (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_agalletu": {
+    "lines": [
+      "1 NA1 700000",
+      "2 NA2 650000",
+      "3 NA3 600000",
+      "4 NA4 550000",
+      "5 NA5 500000",
+      "6 NA6 450000",
+      "7 NA7 400000",
+      "8 NA8 350000",
+      "9 NA9 300000",
+      "10 ABG 267530"
+    ],
+    "source": "identique a fbneo_agalletu (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_arkanoidja": {
+    "lines": [
+      "1 SSB 50000",
+      "2 SND 45000",
+      "3 TOR 40000",
+      "4 ONJ 35000",
+      "5 AKR 30000"
+    ],
+    "source": "identique a fbneo_arkanoidja (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_arkgcbla": {
+    "lines": [
+      "1 SSB 50000",
+      "2 SND 45000",
+      "3 TOR 40000",
+      "4 ONJ 35000",
+      "5 AKR 30000"
+    ],
+    "source": "identique a fbneo_arkgcbla (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_arknoid2b": {
+    "lines": [
+      "1 SSB 100000",
+      "2 KEI 80000",
+      "3 OGR 60000",
+      "4 GWK 40000",
+      "5 TKN 20000"
+    ],
+    "source": "identique a fbneo_arknoid2b (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_arknoid2j": {
+    "lines": [
+      "1 SSB 100000",
+      "2 KEI 80000",
+      "3 OGR 60000",
+      "4 GWK 40000",
+      "5 TKN 20000"
+    ],
+    "source": "identique a fbneo_arknoid2j (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_arknoid2u": {
+    "lines": [
+      "1 SSB 100000",
+      "2 KEI 80000",
+      "3 OGR 60000",
+      "4 GWK 40000",
+      "5 TKN 20000"
+    ],
+    "source": "identique a fbneo_arknoid2u (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_assaultj": {
+    "lines": [
+      "1 BLAZER 30000",
+      "2 GROBDA 25000",
+      "3 LEOPARD 20000",
+      "4 PANTHER 18000",
+      "5 LYNX 15000"
+    ],
+    "source": "identique a fbneo_assaultj (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_assaultp": {
+    "lines": [
+      "1 BLAZER 30000",
+      "2 GROBDA 25000",
+      "3 LEOPARD 20000",
+      "4 PANTHER 18000",
+      "5 LYNX 15000"
+    ],
+    "source": "identique a fbneo_assaultp (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_asterockv": {
+    "lines": [
+      "1 ABG 470"
+    ],
+    "source": "identique a fbneo_asterockv (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_atlantol": {
+    "lines": [
+      "1 ABG 42600",
+      "2 ABG2 25090"
+    ],
+    "source": "identique a fbneo_atlantol (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_bagmanm2": {
+    "lines": [
+      "1 FANCHOIS 18900",
+      "2 GASTOUNET 17900",
+      "3 PIERROT 16000",
+      "4 JOJO 15100",
+      "5 JB 14200"
+    ],
+    "source": "identique a fbneo_bagmanm2 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_bbakraidj": {
+    "lines": [
+      "1 N1 500000",
+      "2 N2 400000",
+      "3 N3 390000",
+      "4 N4 200000",
+      "5 N5 100000"
+    ],
+    "source": "identique a fbneo_bbakraidj (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_blastero": {
+    "lines": [
+      "1 DAJ 222220",
+      "2 KAY 218570",
+      "3 JAS 217500",
+      "4 KLA 216100",
+      "5 DJW 212000",
+      "6 PBD 188500",
+      "7 JER 187550",
+      "8 ALI 102000",
+      "9 MLE 91960"
+    ],
+    "source": "identique a fbneo_blastero (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_bombjack2": {
+    "lines": [
+      "1 TT 10000",
+      "2 EE 10000",
+      "3 HH 10000",
+      "4 KK 10000",
+      "5 AA 10000",
+      "6 NN 10000",
+      "7 LL 10000",
+      "8 TT2 10000",
+      "9 DD 10000"
+    ],
+    "source": "identique a fbneo_bombjack2 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_bombjackt": {
+    "lines": [
+      "1 TT 10000",
+      "2 EE 10000",
+      "3 HH 10000",
+      "4 KK 10000",
+      "5 AA 10000",
+      "6 NN 10000",
+      "7 LL 10000",
+      "8 TT2 10000",
+      "9 DD 10000"
+    ],
+    "source": "identique a fbneo_bombjackt (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_bubblesp": {
+    "lines": [
+      "1 JJK 23310",
+      "2 NNQ 22552",
+      "3 TIM 22517",
+      "4 BFQ 20522",
+      "5 RON 17635",
+      "6 MKS 16535"
+    ],
+    "source": "identique a fbneo_bubblesp (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_column2j": {
+    "lines": [
+      "1 UNA 10000",
+      "2 AIO 9000",
+      "3 KMK 7000",
+      "4 III 6000",
+      "5 HYY 5000",
+      "6 A40 4000",
+      "7 RS 3000",
+      "8 AHH 2000",
+      "9 N9 1000"
+    ],
+    "source": "identique a fbneo_column2j (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_ct2k3sa": {
+    "lines": [
+      "1 NOP 100000",
+      "2 LEA 80000",
+      "3 NEG 60000",
+      "4 JSR 40000",
+      "5 RTS 20000"
+    ],
+    "source": "identique a fbneo_ct2k3sa (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_cthd2003": {
+    "lines": [
+      "1 NOP 100000",
+      "2 LEA 80000",
+      "3 NEG 60000",
+      "4 JSR 40000",
+      "5 RTS 20000"
+    ],
+    "source": "identique a fbneo_cthd2003 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_cyvernj": {
+    "lines": [
+      "1 AAA 1000000",
+      "2 BBB 900000",
+      "3 CCC 800000",
+      "4 DDD 700000",
+      "5 EEE 600000",
+      "6 FFF 500000",
+      "7 GGG 400000",
+      "8 ABG 363250",
+      "9 HHH 300000"
+    ],
+    "source": "identique a fbneo_cyvernj (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_ddonpachj": {
+    "lines": [
+      "1 OSD 5905065",
+      "2 HS 5544337",
+      "3 OSS 5327080",
+      "4 NAI 4440155",
+      "5 OKS 3562165"
+    ],
+    "source": "identique a fbneo_ddonpachj (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_ddsomb": {
+    "lines": [
+      "1 ERLING 100000",
+      "2 GYGAX 90000",
+      "3 JMWORD 80000",
+      "4 ALMA 70000"
+    ],
+    "source": "identique a fbneo_ddsomb (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_ddtodd": {
+    "lines": [
+      "1 GYGAX 60000",
+      "2 DIANA 58000",
+      "3 WOLFGANG 56000",
+      "4 HERBERT 54000",
+      "5 MARK 52000",
+      "6 MARGARET 50000",
+      "7 THOMAS 48000",
+      "8 WILLIAM 46000",
+      "9 SHOKO 44070"
+    ],
+    "source": "identique a fbneo_ddtodd (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_demoderm": {
+    "lines": [
+      "1 ABG 40300",
+      "2 JLN 10000",
+      "3 TIN 10000",
+      "4 DLN 10000",
+      "5 MIN 10000"
+    ],
+    "source": "identique a fbneo_demoderm (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_dimahoud": {
+    "lines": [
+      "1 MDK 1000000",
+      "2 AAU 800000",
+      "3 HTS 600000",
+      "4 OSE 400000",
+      "5 VAN 200000"
+    ],
+    "source": "identique a fbneo_dimahoud (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_djboyj": {
+    "lines": [
+      "1 TZR 120000",
+      "2 VFR 100000",
+      "3 SDR 80000",
+      "4 RZV 50000",
+      "5 TDR 30000"
+    ],
+    "source": "identique a fbneo_djboyj (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_dsmbl": {
+    "lines": [
+      "1 MRM 10000000",
+      "2 IID 9000000",
+      "3 TYM 8000000"
+    ],
+    "source": "identique a fbneo_dsmbl (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_espgal2": {
+    "lines": [
+      "1 TAC 6970500",
+      "2 DRK 6000000",
+      "3 TMZ 5000000",
+      "4 FRD 4000000",
+      "5 ITM 3000000"
+    ],
+    "source": "identique a fbneo_espgal2 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_feversos": {
+    "lines": [
+      "1 BEA 2000000",
+      "2 TAT 1800000",
+      "3 TAC 1600000",
+      "4 KCA 1400000",
+      "5 VE 1200000"
+    ],
+    "source": "identique a fbneo_feversos (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_fhawkj": {
+    "lines": [
+      "1 N1 50000",
+      "2 N2 45000",
+      "3 N3 40000",
+      "4 N4 35000",
+      "5 N5 30000",
+      "6 N6 25000",
+      "7 N7 20000",
+      "8 N8 15000",
+      "9 N9 10000"
+    ],
+    "source": "identique a fbneo_fhawkj (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_fireshrkd": {
+    "lines": [
+      "1 N1 70000",
+      "2 N2 68000",
+      "3 N3 66000",
+      "4 N4 64000",
+      "5 N5 62000",
+      "6 N6 60000",
+      "7 N7 58000",
+      "8 N8 56000",
+      "9 N9 54000"
+    ],
+    "source": "identique a fbneo_fireshrkd (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_fnshark": {
+    "lines": [
+      "1 N1 30000",
+      "2 N2 29000",
+      "3 N3 28000",
+      "4 N4 26000",
+      "5 N5 25000",
+      "6 N6 23000",
+      "7 N7 22000",
+      "8 N8 21000"
+    ],
+    "source": "identique a fbneo_fnshark (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_futari15": {
+    "lines": [
+      "1 KDK 6880571",
+      "2 NMR 4000000"
+    ],
+    "source": "identique a fbneo_futari15 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_futaribl": {
+    "lines": [
+      "1 ISO 53837836",
+      "2 NMR 40000000"
+    ],
+    "source": "identique a fbneo_futaribl (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_gaiden": {
+    "lines": [
+      "1 RYUKEN 10000",
+      "2 HANZOU 10000",
+      "3 SHIZOU 10000",
+      "4 SASUKE 10000",
+      "5 NINJA 10000",
+      "6 KATANA 10000",
+      "7 NINPOU 10000",
+      "8 BUSHI 10000",
+      "9 KABUTO 10000"
+    ],
+    "source": "identique a fbneo_gaiden (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_galaga88j": {
+    "lines": [
+      "1 AAA1 50000",
+      "2 AAA2 50000",
+      "3 AAA3 40000",
+      "4 AAA4 40000",
+      "5 AAA5 30000",
+      "6 AAA6 30000",
+      "7 AAA7 20000",
+      "8 AAA8 20000"
+    ],
+    "source": "identique a fbneo_galaga88j (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_galpanicb": {
+    "lines": [
+      "1 TGN 50000",
+      "2 OBN 45000",
+      "3 MTS 40000",
+      "4 YKM 35000",
+      "5 MRI 30000",
+      "6 UTO 25000",
+      "7 SAE 20000",
+      "8 NGV 15000"
+    ],
+    "source": "identique a fbneo_galpanicb (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_gberetb": {
+    "lines": [
+      "1 ABG 42100",
+      "2 ATN 33000",
+      "3 KDI 30000",
+      "4 KEF 29000",
+      "5 OFS 26000",
+      "6 BAW 23000",
+      "7 CBX 20000",
+      "8 IMF 19000",
+      "9 TUA 16000"
+    ],
+    "source": "identique a fbneo_gberetb (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_ghox": {
+    "lines": [
+      "1 N1 75000",
+      "2 N2 69000",
+      "3 N3 63000",
+      "4 N4 57000",
+      "5 N5 51000",
+      "6 N6 45000",
+      "7 N7 39000",
+      "8 N8 33000",
+      "9 N9 27000"
+    ],
+    "source": "identique a fbneo_ghox (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_gradius3": {
+    "lines": [
+      "1 HM 57300",
+      "2 TOM 37500",
+      "3 YI 30000",
+      "4 MI 25000",
+      "5 M4I 20000"
+    ],
+    "source": "identique a fbneo_gradius3 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_grindstm": {
+    "lines": [
+      "1 N1 500000",
+      "2 N2 450000",
+      "3 N3 400000",
+      "4 N4 350000",
+      "5 N5 300000",
+      "6 N6 250000",
+      "7 N7 200000",
+      "8 N8 150000"
+    ],
+    "source": "identique a fbneo_grindstm (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_gunforc2": {
+    "lines": [
+      "1 EAS 5500",
+      "2 WES 4000",
+      "3 SOU 3000",
+      "4 NOR 2000",
+      "5 YA 1000"
+    ],
+    "source": "identique a fbneo_gunforc2 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_gunlock": {
+    "lines": [
+      "1 ABE 1000000",
+      "2 NAK 900000",
+      "3 MIS 800000",
+      "4 SOY 700000"
+    ],
+    "source": "identique a fbneo_gunlock (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_hyprduel": {
+    "lines": [
+      "1 ABG 150521",
+      "2 KEITH 100000",
+      "3 LISA 64000",
+      "4 LLOYD 32000",
+      "5 ABG2 24191"
+    ],
+    "source": "identique a fbneo_hyprduel (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_kaiteids": {
+    "lines": [
+      "1 TAKESHI 353600",
+      "2 AIAI 212804",
+      "3 KOZO 174001",
+      "4 KENKUI 122203",
+      "5 TOMOHIRO 86300",
+      "6 AKIO 48601",
+      "7 NAKA 35000",
+      "8 NOBU 28500",
+      "9 SUSUMU 27700"
+    ],
+    "source": "identique a fbneo_kaiteids (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_kickc": {
+    "lines": [
+      "1 JJP 2000",
+      "2 HWA 2000",
+      "3 DSZ 2000",
+      "4 ECV 2000",
+      "5 JHL 2000",
+      "6 JHJ 2000",
+      "7 CMM 2000",
+      "8 JBB 2000",
+      "9 AAG 2000"
+    ],
+    "source": "identique a fbneo_kickc (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_kickman": {
+    "lines": [
+      "1 JJP 2000",
+      "2 HWA 2000",
+      "3 DSZ 2000",
+      "4 ECV 2000",
+      "5 JHL 2000",
+      "6 JHJ 2000",
+      "7 CMM 2000",
+      "8 JBB 2000",
+      "9 AAG 2000"
+    ],
+    "source": "identique a fbneo_kickman (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_klax4": {
+    "lines": [
+      "1 BF 35000",
+      "2 KLX 10000"
+    ],
+    "source": "identique a fbneo_klax4 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_knights": {
+    "lines": [
+      "1 CAP 80000",
+      "2 COM 79000",
+      "3 CPS 78000",
+      "4 UST 77000",
+      "5 EM 76000",
+      "6 KNI 75000",
+      "7 GHT 74000",
+      "8 S 73000"
+    ],
+    "source": "identique a fbneo_knights (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_kof95h": {
+    "lines": [
+      "1 SS 100000",
+      "2 SNK 89020",
+      "3 SNK2 60000",
+      "4 SNK3 40000",
+      "5 SNK4 20000"
+    ],
+    "source": "identique a fbneo_kof95h (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_ktiger": {
+    "lines": [
+      "1 N1 30000",
+      "2 N2 29000",
+      "3 N3 28000",
+      "4 N4 27000",
+      "5 N5 26000",
+      "6 N6 25000",
+      "7 N7 24000",
+      "8 N8 23000",
+      "9 N9 22000"
+    ],
+    "source": "identique a fbneo_ktiger (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_liblrabl": {
+    "lines": [
+      "1 RALLYX 30000",
+      "2 GALAGA 30000",
+      "3 LIBBLE 30000",
+      "4 RABBLE 30000",
+      "5 PACMAN 30000"
+    ],
+    "source": "identique a fbneo_liblrabl (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_mappy": {
+    "lines": [
+      "1 BEH 20000",
+      "2 UHO 19870",
+      "3 HOY 17560",
+      "4 DAP 12130",
+      "5 PYA 10320"
+    ],
+    "source": "identique a fbneo_mappy (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_mariobl": {
+    "lines": [
+      "1 AKI 12000",
+      "2 ABG 11410",
+      "3 CHI 9000",
+      "4 SEI 8000",
+      "5 NAO 5400"
+    ],
+    "source": "identique a fbneo_mariobl (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_mk2": {
+    "lines": [
+      "1 CRL 10",
+      "2 MDP 9",
+      "3 GMP 8",
+      "4 SYL 8",
+      "5 SB3 8",
+      "6 FEL 8",
+      "7 SAH 8",
+      "8 HAI 7",
+      "9 SFT 7"
+    ],
+    "source": "identique a fbneo_mk2 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_mmancp2u": {
+    "lines": [
+      "1 OKO 50000",
+      "2 CIU 40000",
+      "3 HKD 30000",
+      "4 K20 20000",
+      "5 CPS 10000"
+    ],
+    "source": "identique a fbneo_mmancp2u (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_ms4plus": {
+    "lines": [
+      "1 APE 107400",
+      "2 BAT 98410",
+      "3 CAT 89330",
+      "4 DOG 76300",
+      "5 EEL 60740",
+      "6 FOX 59630",
+      "7 GNU 49890",
+      "8 ABG 35700",
+      "9 HEN 33960"
+    ],
+    "source": "identique a fbneo_ms4plus (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_mslug2": {
+    "lines": [
+      "1 APE 107400",
+      "2 BAT 98410",
+      "3 CAT 89330",
+      "4 DOG 76300",
+      "5 EEL 60740",
+      "6 FOX 59630",
+      "7 GNU 49890",
+      "8 ABG 35700",
+      "9 HEN 33960"
+    ],
+    "source": "identique a fbneo_mslug2 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_mwalk": {
+    "lines": [
+      "1 MJ1 50000",
+      "2 MJ2 45000",
+      "3 MJ3 40000",
+      "4 MJ4 35000",
+      "5 MJ5 30000",
+      "6 MJ6 25000",
+      "7 MJ7 20000",
+      "8 MJ8 15000",
+      "9 MJ9 10000"
+    ],
+    "source": "identique a fbneo_mwalk (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_myqbert": {
+    "lines": [
+      "1 TJC 3000",
+      "2 JML 2500",
+      "3 JAH 2000",
+      "4 MJS 1750",
+      "5 ECW 1500",
+      "6 BLT 1250",
+      "7 BMH 1000",
+      "8 DMV 950",
+      "9 FDA 900"
+    ],
+    "source": "identique a fbneo_myqbert (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_narc3": {
+    "lines": [
+      "1 JEH 1000001",
+      "2 JRN 925221",
+      "3 TJE 888888"
+    ],
+    "source": "identique a fbneo_narc3 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_nspiritj": {
+    "lines": [
+      "1 TATSUNOH 134500",
+      "2 AKIOPAPA 110300",
+      "3 AABZZ 91000",
+      "4 HIROKI 87900",
+      "5 KIYOSHIK 64400",
+      "6 OHGI 61600",
+      "7 MOMOKOT 52300",
+      "8 SUMI 47800",
+      "9 MAKOTOO 44800"
+    ],
+    "source": "identique a fbneo_nspiritj (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_outrundxj": {
+    "lines": [
+      "1 YU 1000000",
+      "2 BIN 900000",
+      "3 KAG 800000",
+      "4 KIY 700000",
+      "5 ABG 653750",
+      "6 MAT 600000",
+      "7 IKA 500000"
+    ],
+    "source": "identique a fbneo_outrundxj (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_pacnchmp": {
+    "lines": [
+      "1 QQ 30000",
+      "2 WW 30000",
+      "3 XX 30000",
+      "4 YY 30000",
+      "5 ZZ 30000"
+    ],
+    "source": "identique a fbneo_pacnchmp (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_pbobble2": {
+    "lines": [
+      "1 ABG 659050",
+      "2 ABG2 10000",
+      "3 DEF 5000",
+      "4 GHI 1000",
+      "5 JKL 500"
+    ],
+    "source": "identique a fbneo_pbobble2 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_pbobble3": {
+    "lines": [
+      "1 ABG 1982990",
+      "2 ABC 10000",
+      "3 DEF 5000",
+      "4 GHI 1000",
+      "5 JKL 500"
+    ],
+    "source": "identique a fbneo_pbobble3 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_pbobble4": {
+    "lines": [
+      "1 UUU 10000",
+      "2 PB4 5000",
+      "3 ABG 2850",
+      "4 NNN 1000",
+      "5 PB4B 500"
+    ],
+    "source": "identique a fbneo_pbobble4 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_pinkswtsa": {
+    "lines": [
+      "1 CAV1 10000",
+      "2 CAV2 9000",
+      "3 CAV3 8000",
+      "4 CAV4 7000",
+      "5 CAV5 6000",
+      "6 CAV6 5000",
+      "7 CAV7 4000",
+      "8 CAV8 3000"
+    ],
+    "source": "identique a fbneo_pinkswtsa (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_popeyeb3": {
+    "lines": [
+      "1 GET 32600",
+      "2 TJI 29700",
+      "3 HAM 24150",
+      "4 SF 23500",
+      "5 YOK 21150"
+    ],
+    "source": "identique a fbneo_popeyeb3 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_progeara": {
+    "lines": [
+      "1 KOU 2000000",
+      "2 ITY 1800001",
+      "3 WTR 1600002",
+      "4 ARI 1400003",
+      "5 TNK 1200004"
+    ],
+    "source": "identique a fbneo_progeara (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_qberta": {
+    "lines": [
+      "1 TJC 3000",
+      "2 JML 2500",
+      "3 JAH 2000",
+      "4 MJS 1750",
+      "5 ECW 1500",
+      "6 BLT 1250",
+      "7 BMH 1000",
+      "8 DMV 950",
+      "9 FDA 900"
+    ],
+    "source": "identique a fbneo_qberta (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_raiden": {
+    "lines": [
+      "1 N1 50000",
+      "2 N2 45000",
+      "3 N3 40000",
+      "4 N4 35000",
+      "5 N5 30000",
+      "6 N6 25000",
+      "7 N7 20000",
+      "8 N8 15000",
+      "9 N9 10000"
+    ],
+    "source": "identique a fbneo_raiden (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_rbtapper": {
+    "lines": [
+      "1 ABG 450"
+    ],
+    "source": "identique a fbneo_rbtapper (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_rtype2j": {
+    "lines": [
+      "1 TARAKO 174500",
+      "2 AKIOO 168600",
+      "3 SIMISU 159700",
+      "4 N4 117900",
+      "5 AAA 92000",
+      "6 YT 80000",
+      "7 AAAAAAAA 76000"
+    ],
+    "source": "identique a fbneo_rtype2j (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_samesame": {
+    "lines": [
+      "1 N1 70000",
+      "2 N2 68000",
+      "3 N3 66000",
+      "4 N4 64000",
+      "5 N5 62000",
+      "6 N6 60000",
+      "7 N7 58000",
+      "8 N8 56000",
+      "9 N9 54000"
+    ],
+    "source": "identique a fbneo_samesame (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_sboblbobl": {
+    "lines": [
+      "1 IF 30000",
+      "2 MTJ 30000",
+      "3 NSO 30000",
+      "4 KIM 30000",
+      "5 VSH 30000"
+    ],
+    "source": "identique a fbneo_sboblbobl (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_shangha3": {
+    "lines": [
+      "1 ABC 10000",
+      "2 DEF 10000",
+      "3 GHI 10000",
+      "4 JKL 10000",
+      "5 MNO 10000",
+      "6 PQR 10000",
+      "7 STU 10000",
+      "8 VWX 10000",
+      "9 YZ 10000"
+    ],
+    "source": "identique a fbneo_shangha3 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_silkwormj": {
+    "lines": [
+      "1 TY 30000",
+      "2 E 30000",
+      "3 CO 30000",
+      "4 WA 30000",
+      "5 DO 30000"
+    ],
+    "source": "identique a fbneo_silkwormj (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_skyshark": {
+    "lines": [
+      "1 N1 30000",
+      "2 N2 29000",
+      "3 N3 28000",
+      "4 N4 26000",
+      "5 N5 25000",
+      "6 N6 23000",
+      "7 N7 22000",
+      "8 N8 21000"
+    ],
+    "source": "identique a fbneo_skyshark (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_slapfigh": {
+    "lines": [
+      "1 BAT 30500",
+      "2 TEN 27020",
+      "3 ABG 25130",
+      "4 YO 24700",
+      "5 KA 21010",
+      "6 YOK 18300",
+      "7 A2 15220",
+      "8 RSK 12900",
+      "9 SEN 9140"
+    ],
+    "source": "identique a fbneo_slapfigh (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_smashtv3": {
+    "lines": [
+      "1 JON 3051048",
+      "2 TIM 1840800",
+      "3 TJE 1758218",
+      "4 LIP 1750072",
+      "5 GWS 1651008",
+      "6 MLZ 1631196",
+      "7 ALT 1606233",
+      "8 BLS 570218",
+      "9 JON2 500001"
+    ],
+    "source": "identique a fbneo_smashtv3 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_snowbro2": {
+    "lines": [
+      "1 ABG 116150",
+      "2 OTE 87660",
+      "3 NKI 43250",
+      "4 PA 23520",
+      "5 RAD 14380"
+    ],
+    "source": "identique a fbneo_snowbro2 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_snowbrosj": {
+    "lines": [
+      "1 ABC 40000",
+      "2 EF 39000",
+      "3 GHI 38000",
+      "4 JKL 37000",
+      "5 MNO 36000"
+    ],
+    "source": "identique a fbneo_snowbrosj (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_solomon": {
+    "lines": [
+      "1 KU 50000",
+      "2 MH 50000",
+      "3 MT 50000",
+      "4 RV 50000",
+      "5 TF 50000",
+      "6 TE 50000",
+      "7 TT 50000",
+      "8 RN 50000",
+      "9 LT 50000"
+    ],
+    "source": "identique a fbneo_solomon (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_spcinv95": {
+    "lines": [
+      "1 ABG 6240",
+      "2 KAI 0",
+      "3 UYH 0",
+      "4 MAA 0",
+      "5 AKT 0"
+    ],
+    "source": "identique a fbneo_spcinv95 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_spf2t": {
+    "lines": [
+      "1 HAC 5000"
+    ],
+    "source": "identique a fbneo_spf2t (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_spnchout": {
+    "lines": [
+      "1 NOA 88700",
+      "2 JNO 87700",
+      "3 GEO 86700",
+      "4 DNF 85700",
+      "5 NNT 84700",
+      "6 UDO 83700",
+      "7 ZYT 82700",
+      "8 HEN 81700",
+      "9 GOD 80700"
+    ],
+    "source": "identique a fbneo_spnchout (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_sstriker": {
+    "lines": [
+      "1 YOK 655000",
+      "2 YAS 422000",
+      "3 ZTF 346000",
+      "4 SIN 201000"
+    ],
+    "source": "identique a fbneo_sstriker (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_startrkd": {
+    "lines": [
+      "1 DRJ 20000",
+      "2 SED 18000",
+      "3 LED 16000",
+      "4 PGD 14000",
+      "5 ERB 12000",
+      "6 MRS 10000",
+      "7 KJF 8000",
+      "8 TMH 6000"
+    ],
+    "source": "identique a fbneo_startrkd (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_starwars1": {
+    "lines": [
+      "1 OBI 1285353",
+      "2 WAN 1110936",
+      "3 HAN 1024650",
+      "4 SJR 872551",
+      "5 MLH 813553",
+      "6 JED 704899",
+      "7 NLA 518000",
+      "8 EJD 493159",
+      "9 EAR 384766"
+    ],
+    "source": "identique a fbneo_starwars1 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_sutapper": {
+    "lines": [
+      "1 ABG 2400"
+    ],
+    "source": "identique a fbneo_sutapper (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_sxevious": {
+    "lines": [
+      "1 ANDROIDEVE 40000",
+      "2 MISATOM 35000",
+      "3 SAYAKAM 30000",
+      "4 MIOVEETHA 25000",
+      "5 FILIERT 20000"
+    ],
+    "source": "identique a fbneo_sxevious (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_tapper": {
+    "lines": [
+      "1 ABG 1800",
+      "2 ABG2 350"
+    ],
+    "source": "identique a fbneo_tapper (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_tcobra2": {
+    "lines": [
+      "1 CBR 200000",
+      "2 CBR2 190000",
+      "3 CBR3 180000",
+      "4 CBR4 170000",
+      "5 CBR5 160000"
+    ],
+    "source": "identique a fbneo_tcobra2 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_tekipaki": {
+    "lines": [
+      "1 N1 50000",
+      "2 N2 45000",
+      "3 N3 40000",
+      "4 N4 35000",
+      "5 N5 30000"
+    ],
+    "source": "identique a fbneo_tekipaki (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_tmht": {
+    "lines": [
+      "1 HID 312",
+      "2 TAC 257",
+      "3 GEN 208",
+      "4 MRI 164",
+      "5 HAT 148",
+      "6 ASA 133",
+      "7 YAM 125",
+      "8 INO 111",
+      "9 IZU 105"
+    ],
+    "source": "identique a fbneo_tmht (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_tp84": {
+    "lines": [
+      "1 ABG 25600",
+      "2 GSX 20000",
+      "3 XJS 17500",
+      "4 CBR 15000",
+      "5 RGB 12500"
+    ],
+    "source": "identique a fbneo_tp84 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_trackfldc": {
+    "lines": [
+      "1 ABG 16120"
+    ],
+    "source": "identique a fbneo_trackfldc (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_tron2": {
+    "lines": [
+      "1 JP 2000",
+      "2 BR 2000",
+      "3 GG 2000",
+      "4 EV 2000",
+      "5 AG 2000",
+      "6 JM 2000",
+      "7 TL 2000",
+      "8 SB 2000",
+      "9 MJ 2000"
+    ],
+    "source": "identique a fbneo_tron2 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_truxton2": {
+    "lines": [
+      "1 TOA 150000",
+      "2 TOA2 140000",
+      "3 TOA3 130000",
+      "4 TOA4 120000",
+      "5 TOA5 110000",
+      "6 TOA6 100000",
+      "7 TOA7 90000",
+      "8 TOA8 80000",
+      "9 ABG 79910"
+    ],
+    "source": "identique a fbneo_truxton2 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_twincobru": {
+    "lines": [
+      "1 N1 30000",
+      "2 N2 29000",
+      "3 N3 28000",
+      "4 N4 27000",
+      "5 N5 26000",
+      "6 N6 25000",
+      "7 N7 24000",
+      "8 N8 23000",
+      "9 N9 22000"
+    ],
+    "source": "identique a fbneo_twincobru (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_twinhawk": {
+    "lines": [
+      "1 ABG 75860",
+      "2 ABC 40000",
+      "3 DEF 39000",
+      "4 GHI 38000",
+      "5 JKL 37000"
+    ],
+    "source": "identique a fbneo_twinhawk (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_twotiger": {
+    "lines": [
+      "1 ABG 3400"
+    ],
+    "source": "identique a fbneo_twotiger (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_ultraman": {
+    "lines": [
+      "1 TIDA 1000000",
+      "2 DANE 1000000",
+      "3 ARAS 1000000",
+      "4 TOFI 1000000",
+      "5 FUJI 1000000",
+      "6 MURA 1000000",
+      "7 HAYA 1000000",
+      "8 ARAS2 1000000",
+      "9 TOFI2 1000000"
+    ],
+    "source": "identique a fbneo_ultraman (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_vfive": {
+    "lines": [
+      "1 N1 500000",
+      "2 N2 450000",
+      "3 N3 400000",
+      "4 N4 350000",
+      "5 N5 300000",
+      "6 N6 250000",
+      "7 N7 200000",
+      "8 N8 150000"
+    ],
+    "source": "identique a fbneo_vfive (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_vimana": {
+    "lines": [
+      "1 YOU 200000",
+      "2 RYO 190000",
+      "3 TOM 180000",
+      "4 SAN 170000",
+      "5 MAY 160000",
+      "6 TOA 150000",
+      "7 TOA2 140000",
+      "8 TOA3 130000",
+      "9 TOA4 120000"
+    ],
+    "source": "identique a fbneo_vimana (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_vulcan": {
+    "lines": [
+      "1 HM 57500",
+      "2 TT 37600",
+      "3 MY 30000",
+      "4 KT 25000",
+      "5 TH 20000"
+    ],
+    "source": "identique a fbneo_vulcan (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_wardnerj": {
+    "lines": [
+      "1 AIUEO 20000",
+      "2 KAKIKUKEKO 18000",
+      "3 SASHISUSESO 16000",
+      "4 TACHITSUTETO 14000",
+      "5 NANINUNENO 12000",
+      "6 HAHIFUHEHO 10000",
+      "7 MAMIMUMEMO 8000",
+      "8 YAYUYO 6000",
+      "9 RARIRURERO 4000"
+    ],
+    "source": "identique a fbneo_wardnerj (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_whoopee": {
+    "lines": [
+      "1 N1 50000",
+      "2 N2 45000",
+      "3 N3 40000",
+      "4 N4 35000",
+      "5 N5 30000"
+    ],
+    "source": "identique a fbneo_whoopee (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_xeviousa": {
+    "lines": [
+      "1 MM 40000",
+      "2 MOU 35000",
+      "3 EVE 30000",
+      "4 SO 25000",
+      "5 SK 20000"
+    ],
+    "source": "identique a fbneo_xeviousa (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_xexexa": {
+    "lines": [
+      "1 TT 57300",
+      "2 MM 10000",
+      "3 KK 9000",
+      "4 TF 8000",
+      "5 CH 7000",
+      "6 TW 6000",
+      "7 HM 5000",
+      "8 MF 4000",
+      "9 HK 3000"
+    ],
+    "source": "identique a fbneo_xexexa (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_xmen": {
+    "lines": [
+      "1 LEE1 10",
+      "2 ABG 9",
+      "3 LEE2 8",
+      "4 LEE3 8",
+      "5 LEE4 7",
+      "6 LEE5 6",
+      "7 LEE6 5",
+      "8 LEE7 4",
+      "9 LEE8 3"
+    ],
+    "source": "identique a fbneo_xmen (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_yieartf": {
+    "lines": [
+      "1 STSUDA 38400",
+      "2 YSUGIMOTO 31500",
+      "3 AINOUE 21300",
+      "4 SHORI 13600",
+      "5 MTAKEMOTO 9400",
+      "6 NISHIMURA 8200",
+      "7 SIWAMOTO 7700",
+      "8 SHIKAMA 6300",
+      "9 HASEGAWA 5100"
+    ],
+    "source": "identique a fbneo_yieartf (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_zero": {
+    "lines": [
+      "1 ABC 19500",
+      "2 DEF 17500",
+      "3 GHI 15500",
+      "4 JKL 13500",
+      "5 MNO 11500",
+      "6 PQR 9500",
+      "7 STU 7500",
+      "8 VWX 5500"
+    ],
+    "source": "identique a fbneo_zero (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
+  },
+  "mame0278_zookeep2": {
+    "lines": [
+      "1 JON 61756",
+      "2 MOR 53157",
+      "3 GAN 42237",
+      "4 EVY 33157",
+      "5 KTE 22528",
+      "6 MAB 14868",
+      "7 RJH 12599",
+      "8 DLP 8723",
+      "9 PJR 7578"
+    ],
+    "source": "identique a fbneo_zookeep2 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
+    "date": "2026-09-05"
   }
 }
