@@ -12245,5 +12245,157 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_shinobld": {
+    "lines": [
+      "1 AAA 100000",
+      "2 BBB 90000",
+      "3 CCC 80000",
+      "4 DDD 70000",
+      "5 EEE 60000"
+    ],
+    "source": "identique a mame0278_shinobi (meme jeu), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_shippumd": {
+    "lines": [
+      "1 MAH 100000",
+      "2 RAY 80000",
+      "3 RAI 60000",
+      "4 NEB 40000",
+      "5 SEN 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_shisen": {
+    "lines": [
+      "1 WATASAN 550",
+      "2 KAMEKICHI 450",
+      "3 MIZUN 350",
+      "4 NISHISAN 250",
+      "5 MARIN 150"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_shocking": {
+    "lines": [
+      "1 ABCDEF 40000",
+      "2 HIJKLM 30000",
+      "3 OPQRST 20000",
+      "4 ABG 6060",
+      "5 VWXYZA 2000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_shocktro": {
+    "lines": [
+      "1 ABG 1089000",
+      "2 AAA 300000",
+      "3 BBB 150000",
+      "4 CCC 100000",
+      "5 DDD 80000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_shootout": {
+    "lines": [
+      "1 DAI 58000",
+      "2 WAO 38400",
+      "3 YUM 28800",
+      "4 AAA 25600",
+      "5 BBB 19200"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_shtrider": {
+    "lines": [
+      "1 HEB 20000",
+      "2 TAK 20000",
+      "3 ANJ 20000",
+      "4 SAO 20000",
+      "5 COM 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_sichuan2": {
+    "lines": [
+      "1 WATASAN 550",
+      "2 KAMEKICHI 450",
+      "3 MIZUN 350",
+      "4 NISHISAN 250",
+      "5 MARIN 150"
+    ],
+    "source": "identique a mame0278_shisen (meme table Tamtex), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_sidearms": {
+    "lines": [
+      "1 TAK 100000",
+      "2 HOX 80000",
+      "3 KDI 60000",
+      "4 AOK 40000",
+      "5 N23 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_sidepckt": {
+    "lines": [
+      "1 SSS 110000",
+      "2 III 93000",
+      "3 DDD 80000",
+      "4 EEE 62000",
+      "5 PPP 23000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_silentd": {
+    "lines": [
+      "1 ABG 113600",
+      "2 NFK 88100",
+      "3 LTB 60330",
+      "4 CHN 13990",
+      "5 ULB 11440"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_silkroad": {
+    "lines": [
+      "1 MUNMOO 500000",
+      "2 JATUKA 450000",
+      "3 SOCHUN 400000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_silkworm": {
+    "lines": [
+      "1 ABG 102000",
+      "2 TY 30000",
+      "3 E 30000",
+      "4 CD 30000",
+      "5 WT 30000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_sindbadm": {
+    "lines": [
+      "1 NOR 20000",
+      "2 ICI 18000",
+      "3 YAB 16000",
+      "4 FUK 14000",
+      "5 TA 12000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
