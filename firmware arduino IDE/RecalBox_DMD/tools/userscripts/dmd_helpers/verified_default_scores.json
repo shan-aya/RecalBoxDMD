@@ -6083,5 +6083,153 @@
     ],
     "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
     "date": "2026-09-05"
+  },
+  "mame0278_dbz": {
+    "lines": [
+      "1 GOK 20000",
+      "2 VEG 10000",
+      "3 GHM 5000",
+      "4 PIC 2000",
+      "5 ABG 1300",
+      "6 RKN 1000",
+      "7 BUT 500"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_dcon": {
+    "lines": [
+      "1 SUN 100000",
+      "2 MER 90000",
+      "3 VEN 80000",
+      "4 EAR 70000",
+      "5 MAR 60000",
+      "6 JUP 50000",
+      "7 SAT 40000",
+      "8 URA 30000",
+      "9 PLU 20000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_ddenlovr": {
+    "lines": [
+      "1 RUIYU 100",
+      "2 HAIPING 90",
+      "3 LIN 80",
+      "4 XINGXING 70",
+      "5 MEI 60"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_ddonpach": {
+    "lines": [
+      "1 OSD 5905065",
+      "2 HS 5544337",
+      "3 OSS 5327080",
+      "4 NAI 4440155",
+      "5 OKS 3562165"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_ddp3": {
+    "lines": [
+      "1 YDX 7296714",
+      "2 WTN 7280945",
+      "3 NAI 7193547",
+      "4 NAL 7044683",
+      "5 HAT 6943522"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_ddpdoj": {
+    "lines": [
+      "1 YDX 7296714",
+      "2 WTN 7280945",
+      "3 NAI 7193547",
+      "4 NAL 7044683",
+      "5 HAT 6943522"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_ddragon": {
+    "lines": [
+      "1 GLF 20000",
+      "2 PRM 20000",
+      "3 LDS 20000",
+      "4 JJM 20000",
+      "5 TJL 20000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_ddragon2": {
+    "lines": [
+      "1 KUA 20000",
+      "2 ABU 20000",
+      "3 NOD 20000",
+      "4 AIA 20000",
+      "5 KSI 20000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_ddribble": {
+    "lines": [
+      "1 MI 54",
+      "2 YH 42",
+      "3 USA 30",
+      "4 CJM 28",
+      "5 SY 24",
+      "6 JCS 18",
+      "7 ST 12",
+      "8 HEH 6"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_ddsom": {
+    "lines": [
+      "1 ERLING 100000",
+      "2 GYGAX 90000",
+      "3 JMWORD 80000",
+      "4 ALMA 70000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_ddtod": {
+    "lines": [
+      "1 GYGAX 60000",
+      "2 DIANA 58000",
+      "3 WOLFGANG 56000",
+      "4 HERBERT 54000",
+      "5 MARK 52000",
+      "6 MARGARET 50000",
+      "7 THOMAS 48000",
+      "8 WILLIAM 46000",
+      "9 SHOKO 44070"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_ddungeon": {
+    "lines": [
+      "1 KH 250000",
+      "2 AAA 200000",
+      "3 BBB 150000",
+      "4 CCC 100000",
+      "5 DDD 90000",
+      "6 EEE 80000",
+      "7 FFF 70000",
+      "8 GGG 60000",
+      "9 HHH 50000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
   }
 }
