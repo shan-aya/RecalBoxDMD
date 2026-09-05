@@ -1641,3 +1641,18 @@ RB2 recoupé pendant ces lots (`192.168.0.49`) : progression continue sans inter
 **Volet fbneo traité juste après, sur demande explicite ("traite aussi les .hi fbneo vers le nas")** : RB1 (931 `.hi`) puis RB2 (1599 `.hi`) copiés vers `NAS\HISCORE_DATA\fbneo\fbneo\` via `robocopy /XN /XO /XC` (RB1 en premier, comme source "vraies parties" prioritaire en cas de nom de fichier commun avec RB2). Résultat : RB1 n'a apporté que **2 nouveaux** fichiers (quasi-totalité déjà présente depuis le 04/09), RB2 en a apporté **1423 nouveaux** — dépôt fbneo passé de 1066 à **2491 fichiers**.
 
 **Point de vigilance actée (pas vérifié jeu par jeu, juste signalé)** : une grande partie de cet apport RB2 provient très probablement de la campagne d'autopilotage uinput/Free Play (crédit+mouvement+attaque simulés, voir sections "RB Challenge fbneo" plus haut) plutôt que de vraies parties humaines — sans incidence sur la sécurité de l'opération (aucun écrasement possible, uniquement des ajouts de fichiers absents), mais à garder en tête si ce dépôt sert un jour de base à un pack hi-score "usine" distribué publiquement (cf. idée de l'utilisateur d'une future option du tool via GitHub) : un score obtenu par pilotage automatique n'est pas forcément représentatif d'un vrai record joueur, contrairement aux 929 `.hi` RB1 d'origine. `README.txt` du dépôt NAS mis à jour avec ce détail.
+
+## Réconciliation rétroactive fbneo↔mame0278 (2026-09-05, ~20h15) — question utilisateur decisive
+
+**Question posée** : "pour fbneo tu as bien utilisé le niveau 2 de mame quand ce sont les mêmes jeux ?" — **Réponse honnête : NON, pas systématiquement.** Seules 25 correspondances avaient été faites une fois, la nuit du 05/09 AVANT cette session, sur un instantané mame0278 à 193 entrées (section "Extension fbneo" plus haut). Toute la croissance mame0278 de cette session (351 → 893, +542) n'avait **jamais** été recroisée avec le manque fbneo — un oubli réel, pas une limite structurelle.
+
+**Analyse chiffrée faite pour vérifier avant de corriger** :
+- Romset fbneo réel (RB1, `/recalbox/share/roms/fbneo/arcade/*.zip`) : **7546 roms** (bien plus que le chiffre "1486" qui traînait en mémoire d'une session antérieure — mémoire fausse, corrigée par vérification directe plutôt que citée telle quelle, cf. discipline "vérité d'abord").
+- `.hi` réels déjà présents (union RB1 931 + RB2 1599, dédupliqués par nom) : 2491.
+- Déjà vérifiés niveau 2 (avant correction) : 184.
+- **Vrai manque fbneo (niveau 1 ET niveau 2 absents) : 4873 roms.**
+- Sur ce manque, **220 roms partagent un nom EXACT avec une entrée mame0278 déjà vérifiée** — very forte présomption qu'il s'agit du même jeu/de la même table (même convention de nommage court MAME/FBNeo pour un jeu donné), jamais exploité jusqu'ici.
+
+**Correction appliquée** : les 220 entrées `fbneo_<rom>` créées par copie directe des `mame0278_<rom>` correspondantes (aucune nouvelle lecture d'image, chaque entrée trace sa source mame0278 d'origine). `verified_default_scores.json` fbneo : **184 → 404 entrées** (commit `2fb925a`). Redéployé sur RB1 + NAS immédiatement après (pratique actée : synchroniser RB1+NAS à chaque mise à jour significative du fichier, pas seulement committer en git).
+
+**Reste après correction** : ~4653 roms fbneo toujours sans niveau 1 ni niveau 2 — la correction ferme un vrai trou de process mais ne change pas l'ordre de grandeur du travail restant (la majorité du manque fbneo n'a simplement pas d'équivalent nommé identiquement côté mame0278 encore vérifié).
