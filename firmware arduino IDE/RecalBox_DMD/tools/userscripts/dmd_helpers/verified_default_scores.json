@@ -9603,5 +9603,88 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_makaiden": {
+    "lines": [
+      "1 NMK 30000",
+      "2 AKI 20000",
+      "3 TAM 10000",
+      "4 NAO 5000",
+      "5 YOU 4000"
+    ],
+    "source": "identique a mame0278_lomakai (meme jeu, rom japonaise), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_makaimur": {
+    "lines": [
+      "1 Yuk 10000",
+      "2 Fum 10000",
+      "3 Mik 10000",
+      "4 Tom 10000",
+      "5 Tan 10000"
+    ],
+    "source": "identique a mame0278_gng (Ghosts n Goblins, rom japonaise), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_mangchi": {
+    "lines": [
+      "1 AFECA 1000000",
+      "2 TOMMY 500000",
+      "3 CHIKO 100000",
+      "4 ABG 86600"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_manhatan": {
+    "lines": [
+      "1 YS 25300",
+      "2 AKI 21400",
+      "3 AAA 18500",
+      "4 NM 15100",
+      "5 NT 11700"
+    ],
+    "source": "identique a mame0278_jailbrek (meme table Konami), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_maniach": {
+    "lines": [
+      "1 PRM 30000",
+      "2 LDS 30000",
+      "3 JJM 30000",
+      "4 TJL 30000",
+      "5 AJF 30000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_marble": {
+    "lines": [
+      "1 CR 14500",
+      "2 UFO 13900",
+      "3 GJL 12900",
+      "4 SKB 12500",
+      "5 PET 12300"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_mario": {
+    "lines": [
+      "1 AKI 12000",
+      "2 CHI 9000",
+      "3 SEI 8000",
+      "4 NAO 5400",
+      "5 IYO 3200"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_markham": {
+    "lines": [
+      "1 ABG 57350"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
