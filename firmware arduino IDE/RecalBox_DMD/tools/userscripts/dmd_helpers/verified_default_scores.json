@@ -7140,5 +7140,93 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_dogosoke": {
+    "lines": [
+      "1 DOGO 30000",
+      "2 DOGO 28000",
+      "3 DOGO 27000",
+      "4 TAMA 26000",
+      "5 MAJIN 25000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_donpachi": {
+    "lines": [
+      "1 TAB 800000",
+      "2 ODE 700000",
+      "3 AV 600000",
+      "4 PFE 500000",
+      "5 LOR 400000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_dragnblz": {
+    "lines": [
+      "1 ROB 126000",
+      "2 QUAID 70000",
+      "3 SONIA 60000",
+      "4 ROB2 50000",
+      "5 IAN 40000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_dragngun": {
+    "lines": [
+      "1 HIR 500000",
+      "2 MAA 400000",
+      "3 DON 300000",
+      "4 BAZ 200000",
+      "5 ARC 100000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_drgnmst": {
+    "lines": [
+      "1 NYH 321000",
+      "2 OSB 274000",
+      "3 NJY 240000",
+      "4 OSW 190000",
+      "5 CIA 126000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_drmario": {
+    "lines": [
+      "1 TAC 50000",
+      "2 SAT 45000",
+      "3 TH 40000",
+      "4 HAR 35000",
+      "5 YAS 30000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_drtoppel": {
+    "lines": [
+      "1 ABG 372810",
+      "2 AAA 50000",
+      "3 BBB 45000",
+      "4 CCC 40000",
+      "5 DDD 35000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_dspirit": {
+    "lines": [
+      "1 SAR 80000",
+      "2 GRA 60000",
+      "3 USO 40000",
+      "4 TC 20000",
+      "5 ABC 1090"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
