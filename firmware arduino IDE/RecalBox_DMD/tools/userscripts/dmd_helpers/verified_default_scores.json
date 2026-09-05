@@ -8966,5 +8966,100 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_jin": {
+    "lines": [
+      "1 ABG 42029",
+      "2 FAL 37303",
+      "3 CON 33248",
+      "4 FAL2 29410",
+      "5 CON2 22106"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_jjsquawk": {
+    "lines": [
+      "1 KRS 20000",
+      "2 ITC 18000",
+      "3 RED 16000",
+      "4 BCH 14000",
+      "5 MYA 12000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_joemac": {
+    "lines": [
+      "1 DE 300000",
+      "2 DE2 280000",
+      "3 DE3 260000",
+      "4 DE4 240000",
+      "5 DE5 220000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_joust": {
+    "lines": [
+      "1 JRN 23310",
+      "2 PPZ 22917",
+      "3 KPL 22552",
+      "4 CWK 20522",
+      "5 JRN2 17635"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_jpopnics": {
+    "lines": [
+      "1 SIN 50000",
+      "2 LEE 47310",
+      "3 OOD 46260",
+      "4 KIM 46130",
+      "5 BAK 45710"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_juju": {
+    "lines": [
+      "1 TAD 62000",
+      "2 TAD2 59000",
+      "3 TAD3 56000",
+      "4 TAD4 53000",
+      "5 TAD5 50000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_jumpbug": {
+    "lines": [
+      "1 AZA 19060"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_jungler": {
+    "lines": [
+      "1 HIROSHITA 20000",
+      "2 INOUE 19980",
+      "3 NUMA 18850",
+      "4 ABG 17460",
+      "5 FUJINAKA 16400"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_junofrst": {
+    "lines": [
+      "1 ABG 19800",
+      "2 AAA 10000",
+      "3 AAA2 10000",
+      "4 AAA3 10000",
+      "5 AAA4 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
