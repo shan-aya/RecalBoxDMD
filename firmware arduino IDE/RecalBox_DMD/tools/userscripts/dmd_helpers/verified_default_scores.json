@@ -9472,5 +9472,136 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_lordofk": {
+    "lines": [
+      "1 ACT 120000",
+      "2 IOI 100000",
+      "3 CRT 80000",
+      "4 OPA 70000",
+      "5 MN 60000"
+    ],
+    "source": "identique a mame0278_astyanax (deja note ~mame0278_astyanax dans DECISIONS.md), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_lomakai": {
+    "lines": [
+      "1 NMK 30000",
+      "2 AKI 20000",
+      "3 TAM 10000",
+      "4 NAO 5000",
+      "5 YOU 4000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_losttomb": {
+    "lines": [
+      "1 DAN 30468",
+      "2 ROB 24171",
+      "3 ELP 20874",
+      "4 JON 18770",
+      "5 JMH 18107"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_lostwrld": {
+    "lines": [
+      "1 NIN 10000",
+      "2 EGW 9000",
+      "3 KOJ 8000",
+      "4 TAK 7000",
+      "5 MIT 6000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_lotlot": {
+    "lines": [
+      "1 KUNKOT 251170",
+      "2 MIYUKI 249050",
+      "3 ST 230820",
+      "4 NH 228500",
+      "5 MTAGU 210300"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_loverboy": {
+    "lines": [
+      "1 JMB 43200",
+      "2 ACE 34500",
+      "3 SOS 24500",
+      "4 TNT 24000",
+      "5 EIR 18400"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_lsasquad": {
+    "lines": [
+      "1 HFORDJR 100000",
+      "2 FREDJ 95000",
+      "3 KREGGING 90000",
+      "4 AZBROWN 85000",
+      "5 TWSMITH 80000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_luckywld": {
+    "lines": [
+      "1 TATSSIGE 100000",
+      "2 AHUTOP 90000",
+      "3 IWAIKUWA 80000",
+      "4 MORION 70000",
+      "5 IGAONO 60000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_lunarbat": {
+    "lines": [
+      "1 MEC 7500",
+      "2 QJL 7250",
+      "3 LVR 5350",
+      "4 DDS 3800",
+      "5 DVE 1350"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_lwings": {
+    "lines": [
+      "1 WINGS 50000",
+      "2 TROJAN 20000",
+      "3 SECTIONZ 18000",
+      "4 1942 16000",
+      "5 COMMAND 12000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_magmax": {
+    "lines": [
+      "1 MACINTOSH 68000",
+      "2 MADMAN 56000",
+      "3 MACADAMIANUTS 44000",
+      "4 MANGETSU 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_mainevt": {
+    "lines": [
+      "1 ABG 52630",
+      "2 UCI 46270",
+      "3 EZJ 33620",
+      "4 BHI 28350",
+      "5 OTU 22630"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
