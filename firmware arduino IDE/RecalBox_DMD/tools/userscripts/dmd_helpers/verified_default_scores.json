@@ -10811,5 +10811,133 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_penbros": {
+    "lines": [
+      "1 AAA 170000",
+      "2 BBB 160000",
+      "3 CCC 150000",
+      "4 DDD 140000",
+      "5 EEE 130000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_penta": {
+    "lines": [
+      "1 AAA 20000",
+      "2 RRR 20000",
+      "3 AAA2 20000",
+      "4 KKK 20000",
+      "5 III 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_pepper2": {
+    "lines": [
+      "1 LWH 19720",
+      "2 JDE 14340",
+      "3 HRK 10130",
+      "4 HAI 9830",
+      "5 AKG 7650"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_perestro": {
+    "lines": [
+      "1 HKL 35000",
+      "2 CKC 29900",
+      "3 JYP 26600",
+      "4 MNK 23300",
+      "5 WYJ 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_perfrman": {
+    "lines": [
+      "1 JANE 18890",
+      "2 TANAKA 7820",
+      "3 TOMOYO 7280",
+      "4 VOYOGI 6100",
+      "5 CYUMI 4410"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_phantasm": {
+    "lines": [
+      "1 JAL 100000",
+      "2 BR 90000",
+      "3 RL 80000",
+      "4 PA 70000",
+      "5 LK 60000"
+    ],
+    "source": "identique a mame0278_monkelf (meme table), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_phozon": {
+    "lines": [
+      "1 HA 30000",
+      "2 YY 30000",
+      "3 AO 30000",
+      "4 SS 30000",
+      "5 IY 30000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_pignewt": {
+    "lines": [
+      "1 WJB 125483",
+      "2 LEW 121156",
+      "3 ETT 116829",
+      "4 EJB 112502",
+      "5 NGM 108175"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_pipedrm": {
+    "lines": [
+      "1 ABC 100000",
+      "2 DEF 80000",
+      "3 GHI 60000",
+      "4 JKL 40000",
+      "5 MNO 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_pipibibs": {
+    "lines": [
+      "1 ABG 92380"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_pirates": {
+    "lines": [
+      "1 NIX 100000",
+      "2 NIX2 90000",
+      "3 NIX3 80000",
+      "4 NIX4 70000",
+      "5 NIX5 60000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_pitfall2": {
+    "lines": [
+      "1 YAMD 26000",
+      "2 ITOK 19000",
+      "3 TAKH 18000",
+      "4 MIZU 17000",
+      "5 BFE 16000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
