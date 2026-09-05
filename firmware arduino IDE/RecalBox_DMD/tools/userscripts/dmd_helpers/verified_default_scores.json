@@ -8823,5 +8823,148 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_ikki": {
+    "lines": [
+      "1 YAS 40000",
+      "2 KWB 35000",
+      "3 AT 30000",
+      "4 MNJ 25000",
+      "5 SUZ 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_imgfight": {
+    "lines": [
+      "1 ABIKO 420900",
+      "2 AYAKO 414100",
+      "3 NABE 363700",
+      "4 SYUS 251200",
+      "5 OHGI 172400"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_imsorry": {
+    "lines": [
+      "1 ABG 18099",
+      "2 CHENDERSON 1900",
+      "3 CHOWARD 1900",
+      "4 CWEHR 1700",
+      "5 MNEMOTO 1600"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_inca": {
+    "lines": [
+      "1 AAA 250",
+      "2 AAA2 245",
+      "3 AAA3 240",
+      "4 AAA4 235",
+      "5 AAA5 230"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_indytemp": {
+    "lines": [
+      "1 PTR 112350",
+      "2 BIF 89950",
+      "3 PUD 84100",
+      "4 SOD 82100",
+      "5 ETG 57250"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_insectx": {
+    "lines": [
+      "1 KRY 262100",
+      "2 FJM 234500",
+      "3 KST 212500",
+      "4 ABG 133700",
+      "5 EDN 120700"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_intrepid": {
+    "lines": [
+      "1 ABG 900",
+      "2 RON 800",
+      "3 TAC 700",
+      "4 TAD 600",
+      "5 ECP 500"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_iqblock": {
+    "lines": [
+      "1 AAA 5000",
+      "2 AAA2 4000",
+      "3 AAA3 3000",
+      "4 AAA4 2000",
+      "5 ABG 1215"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_ironfort": {
+    "lines": [
+      "1 CAS 30000",
+      "2 WLF 25000",
+      "3 MON 20000",
+      "4 KIM 15000",
+      "5 GON 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_ironhors": {
+    "lines": [
+      "1 SO 25800",
+      "2 YY 22200",
+      "3 AT 19500",
+      "4 KA 13800",
+      "5 IU 13000"
+    ],
+    "source": "identique a mame0278_farwest (meme table Konami), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_jackal": {
+    "lines": [
+      "1 MO 20000",
+      "2 HO 15000",
+      "3 HT 10000",
+      "4 MT 5000",
+      "5 KM 1000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_jailbrek": {
+    "lines": [
+      "1 YS 25300",
+      "2 AKI 21400",
+      "3 AAA 18500",
+      "4 NM 15100",
+      "5 NT 11700"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_jajamaru": {
+    "lines": [
+      "1 YHIRAI 20000",
+      "2 HAYACHAN 19700",
+      "3 PIPICHAN 19280",
+      "4 JAJAMARU 19200",
+      "5 NINJAKUN 19120"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
