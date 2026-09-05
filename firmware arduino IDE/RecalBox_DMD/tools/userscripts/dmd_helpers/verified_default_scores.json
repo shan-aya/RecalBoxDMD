@@ -6606,5 +6606,72 @@
     ],
     "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
     "date": "2026-09-05"
+  },
+  "mame0278_aeroboto": {
+    "lines": [
+      "1 RBS 54000",
+      "2 JEA 36300",
+      "3 EJH 26500",
+      "4 HEL 19500",
+      "5 LEW 16500"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_ajax": {
+    "lines": [
+      "1 TDK 56300"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_alphaxz": {
+    "lines": [
+      "1 Z 90000",
+      "2 Y 80000",
+      "3 X 70000",
+      "4 W 60000",
+      "5 V 50000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_apb1": {
+    "lines": [
+      "1 DFT 10000",
+      "2 MLH 9500",
+      "3 AJM 9000",
+      "4 MLW 8500",
+      "5 BAF 8000",
+      "6 HLC 7500",
+      "7 EAR 7000",
+      "8 RBD 6500",
+      "9 CJD 6500",
+      "10 COP 6250"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_aquajack": {
+    "lines": [
+      "1 TAK 99999",
+      "2 KOB 17000",
+      "3 TOS 15000",
+      "4 KBD 13000",
+      "5 ABG 12500"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_airdueljm72": {
+    "lines": [
+      "1 RSDBU 231500",
+      "2 ANDOH 200100",
+      "3 HIYAMUTA 175000",
+      "4 ABG 111900",
+      "5 TSUMINAG 102400"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
