@@ -10242,5 +10242,167 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_natodef": {
+    "lines": [
+      "1 PLA 20000",
+      "2 DML 20000",
+      "3 BDS 20000",
+      "4 RSM 20000",
+      "5 BDS2 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_nbbatman": {
+    "lines": [
+      "1 DOH 19000",
+      "2 MC 18000",
+      "3 KKJ 17000",
+      "4 GTI 16000",
+      "5 TDA 15000"
+    ],
+    "source": "identique a mame0278_leaguemn (meme table), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_nebulbee": {
+    "lines": [
+      "1 AAA 20000",
+      "2 BBB 20000",
+      "3 CCC 20000",
+      "4 DDD 20000",
+      "5 EEE 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_nebulray": {
+    "lines": [
+      "1 ABG 148820",
+      "2 HCO 100000",
+      "3 DAR 90000",
+      "4 GRD 80000",
+      "5 SFM 70000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_nemesis": {
+    "lines": [
+      "1 HM 57300",
+      "2 ST 48530",
+      "3 KY 33300",
+      "4 KK 25700",
+      "5 KN 21500"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_nemo": {
+    "lines": [
+      "1 CBX 55000",
+      "2 COM 50000",
+      "3 CAP 45000",
+      "4 COM2 40000",
+      "5 CAP2 35000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_neobattl": {
+    "lines": [
+      "1 ABG 18200"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_newfant": {
+    "lines": [
+      "1 SBN 50000",
+      "2 JKY 45000",
+      "3 SHS 40000",
+      "4 SHH 35000",
+      "5 CTC 30000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_nibbler": {
+    "lines": [
+      "1 JHU 50000",
+      "2 MRS 49000",
+      "3 JMJ 44000",
+      "4 BAK 40000",
+      "5 RMM 30000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_nightstr": {
+    "lines": [
+      "1 SUG 10000000",
+      "2 KAI 9600000",
+      "3 QWK 9600000",
+      "4 TKN 9300000",
+      "5 TMR 9000000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_ninjak": {
+    "lines": [
+      "1 TAK 355290",
+      "2 BSH 343450",
+      "3 II 226210",
+      "4 SHI 179310",
+      "5 ZA 124320"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_ninjakun": {
+    "lines": [
+      "1 BUCHA 20000",
+      "2 TODO 18000",
+      "3 FUKUSHI 15000",
+      "4 FUZISAWA 12000",
+      "5 TATENO 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_ninjaw": {
+    "lines": [
+      "1 DS 100000",
+      "2 NIL 99500",
+      "3 RZF 99000",
+      "4 NIG 98500",
+      "5 KUC 98000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_nitrobal": {
+    "lines": [
+      "1 JB 1000000",
+      "2 HB 900000",
+      "3 NB 800000",
+      "4 SK 700000",
+      "5 SK2 600000",
+      "6 KH 500000"
+    ],
+    "source": "identique a mame0278_gunball (meme jeu, Nitro Ball/Gun Ball), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_nova2001": {
+    "lines": [
+      "1 BUCHA 20000",
+      "2 HAL 18000",
+      "3 FUKUSHI 15000",
+      "4 HIROMI 12000",
+      "5 RYUICHI 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
