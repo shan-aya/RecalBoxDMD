@@ -11874,5 +11874,124 @@
     ],
     "source": "identique a mame0278_lifefrce (Salamander = Life Force, meme jeu), copie directe",
     "date": "2026-09-05"
+  },
+  "mame0278_samuraia": {
+    "lines": [
+      "1 AAA 200000",
+      "2 BBB 190000",
+      "3 CCC 180000",
+      "4 DDD 170000",
+      "5 EEE 160000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_sandscrp": {
+    "lines": [
+      "1 ABG 48700"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_sarukani": {
+    "lines": [
+      "1 HOM 22000",
+      "2 KOR 12000",
+      "3 TAK 8600",
+      "4 KAN 3300",
+      "5 IGA 680"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_sathena": {
+    "lines": [
+      "1 ATHENA 30000",
+      "2 IDA 25000",
+      "3 SIVA 20000",
+      "4 PYTHON 15000",
+      "5 MADILLO 10010"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_saturnzi": {
+    "lines": [
+      "1 ABG 900"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_sauro": {
+    "lines": [
+      "1 ABG 12887"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_savanna": {
+    "lines": [
+      "1 HIROSHITA 20000",
+      "2 INOUE 19980",
+      "3 NUMA 18850",
+      "4 FUJINAKA 16400",
+      "5 FUKUTAKE 11310"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_sbagman": {
+    "lines": [
+      "1 FANCHOIS 18900",
+      "2 GASTOUNET 17900",
+      "3 PIERROT 16000",
+      "4 JOJO 15100",
+      "5 JB 14200"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_sbasketb": {
+    "lines": [
+      "1 JPN 100000",
+      "2 USA 90000",
+      "3 AMF 80000",
+      "4 BMW 70000",
+      "5 IOS 60000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_sbbros": {
+    "lines": [
+      "1 MS 500000",
+      "2 TU 400000",
+      "3 KN 400000",
+      "4 AK 300000",
+      "5 KF 200000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_scfinals": {
+    "lines": [
+      "1 MAR 10",
+      "2 SAK 9",
+      "3 KAT 8",
+      "4 KJI 7"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_scontra": {
+    "lines": [
+      "1 AAA 10000",
+      "2 BBB 9000",
+      "3 CCC 8000",
+      "4 DDD 7000",
+      "5 EEE 6000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
