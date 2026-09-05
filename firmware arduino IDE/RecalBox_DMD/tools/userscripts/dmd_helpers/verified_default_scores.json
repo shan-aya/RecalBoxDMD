@@ -9321,5 +9321,156 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_le2": {
+    "lines": [
+      "1 PAT 1000",
+      "2 DOC 900",
+      "3 BAT 800",
+      "4 KID 700",
+      "5 JIM 600"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_leaguemn": {
+    "lines": [
+      "1 DOH 19000",
+      "2 MC 18000",
+      "3 KKJ 17000",
+      "4 GTI 16000",
+      "5 TDA 15000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_legend": {
+    "lines": [
+      "1 KAME 50000",
+      "2 NAKAYAMARU 40000",
+      "3 ABEMARE 30000",
+      "4 TOSHITANA 20000",
+      "5 ABG 13440"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_legion": {
+    "lines": [
+      "1 HEVY 20000",
+      "2 METAL 19000",
+      "3 RDCK 17000",
+      "4 RDCK2 16000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_lemmings": {
+    "lines": [
+      "1 DE 100",
+      "2 PSG 90",
+      "3 DMA 80",
+      "4 TTR 70",
+      "5 TSW 60"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_leprechn": {
+    "lines": [
+      "1 TAB 5555",
+      "2 SJK 5050",
+      "3 KC 4545",
+      "4 GUZ 4040",
+      "5 SAM 3535"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_lethalen": {
+    "lines": [
+      "1 AKM 1000",
+      "2 FNC 900",
+      "3 HSC 800",
+      "4 SMG 700",
+      "5 UZI 600"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_lgtnfght": {
+    "lines": [
+      "1 ACE 298260",
+      "2 BEM 255510",
+      "3 CAT 232070",
+      "4 DNA 211700",
+      "5 EXE 198320"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_liberate": {
+    "lines": [
+      "1 YUMIKO 58000",
+      "2 IWAO 38400",
+      "3 FUJIO 28800",
+      "4 CHIBI 25600",
+      "5 SONO1 19200"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_lifefrce": {
+    "lines": [
+      "1 HM 57300",
+      "2 MT 30000",
+      "3 TT 20000",
+      "4 SN 10000",
+      "5 IM 8000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_lightbr": {
+    "lines": [
+      "1 RPL 8890",
+      "2 NAC 7770",
+      "3 TAN 5960",
+      "4 BIN 4510",
+      "5 HAC 3900"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_liquidk": {
+    "lines": [
+      "1 KAN 49000",
+      "2 UYS 46000",
+      "3 MAI 42000",
+      "4 ABT 40000",
+      "5 GUU 13000"
+    ],
+    "source": "identique a mame0278_kikikai (meme table), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_lkage": {
+    "lines": [
+      "1 KS 200000",
+      "2 BUL 197000",
+      "3 MG 192500",
+      "4 CCC 189000",
+      "5 EO 186500"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_loht": {
+    "lines": [
+      "1 RSHOBU 113600",
+      "2 YASU 81200",
+      "3 MT2 70400"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
