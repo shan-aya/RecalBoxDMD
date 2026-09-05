@@ -8445,5 +8445,113 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_gussun": {
+    "lines": [
+      "1 UCKEY 200000",
+      "2 HIYA 170000",
+      "3 ANIKI 150000",
+      "4 UNYA 120000",
+      "5 ROK 100000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_guts": {
+    "lines": [
+      "1 CAD 700",
+      "2 LVR 680",
+      "3 BDB 660"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gwar": {
+    "lines": [
+      "1 SRK 30000",
+      "2 SRK2 29000",
+      "3 SRK3 28000",
+      "4 SRK4 27000",
+      "5 SRK5 26000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gwarrior": {
+    "lines": [
+      "1 123 19850",
+      "2 ABG 15400",
+      "3 FGH 15000",
+      "4 IJK 14000",
+      "5 LMN 13000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gyrodine": {
+    "lines": [
+      "1 NAOMIS 35200",
+      "2 KT 30100",
+      "3 MIKIKUN 27000",
+      "4 NICEYN 24000",
+      "5 POPKAWA 21000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gyruss": {
+    "lines": [
+      "1 KO 10000",
+      "2 NA 8800",
+      "3 MI 8400",
+      "4 ABG 6950",
+      "5 BO 6500"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hal21": {
+    "lines": [
+      "1 KK 20000",
+      "2 HT 20000",
+      "3 YH 20000",
+      "4 YA 20000",
+      "5 FH 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_halleysc": {
+    "lines": [
+      "1 KM 200000",
+      "2 NIG 100000",
+      "3 LSN 90000",
+      "4 DGR 80000",
+      "5 ET 70000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hangon": {
+    "lines": [
+      "1 ABG 1700750",
+      "2 KAN 1000000",
+      "3 YU 900000",
+      "4 OHE 800000",
+      "5 ISH 700000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hardhat": {
+    "lines": [
+      "1 LWH 19720",
+      "2 JDE 14340",
+      "3 VIC 10130",
+      "4 HRK 9830",
+      "5 HAI 7650"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
