@@ -2,7 +2,29 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v2
+# Version actuelle : v3
+#
+# v3 - 2026-09-05 - safe-modify - BUG REEL confirme sur materiel RB1 (retour
+#   utilisateur : "RB cHALLENGE ne fonctionne pas sur le challenge actuel
+#   rb1"). Challenge actif au moment du signalement : "Z EVENT - Blade
+#   Buster" (system=nes, core=fceumm, current.json bien present avec 100
+#   entrees de classement -- le challenge tourne reellement). Cause :
+#   roms[].name dans current.json valait "BladeBuster (High Level
+#   Challenge)" -- un NOM D'AFFICHAGE, alors que `rom` recu ici est le nom
+#   de FICHIER sans extension (bladebuster.zip -> "bladebuster", voir
+#   dmd_score.sh: `basename "$game_path" | sed 's/\.[^.]*$//'`). L'egalite
+#   stricte `rom not in roms` (v1/v2) echouait donc TOUJOURS pour ce
+#   challenge, malgre une session active -- aucun panneau RB CHALLENGE
+#   affiche. Le seul test materiel fait jusqu'ici (Blazing Star, voir
+#   changelog dmd_score.sh v17/v23) fonctionnait par PURE COINCIDENCE : son
+#   nom d'affichage etait identique a son nom de fichier une fois
+#   normalise -- ce n'est pas garanti en general (annotations type "(High
+#   Level Challenge)", "2600", editions, etc. frequentes sur les Z EVENTS).
+#   Fix : comparaison normalisee (accents/casse/ponctuation retires) ET
+#   tolerante -- match si le nom de fichier normalise est CONTENU DANS le
+#   nom d'affichage normalise (couvre le cas annote ci-dessus) ou egal
+#   (couvre le cas Blazing Star, comportement inchange). Voir
+#   _normalize_id()/_rom_matches_challenge().
 #
 # v2 - 2026-09-01 - safe-modify - BUG REEL confirme sur materiel -- voir
 #   dmd_hiscore_generic.py v4 pour le detail complet (meme investigation,
@@ -46,6 +68,31 @@ def strip_accents(s):
     return "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
 
 
+def _normalize_id(s):
+    """Reduit un nom de rom/jeu a son squelette alphanumerique (accents,
+    casse, espaces, parentheses et ponctuation retires) pour comparer un
+    nom de FICHIER (ex. "bladebuster") a un nom d'AFFICHAGE potentiellement
+    annote (ex. "BladeBuster (High Level Challenge)") -- voir changelog v3."""
+    s = strip_accents(s or "").lower()
+    return re.sub(r"[^a-z0-9]", "", s)
+
+
+def _rom_matches_challenge(rom, display_names):
+    """Vrai si `rom` (nom de fichier sans extension) designe bien l'un des
+    jeux du challenge (`display_names` = roms[].name de current.json).
+    Egalite normalisee (cas Blazing Star, ou nom de fichier == nom
+    d'affichage) OU nom de fichier normalise CONTENU DANS le nom
+    d'affichage normalise (cas Blade Buster, nom d'affichage annote)."""
+    norm_rom = _normalize_id(rom)
+    if not norm_rom:
+        return False
+    for name in display_names:
+        norm_name = _normalize_id(name)
+        if norm_name and (norm_rom == norm_name or norm_rom in norm_name):
+            return True
+    return False
+
+
 def clean_name(raw):
     """Normalise un nom de joueur pour l'ecran DMD (police classique, pas
     d'accents/caracteres non geres) -- meme esprit que normalize_text()
@@ -79,8 +126,8 @@ def main():
     # n'importe quel autre jeu.
     if data.get("system") != system:
         return
-    roms = [r.get("name") for r in data.get("roms", [])]
-    if rom not in roms:
+    display_names = [r.get("name") for r in data.get("roms", [])]
+    if not _rom_matches_challenge(rom, display_names):
         return
 
     leaderboard = data.get("leaderboard", [])
