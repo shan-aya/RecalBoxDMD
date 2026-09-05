@@ -9204,5 +9204,122 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_konamigt": {
+    "lines": [
+      "1 ABG 259770",
+      "2 JOY 10000",
+      "3 CAR 9800",
+      "4 USA 9700",
+      "5 VAN 9500"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_korosuke": {
+    "lines": [
+      "1 KRL 750",
+      "2 KRL2 400",
+      "3 KRL3 380",
+      "4 KRL4 280",
+      "5 KRL5 270"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_krull": {
+    "lines": [
+      "1 ABG 7750"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_kungfub": {
+    "lines": [
+      "1 NA 48520",
+      "2 SUI 43150",
+      "3 TK 40100",
+      "4 BAH 39750",
+      "5 TSI 39180"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_kungfum": {
+    "lines": [
+      "1 NA 48520",
+      "2 SUI 43150",
+      "3 TK 40100",
+      "4 BAH 39750",
+      "5 TSI 39180"
+    ],
+    "source": "identique a mame0278_kungfub (meme jeu, bootleg/original), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_kuniokun": {
+    "lines": [
+      "1 KUNIO 50000",
+      "2 SABU 38700",
+      "3 MITSUGU 23456",
+      "4 SHINJI 7777",
+      "5 RIKI 1234"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_kurikint": {
+    "lines": [
+      "1 TK 90720",
+      "2 DSK 89880",
+      "3 YH 88640",
+      "4 II 67300",
+      "5 ABC 65660"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_labyrunr": {
+    "lines": [
+      "1 TOP 12300",
+      "2 JAX 11700",
+      "3 WEC 9800",
+      "4 VIP 9400",
+      "5 POW 8000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_landbrk": {
+    "lines": [
+      "1 ANN 100000",
+      "2 TAH 80000",
+      "3 DUD 60000",
+      "4 RAN 40000",
+      "5 RUI 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_lastduel": {
+    "lines": [
+      "1 CAP 20000",
+      "2 COM 19000",
+      "3 CAP2 18000",
+      "4 COM2 17000",
+      "5 CAP3 16000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_ldrun": {
+    "lines": [
+      "1 IIO 48540",
+      "2 RKG 43200",
+      "3 EIA 40150",
+      "4 MKM 38800",
+      "5 KAE 37050"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
