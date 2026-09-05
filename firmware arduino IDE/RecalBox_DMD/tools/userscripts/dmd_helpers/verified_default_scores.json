@@ -11993,5 +11993,118 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_scregg": {
+    "lines": [
+      "1 ABG 42350",
+      "2 MO 30000",
+      "3 NT 27400",
+      "4 JH 18300",
+      "5 HS 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_sdfight": {
+    "lines": [
+      "1 COM 100000",
+      "2 COM2 50000",
+      "3 COM3 30000",
+      "4 COM4 10000",
+      "5 COM5 5000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_sdtennis": {
+    "lines": [
+      "1 AKO 18888",
+      "2 TAC 16775",
+      "3 SAI 15025",
+      "4 SAK 13110",
+      "5 RIE 12528"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_seabattl": {
+    "lines": [
+      "1 ABG 60"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_searchar": {
+    "lines": [
+      "1 SAR 5010",
+      "2 SAL 4510",
+      "3 SHR 4010",
+      "4 SHL 3510",
+      "5 ROR 3010"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_seawolft": {
+    "lines": [
+      "1 AGO 63820",
+      "2 VAP 53540",
+      "3 AMF 48520",
+      "4 PM 43410",
+      "5 AMF2 36540"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_secretag": {
+    "lines": [
+      "1 007 300000",
+      "2 110 285000",
+      "3 117 270000",
+      "4 177 255000",
+      "5 813 240000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_sectionz": {
+    "lines": [
+      "1 VULGUSU 30000",
+      "2 SONSON 20000",
+      "3 HIGEMALU 18000",
+      "4 1942 16000",
+      "5 EXEDEXES 12000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_seganinj": {
+    "lines": [
+      "1 RN 50000",
+      "2 ABG 45450",
+      "3 KO 45000",
+      "4 YK 40000",
+      "5 RK 35000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_seicross": {
+    "lines": [
+      "1 YOS 25000",
+      "2 UKE 20000",
+      "3 KAZ 15000",
+      "4 UMI 10000",
+      "5 ASA 5000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_senjyo": {
+    "lines": [
+      "1 ABG 7500"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
