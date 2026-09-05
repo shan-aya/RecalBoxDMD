@@ -11300,5 +11300,110 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_rabiolep": {
+    "lines": [
+      "1 SHIN 700000",
+      "2 THONDA 500000",
+      "3 ISIDA 350000",
+      "4 KOHCHAN 300000",
+      "5 ZIPGUN 270000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_rachero": {
+    "lines": [
+      "1 RGV 10000000",
+      "2 RVF 9000000",
+      "3 YZF 8000000",
+      "4 ZXR 7000000",
+      "5 YZR 5000000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_racknrol": {
+    "lines": [
+      "1 DPJ 21",
+      "2 GC 14",
+      "3 HTC 9",
+      "4 JB 7",
+      "5 DS 5"
+    ],
+    "source": "identique a mame0278_hexpool (Rack n Roll, meme jeu), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_radarscp": {
+    "lines": [
+      "1 ABG 4650"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_raflesia": {
+    "lines": [
+      "1 AA 20000",
+      "2 BB 19000",
+      "3 CC 18000",
+      "4 DD 17000",
+      "5 EE 16000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_rambo3": {
+    "lines": [
+      "1 TAK 1000000",
+      "2 KAT 900000",
+      "3 VAN 800000",
+      "4 KON 700000",
+      "5 MOM 600000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_rastan": {
+    "lines": [
+      "1 COB 273100",
+      "2 THS 257200",
+      "3 YAG 197800",
+      "4 TKG 125400",
+      "5 YTN 112000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_rastsaga": {
+    "lines": [
+      "1 COB 273100",
+      "2 THS 257200",
+      "3 YAG 197800",
+      "4 TKG 125400",
+      "5 YTN 112000"
+    ],
+    "source": "identique a mame0278_rastan (Rastan Saga = Rastan), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_rayforce": {
+    "lines": [
+      "1 ABG 1000000",
+      "2 NAK 900000",
+      "3 MIS 800000",
+      "4 SOY 700000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_rbisland": {
+    "lines": [
+      "1 MTJ 100000",
+      "2 IF 100000",
+      "3 KM 100000",
+      "4 TS 100000",
+      "5 BB2 100000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
