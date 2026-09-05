@@ -5446,5 +5446,344 @@
     ],
     "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
     "date": "2026-09-05"
+  },
+  "mame0278_ckong": {
+    "lines": [
+      "1 ABG 10100",
+      "2 N2 7650",
+      "3 N3 6100",
+      "4 N4 5950",
+      "5 N5 5050"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_ckongdks": {
+    "lines": [
+      "1 N1 7650",
+      "2 N2 6100",
+      "3 N3 5950",
+      "4 N4 5050",
+      "5 N5 4300"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_ckongpt2": {
+    "lines": [
+      "1 ABG 10500",
+      "2 N2 7650",
+      "3 N3 6100",
+      "4 N4 5950",
+      "5 N5 5050"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_cleopatr": {
+    "lines": [
+      "1 AAA 500000",
+      "2 BBB 450000",
+      "3 CCC 400000",
+      "4 DDD 350000",
+      "5 EEE 300000",
+      "6 FFF 250000",
+      "7 GGG 200000",
+      "8 HHH 150000",
+      "9 III 100000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_clshroad": {
+    "lines": [
+      "1 MYASUSI 50000",
+      "2 IHIDEMI 45000",
+      "3 NAKINA 40000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_cluclu": {
+    "lines": [
+      "1 TS 52320",
+      "2 SUG 40500",
+      "3 KAZ 40110",
+      "4 RN 39519",
+      "5 ERI 38260",
+      "6 RM 31630",
+      "7 TOM 28970",
+      "8 JIM 28800",
+      "9 MU 25420"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_cnightst": {
+    "lines": [
+      "1 KEN 30000",
+      "2 YA 30000",
+      "3 YO 30000",
+      "4 SA 30000",
+      "5 KA 30000",
+      "6 KI 30000",
+      "7 TA 30000",
+      "8 HA 30000",
+      "9 TA2 30000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_cninja": {
+    "lines": [
+      "1 DE1 300000",
+      "2 DE2 280000",
+      "3 DE3 260000",
+      "4 DE4 240000",
+      "5 DE5 220000",
+      "6 DE6 200000",
+      "7 DE7 180000",
+      "8 DE8 160000",
+      "9 DE9 140000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_columns": {
+    "lines": [
+      "1 ABG 20978",
+      "2 VNK 10000",
+      "3 AIA 9000",
+      "4 KMZ 7000",
+      "5 III 6000",
+      "6 HYM 5000",
+      "7 AAO 4000",
+      "8 RT 3000",
+      "9 AHO 2000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_combatsc": {
+    "lines": [
+      "1 KT 225000",
+      "2 SY 214800",
+      "3 HO 200010",
+      "4 MN 184100",
+      "5 AO 160760",
+      "6 NS 88500",
+      "7 TO 58100",
+      "8 EN 44600",
+      "9 ST 31330"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_commando": {
+    "lines": [
+      "1 ABG 54800",
+      "2 VULGUS 50000",
+      "3 SONSON 30000",
+      "4 HIGEMARU 20000",
+      "5 CAPCOM 19420",
+      "6 ENEDENES 12000",
+      "7 COMANDO 10000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_congo": {
+    "lines": [
+      "1 ABG 13120",
+      "2 N2 8900",
+      "3 N3 7400",
+      "4 N4 6600",
+      "5 N5 5100",
+      "6 N6 4300"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_contra": {
+    "lines": [
+      "1 KKK 25800",
+      "2 SSS 22200",
+      "3 KKK2 19500",
+      "4 HHH 13800",
+      "5 KKK3 13000",
+      "6 KKK4 12000",
+      "7 NNN 11000",
+      "8 INC 10000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_cookbib": {
+    "lines": [
+      "1 AAA 1000000",
+      "2 BBB 100000",
+      "3 CCC 10000",
+      "4 DDD 1000",
+      "5 EEE 100"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_cookrace": {
+    "lines": [
+      "1 UME 28000",
+      "2 VOD 10200",
+      "3 HON 9500",
+      "4 SIN 7550",
+      "5 NAN 4860"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_cop01": {
+    "lines": [
+      "1 HY 25000",
+      "2 TOM 20000",
+      "3 MO 15000",
+      "4 IS 10000",
+      "5 RY 5000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_cosmccop": {
+    "lines": [
+      "1 ABG 92170",
+      "2 OVB 63810",
+      "3 TAG 62030",
+      "4 HVA 60140",
+      "5 DOH 59110",
+      "6 MSG 43030",
+      "7 TZN 34030",
+      "8 MIZ 25200",
+      "9 SMT 22300"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_cosmogng": {
+    "lines": [
+      "1 ABG 96210",
+      "2 CCC 50000",
+      "3 OOO 40000",
+      "4 SSS 30000",
+      "5 MMM 20000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_cotton": {
+    "lines": [
+      "1 BIG 68000",
+      "2 GOT 58000",
+      "3 TON 48000",
+      "4 PAN 38000",
+      "5 TSU 28000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_countrunb": {
+    "lines": [
+      "1 PAN 200000",
+      "2 KAT 100000",
+      "3 REB 50000",
+      "4 BOS 20000",
+      "5 HEA 10000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_cppicf": {
+    "lines": [
+      "1 MAR 50000",
+      "2 MIN 40000",
+      "3 VOU 30000",
+      "4 SAN 20000",
+      "5 MIV 10000",
+      "6 DIE 3900"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_cprobowl": {
+    "lines": [
+      "1 MAC 11050",
+      "2 MIX 7150",
+      "3 AKI 5620",
+      "4 AB 4300",
+      "5 UNI 1950"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_crash": {
+    "lines": [
+      "1 N1 8340"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_crazyblk": {
+    "lines": [
+      "1 BERT 9860",
+      "2 MICK 9840",
+      "3 KATE 9700",
+      "4 HELEN 9520",
+      "5 EN 9410",
+      "6 JONG 9270",
+      "7 JACK 9010",
+      "8 ELIOT 8960",
+      "9 SUSAN 8860"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_crazycop": {
+    "lines": [
+      "1 ISH 163500",
+      "2 TAK 159000",
+      "3 MAT 129500",
+      "4 YAG 128500",
+      "5 SAT 92600",
+      "6 OKA 77300",
+      "7 COP 55200",
+      "8 END 37700"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_crimfght": {
+    "lines": [
+      "1 ABG 79",
+      "2 CHI 10",
+      "3 MO 9",
+      "4 CKG 8",
+      "5 MI 7",
+      "6 KK 6",
+      "7 SHU 5",
+      "8 ISI 4",
+      "9 CHI2 3"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_crkdown": {
+    "lines": [
+      "1 KTG 100000",
+      "2 SGN 90000",
+      "3 KUR 80000",
+      "4 MAA 70000",
+      "5 KAW 60000",
+      "6 WIZ 40000",
+      "7 KYO 30000"
+    ],
+    "source": "capture progetto-snaps set 'Scores' (mame0.288), lecture visuelle directe",
+    "date": "2026-09-05"
   }
 }
