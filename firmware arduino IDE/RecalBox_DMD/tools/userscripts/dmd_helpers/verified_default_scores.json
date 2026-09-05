@@ -11033,5 +11033,126 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_powerins": {
+    "lines": [
+      "1 ABG 98600",
+      "2 MN 50000",
+      "3 YAN 40000",
+      "4 MM 30000",
+      "5 KAW 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_pprobe": {
+    "lines": [
+      "1 YOSHI 20000",
+      "2 KKODAMA 18000",
+      "3 KOBAYASI 16000",
+      "4 MORITA 15000",
+      "5 YNAKA 14000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_prehisle": {
+    "lines": [
+      "1 AB 80000",
+      "2 CD 20000",
+      "3 EF 15000",
+      "4 GHIJ 10000",
+      "5 KLMNOPQ 9000"
+    ],
+    "source": "identique a mame0278_gensitou (meme table), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_progear": {
+    "lines": [
+      "1 XOU 2000000",
+      "2 ITI 1800001",
+      "3 WTR 1600002",
+      "4 ARI 1400003",
+      "5 TNK 1200004"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_psoldier": {
+    "lines": [
+      "1 ABG 109600",
+      "2 KOI 101000",
+      "3 NAG 75300",
+      "4 SAK 50100",
+      "5 UWF 40000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_pspikes": {
+    "lines": [
+      "1 ABC 10000",
+      "2 DEF 3000",
+      "3 GHI 1500",
+      "4 JKL 1000",
+      "5 MNO 500"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_psychic5": {
+    "lines": [
+      "1 NAO 75900",
+      "2 CHE 58100",
+      "3 TS 39200",
+      "4 NAN 37400",
+      "5 MNK 33700"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_ptblank": {
+    "lines": [
+      "1 GUN 80000",
+      "2 BUL 70000",
+      "3 LET 60000",
+      "4 NAM 50000",
+      "5 CO 40000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_puchicar": {
+    "lines": [
+      "1 YAC 100000",
+      "2 RAL 90000",
+      "3 OPA 80000",
+      "4 PER 70000",
+      "5 BEE 60000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_pulirula": {
+    "lines": [
+      "1 TMR 15000",
+      "2 KAT 14600",
+      "3 KAZ 9000",
+      "4 MIY 8100",
+      "5 KRB 5300"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_punchout": {
+    "lines": [
+      "1 NOA 88700",
+      "2 OCB 87700",
+      "3 DTC 86700",
+      "4 BBS 85700",
+      "5 DBV 84700"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
