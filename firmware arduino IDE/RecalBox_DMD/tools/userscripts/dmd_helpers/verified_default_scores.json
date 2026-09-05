@@ -6922,5 +6922,102 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_cworld2j": {
+    "lines": [
+      "1 VAZ 3891200",
+      "2 CAP 10000",
+      "3 COM 8000",
+      "4 CP 6000",
+      "5 SYS 5000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_dadandrn": {
+    "lines": [
+      "1 NAK 100000",
+      "2 SAK 90000",
+      "3 YOS 80000",
+      "4 KOB 70000",
+      "5 AND 60000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_daisenpu": {
+    "lines": [
+      "1 ABC 40000",
+      "2 DEF 39000",
+      "3 GHI 38000",
+      "4 JKL 37000",
+      "5 MNO 36000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_daitorid": {
+    "lines": [
+      "1 TAM 100000",
+      "2 MAO 50000",
+      "3 FAM 30000",
+      "4 FIR 10000",
+      "5 ICH 5000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_danceyes": {
+    "lines": [
+      "1 UME 100000",
+      "2 KYT 80000",
+      "3 KOM 60000",
+      "4 KM 40000",
+      "5 ABG 31950"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_darktowr": {
+    "lines": [
+      "1 K 250000",
+      "2 H 200000",
+      "3 A 150000",
+      "4 B 100000",
+      "5 C 90000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_dassault": {
+    "lines": [
+      "1 ZEN 1000",
+      "2 HAL 750",
+      "3 NOD 500",
+      "4 ABG 490",
+      "5 SS 100"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_dbreed": {
+    "lines": [
+      "1 NABE 275800",
+      "2 ROKUJIZO 202700",
+      "3 MOICHI 153500",
+      "4 YOSHIGON 133100",
+      "5 FAN 129800"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_dbz2": {
+    "lines": [
+      "1 GOK 100000",
+      "2 GHN 90000",
+      "3 VEG 80000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
