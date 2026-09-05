@@ -9061,5 +9061,148 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_karnov": {
+    "lines": [
+      "1 AAA 79800",
+      "2 BBB 69800",
+      "3 CCC 59800",
+      "4 DDD 49800",
+      "5 EEE 39800"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_kazan": {
+    "lines": [
+      "1 AAA 30000",
+      "2 AAA2 25000",
+      "3 AAA3 20000",
+      "4 AAA4 15000",
+      "5 AAA5 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_kbash": {
+    "lines": [
+      "1 ABC 40000",
+      "2 DEF 39000",
+      "3 GHI 38000",
+      "4 JKL 37000",
+      "5 MNO 36000"
+    ],
+    "source": "identique a mame0278_daisenpu (meme table ABC/DEF/GHI/JKL/MNO), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_kchamp": {
+    "lines": [
+      "1 YY 18000",
+      "2 KK 16000",
+      "3 RII 14000",
+      "4 YK 12000",
+      "5 IYO 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_kengo": {
+    "lines": [
+      "1 HIRORON 84100",
+      "2 MIEKUN 63350",
+      "3 SAKOTAN 50900",
+      "4 KIMICHAN 28800",
+      "5 KAZUKUN 22400"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_kickball": {
+    "lines": [
+      "1 KNQ 10000",
+      "2 HEA 3000",
+      "3 GHI 1500",
+      "4 JKL 1000",
+      "5 MNO 500"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_kicker": {
+    "lines": [
+      "1 MO 25000",
+      "2 SO 22200",
+      "3 MO2 19500",
+      "4 MN 13800",
+      "5 SR 13000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_kicknrun": {
+    "lines": [
+      "1 USA 5",
+      "2 KAT 4",
+      "3 TAK 4",
+      "4 ESI 3",
+      "5 YZR 2"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_kikcubic": {
+    "lines": [
+      "1 HIROGON 718350",
+      "2 DANDYHARRY 597400",
+      "3 MANTARO 495200",
+      "4 MIIKUNJUNCHAN 483100",
+      "5 YOSHIKAZUE 451950"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_kikikai": {
+    "lines": [
+      "1 KAN 49000",
+      "2 UYS 46000",
+      "3 MAI 42000",
+      "4 ABT 40000",
+      "5 GUU 13000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_kingofb": {
+    "lines": [
+      "1 SEIKON 305000",
+      "2 MIDORII 222000",
+      "3 YUKII 210000",
+      "4 MAIKOI 155000",
+      "5 HIROKOY 80000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_knckhead": {
+    "lines": [
+      "1 VIN 100000",
+      "2 FUJ 80000",
+      "3 CHR 60000",
+      "4 DAR 40000",
+      "5 SIL 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_kod": {
+    "lines": [
+      "1 BLB 100000",
+      "2 WAK 80000",
+      "3 GGT 50000",
+      "4 ABG 23800",
+      "5 SAT 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
