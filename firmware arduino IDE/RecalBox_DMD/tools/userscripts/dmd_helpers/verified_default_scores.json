@@ -16433,5 +16433,197 @@
     ],
     "source": "identique a fbneo_zookeep2 (meme rom, correspondance de nom exacte fbneo/mame0278), copie directe - reconciliation retroactive niveau2 sens inverse",
     "date": "2026-09-05"
+  },
+  "mame0278_skyadvnt": {
+    "lines": [
+      "1 MI 1024",
+      "2 AU 992",
+      "3 OK 883",
+      "4 YES 776",
+      "5 UCL 667"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_skykid": {
+    "lines": [
+      "1 AMIHAMA 30000",
+      "2 YOSIMOTO 25000",
+      "3 KAWAI 20000",
+      "4 MORIKAWA 15000",
+      "5 NAKAYAMA 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_skywolf": {
+    "lines": [
+      "1 YOSHIKIKUN 50000",
+      "2 KANKUROU 40000",
+      "3 CHAPYHARA 30000",
+      "4 YAHICHI 20000",
+      "5 SUKESAN 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_skyskipr": {
+    "lines": [
+      "1 GET 18800",
+      "2 YOK 15200",
+      "3 SF 12090",
+      "4 TJI 10730",
+      "5 HAM 9640"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_skysmash": {
+    "lines": [
+      "1 SUR 20000",
+      "2 KAK 19800",
+      "3 YEO 19200",
+      "4 STN 12800",
+      "5 MAO 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_skybump": {
+    "lines": [
+      "1 ALM 25350",
+      "2 MAR 19800",
+      "3 SIL 14700",
+      "4 PER 11500",
+      "5 PIE 9450"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_skyfox": {
+    "lines": [
+      "1 ABG 17700",
+      "2 ABG2 12900"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_skysoldr": {
+    "lines": [
+      "1 ABG 117190",
+      "2 MI 90000",
+      "3 OK 80800",
+      "4 AU 70900",
+      "5 UCL 60600"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_skydest": {
+    "lines": [
+      "1 KOBAYAN 25000",
+      "2 SUNADAN 20000",
+      "3 MAYUMIN 15000",
+      "4 OKKUN 10000",
+      "5 AKINAN 5000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "fbneo_skyadvnt": {
+    "lines": [
+      "1 MI 1024",
+      "2 AU 992",
+      "3 OK 883",
+      "4 YES 776",
+      "5 UCL 667"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "fbneo_skykid": {
+    "lines": [
+      "1 AMIHAMA 30000",
+      "2 YOSIMOTO 25000",
+      "3 KAWAI 20000",
+      "4 MORIKAWA 15000",
+      "5 NAKAYAMA 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "fbneo_skywolf": {
+    "lines": [
+      "1 YOSHIKIKUN 50000",
+      "2 KANKUROU 40000",
+      "3 CHAPYHARA 30000",
+      "4 YAHICHI 20000",
+      "5 SUKESAN 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "fbneo_skyskipr": {
+    "lines": [
+      "1 GET 18800",
+      "2 YOK 15200",
+      "3 SF 12090",
+      "4 TJI 10730",
+      "5 HAM 9640"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "fbneo_skysmash": {
+    "lines": [
+      "1 SUR 20000",
+      "2 KAK 19800",
+      "3 YEO 19200",
+      "4 STN 12800",
+      "5 MAO 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "fbneo_skybump": {
+    "lines": [
+      "1 ALM 25350",
+      "2 MAR 19800",
+      "3 SIL 14700",
+      "4 PER 11500",
+      "5 PIE 9450"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "fbneo_skyfox": {
+    "lines": [
+      "1 ABG 17700",
+      "2 ABG2 12900"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "fbneo_skysoldr": {
+    "lines": [
+      "1 ABG 117190",
+      "2 MI 90000",
+      "3 OK 80800",
+      "4 AU 70900",
+      "5 UCL 60600"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "fbneo_skydest": {
+    "lines": [
+      "1 KOBAYAN 25000",
+      "2 SUNADAN 20000",
+      "3 MAYUMIN 15000",
+      "4 OKKUN 10000",
+      "5 AKINAN 5000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
