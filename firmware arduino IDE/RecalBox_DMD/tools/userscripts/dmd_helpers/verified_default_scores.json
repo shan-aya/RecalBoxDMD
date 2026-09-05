@@ -11736,5 +11736,143 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_rtype2": {
+    "lines": [
+      "1 TARAKO 174500",
+      "2 AKIOO 168600",
+      "3 SIMISU 159700"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_rugrats": {
+    "lines": [
+      "1 SH 100000",
+      "2 JF 100000",
+      "3 HT 100000",
+      "4 MS 100000",
+      "5 IT 100000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_rungun": {
+    "lines": [
+      "1 KON 100",
+      "2 RUN 90",
+      "3 JB 60",
+      "4 PAT 50",
+      "5 REX 40"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_rushatck": {
+    "lines": [
+      "1 ATN 33000",
+      "2 KDI 29000",
+      "3 KEF 29000",
+      "4 OFS 26000",
+      "5 BAW 23000"
+    ],
+    "source": "identique a mame0278_gberet (meme table), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_rushcrsh": {
+    "lines": [
+      "1 TOKUROU 35000",
+      "2 YUKIO 30000",
+      "3 KYOKO 25000",
+      "4 NARUMI 20000",
+      "5 TAMAYO 15000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_rvschool": {
+    "lines": [
+      "1 CAP 50000",
+      "2 CAP2 40000",
+      "3 CAP3 30000",
+      "4 CAP4 20000",
+      "5 ABG 11700"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_ryujin": {
+    "lines": [
+      "1 TK 200000",
+      "2 MN 100000",
+      "3 KM 90000",
+      "4 KF 80000",
+      "5 INO 70000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_ryukendn": {
+    "lines": [
+      "1 RYUKEN 10000",
+      "2 HANZOU 10000",
+      "3 SHIZOU 10000",
+      "4 SASUKE 10000",
+      "5 NINJA 10000"
+    ],
+    "source": "identique a mame0278_mastninj (Ninja Gaiden/Ryukendo, meme jeu), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_s1945": {
+    "lines": [
+      "1 ABG 128900",
+      "2 ABG2 23000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_sabotenb": {
+    "lines": [
+      "1 ABG 149500",
+      "2 ABC 10000",
+      "3 DEF 8000",
+      "4 GHI 6000",
+      "5 JKL 4000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_sagaia": {
+    "lines": [
+      "1 FJI 350000",
+      "2 KIK 345000",
+      "3 SEN 340000",
+      "4 KAT 335000",
+      "5 DON 330000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_sailormn": {
+    "lines": [
+      "1 KOT 70000",
+      "2 AYA 60000",
+      "3 MIC 50000",
+      "4 EMI 40000",
+      "5 RIK 37500"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_salamand": {
+    "lines": [
+      "1 HM 57300",
+      "2 MT 30000",
+      "3 TT 20000",
+      "4 SN 10000",
+      "5 IM 8000"
+    ],
+    "source": "identique a mame0278_lifefrce (Salamander = Life Force, meme jeu), copie directe",
+    "date": "2026-09-05"
   }
 }
