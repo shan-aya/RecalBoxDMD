@@ -11405,5 +11405,116 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_reactor": {
+    "lines": [
+      "1 III 20000",
+      "2 KKK 18000",
+      "3 LMM 16000",
+      "4 NNN 14000",
+      "5 OOP 12000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_realbrk": {
+    "lines": [
+      "1 RURI 15000",
+      "2 YURIKA 14000",
+      "3 MEGUMI 13000",
+      "4 GAI 12000",
+      "5 NADESICO 11000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_redbaron": {
+    "lines": [
+      "1 XZZ 60"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_redfoxwp2": {
+    "lines": [
+      "1 RHS 1500000",
+      "2 JNJ 1000000",
+      "3 GHO 800000",
+      "4 KYM 500000",
+      "5 PKS 300000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_redhawk": {
+    "lines": [
+      "1 RHS 1500000",
+      "2 JNJ 1000000",
+      "3 SBU 800000",
+      "4 KHM 500000",
+      "5 ABG 384200"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_regulus": {
+    "lines": [
+      "1 ABG 1430",
+      "2 ABG2 970",
+      "3 ABG3 420"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_renegade": {
+    "lines": [
+      "1 OLF 50000",
+      "2 PRM 40000",
+      "3 LDS 30000",
+      "4 ABO 20550",
+      "5 JJM 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_rescue": {
+    "lines": [
+      "1 OBE 10480",
+      "2 MYK 10100",
+      "3 DAN 3910",
+      "4 ELP 2870",
+      "5 JMH 1830"
+    ],
+    "source": "identique a mame0278_minefld (meme table Stern), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_retofinv": {
+    "lines": [
+      "1 TT 20000",
+      "2 AA 20000",
+      "3 II 20000",
+      "4 TT2 20000",
+      "5 QD 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_rezon": {
+    "lines": [
+      "1 F91 100000",
+      "2 KIRIKO 90000",
+      "3 UKI 80000",
+      "4 TAGO 70000",
+      "5 KATSUKO 60000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_rfjet": {
+    "lines": [
+      "1 ABG 455420"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
