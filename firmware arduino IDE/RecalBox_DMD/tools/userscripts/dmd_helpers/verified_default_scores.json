@@ -7849,5 +7849,112 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "fbneo_badlands": {
+    "lines": [
+      "1 ATA 750",
+      "2 RI 700",
+      "3 GAM 650",
+      "4 ES 600",
+      "5 KFT 550",
+      "6 NLA 500",
+      "7 TJH 450",
+      "8 GFM 350",
+      "9 SWC 300",
+      "10 BME 250",
+      "11 BAF 200",
+      "12 JFP 150",
+      "13 DES 100",
+      "14 JMR 50"
+    ],
+    "source": "capture ecran table hi-score par defaut (progetto-SNAPS pS_scores_fullset_288), rang 8 absent/illisible sur la capture, non invente",
+    "date": "2026-09-05"
+  },
+  "mame0278_freeze": {
+    "lines": [
+      "1 RES 5000",
+      "2 RLL 4500",
+      "3 KLH 4000",
+      "4 BLJ 3333",
+      "5 DAD 3113"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_frenzy": {
+    "lines": [
+      "1 ABG 557"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_fround": {
+    "lines": [
+      "1 ABG 1389400",
+      "2 JBK 1008700",
+      "3 ELP 861000",
+      "4 EAR 785000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_fshark": {
+    "lines": [
+      "1 ABG 105250"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_fstarfrc": {
+    "lines": [
+      "1 OYA 40000",
+      "2 SAT 36000",
+      "3 JUN 36000",
+      "4 MAE 34000",
+      "5 YAN 32000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_fullthrl": {
+    "lines": [
+      "1 TAK 450000",
+      "2 ESH 350000",
+      "3 II 260000",
+      "4 RGV 240000",
+      "5 VFR 220000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_funkyjet": {
+    "lines": [
+      "1 FVG 53800",
+      "2 ABG 28500",
+      "3 TLF 1500",
+      "4 NAM 1000",
+      "5 YAN 1000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_futari10": {
+    "lines": [
+      "1 KDK 6880571",
+      "2 NMR 4000000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gaiapols": {
+    "lines": [
+      "1 ASH 1000",
+      "2 HIT 900",
+      "3 TOM 800",
+      "4 SHI 700",
+      "5 SHU 600"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
