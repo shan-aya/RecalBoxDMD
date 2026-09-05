@@ -8553,5 +8553,138 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_heatbrl": {
+    "lines": [
+      "1 ABG 7560",
+      "2 KIT 100",
+      "3 SAD 90",
+      "4 HAS 80",
+      "5 SHI 70"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_heberpop": {
+    "lines": [
+      "1 AKI 5000",
+      "2 TM 4500",
+      "3 THC 4000",
+      "4 KCY 3500",
+      "5 TEC 3000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hedpanic": {
+    "lines": [
+      "1 ESD 330000",
+      "2 ABG 177900"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hexion": {
+    "lines": [
+      "1 INO 100000",
+      "2 ASH 50000",
+      "3 TOM 10000",
+      "4 KOD 5000",
+      "5 OGU 4000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hexpool": {
+    "lines": [
+      "1 DPJ 20",
+      "2 GC 14",
+      "3 HJC 9",
+      "4 JB 7",
+      "5 DS 5"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hharry": {
+    "lines": [
+      "1 GENTAMURA 39688",
+      "2 MASAMIPON 31688",
+      "3 WEST 25733",
+      "4 TREEVALLEY 23433",
+      "5 MRICEFIELD 21288"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_higemaru": {
+    "lines": [
+      "1 TFUJIWARA 20000",
+      "2 TARIMA 20000",
+      "3 THARA 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hiryuken": {
+    "lines": [
+      "1 NH 30000",
+      "2 AO 25300",
+      "3 FW 19400",
+      "4 LL 13200",
+      "5 NN 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hitice": {
+    "lines": [
+      "1 NAT 7",
+      "2 SAT 6",
+      "3 KOJ 5",
+      "4 AKI 5",
+      "5 SAK 3"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hoccer": {
+    "lines": [
+      "1 TPY 28500",
+      "2 CSY 26000",
+      "3 NS 14500",
+      "4 MHY 13500",
+      "5 CHY 9500"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hook": {
+    "lines": [
+      "1 HNY 299900",
+      "2 KUI 285900",
+      "3 KIM 175900"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_horekid": {
+    "lines": [
+      "1 AAA 103400",
+      "2 AAA 80800",
+      "3 AAA 68000",
+      "4 AAA 45000",
+      "5 AAA 29100"
+    ],
+    "source": "identique a mame0278_boobhack (meme jeu Nichibutsu 1987), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_hotblock": {
+    "lines": [
+      "1 ABG 842",
+      "2 BOVERO 600"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
