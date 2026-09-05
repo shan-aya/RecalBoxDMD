@@ -6673,5 +6673,89 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_area88": {
+    "lines": [
+      "1 AEE 110000",
+      "2 ATO 100000",
+      "3 ACO 90000",
+      "4 ZEN 80000",
+      "5 BLB 70000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_argus": {
+    "lines": [
+      "1 YM 182700",
+      "2 KEV 138000",
+      "3 ABE 106000",
+      "4 CHE 92400",
+      "5 MAK 70300"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_arkangc": {
+    "lines": [
+      "1 SSB 50000",
+      "2 SND 45000",
+      "3 TOR 40000",
+      "4 ONJ 35000",
+      "5 AKR 30000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_atomboy": {
+    "lines": [
+      "1 JEK 5000",
+      "2 KEK 5000",
+      "3 AAK 5000",
+      "4 LDS 5000",
+      "5 LLS 5000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_avsp": {
+    "lines": [
+      "1 CHM 300000",
+      "2 ARI 250000",
+      "3 KIM 200000",
+      "4 HRD 150000",
+      "5 DEF 100000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_ballboy": {
+    "lines": [
+      "1 ABC 40000",
+      "2 DEF 39000",
+      "3 GHI 38000",
+      "4 JKL 37000",
+      "5 MNO 36000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_bangj": {
+    "lines": [
+      "1 ABC 50000",
+      "2 DEF 49000",
+      "3 GHI 48000",
+      "4 JKL 47000",
+      "5 MNO 46000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_batrider": {
+    "lines": [
+      "1 ABG 314630"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
