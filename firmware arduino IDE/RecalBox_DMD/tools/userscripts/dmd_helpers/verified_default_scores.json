@@ -8108,5 +8108,126 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_genix": {
+    "lines": [
+      "1 NIX 90000",
+      "2 NIX 80000",
+      "3 NIX 70000",
+      "4 NIX 60000",
+      "5 NIX 50000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gensitou": {
+    "lines": [
+      "1 AB 80000",
+      "2 CD 20000",
+      "3 EF 15000",
+      "4 GHIJ 10000",
+      "5 KLMNOPQ 9000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_geostorm": {
+    "lines": [
+      "1 ABG 9101",
+      "2 EAS 5000",
+      "3 WES 4000",
+      "4 SOU 3000",
+      "5 NOR 2000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gforce2": {
+    "lines": [
+      "1 TT 111111",
+      "2 KON 89400",
+      "3 IPP 32840",
+      "4 AM2 20170",
+      "5 T45 11187"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_ghostb": {
+    "lines": [
+      "1 AO 500000",
+      "2 RT 101400",
+      "3 VT 62800",
+      "4 SH 50000",
+      "5 HK 39000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_ghouls": {
+    "lines": [
+      "1 HX 35000",
+      "2 MS 30000",
+      "3 SU 25000",
+      "4 CAP 20000",
+      "5 COM 15000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gigandes": {
+    "lines": [
+      "1 EBI 800000",
+      "2 LUM 500000",
+      "3 ATARU 300000",
+      "4 GIGANDES 200000",
+      "5 STRIKER 100000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gigasm2": {
+    "lines": [
+      "1 KATEBUSH 80000",
+      "2 BOSTON 60000",
+      "3 HEART 40000",
+      "4 GABRIEL 20000",
+      "5 QUEEN 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gigawing": {
+    "lines": [
+      "1 ABG 7224524280",
+      "2 CAP 20000000",
+      "3 COM 19000000",
+      "4 RYU 18000000",
+      "5 KEN 17000000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gijoe": {
+    "lines": [
+      "1 JUN 400",
+      "2 PEE 300",
+      "3 MY 200",
+      "4 ABG 176",
+      "5 Q 100"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gng": {
+    "lines": [
+      "1 Yuk 10000",
+      "2 Fum 10000",
+      "3 Mik 10000",
+      "4 Tom 10000",
+      "5 Tan 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
