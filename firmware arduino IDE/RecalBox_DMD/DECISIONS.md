@@ -1602,3 +1602,18 @@ RB2 recoupé pendant ces lots (`192.168.0.49`) : progression continue sans inter
 2. Déployer `dmd_score.sh` v44 + `verified_default_scores.json` sur RB1 et RB2 (jamais fait, action de clôture du chantier).
 3. Vérification visuelle sur le DMD physique (RB1) — jamais faite pour ce chantier.
 4. Audit différé "rejets format multi-sections" (voir section dédiée plus haut, demandé par l'utilisateur pour la toute fin de la campagne — c'est maintenant).
+
+## Déploiement RB1 + dépôt NAS (2026-09-05, ~19h45) — clôture partielle du chantier
+
+**Confirmé par l'utilisateur** : les volets 2 (déploiement `dmd_score.sh` v44 + infra sur RB1) et 3 (vérification visuelle sur DMD physique) ont été faits sur une autre session, fonctionnels. Restait : mettre à jour `verified_default_scores.json` sur RB1.
+
+**Dépôt NAS découvert (n'existait pas dans mes notes avant ce soir)** : `\\192.168.0.50\RECALBOX\HISCORE_DATA` (partage `RECALBOX` du NAS, même serveur que celui qui sert les roms — `//192.168.0.50/RECALBOX/ROMS` monté sur `/recalbox/share/roms` des deux RB). Créé le 04/09, structure documentée dans son propre `README.txt` (miroir exact des chemins `saves/` de chaque RB, + `_manifest/` pour les copies de référence des fichiers JSON dont la source de vérité est ce dépôt git). **Le dossier `mame/mame0278/hiscore/` y était resté VIDE depuis la création du dépôt** (mame0278 sur RB2 n'avait pas encore été moissonné à ce moment-là) — trouvé en vérifiant directement le partage (`Test-Path`/`Get-ChildItem` sur le chemin UNC, accessible sans identifiants explicites depuis ce poste).
+
+**3 actions faites ce soir** :
+1. `verified_default_scores.json` (1079 entrées) copié vers RB1 (`/recalbox/share/userscripts/dmd_helpers/`, ancienne version sauvegardée en `.bak` local avant écrasement — RB1 avait la version du matin, 09h47, bien antérieure à toute la campagne de lecture visuelle de la nuit) et vers `NAS\HISCORE_DATA\_manifest\verified_default_scores.json` (nouveau, n'existait pas).
+2. **354 `.hi` mame0278 de RB2** (`/recalbox/share/saves/mame/mame0278/hiscore/`) copiés vers `NAS\HISCORE_DATA\mame\mame0278\hiscore\` via `robocopy /XN /XO /XC` (règle d'or du dépôt respectée : ne jamais écraser un `.hi` existant — sans effet ici puisque le dossier était vide, mais la commande reste sûre pour un futur re-run incrémental).
+3. `README.txt` du dépôt NAS mis à jour : ajout de l'entrée `_manifest/verified_default_scores.json` (absente de la version originale, qui ne documentait que `hiscore_manifest.json`) + entrée d'historique du 05/09.
+
+**Décision actée (demande explicite utilisateur, "copie aussi le json sur le nas et maintiens le a jour")** : à partir de maintenant, `verified_default_scores.json` doit être synchronisé vers `NAS\HISCORE_DATA\_manifest\` (et idéalement RB1/RB2) à chaque mise à jour significative — pas seulement committé en git. Ne pas oublier ce 3e emplacement lors des prochains lots de la campagne de lecture visuelle.
+
+**Reste non fait à date** : les `.hi` fbneo générés/modifiés depuis le 04/09 sur RB1/RB2 n'ont pas été comparés/resynchronisés vers le NAS (seul le volet mame0278 a été traité ce soir, à la demande explicite).
