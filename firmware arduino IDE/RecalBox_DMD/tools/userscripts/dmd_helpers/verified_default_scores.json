@@ -6787,5 +6787,89 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_boblcave": {
+    "lines": [
+      "1 ABG 45590",
+      "2 OLY 30000",
+      "3 RTW 30000",
+      "4 JSA 30000",
+      "5 DLW 30000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_boobhack": {
+    "lines": [
+      "1 AAA 103400",
+      "2 AAA 80800",
+      "3 AAA 68000",
+      "4 AAA 45000",
+      "5 AAA 29100"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_borntofi": {
+    "lines": [
+      "1 PACO 61200",
+      "2 ARI 54120",
+      "3 JOE 36710",
+      "4 FRA 31090",
+      "5 SAM 29810"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_botanic": {
+    "lines": [
+      "1 HENK SPITS 20000",
+      "2 JOSEP M PETIT 20000",
+      "3 JOSEP MORILLAS 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_bowmen": {
+    "lines": [
+      "1 JWGARCIA 120450",
+      "2 SMITH 74150",
+      "3 TONY 60520",
+      "4 OLEGMODE 58230",
+      "5 FRANCHESCO 53390"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_brain": {
+    "lines": [
+      "1 KY 50000",
+      "2 SIW 48000",
+      "3 TS 45000",
+      "4 MM 43000",
+      "5 MS 40000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_bubsymphe": {
+    "lines": [
+      "1 KPL 30000",
+      "2 KSK 25000",
+      "3 MEL 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_bwings": {
+    "lines": [
+      "1 TF 40000",
+      "2 KAN 38000",
+      "3 YOK 37500",
+      "4 KIS 35000",
+      "5 KAT 31280"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
