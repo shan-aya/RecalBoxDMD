@@ -1586,3 +1586,19 @@ RB2 recoupé pendant ces lots (`192.168.0.49`) : progression continue sans inter
 **Lots 62-63 (commits `bb266ee`, `8c83b9a`)** : 24 jeux ajoutés (lot 62 : `scregg`/`sdfight`/`sdtennis`/`seabattl`/`searchar`/`seawolft`/`secretag`/`sectionz`/`seganinj`/`seicross`/`senjyo` ; lot 63 : `sgemf`/`sgunner`/`shackled`/`shangkid`/`sharkatt`/`sharrier`/`shdancer`/`shienryu`/`shinobi` + `shadoww`(=`mastninj`/`ryukendn`, Shadow Warriors = Ninja Gaiden)/`shanghai`(=`shangha2`)/`shaolinb`(=`kicker`) réutilisés). `verified_default_scores.json` mame0278 : 855 → **879**. RB2 : 4782→4804/5732.
 
 **Zone `sf*`/`sfa*`/`sfz*` (Street Fighter, ~150 roms) délibérément sautée sans lecture** : tous des clones/révisions/hacks d'un même jeu déjà couverts par la politique "pas de duplication de clones" — vérifier une seule fois `sf`/`sf2` de base suffirait mais n'a pas encore été fait, à reprendre isolément si utile plutôt que de parcourir la centaine de variantes une par une.
+
+**Lot 64 (commit `1d5a7c3`)** : 14 jeux ajoutés (`shippumd`/`shisen`/`shocking`/`shocktro`/`shootout`/`shtrider`/`sidearms`/`sidepckt`/`silentd`/`silkroad`/`silkworm`/`sindbadm` + `shinobld`(=`shinobi`)/`sichuan2`(=`shisen`) réutilisés). `verified_default_scores.json` mame0278 : 879 → **893**.
+
+## 🏁 CAMPAGNE RB2 PHASE 1 (mame0278) TERMINÉE — 5732/5732 roms traités (2026-09-05, ~16h30)
+
+**Le process `harvest_phase1_mame0278.py` s'est arrêté de lui-même après avoir traité l'intégralité de sa liste de candidats** (confirmé : aucun process actif sur RB2, dernière ligne de log `=== termine : 5733 roms traites ===`). Bilan final du process : **296 `new_hi`** (vrais `.hi` obtenus par chargement+quit simple pendant cette passe, montée de 258→296 sur la dernière tranche), 5436 `no_hi`, 1 `never_launched`.
+
+**Ceci correspond exactement à la condition d'arrêt donnée par l'utilisateur ce soir** ("continue tant que RB2 alimente la liste") — RB2 n'alimente plus rien tant qu'une nouvelle passe n'est pas relancée.
+
+**Bilan complet niveau 2 en fin de session** : `verified_default_scores.json` = **1079 entrées** (893 mame0278 + 184 fbneo, contre 351 mame0278 + 183 fbneo au début de cette session — soit **542 jeux mame0278 ajoutés en 64 lots** cette session seule, zéro perte de données malgré l'incident shell du lot 56). Motif "table partagée entre 2+ roms" confirmé et documenté **20+ fois** au fil de la nuit (voir sections précédentes) — suffisamment fréquent pour mériter, en fin de campagne, une passe automatisée de détection de doublons de valeurs plutôt qu'une reconnaissance ponctuelle pendant la lecture.
+
+**Reste à faire, dans l'ordre de priorité déjà établi cette nuit** (voir aussi sections "Hi-score générique — repli placeholder"/"cascade à 3 niveaux" plus haut) :
+1. Relancer une nouvelle passe RB2 (régénération de la liste de candidats en excluant les 893+296 déjà couverts) si on veut continuer à réduire le manque restant — **décision utilisateur à prendre**, pas automatique.
+2. Déployer `dmd_score.sh` v44 + `verified_default_scores.json` sur RB1 et RB2 (jamais fait, action de clôture du chantier).
+3. Vérification visuelle sur le DMD physique (RB1) — jamais faite pour ce chantier.
+4. Audit différé "rejets format multi-sections" (voir section dédiée plus haut, demandé par l'utilisateur pour la toute fin de la campagne — c'est maintenant).
