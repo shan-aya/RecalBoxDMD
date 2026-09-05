@@ -6757,5 +6757,35 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_battlane3": {
+    "lines": [
+      "1 ABG 45050",
+      "2 TECJ 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_battlcry": {
+    "lines": [
+      "1 HOM 50000",
+      "2 EDA 40000",
+      "3 TAI 30000",
+      "4 SNO 20000",
+      "5 ONE 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_bnjm": {
+    "lines": [
+      "1 SAW 10012",
+      "2 KIS 7684",
+      "3 SUZ 5328",
+      "4 KIT 3236",
+      "5 YOS 1982"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
