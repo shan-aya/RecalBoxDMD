@@ -9686,5 +9686,148 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_marvland": {
+    "lines": [
+      "1 AAA 80000",
+      "2 BBB 40000",
+      "3 CCC 20000",
+      "4 DDD 10000",
+      "5 EEE 5000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_masao": {
+    "lines": [
+      "1 AKI 12000",
+      "2 CHI 9000",
+      "3 SEI 8000",
+      "4 NAO 5400",
+      "5 IYO 3200"
+    ],
+    "source": "identique a mame0278_mario (memes scores, cette capture n a pas les noms), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_masterw": {
+    "lines": [
+      "1 YI 992300",
+      "2 KON 713000",
+      "3 TET 314000",
+      "4 ABG 261210",
+      "5 TM 224000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_mastninj": {
+    "lines": [
+      "1 RYUKEN 10000",
+      "2 HANZOU 10000",
+      "3 SHIZOU 10000",
+      "4 SASUKE 10000",
+      "5 NINJA 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_matchit": {
+    "lines": [
+      "1 MARK 550",
+      "2 JOHN 450",
+      "3 JIM 350",
+      "4 TOM 250",
+      "5 MARY 150"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_matmania": {
+    "lines": [
+      "1 PRM 30000",
+      "2 LPS 25000",
+      "3 JEK 20000",
+      "4 AAK 15000",
+      "5 LLS 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_maya": {
+    "lines": [
+      "1 AAA 250",
+      "2 AAA2 245",
+      "3 AAA3 240",
+      "4 AAA4 235",
+      "5 AAA5 230"
+    ],
+    "source": "identique a mame0278_inca (meme table), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_mayday": {
+    "lines": [
+      "1 MIT 20000",
+      "2 NOB 15000",
+      "3 NUN 10000",
+      "4 HON 7000",
+      "5 IKU 5000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_mazinger": {
+    "lines": [
+      "1 ABG 100900",
+      "2 SUG 100000",
+      "3 TAG 90000",
+      "4 TOM 80000",
+      "5 FAW 70000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_mcatadv": {
+    "lines": [
+      "1 ABC 100000",
+      "2 DEF 90000",
+      "3 GHI 80000",
+      "4 SYM1 70000",
+      "5 SYM2 60000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_mechatt": {
+    "lines": [
+      "1 OPE 284540",
+      "2 SOF 273420",
+      "3 MAY 161410",
+      "4 GVR 122540",
+      "5 YOD 116410"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_megaman": {
+    "lines": [
+      "1 OKO 50000",
+      "2 CIU 40000",
+      "3 HKD 30000",
+      "4 K2O 20000",
+      "5 CPS 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_mercs": {
+    "lines": [
+      "1 ABG 334950",
+      "2 IMO 100000",
+      "3 NS 90000",
+      "4 TO 80000",
+      "5 SO 70000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
