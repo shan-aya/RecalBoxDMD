@@ -8686,5 +8686,142 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_hotbubl": {
+    "lines": [
+      "1 JALGA 2000000",
+      "2 BABO 1800000",
+      "3 HACOM 1000000",
+      "4 GUM 700000",
+      "5 MAMA 300000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hotchase": {
+    "lines": [
+      "1 ABG 2738010",
+      "2 MT 100000",
+      "3 YI 90000",
+      "4 NUR 80000",
+      "5 KUK 70000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hotdogst": {
+    "lines": [
+      "1 VT 800000",
+      "2 BJ 550000",
+      "3 SM 500000",
+      "4 FT 450000",
+      "5 MN 400000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hotshock": {
+    "lines": [
+      "1 BRU 50000",
+      "2 NO 45000",
+      "3 DE 40000",
+      "4 GEO 35000",
+      "5 R 30000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hpuncher": {
+    "lines": [
+      "1 JBK 1008700",
+      "2 ELP 861000",
+      "3 FAB 785000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hrdtimes": {
+    "lines": [
+      "1 ABG 35400",
+      "2 DAN 27900"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hsf2": {
+    "lines": [
+      "1 ONI 50000",
+      "2 SIN 45000",
+      "3 KID 40000",
+      "4 ABG 37000",
+      "5 MIN 35000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_htchctch": {
+    "lines": [
+      "1 AAA 500000",
+      "2 BBB 400000",
+      "3 CCC 300000",
+      "4 DDD 200000",
+      "5 EEE 100000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hthero93": {
+    "lines": [
+      "1 MAR 10",
+      "2 UTA 9",
+      "3 KE 8",
+      "4 DAI 7"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hvysmsh": {
+    "lines": [
+      "1 ITO 100000",
+      "2 SKR 90000",
+      "3 KBR 80000",
+      "4 KEI 70000",
+      "5 OYG 50000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_hwchamp": {
+    "lines": [
+      "1 OOK 1000",
+      "2 OGU 900",
+      "3 TAN 800",
+      "4 TAK 700",
+      "5 OOZ 600"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_iceclimb": {
+    "lines": [
+      "1 SOE 77770",
+      "2 IYO 71300",
+      "3 IM 69800",
+      "4 YM 64080",
+      "5 NAK 59900"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_ikari": {
+    "lines": [
+      "1 IKARI 30000",
+      "2 IKARI2 26000",
+      "3 IKARI3 25000",
+      "4 IKARI4 24000",
+      "5 IKARI5 23000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
