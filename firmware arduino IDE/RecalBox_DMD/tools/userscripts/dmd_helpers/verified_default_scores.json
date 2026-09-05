@@ -7540,5 +7540,98 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_fa": {
+    "lines": [
+      "1 BEL 80000",
+      "2 ADL 70000",
+      "3 GWN 60000",
+      "4 NIG 50000",
+      "5 ALX 50000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_fantasia": {
+    "lines": [
+      "1 SSN 50000",
+      "2 JTV 45000",
+      "3 SAS 40000",
+      "4 SFH 35000",
+      "5 GTG 30000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_fantastc": {
+    "lines": [
+      "1 ABG 23330"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_fantjour": {
+    "lines": [
+      "1 NM 57300",
+      "2 ST 48530",
+      "3 KY 33300",
+      "4 ABC 30800",
+      "5 KK 25900"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_fantland": {
+    "lines": [
+      "1 paolo 412000",
+      "2 elena 401000",
+      "3 fabio 395000",
+      "4 gabry 335000",
+      "5 ramon 323000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_fantzone": {
+    "lines": [
+      "1 ABG 20000",
+      "2 ICI 12000",
+      "3 KTG 10000",
+      "4 HKR 8000",
+      "5 YRT 6000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_farmer": {
+    "lines": [
+      "1 YAS 40000",
+      "2 KWB 35000",
+      "3 AT 30000",
+      "4 MNJ 25000",
+      "5 ABG 21840"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_farwest": {
+    "lines": [
+      "1 SO 25800",
+      "2 YY 22200",
+      "3 AT 19500",
+      "4 KA 13800",
+      "5 IU 13000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_ffight": {
+    "lines": [
+      "1 NIN 20000",
+      "2 KNK 19000",
+      "3 SIN 18000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
