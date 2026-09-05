@@ -85,3 +85,10 @@ _release/
 # Logs du moniteur serie DMD (tools/DMD_Serial_Monitor.ps1) -- personnels a
 # chaque session de debug, jamais versionnes
 tools/serial_logs/
+
+# Set "Scores" de progetto-SNAPS (8775 PNG, ~150 Mo) -- asset externe
+# telecharge (pS_scores_fullset_288.zip, progettosnaps.net/snapshots/),
+# source de reference pour le remplissage manuel de
+# verified_default_scores.json (voir DECISIONS.md, 2026-09-05). Re-
+# telechargeable a l'identique si perdu -- jamais versionne.
+tools/hiscore_assets/
