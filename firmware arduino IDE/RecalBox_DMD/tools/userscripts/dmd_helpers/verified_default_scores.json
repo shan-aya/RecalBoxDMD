@@ -7228,5 +7228,111 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_dstlk": {
+    "lines": [
+      "1 ABG 46600",
+      "2 CAP 10000",
+      "3 COM 5000",
+      "4 CAP 4000",
+      "5 COM 3000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_dualaslt": {
+    "lines": [
+      "1 YUM 58000",
+      "2 WAO 38400",
+      "3 JIO 28800",
+      "4 CHI 25600",
+      "5 O1 19200"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_duckhunt": {
+    "lines": [
+      "1 NAK 122800",
+      "2 AJI 111600",
+      "3 MA 82500",
+      "4 KEN 62400",
+      "5 JI 11400"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_dumpmtmt": {
+    "lines": [
+      "1 ITO 30000",
+      "2 END 25000",
+      "3 MIN 10000",
+      "4 AKO 10000",
+      "5 O 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_dyger": {
+    "lines": [
+      "1 NYH 555600",
+      "2 JKS 444400",
+      "3 OKH 333200",
+      "4 CKH 222200",
+      "5 NIU 111100"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_dynabomb": {
+    "lines": [
+      "1 BAR 1468000",
+      "2 EIN 957000",
+      "3 JUK 563000",
+      "4 KAK 365000",
+      "5 KHA 154000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_dynduke": {
+    "lines": [
+      "1 ABG 23000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_dynwar": {
+    "lines": [
+      "1 ABG 812000",
+      "2 CAP 10000",
+      "3 CAP 9000",
+      "4 CAP 8000",
+      "5 CAP 7000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_dzigzag": {
+    "lines": [
+      "1 NN 10000",
+      "2 AA 10000",
+      "3 MM 10000",
+      "4 CC 10000",
+      "5 OO 10000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_ecofghtr": {
+    "lines": [
+      "1 KOB 50000",
+      "2 BAT 31000",
+      "3 MES 10000",
+      "4 UEC 7000",
+      "5 ECF 4200"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
