@@ -15,7 +15,20 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v44
+# Version actuelle : v45
+#
+# v45 - 2026-09-05 - safe-modify - Placeholder niveau 3 (v43) : nom rang 1
+#   raccourci "shan_aya" -> "shan" -- retour utilisateur sur materiel reel,
+#   testee sur `badlands` (voir DECISIONS.md pour les 3 jeux de test des 3
+#   niveaux) : depassait legerement la largeur du DMD au rang 1 (police
+#   agrandie a ce rang, voir RecalBox_DMD.ino v111 -- seul le SCORE y est
+#   agrandi, mais le NOM y reste a la taille normale deja etroite des
+#   conventions hi-score classiques, ex. 3 lettres "MAA"/"CAP" -- 8
+#   caracteres ne rentrait pas). Casse respectee (minuscules conservees,
+#   demande utilisateur explicite -- pas converti en initiales majuscules
+#   comme le veut la convention arcade classique). Rang 2 ("RecalBox
+#   2026") inchange, reste a taille normale sans agrandissement, pas de
+#   probleme de largeur signale a ce rang.
 #
 # v44 - 2026-09-04 - safe-modify - build_score_payload() : niveau 2
 #   intercale entre le .hi reel et le placeholder v43 -- table VERIFIEE
@@ -1553,7 +1566,7 @@ build_score_payload() {
         # hiscore.dat/.hi).
         case "$sys" in
             fbneo|mame*)
-                echo "HI-SCORE|1 shan_aya 2026|2 RecalBox 2026"
+                echo "HI-SCORE|1 shan 2026|2 RecalBox 2026"
                 echo "$(date '+%H:%M:%S') SCORE $rom (PLACEHOLDER, pas encore de .hi reel)" >> "$LOG" 1>&2
                 return
                 ;;
