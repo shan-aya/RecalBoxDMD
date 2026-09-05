@@ -1,7 +1,27 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v156
+// Version actuelle : v157
+//
+// v157 - 2026-09-05 - safe-modify - drawScoreScreen() : score du rang 1
+//   (ecran hi-score) desormais ALIGNE A DROITE, comme le rang 2 juste en
+//   dessous -- retour utilisateur sur materiel reel (test du placeholder
+//   niveau 3 de dmd_score.sh v45, sur `badlands`) : "le score est pas
+//   aligne a droite". Bug reel confirme par lecture du code (present
+//   depuis v113, jamais remarque avant faute d'un test dedie a ce rang
+//   precis) : le rang 1 placait son score juste apres le nom (sx = fin du
+//   nom + marge fixe), le rang 2 alignait deja le sien sur le bord droit
+//   de l'ecran (v120) -- incoherence visuelle entre les 2 rangs d'un
+//   meme ecran. Meme formule que le rang 2, adaptee a la police taille 2
+//   du rang 1 (12px/caractere). Affecte TOUS les ecrans hi-score (rang 1
+//   reel compris, pas seulement le placeholder qui a revele le bug).
+//   Question de casse egalement soulevee par l'utilisateur sur ce meme
+//   test (nom "shan" affiche pas clairement en minuscules) : AUCUNE
+//   transformation de casse trouvee dans le code (police par defaut
+//   Adafruit GFX, display->setFont(NULL) explicite, pas de
+//   toUpperCase() sur ce chemin) -- probable effet de lisibilite de la
+//   police pixel a petite taille plutot qu'un bug de casse reel, non
+//   corrige faute de cause identifiee dans le code.
 //
 // v156 - 2026-09-04 - safe-modify - Cooldown maintainWiFi() rendu
 //   progressif (5s base, +5s/cycle sans succes, plafond 30s, reset a la
@@ -6090,7 +6110,21 @@ void drawScoreScreen(const String &payload)
         if (firstSpace > 0) bigName = name.substring(firstSpace + 1); // retire le numero de rang
         display->setTextSize(2);
         drawScoreTextShadowed(1, y, bigName, white);
-        int sx = 1 + (int)bigName.length() * 12 + 6;
+        // v157 -- score du rang 1 ALIGNE A DROITE (retour utilisateur sur
+        // materiel reel : "le score est pas aligne a droite") -- corrige
+        // une incoherence reelle avec le rang 2 juste en dessous, qui
+        // aligne deja son score a droite (voir son commentaire v120,
+        // "meme alignement a droite que le rendu generique"). Avant ce
+        // fix, le score du rang 1 etait simplement colle juste apres le
+        // nom (sx = fin du nom + marge), jamais aligne sur le bord droit
+        // de l'ecran. Meme formule que le rang 2 (RAW565_W - largeur du
+        // texte - marge), adaptee a la police taille 2 (12px/caractere
+        // au lieu de 6px) -- garde-fou identique si le nom est trop long
+        // pour laisser la place au score (nameEnd, meme principe que
+        // rang 2).
+        int sx = RAW565_W - (int)scoreVal.length() * 12 - 1;
+        int nameEnd = 1 + (int)bigName.length() * 12 + 6;
+        if (sx < nameEnd) sx = nameEnd;
         drawScoreTextShadowed(sx, y, scoreVal, rank1Color);
         y += 16;
       } else {

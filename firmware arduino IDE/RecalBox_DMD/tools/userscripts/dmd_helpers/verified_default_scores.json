@@ -7956,5 +7956,157 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_galaga88": {
+    "lines": [
+      "1 AAA 50000",
+      "2 AAA 50000",
+      "3 AAA 40000",
+      "4 AAA 40000",
+      "5 AAA 30000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_galagamf": {
+    "lines": [
+      "1 ABG 21690",
+      "2 NN 20000",
+      "3 AA 20000",
+      "4 MM 20000",
+      "5 CC 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_galastrm": {
+    "lines": [
+      "1 GST 1000000",
+      "2 KIK 950000",
+      "3 YAN 900000",
+      "4 SAK 850000",
+      "5 KSK 800000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_galivan": {
+    "lines": [
+      "1 DIRECTOR 60000",
+      "2 SFUJIWARA 55000",
+      "3 TTSUCHIE 50000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gallag": {
+    "lines": [
+      "1 NN 20000",
+      "2 AA 20000",
+      "3 MM 20000",
+      "4 CC 20000",
+      "5 OO 20000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gallop": {
+    "lines": [
+      "1 OVB 63810",
+      "2 TAG 62030",
+      "3 HVA 60140",
+      "4 DOH 59110",
+      "5 MSG 43030"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_galmedes": {
+    "lines": [
+      "1 ABC 100000",
+      "2 DEF 90000",
+      "3 GHI 80000",
+      "4 JKL 70000",
+      "5 MNO 60000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_galpanic": {
+    "lines": [
+      "1 ABG 154200",
+      "2 ABC 55000",
+      "3 DEF 50000",
+      "4 GHI 45000",
+      "5 JKL 40000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_galsnew": {
+    "lines": [
+      "1 TGN 50000",
+      "2 OBN 45000",
+      "3 MTS 40000",
+      "4 YKM 35000",
+      "5 MRI 30000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_galwars2": {
+    "lines": [
+      "1 DRJ 24270",
+      "2 SAM 18345",
+      "3 LED 15920",
+      "4 PGO 14285",
+      "5 ERB 12520"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gangwars": {
+    "lines": [
+      "1 CAT 55010",
+      "2 ZAX 49190",
+      "3 TWO 25260",
+      "4 STB 12470",
+      "5 BRA 9820"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gberet": {
+    "lines": [
+      "1 ATN 33000",
+      "2 KDI 29000",
+      "3 KEF 29000",
+      "4 OFS 26000",
+      "5 BAW 23000"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gbusters": {
+    "lines": [
+      "1 ISH 163500",
+      "2 TAK 159000",
+      "3 MAT 129500",
+      "4 YAG 128500",
+      "5 SAT 92600"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_gemini": {
+    "lines": [
+      "1 GTV 50000",
+      "2 MRO 49270",
+      "3 NUK 48380",
+      "4 TSU 47860",
+      "5 RYU 46900"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
