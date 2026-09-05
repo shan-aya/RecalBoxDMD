@@ -6871,5 +6871,56 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_cbnj": {
+    "lines": [
+      "1 SAW 10012",
+      "2 KIS 7684",
+      "3 SUZ 5328",
+      "4 KIT 3236",
+      "5 YOS 1982"
+    ],
+    "source": "identique a mame0278_bnjm (meme serie Bump'n Jump/Burnin' Rubber), copie directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_cburnrub": {
+    "lines": [
+      "1 SAW 10012",
+      "2 KIS 7684",
+      "3 SUZ 5328",
+      "4 KIT 3236",
+      "5 ABG 2692"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_ccastles": {
+    "lines": [
+      "1 FXL 30500",
+      "2 FXL 29800",
+      "3 FXL 29000",
+      "4 GTB 28700",
+      "5 BB 27900"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_centipdd": {
+    "lines": [
+      "1 EJD 16545",
+      "2 DFT 15432",
+      "3 CAD 14420",
+      "4 DCR 13210",
+      "5 EDW 13010"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
+  },
+  "mame0278_cobracom": {
+    "lines": [
+      "1 SAP 84760"
+    ],
+    "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
+    "date": "2026-09-05"
   }
 }
