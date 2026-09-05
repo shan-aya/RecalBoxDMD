@@ -1512,3 +1512,7 @@ Les 5 fichiers ne contiennent aucune logique dépendant de leur propre nom (vér
 - **Formats structurellement incompatibles rencontrés cette session** (à rejeter sans hésiter, pas à re-évaluer à chaque fois) : bracket de tournoi, taux de victoire/pourcentage, stats sportives (buts/passes/moyennes), score golf par-relatif, catégories de trivia multi-sections sans classement unifié, texte "105×101" (chaîne de résolution, pas un score).
 
 RB2 recoupé pendant ces lots (`192.168.0.49`) : progression continue sans interruption (3355→3468/5732 sur la durée de la session), la campagne alimente donc bien la liste comme prévu.
+
+**Suite immédiate, 3 lots de plus (commits `9b80898`, `9609943`, `c68ec76`)** : 28 jeux ajoutés (lot 24 : `edrandy`/`egghunt`/`eggor`/`eggs`/`emeralda`/`enduror`/`eprom`/`esb` ; lot 25 : `espgal`/`espial`/`esprade`/`evilston`/`excelsr`/`excitebk`/`excthour`/`exctsccr`/`exedexes`/`explorer`/`eyes` ; lot 26 : `fa`/`fantasia`/`fantastc`/`fantjour`/`fantland`/`fantzone`/`farmer`/`farwest`/`ffight`). `verified_default_scores.json` mame0278 : 419 → **447**. RB2 continue de tourner sans intervention (3468→3498/5732 pendant ces 3 lots, `181 new_hi`).
+
+**Nouveau motif consolidé** : format course/tournoi automobile (colonnes RACE/POINT/PTS avec petites valeurs 1-20, souvent combinées à un temps au tour) rencontré 3 fois d'affilée sur ce lot (`f1dreamb`, `f1en`, `f1gp`) — même famille de rejet que le golf par-relatif et le taux de victoire, à écarter d'office désormais sans ré-analyser à chaque jeu de course/F1.
