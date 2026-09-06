@@ -1876,3 +1876,5 @@ Sur demande explicite de l'utilisateur, reprise des éditions trivia laissées d
 **Rejetés** : `triviaqz`(+1, vide), `tron4`/`tron5`/`tronger` (identique à `tron`/`tron3` déjà rejetés — alphabet+RPG identique partout, confirmé 5x en tout sur cette famille).
 
 **Bilan chiffré** : mame0278 : 2091 → **2100** ; fbneo : 1477 → **1486** (total 3588). RB1 toujours injoignable. **La famille trivia de `tr*` est maintenant intégralement couverte — plus aucune zone à couverture partielle connue sur l'ensemble de l'alphabet.**
+
+**RB1 de nouveau en ligne (confirmé par l'utilisateur) — rattrapé** : `verified_default_scores.json` (état final 2100 mame0278 + 1486 fbneo, lots 66-99) transféré vers RB1, taille de fichier identique au local (1 249 560 octets) confirmant une copie complète. RB1 = NAS = local, tout synchronisé et committé.
