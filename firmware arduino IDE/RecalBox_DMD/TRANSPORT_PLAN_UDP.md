@@ -1,8 +1,12 @@
 # Piste UDP — remplacer MQTT par des datagrammes UDP fire-and-forget
 
-Worktree créé le 2026-09-03 (nuit), branche depuis `dev/core-reassignment` @ `77b67dd`
-(v151 — inclut Volet 1/2, fix retain v150, escalade socket v151). Pas encore commencé,
-juste le plan discuté avec l'utilisateur.
+Worktree créé le 2026-09-03 (nuit), branche à l'origine depuis `dev/core-reassignment` @
+`77b67dd` (v151 — inclut Volet 1/2, fix retain v150, escalade socket v151). **Rebasée le
+2026-09-06 sur `master` @ `690ca57`** (à la demande de l'utilisateur — `dev/core-reassignment`
+n'est pas fusionnable en l'état, voir `HANDOFF_SESSION_2026-09-05_merge-divergence.md` ;
+seul le commit de ce plan était propre à cette branche, tout le reste venait de
+`core-reassignment`, donc rien perdu au rebase). Pas encore commencé, juste le plan
+discuté avec l'utilisateur.
 
 ## Pourquoi
 
