@@ -1,7 +1,37 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v42
+# Version actuelle : v43
+#
+# v43 - 2026-09-06 - safe-modify - Retour utilisateur (test reel Mode 9
+#      post-fusion v42) : ni dmd_helpers/ ni le nettoyage stale
+#      n'apparaissaient dans le log Mode 9. Cause (2 volets) :
+#      (1) dmd_helpers/ n'existait pas encore sur GitHub (confirme en
+#      direct par appel API) -- l'utilisateur va le publier dans un
+#      NOUVEAU sous-dossier dedie tools/recalbox_scripts/ (manual/ et
+#      dmd_helpers/ en sous-dossiers, scripts d'evenement a plat a la
+#      racine -- remplace l'ancien tools/ a plat). GITHUB_SCRIPTS_API_BASE/
+#      GITHUB_SCRIPTS_RAW_BASE repointes en consequence ; nouvelle fonction
+#      _list_recalbox_manual_files() (meme contrat que
+#      _list_recalbox_dmd_helpers_files()) -- les scripts manuels ne sont
+#      plus tries par nom (_is_manual_script) depuis une liste plate
+#      partagee, ils viennent de leur propre sous-dossier GitHub.
+#      (2) download_recalbox_scripts()/_download_recalbox_scripts_via_ssh()
+#      (Mode 9, chemin SMB direct + repli SSH) ne geraient ni dmd_helpers/
+#      ni le nettoyage stale -- seules stage_recalbox_scripts_locally()/
+#      install_staged_scripts_to_share() (Mode 1) les geraient depuis le
+#      v41. Les deux fonctions Mode 9 recoivent desormais le meme
+#      traitement (fetch dmd_helpers/manual separement, copie routee par
+#      sous-dossier d'origine, nettoyage stale APRES la copie -- SAUF si
+#      le lot a ete interrompu via Stop/Skip, nouvelle garde
+#      stopped_early). Corrige au passage un bug latent jamais exerce dans
+#      le repli SSH : _sftp_ensure_userscripts_dirs() retourne un tuple
+#      (manual_dst, helpers_dst), l'appelant ne le depaquetait pas
+#      (manual_dst = tuple entier), remote_path aurait ete invalide des le
+#      premier script manuel si ce chemin avait jamais ete declenche.
+#      py_compile OK. PAS ENCORE TESTE EN CONDITIONS REELLES (le nouveau
+#      dossier tools/recalbox_scripts/ n'existe pas encore sur GitHub au
+#      moment de ce commit) -- a valider une fois publie.
 #
 # v42 - 2026-09-06 - safe-modify - Fusion `master` -> `dev/core-reassignment`
 #      (resolution de la divergence des deux branches) : les deux branches
@@ -3804,8 +3834,14 @@ def create_all_gifs_playlist(sd_dir: Path, name: str = "ALL") -> Optional[str]:
 # mais la destination est un chemin UNC sur la Recalbox plutot qu'un dossier
 # local sur la carte SD.
 
-GITHUB_SCRIPTS_API_BASE = "https://api.github.com/repos/shan-aya/RecalBoxDMD/contents/tools"
-GITHUB_SCRIPTS_RAW_BASE = "https://raw.githubusercontent.com/shan-aya/RecalBoxDMD/main/tools"
+# v42 -- pointent desormais vers tools/recalbox_scripts/ (sous-dossier
+# dedie, cree par l'utilisateur sur GitHub) au lieu de tools/ a plat :
+# scripts d'evenement toujours a la racine de ce sous-dossier, scripts
+# manuels dans recalbox_scripts/manual/, dmd_helpers/ dans
+# recalbox_scripts/dmd_helpers/ -- voir _list_recalbox_script_files()/
+# _list_recalbox_manual_files()/_list_recalbox_dmd_helpers_files().
+GITHUB_SCRIPTS_API_BASE = "https://api.github.com/repos/shan-aya/RecalBoxDMD/contents/tools/recalbox_scripts"
+GITHUB_SCRIPTS_RAW_BASE = "https://raw.githubusercontent.com/shan-aya/RecalBoxDMD/main/tools/recalbox_scripts"
 
 # tools/ est a plat sur GitHub (pas de sous-dossier scripts/manual|events) --
 # route chaque .sh vers userscripts/manual (lancement manuel depuis Recalbox)
@@ -3955,9 +3991,15 @@ def is_recalbox_reachable(host: str, timeout: float = 1.5) -> bool:
 
 
 def _list_recalbox_script_files():
-    """Interroge l'API GitHub (tools/, a plat) pour la liste des scripts
-    .sh disponibles. Retourne None (message deja imprime) si l'appel API
-    echoue, sinon la liste des entrees fichier (dicts "name"/"type")."""
+    """Interroge l'API GitHub (tools/recalbox_scripts/, a plat -- v42, ex-
+    tools/ directement) pour la liste des scripts .sh D'EVENEMENT
+    (marquee/dmd_score/dmd_achievement). Les scripts a lancement MANUEL
+    vivent desormais dans le sous-dossier manual/ (voir
+    _list_recalbox_manual_files()), donc n'apparaissent plus ici -- l'API
+    GitHub ne liste que les enfants directs, manual/ remonte comme une
+    entree "dir" deja filtree ci-dessous. Retourne None (message deja
+    imprime) si l'appel API echoue, sinon la liste des entrees fichier
+    (dicts "name"/"type")."""
     import urllib.request
     import json
 
@@ -3980,6 +4022,45 @@ def _list_recalbox_script_files():
         f for f in files
         if f.get("type") == "file" and f.get("name", "").lower().endswith(".sh")
     ]
+
+
+def _list_recalbox_manual_files():
+    """Interroge l'API GitHub (tools/recalbox_scripts/manual/, v42) pour
+    la liste des scripts a lancement manuel. Meme contrat que
+    _list_recalbox_dmd_helpers_files() : retourne None (message deja
+    imprime) si l'appel API echoue pour une raison autre que "dossier
+    absent", [] si le dossier n'existe pas encore cote GitHub (pas une
+    erreur en soi), sinon la liste des entrees fichier (dicts
+    "name"/"type")."""
+    import urllib.request
+    import urllib.error
+    import json
+
+    url = f"{GITHUB_SCRIPTS_API_BASE}/manual"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "recalbox-toolkit"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            files = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return []
+        is_rl, detail = _describe_github_api_error(e)
+        if is_rl:
+            print(tr("github_rate_limit_msg")(detail))
+        else:
+            print(tr("dl_fail_api"))
+            print(f"   {detail}")
+        return None
+    except Exception as e:
+        is_rl, detail = _describe_github_api_error(e)
+        if is_rl:
+            print(tr("github_rate_limit_msg")(detail))
+        else:
+            print(tr("dl_fail_api"))
+            print(f"   {detail}")
+        return None
+
+    return [f for f in files if f.get("type") == "file"]
 
 
 # v38 -- dmd_helpers/ (helpers Python hi-score/infos/description + manifest
@@ -4042,15 +4123,22 @@ def stage_recalbox_scripts_locally(dest_dir: Path, progress_cb=None) -> tuple:
     reseau automatique (install_staged_scripts_to_share) a echoue ou n'a
     pas ete tentee. Ne necessite aucun acces reseau a une Recalbox, juste
     Internet (GitHub). Retourne (fichiers_ok, fichiers_total) ; (0, 0) si
-    l'appel API GitHub echoue (dmd_helpers/ absent cote GitHub n'est PAS
-    un echec -- compte simplement 0 fichier supplementaire, voir
-    _list_recalbox_dmd_helpers_files()).
+    l'appel API GitHub echoue sur les scripts d'evenement (manual/ ou
+    dmd_helpers/ absents cote GitHub n'est PAS un echec -- compte
+    simplement 0 fichier supplementaire pour ce sous-dossier, voir
+    _list_recalbox_manual_files()/_list_recalbox_dmd_helpers_files()).
+    v42 : manual/ vient desormais de son propre appel API (sous-dossier
+    GitHub dedie) au lieu d'un tri par nom (_is_manual_script) sur une
+    liste plate partagee avec les scripts d'evenement.
     """
     import urllib.request
 
     script_files = _list_recalbox_script_files()
     if not script_files:
         return (0, 0)
+    manual_files = _list_recalbox_manual_files()
+    if manual_files is None:
+        manual_files = []
     helper_files = _list_recalbox_dmd_helpers_files()
     if helper_files is None:
         helper_files = []
@@ -4062,7 +4150,11 @@ def stage_recalbox_scripts_locally(dest_dir: Path, progress_cb=None) -> tuple:
     if helper_files:
         helpers_dir.mkdir(parents=True, exist_ok=True)
 
-    all_entries = [(f, "event") for f in script_files] + [(f, "helper") for f in helper_files]
+    all_entries = (
+        [(f, "event") for f in script_files]
+        + [(f, "manual") for f in manual_files]
+        + [(f, "helper") for f in helper_files]
+    )
     ok_count = 0
     total_count = len(all_entries)
     for i, (f, kind) in enumerate(all_entries, 1):
@@ -4072,10 +4164,12 @@ def stage_recalbox_scripts_locally(dest_dir: Path, progress_cb=None) -> tuple:
         if kind == "helper":
             raw_url = f"{GITHUB_SCRIPTS_RAW_BASE}/dmd_helpers/{urllib.request.quote(fname)}"
             dst = helpers_dir / fname
+        elif kind == "manual":
+            raw_url = f"{GITHUB_SCRIPTS_RAW_BASE}/manual/{urllib.request.quote(fname)}"
+            dst = manual_dir / fname
         else:
             raw_url = f"{GITHUB_SCRIPTS_RAW_BASE}/{urllib.request.quote(fname)}"
-            dst_dir = manual_dir if _is_manual_script(fname) else dest_dir
-            dst = dst_dir / fname
+            dst = dest_dir / fname
         try:
             urllib.request.urlretrieve(raw_url, dst)
             ok_count += 1
@@ -4360,13 +4454,15 @@ def install_recalbox_scripts(staged_dir: Path, recalbox_host: str, progress_cb=N
 def download_recalbox_scripts(recalbox_host: str, progress_cb=None, listen_keyboard: bool = True):
     r"""
     Installe/met a jour les scripts utilisateur Recalbox (WiFi Recovery DMD,
-    Config Web DMD, Reboot DMD, Luminosite DMD +10%/-10%, pont marquee) en
-    les telechargeant depuis GitHub
-    (dossier tools/, a plat -- aucun sous-dossier scripts/manual|events sur
-    le depot) directement vers le partage reseau \\<recalbox_host>\share,
-    route par nom de fichier vers userscripts/manual (scripts a lancement
-    manuel, ex: "Config Web DMD...") ou userscripts/ (scripts d'evenement,
-    ex: "WiFi Recovery DMD.sh", le pont marquee). Retourne un tuple
+    Config Web DMD, Reboot DMD, Luminosite DMD +10%/-10%, pont marquee,
+    dmd_helpers/ -- v42) en les telechargeant depuis GitHub
+    (tools/recalbox_scripts/ : scripts d'evenement a plat a la racine,
+    manual/ et dmd_helpers/ en sous-dossiers dedies) directement vers le
+    partage reseau \\<recalbox_host>\share, route vers userscripts/manual,
+    userscripts/dmd_helpers ou userscripts/ (evenements) selon la
+    provenance. Nettoie aussi les fichiers STALES apres la copie (meme
+    logique que install_staged_scripts_to_share(), voir sa docstring) --
+    v42, cette fonction ne le faisait pas jusqu'ici. Retourne un tuple
     (fichiers_ok, fichiers_total). Si recalbox_host est vide, retourne
     (0, 0) sans rien faire -- geree comme un skip silencieux par les
     appelants. Utilisee par le Mode 9 (installe directement, sans mise en
@@ -4420,30 +4516,55 @@ def download_recalbox_scripts(recalbox_host: str, progress_cb=None, listen_keybo
             recalbox_host, progress_cb=progress_cb, listen_keyboard=listen_keyboard
         )
 
-    script_files = _list_recalbox_script_files()
-    if not script_files:
+    event_files = _list_recalbox_script_files()
+    if not event_files:
         return (0, 0)
+    manual_files = _list_recalbox_manual_files()
+    if manual_files is None:
+        manual_files = []
+    helper_files = _list_recalbox_dmd_helpers_files()
+    if helper_files is None:
+        helper_files = []
 
     manual_dir = share_root / "userscripts" / "manual"
     events_dir = share_root / "userscripts"
+    helpers_dir = share_root / "userscripts" / "dmd_helpers"
     manual_dir.mkdir(parents=True, exist_ok=True)
     events_dir.mkdir(parents=True, exist_ok=True)
+    if helper_files:
+        helpers_dir.mkdir(parents=True, exist_ok=True)
 
+    all_entries = (
+        [(f, "event") for f in event_files]
+        + [(f, "manual") for f in manual_files]
+        + [(f, "helper") for f in helper_files]
+    )
     ok_count = 0
-    total_count = len(script_files)
+    total_count = len(all_entries)
+    new_names_by_dir = {}
+    stopped_early = False
 
     PAUSE.start(listen_keyboard=listen_keyboard)
     try:
-        for i, f in enumerate(script_files, 1):
+        for i, (f, kind) in enumerate(all_entries, 1):
             PAUSE.wait_if_paused()
             if PAUSE.should_stop() or PAUSE.should_skip():
+                stopped_early = True
                 break
             fname = f["name"]
             if progress_cb is not None:
                 progress_cb("install_recalbox_scripts", i, total_count, fname)
-            raw_url = f"{GITHUB_SCRIPTS_RAW_BASE}/{urllib.request.quote(fname)}"
-            dst_dir = manual_dir if _is_manual_script(fname) else events_dir
+            if kind == "helper":
+                raw_url = f"{GITHUB_SCRIPTS_RAW_BASE}/dmd_helpers/{urllib.request.quote(fname)}"
+                dst_dir = helpers_dir
+            elif kind == "manual":
+                raw_url = f"{GITHUB_SCRIPTS_RAW_BASE}/manual/{urllib.request.quote(fname)}"
+                dst_dir = manual_dir
+            else:
+                raw_url = f"{GITHUB_SCRIPTS_RAW_BASE}/{urllib.request.quote(fname)}"
+                dst_dir = events_dir
             dst = dst_dir / fname
+            new_names_by_dir.setdefault(dst_dir, set()).add(fname)
             try:
                 urllib.request.urlretrieve(raw_url, dst)
                 ok_count += 1
@@ -4453,45 +4574,87 @@ def download_recalbox_scripts(recalbox_host: str, progress_cb=None, listen_keybo
     finally:
         PAUSE.stop()
 
+    # Nettoyage APRES la copie, jamais avant (voir install_staged_scripts_
+    # to_share()) -- SEULEMENT si le lot complet a ete copie (pas de Stop/
+    # Skip en cours de route) : un arret premature laisserait
+    # new_names_by_dir incomplet, risquant de supprimer a tort des fichiers
+    # pas encore remplaces. helpers_dir exclu, meme raison que Mode 1 (pas
+    # de convention de renommage a y detecter).
+    if not stopped_early:
+        for dst_dir in (manual_dir, events_dir):
+            _remove_stale_files_fs(dst_dir, new_names_by_dir.get(dst_dir, set()))
+
     return (ok_count, total_count)
 
 
 def _download_recalbox_scripts_via_ssh(recalbox_host: str, progress_cb=None, listen_keyboard: bool = True) -> tuple:
     r"""
     Repli SSH/SFTP de download_recalbox_scripts() (Mode 9) quand le
-    partage SMB est injoignable -- meme liste de scripts (GitHub) et meme
-    routage manual/ vs racine, mais ecrits directement via SFTP dans
+    partage SMB est injoignable -- meme liste de scripts (GitHub), meme
+    routage manual/dmd_helpers/racine et meme nettoyage stale (v42) que la
+    version SMB, mais ecrits directement via SFTP dans
     /recalbox/share/userscripts/... (identifiants par defaut Recalbox)
     plutot que \\<host>\share. Retourne (fichiers_ok, fichiers_total) ;
     (0, 0) si paramiko indisponible ou connexion SSH impossible.
+
+    v42 -- corrige au passage un bug latent jamais exerce (le SMB
+    fonctionne toujours en pratique, ce repli SSH n'avait jamais ete
+    reellement declenche) : _sftp_ensure_userscripts_dirs() retourne un
+    tuple (manual_dst, helpers_dst), mais l'appel precedent le recuperait
+    dans une seule variable non depaquetee (manual_dst = tuple entier),
+    ce qui aurait produit un remote_path invalide des le premier script
+    manuel copie par ce chemin.
     """
     import urllib.request
 
-    script_files = _list_recalbox_script_files()
-    if not script_files:
+    event_files = _list_recalbox_script_files()
+    if not event_files:
         return (0, 0)
+    manual_files = _list_recalbox_manual_files()
+    if manual_files is None:
+        manual_files = []
+    helper_files = _list_recalbox_dmd_helpers_files()
+    if helper_files is None:
+        helper_files = []
 
     client = _ssh_connect_recalbox(recalbox_host)
     if client is None:
         return (0, 0)
 
+    all_entries = (
+        [(f, "event") for f in event_files]
+        + [(f, "manual") for f in manual_files]
+        + [(f, "helper") for f in helper_files]
+    )
     ok_count = 0
-    total_count = len(script_files)
+    total_count = len(all_entries)
     try:
         sftp = client.open_sftp()
         try:
-            manual_dst = _sftp_ensure_userscripts_dirs(sftp)
+            manual_dst, helpers_dst = _sftp_ensure_userscripts_dirs(sftp)
+            new_names_by_dir = {}
+            stopped_early = False
             PAUSE.start(listen_keyboard=listen_keyboard)
             try:
-                for i, f in enumerate(script_files, 1):
+                for i, (f, kind) in enumerate(all_entries, 1):
                     PAUSE.wait_if_paused()
                     if PAUSE.should_stop() or PAUSE.should_skip():
+                        stopped_early = True
                         break
                     fname = f["name"]
                     if progress_cb is not None:
                         progress_cb("install_recalbox_scripts", i, total_count, fname)
-                    raw_url = f"{GITHUB_SCRIPTS_RAW_BASE}/{urllib.request.quote(fname)}"
-                    remote_path = f"{manual_dst if _is_manual_script(fname) else RECALBOX_SSH_USERSCRIPTS_PATH}/{fname}"
+                    if kind == "helper":
+                        raw_url = f"{GITHUB_SCRIPTS_RAW_BASE}/dmd_helpers/{urllib.request.quote(fname)}"
+                        remote_dir = helpers_dst
+                    elif kind == "manual":
+                        raw_url = f"{GITHUB_SCRIPTS_RAW_BASE}/manual/{urllib.request.quote(fname)}"
+                        remote_dir = manual_dst
+                    else:
+                        raw_url = f"{GITHUB_SCRIPTS_RAW_BASE}/{urllib.request.quote(fname)}"
+                        remote_dir = RECALBOX_SSH_USERSCRIPTS_PATH
+                    remote_path = f"{remote_dir}/{fname}"
+                    new_names_by_dir.setdefault(remote_dir, set()).add(fname)
                     try:
                         with urllib.request.urlopen(raw_url, timeout=15) as resp:
                             data = resp.read()
@@ -4504,6 +4667,14 @@ def _download_recalbox_scripts_via_ssh(recalbox_host: str, progress_cb=None, lis
                         print(tr("mode9_result_fail")(fname, e))
             finally:
                 PAUSE.stop()
+
+            # Nettoyage APRES la copie, meme garde stopped_early que la
+            # version SMB -- helpers_dst exclu, meme raison.
+            if not stopped_early:
+                for remote_dir in (manual_dst, RECALBOX_SSH_USERSCRIPTS_PATH):
+                    _sftp_remove_stale_files(
+                        sftp, remote_dir, new_names_by_dir.get(remote_dir, set())
+                    )
         finally:
             sftp.close()
     finally:
