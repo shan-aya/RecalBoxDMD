@@ -1,7 +1,18 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v6
+# Version actuelle : v7
+#
+# v7 — 2026-09-06 — safe-modify — Bug remonte par l'utilisateur (test reel
+#      post-fusion) : le tirage aleatoire de theme pouvait selectionner
+#      "default" -- jamais voulu, ce theme n'est qu'un repli/choix manuel
+#      explicite, pas un theme "de jeu" comme les autres. random_theme()
+#      exclut desormais TOUJOURS "default" du tirage (en plus de tout
+#      exclude= fourni par l'appelant), sans condition a modifier aux 2
+#      sites d'appel (RecalBoxDMD_GUI.py, demarrage + selection "Aleatoire"
+#      dans l'onglet Parametres). Repli sur "default" conserve si c'est
+#      litteralement le SEUL theme disponible (dossier themes/ vide ou
+#      absent) -- comportement degrade mais fonctionnel, inchange.
 #
 # v6 — 2026-08-11 — safe-modify — Panneaux "detail de mode" (RecalBoxDMD_GUI.py,
 #      mode_desc_label/_adv) convertis de Label a Text pour des liens
@@ -604,13 +615,20 @@ def apply(name: str, gui) -> None:
 
 
 def random_theme(exclude: list[str] = None) -> str:
-    """Retourne un nom de thème aléatoire (hors ceux dans exclude)."""
+    """Retourne un nom de thème aléatoire (hors ceux dans exclude).
+
+    "default" est TOUJOURS exclu du tirage (v7) -- repli/choix manuel
+    explicite, pas un theme "de jeu" au meme titre que les autres. Reste
+    utilisable en repli si c'est litteralement le seul theme disponible.
+    """
     themes = list_themes()
-    if exclude:
-        themes = [t for t in themes if t not in exclude]
-    if not themes:
-        return "default"
-    return random.choice(themes)
+    always_exclude = set(exclude or ()) | {"default"}
+    candidates = [t for t in themes if t not in always_exclude]
+    if candidates:
+        return random.choice(candidates)
+    if themes:
+        return random.choice(themes)
+    return "default"
 
 
 def load_preference() -> str | None:

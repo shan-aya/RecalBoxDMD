@@ -2,7 +2,26 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v58
+# Version actuelle : v59
+#
+# v59 — 2026-09-06 — safe-modify — 2 bugs remontes par l'utilisateur lors
+#      du test reel juste apres la fusion v58 (aucun des deux cause par la
+#      fusion elle-meme, tous deux preexistants, juste decouverts par ce
+#      test) :
+#      (1) Mode 9 casse par le cadre "copie SD" (_mode6_ui_frame_adv,
+#      "Choice 8 — Copy to SD card") qui restait visible d'un Mode 1/6/7
+#      anterieur et poussait le cadre Progression hors de la fenetre fixe
+#      1100x750 -- meme bug deja corrige en v42 (2026-08-07) pour Mode
+#      3/8 uniquement, jamais etendu a Mode 9 (ni 10/11). Fix : condition
+#      elargie de `mode in ("3", "8")` a `mode not in ("1", "6", "7")`
+#      (voir _on_mode_changed()).
+#      (2) Le tirage aleatoire de theme pouvait selectionner "default" --
+#      jamais voulu (repli/choix manuel explicite, pas un theme "de jeu").
+#      Fix dans RecalBoxDMD_themes.py v7 (random_theme() exclut desormais
+#      "default" par construction), aucun changement necessaire ici cote
+#      appelant.
+#      Aucun test materiel a ce stade (juste applique + py_compile) --
+#      a revalider par l'utilisateur au prochain lancement reel.
 #
 # v58 — 2026-09-06 — safe-modify — Fusion `master` -> `dev/core-reassignment`
 #      (resolution de la divergence des deux branches, 17 commits master
@@ -6426,16 +6445,23 @@ class RetroBoxLEDGui:
             if hasattr(self, "_mode3_profile_frame"):
                 self._mode3_profile_frame.pack_forget()
 
-        # Mode 3/8 : masquer le cadre "copie SD" (_mode6_ui_frame_adv) s'il
-        # est reste visible d'un traitement precedent dans cette session
-        # (Mode 1/6/7, via _start_mode6_blinking()) -- rien ne le masquait
-        # jusqu'ici en changeant de mode, alors que Mode 3 (extraction
-        # seule) et Mode 8 (verification) ne produisent rien de pret a
+        # v59, safe-modify -- masquer le cadre "copie SD" (_mode6_ui_frame_adv)
+        # s'il est reste visible d'un traitement precedent dans cette
+        # session (Mode 1/6/7, via _start_mode6_blinking()) -- rien ne le
+        # masquait jusqu'ici en changeant de mode, alors que les autres
+        # modes (3 extraction, 8 verification, 9 installation scripts, 10
+        # image de secours, 11 pack GIFs...) ne produisent rien de pret a
         # copier sur la carte SD. Sa presence repoussait le panneau
-        # specifique du mode hors de la zone visible de l'onglet, jusqu'a
-        # chevaucher le cadre Progression partage en dessous (bug "cadre
-        # Progression disparu" signale par l'utilisateur).
-        if mode in ("3", "8"):
+        # specifique du mode hors de la zone visible de l'onglet (fenetre
+        # fixe 1100x750, non redimensionnable), jusqu'a chevaucher/pousser
+        # hors champ le cadre Progression partage en dessous (bug "cadre
+        # Progression disparu"/"pousse hors fenetre", signale par
+        # l'utilisateur -- fix v42 (2026-08-07) portait deja sur ce meme
+        # bug mais ne couvrait que Mode 3/8, pas Mode 9/10/11). Portee
+        # elargie a TOUT mode hors 1/6/7 (les seuls qui produisent une
+        # sortie prete a copier), plutot qu'une liste explicite a
+        # completer a chaque nouveau mode.
+        if mode not in ("1", "6", "7"):
             if hasattr(self, "_mode6_ui_frame_adv"):
                 self._mode6_ui_frame_adv.pack_forget()
 
