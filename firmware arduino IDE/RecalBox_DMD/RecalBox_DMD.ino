@@ -1,7 +1,25 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v157
+// Version actuelle : v158
+//
+// v158 - 2026-09-06 - safe-modify - Piste UDP (voir TRANSPORT_PLAN_UDP.md,
+//   branche dev/dmd-udp-transport) : PROTOTYPE MINIMAL, CMD_SCORE
+//   uniquement, PAS ENCORE TESTE SUR MATERIEL. Objectif : contourner le mur
+//   de plateforme MQTT non resolu (connect()/subscribe() bloquants, voir
+//   memoire projet/DECISIONS.md) en s'affranchissant de tout etat TCP a
+//   faire "caler" -- UDP est fire-and-forget, sans connexion/handshake.
+//   Ajouts : WiFiUDP dmdUdp (port UDP_CMD_PORT=5005), dmdUdp.begin() une
+//   seule fois apres la 1ere connexion WiFi reussie (setupWiFiFromConfig(),
+//   PAS rearme apres une reconnexion WiFi ulterieure -- a valider),
+//   handleUdpCommand() (parsePacket() non bloquant, appelee a chaque
+//   loop() juste apres processPendingMqttCommand()) : meme format de
+//   payload que MQTT (v148, "CMD=<nom> ARG=<reste>"), meme extractField(),
+//   mais dispatch limite a "score" (ecrit pendingCmd sous mqttCmdMutex,
+//   comme onMqttMessage()) -- tout autre CMD est logue (Serial + mqttLog[])
+//   mais sciemment ignore pour l'instant. MQTT INCHANGE, tourne toujours en
+//   parallele (comparaison prevue, voir plan). Prochaine etape : test reel
+//   (envoi UDP depuis RB1) avant d'etendre aux autres commandes.
 //
 // v157 - 2026-09-05 - safe-modify - drawScoreScreen() : score du rang 1
 //   (ecran hi-score) desormais ALIGNE A DROITE, comme le rang 2 juste en
@@ -2746,6 +2764,7 @@ typedef uint8_t BitOrder; // Workaround: Adafruit_BusIO attend BitOrder (AVR) ma
 #include <SD.h>
 #include <SPI.h>
 #include <WiFi.h>
+#include <WiFiUdp.h> // v1 (piste UDP, voir TRANSPORT_PLAN_UDP.md) -- prototype minimal, cmd=score uniquement
 #include <ESPmDNS.h>
 #include <PubSubClient.h>
 #include "BluetoothSerial.h"
@@ -3535,6 +3554,9 @@ char findInGamesCache(const String &sysName, const String &gameName)
 #define MQTT_CLIENT  "esp32-marquee"
 #define MQTT_RETRY_MS    15000
 #define MQTT_START_DELAY_MS 12000
+// v1 -- piste UDP (voir TRANSPORT_PLAN_UDP.md) : port dedie, fire-and-forget,
+// prototype limite a CMD=score pour valider la fiabilite avant d'etendre.
+#define UDP_CMD_PORT      5005
 
 // --------------------------------------------------
 // Globaux
@@ -3860,6 +3882,15 @@ WiFiClient   wifiClientMqtt;
 PubSubClient mqttClient(wifiClientMqtt);
 String       lastSysName = "";
 String       displayedMaskSysName = "";
+
+// v1 -- piste UDP (voir TRANSPORT_PLAN_UDP.md). dmdUdp.begin(UDP_CMD_PORT)
+// est appele une seule fois, juste apres la 1ere connexion WiFi reussie
+// (setupWiFiFromConfig()) -- PAS REARME apres une reconnexion WiFi
+// ulterieure (maintainWiFi()) pour l'instant : a valider en conditions
+// reelles si necessaire (le socket UDP local, bind() sur INADDR_ANY,
+// devrait en principe survivre a un cycle disconnect/reconnect qui ne
+// recree pas l'interface elle-meme -- pas encore confirme sur materiel).
+WiFiUDP      dmdUdp;
 
 // v139 -- voir changelog v139 en entete pour le contexte complet. Contourne
 // NetworkClient::write() (coeur Arduino-ESP32, NetworkClient.cpp) qui peut
@@ -7313,6 +7344,56 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
 }
 
 // --------------------------------------------------
+// v1 -- piste UDP (voir TRANSPORT_PLAN_UDP.md), prototype minimal
+// --------------------------------------------------
+// Fire-and-forget, sans connexion/handshake -- objectif : eliminer la classe
+// de bug MQTT documentee (mur de plateforme, connect()/subscribe() bloquants,
+// voir memoire projet) en s'affranchissant de tout etat TCP a faire "caler".
+// PROTOTYPE volontairement limite a UNE seule commande (score) avant
+// d'etendre au reste -- voir "Etat"/"Prochaine etape" dans
+// TRANSPORT_PLAN_UDP.md et la consigne de validation incrementale du
+// projet (un point a la fois, teste sur materiel avant le suivant).
+// Meme format de payload que MQTT (v148) : "CMD=<nom> ARG=<reste>", memes
+// extractField()/dispatch que onMqttMessage() -- seule la SOURCE change.
+// Non bloquant : parsePacket() renvoie 0 immediatement s'il n'y a rien a
+// lire (pas d'attente), donc un appel a chaque loop() est sans cout notable
+// quand aucun datagramme n'arrive.
+void handleUdpCommand()
+{
+  int packetSize = dmdUdp.parsePacket();
+  if (packetSize <= 0) return;
+
+  // v1 -- 255 = tres large marge (le plus long payload MQTT connu, le score
+  // multi-rangs, fait ~90 octets, voir commentaire v79 pres de
+  // mqttClient.setBufferSize()) ; un paquet UDP plus long que le buffer est
+  // tronque par read(), jamais un debordement.
+  char buf[256];
+  int len = dmdUdp.read(buf, sizeof(buf) - 1);
+  if (len <= 0) return;
+  buf[len] = '\0';
+  String msg = String(buf);
+  msg.trim();
+  Serial.println("[UDP] " + dmdUdp.remoteIP().toString() + " -> " + msg);
+  mqttLogAdd("udp/cmd", msg);
+
+  String cmd = extractField(msg, "CMD");
+  int argIdx = msg.indexOf("ARG=");
+  String arg = (argIdx >= 0) ? msg.substring(argIdx + 4) : "";
+
+  // v1 -- CMD_SCORE uniquement pour ce prototype (voir commentaire d'entete
+  // de la fonction) -- tout autre CMD est logue ci-dessus (visible) mais
+  // sciemment ignore, pas une erreur.
+  if (cmd == "score" && arg.length() > 0)
+  {
+    if (mqttCmdMutex != nullptr && xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(10)) == pdTRUE)
+    {
+      pendingCmd = MqttCommand(MqttCommand::CMD_SCORE, arg);
+      xSemaphoreGive(mqttCmdMutex);
+    }
+  }
+}
+
+// --------------------------------------------------
 // v137 -- Heartbeat CPU0 (diagnostic bissection round 2, voir DECISIONS.md)
 // --------------------------------------------------
 // Instrument pour trancher entre 2 hypotheses jamais distinguees jusqu'ici
@@ -8189,6 +8270,14 @@ void setupWiFiFromConfig()
     String ip=WiFi.localIP().toString();
     if(showInfo) showWifiStatusScreen("WIFI OK",fitLabel(ip,14),display->color565(0,255,0));
     Serial.println("[WIFI] connected: "+ip);
+    // v1 -- piste UDP (voir TRANSPORT_PLAN_UDP.md) : ne depend PAS de
+    // recalboxIP (contrairement au bloc mqttClient juste apres) -- le DMD se
+    // contente d'ecouter, n'importe quelle source peut lui envoyer un
+    // datagramme. begin() une seule fois ici ; PAS rearme apres une
+    // reconnexion WiFi ulterieure pour l'instant (voir commentaire pres de
+    // la declaration de dmdUdp).
+    dmdUdp.begin(UDP_CMD_PORT);
+    Serial.println("[UDP] listening on port " + String(UDP_CMD_PORT));
     delay(1200);
     autoDetectRecalboxIP();
     if(recalboxIP.length()>0){
@@ -9486,6 +9575,11 @@ void loop()
   // de l'iteration est bien consommee avant tout risque de blocage sur
   // handleWebConfig().
   processPendingMqttCommand();
+  // v1 -- piste UDP (voir TRANSPORT_PLAN_UDP.md) : parsePacket() non
+  // bloquant, meme raisonnement de placement que processPendingMqttCommand()
+  // juste au-dessus (consommer/poser pendingCmd tot dans l'iteration, avant
+  // tout risque de blocage plus bas type handleWebConfig()).
+  handleUdpCommand();
   // playlistGenStep() (2026-08-10, RETOUR de cette architecture -- voir
   // changelog v67) : avance la generation de playlist d'un pas borne, cout
   // quasi nul quand aucune generation n'est active (un seul if). Appelee
