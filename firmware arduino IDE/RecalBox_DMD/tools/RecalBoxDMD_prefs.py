@@ -1,7 +1,15 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v9
+# Version actuelle : v10
+#
+# v10 - 2026-09-06 - safe-modify - Demande utilisateur : la langue par
+#      defaut de l'appli doit etre celle du systeme Windows au tout
+#      premier lancement, sauf si une preference a deja ete explicitement
+#      validee dans l'onglet Parametres -- get() seul ne permet pas de
+#      distinguer "jamais choisi" de "valeur de repli _DEFAULTS", d'ou la
+#      nouvelle fonction has_saved(). Voir RecalBoxDMD_GUI.py v62 pour la
+#      detection de langue systeme elle-meme (cote appelant).
 #
 # v9 - 2026-09-05 - safe-modify - Fusion master -> dev/core-reassignment :
 #      combine deux ajouts independants faits en parallele sous le meme
@@ -110,6 +118,17 @@ def get(key: str) -> str | None:
     """Retourne la valeur d'une préférence, ou la valeur par défaut, ou None."""
     data = _load_raw()
     return data.get(key, _DEFAULTS.get(key))
+
+
+def has_saved(key: str) -> bool:
+    """Vrai si `key` a ete EXPLICITEMENT enregistree dans le fichier JSON
+    (par un appel a set()), par opposition a une valeur de repli tiree de
+    _DEFAULTS -- get() ne permet pas de faire cette distinction, il
+    renvoie toujours quelque chose des qu'une valeur par defaut existe.
+    Utilise par RecalBoxDMD_GUI.py (v10) pour ne detecter la langue
+    systeme Windows qu'au tout premier lancement (aucun choix jamais
+    valide dans l'onglet Parametres) et ne plus jamais y toucher ensuite."""
+    return key in _load_raw()
 
 
 def set(key: str, value: str) -> None:

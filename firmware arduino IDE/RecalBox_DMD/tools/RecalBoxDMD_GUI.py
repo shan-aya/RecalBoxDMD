@@ -2,7 +2,19 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v61
+# Version actuelle : v62
+#
+# v62 — 2026-09-06 — safe-modify — Demande utilisateur : la langue par
+#      defaut de l'appli au tout premier lancement doit etre celle du
+#      systeme Windows, PAS le repli fixe "en" en place depuis le v5 --
+#      sauf si une preference a deja ete explicitement validee dans
+#      l'onglet Parametres (_on_language_changed()), auquel cas elle
+#      continue de toujours primer, inchangee. Nouvelle fonction module-
+#      level _detect_system_language() (GetUserDefaultLocaleName, repli
+#      "en" hors Windows/echec/langue non supportee) + nouvelle fonction
+#      RecalBoxDMD_prefs.has_saved() (v10) pour distinguer "jamais
+#      choisi" de "valeur de repli _DEFAULTS" -- get() seul ne le
+#      permettait pas.
 #
 # v61 — 2026-09-06 — safe-modify — Retour utilisateur (test Mode 1 en
 #      direct) : le prompt "Voulez-vous choisir une image de secours
@@ -2487,6 +2499,35 @@ def _net_use_disconnect(unc_root: str) -> None:
     subprocess.call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def _detect_system_language() -> str:
+    """Detecte la langue de l'interface Windows (v62, safe-modify) et la
+    mappe sur l'une des 3 langues supportees par l'outil (fr/en/es) --
+    repli "en" si la detection echoue (hors Windows, appel API en echec)
+    ou si la langue systeme detectee n'est pas parmi les 3 supportees.
+    Utilisee UNIQUEMENT au tout premier lancement de l'appli, quand
+    aucune preference "language" n'a encore ete explicitement enregistree
+    (voir prefs.has_saved()) -- un choix fait dans l'onglet Parametres
+    prend ensuite toujours le dessus, cette fonction n'est alors plus
+    jamais appelee. GetUserDefaultLocaleName (Vista+) plutot qu'une LCID
+    a mapper a la main : renvoie directement un nom de locale du type
+    "fr-FR"/"en-US"/"es-ES", dont le sous-tag de langue (avant le "-")
+    suffit ici."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+
+            # LOCALE_NAME_MAX_LENGTH (85) -- taille de buffer documentee
+            # par l'API Windows pour GetUserDefaultLocaleName.
+            buf = ctypes.create_unicode_buffer(85)
+            if ctypes.windll.kernel32.GetUserDefaultLocaleName(buf, len(buf)):
+                primary = buf.value.split("-")[0].lower()
+                if primary in ("fr", "en", "es"):
+                    return primary
+        except Exception:
+            pass
+    return "en"
+
+
 class RetroBoxLEDGui:
     # Nom de fichier reserve pour le visuel par defaut du projet
     # (tools/assets/default_images/default_RB.png). Depuis le retrait de
@@ -2573,10 +2614,20 @@ class RetroBoxLEDGui:
         # index réel le plus proche cliqué dans la Listbox (0..n-1), y compris index système >=3
         self._last_sys_clicked_index_any: Optional[int] = None
 
-        # Charger la langue préférée depuis le fichier JSON centralisé
-        _saved_lang = prefs.get("language")
-        if _saved_lang not in ("fr", "en", "es"):
-            _saved_lang = "en"
+        # Charger la langue préférée depuis le fichier JSON centralisé --
+        # v62, safe-modify : si aucune preference n'a JAMAIS ete
+        # explicitement enregistree (premier lancement, voir
+        # prefs.has_saved()/v10), utilise la langue du systeme Windows au
+        # lieu du repli fixe "en" (en place depuis le v5). Des qu'un choix
+        # est fait dans l'onglet Parametres (_on_language_changed()), il
+        # est sauvegarde et prend desormais toujours le dessus -- cette
+        # detection systeme n'est alors plus jamais consultee.
+        if prefs.has_saved("language"):
+            _saved_lang = prefs.get("language")
+            if _saved_lang not in ("fr", "en", "es"):
+                _saved_lang = "en"
+        else:
+            _saved_lang = _detect_system_language()
 
         self.lang_var = tk.StringVar(value=_saved_lang)
 
