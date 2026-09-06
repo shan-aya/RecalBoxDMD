@@ -1,179 +1,205 @@
-# 🎮 RecalBoxDMD Toolkit v3.5 — Aide complète
+# RecalBoxDMD — Raw565 Edition <img alt="Firmware : Raw565 Ed. v13" src="https://img.shields.io/badge/firmware-Raw565%20Ed.%20v13-blueviolet.svg"> <img alt="Outil PC : v6243" src="https://img.shields.io/badge/outil%20PC-v6243-blueviolet.svg">
 
-> **RecalBoxDMD** = Recalbox + panneau LED DMD 128x32 pour votre borne d'arcade !
+**Un vrai panneau marquee lumineux pour votre borne d'arcade Recalbox — affichage instantané, même avec un fullset MAME de 30 000 jeux.**
+
+[🇬🇧 English](README.md) · 🇫🇷 **Français** · [🇪🇸 Español](README.es.md)
+
+<p align="center">
+  <img src="medias/hero/hero_fr.jpg" alt="RecalBoxDMD tournant en direct sur une vraie borne Recalbox JAMMA" width="420">
+</p>
+
+<p align="center">
+  <img src="medias/dmd_in_action.gif" alt="Vraies images : le marquee change en direct pendant la navigation dans les jeux" width="260">
+</p>
+<p align="center"><sub>📹 Vraies images, pas un montage — le marquee se met à jour en direct pendant la navigation · <a href="medias/dmd_in_action.mp4">voir le clip complet (MP4)</a></sub></p>
+
+<p align="center">
+  <img src="medias/clock_themes/00_super_mario.gif" width="140" alt="Thème horloge Super Mario">
+  <img src="medias/clock_themes/02_pac_man.gif" width="140" alt="Thème horloge Pac-Man">
+  <img src="medias/clock_themes/03_space_invaders.gif" width="140" alt="Thème horloge Space Invaders">
+  <img src="medias/clock_themes/07_fire.gif" width="140" alt="Thème horloge Fire">
+</p>
+
+<p align="center">
+  <img src="medias/fallback_images/default_RB.png" width="140" alt="Image de secours — Recalbox">
+  <img src="medias/fallback_images/default_jamma.png" width="140" alt="Image de secours — Recalbox JAMMA">
+  <img src="medias/fallback_images/default_rgbdual.png" width="140" alt="Image de secours — Recalbox RGB Dual">
+  <img src="medias/fallback_images/default_rgbdual2.png" width="140" alt="Image de secours — Recalbox RGB Dual 2">
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img alt="Licence : MIT" src="https://img.shields.io/badge/licence-MIT-green.svg"></a>
+  <img alt="Plateforme : ESP32" src="https://img.shields.io/badge/plateforme-ESP32-blue.svg">
+  <img alt="Panneau : HUB75 128x32" src="https://img.shields.io/badge/panneau-HUB75%20128x32-blue.svg">
+  <img alt="Recalbox : 10.x / 9.x / legacy" src="https://img.shields.io/badge/recalbox-10.x%20%7C%209.x%20%7C%20legacy-orange.svg">
+  <img alt="Langues : FR EN ES" src="https://img.shields.io/badge/UI-FR%20%7C%20EN%20%7C%20ES-purple.svg">
+</p>
 
 ---
 
-## 📋 Table des matières
+## C'est quoi ?
 
-1. [Présentation](#presentation)
-2. [🆕 Nouveautés](#nouveautes)
-3. [Prérequis matériel](#prerequis-materiel)
-4. [Prérequis logiciel](#prerequis-logiciel)
-5. [Installation rapide](#installation-rapide)
-6. [Interface graphique (GUI)](#interface-graphique-gui)
-   - [Onglet Main](#onglet-main)
-   - [Onglet Avancé](#onglet-avance)
-   - [Onglet Logs](#onglet-logs)
-   - [Onglet Paramètres](#onglet-parametres)
-7. [Détail des modes](#detail-des-modes)
-8. [Workflow complet (recommandé)](#workflow-complet-recommande)
-9. [Tutoriel scraping Recalbox](#tutoriel-scraping-recalbox)
-10. [🔧 Assemblage du panneau DMD (DMDos)](#assemblage-du-panneau-dmd-dmdos)
-11. [Firmware ESP32 — Raw565 Edition](#firmware-esp32-raw565-edition)
-    - [Pourquoi le raw565 ?](#pourquoi-le-raw565)
-    - [Compilation avec Arduino IDE](#compilation-avec-arduino-ide)
-    - [Configuration (config.ini)](#configuration-configini)
-    - [Installation via navigateur (WebInstaller)](#installation-via-navigateur-webinstaller)
-12. [Le format raw565 en détail](#le-format-raw565-en-detail)
-    - [.raw565 (image fixe PNG)](#raw565-image-fixe-png)
-    - [.raw565pack + .meta (GIF animé)](#raw565pack-meta-gif-anime)
-    - [Cache bigramme — indexation accélérée](#cache-bigramme-indexation-acceleree)
-    - [Système de masque (mask)](#systeme-de-masque-mask)
-13. [Structure de la carte SD](#structure-de-la-carte-sd)
-14. [Dépannage](#depannage)
-15. [Fichiers générés par le script](#fichiers-generes-par-le-script)
-16. [Crédits](#credits)
+**RecalBoxDMD** transforme un petit **panneau LED 128×32** (2 modules HUB75 64×32 chaînés) en un vrai marquee d'arcade pour votre borne **Recalbox** : lancez un jeu, son logo/marquee s'allume sur le panneau en quelques millisecondes — plus un jeu de 10 **thèmes horloge** pixel-art (Mario, Pac-Man, Tetris, Space Invaders, Pong...) et un pack fourni d'environ **600 GIFs rétro** pour le mode attente/veille.
+
+C'est un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), reconstruit autour d'un format pixel maison, le **raw565**, et d'une **boîte à outils PC (GUI Windows)** pour résoudre un problème précis : sur les grosses collections (fullset MAME, FBNeo...), le firmware original en PNG/GIF finissait par geler ou afficher un écran noir plusieurs secondes entre deux jeux. Cette édition, non.
+
+|                          | PNG/GIF d'origine | **RecalBoxDMD Raw565 Edition** |
+|--------------------------|--------------------|----------------------------------|
+| Temps d'affichage par jeu | 500 ms – 3 s+     | **5 – 15 ms**                    |
+| RAM nécessaire sur l'ESP32 | 50-100 Ko         | **8 Ko**                         |
+| Fullset MAME (30 000 jeux) | freeze 5-10 s      | **aucun freeze, aucun écran noir** |
+| Mise en place              | manuelle, image par image | **boîte à outils PC, un clic** |
+
+> ### 🚀 L'essentiel : un clic construit toute la carte SD
+>
+> Pointez la **boîte à outils PC** vers votre dossier ROMs et cliquez sur **Démarrer** (**Mode 1 — AUTO**). Elle enchaîne tout, toute seule — détection de la version Recalbox, extraction du gamelist, conversion raw565, cache bigramme, images par défaut, scripts Recalbox — jusqu'à une carte SD prête à l'emploi, puis propose de la copier sur votre carte. **Insérez cette carte SD dans le DMD, allumez, et c'est terminé.** Aucune configuration manuelle fichier par fichier, jamais.
 
 ---
 
-## 🎯 Présentation
+## Sommaire
 
-**RecalBoxDMD Toolkit** est un fork optimisé de **RetroBoxLED** par Jamyz, spécialement conçu pour résoudre les problèmes de **lenteur d'affichage** sur les systèmes contenant beaucoup de fichiers (fullset MAME, FBNeo, etc.).
+1. [C'est quoi ?](#cest-quoi-)
+2. [Fonctionnalités clés](#fonctionnalités-clés)
+3. [Comment ça marche](#comment-ça-marche)
+4. [Captures d'écran](#captures-décran--la-boîte-à-outils-pc)
+5. [Démarrage rapide](#démarrage-rapide)
+6. [Matériel](#matériel)
+7. [Boîte à outils PC — référence des modes](#boîte-à-outils-pc--référence-des-modes)
+8. [10 thèmes horloge rétro](#10-thèmes-horloge-rétro)
+9. [Le pack de 600 GIFs](#le-pack-de-600-gifs)
+10. [Firmware — compiler et flasher](#firmware--compiler-et-flasher)
+11. [Configuration (`config.ini`)](#configuration-configini)
+12. [Configuration web — en direct, dans le navigateur](#configuration-web--en-direct-dans-le-navigateur)
+13. [MQTT & Telnet](#mqtt--telnet)
+14. [Écrans superposés en jeu — Hi-Score, Infos jeu, Succès & Challenge RB](#écrans-superposés-en-jeu--hi-score-infos-jeu-succès--challenge-rb)
+15. [Le format raw565 en détail](#le-format-raw565-en-détail)
+16. [Structure de la carte SD](#structure-de-la-carte-sd)
+17. [Structure du dépôt](#structure-du-dépôt)
+18. [Dépannage](#dépannage)
+19. [Crédits & Licence](#crédits--licence)
 
-### 🔥 Le problème résolu
+---
 
-La version originale de Jamyz lisait directement les fichiers **PNG et GIF** depuis la carte SD. Sur des systèmes comme **MAME fullset** (30 000+ jeux), cette approche provoquait :
+## Fonctionnalités clés
 
-```
-❌ Problème original :
-   - Ouverture du dossier systems/mame/ avec 30 000 fichiers
-   - L'ESP32 liste tous les fichiers → freeze de plusieurs secondes
-   - Décodage PNG sur l'ESP32 → lent, mémoire insuffisante
-   - Entre chaque jeu : "sabre noir" ou latence visible
-```
+- ⚡ **Moteur raw565** — PNG → `.raw565` (8 192 octets, RGB565), GIF → `.raw565pack` + `.meta`. Aucun décodage sur l'ESP32 : il lit des octets et les envoie tels quels au panneau. 5-15 ms par affichage.
+- 🖼️ **Marquees fixes et animées, par jeu ou par système** — un jeu/système peut avoir un logo fixe (`.raw565`, depuis un PNG) **ou** un marquee animé complet (`.raw565pack`, depuis un GIF) ; le firmware joue celui qui est présent, sans aucune configuration.
+- 🎯 **Système de masque pour les grosses collections (MAME, FBNeo...)** — les systèmes marqués **« L »** (Large/lent) affichent immédiatement une image par défaut en cache pendant que la vraie image se décode en tâche de fond : le panneau **ne reste jamais noir**, même en enchaînant un fullset de 30 000 jeux.
+- 🖼️ **Image de secours personnalisée** — 4 images par défaut sont fournies (Recalbox, JAMMA, RGB Dual, RGB Dual 2), ou choisissez **votre propre image** depuis la boîte à outils PC comme image de secours globale, affichée quand rien d'autre ne correspond.
+- 🧮 **Cache de jeux bigramme** — un cache indexé compact (`games_cache.bin`) évite de lister des dizaines de milliers de fichiers SD à l'exécution ; les recherches sont quasi instantanées.
+- 🕹️ **10 thèmes horloge pixel-art intégrés** — Super Mario, Tetris, Pac-Man, Space Invaders, Pong, Neon, Matrix, Fire, Rainbow, et un niveau 1-1 défilant — affichés périodiquement entre les jeux (ou en continu), thème sélectionnable depuis la page web avec **aperçu en direct sur le panneau physique**.
+- 📦 **~600 GIFs rétro gratuits inclus** — téléchargement en un clic (Arcade, Consoles, Ordinateurs, Flipper, Halloween, Noël, et plus) pour vos playlists d'attente.
+- 🖥️ **Boîte à outils PC Windows en un clic** (GUI, FR/EN/ES) — des ROMs brutes + `gamelist.xml` jusqu'à une carte SD prête à l'emploi : extraction consciente du scraping, conversion, cache, et copie SD reprenable, le tout en un clic « Démarrer ».
+- 🌐 **Page de configuration web en direct** servie par l'ESP32 — WiFi, MQTT, luminosité, playlist, thèmes horloge (avec aperçu instantané sur le panneau) — aucune recompilation nécessaire pour ajuster les réglages.
+- ⚡ **Flashage du firmware depuis le navigateur** — un [installateur web en un clic](https://shan-aya.github.io/RecalBoxDMD/) (Chrome/Edge) flashe l'ESP32 en USB, sans Arduino IDE.
+- 📡 **Intégration MQTT** avec Recalbox pour l'affichage en temps réel des jeux/systèmes/événements, plus une console **Telnet** pour le débogage sur l'appareil.
+- 🏆 **Écrans superposés en jeu — Hi-Score, Infos jeu, RetroAchievements & Challenge RB** — pendant que vous jouez, le panneau alterne automatiquement le marquee avec les vrais meilleurs scores MAME/FBNeo (manifeste communautaire, ~2 758 jeux), la description/genre/année du jeu, les succès RetroAchievements débloqués, et le classement du Challenge communautaire mensuel officiel de Recalbox. Zéro configuration : installez les scripts une fois (Mode 9) et tout fonctionne tout seul — voir [le détail plus bas](#écrans-superposés-en-jeu--hi-score-infos-jeu-succès--challenge-rb).
+- 🎬 **Onglet Playlist — créez vos propres rotations en mode attente** — combinez le pack de 600 GIFs et vos propres GIFs (glissez un dossier PC), nommez la playlist, elle est prête à sélectionner comme playlist active ; fonctionne directement depuis une carte SD insérée ou, en plein Mode 1, depuis le dossier de travail avant même sa copie.
+- 🌍 **Entièrement trilingue** — l'interface web du firmware et la boîte à outils PC sont toutes deux disponibles en **français, anglais et espagnol**.
+- 🗣️ **Images système/genre multilingues** — le pack de secours `_defaults` (badges de genre, Favoris, Derniers Jeux Joués...) est disponible en français et espagnol, sélectionnable depuis la boîte à outils PC avec un aperçu comparatif en direct ; les genres pas encore traduits restent simplement en anglais.
+- 🔁 **Scraping conscient de la version Recalbox** — cible automatiquement la bonne balise `gamelist.xml` et le bon dossier média pour Recalbox 10.x / 9.x / legacy, avec un guide « comment scraper » intégré.
 
-**La solution « Raw565 Edition »** pré-convertit toutes les images sur le PC (via le script Python) en un format **brut RGB565** directement affichable par l'ESP32 :
+---
 
-```
-✅ Solution raw565 :
-   1. Le script convertit chaque PNG → fichier .raw565 (8192 octets, prêt à l'emploi)
-   2. Chaque GIF → fichier .raw565pack (trames concaténées) + .meta (timings)
-   3. L'ESP32 lit le fichier raw565 et l'envoie directement au panneau LED
-   4. Pas de décodage, pas de lenteur : affichage plus rapide
-   5. possibilité d utiliser des images fixe (PNG-->raw565) ou animé (GIF-->RAW565pack) pour les jeux
-```
-
-| Métrique | Original PNG/GIF | Raw565 Edition |
-|----------|-----------------|----------------|
-| Temps d'affichage | 500ms – 3s+ | **5–15ms** |
-| RAM nécessaire | 50-100 Ko | **8 Ko** |
-| Latence MAME fullset | Freeze 5-10s | **0** |
-| Compatibilité | Tous systèmes | **Systèmes « L » marqués** |
-
-### Le système de masque (mask)
-
-Pour les très gros systèmes marqués **« L »** (Large / Lent, comme MAME ou FBNeo), le firmware utilise un mécanisme de masque :
-
-1. Le script détecte les systèmes avec >800 fichiers individuels
-2. Il marque ces systèmes comme **« L »** dans `systems_cache.dat`
-3. Quand l'ESP32 reçoit un jeu de ce système :
-   - Il affiche  le **raw565** du système de jeu
-   - En parallèle, une tâche asynchrone controle lexistence du raw565pack ou du raw565  spécifique
-   - Quand la verification et la localisation sur la carte SD  est fini, l'image spécifique remplace le masque
-   - En cas d absence de fichier image, le systeme retourne l image **default.raw565** immediatement car en cahe RAM
-4. Résultat : **l'utilisateur ne voit jamais d'écran noir**, le panneau reste toujours actif
-
-> **💡 Résultat** : Finies les longues secondes d'attente entre chaque jeu. L'affichage est bien plus rapide ( dépend de la rapidité de la SD ) même avec un fullset MAME de 30 000 fichiers !
-
-> **💡 Contraintes** : Il faut imperativement passer par le script pour préparer la SD. Vous ne pouvez pas rajouter des images sur la SD à la volée
-
-### 🔄 Comment tout s'articule
+## Comment ça marche
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     RECALBOX                                 │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │ Lance un jeu → MQTT envoie "mame/kof98" à l'ESP32   │   │
-│  └──────────────┬───────────────────────────────────────┘   │
-│                 │                                           │
-│          Événement MQTT                                     │
-│                 ▼                                           │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │            ESP32 + Panneau LED 128x32                  │   │
-│  │                                                       │   │
-│  │  Reçoit "mame/kof98" :                                │   │
-│  │  1. Cherche /systems/mame/kof98.raw565 (instantané)   │   │
-│  │  2. Pas trouvé ? Cherche dans games_cache.bin         │   │
-│  │  3. Pas trouvé ? Affiche _defaults/mame.raw565        │   │
-│  │  4. Pas trouvé ? Affiche _defaults/default.raw565     │   │
-│  │                                                       │   │
-│  │  ⏱️ Temps total : 5 à 15 ms au lieu de 500ms-3s !     │   │
-│  └──────────────────────────────────────────────────────┘   │
+│                         RECALBOX                              │
+│   Lance un jeu → marquee[...].sh envoie "mame/kof98"          │
+│                        via MQTT                                │
+└──────────────────────────────┬────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────┐
+│                ESP32 + Panneau LED HUB75 128×32                 │
+│                                                                 │
+│  Reçoit "mame/kof98" :                                          │
+│   1. /systems/mame/kof98.raw565 (ou .raw565pack)  → instantané │
+│   2. pas trouvé ? recherche dans games_cache.bin (bigramme)    │
+│   3. toujours pas ? affiche /systems/_defaults/mame.raw565     │
+│   4. toujours pas ? affiche /systems/_defaults/default.raw565  │
+│                                                                 │
+│   ⏱️  5-15 ms au total, quelle que soit la taille de la collection │
 └─────────────────────────────────────────────────────────────┘
 
-         ┌─────────────────────────────────────────────┐
-         │     RecalBoxDMD Toolkit (Prépare la SD)       │
-         │  Extrait les images des gamelists.xml          │
-         │  Convertit PNG → .raw565 (format brut RGB565)  │
-         │  Convertit GIF → .raw565pack + .meta           │
-         │  Construit le cache bigramme (games_cache.bin) │
-         │  Marque les systèmes lents (flag "L")          │
-         │  Copie le tout sur la carte SD                 │
-         └─────────────────────────────────────────────┘
+           ┌───────────────────────────────────────────────┐
+           │     RecalBoxDMD Toolkit  (prépare la carte SD)  │
+           │  Extrait les marquees depuis gamelist.xml        │
+           │  PNG → .raw565   /   GIF → .raw565pack + .meta   │
+           │  Construit le cache de jeux bigramme              │
+           │  Marque les systèmes lents ("L") pour le masque   │
+           │  Télécharge les assets gratuits (_defaults + 600 GIFs) │
+           │  Copie le tout sur la carte SD (reprenable)       │
+           └───────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🆕 Nouveautés
+## Captures d'écran — la boîte à outils PC
 
-### 🎯 Gestion des versions Recalbox (Mode 1 & Mode 3)
+L'outil embarque 9 habillages visuels (SNES, Mega Drive, Dreamcast, PlayStation, N64, Neo Geo, Game Boy, Atari 2600, Aléatoire) en plus de son interface FR/EN/ES — quelques exemples :
 
-Recalbox stocke les images marquee/logo différemment selon la version installée **et** selon les options choisies dans l'onglet Scraper de Recalbox. Pour éviter de récupérer le mauvais visuel (jaquette au lieu du logo, par exemple), les modes 1 et 3 proposent maintenant un panneau **« Version Recalbox »** :
+| Onglet Main (anglais · thème SNES) | Paramètres — langue & thème (anglais · thème Dreamcast) |
+|---|---|
+| ![Onglet Main, anglais, thème SNES](medias/screenshots/gui_en_main_snes.png) | ![Onglet Paramètres, anglais, thème Dreamcast](medias/screenshots/gui_en_settings_dreamcast.png) |
 
-- Un sélecteur **10.x / 9.x / legacy** qui détermine automatiquement la bonne balise du `gamelist.xml` (`<logo>`, `<thumbnail>` ou `<image>`) et le bon dossier média (`media/wheels/`, `media/thumbnails/` ou `media/images/`).
-- Un bouton **« Comment scraper ? »** qui affiche, pour la version choisie, une capture d'écran annotée de l'onglet Scraper de Recalbox indiquant exactement quel champ régler (voir [Tutoriel scraping Recalbox](#tutoriel-scraping-recalbox)).
-- Un bouton **« Nettoyer les dossiers avant scrape »** : supprime (avec confirmation et aperçu du nombre de fichiers) les images déjà présentes dans le dossier média correspondant, système par système, pour repartir sur un scrape Recalbox propre et complet.
-- Le choix de version est mémorisé (fichier de préférences) et partagé entre le Mode 1 (onglet Main) et le Mode 3 (onglet Avancé).
+| Onglet Main (français · thème Mega Drive) | Onglet Playlist (français · thème Neo Geo) |
+|---|---|
+| ![Onglet Main, français, thème Megadrive](medias/screenshots/gui_fr_main_megadrive.png) | ![Onglet Playlist, français, thème Neo Geo](medias/screenshots/gui_fr_playlist_neogeo.png) |
 
-### 🔎 Mode 8 — Vérification des images manquantes
-
-Nouveau mode dans l'onglet Avancé : parcourt les `gamelist.xml` du dossier ROMs et signale, pour chaque système et chaque jeu, si l'image attendue (selon le profil de version choisi) existe réellement sur le disque. Un rapport est généré, et une option complémentaire permet de comparer avec le dossier de travail temporaire (et, en option, avec la carte SD physique) pour distinguer une image manquante côté ROMs, non convertie, ou non copiée sur la SD.
-
-### 💾 Reprise de la copie SD après interruption
-
-La copie vers la carte SD physique (bouton clignotant après un traitement) résiste maintenant à une interruption (débranchement, crash) : écriture atomique des fichiers, détection d'une copie précédente incomplète au prochain lancement, et bouton dédié pour ne relancer que les fichiers en échec plutôt que toute la copie.
+| Onglet Main (espagnol · thème PlayStation) | Onglet Avancé (espagnol · thème Atari 2600) |
+|---|---|
+| ![Onglet Main, espagnol, thème PlayStation](medias/screenshots/gui_es_main_playstation.png) | ![Onglet Avancé, espagnol, thème Atari 2600 — Mode 11, pack 600 GIFs](medias/screenshots/gui_es_advanced_atari2600.png) |
 
 ---
 
-## 🧰 Prérequis matériel
+## Démarrage rapide
 
-| Composant | Référence | Prix indicatif |
-|-----------|-----------|----------------|
-| 🧠 Microcontrôleur | ESP32 DevKit V1 USB-C (38 broches) | ~5€ |
-| 🖥️ Panneau LED | 2× panneaux matriciels RGB HUB75 **P4, 64x32, 256x128mm**, à assembler côte à côte (→ 128x32) | ~15-25€/panneau |
-| 💾 Lecteur SD | Module adaptateur Micro SD (SPI) — intégré à la DMDos Board | ~2€ |
-| 🔌 Carte de connexion | **DMDos Board V3** (recommandée, simplifie le câblage et intègre le lecteur SD) | ~15€ |
-| ⚡ Alimentation | 5V 4A+ (selon taille du panneau) | ~10€ |
+<p align="center"><b>🚀 De zéro à un marquee fonctionnel en 4 étapes 🚀</b></p>
 
-> **💡 Astuce** : La DMDos Board de [Mortaca](https://www.mortaca.com/) intègre le lecteur SD et évite la soudure ! Les liens d'achat pour chaque composant (ESP32, DMDos Board, microSD, panneaux P4) sont centralisés sur la page [Hardware de dmdos.net](https://www.dmdos.net/).
->
-> Voir aussi la section [🔧 Assemblage du panneau DMD (DMDos)](#assemblage-du-panneau-dmd-dmdos) pour le guide de montage complet (traduit du site officiel).
+<table align="center">
+<tr>
+<td align="center" width="70"><h2>1️⃣</h2></td>
+<td>
 
----
+**[Installez la boîte à outils PC](#installer-la-boîte-à-outils-pc) + premier lancement**
+Scrapez vos jeux dans Recalbox, pointez l'outil vers votre dossier ROMs, cliquez sur **Démarrer**.
 
-## 💻 Prérequis logiciel
+</td>
+</tr>
+<tr>
+<td align="center"><h2>2️⃣</h2></td>
+<td>
 
-- **Python 3.8+** installé sur votre PC (uniquement pour lancer depuis les sources)
-- **Pillow** (installé automatiquement si absent)
-- **Arduino IDE** (uniquement pour recompiler le firmware)
-- Navigateur Chrome/Edge (pour le WebInstaller)
+**[Assemblez le DMD](#matériel)**
+Assemblez les deux panneaux, montez la carte DMDos, câblez — **~5 minutes, sans soudure**.
 
----
+</td>
+</tr>
+<tr>
+<td align="center"><h2>3️⃣</h2></td>
+<td>
 
-## 🚀 Installation rapide
+**[Flashez le firmware](#firmware--compiler-et-flasher)**
+Installateur web en un clic — **pas besoin d'Arduino IDE**.
 
-Prenez le build de votre choix sur la **[page Releases](https://github.com/shan-aya/RecalBoxDMD/releases)** (les `.exe`/`.msi` compilés ne sont pas dans le dépôt, seulement publiés là-bas) :
+</td>
+</tr>
+<tr>
+<td align="center"><h2>4️⃣</h2></td>
+<td>
+
+**Insérez la carte SD, allumez**
+Le premier démarrage vous guide pour le Wi-Fi, puis la **[page de configuration web](#configuration-web--en-direct-dans-le-navigateur)** prend le relais pour tout le reste (luminosité, playlists, thèmes horloge...).
+
+</td>
+</tr>
+</table>
+
+### Installer la boîte à outils PC
+
+Se télécharge sous 4 formes — prenez celle que vous préférez sur la **[page Releases](https://github.com/shan-aya/RecalBoxDMD/releases)** (les fichiers `.exe`/`.msi` compilés ne sont pas dans le dépôt lui-même, seulement publiés là-bas) :
 
 **Option A — Installateur Windows (recommandé)**
 
@@ -200,588 +226,390 @@ Prenez le build de votre choix sur la **[page Releases](https://github.com/shan-
 **Option D — Depuis les sources Python**
 
 ```
-1. Téléchargez les fichiers du dossier tools/
+1. Récupérez le dossier tools/
 2. Double-cliquez sur install_and_run.bat — installe Python (via winget,
    si absent), Pillow et Markdown, puis lance la GUI
    (ou manuellement : pip install Pillow Markdown && python run_gui.py)
 ```
 
----
-
-## 🖥️ Interface graphique (GUI)
-
-L'interface graphique se lance automatiquement. Elle est organisée en **5 onglets** :
-
-### 📌 Onglet Main
-
-> Ne contient que le **Mode 1** — l'essentiel pour la plupart des utilisateurs.
+### Premier lancement
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│ [Main]  [Avancé]  [Logs]  [Paramètres]  [AIDE]            │
-├────────────────────────────────────────────────────────────┤
-│ ┌────────────────────────────────────────────────────────┐ │
-│ │ 📋 Mode                                               │ │
-│ │                                                       │ │
-│ │ ◉ MODE 1 — Extraction + Conversion + Build Cache      │ │
-│ │   (TOUT en un clic !)                                 │ │
-│ │                                                       │ │
-│ │ ┌──────────────────────────────────────────────────┐  │ │
-│ │ │ 📂 Choisir dossier ROMs                         │  │ │
-│ │ │ D:\Recalbox\share\roms                          │  │ │
-│ │ └──────────────────────────────────────────────────┘  │ │
-│ │                                                       │ │
-│ │ [ 🟢 Démarrer ]                                       │ │
-│ │ [ ❌ Quitter ]                                        │ │
-│ └────────────────────────────────────────────────────────┘ │
-│                                                            │
-│ ┌────────────────────────────────────────────────────────┐ │
-│ │ 🎛️ Version Recalbox (scrape marquee/logo)              │ │
-│ │ [ 10.x ▾ ]                                            │ │
-│ │ [ Comment scraper ? ]                                 │ │
-│ │ [ Nettoyer les dossiers avant scrape ]                │ │
-│ └────────────────────────────────────────────────────────┘ │
-│                                                            │
-│ ┌────────────────────────────────────────────────────────┐ │
-│ │ Progression : ████████████░░░░░░ 75%                   │ │
-│ │ Extraction de : mame/king_of_fighters.png              │ │
-│ │ ⏸️ Pause  ▶️ Reprise  ⏭️ Passer  ⏹️ Stop               │ │
-│ └────────────────────────────────────────────────────────┘ │
-└────────────────────────────────────────────────────────────┘
+1. Scrapez vos jeux dans Recalbox (voir « Comment scraper ? » dans l'outil,
+   selon votre version Recalbox — logo, marquee ou logo détouré)
+2. Lancez la boîte à outils → onglet Main
+3. Choisissez votre version Recalbox (10.x / 9.x / legacy)
+4. Choisissez votre dossier ROMs (ex : D:\Recalbox\share\roms)
+5. Cliquez Démarrer — le MODE 1 enchaîne tout le pipeline automatiquement
+6. Insérez la carte SD → le bouton clignotant propose de la copier pour vous
 ```
 
-**👉 Mode 1 = le mode complet** qui enchaîne :
-0. Choix de la **version Recalbox** (10.x / 9.x / legacy) — détermine la balise du `gamelist.xml` et le dossier média utilisés
-1. Extraction des images depuis vos `gamelist.xml`
-2. Conversion PNG → raw565 (format RGB565 brut, 8192 octets)
-3. Conversion GIF → raw565pack + meta (trames concaténées)
-4. Téléchargement de `systems/_defaults` depuis GitHub
-5. Construction de `games_cache.bin` (index bigramme)
-6. Génération de `systems_cache.dat` (index systèmes + flag lent/rapide)
-7. Détection automatique des gros systèmes (flag `L` pour MAME, FBNeo...)
-
-Une fois le traitement terminé, un bouton clignote pour proposer la **copie directe vers la carte SD physique** (détection automatique des lecteurs amovibles).
-
-### 🔬 Onglet Avancé
-
-> Contient les **modes 2 à 8** pour des opérations ciblées.
-
-```
-┌────────────────────────────────────────────────────────────┐
-│ [Main]  [Avancé]  [Logs]  [Paramètres]  [AIDE]            │
-├────────────────────────────────────────────────────────────┤
-│ ┌────────────────────────────────────────────────────────┐ │
-│ │ 📋 Mode                                               │ │
-│ │                                                       │ │
-│ │ ○ MODE 2 — Téléchargement _defaults via GitHub        │ │
-│ │ ○ MODE 3 — Extraction Gamelist uniquement             │ │
-│ │ ○ MODE 4 — Conversion PNG→raw565 + GIF→raw565pack     │ │
-│ │ ○ MODE 5 — Conversion 128x32 uniquement               │ │
-│ │ ○ MODE 6 — Build Games Cache uniquement               │ │
-│ │ ○ MODE 7 — Génération systems_cache.dat               │ │
-│ │ ○ MODE 8 — Vérifier les images manquantes             │ │
-│ │                                                       │ │
-│ │ [ 🟢 Démarrer ]                                       │ │
-│ └────────────────────────────────────────────────────────┘ │
-└────────────────────────────────────────────────────────────┘
-```
-
-> Le **Mode 3** affiche lui aussi le panneau **« Version Recalbox »** (même sélecteur, mêmes boutons d'aide/nettoyage que le Mode 1), puisqu'il extrait également les images depuis les `gamelist.xml`.
-> Le **Mode 8** affiche un panneau dédié avec son propre sélecteur de version, le bouton d'ouverture du rapport, et un bouton de comparaison avec le support final (dossier temporaire / carte SD).
-
-### 📝 Onglet Logs
-
-Affiche toute la sortie du script en temps réel. Utile pour suivre la progression et détecter les erreurs.
-
-Boutons de contrôle :
-- **⏸️ Pause** — Met le traitement en pause
-- **▶️ Reprise** — Reprend le traitement
-- **⏭️ Passer** — Passe à l'étape suivante
-- **⏹️ Stop** — Arrête le script
-
-### ⚙️ Onglet Paramètres
-
-Permet de changer la langue de l'interface :
-- 🇫🇷 Français
-- 🇬🇧 English
-- 🇪🇸 Español
-
-Permet aussi de changer le thème visuel, et de choisir la **« Version Recalbox »** par défaut (10.x / 9.x / legacy) — la même variable que celle des panneaux Mode 1/3/8 : un changement ici (ou dans n'importe lequel de ces modes) est immédiatement répercuté partout et sauvegardé dans `RecalBoxDMD_prefs.json`.
-
-### 📖 Onglet AIDE
-
-Affiche ce README directement dans l'interface.
+Ensuite : [assemblez le matériel](#matériel) et [flashez le firmware](#firmware--compiler-et-flasher) — puis insérez cette carte SD et allumez.
 
 ---
 
-## 📖 Détail des modes
+## Matériel
 
-| Mode | Nom | Action | Durée estimée |
-|------|-----|--------|---------------|
-| **1** | **TOUT** | Version Recalbox + Extraction + Conversion raw565 + Cache + _defaults | Longue (5-30 min) |
-| **2** | Téléchargement _defaults | Récupère les images systèmes depuis GitHub | Courte (~1 min) |
-| **3** | Extraction uniquement | Version Recalbox + lit les gamelist.xml, copie les images | Variable |
-| **4** | Conversion raw565 | PNG→raw565 + GIF→raw565pack/meta | Moyenne |
-| **5** | Conversion 128x32 | Redimensionne les PNG en 128x32 (format image) | Moyenne |
-| **6** | Build Games Cache | Génère games_cache.bin (index bigramme) | Rapide |
-| **7** | Génération systems_cache.dat | Index des systèmes + flag lent/rapide | Rapide |
-| **8** | **Vérification images manquantes** | Compare gamelist.xml ↔ images présentes (+ comparaison support final en option) | Variable |
+| Composant | Référence | Prix indicatif |
+|-----------|-----------|----------------|
+| 🧠 Microcontrôleur | ESP32 DevKit V1 USB-C (38 broches) | ~5 € |
+| 🖥️ Panneau LED | 2× panneaux HUB75 RGB **P4, 64×32, 256×128 mm**, assemblés côte à côte (→ 128×32) | ~15-25 €/panneau |
+| 🔌 Carte de connexion | **DMDos Board V3** (recommandée — intègre le lecteur SD, aucune soudure) | ~15 € |
+| 💾 Lecteur SD | Module adaptateur Micro SD SPI (intégré à la DMDos Board) | ~2 € |
+| ⚡ Alimentation | 5V 4A+ | ~10 € |
 
-> **📎 Copie sur la carte SD** : ce n'est pas un mode à part — après un traitement (Mode 1, 3, 4, 5...), un bouton clignote automatiquement dans l'onglet Main pour proposer la copie vers un lecteur amovible détecté. La copie résiste à une interruption et propose de ne relancer que les fichiers en échec.
+<p align="center">
+  <img src="medias/marketing/plaquette_5_materiel_montage.png" alt="Matériel et montage" width="720">
+</p>
 
----
+Le montage physique (panneaux + carte DMDos + ESP32 + microSD) est identique à celui décrit sur le site officiel **[dmdos.net](https://www.dmdos.net/)** de Mortaca — vraiment rapide, sans soudure, aucun outil requis à part un tournevis :
 
-## ✅ Workflow complet (recommandé)
+1. **Assemblez les deux panneaux.** Utilisez les pièces de jonction fournies avec la carte DMDos. Les vis ne sont pas incluses — n'importe quelle vis M3 que vous avez chez vous convient (par exemple récupérée sur une multiprise).
+2. **Positionnez la carte DMDos.** Une fois assemblés, gardez l'orientation des composants arrière identique des deux côtés. Vous verrez deux connecteurs identiques : l'un **entrée**, l'autre **sortie**. La carte ne fonctionne que sur le côté **entrée** — choisissez l'orientation qui dégage facilement le support en plastique.
+3. **Câblez l'alimentation.** Avant de poser l'ESP32 dessus, reliez les fils d'alimentation rouge/noir de chaque panneau aux bornes de la carte selon la sérigraphie (rouge↔rouge, noir↔noir) — gardez le connecteur fourni et ne vissez qu'une seule broche, ou dénudez/coupez le câble pour qu'il rentre directement dans la borne. Reliez les deux panneaux entre eux avec la nappe fournie.
+4. **Carte SD, ESP32, alimentation.** Insérez la carte SD préparée avec la boîte à outils PC (voir [Démarrage rapide](#démarrage-rapide)), branchez l'ESP32 déjà flashé avec le firmware RecalBoxDMD (voir [Firmware](#firmware--compiler-et-flasher)) par-dessus la carte, puis alimentez le tout via le port USB-C de l'ESP32.
 
-```
-1. 🔄 Scrapez vos jeux dans Recalbox (voir le Tutoriel scraping ci-dessous
-   selon votre version Recalbox : logo dédié, marquee ou logo détouré)
-   ↓
-2. 📂 Lancez RecalBoxDMD Toolkit (raccourci installé, RecalBoxDMD_GUI.exe portable, ou python run_gui.py) → onglet Main
-   ↓
-3. 🎛️ Choisissez votre « Version Recalbox » (10.x / 9.x / legacy)
-      Besoin d'aide ? Cliquez « Comment scraper ? »
-      Dossier déjà scrapé avec une ancienne config ? « Nettoyer les dossiers avant scrape »
-   ↓
-4. 🗂️ Choisissez votre dossier ROMs (ex: D:\Recalbox\share\roms)
-   ↓
-5. 🟢 Cliquez Démarrer (Mode 1)
-   ↓
-6. ⏳ Laissez le script travailler, il va :
-      - Extraire les images des gamelist.xml (selon la version choisie)
-      - Convertir PNG → .raw565 (format RGB565 rapide)
-      - Convertir GIF → .raw565pack + .meta
-      - Télécharger les _defaults depuis GitHub
-      - Construire le cache bigramme (indexation jeux)
-      - Marquer les gros systèmes (flag "L" pour MAME, FBNeo)
-   ↓
-7. ✅ Terminé ! Le dossier sd_card/ est prêt dans %TEMP%/RecalBoxDMD
-   ↓
-8. 💾 Insérez votre carte SD, le bouton clignotant propose de copier
-      (optionnel : Mode 8 pour vérifier qu'aucune image n'est manquante)
-   ↓
-9. 🎮 Branchez la SD dans l'ESP32 et allumez !
-      - Affichage quasi instantané même avec 30 000 jeux MAME
-```
+<p align="center">
+  <a href="https://www.dmdos.net/#montaje" title="Guide illustré complet sur dmdos.net"><img src="medias/assembly/1_union.png" width="220" alt="Étape 1 — jonction des deux panneaux"></a>
+  <a href="https://www.dmdos.net/#montaje" title="Guide illustré complet sur dmdos.net"><img src="medias/assembly/2_posicion.png" width="220" alt="Étape 2 — carte DMDos positionnée sur le connecteur entrée"></a>
+  <a href="https://www.dmdos.net/#montaje" title="Guide illustré complet sur dmdos.net"><img src="medias/assembly/3_cableado.png" width="220" alt="Étape 3 — câblage alimentation et nappe"></a>
+  <a href="https://www.dmdos.net/#montaje" title="Guide illustré complet sur dmdos.net"><img src="medias/assembly/4_final.png" width="220" alt="Étape 4 — ESP32 monté, prêt à alimenter"></a>
+</p>
+<p align="center"><sub>Les miniatures renvoient vers le guide officiel pas-à-pas sur dmdos.net</sub></p>
+
+📖 **Guide officiel illustré** : [dmdos.net → Hardware](https://www.dmdos.net/#hardware) · [dmdos.net → Montaje/Assembly](https://www.dmdos.net/#montaje) · [dmdos.net → Mueble/Frame](https://www.dmdos.net/#mueble)
+
+> ⚠️ Le site DMDos propose son propre firmware/OS, distinct. **Ne flashez pas le firmware DMDos** si vous voulez utiliser RecalBoxDMD — seuls le **matériel** (panneaux, carte, boîtier) et le **guide de montage** sont réutilisés ; le firmware et le contenu de la carte SD viennent de ce dépôt.
+
+Boîtier imprimable en 3D par **Janibol** ([Retromojones](https://www.youtube.com/@retromojones)) sur [Thingiverse](https://www.thingiverse.com/thing:6704880). Liens d'achat à jour : [dmdos.net](https://www.dmdos.net/).
 
 ---
 
-## 🎨 Tutoriel scraping Recalbox
+## Boîte à outils PC — référence des modes
 
-Pour que le panneau LED affiche les bons visuels, vous devez d'abord **scraper** vos ROMs dans Recalbox — et bien configurer l'onglet Scraper **selon votre version**. C'est exactement ce que fait le bouton **« Comment scraper ? »** du Mode 1/3 (captures d'écran annotées directement dans l'appli), résumé ici :
+L'onglet **Avancé** de la GUI regroupe chaque opération en 5 catégories repliables ; le **Mode 1** de l'onglet **Main** les enchaîne toutes pour vous.
 
-### Recalbox 10.x (champ logo dédié)
+| Mode | Catégorie | Nom | Action |
+|------|-----------|-----|--------|
+| **1** | *(onglet Main)* | **AUTO — tout** | Détection version Recalbox → extraction gamelist → conversion raw565 → cache bigramme → téléchargement `_defaults` → installation scripts Recalbox → copie SD |
+| 2 | 📥 GitHub | Télécharger `_defaults` | Récupère les images de repli par défaut pour chaque système connu |
+| 11 | 📥 GitHub | **Pack 600 GIFs** | Téléchargement en un clic de la collection gratuite de GIFs (Arcade, Consoles, Ordinateurs, Flipper, Halloween, Noël, Logo, et plus) |
+| 3 | 🗂️ Gamelist | Extraction uniquement | Lit `gamelist.xml`, copie le bon marquee/logo selon votre profil de version Recalbox |
+| 8 | 🗂️ Gamelist | Vérification images manquantes | Signale, par système/jeu, si l'image attendue existe réellement (ROMs / dossier de travail / carte SD) |
+| 4 | 🖼️ Images | Conversion raw565 | PNG → `.raw565`, GIF → `.raw565pack` + `.meta` |
+| 5 | 🖼️ Images | Redimensionnement 128×32 | Redimensionne les PNG à la résolution du panneau (format image, sans conversion raw565) |
+| 10 | 🖼️ Images | Image de secours | Définit/génère l'image par défaut globale affichée quand rien d'autre ne correspond |
+| 6 | 🧮 Caches | Cache de jeux | Construit `games_cache.bin` (index bigramme, 703 entrées) |
+| 7 | 🧮 Caches | Cache de systèmes | Construit `systems_cache.dat` (index systèmes + flags lent/rapide **« L »/« N »**) |
+| 9 | 📜 Scripts | Installer scripts Recalbox | Copie les scripts marquee, récupération WiFi, config web, luminosité et [Hi-Score/Infos jeu/Succès/Challenge](#écrans-superposés-en-jeu--hi-score-infos-jeu-succès--challenge-rb) directement sur le partage réseau de la Recalbox, en nettoyant au passage les anciens noms de scripts d'une installation précédente |
 
-Depuis Recalbox 10.x, le menu **SCRAPEUR → SCRAPE NOW** possède un champ dédié **« SELECT LOGO TYPE »** (parfois encore affiché en anglais sur les versions alpha/bêta) :
-
-1. Réglez **« SELECT LOGO TYPE »** sur **« CLEAR »**
-2. Ne réglez surtout pas cette valeur sur **« Sélectionnez le type d'image »** — ce champ sert au visuel principal (écran de jeu, jaquette...), pas au logo
-3. Lancez le scrape
-
-Les fichiers sont stockés dans `media/wheels/` de chaque système, référencés par la balise `<logo>` du `gamelist.xml`. → Choisissez le profil **10.x** dans l'outil.
-
-### Recalbox 9.x (pas de champ logo dédié)
-
-Sur les versions de Recalbox sans champ « logo » dédié :
-
-1. Réglez **« Sélectionnez le type de vignette »** sur **« MARQUEE »**
-2. Ne réglez pas **« Sélectionnez le type d'image »** sur cette valeur — il sert à un autre visuel (jaquette, écran titre...)
-3. Lancez le scrape
-
-Les fichiers sont stockés dans `media/thumbnails/` de chaque système, référencés par la balise `<thumbnail>`. → Choisissez le profil **9.x** (recommandé) dans l'outil.
-
-### Profil « legacy » (via le champ image)
-
-Si votre configuration Recalbox scrape le logo/la marquee via **« Sélectionnez le type d'image »** (réglé sur **« LOGO DÉTOURÉ »** ou **« MARQUEE »**), les fichiers sont stockés dans `media/images/`, référencés par la balise `<image>`. → Choisissez le profil **legacy**. À réserver aux configurations qui n'utilisent pas le champ vignette pour le logo.
-
-```
-📁 /recalbox/share/roms/
-   ├── 📁 mame/
-   │   ├── 📄 gamelist.xml
-   │   ├── 📁 media/
-   │   │   ├── 📁 wheels/         ← profil 10.x (<logo>)
-   │   │   ├── 📁 thumbnails/     ← profil 9.x (<thumbnail>)
-   │   │   └── 📁 images/         ← profil legacy (<image>)
-   │   └── ...
-   ├── 📁 snes/
-   │   ├── 📄 gamelist.xml
-   │   ├── 📁 media/
-   │   │   └── 📁 wheels/
-   │   │       └── 🖼️ supermetroid.png
-   └── ...
-```
-
-> **💡 Conseil** : Utilisez Screenscraper.fr ou TheGamesDB pour de meilleurs résultats !
->
-> **💡 Scrape déjà fait avec une autre config ?** Utilisez le bouton **« Nettoyer les dossiers avant scrape »** (Mode 1/3) avant de relancer le scrape Recalbox, pour repartir sur un dossier média propre et éviter de mélanger d'anciens visuels avec les nouveaux.
->
-> **💡 Un doute sur les images récupérées ?** Lancez le **Mode 8** pour générer un rapport des images manquantes ou incohérentes par rapport au profil choisi.
+Outils supplémentaires disponibles depuis chaque mode concerné : **« Comment scraper ? »** (captures d'écran annotées, spécifiques à votre version, de l'onglet Scraper de Recalbox), **« Nettoyer les dossiers avant scrape »**, un **onglet Playlist** pour construire des playlists de GIFs depuis une carte SD ou des dossiers PC, un **seuil de système lent** réglable (onglet Paramètres, 5 000 fichiers convertis par défaut), et une **copie SD reprenable** qui résiste à un débranchement/crash et peut ne relancer que les fichiers en échec.
 
 ---
 
-## 🔧 Assemblage du panneau DMD (DMDos)
+## 10 thèmes horloge rétro
 
-Le montage matériel (panneaux LED + DMDos Board + ESP32 + microSD) est identique à celui décrit sur le site officiel **[dmdos.net](https://www.dmdos.net/)** de Mortaca. Instructions traduites ci-dessous — pour les images du guide et les liens d'achat à jour, consultez directement les pages [Hardware](https://www.dmdos.net/) et [Montage](https://www.dmdos.net/) du site.
+Affichés périodiquement entre les jeux (intervalle/durée configurables) ou en continu, chaque thème est une scène pixel-art faite main — sélectionnable depuis la page web, avec un **aperçu en direct instantané poussé sur le panneau physique** dès que vous en choisissez un.
 
-> ⚠️ **DMDos** (le site) propose son propre système d'exploitation/firmware pour ce même matériel. **Ne flashez pas le firmware DMDos** sur votre ESP32 si vous souhaitez utiliser le firmware **RecalBoxDMD** de ce dépôt — seul le **matériel** (panneaux, DMDos Board, boîtier) et le **guide de montage physique** sont réutilisés ici. Le firmware et la carte SD doivent venir de ce Toolkit (voir [Firmware ESP32](#firmware-esp32-raw565-edition)).
+<p align="center">
+  <img src="medias/clock_themes/00_super_mario.gif" width="180" alt="Super Mario"> <img src="medias/clock_themes/01_tetris.gif" width="180" alt="Tetris">
+  <img src="medias/clock_themes/02_pac_man.gif" width="180" alt="Pac-Man"> <img src="medias/clock_themes/03_space_invaders.gif" width="180" alt="Space Invaders">
+</p>
+<p align="center">
+  <img src="medias/clock_themes/04_pong.gif" width="180" alt="Pong"> <img src="medias/clock_themes/05_neon.gif" width="180" alt="Neon">
+  <img src="medias/clock_themes/06_matrix.gif" width="180" alt="Matrix"> <img src="medias/clock_themes/07_fire.gif" width="180" alt="Fire">
+</p>
+<p align="center">
+  <img src="medias/clock_themes/08_rainbow.gif" width="180" alt="Rainbow"> <img src="medias/clock_themes/09_level_1_1.gif" width="180" alt="Level 1-1">
+</p>
 
-### 🛒 Matériel (liens d'achat)
+Super Mario · Tetris · Pac-Man · Space Invaders · Pong · Neon · Matrix · Fire · Rainbow · Level 1-1 (défilant).
 
-| Composant | Description |
-|-----------|-------------|
-| **Carte ESP32 USB-C** | ESP32 DevKit V1, connexion USB-C |
-| **DMDos Board V3** | Conçue par **MORTACA** — connecte l'ESP32 au panneau DMD, intègre le lecteur microSD et l'alimentation des panneaux |
-| **MicroSD 32 Go** | Type carte RaspberryPi recommandé (évite les corruptions), mais n'importe quelle carte convient |
-| **2× Panneaux P4 64x32** | À assembler horizontalement pour obtenir un panneau 128x32 (256x128 mm chacun) |
+### Images de secours
 
-👉 Liens d'achat à jour (AliExpress, Mortaca) sur la page **[Hardware de dmdos.net](https://www.dmdos.net/)**.
+Affichées quand un jeu/système n'a pas de marquee propre. 4 sont fournies d'office — ou fournissez la vôtre depuis le sélecteur d'image de secours de la boîte à outils PC.
 
-### 🪛 Étapes de montage
-
-**Étape 1 — Assembler les deux panneaux**
-
-En suivant ces étapes, vous pourrez monter votre panneau DMD en moins de cinq minutes, même sans expérience en bricolage. Commencez par assembler les deux panneaux à l'aide des pièces de jonction fournies avec la DMDos Board. Les vis ne sont pas incluses, mais n'importe quelle vis M3 que vous avez chez vous convient — par exemple récupérée sur une multiprise électrique.
-
-**Étape 2 — Positionner la DMDos Board**
-
-Assemblez les panneaux en veillant à ce que l'orientation des composants à l'arrière soit identique des deux côtés. Une fois assemblés, vous verrez deux connecteurs identiques où positionner la DMDos Board : l'un est une **entrée**, l'autre une **sortie**. Placez la carte sur le connecteur d'**entrée**, dans l'orientation qui permet de la positionner facilement sans qu'elle ne heurte le support en plastique. ⚠️ Elle ne fonctionne que sur le connecteur d'entrée.
-
-**Étape 3 — Câblage de l'alimentation**
-
-Une fois la carte connectée, et **avant** de poser l'ESP32 dessus, reliez les câbles d'alimentation rouge et noir des deux panneaux aux bornes de la carte DMDos, comme indiqué par la sérigraphie : rouge d'un côté, noir de l'autre. Vous pouvez garder les connecteurs fournis avec les câbles et ne visser qu'une seule broche ; vous pouvez aussi couper le surplus ou dénuder tout le câble pour qu'il rentre entièrement dans la borne. Reliez également les deux panneaux entre eux avec la nappe plate fournie.
-
-**Étape 4 — SD, ESP32 et alimentation**
-
-Pour terminer, insérez la carte micro-SD préalablement préparée (voir [Workflow complet](#workflow-complet-recommande)) et emboîtez par-dessus l'ESP32 déjà flashé avec le firmware **RecalBoxDMD** (voir [Firmware ESP32](#firmware-esp32-raw565-edition)). Il ne reste plus qu'à le brancher à l'alimentation via le port USB-C.
-
-### 📦 Boîtier / Mueble
-
-- **Impression 3D** : modèle (carré ou arrondi) créé par **Janibol** de [Retromojones](https://www.youtube.com/@retromojones), disponible sur [Thingiverse](https://www.thingiverse.com/thing:6704880). Nécessite une imprimante 3D grand format (plateau ≥ 300×300×400 mm). Un kit imprimé (pièces + caches arrière + vis + interrupteur + connecteur USB-C externe, hors verre/plexiglas) peut aussi être commandé directement — voir la page **[Mueble de dmdos.net](https://www.dmdos.net/)**.
-- **Boîtier bois sur mesure** : des artisans proposent des meubles « old school » avec vitre parsol incluse — voir les contacts sur la page **[Mueble de dmdos.net](https://www.dmdos.net/)**.
+<p align="center">
+  <img src="medias/fallback_images/default_RB.png" width="160" alt="Image de secours — Recalbox">
+  <img src="medias/fallback_images/default_jamma.png" width="160" alt="Image de secours — Recalbox JAMMA">
+  <img src="medias/fallback_images/default_rgbdual.png" width="160" alt="Image de secours — Recalbox RGB Dual">
+  <img src="medias/fallback_images/default_rgbdual2.png" width="160" alt="Image de secours — Recalbox RGB Dual 2">
+</p>
 
 ---
 
-## ⚡ Firmware ESP32 — Raw565 Edition
+## Le pack de 600 GIFs
 
-### 💡 Pourquoi le raw565 ?
+Le **Mode 11** (ou le bouton « Pack 600 GIFs » de l'onglet Playlist) télécharge une collection prête à jouer d'environ **600 GIFs rétro**, organisée par catégories, directement depuis ce dépôt (`carte SD/gifs/`) — pas de site externe, pas de compte :
 
-Le format **raw565** est l'élément clé de cette version. Voici pourquoi :
-
-```
-┌────────────────────────────────────────────────────────────────┐
-│                       CARTE SD                                  │
-│                                                                │
-│  PNG (50 Ko)  →  Conversion PC →  .raw565 (8 192 octets)      │
-│  GIF (200 Ko) →  Conversion PC →  .raw565pack + .meta          │
-│                                                                │
-│  L'ESP32 n'a plus qu'à faire :                                 │
-│    1. Ouvrir le fichier .raw565 (8 Ko)                         │
-│    2. Lire 8192 octets en RAM                                  │
-│    3. drawRGBBitmap() → affichage direct                        │
-│                                                                │
-│  🚀 Temps total : 5-15 ms (vs 500ms-3s pour PNG/GIF)          │
-└────────────────────────────────────────────────────────────────┘
-```
-
-Les formats sont décrits en détail [dans la section dédiée](#-le-format-raw565-en-détail).
-
-### 🔧 Compilation avec Arduino IDE
-
-1. Ouvrez `RecalBox_DMD.ino` dans l'Arduino IDE
-2. Installez les bibliothèques suivantes :
-
-| Bibliothèque | Lien | Utilité |
+| Catégorie | Catégorie | Catégorie |
 |---|---|---|
-| ESP32-HUB75-MatrixPanel-I2S-DMA | [GitHub](https://github.com/mrfaptastic/ESP32-HUB75-MatrixPanel-I2S-DMA) | Contrôle DMA du panneau LED |
-| AnimatedGIF | [GitHub](https://github.com/bitbank2/AnimatedGIF) | Décodage des GIFs (fallback) |
-| pngle | [GitHub](https://github.com/kikuchan/pngle) | Décodage des PNGs (fallback) |
-| WiFiManager | [GitHub](https://github.com/tzapu/WiFiManager) | Configuration Wi-Fi |
-| Adafruit GFX Library | [GitHub](https://github.com/adafruit/Adafruit-GFX-Library) | Affichage texte et formes |
-| ArduinoJson | [GitHub](https://github.com/bblanchon/ArduinoJson) | Configuration et web |
+| Arcade | Consoles | Ordinateurs |
+| Flipper (court) | Flipper (histoire) | Logo |
+| Halloween | Noël | Autre / Suite de test |
 
-3. Sélectionnez la carte **ESP32 Dev Module** dans le menu **Outils → Type de carte**
-4. Branchez l'ESP32, sélectionnez le bon port COM
-5. Cliquez sur **Téléverser** (⚡)
+Pointez une playlist vers n'importe quel sous-ensemble de ces dossiers (onglet Playlist) pour construire votre propre rotation d'attente — les GIFs animés passent par le même chemin rapide `.raw565pack` que les marquees de jeux, donc la lecture reste fluide même sur l'ESP32.
 
-### ⚙️ Configuration (config.ini)
+> ℹ️ Une catégorie (`XXX_Mature`) contient des pixel-arts à thème adulte pour ceux qui le souhaitent sur leur propre borne — entièrement optionnelle et jamais sélectionnée par défaut.
 
-Placez ce fichier à la racine de la carte SD :
+### D'où vient ce pack ?
+
+Ces 600 GIFs sont l'**échantillon gratuit** de la collection d'animations « pixel perfect » pour horloges DMD d'**eLLuiGi** (RpiTeaM) — plus de 4 ans de travail de curation, redistribué ici avec autorisation pour une installation en un clic, sans site tiers ni compte à créer.
+
+La collection complète va bien plus loin : le **« ULTIMATE GIFS DLC »** rassemble environ **11 000 animations pixel perfect** (1 441 Arcade, 3 601 Consoles, 849 Ordinateurs, plus Flipper/Halloween/Noël/Logo...). Elle n'est pas hébergée dans ce dépôt — c'est le pack payant du créateur, à obtenir directement ici :
+
+- 🔗 **Portail RpiTeaM** : [rpiteam.carrd.co](https://rpiteam.carrd.co/)
+- 🔗 **Sujet du forum (détails & accès)** : [neo-arcadia.com — « ULTIMATE GIFS DLC »](https://www.neo-arcadia.com/forum/viewtopic.php?t=67065)
+
+N'importe quel GIF fonctionne de la même façon quelle que soit sa provenance — mais ajoutez toujours les packs supplémentaires via l'**onglet Playlist de la boîte à outils PC** (en pointant vers le dossier sur votre PC) ou la **page Médias de la configuration web** (upload), jamais en copiant des fichiers directement sur la carte SD : c'est ce qui reconstruit la playlist et le cache de GIFs réellement lus par le firmware. Des fichiers déposés directement sur la SD en dehors de ces deux chemins n'apparaîtront pas tant que vous ne le faites pas.
+
+---
+
+## Firmware — compiler et flasher
+
+### 🌐 Option A — Flasher depuis le navigateur (le plus simple, rien à installer)
+
+> [👉 **Ouvrir l'installateur Web RecalBoxDMD**](https://shan-aya.github.io/RecalBoxDMD/)
+
+Avec **Chrome ou Edge**, branchez l'ESP32 en USB, cliquez sur **Installer**, choisissez le port COM, et c'est terminé en une minute environ — rien à installer sur votre PC, pas d'Arduino IDE. Ça flashe le dernier firmware précompilé directement depuis [`binaries/`](binaries/) via [ESP Web Tools](https://esphome.github.io/esp-web-tools/). Cochez **« Erase device »** lors d'une première installation (ou en venant d'un autre firmware, ex. DMDos) pour effacer complètement la mémoire flash au préalable.
+
+### 🛠️ Option B — Arduino IDE (pour compiler depuis les sources / personnaliser)
+
+1. Ouvrez `RecalBox_DMD.ino` dans l'**Arduino IDE**.
+2. Installez ces bibliothèques (Croquis → Inclure une bibliothèque → Gérer les bibliothèques) :
+
+| Bibliothèque | Utilité |
+|---|---|
+| [ESP32-HUB75-MatrixPanel-I2S-DMA](https://github.com/mrfaptastic/ESP32-HUB75-MatrixPanel-I2S-DMA) | Pilotage DMA du panneau LED |
+| [AnimatedGIF](https://github.com/bitbank2/AnimatedGIF) | Décodage GIF (chemin de repli) |
+| [pngle](https://github.com/kikuchan/pngle) | Décodage PNG (chemin de repli, inclus dans le sketch) |
+| [WiFiManager](https://github.com/tzapu/WiFiManager) | Configuration WiFi |
+| [Adafruit GFX Library](https://github.com/adafruit/Adafruit-GFX-Library) | Rendu texte/formes |
+| [PubSubClient](https://github.com/knolleary/pubsubclient) | MQTT |
+| [ArduinoJson](https://github.com/bblanchon/ArduinoJson) | (Dé)sérialisation config & page web |
+
+3. Outils → Type de carte : **ESP32 Dev Module**, Taille flash **4 Mo**, Schéma de partition **Huge APP**.
+4. Sélectionnez le bon port COM, puis **Téléverser**.
+
+### ⌨️ Option C — `esptool.py` (ligne de commande)
+
+Les mêmes binaires précompilés que ceux utilisés par l'installateur web (bootloader/partitions/app/image fusionnée) sont dans [`binaries/`](binaries/) :
+
+```bash
+esptool.py --chip esp32 --port COM3 --baud 921600 write_flash -z 0x10000 RecalBox_DMD.ino.bin
+# ou, flash en un seul fichier :
+esptool.py --chip esp32 --port COM3 write_flash 0x0 RecalBox_DMD.ino.merged.bin
+```
+
+### Brochage (par défaut)
+
+| Carte SD (SPI) | GPIO |  | HUB75 | GPIO |  | HUB75 | GPIO |
+|---|---|---|---|---|---|---|---|
+| CS | 5 | | CLK | 16 | | R1 / R2 | 25 / 14 |
+| MOSI | 23 | | OE | 15 | | G1 / G2 | 26 / 12 |
+| MISO | 19 | | LAT | 4 | | B1 / B2 | 27 / 13 |
+| SCLK | 18 | | A/B/C/D | 33 / 32 / 22 / 17 | | E | -1 |
+
+---
+
+## Configuration (`config.ini`)
+
+Inutile d'écrire ou de copier ce fichier à la main : il est créé automatiquement — soit par la **boîte à outils PC** (le Mode 1 l'écrit à la fin du pipeline), soit par l'**ESP32 lui-même**, qui propose sa propre page de configuration Wi-Fi au premier démarrage / dès qu'il ne parvient pas à se connecter. Ensuite, chaque valeur ci-dessous se modifie en direct depuis la **page de configuration web** (section suivante) — plus besoin de manipuler la carte SD. Pour référence, voici ce qu'il contient :
 
 ```ini
 # Info
-info=0                     # 0 = pas d'info au démarrage
+info=1                        # 0 = pas d'info au démarrage, 1 = afficher au démarrage
+
+# Affichage
+brightness=40                 # luminosité du panneau 0-100 %
 
 # Playlist
-playlist=TODO.txt          # Playlist à lire dans /playlist
-random=1                   # 0 = ordre, 1 = aléatoire
+playlist=RecalBox_intros.txt  # lue depuis /playlist
+random=1                      # 0 = ordre, 1 = aléatoire
 
 # Wi-Fi
 wifi_enabled=1
 wifi_ssid=mon_wifi
-wifi_password=mon_mdp
+wifi_password=mon_mot_de_passe
 wifi_static_enabled=1
 wifi_static_ip=192.168.1.240
 wifi_gateway=192.168.1.1
 wifi_subnet=255.255.255.0
 
 # MQTT
-recalbox_ip=192.168.1.104   # IP fixe de votre Recalbox
-image_folder=logo_detoure   # ou "marquee"
+recalbox_ip=192.168.1.104     # IP fixe de votre Recalbox
+
+# Horloge (thèmes horloge rétro)
+[CLOCK]
+CLOCK_ENABLED=1
+CLOCK_THEME=-1                # -1=aléatoire, 0=Mario ... 9=Level 1-1
+CLOCK_INTERVAL=5              # nombre de GIFs avant d'afficher l'horloge
+CLOCK_DURATION=60             # secondes d'affichage de l'horloge
+TZ=CET-1CEST,M3.5.0,M10.5.0/3
 ```
 
-### 🌐 Installation via navigateur
+---
 
-> [👉 Installer depuis la page WebInstaller](https://jamyz.github.io/RetroBoxLED/)
+## Configuration web — en direct, dans le navigateur
 
-1. Utilisez Chrome ou Edge
-2. Branchez l'ESP32 en USB
-3. Cliquez sur **Install** et sélectionnez le port COM
-4. **Important** : Cochez **« Erase device »** pour effacer complètement la mémoire !
+Tapez l'IP de l'ESP32 (affichée au démarrage, ou visible sur le panneau lui-même) dans le navigateur d'un téléphone ou d'un PC : vous obtenez un site de configuration complet, réparti en 4 pages à chargement rapide, trilingue (FR/EN/ES), avec une aide intégrée — aucune application, aucune recompilation.
 
-### 📡 MQTT — Le cerveau du système
+**💡 Affichage & Playlists** — luminosité du panneau avec un **aperçu en direct poussé sur le panneau physique** pendant que vous bougez le curseur, démarrage silencieux ou normal, playlist par défaut + lecture aléatoire, et gestion des playlists (créer une nouvelle playlist directement à partir des dossiers de GIFs déjà sur la carte SD, modifier ou supprimer les playlists existantes — pour les dossiers avec beaucoup de fichiers, préférez la boîte à outils PC, conçue pour ça).
 
-MQTT permet à Recalbox de communiquer avec l'ESP32 en temps réel :
+<p align="center"><img src="medias/screenshots/webconfig_display_playlists.png" alt="Configuration web — page Affichage & Playlists" width="420"></p>
+
+**📶 Wi-Fi & Bluetooth** — scan et sélection du réseau, mot de passe, IP statique (passerelle/masque/DNS), bascule Bluetooth (utile en cas de conflit avec une manette comme la 8BitDo Pro 3), et l'IP Recalbox utilisée pour la connexion MQTT.
+
+<p align="center"><img src="medias/screenshots/webconfig_wifi_bluetooth.png" alt="Configuration web — page Wi-Fi & Bluetooth" width="420"></p>
+
+**⏰ Horloge** — activation, sélecteur de thème avec un **aperçu en direct instantané poussé sur le panneau physique** tant que la page reste ouverte, couleur néon personnalisée, intervalle en nombre de GIFs ou en minutes, durée d'affichage, et fuseau horaire.
+
+<p align="center"><img src="medias/screenshots/webconfig_clock.png" alt="Configuration web — page Horloge" width="420"></p>
+
+**💿 Médias** — parcourir et supprimer les dossiers de GIFs directement sur la carte SD, et envoyer des GIFs un par un depuis le navigateur (pratique pour quelques fichiers ; pour un transfert massif, utilisez la boîte à outils PC).
+
+<p align="center"><img src="medias/screenshots/webconfig_media.png" alt="Configuration web — page Médias" width="420"></p>
+
+---
+
+## MQTT & Telnet
 
 ```
-Recalbox → marquee[rungame,...].sh → MQTT → ESP32 → Panneau LED
+Recalbox → marquee[rungame,endgame,...].sh → MQTT → ESP32 → Panneau LED
 
 1. Vous lancez "King of Fighters '98"
-2. Le script bash détecte l'événement → envoie "mame/kof98" via MQTT
-3. L'ESP32 reçoit → cherche dans l'ordre :
-   a. /systems/mame/kof98.raw565      ← instantané (5 ms)
-   b. games_cache.bin → bigramme      ← indexation accélérée
-   c. /systems/_defaults/mame.raw565  ← fallback système
-   d. /systems/_defaults/default.raw565 ← fallback global
-4. Affiché en moins de 15 ms !
+2. Le script bash utilisateur détecte l'événement → publie "mame/kof98"
+3. L'ESP32 cherche, dans l'ordre :
+   a. /systems/mame/kof98.raw565 (ou .raw565pack)   ← instantané
+   b. index bigramme de games_cache.bin              ← accéléré
+   c. /systems/_defaults/mame.raw565                 ← repli système
+   d. /systems/_defaults/default.raw565               ← repli global
+4. Affiché en moins de 15 ms
 ```
 
-Placez `marquee[rungame,endgame,systembrowsing,...].sh` dans :
+Installez le script utilisateur avec le **Mode 9** de la boîte à outils, ou copiez `marquee[...].sh` manuellement vers `/recalbox/share/userscripts/`.
+
+### 🎮 Pilotage manuel depuis le menu Recalbox
+
+Le **Mode 9** installe aussi des scripts déclenchables à la main depuis Recalbox (**START → Paramètres avancés → Scripts utilisateur**), sans toucher à la carte SD :
+
+| Script | Effet |
+|---|---|
+| **WiFi Recovery DMD** | Repasse le DMD en mode point d'accès (AP) de secours pour reconfigurer le WiFi. |
+| **Config Web DMD** | Ouvre la page de configuration web sur le DMD et affiche son IP dans Recalbox pour y accéder directement. |
+| **Reboot DMD** | Redémarre le DMD à distance. |
+| **Luminosité DMD +10% / -10%** | Ajuste la luminosité de l'écran par pas de 10 points de pourcentage (clampé 0-100%), appliqué instantanément et sauvegardé dans `config.ini`. |
+
+Tous passent par le même canal MQTT que le pont marquee, sans jamais interrompre l'affichage en cours.
+
+Une console **Telnet** est intégrée pour le débogage sur l'appareil :
 ```
-/recalbox/share/userscripts/
-```
-
-### 🔌 Telnet
-
-Le firmware inclut un terminal Telnet pour tester l'ESP32. Connectez-vous avec :
-```
-telnet 192.168.1.240
-```
-Tapez `help` pour la liste des commandes.
-
----
-
-## 🗂️ Le format raw565 en détail
-
-### 📄 .raw565 (image fixe PNG)
-
-```
-Taille : 128 × 32 × 2 = 8 192 octets exactement
-Format : RGB565 brut (16 bits par pixel)
-         Bit R: bits 15-11 (5 bits)
-         Bit G: bits 10-5  (6 bits)
-         Bit B: bits 4-0   (5 bits)
-
-Lecture ESP32 :
-  f.read(buffer, 8192);
-  drawRGBBitmap(0, 0, buffer, 128, 32);
-  // 1 seule opération SD + 1 seul draw → 5 ms
-```
-
-### 🎞️ .raw565pack + .meta (GIF animé)
-
-Le fichier **`.raw565pack`** concatène toutes les trames du GIF :
-
-```
-[NomFichier].raw565pack
-├── Frame 0  →  8 192 octets (raw565)
-├── Frame 1  →  8 192 octets
-├── Frame 2  →  8 192 octets
-├── ...
-└── Frame N  →  8 192 octets
-
-[NomFichier].meta
-├── delay_0  →  2 octets (uint16, millisecondes)
-├── delay_1  →  2 octets
-├── delay_2  →  2 octets
-└── ...
-```
-
-**Avantages** :
-- **1 seule ouverture SD** pour lire une frame (seek + read bulk)
-- **Pas de décodage GIF** sur l'ESP32
-- Lecture accélérée via le cache RAM des delays (`.meta` chargé en une fois)
-- Contrôle de vitesse intégré (`GIF_RAW_PACK_SPEED_PERCENT`)
-
-### ⚡ Cache bigramme — indexation accélérée
-
-Pour éviter de lister les dossiers SD (très lent avec 30 000 fichiers), le script construit un **index bigramme** :
-
-```
-games_cache.bin
-├── [Entête]  → nombre de systèmes indexés
-├── [Système 0] → nom + offset table bigramme
-├── [Système 1] → nom + offset
-└── ...
-
-Table bigramme (703 entrées = 2812 octets par système)
-├── Index 0   → '#'  (chiffres, symboles)
-├── Index 1   → 'A'  (jeux commençant par A)
-├── Index 2   → 'AA' (jeux commençant par AA)
-├── Index 3   → 'AB'
-├── ...
-└── Index 702 → 'ZZ'
-
-Chaque entrée = offset dans le fichier cache vers la liste des jeux
-```
-
-Quand l'ESP32 cherche `kof98` :
-1. Calcule l'index bigramme : `K` → index `11*27+1=298` (préfixe `KO`)
-2. Charge la tranche correspondante en RAM (lecture bulk)
-3. Parcourt les noms de jeux dans cette tranche
-4. Trouve `kof98` et son type (`p` pour raw565) → **instantané**
-
-### 🎭 Système de masque (mask)
-
-Pour les très gros systèmes (MAME, FBNeo, etc.), le mécanisme de masque évite les écrans noirs :
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Étape 1 : Script Python analyse le système                │
-│  → Compte les fichiers individuels                          │
-│  → >800 fichiers ? Flag "L" dans systems_cache.dat         │
-│                                                             │
-│  Étape 2 : ESP32 reçoit "mame/kof98"                       │
-│  → Système MAME flagué "L" ?                               │
-│    OUI → Affiche IMMÉDIATEMENT le default raw565            │
-│           (préchargé en RAM, 0 ms d'attente)               │
-│                                                                   │
-│  Étape 3 : En parallèle, tâche asynchrone :                │
-│  → Cherche le .raw565 spécifique                           │
-│  → Pas trouvé ? Décode le PNG en tâche de fond             │
-│  → Une fois prêt : remplace le masque par l'image réelle   │
-│                                                             │
-│  Résultat : L'utilisateur ne voit jamais d'écran noir !     │
-└─────────────────────────────────────────────────────────────┘
+telnet <ip-esp32>
+> help
 ```
 
 ---
 
-## 📁 Structure de la carte SD
+## Écrans superposés en jeu — Hi-Score, Infos jeu, Succès & Challenge RB
+
+<p align="center">
+  <img src="medias/hiscore/hiscore_banner.png" alt="Écran superposé Hi-Score MAME/FBNeo sur RecalBoxDMD" width="720">
+</p>
+
+Pendant qu'un jeu tourne réellement (jamais en mode attente/playlist), le panneau peut alterner automatiquement le marquee avec jusqu'à **quatre** écrans superposés portés par la communauté — plein écran, non bloquants, et toujours auto-limités : chacun revient au marquee tout seul après une courte durée, sur un minuteur qui vit **entièrement sur le DMD lui-même**, pour qu'un script Recalbox lent ou en échec ne puisse jamais bloquer le panneau.
+
+- 🏆 **Hi-Score (MAME / FBNeo)** — décode le fichier de score sauvegardé par l'émulateur lui-même (`.hi`) à partir d'un manifeste communautaire converti depuis **hi2txt-xml** (~2 758 jeux couverts) et affiche le vrai classement de la borne, exactement comme MAME/FBNeo lui-même l'afficherait. Aucune lecture RAM en direct, aucune recette par jeu à maintenir : si un jeu n'est pas dans le manifeste, ou si son fichier de sauvegarde est absent/inattendu, rien n'est affiché — silencieux par conception, jamais un score erroné.
+- ℹ️ **Infos jeu** — description, genre, développeur et année de sortie, tirés directement de votre `gamelist.xml` existant (le même scrape déjà fait pour le marquee lui-même).
+- 🎖️ **RetroAchievements** — s'affiche dès qu'un succès est débloqué, en pleine partie.
+- 📅 **Challenge RB** — lit le classement officiel du Challenge communautaire mensuel de Recalbox (un jeu choisi chaque mois par Recalbox, un seul crédit, sans continue) directement depuis le partage Recalbox — même panneau, même style, aucune configuration séparée.
+
+**Zéro configuration côté DMD.** Installez les scripts Recalbox une fois — **Mode 9** de la boîte à outils PC (ou l'installation automatique intégrée au **Mode 1**) — et chacun de ces écrans se met à fonctionner tout seul pour tout jeu/système ayant des données à afficher ; le DMD reste un afficheur « bête » de bout en bout, toute la logique (quoi envoyer, quand, combien de temps) vit dans les scripts côté Recalbox, jamais dans le firmware lui-même.
+
+---
+
+## Le format raw565 en détail
+
+**`.raw565`** — image fixe (depuis un PNG) : exactement `128 × 32 × 2 = 8 192 octets`, RGB565 brut (5-6-5 bits), lue en une seule opération SD et envoyée directement (`drawRGBBitmap`).
+
+**`.raw565pack` + `.meta`** — image animée (depuis un GIF) : toutes les trames concaténées en blocs raw565 dans `.raw565pack` ; les délais par trame (`uint16`, ms) dans `.meta`, chargés une seule fois en RAM. Une ouverture SD + un seek par trame, zéro décodage GIF sur l'appareil.
+
+**Cache de jeux bigramme** (`games_cache.bin`) — un index de 703 entrées par système (une entrée par préfixe de 2 lettres, ex. `KO` pour `kof98`) évite de jamais lister un dossier de dizaines de milliers de fichiers ; une recherche saute directement à la bonne tranche du cache.
+
+**Système de masque** — tout système marqué **« L »** (au-delà du seuil réglable, 5 000 fichiers convertis par défaut — MAME, FBNeo...) affiche *immédiatement* son image par défaut en cache pendant qu'une tâche de fond localise et décode la vraie image : le panneau **ne reste jamais** noir.
+
+---
+
+## Structure de la carte SD
 
 ```
-📁 SD CARD (FAT32)
-   │
-   ├── 📄 config.ini              ← Configuration ESP32
-   │
-   ├── 📁 systems/
-   │   ├── 📁 mame/
-   │   │   ├── 🖼️ kof98.raw565          ← PNG converti (8 Ko)
-   │   │   ├── 🖼️ sf2.raw565
-   │   │   ├── 🖼️ intro.raw565pack      ← GIF converti (trames)
-   │   │   ├── 🖼️ intro.meta            ← Timings GIF
-   │   │   └── ...
-   │   ├── 📁 snes/
-   │   │   ├── 🖼️ supermetroid.raw565
-   │   │   └── ...
-   │   └── 📁 _defaults/
-   │       ├── 🖼️ default.raw565        ← Image de remplacement global
-   │       ├── 🖼️ mame.raw565           ← Fallback pour système MAME
-   │       ├── 🖼️ snes.raw565
-   │       └── ...
-   │
-   ├── 📁 gifs/                   ← Playlists d'animations
-   │   ├── 📁 Arcade/
-   │   ├── 📁 BEST_OF_TOP_30/
-   │   └── 📁 Pixel_Art/
-   │
-   ├── 📁 playlists/
-   │   ├── 📄 Arcade.txt
-   │   └── 📄 TODO.txt
-   │
-   ├── 📄 games_cache.bin         ← Cache bigramme (indexation jeux)
-   └── 📄 systems_cache.dat       ← Index systèmes + flag lent/rapide
+📁 CARTE SD (FAT32)
+├── config.ini
+├── systems/
+│   ├── <système>/
+│   │   ├── <jeu>.raw565             ← marquee fixe
+│   │   ├── <jeu>.raw565pack         ← marquee animée (trames)
+│   │   └── <jeu>.meta                ← marquee animée (timings)
+│   └── _defaults/
+│       ├── default.raw565            ← repli global
+│       └── <système>.raw565          ← repli par système, dans la langue
+│                                        choisie (anglais par défaut ; les
+│                                        versions FR/ES écrasent ce même
+│                                        fichier si sélectionnées dans
+│                                        l'outil PC)
+├── gifs/                             ← playlists d'attente (le pack 600 GIFs atterrit ici)
+│   ├── Arcade/  Consoles/  Computers/  Pinball_Short/  Pinball_Story/
+│   └── Halloween/  XMAS/  Logo/  Other/ ...
+├── playlists/
+│   └── <nom_playlist>.txt
+├── games_cache.bin                   ← index bigramme
+└── systems_cache.dat                 ← index systèmes + flags L/N
 ```
 
 ---
 
-## 🔧 Dépannage
+## Structure du dépôt
 
-### ❌ Problème : "Pillow n'est pas installé"
-- Le script tente de l'installer automatiquement
-- Si ça échoue, lancez manuellement : `pip install Pillow`
-
-### ❌ Problème : "API GitHub inaccessible"
-- Vérifiez votre connexion internet
-- Les modes _defaults nécessitent une connexion
-
-### ❌ Problème : "Aucun lecteur amovible détecté"
-- Insérez votre carte SD
-- Vérifiez qu'elle est détectée par Windows (Explorateur → Ce PC)
-- Réessayez
-
-### ❌ Problème : L'ESP32 n'affiche rien
-- Vérifiez l'alimentation (5V 4A minimum)
-- Vérifiez que config.ini est bien à la racine de la SD
-- Vérifiez le cablage HUB75 (brochage ESP32)
-- Essayez le Telnet : tapez `help` pour tester
-
-### ❌ Problème : "ESP32 non détecté" (port COM manquant)
-Installez les drivers USB :
-
-| Puce USB | Pilotes |
-|----------|---------|
-| CP2102 | [Silicon Labs](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers) |
-| CH340/CH341 | [SparkFun](https://learn.sparkfun.com/tutorials/how-to-install-ch340-drivers/all) |
-
-### ❌ Problème : Affichage lent ou écran noir entre les jeux
-- Vérifiez que vous utilisez le **Mode 1** (conversion raw565 complète)
-- Les gros systèmes (MAME, FBNeo) doivent être flagués **« L »** — vérifiez dans `systems_cache.dat`
-- Si le flag est `N` (rapide) mais le système est lent, augmentez le seuil `SPRITE_LIMIT` dans le .ino
-- Vérifiez que les fichiers `.raw565` existent bien dans `systems/<sys>/`
-
-### ❌ Problème : L'image ne s'affiche pas sur le panneau
-- Vérifiez que l'image est bien au format 128x32
-- Les PNG doivent être en RGB (pas RGBA) pour la conversion
-- Les raw565 sont prioritaires sur les raw565pack
-
-### ❌ Problème : La mauvaise image apparaît (jaquette au lieu du logo/marquee)
-- C'est généralement un mauvais réglage du champ Scraper de Recalbox — vérifiez le profil **« Version Recalbox »** (Mode 1/3) et cliquez **« Comment scraper ? »** pour la marche à suivre exacte selon votre version
-- Utilisez **« Nettoyer les dossiers avant scrape »** puis relancez un scrape complet dans Recalbox avec le bon réglage
-- Lancez le **Mode 8** pour vérifier quelles images sont réellement présentes
+```
+RecalBox_DMD.ino / *.h        ← source du firmware ESP32 (projet Arduino IDE)
+binaries/                     ← images firmware précompilées (bootloader/app/fusionnée)
+tools/                        ← boîte à outils PC (GUI Python, FR/EN/ES) + build Windows
+carte SD/                     ← contenu carte SD prêt à copier (gifs, defaults système, scripts)
+medias/                       ← captures d'écran, GIFs de démo des thèmes horloge, kit presse
+docs/                          ← GitHub Pages : installateur Web (shan-aya.github.io/RecalBoxDMD)
+```
 
 ---
 
-## 📁 Fichiers générés par le script
+## Dépannage
 
-| Fichier | Format | Utilité |
-|---------|--------|---------|
-| `sd_card/systems/.../*.raw565` | 8192 octets RGB565 | Image PNG convertie (affichage 5ms) |
-| `sd_card/systems/.../*.raw565pack` | Trames concaténées | GIF animé converti |
-| `sd_card/systems/.../*.meta` | uint16[] × nb_frames | Timings des trames GIF |
-| `sd_card/systems/_defaults/*.raw565` | 8192 octets | Images de remplacement par système |
-| `sd_card/games_cache.bin` | Index bigramme 703 entrées | Cache des jeux (recherche accélérée) |
-| `sd_card/systems_cache.dat` | Texte (val + nom + flag) | Index systèmes + flag L/N |
-| `images_manquantes.txt` | Texte | Liste des images manquantes (Mode 1/2/3) |
-| `reports/mode8_report_*.txt` | Texte | Rapport du Mode 8 (vérification gamelist ↔ images) |
+| Problème | Solution |
+|---|---|
+| « Pillow n'est pas installé » | Installé automatiquement au premier lancement ; si ça échoue : `pip install Pillow` |
+| « API GitHub inaccessible » | Les téléchargements `_defaults`/pack 600 GIFs nécessitent une connexion internet ; réessayez plus tard (limite de débit possible) |
+| Aucun lecteur amovible détecté | Insérez/vérifiez que la carte SD est visible dans l'Explorateur Windows |
+| L'ESP32 n'affiche rien | Vérifiez l'alimentation (5V 4A min.), `config.ini` à la racine de la SD, le câblage HUB75 ; testez le Telnet `help` |
+| ESP32 non détecté (pas de port COM) | Installez les pilotes USB : [CP2102 (Silicon Labs)](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers) ou [CH340/CH341](https://learn.sparkfun.com/tutorials/how-to-install-ch340-drivers/all) |
+| Affichage lent / écran noir entre les jeux | Confirmez que vous avez lancé le **Mode 1** ; vérifiez que le système est flagué `L` dans `systems_cache.dat` ; augmentez le seuil de flag lent (onglet Paramètres) si votre carte SD est rapide |
+| Mauvaise image affichée (jaquette au lieu du logo) | Vérifiez le profil **version Recalbox** et utilisez **« Comment scraper ? »** ; lancez le **Mode 8** pour vérifier ce qui est réellement présent |
 
 ---
 
-## 🤝 Crédits
+## Crédits & Licence
 
-- **Projet original RetroBoxLED** : [Jamyz](https://github.com/Jamyz/RetroBoxLED) — le firmware ESP32 et l'idée de base
-- **Raw565 Edition** : Shan_ayA — optimisation du format raw565, cache bigramme, système de masque, interface graphique, gestion des versions Recalbox
+- **Projet original RetroBoxLED** : [Jamyz](https://github.com/Jamyz/RetroBoxLED) — la base du firmware ESP32 et l'idée d'origine
+- **Raw565 Edition** : **Shan_ayA** — format raw565, cache bigramme, système de masque, boîte à outils PC, thèmes horloge, gestion des versions Recalbox, aperçu web en direct
 - **Inspiration** : [RetroPixelLED](https://github.com/fjgordillo86/RetroPixelLED) par fjgordillo86
-- **Communauté** : [Recalbox](https://www.recalbox.com/)
-- **Matériel & guide de montage** : [Mortaca - DMDos Board](https://www.mortaca.com/) et [dmdos.net](https://www.dmdos.net/)
+- **Pack de 600 GIFs** : **eLLuiGi** / [RpiTeaM](https://rpiteam.carrd.co/) — échantillon gratuit de leur collection de GIFs rétro
+- **Manifeste Hi-Score** : converti depuis le format communautaire **hi2txt-xml**, construit autour du projet `hiscore.dat` de MAME — ~2 758 jeux couverts
+- **Matériel & guide de montage** : [Mortaca — DMDos Board](https://www.mortaca.com/) / [dmdos.net](https://www.dmdos.net/)
 - **Boîtier 3D** : Janibol — [Retromojones](https://www.youtube.com/@retromojones)
+- **Communauté** : [Recalbox](https://www.recalbox.com/)
+- **Développement** : écrit avec l'assistance de [Claude](https://www.anthropic.com/claude) (Anthropic) — code assisté par IA sur l'ensemble du firmware et de la boîte à outils PC
 
----
+📜 Historique complet des versions : [CHANGELOG.fr.md](CHANGELOG.fr.md)
 
-## ☕ Soutien
+Sous licence [MIT](LICENSE).
 
-Si ce projet vous est utile :
-👉 [Faire un don via PayPal](https://www.paypal.com/paypalme/felysaya)
+☕ Si ce projet vous est utile : [faire un don via PayPal](https://www.paypal.com/paypalme/felysaya)
 
----
-
-> **RecalBoxDMD Raw565 Edition** = Recalbox + Panneau DMD LED + Affichage rapide même avec 30 000 jeux MAME ! 🎮⚡
+<p align="center"><i>RecalBoxDMD Raw565 Edition — Recalbox + un vrai panneau LED marquee, instantané même avec 30 000 jeux MAME.</i> 🎮⚡</p>
