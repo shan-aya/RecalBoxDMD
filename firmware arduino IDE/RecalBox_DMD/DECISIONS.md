@@ -1567,6 +1567,26 @@ RB2 recoupé pendant ces lots (`192.168.0.49`) : progression continue sans inter
 
 **Conclusion** : `badlands` reste le seul et unique cas réel de ce type sur toute la campagne (a*-z* complet, ~3600 jeux vérifiés). L'audit différé demandé est officiellement clos, aucune correction supplémentaire nécessaire.
 
+## Comparaison avec la liste de référence Recalbox (2026-09-06) — découverte du trou "préfixe numérique"
+
+**Fichier fourni par l'utilisateur** : `recalbox_mame0.278_filtered_15183games.dat` (dat MAME standard, en réalité **14819** `<game>` (l'intitulé du fichier surestime légèrement), dont **6162 sets parents** (sans `cloneof`) et 8657 clones — c'est la vraie liste des jeux mame0278 "fonctionnels" à prioriser.
+
+**Comparaison faite** (script `compare_priority.py`/`2`/`3`, scratchpad) : sur les 6162 jeux distincts (parents), **1268 couverts** (niveau1 ou niveau2, directement ou via un clone), **4908 manquants**. Sur ces 4908 : **3482 n'ont tout simplement aucune image dans le corpus progetto-SNAPS** (rien à lire, hors de portée de cette méthode) ; **1426 avaient une image disponible** mais restaient non couverts.
+
+**Cause principale isolée sur ces 1426** : **le balayage alphabétique a-z de toute la campagne n'a jamais traité les roms dont le nom commence par un chiffre** (0-9) — angle mort méthodologique jamais identifié jusqu'ici, ni dans cette session ni dans les précédentes. 100 images du corpus commencent par un chiffre ; seules 13 étaient déjà couvertes (reliquat des tout premiers lots, dont `1941` cité en exemple dans `add_verified_score.py`).
+
+## Lecture visuelle — lot 100 (préfixe numérique 0-9, comble le trou ci-dessus)
+
+**Découverte notable** : `1943kai` et `19xx` ne sont PAS des clones de `1943`/`1942` (pas de `cloneof` dans le dat MAME) — ce sont des jeux distincts de la même lignée Capcom, à tort exclus du filtrage "clone évident par préfixe" utilisé dans les tout premiers lots de la campagne (avant cette session). Tous deux lus et acceptés séparément.
+
+**Acceptés (13)** : `18wheelr`(+2), `1943kai`, `1943mii`, `19xx`(+9 clones), `20pacgal`(+5, **identique à `25pacmano`**, motif Namco N.N/A.A/M.M/C.C/O.O déjà documenté et accepté malgré score plat), `39in1`, `3countb`, `3in1mbc`, `3kokushi`, `3stooges`(+1), `720`(+5), `7toitsu` (japonais, mahjong), `88games`.
+
+**Rejetés (11)** : `119`/`600` (quasi-vide, majorité zéro), `1on1gov`/`3in1semi`/`4in1`/`8ballact`/`8bpm`/`9ballsht`(+3) (identique partout), `500gp` (temps au tour), `8ball` (vide), `99lstwar` (noms = ordinaux japonais littéraux, comme `sonofphx`).
+
+**Bilan chiffré** : mame0278 : 2100 → **2136** ; fbneo : 1486 → **1522** (total 3660). RB1 synchronisé (transfert confirmé). **Le préfixe numérique 0-9 est maintenant couvert — la campagne visuelle progetto-SNAPS a désormais traité l'intégralité de son corpus disponible (0-9 puis a*-z*), sans angle mort alphabétique restant.**
+
+**Reste hors de portée de cette méthode** : 3482 jeux prioritaires sans aucune image dans le corpus progetto-SNAPS (jamais capturés par cette source) + les rejets légitimes parmi les 1426 restants après ce lot — nécessiterait une autre source de captures ou une campagne `.hi` réel (niveau 1) pour progresser davantage.
+
 **Lot 34 (10 jeux, commit `efabd99`)** : `gussun`/`guts`/`gwar`/`gwarrior`/`gyrodine`/`gyruss`/`hal21`/`halleysc`/`hangon`/`hardhat`. `verified_default_scores.json` mame0278 : 522 → **532**. RB2 : 3626→3638/5732 pendant ce lot. Nouveau cas de phrase promotionnelle cachée dans la colonne nom (`guzzler`, "TEHKAN LTD PRESENTS GUZZLER (C)1983 JAPAN PLEASE YOU") avec score identique — même motif de rejet que `elim2`/`elim4` (l'astuce amusante ne sauve pas un score plat).
 
 **Lots 35-36 (commits `7b570d9`, `b48da10`)** : 26 jeux ajoutés (lot 35 : `heatbrl`/`heberpop`/`hedpanic`/`hexion`/`hexpool`/`hharry`/`higemaru`/`hiryuken`/`hitice`/`hoccer`/`hook`/`horekid`/`hotblock` ; lot 36 : `hotbubl`/`hotchase`/`hotdogst`/`hotshock`/`hpuncher`/`hrdtimes`/`hsf2`/`htchctch`/`hthero93`/`hvysmsh`/`hwchamp`/`iceclimb`/`ikari`). `verified_default_scores.json` mame0278 : 532 → **558**. RB2 : 3638→3653/5732 pendant ces lots.

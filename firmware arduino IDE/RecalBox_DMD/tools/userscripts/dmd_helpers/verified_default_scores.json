@@ -45023,5 +45023,903 @@
     ],
     "source": "capture ecran table hi-score interne (BEST PLAYERS), meme nom S.MANDU repete avec score qui varie (20 entrees, 10 retenues), lecture directe -- trstaro/trstaroj = clones de revision, table partagee",
     "date": "2026-09-06"
+  },
+  "mame0278_18wheelr": {
+    "lines": [
+      "1 GOJ 50000",
+      "2 MNW 45000",
+      "3 IIO 40000",
+      "4 WAT 35000",
+      "5 SIO 30000"
+    ],
+    "source": "capture ecran table hi-score interne (RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_18wheelr": {
+    "lines": [
+      "1 GOJ 50000",
+      "2 MNW 45000",
+      "3 IIO 40000",
+      "4 WAT 35000",
+      "5 SIO 30000"
+    ],
+    "source": "capture ecran table hi-score interne (RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_18wheelro": {
+    "lines": [
+      "1 GOJ 50000",
+      "2 MNW 45000",
+      "3 IIO 40000",
+      "4 WAT 35000",
+      "5 SIO 30000"
+    ],
+    "source": "capture ecran table hi-score interne (RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_18wheelro": {
+    "lines": [
+      "1 GOJ 50000",
+      "2 MNW 45000",
+      "3 IIO 40000",
+      "4 WAT 35000",
+      "5 SIO 30000"
+    ],
+    "source": "capture ecran table hi-score interne (RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_18wheelrt": {
+    "lines": [
+      "1 GOJ 50000",
+      "2 MNW 45000",
+      "3 IIO 40000",
+      "4 WAT 35000",
+      "5 SIO 30000"
+    ],
+    "source": "capture ecran table hi-score interne (RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_18wheelrt": {
+    "lines": [
+      "1 GOJ 50000",
+      "2 MNW 45000",
+      "3 IIO 40000",
+      "4 WAT 35000",
+      "5 SIO 30000"
+    ],
+    "source": "capture ecran table hi-score interne (RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_1943kai": {
+    "lines": [
+      "1 TAE 200000",
+      "2 YAM 150000",
+      "3 POO 100000",
+      "4 MR. 70000",
+      "5 BLB 50000"
+    ],
+    "source": "capture ecran table hi-score interne (RANKING BEST 5), lecture directe",
+    "date": "2026-09-06"
+  },
+  "fbneo_1943kai": {
+    "lines": [
+      "1 TAE 200000",
+      "2 YAM 150000",
+      "3 POO 100000",
+      "4 MR. 70000",
+      "5 BLB 50000"
+    ],
+    "source": "capture ecran table hi-score interne (RANKING BEST 5), lecture directe",
+    "date": "2026-09-06"
+  },
+  "mame0278_1943mii": {
+    "lines": [
+      "1 TAE 20000",
+      "2 YAM 15000",
+      "3 POO 10000",
+      "4 ABG 8500",
+      "5 MR. 7000"
+    ],
+    "source": "capture ecran table hi-score interne (RANKING BEST 5), lecture directe",
+    "date": "2026-09-06"
+  },
+  "fbneo_1943mii": {
+    "lines": [
+      "1 TAE 20000",
+      "2 YAM 15000",
+      "3 POO 10000",
+      "4 ABG 8500",
+      "5 MR. 7000"
+    ],
+    "source": "capture ecran table hi-score interne (RANKING BEST 5), lecture directe",
+    "date": "2026-09-06"
+  },
+  "mame0278_19xx": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_19xx": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_19xxa": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_19xxa": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_19xxar1": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_19xxar1": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_19xxb": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_19xxb": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_19xxd": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_19xxd": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_19xxh": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_19xxh": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_19xxj": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_19xxj": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_19xxjr1": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_19xxjr1": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_19xxjr2": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_19xxjr2": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_19xxu": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_19xxu": {
+    "lines": [
+      "1 KWB 90000",
+      "2 HDO 80000",
+      "3 INB 70000",
+      "4 KMT 60000",
+      "5 YOU 50000",
+      "6 ABG 48200"
+    ],
+    "source": "capture ecran table hi-score interne (SCORE RANKING), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_20pacgal": {
+    "lines": [
+      "1 N.N 20000",
+      "2 A.A 20000",
+      "3 M.M 20000",
+      "4 C.C 20000",
+      "5 O.O 20000"
+    ],
+    "source": "motif Namco N.N/A.A/M.M/C.C/O.O deja documente et accepte a chaque rencontre (digdug, dzigzag) malgre score plat -- lecture directe, clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_20pacgal": {
+    "lines": [
+      "1 N.N 20000",
+      "2 A.A 20000",
+      "3 M.M 20000",
+      "4 C.C 20000",
+      "5 O.O 20000"
+    ],
+    "source": "motif Namco N.N/A.A/M.M/C.C/O.O deja documente et accepte a chaque rencontre (digdug, dzigzag) malgre score plat -- lecture directe, clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_20pacgalr0": {
+    "lines": [
+      "1 N.N 20000",
+      "2 A.A 20000",
+      "3 M.M 20000",
+      "4 C.C 20000",
+      "5 O.O 20000"
+    ],
+    "source": "motif Namco N.N/A.A/M.M/C.C/O.O deja documente et accepte a chaque rencontre (digdug, dzigzag) malgre score plat -- lecture directe, clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_20pacgalr0": {
+    "lines": [
+      "1 N.N 20000",
+      "2 A.A 20000",
+      "3 M.M 20000",
+      "4 C.C 20000",
+      "5 O.O 20000"
+    ],
+    "source": "motif Namco N.N/A.A/M.M/C.C/O.O deja documente et accepte a chaque rencontre (digdug, dzigzag) malgre score plat -- lecture directe, clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_20pacgalr1": {
+    "lines": [
+      "1 N.N 20000",
+      "2 A.A 20000",
+      "3 M.M 20000",
+      "4 C.C 20000",
+      "5 O.O 20000"
+    ],
+    "source": "motif Namco N.N/A.A/M.M/C.C/O.O deja documente et accepte a chaque rencontre (digdug, dzigzag) malgre score plat -- lecture directe, clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_20pacgalr1": {
+    "lines": [
+      "1 N.N 20000",
+      "2 A.A 20000",
+      "3 M.M 20000",
+      "4 C.C 20000",
+      "5 O.O 20000"
+    ],
+    "source": "motif Namco N.N/A.A/M.M/C.C/O.O deja documente et accepte a chaque rencontre (digdug, dzigzag) malgre score plat -- lecture directe, clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_20pacgalr2": {
+    "lines": [
+      "1 N.N 20000",
+      "2 A.A 20000",
+      "3 M.M 20000",
+      "4 C.C 20000",
+      "5 O.O 20000"
+    ],
+    "source": "motif Namco N.N/A.A/M.M/C.C/O.O deja documente et accepte a chaque rencontre (digdug, dzigzag) malgre score plat -- lecture directe, clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_20pacgalr2": {
+    "lines": [
+      "1 N.N 20000",
+      "2 A.A 20000",
+      "3 M.M 20000",
+      "4 C.C 20000",
+      "5 O.O 20000"
+    ],
+    "source": "motif Namco N.N/A.A/M.M/C.C/O.O deja documente et accepte a chaque rencontre (digdug, dzigzag) malgre score plat -- lecture directe, clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_20pacgalr3": {
+    "lines": [
+      "1 N.N 20000",
+      "2 A.A 20000",
+      "3 M.M 20000",
+      "4 C.C 20000",
+      "5 O.O 20000"
+    ],
+    "source": "motif Namco N.N/A.A/M.M/C.C/O.O deja documente et accepte a chaque rencontre (digdug, dzigzag) malgre score plat -- lecture directe, clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_20pacgalr3": {
+    "lines": [
+      "1 N.N 20000",
+      "2 A.A 20000",
+      "3 M.M 20000",
+      "4 C.C 20000",
+      "5 O.O 20000"
+    ],
+    "source": "motif Namco N.N/A.A/M.M/C.C/O.O deja documente et accepte a chaque rencontre (digdug, dzigzag) malgre score plat -- lecture directe, clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_20pacgalr4": {
+    "lines": [
+      "1 N.N 20000",
+      "2 A.A 20000",
+      "3 M.M 20000",
+      "4 C.C 20000",
+      "5 O.O 20000"
+    ],
+    "source": "motif Namco N.N/A.A/M.M/C.C/O.O deja documente et accepte a chaque rencontre (digdug, dzigzag) malgre score plat -- lecture directe, clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_20pacgalr4": {
+    "lines": [
+      "1 N.N 20000",
+      "2 A.A 20000",
+      "3 M.M 20000",
+      "4 C.C 20000",
+      "5 O.O 20000"
+    ],
+    "source": "motif Namco N.N/A.A/M.M/C.C/O.O deja documente et accepte a chaque rencontre (digdug, dzigzag) malgre score plat -- lecture directe, clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_25pacmano": {
+    "lines": [
+      "1 N.N 20000",
+      "2 A.A 20000",
+      "3 M.M 20000",
+      "4 C.C 20000",
+      "5 O.O 20000"
+    ],
+    "source": "motif Namco N.N/A.A/M.M/C.C/O.O deja documente et accepte a chaque rencontre (digdug, dzigzag) malgre score plat -- lecture directe, clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_25pacmano": {
+    "lines": [
+      "1 N.N 20000",
+      "2 A.A 20000",
+      "3 M.M 20000",
+      "4 C.C 20000",
+      "5 O.O 20000"
+    ],
+    "source": "motif Namco N.N/A.A/M.M/C.C/O.O deja documente et accepte a chaque rencontre (digdug, dzigzag) malgre score plat -- lecture directe, clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_39in1": {
+    "lines": [
+      "1 KEN 28000",
+      "2 H.I 10100",
+      "3 GON 9400",
+      "4 H.K 6550",
+      "5 ABG 5550"
+    ],
+    "source": "capture ecran table hi-score interne (BURGERTIME 1982, BEST FIVE PLAYERS), lecture directe",
+    "date": "2026-09-06"
+  },
+  "fbneo_39in1": {
+    "lines": [
+      "1 KEN 28000",
+      "2 H.I 10100",
+      "3 GON 9400",
+      "4 H.K 6550",
+      "5 ABG 5550"
+    ],
+    "source": "capture ecran table hi-score interne (BURGERTIME 1982, BEST FIVE PLAYERS), lecture directe",
+    "date": "2026-09-06"
+  },
+  "mame0278_3countb": {
+    "lines": [
+      "1 BOT 147400",
+      "2 EOT 136400",
+      "3 VOL 91700",
+      "4 HDR 72000",
+      "5 EOF 64400",
+      "6 IBG 36200",
+      "7 IRG 21600"
+    ],
+    "source": "capture ecran table hi-score interne (BEST PLAYERS, colonne MONEY), lecture directe",
+    "date": "2026-09-06"
+  },
+  "fbneo_3countb": {
+    "lines": [
+      "1 BOT 147400",
+      "2 EOT 136400",
+      "3 VOL 91700",
+      "4 HDR 72000",
+      "5 EOF 64400",
+      "6 IBG 36200",
+      "7 IRG 21600"
+    ],
+    "source": "capture ecran table hi-score interne (BEST PLAYERS, colonne MONEY), lecture directe",
+    "date": "2026-09-06"
+  },
+  "mame0278_3in1mbc": {
+    "lines": [
+      "1 MATT 500000",
+      "2 PAUL 400000",
+      "3 MARK 300000",
+      "4 TIM 200000",
+      "5 CHRIS 100000"
+    ],
+    "source": "capture ecran table hi-score interne (TOP FIVE SNAKES), lecture directe",
+    "date": "2026-09-06"
+  },
+  "fbneo_3in1mbc": {
+    "lines": [
+      "1 MATT 500000",
+      "2 PAUL 400000",
+      "3 MARK 300000",
+      "4 TIM 200000",
+      "5 CHRIS 100000"
+    ],
+    "source": "capture ecran table hi-score interne (TOP FIVE SNAKES), lecture directe",
+    "date": "2026-09-06"
+  },
+  "mame0278_3kokushi": {
+    "lines": [
+      "1 Y.H 500",
+      "2 A.O 400",
+      "3 M.N 300",
+      "4 K.I 200",
+      "5 M.S 100"
+    ],
+    "source": "capture ecran table hi-score interne (japonais), lecture directe",
+    "date": "2026-09-06"
+  },
+  "fbneo_3kokushi": {
+    "lines": [
+      "1 Y.H 500",
+      "2 A.O 400",
+      "3 M.N 300",
+      "4 K.I 200",
+      "5 M.S 100"
+    ],
+    "source": "capture ecran table hi-score interne (japonais), lecture directe",
+    "date": "2026-09-06"
+  },
+  "mame0278_3stooges": {
+    "lines": [
+      "1 JOE 25000",
+      "2 DER 19000",
+      "3 ITA 18000",
+      "4 BES 16000",
+      "5 SHE 14000",
+      "6 MPH 13000",
+      "7 OWA 12000",
+      "8 MIL 10000",
+      "9 SIT 9000",
+      "10 KAA 8000",
+      "11 NDT 7000",
+      "12 HAN 6000",
+      "13 KYO 5000",
+      "14 ALY 4000",
+      "15 DHE 3000",
+      "16 SAM 1000"
+    ],
+    "source": "capture ecran table hi-score interne (TOP BANANA / SECOND BANANAS), lecture directe -- 3stoogesa = clone de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_3stooges": {
+    "lines": [
+      "1 JOE 25000",
+      "2 DER 19000",
+      "3 ITA 18000",
+      "4 BES 16000",
+      "5 SHE 14000",
+      "6 MPH 13000",
+      "7 OWA 12000",
+      "8 MIL 10000",
+      "9 SIT 9000",
+      "10 KAA 8000",
+      "11 NDT 7000",
+      "12 HAN 6000",
+      "13 KYO 5000",
+      "14 ALY 4000",
+      "15 DHE 3000",
+      "16 SAM 1000"
+    ],
+    "source": "capture ecran table hi-score interne (TOP BANANA / SECOND BANANAS), lecture directe -- 3stoogesa = clone de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_3stoogesa": {
+    "lines": [
+      "1 JOE 25000",
+      "2 DER 19000",
+      "3 ITA 18000",
+      "4 BES 16000",
+      "5 SHE 14000",
+      "6 MPH 13000",
+      "7 OWA 12000",
+      "8 MIL 10000",
+      "9 SIT 9000",
+      "10 KAA 8000",
+      "11 NDT 7000",
+      "12 HAN 6000",
+      "13 KYO 5000",
+      "14 ALY 4000",
+      "15 DHE 3000",
+      "16 SAM 1000"
+    ],
+    "source": "capture ecran table hi-score interne (TOP BANANA / SECOND BANANAS), lecture directe -- 3stoogesa = clone de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_3stoogesa": {
+    "lines": [
+      "1 JOE 25000",
+      "2 DER 19000",
+      "3 ITA 18000",
+      "4 BES 16000",
+      "5 SHE 14000",
+      "6 MPH 13000",
+      "7 OWA 12000",
+      "8 MIL 10000",
+      "9 SIT 9000",
+      "10 KAA 8000",
+      "11 NDT 7000",
+      "12 HAN 6000",
+      "13 KYO 5000",
+      "14 ALY 4000",
+      "15 DHE 3000",
+      "16 SAM 1000"
+    ],
+    "source": "capture ecran table hi-score interne (TOP BANANA / SECOND BANANAS), lecture directe -- 3stoogesa = clone de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_720": {
+    "lines": [
+      "1 ABJ 6261384",
+      "2 ABK 5473895",
+      "3 ABM 4686406",
+      "4 ABO 3898917",
+      "5 ABQ 3111428",
+      "6 ABS 2323939",
+      "7 ABU 1536450",
+      "8 ABW 748961"
+    ],
+    "source": "capture ecran table hi-score interne (TOP SKATERS, colonne OVERALL SCORE), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_720": {
+    "lines": [
+      "1 ABJ 6261384",
+      "2 ABK 5473895",
+      "3 ABM 4686406",
+      "4 ABO 3898917",
+      "5 ABQ 3111428",
+      "6 ABS 2323939",
+      "7 ABU 1536450",
+      "8 ABW 748961"
+    ],
+    "source": "capture ecran table hi-score interne (TOP SKATERS, colonne OVERALL SCORE), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_720g": {
+    "lines": [
+      "1 ABJ 6261384",
+      "2 ABK 5473895",
+      "3 ABM 4686406",
+      "4 ABO 3898917",
+      "5 ABQ 3111428",
+      "6 ABS 2323939",
+      "7 ABU 1536450",
+      "8 ABW 748961"
+    ],
+    "source": "capture ecran table hi-score interne (TOP SKATERS, colonne OVERALL SCORE), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_720g": {
+    "lines": [
+      "1 ABJ 6261384",
+      "2 ABK 5473895",
+      "3 ABM 4686406",
+      "4 ABO 3898917",
+      "5 ABQ 3111428",
+      "6 ABS 2323939",
+      "7 ABU 1536450",
+      "8 ABW 748961"
+    ],
+    "source": "capture ecran table hi-score interne (TOP SKATERS, colonne OVERALL SCORE), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_720gr1": {
+    "lines": [
+      "1 ABJ 6261384",
+      "2 ABK 5473895",
+      "3 ABM 4686406",
+      "4 ABO 3898917",
+      "5 ABQ 3111428",
+      "6 ABS 2323939",
+      "7 ABU 1536450",
+      "8 ABW 748961"
+    ],
+    "source": "capture ecran table hi-score interne (TOP SKATERS, colonne OVERALL SCORE), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_720gr1": {
+    "lines": [
+      "1 ABJ 6261384",
+      "2 ABK 5473895",
+      "3 ABM 4686406",
+      "4 ABO 3898917",
+      "5 ABQ 3111428",
+      "6 ABS 2323939",
+      "7 ABU 1536450",
+      "8 ABW 748961"
+    ],
+    "source": "capture ecran table hi-score interne (TOP SKATERS, colonne OVERALL SCORE), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_720r1": {
+    "lines": [
+      "1 ABJ 6261384",
+      "2 ABK 5473895",
+      "3 ABM 4686406",
+      "4 ABO 3898917",
+      "5 ABQ 3111428",
+      "6 ABS 2323939",
+      "7 ABU 1536450",
+      "8 ABW 748961"
+    ],
+    "source": "capture ecran table hi-score interne (TOP SKATERS, colonne OVERALL SCORE), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_720r1": {
+    "lines": [
+      "1 ABJ 6261384",
+      "2 ABK 5473895",
+      "3 ABM 4686406",
+      "4 ABO 3898917",
+      "5 ABQ 3111428",
+      "6 ABS 2323939",
+      "7 ABU 1536450",
+      "8 ABW 748961"
+    ],
+    "source": "capture ecran table hi-score interne (TOP SKATERS, colonne OVERALL SCORE), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_720r2": {
+    "lines": [
+      "1 ABJ 6261384",
+      "2 ABK 5473895",
+      "3 ABM 4686406",
+      "4 ABO 3898917",
+      "5 ABQ 3111428",
+      "6 ABS 2323939",
+      "7 ABU 1536450",
+      "8 ABW 748961"
+    ],
+    "source": "capture ecran table hi-score interne (TOP SKATERS, colonne OVERALL SCORE), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_720r2": {
+    "lines": [
+      "1 ABJ 6261384",
+      "2 ABK 5473895",
+      "3 ABM 4686406",
+      "4 ABO 3898917",
+      "5 ABQ 3111428",
+      "6 ABS 2323939",
+      "7 ABU 1536450",
+      "8 ABW 748961"
+    ],
+    "source": "capture ecran table hi-score interne (TOP SKATERS, colonne OVERALL SCORE), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_720r3": {
+    "lines": [
+      "1 ABJ 6261384",
+      "2 ABK 5473895",
+      "3 ABM 4686406",
+      "4 ABO 3898917",
+      "5 ABQ 3111428",
+      "6 ABS 2323939",
+      "7 ABU 1536450",
+      "8 ABW 748961"
+    ],
+    "source": "capture ecran table hi-score interne (TOP SKATERS, colonne OVERALL SCORE), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "fbneo_720r3": {
+    "lines": [
+      "1 ABJ 6261384",
+      "2 ABK 5473895",
+      "3 ABM 4686406",
+      "4 ABO 3898917",
+      "5 ABQ 3111428",
+      "6 ABS 2323939",
+      "7 ABU 1536450",
+      "8 ABW 748961"
+    ],
+    "source": "capture ecran table hi-score interne (TOP SKATERS, colonne OVERALL SCORE), lecture directe -- clones de revision, table partagee",
+    "date": "2026-09-06"
+  },
+  "mame0278_7toitsu": {
+    "lines": [
+      "1 MATSUI 100000",
+      "2 TANAKA 70000",
+      "3 HAYASHI 50000",
+      "4 KANTOU 30000",
+      "5 SATOU 10000"
+    ],
+    "source": "capture ecran table hi-score interne (japonais, mahjong, noms romanises), lecture directe",
+    "date": "2026-09-06"
+  },
+  "fbneo_7toitsu": {
+    "lines": [
+      "1 MATSUI 100000",
+      "2 TANAKA 70000",
+      "3 HAYASHI 50000",
+      "4 KANTOU 30000",
+      "5 SATOU 10000"
+    ],
+    "source": "capture ecran table hi-score interne (japonais, mahjong, noms romanises), lecture directe",
+    "date": "2026-09-06"
+  },
+  "mame0278_88games": {
+    "lines": [
+      "1 H.O 50000",
+      "2 M.O 49500",
+      "3 J.N 49000",
+      "4 A.S 48500",
+      "5 T.O 48000",
+      "6 K.K 47500"
+    ],
+    "source": "capture ecran table hi-score interne (THE BEST 100), lecture directe",
+    "date": "2026-09-06"
+  },
+  "fbneo_88games": {
+    "lines": [
+      "1 H.O 50000",
+      "2 M.O 49500",
+      "3 J.N 49000",
+      "4 A.S 48500",
+      "5 T.O 48000",
+      "6 K.K 47500"
+    ],
+    "source": "capture ecran table hi-score interne (THE BEST 100), lecture directe",
+    "date": "2026-09-06"
   }
 }
