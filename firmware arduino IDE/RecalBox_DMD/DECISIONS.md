@@ -1668,3 +1668,199 @@ RB2 recoupé pendant ces lots (`192.168.0.49`) : progression continue sans inter
 **Diagnostic complet, plan de résolution recommandé, et commandes de reproduction** : voir `HANDOFF_SESSION_2026-09-05_merge-divergence.md` (racine du dossier firmware) — préparé spécifiquement pour démarrer ce chantier dans une nouvelle session après `/clear`, sans avoir à re-dériver le diagnostic. **Ne pas fusionner ni pousser sans ordre explicite de l'utilisateur** (consigne répétée ce soir).
 
 **Synchronisation bidirectionnelle NAS↔RB1 complétée (demande explicite "copie sans écrasement les .hi du NAS vers RB1")** : diff calculé par comparaison de listes de noms (pas de montage CIFS, cohérent avec la règle d'or du dépôt) plutôt qu'un simple copier-coller aveugle — **1560 `.hi` fbneo + 349 `.hi` mame0278 manquants sur RB1** copiés depuis le NAS. Complément fait dans l'autre sens pour boucler : **8 `.hi` mame0278 propres à RB1** (jamais uploadés) renvoyés vers le NAS. État final cohérent : RB1 fbneo = NAS fbneo = **2491** ; RB1 mame0278 = NAS mame0278 = **362** (RB2 reste à 354, léger retard sans conséquence — rattrapable à son prochain pull depuis le NAS).
+
+## Lecture visuelle — lots 66-67 (2026-09-05 soir, reprise après `/clear` via handoff)
+
+**Reprise exacte au point indiqué par `HANDOFF_SESSION_2026-09-05_hiscore.md`** : préfixes `sk*` restants (après `skydest`/`skysoldr`, fin du lot 65), puis `sl*`, `sm*`, `sn*`, `so*`. 46 jeux distincts examinés (33 images lot 66 + 21 images lot 67, dédoublonnage clones), 24 acceptés.
+
+**Lot 66 (sk*/sl*/sm*, pas encore committé — voir section fusion ci-dessous)** : acceptés `skullfng`/`skatekds`/`skattv`/`skyrobo`, `slyspy`(+clones `slyspy2`/`3`)/`slapshot`/`slapshtr`/`slither`/`slrasslt`, `slammast`/`slampic`/`slampic2` (table partagée confirmée — même jeu Capcom CWA "wrestling", régions différentes US/JP, capture pixel-identique sur les 3 roms), toute la famille `smgp` (14 roms, table partagée confirmée entre `smgp`/`smgpd` — Driver's Point Ranking figé, valeurs non-rondes mais identiques entre variantes = données figées du jeu, pas un artefact), `smbomb`, `smoto16` (easter egg développeur ONE/TWO/TRE... avec scores qui varient, motif "auto-référence" accepté), `smissw`, et `smashtv`/`smashtv4`/`smashtv5`/`smashtv6` (table partagée avec `smashtv3` déjà vérifié — situation inverse du cas habituel : c'est le ROM parent qui manquait, pas le clone).
+
+**Rattrapage fait dans la foulée** (incohérence repérée en cours de lot : `slyspy2`/`3` avaient reçu une copie clone mais pas `skullfngj`/`skullfnga`/`skattva`/`slapshotj`/`slithera`/`smbombr1`) : ces 6 clones de révision complétés par copie directe du parent, même logique que le motif "table partagée" déjà établi. **Nouvelle règle actée pour la suite** : quand un jeu accepté a des clones de révision évidents dans la liste du lot, leur copier systématiquement la même entrée (coût nul, aucune nouvelle lecture, gain de couverture réelle) plutôt que de les sauter silencieusement comme le faisaient les lots précédents.
+
+**Rejetés lot 66** : `skingame`/`skingame2` (stats carrière vides), `skyalert` (nom générique répété sans variation), `skyarmy` (colonne nom absente), `skullxbo` (format double-stat "Wealth-Booty" non standard), `skybase`/`skylancr`/`skelagon` (scores de remplissage identiques), `skychut` (quasi-vide, pas de colonne nom), `slipstrm` (temps au tour), `sliver`/`slikshot` (progression géométrique/ronde artificielle malgré noms non-identiques), `slamdnk2`/`slmdunkjd` (stats sportives, bilan de victoires par équipe), `slspirit` (triple nom identique + progression géométrique), `smooncrs` (quasi-vide, 4/5 lignes identiques).
+
+**Lot 67 (sn*/so*, pas encore committé)** : acceptés `snakepit`(+clone `snakepita`), `sncwgltd`, `snowboar`(+clone `snowboara`), `solvalou`, `sokyugrt`, `soldivid`(+clone `soldividk`, motif noms répétés avec scores qui varient — Kashon/Vorg/Tyora), `solfigtr`, `sonicbom`(+clone `sonicbomd`, seuls les rangs 1-3 lisibles, 4-10 occultés par le décor — mieux vaut sous-déclarer), `sotsugyo`(+clone `sotsugyok`), `sokonuke`, `solarq` (une seule entrée réelle visible sur tout l'écran, acceptée car légitime contrairement à `skychut`/`sothello` qui avaient des rangées de remplissage en plus).
+
+**Rejetés lot 67** : `solrwarr`/`sonicwi`/`soukobdx` (scores identiques ou progression ronde + noms alphabétiques séquentiels), `soldam` (affichage illisible, texte noyé dans un décor graphique), `sonic` (progression arithmétique parfaite -50 par rang malgré rotation de personnages), `sonofphx` (noms placeholder = ordinaux japonais littéraux ICHIBAN/NIBAN/...), `socbrawl` (nom unique "SNK" auto-référence sur toutes les lignes, pas de colonne score), `soulclbr`/`soccerss`/`souledge` (comptage de victoires, stats de tournoi), `sonson` (nom ET score identiques sur toutes les lignes, auto-référence Capcom), `snowbros`/`sngkace`/`snapper` (alphabet séquentiel + progression ronde), `snakjack` (texte illisible, contraste quasi nul), `snowbro3` (ordre des scores incohérent — rang 2 plus bas que rangs 3-5), `snapjack` (nom "UNIVERSAL" et score identiques partout), `solarfox`/`sothello` (une seule ligne réelle noyée dans des lignes de remplissage, contrairement à `solarq`).
+
+**Bilan chiffré** : `verified_default_scores.json` mame0278 : 1027 → **1084** ; fbneo : 413 → **470**. Synchronisé RB1 + NAS après chaque lot (pratique actée poursuivie). **Position atteinte : `so*` terminé, reprendre à `sp*` au prochain lot.**
+
+**⚠️ Commit bloqué (situation nouvelle, pas anticipée dans le handoff)** : au moment de committer le lot 66, le dépôt s'est révélé **en fusion active avec conflits non résolus** sur `tools/RecalBoxDMD_GUI.py`/`.spec`/`RecalBoxDMD_prefs.py`/`RecalBoxDMD_tool.py` — c'est très exactement la fusion `dev/core-reassignment`↔`master` documentée juste au-dessus comme **"PAS PRÊT À FUSIONNER... Ne pas fusionner ni pousser sans ordre explicite de l'utilisateur"**. Elle est donc soit en cours de résolution par une autre session avec l'accord de l'utilisateur entre-temps, soit a été lancée par erreur — dans le doute, non touchée. `verified_default_scores.json` n'a aucun conflit (fichier propre, modifié/indexé) mais le commit global reste bloqué tant que les 4 fichiers en conflit ne sont pas résolus. Sur décision utilisateur ("attendre, ne rien committer"), les lots 66+67 restent en attente de commit — fichier tout de même synchronisé RB1+NAS à chaque lot comme d'habitude, aucune donnée en danger. **À committer dès que la fusion sera débloquée**, avant de continuer davantage de lots pour éviter d'accumuler trop de travail non versionné en git.
+
+**Mise à jour** : utilisateur confirme avoir mis l'autre session en pause. Fusion toujours en cours mais progresse (`.gitignore`/`.spec`/`prefs.py` résolus entre-temps, ne reste que `RecalBoxDMD_GUI.py`/`RecalBoxDMD_tool.py` en conflit `UU`) — poursuite de la lecture visuelle pendant ce temps, toujours sans y toucher, commit groupé prévu dès déblocage complet.
+
+## Lecture visuelle — lot 68 (sp*, 2026-09-05 soir, suite immédiate)
+
+**Préfixe `sp*` inhabituellement volumineux** (137 images, contre ~40-90 pour les préfixes habituels) — traité en un seul lot en 4 sous-lots de lecture. 64 jeux distincts examinés, **28 acceptés**.
+
+**Acceptés** : `spacedem`, `spaceplt`(+clone `spaceplta`), `spang`(+clones `spangbl`/`spangj`), `sparkman`(+clone `sparkmana`, noms places KKKKK/HHHHH/... mais scores irréguliers réels), `spartanx`(+clone `spartanxtec`, 20 joueurs), `spatter`(+clone `spattera`, rang 1 seul retenu — 25916, rangs 2-8 = remplissage rond), `spbactn`(+clone `spbactnj`), `spcforce`/`spcforc2` (une seule entrée réelle chacun, tag "ABG" récurrent identifié comme probable initiales de l'archiviste ayant capturé le corpus progetto-SNAPS — vu sur des dizaines d'écrans), `spclords`(+3 clones, table de crédits développeurs Atari Games figée — HAL 9000/Buck Rogers/Luke Skywalker/etc, **valeurs ×10 pour rester entières** car affichées avec 1 décimale en jeu, ex. 50.8→508 — noté explicitement dans `source`), `spcrocks`, `spctbird` (rangs 1-2 seulement), `spdheat`(+clone), `spec2k`(+clone, rang 3 omis car occulté par le décor), `spelunkr`(+clone)/`spelunk2` (suite), `spider` (noms de personnages fixes), `spikeout`, `spikes91b`, `spinkick`, `spinmast` (nom répété "D.E" avec score qui varie), `splash`(+7 clones de région/révision), `splndrbt`(+3 clones), `sprglbpg`, `spuzbobl`(+clone), `spyhunt`(+clone régional `spyhuntsp`).
+
+**Rejetés** : `spacbeam`/`spacduel`/`spacefb`/`spacefrt`/`spacelnc`/`spacegun`/`spacfury`/`sprcros2a`/`spy` (scores identiques ou progression ronde + noms alphabétiques), `spacejam`/`sprk_090`/`sprk_096`/`sprk_103` (photos de marquee LED sans colonne nom, format non standard), `spcdrag`/`spclforc`/`spcmission`/`spcpostn`/`spctrek`/`speedatk`/`spinner`/`spcfrcii` (scores et/ou noms identiques sur toutes les lignes), `speedbal`/`spdcoin`/`sprtmtch` (une seule entrée réelle mais noyée dans des lignes de remplissage à **zéro**, distinct du cas `spcforce`/`spcrocks` où il n'y a AUCUNE autre ligne — règle affinée ce lot : remplissage à zéro = rejet, remplissage rond non-nul type "Fortrek"/"URL"→ en fait `spdcoin` avait bien du remplissage à zéro, corrigé en rejet après relecture plus attentive), `speedup`/`speedrcr` (temps au tour), `speedrs`/`spiders`/`spiders2`/`spiders3`/`spidman` (tableaux vides ou template figé identique sur 4 personnages), `spinlbrk` (stats identiques ×3, format taux/kills), `spitboss` (table de crédits par défaut mais motif 20000/10000 répété identiquement sur CHAQUE catégorie, contrairement à `spclords` où les valeurs varient réellement), `splat`/`splatter`/`splatter2` (colonne nom absente malgré scores variés), `sprtauth1`/`sprtjam` (scores à zéro ou ordre incohérent), `spyhunt2` (table de valeurs de points fixes, pas un vrai classement joueur), `sparkz` (labyrinthe de fils reliant noms et scores dans le désordre — lien non fiable, mieux vaut rejeter que risquer un mauvais appariement), `speedspn` (relecture : format "11-8" = score de match sportif, pas un hi-score individuel, décision initiale corrigée).
+
+**Bilan chiffré** : `verified_default_scores.json` mame0278 : 1084 → **1135** ; fbneo : 470 → **521**. Synchronisé RB1 + NAS. **Position atteinte : `sp*` terminé, reprendre à `sq*`/`sr*` au prochain lot.** Toujours non committé (fusion en cours, voir ci-dessus).
+
+## Lecture visuelle — lot 69 (sq*/sr*, 2026-09-05 soir, suite immédiate)
+
+Préfixes courts (24 images) après le gros lot `sp*`. 12 jeux distincts examinés, **8 acceptés**.
+
+**Acceptés** : `sqix`(+5 clones de révision), `sqbert` (23 entrées), `srumbler`(+`srumbler2`/`3`, capture identique confirmée), `sranger`(+3 clones), `srmdb`, `sryudens` (japonais, mahjong, noms en kanji non transcrits — valeurs conservées telles quelles), `sraider` (rang 1 seul, reste = remplissage identique "UNIVERSAL"), `srdmissn`.
+
+**Rejetés** : `srdarwin` (ordre des scores incohérent — rang 4 plus haut que rangs 1-3), `srallycb`/`srallycdx` (temps au tour, format course).
+
+**Bilan chiffré** : mame0278 : 1135 → **1153** ; fbneo : 521 → **539**. Synchronisé RB1 + NAS. **Position atteinte : `sr*` terminé, reprendre à `ss*` au prochain lot.** Lots 66-69 toujours non committés (fusion `dev/core-reassignment`↔`master` en cours, 2 fichiers restants sur 4).
+
+## Lecture visuelle — lot 70 (ss*, 2026-09-06, après pause 3h19 demandée par l'utilisateur)
+
+Pipeline allégé désormais (script `lot_apply.py` réutilisable + `sync_lot.ps1`, voir mémoire feedback optimisation tokens). Préfixe `ss*` volumineux (121 images) mais dominé par 2 grosses familles de clones à un seul représentant chacune.
+
+**Skip délibéré sans lecture** : famille `ssf2*` (~30 roms, Super Street Fighter II) — même politique que la "zone Street Fighter" déjà actée dans le handoff (clones d'un même jeu, non lus).
+
+**Rejetés (non-jeu)** : `ss_01`/`ss_11`/`ss_12`/`ss_14`/`ss_15` — 4 des 5 montrent une capture strictement identique ("MAR"=15 000 000), la 5e diffère ("DEN") : ce sont des frames d'un même panneau LED, pas des noms de rom MAME/FBNeo réels — aucune entrée créée.
+
+**Acceptés (15 jeux, 66 clones copiés en table partagée)** : `sscopea`(+15 clones), `sscope2j`(+18 clones, suite de sscope), `ssanchan`, `sscandal`, `sshangha`(+3), `ssi`(+2), `sspirits`(+1), `ssplash`(+1), `ssprint`(+6, 29 entrées), `ssriders`(+12, rangs 1-4 seulement), `sss`, `sstingry`, `sstrike`, `ssoldier`, `ssonicbr`.
+
+**Rejetés (format)** : `sshooter` (étoiles sans score numérique), `ssideki2`/`3`/`4` (stats d'équipe foot), `ssmissin` (noms corrompus/répétitifs), `sstarcrs` (identique partout), `ssozumo` (classement sumo en kanji, pas de score numérique), `sspacaho` (valeurs identiques).
+
+**Bilan chiffré** : mame0278 : 1153 → **1226** ; fbneo : 539 → **612** (total 1840). **RB1 injoignable** (réseau, probablement éteint à cette heure) — sync NAS + fichier local OK, RB1 à rattraper à sa prochaine remise en route. **Position : `ss*` terminé, reprendre à `st*`.**
+
+## Lecture visuelle — lot 71 (st*, 2026-09-06 nuit, boucle autonome)
+
+Préfixe volumineux (~135 images). Skip délibéré `ssf2*`→non, ici pas de skip zone SF ; en revanche **découverte importante** : plusieurs images "marquee LED" (`startrp`, `strikext`, `strknew`, `strxt_uk`, `stwr_101`) affichent toutes un nom générique ("JOE"/"JEK") avec un score arrondi à 250-400 millions, **répété à l'identique sur des jeux totalement indépendants** → confirmé comme artefact du corpus (photo de panneau LED générique réutilisée), pas une donnée réelle par jeu. **Nouveau critère de rejet acté** : toute capture de ce type (nom générique unique + gros score rond, dupliqué sur plusieurs roms sans rapport) est rejetée d'office, cohérent avec le rejet déjà fait sur `ss_01`/`ss_11-15`/`sprk_090-103` (lots 68/70).
+
+**Acceptés (38 jeux, nombreux clones copiés)** : `stagger1`, `stakwin`, `stakwin2`, `stankatk`, `starblad`(+1), `starforce`, `starforc` (jeu distinct malgré nom proche), `stargate`, `starswep`(+1), `startrek`, `starwars`(+1), `statriv2`(+1), `stdragon`(+2), `stealsee`, `steaser`, `steeltal` (crédits développeurs Atari variés, comme spclords), `stera`, `stg`, `stinger`, `stkclmns`(+1), `stlforce`, `stmblade`(+1), `stocker`, `stompin`(+1), `stoneage`, `storming`(+1), `strahl`(+2), `stratab`(+2, **identique à `sstrike`** — même jeu de bowling, table partagée confirmée), `stratof`, `streetg2`, `streetsm`(+4), `strider`(+4), `strider2`(+1), `strhoop`, `strkforc`, `strnskil`, `stunrun`(+10 clones), `sttng_l7`(+10 codes pinball).
+
+**Rejetés (27)** : `stactics`/`starcas`/`starjack`/`stfight`/`stinger2`/`stoffy`/`stratgyx`/`strongx`/`streetg`/`strfbomb`/`strkfgtr`/`strkzone`/`strtheat`/`strvmstr`/`stuntair` (scores/noms identiques, colonne nom absente, ou progression artificielle), `starfigh` (ordre incohérent), `starfire`/`starfir2` (tableau vide), `starglad`/`stargld2`/`strtdriv` (temps au tour), `startrp`/`strikext`/`strknew`/`strxt_uk`/`stwr_101` (marquee LED générique, voir découverte ci-dessus), `striv` (gabarit répétitif par catégorie).
+
+**Bilan chiffré** : mame0278 : 1226 → **1307** ; fbneo : 612 → **693** (total 2002 — cap symbolique des 2000 franchi). RB1 toujours injoignable (réseau), NAS + local à jour. **Position : `st*` terminé, reprendre à `su*`.**
+
+## Lecture visuelle — lot 72 (su*, 2026-09-06 nuit, boucle autonome)
+
+**Acceptés (18 jeux)** : `sub`, `subroc3d` (3 entrées réelles), `sunaq`, `supbtime`(+2), `supduck`, `superbar`, `superbon`(+1), `superchs`(+3), `superman`(+1), `superspy`, `superx`(+1), `suplup`, `supmodel`, `suprglob` (**identique à `sprglbpg`** du lot 68, même jeu deux noms de rom), `suprmatk`(+1), `suprmrio`(+3, **identique à `skatekds`** du lot 66 — gabarit NES partagé entre plusieurs jeux), `suprslam`, `susume`.
+
+**Rejetés (21)** : `suikoenb`/`starfigh`-like (ordre incohérent), `supcrash`/`suprloco`/`suratk` (colonne nom absente ou alphabet séquentiel), `superabc`/`superbik`/`superpac`/`superten`/`survival`/`suprheli`/`suprleag` (scores identiques), `supertnk`/`supertr2` (vide), `superwng`/`survarts` (alphabet répété + progression ronde), `suprgolf` (golf par-relatif), `suprtrio` (noms = position ordinale), `surfplnt`/`suzuka8h`/`suzuk8h2` (temps au tour), `sutjarod` (tableau de probabilités, pas un score).
+
+**Bilan chiffré** : mame0278 : 1307 → **1337** ; fbneo : 693 → **723** (total 2062). RB1 toujours injoignable. **Position : `su*` terminé, reprendre à `sv*`.**
+
+## Lecture visuelle — lot 73 (sv*/sw*/sy*/sz*, 2026-09-06 nuit) — **PRÉFIXE `s*` TERMINÉ EN ENTIER**
+
+Petit lot (28 images, pas de `sx*`). Acceptés : `swat`(+clone bootleg `swatpolc`), `syvalion`(+3 clones, 2 catégories), `szaxxon` (1 seule entrée nommée). Rejetés : `svolley` (alphabet+rond), `svc`/`svcplus`(+clones, temps), `svg`(+clones, temps identique), `swimmer` (score identique malgré alternance de noms), `swtril41` (marquee LED générique, même motif que lot 71).
+
+**Bilan chiffré** : mame0278 : 1337 → **1344** ; fbneo : 723 → **730** (total 2076). RB1 toujours injoignable, NAS+local à jour.
+
+**Le préfixe `s*` est maintenant intégralement couvert (lots 15 à 73 de toute la campagne).** Prochain lot : premier préfixe `t*`.
+
+## Lecture visuelle — lot 74 (ta*, 2026-09-06 nuit) — début du préfixe `t*` (664 images, très volumineux)
+
+**Acceptés (13)** : `tacscan`, `taf_l7`(+12 codes pinball The Addams Family), `tagteam`, `taikort` (1 entrée réelle, japonais), `tail2nos`(+1, colonne POINT d'un championnat), `takeoff`, `talbot` (1 entrée réelle), `tankbatl`, `tankbust`, `targeth`(+2), `tattass`(+2), `tazmania`(+3 clones/suites), `tazzmang`(+1, **identique à `tazmania`**).
+
+**Rejetés (7)** : `tactcian`/`tactcian2` (vide ou colonne nom absente), `tangramq`/`taxidriv` (identique partout), `tangtang` (quasi-vide), `tantr` (noms sans score numérique), `taotaido` (tout identique/illisible).
+
+**Bilan chiffré** : mame0278 : 1344 → **1378** ; fbneo : 730 → **764** (total 2144). RB1 toujours injoignable. **Position : `ta*` terminé, reprendre à `tb*`.**
+
+**Lot 75 (tb*, petit lot 7 images)** : acceptés `tblkkuzu`(+1), `tbyahhoo` ; rejeté `tbowl`(+3, alphabet+rond). mame0278 1378→**1381**, fbneo 764→**767** (total 2150). Position : `tb*` terminé, reprendre à `tc*`.
+
+**Lot 76 (tc*, 3 images)** : accepté `tcobra2`(+clone `tcobra2u`, nom CBR répété avec score qui varie — `tcobra2` avait déjà une entrée antérieure, non écrasée) ; rejeté `tceptor` (titre de rang "CADET" identique, progression trop régulière). mame0278 1381→**1382**, fbneo 767→**768** (total 2152). Position : `tc*` terminé, reprendre à `td*`.
+
+**Lot 77 (td*, 4 images)** : acceptés `tdragon`(+5 clones), `tdragon2`(+1, suite/table distincte de tdragon) ; rejetés `tdfever`(+2, identique/vide), `tdpgal` (table de gains poker, pas un hi-score). mame0278 1382→**1390**, fbneo 768→**776** (total 2168). Position : `td*` terminé, reprendre à `te*`.
+
+## Lecture visuelle — lot 78 (te*, 2026-09-06 nuit, ~85 images)
+
+**Acceptés (14)** : `teamqb`(+2, 31 entrées, 10 retenues), `techromn`(+2), `teddybb`(+3), `teetert`, `tengai`(+1), `term2`(+5 codes pinball Terminator 2), `terracre`(+3), `terraf`(+5, valeurs irrégulières malgré noms alphabétiques AAA-JJJ), `tetrbx`, `tetris`(+9 clones/révisions, +`tetrista` en complément), `tetrisp` (2 catégories NORMAL+PUZZLE), `tetrisp2`(+3), `tetrisse`, `tetrist`(+`tetristh` en complément).
+
+**Rejetés (8)** : `tehkanwc`(+4, score "0:0" identique partout), `tekken`/`tektagt` (pourcentages, mostly 0%), `tekken2`/`tekken3` (temps par personnage), `tempest`(+3)/`temptube` (identique EJD=10101, table partagée entre les deux), `term3`(+8 codes pinball) (**marquee LED générique "JMR 90 000 000"**, même motif que lots 71/73).
+
+**Bilan chiffré** : mame0278 : 1390 → **1439** ; fbneo : 776 → **825** (total 2266). RB1 toujours injoignable. **Position : `te*` terminé, reprendre à `tf*`.**
+
+**Lot 79 (tf*, 4 images)** : accepté `tfrceac`(+3 clones, THUNDER FORCE EXPERT PILOTS). mame0278 1439→**1443**, fbneo 825→**829** (total 2274). Position : `tf*` terminé, reprendre à `tg*`.
+
+**Lot 80 (tg*, 3 images)** : accepté `tgm2`(+1, nom T.A répété avec score qui varie) ; rejeté `tgmj` (temps). mame0278 1443→**1445**, fbneo 829→**831** (total 2278). Position : `tg*` terminé, reprendre à `th*`.
+
+## Lecture visuelle — lot 81 (th*, 2026-09-06 nuit, ~85 images)
+
+**Acceptés (13)** : `tharrier`(+2), `thedeep`, `theglob`(+5 clones — même famille que `sprglbpg`/`suprglob`), `theroes`(+1), `thetogyu`, `thndblst`, `thndrbld`(+2), `thndrx2`(+2), `thndzone`(+3), `thoop`(+5), `thoop2`(+5), `thunderh`(+1).
+
+**Rejetés (13)** : `the26thz` (alphabet inversé + rond), `theend`(+2)/`thehole`/`thepitu2`/`thief`/`themj` (vide ou identique), `theglad104` (identique sur 2 personnages), `thehustl` (colonne RATE en %, pas un score), `thrilld`(+~25 clones, temps au tour), `thunderl`/`thunderx` (alphabet+rond), `thundfox` (valeurs illisibles/corrompues), `thunt` (noms sans score).
+
+**Bilan chiffré** : mame0278 : 1445 → **1483** ; fbneo : 831 → **869** (total 2354). RB1 toujours injoignable. **Position : `th*` terminé, reprendre à `ti*`.**
+
+**Lot 82 (ti*, 11 images)** : acceptés `tigerh`(+5), `tigeroad`(+3), `timber` (1 entrée), `timefgtr` (portugais, 2 entrées distinctes), `timekill`(+6), `timeplt`(+2, Time Pilot), `timescan`(+2), `timesold`(+1), `tinklpit` ; rejetés `tictac`(+3, catégories vides), `timecris`(+2, temps). mame0278 1483→**1511**, fbneo 869→**897** (total 2410). Position : `ti*` terminé, reprendre à `tj*`.
+
+**Lot 83 (tk*, pas de `tj*`, 4 images)** : acceptés `tkdensho`(+1, noms de personnages fixes), `tkmmpzdm` (japonais) ; rejeté `tknight` (identique partout). mame0278 1511→**1514**, fbneo 897→**900** (total 2416). Position : `tk*` terminé, reprendre à `tl*`.
+
+## Lecture visuelle — lot 84 (pas de `tl*`, tm*, 2026-09-06 nuit)
+
+**Découverte** : `tm`/`tm2k`/`tm3k`/.../`tm8k` ne sont PAS des révisions d'un même jeu mais une **compilation "TouchMaster" par édition** (bar-top tactile), chaque numéro = une édition différente avec ses propres mini-jeux (Pyramid Thirteens, Skee Ball Shock, Breakout 3000, Wordz 3rd, Jamba, Crystal Balls, Power Cell) — traités comme jeux distincts, pas comme clones les uns des autres. `tmnt_101/103/104/104g/a07` en revanche sont bien des **marquee LED génériques** ("BLACK BELT 11 000 000"), rejetés d'office (même motif que lots 71/73/78).
+
+**Acceptés (11)** : `tmnt`(+1, distinct de `tmht` déjà couvert), `tmnt2`(+12 clones), `tm`, `tm2k`(+3), `tm3k`(+3), `tm4k`(+6), `tm5k`(+4), `tm7k`(+3), `tm8k`(+1), `tmdo` (catégories de score), `tmek`(+1, format KILLS traité comme score).
+
+**Bilan chiffré** : mame0278 : 1514 → **1559** ; fbneo : 900 → **945** (total 2506). RB1 toujours injoignable. **Position : `tm*` terminé, reprendre à `tn*`.**
+
+**Lot 85 (tn*, 4 images)** : acceptés `tndrcade`(+1, seule la ligne 10 nommée), `tnk3`(+2), `tnzs`(+6) ; rejeté `tnextspc`(+2, SNK/50000 identique). mame0278 1559→**1571**, fbneo 945→**957** (total 2530).
+
+## Lecture visuelle — lot 86 (to*, 2026-09-06 nuit, ~90 images)
+
+**Acceptés (19)** : `todruaga`(+2), `togenkyo`, `toki`(+6, nom TAD répété), `tokisens`(+1), `tokkae`, `tomagic`, `tondemo`, `toobin`(+5), `topbladv`, `topgunnr` (1 entrée), `tophuntr`(+1), `toppyrap`, `topracer`(+2), `topsecex`, `topsecrt`(+`topsecrt2`, capture identique), `topspeed`(+1), `toramich` (**identique à `tigeroad`**), `torus`, `toryumon` (1 entrée), `totcarn`(+2), `totlvice`, `toucheme`(+1), `toutrun`(+10 clones).
+
+**Rejetés (8)** : `toffy`(+1)/`toride2g`(+2)/`tornado1`/`toto`/`toyland` (alphabet+rond), `toprollr`/`totmejan`/`toypop` (identique ou colonne nom absente), `tom_14h` (**marquee LED générique**, skip famille `tomy_*`), `tomcatsw`/`touchgo` (table de valeurs de points ou motif CPU générique, pas un classement joueur).
+
+**Bilan chiffré** : mame0278 : 1571 → **1626** ; fbneo : 957 → **1012** (total 2640 — cap symbolique franchi). RB1 toujours injoignable. **Position : `to*` terminé, reprendre à `tp*`.**
+
+**Lot 87 (tp*, 4 images)** : accepté `tp84`(+2, TIME PILOT 84 — `tp84` avait déjà une entrée antérieure, non écrasée) ; rejeté `tp2m32` (alphabet+rond). mame0278 1626→**1628**, fbneo 1012→**1014** (total 2644). Position : `tp*` terminé, reprendre à `tq*`.
+
+## Lecture visuelle — lot 88 (pas de `tq*`, tr*, 2026-09-06 nuit, ~85 images)
+
+**Acceptés (18)** : `trigon`, `trog`(+2, **identique à `trog3`**), `trojan`(+7), `transfrm`, `tricktrp`, `trisport`, `triviabb`, `trvmstr`(+2), `trvquest`, `trvgns`, `tryout`, `travrusa`(+2), `trophyht`, `trikitri`, `trghearto`, `truckk`, `triplep`(+1), `trstarj`(+2, **identique à `triviaes`/`triviaes4`**, Trivial Pursuit espagnol).
+
+**Rejetés (13)** : `trckydoc`/`treahunt`/`troangel`/`truxton`/`tron`(+1)/`trvwz`(+9 clones)/`trvhang`(+1)/`trvchlng`/`trvmadns`(+1)/`troopy`/`triplfun` (identique partout ou colonne nom absente), `trally` (temps au tour), `triothep` (stats de session par médaille, pas un classement).
+
+**Couverture partielle assumée** : famille trivia restante non lue par manque de temps (`triviag1/2/sp/yp`, `trivquiz`, `triviaqz/2`, `trstar`/`trstaro`/`trstaroj`, `tron4/5`/`tronger`) — écart mineur documenté, à reprendre si besoin plus tard (méthode identique : ce sont très probablement d'autres éditions de la même série "Trivia"/"Trivial Pursuit" que celles déjà lues).
+
+**Bilan chiffré** : mame0278 : 1628 → **1662** ; fbneo : 1014 → **1048** (total 2712). RB1 toujours injoignable. **Position : `tr*` (couverture partielle) terminé, reprendre à `ts*`.**
+
+**Lot 89 (ts*, 6 images)** : acceptés `tshingen`(+1), `tshoot` (10 sur ~26), `tstrike`(+1) ; rejetés `ts_lf4` (marquee LED générique), `ts2`(+4, temps), `tsamurai`(+2, identique partout). mame0278 1662→**1667**, fbneo 1048→**1053** (total 2722). Position : `ts*` terminé, reprendre à `tt*`.
+
+**Lot 90 (tt*, 5 images)** : acceptés `tturf`(+2, noms S.E.C/S.C.A alternés), `ttchamp`(+1, Table Tennis World Cup). mame0278 1667→**1672**, fbneo 1053→**1058** (total 2732). Position : `tt*` terminé, reprendre à `tu*`.
+
+**Lot 91 (tu*, 15 images)** : acceptés `tubeit`, `tumblep`(+4), `tutankhm`(+2), `tubep`(+1), `tunhunt`, `turbotag` (3 entrées retenues), `turbosub`(+6), `turbofrc`(+3), `tutstomb` ; rejetés `turfmast` (golf par-relatif), `turkhunt` (nom "NEW MEXICO" identique partout), `turtship`(+4)/`turbo`(+6 clones)/`turtles` (identique/vide), `turpin`(+1, vide). mame0278 1672→**1697**, fbneo 1058→**1083** (total 2782). Position : `tu*` terminé, reprendre à `tv*`.
+
+**Lot 92 (tv*/tw*/ty*/tz*, pas de `tx*`, 19 images) — PRÉFIXE `t*` TERMINÉ EN ENTIER** : acceptés `tvsprt10`, `twinbee`(+1), `twinbrat`(+2), `twinkle`(+1, nom COM répété), `twinqix`, `twins`(+3), `twinspri`, `twinsqua`, `twocrude`(+1), `tylz` (10 sur ~35), `typhoon` ; rejetés `twcup90`(+9 clones)/`twcup94`(+3)/`twsoc96` (stats sportives ou identique), `twincobr`/`twineagl`(+1) (colonne nom absente), `twinfalc` (format incertain), `twst_300`(+2)/`tz_l5` (**marquee LED générique**, "PML" déjà vu au lot 74 avec une autre valeur — confirme la nature générique de ces captures).
+
+**Bilan chiffré final pour `t*`** : mame0278 : 1697 → **1716** ; fbneo : 1083 → **1102** (total 2820). RB1 toujours injoignable. **Le préfixe `t*` est maintenant intégralement couvert (lots 74 à 92), avec une seule zone à couverture partielle documentée (famille trivia de `tr*`). Prochain lot : premier préfixe `u*`.**
+
+## Lecture visuelle — lot 93 (u*, 2026-09-06 nuit) — **PRÉFIXE `u*` TERMINÉ EN ENTIER**
+
+**Acceptés (10)** : `uballoon`, `uccops`(+4), `uecology`, `ufosensi`(+1, japonais romanisé), `ultrax`(+1, nom MTY répété), `undrfire`(+2), `untoucha`, `uopoko`(+1, nom UOPOKO répété), `upndown`(+1), `upscope`.
+
+**Rejetés (9)** : `umanclub` (alphabet+rond, 20 entrées), `umk3` (série de victoires, stats), `unsquad` (4 valeurs identiques sur 5), `upyoural`/`utoukond` (vide ou illisible), `usclssic` (golf par-relatif, tous identiques), `usg82`/`usg182`(+6 variantes non lues par extrapolation, motif confirmé 2x) (auto-référence identique partout, famille "U.S. Games" multi-jeux mais toutes générées par défaut), `usvsthem` (noms ordinaux en toutes lettres ONE/TWO/THREE — motif placeholder malgré 2 entrées ABG réelles).
+
+**Bilan chiffré** : mame0278 : 1716 → **1736** ; fbneo : 1102 → **1122** (total 2860). RB1 toujours injoignable (~5h de coupure réseau continue). **Position : `u*` terminé, reprendre à `v*`.**
+
+## Lecture visuelle — lot 94 (v*, 2026-09-06 nuit, ~180 images, très volumineux)
+
+**Acceptés (35 jeux, nombreux clones)** : `v4cmaze3`(+3), `valkyrie`, `valtric`, `vamphalf`(+2), `vampire`, `vampj`(+2), `varth`(+6), `vasara`(+2), `vastar`(+2), `vblokbrk`(+1), `vbowl`(+2, nom I.G.S. répété), `vcombat`, `vcop`(+1), `vcop2`, `vendetta`(+10), `venture`(+3), `vhunt2`(+2), `vhuntj`(+3), `victroad`, `viewpoin`(+1), `vigilant`(+7), `vindctr2`(+2), `vindictr`(+7, **table partagée avec vindctr2**), `viofight`(+2), `viostorm`(+8), `viper` (10 sur 17), `visnqust`, `vmetal`(+1), `volfied`(+4), `vs10yard`(+2), `vsav`(+6), `vsav2`(+1), `vsfdf`, `vsgshoe`, `vsmaxx15`, `vspinbal`(+1), `vulgus`(+2).
+
+**Rejetés (22)** : `vandyke`(+2)/`vangrd2`/`vanguard`(+3)/`vanvan`(+2)/`vaportra`(+1)/`vaportrx`(+1)/`vidvince`/`vsgongf` (identique ou colonne nom absente), `viprp1`(+~10 clones)/`vjtv2500` (colonne nom absente ou menu de jeux), `venus`/`victlapa` (ordre incohérent ou pas de nom), `verbena`/`vshoot` (capture de partie en cours ou effectif, pas un classement), `vf`/`vf3`/`vformula`/`vgoalsoc`(+1)/`vr`/`vsslalom`/`vstriker`(+1)/`vs215`(+1)/`vsnetscra`(+3) (temps ou stats sportives), `victorba`/`victory`/`vstetris`/`vpool` (quasi-vide, majorité zéro), `vgtablet` (menu de jeux), `viprsega` (marquee LED générique), `von` (identique + temps).
+
+**Bilan chiffré** : mame0278 : 1736 → **1856** ; fbneo : 1122 → **1242** (total 3100 — cap des 3000 franchi). RB1 toujours injoignable. **Position : `v*` quasiment terminé (quelques standalones mineurs non lus par contrainte de temps : `vgoalsoca`/`vpool` déjà couverts par clone/rejet), reprendre à `w*`.**
+
+## Lecture visuelle — lot 95 (w*, 2026-09-06, ~230 images, préfixe le plus volumineux à ce jour) — **PRÉFIXE `w*` TERMINÉ EN ENTIER**
+
+**Découverte confirmée 2x** : la famille `wboy`/`wbdeluxe`/`wboy2`/`wboy3` (Wonder Boy) partage une table par défaut identique (BUC/MIC/SUZ/ESC/EEE) — `wboy` lui-même a en plus une entrée ABG réelle. Extrapolée sans lecture individuelle à 13 roms de la famille (confiance haute, 3/3 lectures identiques). Même chose pour `wb3`/`wb31` (tous identiques 30000, rejeté, extrapolé à toute la famille wb3x). Nouveau motif marquee LED générique reconfirmé sur `wcs_l1`/`wd_10r` (VLK/XAQ, valeurs en milliards) — extrapolé aux familles `wcs_`/`wd_`/`whirl_`/`ww_p6` sans lecture individuelle (motif confirmé 5x au total sur toute la campagne).
+
+**Acceptés (~55 jeux, très nombreux clones)** : `wacko`, `wallc`, `wanted`, `warfa`(+2), `warriorb`, `warzard`(+1), `wbbc97`, `wbdeluxe`(+12 famille Wonder Boy), `wbeachvl`(+3), `wboy`, `wcbowl`(+13), `wcvol95`(+2), `wecleman`(+3), `weddingr`, `weststry`(+1, nom DAT répété), `wexpress`(+3), `wfortune`(+1), `wgp`(+4), `wh1`(+2), `wh2`(+2), `wheelrun`, `whodunit`(+1), `whp`, `wiggie`, `wildplt`, `willow`(+3, noms CAP/COM alternés), `wingforc`, `wiseguy`, `witchb`, `wits`, `wivernwg`, `wiz`(+1, **identique à wizt**), `wizwarz`, `wjammers`, `wldgunsb`, `wndrmomo`, `wndrplnt`, `wof`(+8, auto-référence CAPCOM), `wolffang`, `wonder3`, `wondstck`(+1, noms formant "WONDERSTICKGOOD"), `worldadv`, `worldwar`(+nom répété), `wotw`, `wownfant`(+1), `wrally`(+6, **identique à wrally2**), `wrecking`, `wrestwar`(+4), `wsf`(+1), `wyvernf0`(+1), `wyvernwg`(+1).
+
+**Rejetés (~30)** : `wallst`/`warcadia`/`watrball`/`wb3`(+`wb31`+~10 famille extrapolée)/`warpwarpr`(+1)/`wiping`/`ww3`/`wwestern`(+1)/`wwjgtin` (identique partout), `wardner`(+1)/`wintbob`/`wheelfir`/`wschamp`(+1) (alphabet+rond), `wargods`(+1)/`winspike`(+2)/`wwfmania`(+3) (stats de victoires), `warpsped`/`wow`/`whizz`/`wink`/`wcsoccer1a`/`wipeout2a` (vide/illisible/pas de score), `windheatu`/`winrun`/`winterht`/`wrungp`(+1) (temps), `welltris`(+1)/`wrofaero` (colonne nom absente), `wg3dh`(+1)/`wpksoc`(+1)/`wseries`(+1) (stats sportives), `wgp2`(+4)/`wcs_l1`/`wd_10r` (temps ou marquee générique, familles `wcs_`/`wd_`/`whirl_`/`ww_p6` extrapolées), `wizdfire`(+2)/`wizzquiz`(+1)/`wmatch`/`wwfwfest`(+4) (identique, ordre incohérent, ou pas de score numérique).
+
+**Bilan chiffré** : mame0278 : 1856 → **1984** ; fbneo : 1242 → **1370** (total 3356). RB1 toujours injoignable (~7h de coupure continue). **`w*` intégralement couvert. Prochain lot : `x*`/`y*`/`z*` (derniers préfixes de la campagne alphabétique).**
+
+## Lecture visuelle — lots 96-98 (x*/y*/z*, 2026-09-06) — **ALPHABET COMPLET (A→Z) TERMINÉ**
+
+**Lot 96 (x*, 18 images)** : acceptés `xevios`, `xevious`(+3), `xmcota`(+14), `xmvsf`(+16), `xexex`(+1), `xmultipl`(+1), `xybots`(+4), `xyonix`, `xorworld`(+1), `xiistag`, `x2222`(+1), `x80wc`, `xevi3dg`(+2) ; rejetés `xsleena`(+4)/`xxmissio` (identique partout), `xday2` (identique), `xfiles2`(+2, **marquee LED générique**), `xrally` (temps). mame0278 1984→**2040**, fbneo 1370→**1426** (total 3468).
+
+**Lot 97 (y*, 15 images)** : acceptés `yanchamr`(+1, **identique à yanjamar**), `yiear`, `youma`(+3), `yamyam`(+1, **identique à `wiseguy`** du lot 95), `yellowcbb`(+1), `youjyudn`, `yukon` (valeurs irrégulières malgré noms alphabétiques), `yuyugogo` (japonais), `yukiwo`, `yoyospel` ; rejetés `yankeedo`/`yamagchi`/`yamato`(+2)/`yesnoj` (identique, vide, ou menu). mame0278 2040→**2056**, fbneo 1426→**1442** (total 3500).
+
+**Lot 98 (z*, 29 images) — DERNIER PRÉFIXE ALPHABÉTIQUE** : acceptés `zupapa`, `zaviga`(+1), `zektor`, `zeropnt`(+2), `zerotrgt`(+1), `zingzip`, `zipzap`(+1), `zombraid`(+2), `zwackery`, `zookeep`(+2), `zedblade`, `zerozone`, `zintrckb`, `zunkyou`, `zooo` (libellé répété), `zodiack`, `zerogu2`(+1), `zeroteam`(+6), `zerotm2k` ; rejetés `zzyzzyxx`(+1)/`zaxxon`(+1)/`zerogun`(+2)/`zero2` (identique ou colonne nom absente), `zoar`/`zombrvno` (quasi-vide ou pas de nom), `znpwfv`(+1) (temps).
+
+**Bilan chiffré cumulé (3 lots)** : mame0278 : 1984 → **2091** ; fbneo : 1370 → **1477** (total 3570). RB1 toujours injoignable (~8h de coupure continue, NAS+local systématiquement à jour).
+
+**🎉 MILESTONE : l'intégralité de l'alphabet du corpus progetto-SNAPS (`a*` à `z*`) est maintenant couverte par la lecture visuelle**, du lot 1 (sessions antérieures) au lot 98 (cette nuit). Zone à couverture partielle documentée restante : famille trivia de `tr*` (voir plus haut). Prochaine étape possible : audit différé des rejets "multi-sections" (jamais fait, voir plus haut), ou repasse sur les ~2900 jeux mame0278 encore non couverts signalés en tout début de campagne (chiffre à revérifier, probablement erroné maintenant vu l'ampleur de cette nuit).
