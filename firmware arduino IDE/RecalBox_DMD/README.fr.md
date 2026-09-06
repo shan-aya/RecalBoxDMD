@@ -4,6 +4,8 @@
 
 [🇬🇧 English](README.md) · 🇫🇷 **Français** · [🇪🇸 Español](README.es.md)
 
+> ℹ️ Tu utilises déjà une version antérieure ? Voir **[UPGRADING.fr.md](UPGRADING.fr.md)** — ce qui change en v13 et la seule étape optionnelle (régénération du cache) pour en profiter pleinement.
+
 <p align="center">
   <img src="medias/hero/hero_fr.jpg" alt="RecalBoxDMD tournant en direct sur une vraie borne Recalbox JAMMA" width="420">
 </p>
