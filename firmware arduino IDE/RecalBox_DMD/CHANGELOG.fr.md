@@ -4,9 +4,21 @@ Historique de **RecalBoxDMD — Raw565 Edition**, couvrant à la fois le **firmw
 
 [🇬🇧 English](CHANGELOG.md) · 🇫🇷 **Français** · [🇪🇸 Español](CHANGELOG.es.md)
 
-Ceci est un résumé sélectionné de l'historique interne des versions du projet (76+ révisions firmware, 58+ révisions config web, 38+ révisions boîte à outils, 54+ révisions GUI) — regroupé par jalons réellement pertinents pour un utilisateur, pas un déversement brut de chaque micro-correctif.
+Ceci est un résumé sélectionné de l'historique interne des versions du projet (157+ révisions firmware, 64+ révisions config web, 43+ révisions boîte à outils, 62+ révisions GUI) — regroupé par jalons réellement pertinents pour un utilisateur, pas un déversement brut de chaque micro-correctif.
 
 ---
+
+## 2026-09-06 — Fusion de `dev/core-reassignment` sur master : écrans superposés en jeu, Challenge RB, onglet Playlist
+
+La plus grosse fusion de l'histoire du projet — plusieurs mois de travail sur une branche séparée, réconciliés avec tout ce qui était sorti sur master entretemps, puis testés point par point (chaque conflit résolu et retesté individuellement) avant d'atterrir ici.
+
+- **Firmware** : nouveau **système d'écrans superposés en jeu** — pendant qu'un jeu tourne réellement, le panneau peut alterner automatiquement le marquee avec le vrai **Hi-Score MAME/FBNeo** (manifeste communautaire, ~2 758 jeux, décodé depuis le fichier de score sauvegardé par l'émulateur lui-même, aucune lecture RAM en direct), les **Infos jeu** (description/genre/développeur/année depuis `gamelist.xml`), les **RetroAchievements** débloqués, et le classement mensuel du **Challenge** officiel de Recalbox. Entièrement passif côté DMD — toute la logique de timing vit dans les scripts côté Recalbox, le firmware se contente d'afficher ce qu'on lui envoie et revient tout seul au marquee sur son propre minuteur local, pour qu'un script lent ou en échec ne puisse jamais bloquer le panneau. Voir la [section dédiée du README](README.fr.md#écrans-superposés-en-jeu--hi-score-infos-jeu-succès--challenge-rb).
+- **Boîte à outils PC** : le **Mode 9** (et l'installation automatique intégrée au Mode 1) installe désormais aussi les scripts Hi-Score/Infos jeu/Succès/Challenge (`dmd_helpers/`) et nettoie les anciens noms de scripts d'une installation précédente — auparavant, seule l'étape de mise en scène séparée du Mode 1 le gérait, pas le Mode 9 lui-même.
+- **Boîte à outils PC** : le flag « lent » du système de masque (**« L »**, déclenche l'écran d'attente sur les grosses collections) est désormais calculé **par sous-dossier alphabétique (« bucket »)** au lieu de par système entier — un système avec un gros sous-dossier et plusieurs petits ne pénalise plus inutilement les petits. Le seuil par défaut de l'onglet Paramètres suit (5 000 → 800, à nouveau pertinent maintenant qu'il s'applique par bucket).
+- **Boîte à outils PC** : **onglet Playlist** — créez vos propres rotations en mode attente en combinant le pack de 600 GIFs et vos propres GIFs (glissez un dossier PC) ; possible désormais aussi **en plein Mode 1**, avant même la copie du dossier de travail sur la carte SD, et plus seulement après coup depuis une carte insérée.
+- **Boîte à outils PC** : la langue de l'interface par défaut est désormais celle du **système Windows** au premier lancement (au lieu de toujours l'anglais) — un choix explicite dans l'onglet Paramètres reste toujours prioritaire ensuite.
+- **Boîte à outils PC** : plusieurs correctifs trouvés en testant la fusion en direct — un cadre « copie SD » resté affiché pouvait pousser la barre de Progression hors de la fenêtre fixe sur certains modes de l'onglet Avancé, le tirage aléatoire de thème pouvait tomber sur le thème « default » tout nu, et fermer l'appli en pleine ajout de GIFs perso (étape playlist du Mode 1) reprend désormais le pipeline au lieu de quitter.
+- **Firmware / MQTT** : les 12 topics séparés `marquee/cmd/*` ont été fusionnés en un seul topic `marquee/cmd` (payload compact `CMD=/ARG=`) — réduit le nombre de souscriptions MQTT par (re)connexion de 12 à 2, limitant l'exposition à une condition rare de la pile WiFi de l'ESP32 où une souscription pouvait silencieusement ne jamais quitter l'appareil.
 
 ## 2026-08-19 — Détection des lecteurs amovibles & positionnement des popups
 

@@ -4,9 +4,21 @@ History of **RecalBoxDMD — Raw565 Edition**, covering both the **ESP32 firmwar
 
 🇬🇧 **English** · [🇫🇷 Français](CHANGELOG.fr.md) · [🇪🇸 Español](CHANGELOG.es.md)
 
-This is a curated summary of the project's internal version history (76+ firmware revisions, 58+ web-config revisions, 38+ toolkit revisions, 54+ GUI revisions) — grouped into the milestones that actually matter if you use the project, not a raw dump of every micro-fix.
+This is a curated summary of the project's internal version history (157+ firmware revisions, 64+ web-config revisions, 43+ toolkit revisions, 62+ GUI revisions) — grouped into the milestones that actually matter if you use the project, not a raw dump of every micro-fix.
 
 ---
+
+## 2026-09-06 — `dev/core-reassignment` merged to master: in-game overlays, RB Challenge, Playlist tab
+
+The biggest merge in the project's history — months of work on a separate branch, reconciled with everything shipped on master in the meantime, then tested point-by-point (each conflict resolved and re-tested individually) before landing here.
+
+- **Firmware**: new **in-game overlay system** — while a game is actually running, the panel can automatically alternate the marquee with the real **MAME/FBNeo Hi-Score** (community manifest, ~2,758 games, decoded from the emulator's own saved score file, no live RAM reading), **Game Info** (description/genre/developer/year from `gamelist.xml`), unlocked **RetroAchievements**, and Recalbox's own monthly **Challenge** leaderboard. Fully passive on the DMD side — all timing/logic lives in the Recalbox-side scripts, the firmware just displays what it's sent and auto-reverts to the marquee on its own local timer, so a slow/failed script can never leave the panel stuck. See the [dedicated README section](README.md#in-game-overlays--hi-score-game-info-achievements--rb-challenge).
+- **PC Toolkit**: **Mode 9** (and the auto-install baked into Mode 1) now also installs the Hi-Score/Game Info/Achievements/Challenge scripts (`dmd_helpers/`) and cleans up any older script names left over from a previous install — previously only Mode 1's separate staging step handled this, Mode 9 itself did not.
+- **PC Toolkit**: the mask-system "slow" flag (**"L"**, triggers the wait screen on huge collections) is now computed **per alphabetical sub-folder ("bucket")** instead of per whole system — a system with one big and several small sub-folders no longer has the small ones penalized unnecessarily. The Settings-tab threshold default follows accordingly (5,000 → 800, meaningful again now that it applies per bucket).
+- **PC Toolkit**: **Playlist tab** — build your own attract-mode rotations by picking any mix of the 600-GIF pack and your own GIFs (drag a PC folder in); can now also be done **mid-`Mode 1`**, before the working folder is even copied to the SD card, instead of only after the fact from an inserted card.
+- **PC Toolkit**: default UI language is now the **Windows system language** on first launch (instead of always English) — an explicit choice in the Settings tab still always wins afterwards.
+- **PC Toolkit**: several fixes found by testing the merge live — a leftover "copy to SD" panel could push the Progress bar outside the fixed window on some Advanced-tab modes, the random theme picker could land on the plain "default" theme, and closing the app while mid-way through adding custom GIFs (Mode 1's playlist step) now resumes the pipeline instead of quitting.
+- **Firmware / MQTT**: the 12 separate `marquee/cmd/*` topics were consolidated into a single `marquee/cmd` topic (compact `CMD=/ARG=` payload) — cuts the number of MQTT subscriptions per (re)connection from 12 to 2, reducing exposure to a rare ESP32 WiFi-stack condition where a subscribe could silently never leave the device.
 
 ## 2026-08-19 — Removable-drive detection & popup positioning fixes
 

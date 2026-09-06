@@ -1,4 +1,4 @@
-# RecalBoxDMD — Raw565 Edition <img alt="Firmware : Raw565 Ed. v12" src="https://img.shields.io/badge/firmware-Raw565%20Ed.%20v12-blueviolet.svg"> <img alt="Outil PC : v5438" src="https://img.shields.io/badge/outil%20PC-v5438-blueviolet.svg">
+# RecalBoxDMD — Raw565 Edition <img alt="Firmware : Raw565 Ed. v13" src="https://img.shields.io/badge/firmware-Raw565%20Ed.%20v13-blueviolet.svg"> <img alt="Outil PC : v6243" src="https://img.shields.io/badge/outil%20PC-v6243-blueviolet.svg">
 
 **Un vrai panneau marquee lumineux pour votre borne d'arcade Recalbox — affichage instantané, même avec un fullset MAME de 30 000 jeux.**
 
@@ -71,11 +71,12 @@ C'est un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), r
 11. [Configuration (`config.ini`)](#configuration-configini)
 12. [Configuration web — en direct, dans le navigateur](#configuration-web--en-direct-dans-le-navigateur)
 13. [MQTT & Telnet](#mqtt--telnet)
-14. [Le format raw565 en détail](#le-format-raw565-en-détail)
-15. [Structure de la carte SD](#structure-de-la-carte-sd)
-16. [Structure du dépôt](#structure-du-dépôt)
-17. [Dépannage](#dépannage)
-18. [Crédits & Licence](#crédits--licence)
+14. [Écrans superposés en jeu — Hi-Score, Infos jeu, Succès & Challenge RB](#écrans-superposés-en-jeu--hi-score-infos-jeu-succès--challenge-rb)
+15. [Le format raw565 en détail](#le-format-raw565-en-détail)
+16. [Structure de la carte SD](#structure-de-la-carte-sd)
+17. [Structure du dépôt](#structure-du-dépôt)
+18. [Dépannage](#dépannage)
+19. [Crédits & Licence](#crédits--licence)
 
 ---
 
@@ -92,6 +93,8 @@ C'est un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), r
 - 🌐 **Page de configuration web en direct** servie par l'ESP32 — WiFi, MQTT, luminosité, playlist, thèmes horloge (avec aperçu instantané sur le panneau) — aucune recompilation nécessaire pour ajuster les réglages.
 - ⚡ **Flashage du firmware depuis le navigateur** — un [installateur web en un clic](https://shan-aya.github.io/RecalBoxDMD/) (Chrome/Edge) flashe l'ESP32 en USB, sans Arduino IDE.
 - 📡 **Intégration MQTT** avec Recalbox pour l'affichage en temps réel des jeux/systèmes/événements, plus une console **Telnet** pour le débogage sur l'appareil.
+- 🏆 **Écrans superposés en jeu — Hi-Score, Infos jeu, RetroAchievements & Challenge RB** — pendant que vous jouez, le panneau alterne automatiquement le marquee avec les vrais meilleurs scores MAME/FBNeo (manifeste communautaire, ~2 758 jeux), la description/genre/année du jeu, les succès RetroAchievements débloqués, et le classement du Challenge communautaire mensuel officiel de Recalbox. Zéro configuration : installez les scripts une fois (Mode 9) et tout fonctionne tout seul — voir [le détail plus bas](#écrans-superposés-en-jeu--hi-score-infos-jeu-succès--challenge-rb).
+- 🎬 **Onglet Playlist — créez vos propres rotations en mode attente** — combinez le pack de 600 GIFs et vos propres GIFs (glissez un dossier PC), nommez la playlist, elle est prête à sélectionner comme playlist active ; fonctionne directement depuis une carte SD insérée ou, en plein Mode 1, depuis le dossier de travail avant même sa copie.
 - 🌍 **Entièrement trilingue** — l'interface web du firmware et la boîte à outils PC sont toutes deux disponibles en **français, anglais et espagnol**.
 - 🗣️ **Images système/genre multilingues** — le pack de secours `_defaults` (badges de genre, Favoris, Derniers Jeux Joués...) est disponible en français et espagnol, sélectionnable depuis la boîte à outils PC avec un aperçu comparatif en direct ; les genres pas encore traduits restent simplement en anglais.
 - 🔁 **Scraping conscient de la version Recalbox** — cible automatiquement la bonne balise `gamelist.xml` et le bon dossier média pour Recalbox 10.x / 9.x / legacy, avec un guide « comment scraper » intégré.
@@ -298,7 +301,7 @@ L'onglet **Avancé** de la GUI regroupe chaque opération en 5 catégories repli
 | 10 | 🖼️ Images | Image de secours | Définit/génère l'image par défaut globale affichée quand rien d'autre ne correspond |
 | 6 | 🧮 Caches | Cache de jeux | Construit `games_cache.bin` (index bigramme, 703 entrées) |
 | 7 | 🧮 Caches | Cache de systèmes | Construit `systems_cache.dat` (index systèmes + flags lent/rapide **« L »/« N »**) |
-| 9 | 📜 Scripts | Installer scripts Recalbox | Copie les scripts utilisateur marquee/récupération WiFi/config web directement sur le partage réseau de la Recalbox |
+| 9 | 📜 Scripts | Installer scripts Recalbox | Copie les scripts marquee, récupération WiFi, config web, luminosité et [Hi-Score/Infos jeu/Succès/Challenge](#écrans-superposés-en-jeu--hi-score-infos-jeu-succès--challenge-rb) directement sur le partage réseau de la Recalbox, en nettoyant au passage les anciens noms de scripts d'une installation précédente |
 
 Outils supplémentaires disponibles depuis chaque mode concerné : **« Comment scraper ? »** (captures d'écran annotées, spécifiques à votre version, de l'onglet Scraper de Recalbox), **« Nettoyer les dossiers avant scrape »**, un **onglet Playlist** pour construire des playlists de GIFs depuis une carte SD ou des dossiers PC, un **seuil de système lent** réglable (onglet Paramètres, 5 000 fichiers convertis par défaut), et une **copie SD reprenable** qui résiste à un débranchement/crash et peut ne relancer que les fichiers en échec.
 
@@ -507,6 +510,23 @@ telnet <ip-esp32>
 
 ---
 
+## Écrans superposés en jeu — Hi-Score, Infos jeu, Succès & Challenge RB
+
+<p align="center">
+  <img src="medias/hiscore/hiscore_banner.png" alt="Écran superposé Hi-Score MAME/FBNeo sur RecalBoxDMD" width="720">
+</p>
+
+Pendant qu'un jeu tourne réellement (jamais en mode attente/playlist), le panneau peut alterner automatiquement le marquee avec jusqu'à **quatre** écrans superposés portés par la communauté — plein écran, non bloquants, et toujours auto-limités : chacun revient au marquee tout seul après une courte durée, sur un minuteur qui vit **entièrement sur le DMD lui-même**, pour qu'un script Recalbox lent ou en échec ne puisse jamais bloquer le panneau.
+
+- 🏆 **Hi-Score (MAME / FBNeo)** — décode le fichier de score sauvegardé par l'émulateur lui-même (`.hi`) à partir d'un manifeste communautaire converti depuis **hi2txt-xml** (~2 758 jeux couverts) et affiche le vrai classement de la borne, exactement comme MAME/FBNeo lui-même l'afficherait. Aucune lecture RAM en direct, aucune recette par jeu à maintenir : si un jeu n'est pas dans le manifeste, ou si son fichier de sauvegarde est absent/inattendu, rien n'est affiché — silencieux par conception, jamais un score erroné.
+- ℹ️ **Infos jeu** — description, genre, développeur et année de sortie, tirés directement de votre `gamelist.xml` existant (le même scrape déjà fait pour le marquee lui-même).
+- 🎖️ **RetroAchievements** — s'affiche dès qu'un succès est débloqué, en pleine partie.
+- 📅 **Challenge RB** — lit le classement officiel du Challenge communautaire mensuel de Recalbox (un jeu choisi chaque mois par Recalbox, un seul crédit, sans continue) directement depuis le partage Recalbox — même panneau, même style, aucune configuration séparée.
+
+**Zéro configuration côté DMD.** Installez les scripts Recalbox une fois — **Mode 9** de la boîte à outils PC (ou l'installation automatique intégrée au **Mode 1**) — et chacun de ces écrans se met à fonctionner tout seul pour tout jeu/système ayant des données à afficher ; le DMD reste un afficheur « bête » de bout en bout, toute la logique (quoi envoyer, quand, combien de temps) vit dans les scripts côté Recalbox, jamais dans le firmware lui-même.
+
+---
+
 ## Le format raw565 en détail
 
 **`.raw565`** — image fixe (depuis un PNG) : exactement `128 × 32 × 2 = 8 192 octets`, RGB565 brut (5-6-5 bits), lue en une seule opération SD et envoyée directement (`drawRGBBitmap`).
@@ -580,6 +600,7 @@ docs/                          ← GitHub Pages : installateur Web (shan-aya.git
 - **Raw565 Edition** : **Shan_ayA** — format raw565, cache bigramme, système de masque, boîte à outils PC, thèmes horloge, gestion des versions Recalbox, aperçu web en direct
 - **Inspiration** : [RetroPixelLED](https://github.com/fjgordillo86/RetroPixelLED) par fjgordillo86
 - **Pack de 600 GIFs** : **eLLuiGi** / [RpiTeaM](https://rpiteam.carrd.co/) — échantillon gratuit de leur collection de GIFs rétro
+- **Manifeste Hi-Score** : converti depuis le format communautaire **hi2txt-xml**, construit autour du projet `hiscore.dat` de MAME — ~2 758 jeux couverts
 - **Matériel & guide de montage** : [Mortaca — DMDos Board](https://www.mortaca.com/) / [dmdos.net](https://www.dmdos.net/)
 - **Boîtier 3D** : Janibol — [Retromojones](https://www.youtube.com/@retromojones)
 - **Communauté** : [Recalbox](https://www.recalbox.com/)

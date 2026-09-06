@@ -4,9 +4,21 @@ Historial de **RecalBoxDMD — Raw565 Edition**, cubriendo tanto el **firmware E
 
 [🇬🇧 English](CHANGELOG.md) · [🇫🇷 Français](CHANGELOG.fr.md) · 🇪🇸 **Español**
 
-Este es un resumen seleccionado del historial interno de versiones del proyecto (76+ revisiones de firmware, 58+ de la config web, 38+ de la caja de herramientas, 54+ de la GUI) — agrupado por los hitos que realmente importan si usas el proyecto, no un volcado en bruto de cada micro-arreglo.
+Este es un resumen seleccionado del historial interno de versiones del proyecto (157+ revisiones de firmware, 64+ de la config web, 43+ de la caja de herramientas, 62+ de la GUI) — agrupado por los hitos que realmente importan si usas el proyecto, no un volcado en bruto de cada micro-arreglo.
 
 ---
+
+## 2026-09-06 — `dev/core-reassignment` fusionada a master: superposiciones en juego, Challenge RB, pestaña Playlist
+
+La fusión más grande en la historia del proyecto — meses de trabajo en una rama separada, reconciliados con todo lo publicado en master mientras tanto, y luego probados punto por punto (cada conflicto resuelto y vuelto a probar individualmente) antes de llegar aquí.
+
+- **Firmware**: nuevo **sistema de superposiciones en juego** — mientras un juego está realmente en marcha, el panel puede alternar automáticamente el marquee con el verdadero **Hi-Score de MAME/FBNeo** (manifiesto comunitario, ~2758 juegos, decodificado desde el propio archivo de puntuación guardado por el emulador, sin lectura de RAM en vivo), la **Info del juego** (descripción/género/desarrollador/año desde `gamelist.xml`), los **RetroAchievements** desbloqueados, y la clasificación mensual del **Challenge** oficial de Recalbox. Totalmente pasivo en el lado del DMD — toda la lógica de tiempos vive en los scripts del lado de Recalbox, el firmware simplemente muestra lo que se le envía y vuelve solo al marquee con su propio temporizador local, para que un script lento o fallido nunca pueda dejar el panel bloqueado. Ver la [sección dedicada del README](README.es.md#superposiciones-en-juego--hi-score-info-del-juego-logros-y-challenge-rb).
+- **Caja de herramientas de PC**: el **Modo 9** (y la instalación automática integrada en el Modo 1) ahora también instala los scripts de Hi-Score/Info del juego/Logros/Challenge (`dmd_helpers/`) y limpia los nombres de scripts antiguos de una instalación anterior — antes solo el paso de preparación separado del Modo 1 se encargaba de esto, no el propio Modo 9.
+- **Caja de herramientas de PC**: el indicador «lento» del sistema de máscara (**«L»**, activa la pantalla de espera en colecciones enormes) ahora se calcula **por subcarpeta alfabética («bucket»)** en lugar de por sistema entero — un sistema con una subcarpeta grande y varias pequeñas ya no penaliza innecesariamente a las pequeñas. El umbral por defecto de la pestaña Ajustes cambia en consecuencia (5000 → 800, vuelve a tener sentido ahora que se aplica por bucket).
+- **Caja de herramientas de PC**: **pestaña Playlist** — crea tus propias rotaciones en modo atracción combinando el pack de 600 GIFs y tus propios GIFs (arrastra una carpeta del PC); ahora también posible **en pleno Modo 1**, antes incluso de copiar la carpeta de trabajo a la tarjeta SD, y no solo después desde una tarjeta ya insertada.
+- **Caja de herramientas de PC**: el idioma de la interfaz por defecto ahora es el del **sistema Windows** en el primer inicio (en lugar de siempre inglés) — una elección explícita en la pestaña Ajustes sigue teniendo siempre prioridad después.
+- **Caja de herramientas de PC**: varios errores encontrados probando la fusión en vivo — un panel de «copia a SD» que quedaba visible podía empujar la barra de Progreso fuera de la ventana fija en algunos modos de la pestaña Avanzado, el sorteo aleatorio de tema podía caer en el tema «default» sin más, y cerrar la app en pleno proceso de añadir GIFs propios (paso de playlist del Modo 1) ahora retoma el proceso en lugar de cerrar la aplicación.
+- **Firmware / MQTT**: los 12 topics separados `marquee/cmd/*` se consolidaron en un único topic `marquee/cmd` (payload compacto `CMD=/ARG=`) — reduce el número de suscripciones MQTT por (re)conexión de 12 a 2, limitando la exposición a una condición rara de la pila WiFi del ESP32 en la que una suscripción podía silenciosamente no salir nunca del dispositivo.
 
 ## 2026-08-19 — Detección de unidades extraíbles y posicionamiento de ventanas emergentes
 
