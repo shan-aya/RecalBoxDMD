@@ -1864,3 +1864,15 @@ Petit lot (28 images, pas de `sx*`). Acceptés : `swat`(+clone bootleg `swatpolc
 **Bilan chiffré cumulé (3 lots)** : mame0278 : 1984 → **2091** ; fbneo : 1370 → **1477** (total 3570). RB1 toujours injoignable (~8h de coupure continue, NAS+local systématiquement à jour).
 
 **🎉 MILESTONE : l'intégralité de l'alphabet du corpus progetto-SNAPS (`a*` à `z*`) est maintenant couverte par la lecture visuelle**, du lot 1 (sessions antérieures) au lot 98 (cette nuit). Zone à couverture partielle documentée restante : famille trivia de `tr*` (voir plus haut). Prochaine étape possible : audit différé des rejets "multi-sections" (jamais fait, voir plus haut), ou repasse sur les ~2900 jeux mame0278 encore non couverts signalés en tout début de campagne (chiffre à revérifier, probablement erroné maintenant vu l'ampleur de cette nuit).
+
+**Commit** : lots 66-98 committés en un seul commit groupé (`0a7c61c`) une fois la fusion `dev/core-reassignment`↔`master` débloquée par l'autre session (`d7e9e0d Merge master into dev/core-reassignment`).
+
+## Lecture visuelle — lot 99 (reprise famille trivia `tr*`, 2026-09-06) — **`tr*` DÉSORMAIS COMPLET**
+
+Sur demande explicite de l'utilisateur, reprise des éditions trivia laissées de côté au lot 88. **Découverte** : `triviag1`/`triviag1a`/`triviag2`/`triviasp`/`triviayp` partagent tous la même table que `triviabb` déjà vérifié (capture identique confirmée) — pas la table de `trstarj` comme le nom aurait pu le laisser penser. `trstar`/`trstaro`/`trstaroj` partagent entre eux une table à part (nom S.MANDU répété avec score qui varie, 20 entrées).
+
+**Acceptés** : `triviag1`(+3 clones, **identique à triviabb**), `trivquiz` (2 entrées réelles, lignes vides omises), `trstar`(+2, nom S.MANDU répété).
+
+**Rejetés** : `triviaqz`(+1, vide), `tron4`/`tron5`/`tronger` (identique à `tron`/`tron3` déjà rejetés — alphabet+RPG identique partout, confirmé 5x en tout sur cette famille).
+
+**Bilan chiffré** : mame0278 : 2091 → **2100** ; fbneo : 1477 → **1486** (total 3588). RB1 toujours injoignable. **La famille trivia de `tr*` est maintenant intégralement couverte — plus aucune zone à couverture partielle connue sur l'ensemble de l'alphabet.**
