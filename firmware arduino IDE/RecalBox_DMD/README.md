@@ -1,4 +1,4 @@
-# RecalBoxDMD — Raw565 Edition
+# RecalBoxDMD — Raw565 Edition <img alt="Firmware: Raw565 Ed. v12" src="https://img.shields.io/badge/firmware-Raw565%20Ed.%20v12-blueviolet.svg"> <img alt="PC Toolkit: v5438" src="https://img.shields.io/badge/PC%20Toolkit-v5438-blueviolet.svg">
 
 **A real LED marquee for your Recalbox arcade cabinet — instant display, even with a 30,000-game MAME fullset.**
 
@@ -93,6 +93,7 @@ It is a fork of [Jamyz's RetroBoxLED](https://github.com/Jamyz/RetroBoxLED), reb
 - ⚡ **Flash the firmware from your browser** — a [one-click Web Installer](https://shan-aya.github.io/RecalBoxDMD/) (Chrome/Edge) flashes the ESP32 over USB, no Arduino IDE required.
 - 📡 **MQTT integration** with Recalbox for real-time game/system/event display, plus a **Telnet** console for on-device debugging.
 - 🌍 **Fully trilingual** — both the firmware's web UI and the PC toolkit are available in **French, English and Spanish**.
+- 🗣️ **Multi-language system/genre images** — the `_defaults` fallback pack (genre badges, Favorites, Last Played...) is available in French and Spanish, selectable from the PC Toolkit with a live comparison preview; untranslated genres simply stay in English.
 - 🔁 **Recalbox-version aware scraping** — automatically targets the right `gamelist.xml` tag and media folder for Recalbox 10.x / 9.x / legacy, with a built-in "how to scrape" guide.
 
 ---
@@ -530,7 +531,10 @@ telnet <esp32-ip>
 │   │   └── <game>.meta              ← animated marquee (timings)
 │   └── _defaults/
 │       ├── default.raw565           ← global fallback
-│       └── <system>.raw565          ← per-system fallback
+│       └── <system>.raw565          ← per-system fallback, in the chosen
+│                                       language (EN by default; FR/ES
+│                                       versions overwrite this same file
+│                                       in place if selected in the Toolkit)
 ├── gifs/                            ← attract-mode playlists (600-GIF pack lands here)
 │   ├── Arcade/  Consoles/  Computers/  Pinball_Short/  Pinball_Story/
 │   └── Halloween/  XMAS/  Logo/  Other/ ...

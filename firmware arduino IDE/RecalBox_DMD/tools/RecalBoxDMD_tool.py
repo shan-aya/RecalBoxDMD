@@ -1,9 +1,17 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v38
+# Version actuelle : v42
 #
-# v38 - 2026-09-04 - safe-modify - Toujours en dev/core-reassignment, RIEN
+# v42 - 2026-09-06 - safe-modify - Fusion `master` -> `dev/core-reassignment`
+#      (resolution de la divergence des deux branches) : les deux branches
+#      avaient chacune numerote leurs propres versions depuis v35 (commun),
+#      historique reconstitue et renumerote sequentiellement par date
+#      reelle ci-dessous, rien de perdu. Voir HANDOFF_SESSION_2026-09-05_
+#      merge-divergence.md pour le detail du diagnostic et le plan de
+#      resolution.
+#
+# v41 - 2026-09-04 - safe-modify - Toujours en dev/core-reassignment, RIEN
 #   publie sur GitHub (branche main/master) a ce stade -- ces changements
 #   corrigent le CODE de l'installeur pour quand une publication aura lieu,
 #   le depot GitHub public reste lui-meme inchange pour l'instant (verifie :
@@ -44,24 +52,15 @@
 #   via ce tool specifiquement (le deploiement direct plink/pscp de ce
 #   soir n'est pas passe par ce code).
 #
-# v37 - 2026-08-23 - safe-modify - Retour utilisateur : "le cadre de
+# v40 - 2026-08-23 - safe-modify - Retour utilisateur : "le cadre de
 #      selection de la carte SD est toujours vide, aucun lecteur dedans"
-#      -- bug DEJA CORRIGE sur master (commit 88d2f1b), jamais porte vers
-#      cette branche dev (divergee juste avant ce fix). Root cause : wmic.exe
-#      est retire par defaut sur les builds recentes de Windows 11 --
-#      _list_removable_drives()/_ex() reposaient exclusivement dessus,
-#      subprocess levait FileNotFoundError, avalee par l'ancien
-#      "except Exception: pass" -- liste vide silencieuse quel que soit
-#      l'etat reel des lecteurs. Fix porte tel quel : nouvelle fonction
-#      commune _query_logical_disks() qui interroge WMI via
-#      Get-CimInstance (PowerShell, present nativement sur toutes les
-#      versions de Windows supportees, pas le CLI wmic.exe deprecie),
-#      parsing CSV via le module csv standard. Repli sur l'ancien wmic
-#      conserve en dernier recours (best effort). Comportement inchange
-#      pour les 4 sites d'appel existants (GUI Mode 1/6/8, CLI Mode 6/8) --
-#      memes types de retour (tuples), aucun site d'appel modifie.
+#      -- bug DEJA CORRIGE sur master (commit 88d2f1b, v38 (master)
+#      ci-dessous), jamais porte vers cette branche dev (divergee juste
+#      avant ce fix). Porte tel quel depuis master, meme code, non
+#      redivergee -- voir v38 (master) ci-dessous pour le detail complet
+#      (root cause wmic.exe, _query_logical_disks() via Get-CimInstance).
 #
-# v36 - 2026-08-23 - safe-modify - Chantier "bucket" : flag "lent" (L,
+# v39 - 2026-08-23 - safe-modify - Chantier "bucket" : flag "lent" (L,
 #      declenche l'ecran masque d'attente cote firmware) calcule PAR SOUS-
 #      DOSSIER ALPHABETIQUE (bucket) au lieu de PAR SYSTEME ENTIER --
 #      penalisait inutilement un sous-dossier peu peuple des qu'un AUTRE
@@ -85,10 +84,52 @@
 #      heap evite en portant, absent de la branche source).
 #      IMPORTANT : slow_threshold s'applique desormais PAR BUCKET (pas
 #      par systeme entier) -- valeur par defaut ramenee de 5000 a 800 en
-#      consequence (voir RecalBoxDMD_prefs.py v8/RecalBoxDMD_GUI.py v50,
+#      consequence (voir RecalBoxDMD_prefs.py v9/RecalBoxDMD_GUI.py v54,
 #      retour utilisateur explicite : le 5000 avait ete introduit
 #      uniquement pour compenser l'ancien calcul agrege par systeme
 #      entier, qui n'existe plus).
+#
+# v38 (master) - 2026-08-19 - safe-modify - Fix detection carte SD (bug
+#      utilisateur : carte visible dans l'Explorateur Windows mais jamais
+#      dans le tool, "Aucun lecteur amovible detecte" en Mode 1/6/8). Root
+#      cause confirmee en reproduisant en direct : _list_removable_drives()/
+#      _ex() reposaient exclusivement sur "wmic logicaldisk", or wmic.exe
+#      est retire par defaut sur les builds recentes de Windows 11 --
+#      subprocess levait FileNotFoundError, avalee par l'except Exception:
+#      pass existant, donc liste vide silencieuse quel que soit l'etat reel
+#      des lecteurs. Les 2 fonctions partagent desormais
+#      _query_logical_disks() (nouveau), qui interroge WMI via
+#      "Get-CimInstance Win32_LogicalDisk" (PowerShell, pas le CLI wmic.exe
+#      deprecie) et parse le CSV avec le module csv standard au lieu d'un
+#      split(",") manuel. Repli sur l'ancien "wmic" conserve en dernier
+#      recours (machines ou powershell serait absent/bloque) -- best
+#      effort, non garanti. Comportement inchange sinon : toujours
+#      DriveType=2 (amovible), memes tuples de retour pour les 4 sites
+#      d'appel existants (GUI Mode 1/6/8, CLI Mode 6/8).
+#
+# v37 - 2026-08-16 - safe-modify - Fix lenteur signalee "16 par 16, plusieurs
+#      minutes entre chaque lot" sur les telechargements _defaults/pack GIFs :
+#      _parallel_download_batch()/_dl_one() appelait
+#      urllib.request.urlretrieve() SANS timeout -- avec 16 threads en
+#      parallele (_PARALLEL_DOWNLOAD_MAX_WORKERS), une seule connexion qui
+#      traine bloquait son slot indefiniment (souvent plusieurs minutes
+#      avant un eventuel timeout OS) avant que le lot suivant ne demarre.
+#      Fix : socket.setdefaulttimeout(20) pose avant de lancer le
+#      ThreadPoolExecutor, restaure apres (valeur precedente sauvegardee).
+#      Absent de dev-core-reassignment jusqu'a la fusion v42 (2026-09-06).
+#
+# v36 - 2026-08-15 - safe-modify - download_defaults() : nouveau parametre
+#      optionnel lang="en" (aussi "fr"/"es"). Apres le telechargement du jeu
+#      EN habituel (base/fallback garanti pour tout systeme/genre), si
+#      lang != "en" on recupere en plus le sous-dossier GitHub
+#      systems/_defaults/<lang>/ (memes noms de fichiers) et on ecrase
+#      localement, a plat, les seuls fichiers qui y existent -- les genres
+#      non traduits restent donc en EN plutot que d'echouer/manquer. Le
+#      sous-dossier distant est ignore par le listing existant (qui filtre
+#      deja type=="file", les dossiers "fr"/"es" ne remontaient pas) : rien
+#      ne change pour lang="en" (comportement identique a avant ce patch).
+#      Absent de dev-core-reassignment jusqu'a la fusion v42 (2026-09-06) --
+#      voir RecalBoxDMD_GUI.py v50 (systems_image_lang, appelant cote GUI).
 #
 # v35 - 2026-08-13 - safe-modify - Support des 2 nouveaux scripts Recalbox
 #      "Luminosite DMD +10%.sh"/"-10%.sh" (marquee/cmd/brightness_up et
@@ -705,6 +746,9 @@ TRANSLATIONS = {
         "dl_file_err": lambda n, e: f"   ⚠️  {n} — {e}",
         "dl_file_skip": lambda n, i, t: f"   {i:4d}/{t} ⏭️  {n} (deja present, conserve)",
         "dl_done": lambda n: f"✅ {n} fichiers téléchargés dans _defaults/",
+        "dl_lang_title": lambda lang: f"🌐  Téléchargement des images systèmes traduites ({lang})",
+        "dl_lang_fail": lambda lang: f"⚠️  Échec du téléchargement des images {lang} — les visuels EN restent en place.",
+        "dl_lang_done": lambda n, lang: f"✅ {n} fichiers {lang} téléchargés (les genres non traduits restent en EN)",
         "dl_fail_api": "❌ API GitHub inaccessible. Vérifiez votre connexion internet.",
         "github_rate_limit_msg": lambda reset_time: (
             f"⏳ Limite de requêtes GitHub atteinte (quota horaire de l'API, "
@@ -949,6 +993,9 @@ TRANSLATIONS = {
         "dl_file_err": lambda n, e: f"   ⚠️  {n} — {e}",
         "dl_file_skip": lambda n, i, t: f"   {i:4d}/{t} ⏭️  {n} (already present, kept)",
         "dl_done": lambda n: f"✅ {n} files downloaded into _defaults/",
+        "dl_lang_title": lambda lang: f"🌐  Downloading translated system images ({lang})",
+        "dl_lang_fail": lambda lang: f"⚠️  Failed to download {lang} images — EN visuals remain in place.",
+        "dl_lang_done": lambda n, lang: f"✅ {n} {lang} files downloaded (untranslated genres stay EN)",
         "dl_fail_api": "❌ GitHub API unreachable. Check your internet connection.",
         "github_rate_limit_msg": lambda reset_time: (
             f"⏳ GitHub API rate limit reached (hourly quota, 60 requests/hour "
@@ -1193,6 +1240,9 @@ TRANSLATIONS = {
         "dl_file_err": lambda n, e: f"   ⚠️  {n} — {e}",
         "dl_file_skip": lambda n, i, t: f"   {i:4d}/{t} ⏭️  {n} (ya presente, conservado)",
         "dl_done": lambda n: f"✅ {n} archivos descargados en _defaults/",
+        "dl_lang_title": lambda lang: f"🌐  Descargando imágenes de sistemas traducidas ({lang})",
+        "dl_lang_fail": lambda lang: f"⚠️  Error al descargar las imágenes {lang} — se mantienen los visuales EN.",
+        "dl_lang_done": lambda n, lang: f"✅ {n} archivos {lang} descargados (los géneros sin traducir quedan en EN)",
         "dl_fail_api": "❌ API de GitHub inaccesible. Verifica tu conexión a internet.",
         "github_rate_limit_msg": lambda reset_time: (
             f"⏳ Límite de solicitudes de GitHub alcanzado (cuota horaria de la "
@@ -3306,6 +3356,7 @@ def _parallel_download_batch(
     les logs pour une operation qui dure maintenant quelques secondes.
     """
     import concurrent.futures as cf
+    import socket
     import urllib.request
 
     total = len(tasks)
@@ -3321,6 +3372,17 @@ def _parallel_download_batch(
     def _dl_one(item):
         raw_url, dst, label = item
         try:
+            # urlretrieve() n'a pas de parametre timeout direct -- il herite
+            # du timeout socket par defaut du thread (None = bloque
+            # indefiniment si la connexion traine/stall). Avec 16 threads en
+            # parallele (_PARALLEL_DOWNLOAD_MAX_WORKERS), un seul fichier
+            # lent bloquait tout son slot jusqu'a un eventuel timeout OS
+            # (souvent plusieurs minutes) avant que le lot suivant ne
+            # demarre -- symptome remonte : "16 par 16, plusieurs minutes
+            # entre chaque lot". socket.setdefaulttimeout() est global au
+            # PROCESSUS (pas par-thread) mais chaque thread du pool
+            # l'applique des sa premiere connexion -- fixe une fois avant de
+            # lancer le lot (voir plus bas) plutot que dans _dl_one().
             urllib.request.urlretrieve(raw_url, dst)
             return True, label, None
         except Exception as e:
@@ -3329,6 +3391,15 @@ def _parallel_download_batch(
     done = 0
     failed: list = []
     stopped = False
+    # Timeout socket global au processus (par-thread, herite a la premiere
+    # connexion) -- borne les connexions qui trainent au lieu de bloquer
+    # indefiniment (voir commentaire dans _dl_one()). Restaure la valeur
+    # precedente apres coup pour ne pas affecter le reste du programme
+    # (ex: connexions SMB/SSH ailleurs, qui passent deja leur propre
+    # timeout explicite et ne sont donc pas impactees, mais autant rester
+    # prudent).
+    _prev_timeout = socket.getdefaulttimeout()
+    socket.setdefaulttimeout(20)
     ex = cf.ThreadPoolExecutor(max_workers=max_workers)
     try:
         futures = {ex.submit(_dl_one, item): item for item in tasks}
@@ -3345,6 +3416,7 @@ def _parallel_download_batch(
                 break
     finally:
         ex.shutdown(wait=not stopped, cancel_futures=stopped)
+        socket.setdefaulttimeout(_prev_timeout)
 
     return done, failed
 
@@ -3364,6 +3436,7 @@ def download_defaults(
     replace_existing=None,
     download_missing=None,
     overwrite_existing_files: bool = True,
+    lang: str = "en",
 ):
     """
     Propose de télécharger _defaults/ depuis GitHub.
@@ -3379,6 +3452,13 @@ def download_defaults(
     applique, quel que soit ce reglage). Ne supprime plus tout le dossier
     (auparavant : shutil.rmtree) -- seuls les fichiers effectivement
     retelecharges sont ecrases, fichier par fichier.
+
+    lang : "en" (defaut) / "fr" / "es" -- langue des images systemes/genres.
+    Le jeu EN complet est TOUJOURS telecharge en premier (garantit un
+    fallback pour tout systeme/genre, traduit ou non). Si lang != "en", les
+    fichiers du sous-dossier GitHub systems/_defaults/<lang>/ sont ensuite
+    telecharges par-dessus, a plat (memes noms), pour les seuls genres qui y
+    existent -- ceux qui n'ont pas encore de traduction restent en EN.
     """
     import urllib.request
     import json
@@ -3482,6 +3562,67 @@ def download_defaults(
         PAUSE.stop()
 
     print(tr("dl_done")(done))
+
+    if lang in ("fr", "es"):
+        _download_defaults_lang_overlay(defaults_dir, lang, progress_cb, listen_keyboard)
+
+
+def _download_defaults_lang_overlay(
+    defaults_dir: Path, lang: str, progress_cb=None, listen_keyboard: bool = True
+):
+    """
+    Telecharge systems/_defaults/<lang>/ (GitHub) par-dessus defaults_dir,
+    a plat (les fichiers gardent leur nom sans le sous-dossier) -- seuls les
+    genres qui ont une traduction <lang> sont ecrases, les autres restent en
+    EN (deja telecharges par download_defaults() juste avant). Best-effort :
+    une erreur ici (dossier <lang>/ absent du depot, reseau...) n'interrompt
+    jamais le pipeline, le jeu EN deja en place reste utilisable tel quel.
+    """
+    import urllib.request
+    import json
+
+    api_url = f"{GITHUB_API_URL}/{lang}"
+    raw_base = f"{GITHUB_RAW_BASE}/{lang}"
+
+    print(f"\n{tr('dl_lang_title')(lang.upper())}")
+    print(f"   ↪ {api_url}")
+
+    try:
+        req = urllib.request.Request(api_url, headers={"User-Agent": "recalbox-toolkit"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            files = json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        is_rl, detail = _describe_github_api_error(e)
+        if is_rl:
+            print(tr("github_rate_limit_msg")(detail))
+        else:
+            print(tr("dl_lang_fail")(lang.upper()))
+            print(f"   {detail}")
+        return
+
+    media_files = [
+        f
+        for f in files
+        if f.get("type") == "file"
+        and Path(f["name"]).suffix.lower() in (".png", ".gif", ".raw565")
+    ]
+
+    tasks = [
+        (f"{raw_base}/{urllib.request.quote(f['name'])}", defaults_dir / f["name"], f["name"])
+        for f in media_files
+    ]
+
+    PAUSE.start(listen_keyboard=listen_keyboard)
+    try:
+        done, failed = _parallel_download_batch(
+            tasks, progress_cb, "download_defaults_lang", skip_aborts=True
+        )
+        for label in failed:
+            print(tr("dl_file_err")(label, "échec téléchargement"))
+    finally:
+        PAUSE.stop()
+
+    print(tr("dl_lang_done")(done, lang.upper()))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -4759,18 +4900,18 @@ def _query_logical_disks(drive_type: int = 2) -> list:
     Interroge WMI pour lister les lecteurs logiques d'un DriveType donne
     (2 = amovible, valeur utilisee par les 2 fonctions appelantes).
 
-    Chantier "bucket" -- porte depuis master (commit 88d2f1b, jamais
-    integre a cette branche dev, divergee juste avant ce fix) : remplace
-    l'ancien appel direct a "wmic logicaldisk" (bug utilisateur -- carte SD
-    visible dans l'Explorateur Windows mais jamais detectee par le tool,
-    "cadre de selection vide, aucun lecteur dedans"). Root cause confirmee
-    sur master en reproduisant en direct : wmic.exe est retire par defaut
-    sur les builds recentes de Windows 11, donc subprocess.check_output(
-    ["wmic", ...]) levait FileNotFoundError -- avalee par l'ancien "except
-    Exception: pass", ce qui rendait la liste vide silencieusement quel que
-    soit l'etat reel des lecteurs. Get-CimInstance interroge le meme sous-
-    systeme WMI mais via PowerShell (present nativement sur toutes les
-    versions de Windows supportees), pas le CLI wmic.exe deprecie/retire.
+    v38 (master), safe-modify : remplace l'ancien appel direct a "wmic
+    logicaldisk" (bug utilisateur -- carte SD visible dans l'Explorateur
+    Windows mais jamais detectee par le tool, "cadre de selection vide,
+    aucun lecteur dedans"). Root cause confirmee en reproduisant en direct :
+    wmic.exe est retire par defaut sur les builds recentes de Windows 11,
+    donc subprocess.check_output(["wmic", ...]) levait FileNotFoundError --
+    avalee par l'ancien "except Exception: pass", ce qui rendait la liste
+    vide silencieusement quel que soit l'etat reel des lecteurs.
+    Get-CimInstance interroge le meme sous-systeme WMI mais via PowerShell
+    (present nativement sur toutes les versions de Windows supportees), pas
+    le CLI wmic.exe deprecie/retire. Porte a l'identique dans
+    dev-core-reassignment en v40 (2026-08-23, voir entete de fichier).
 
     Repli sur l'ancien "wmic" en dernier recours (machine ou PowerShell
     serait absent/bloque -- cas tres rare/inhabituel) : best effort, non

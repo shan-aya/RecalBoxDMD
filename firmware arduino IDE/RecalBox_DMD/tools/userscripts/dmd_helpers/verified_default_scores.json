@@ -16625,5 +16625,1069 @@
     ],
     "source": "progetto-SNAPS Scores screenshot, lecture visuelle",
     "date": "2026-09-05"
+  },
+  "mame0278_skullfng": {
+    "lines": [
+      "1 TQP 4000000",
+      "2 2ND 3500000",
+      "3 3RN 3200000",
+      "4 UTN 3000000",
+      "5 WIL 2900000",
+      "6 ICH 2800000",
+      "7 TQM 2700000",
+      "8 TAM 2600000",
+      "9 SNT 2500000",
+      "10 KRI 2400000"
+    ],
+    "source": "capture ecran table hi-score interne (ecran AUTO MODE), lecture directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_skullfng": {
+    "lines": [
+      "1 TQP 4000000",
+      "2 2ND 3500000",
+      "3 3RN 3200000",
+      "4 UTN 3000000",
+      "5 WIL 2900000",
+      "6 ICH 2800000",
+      "7 TQM 2700000",
+      "8 TAM 2600000",
+      "9 SNT 2500000",
+      "10 KRI 2400000"
+    ],
+    "source": "capture ecran table hi-score interne (ecran AUTO MODE), lecture directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_skatekds": {
+    "lines": [
+      "1 AAA 221100",
+      "2 BBB 220200",
+      "3 CCC 218800",
+      "4 DDD 214500",
+      "5 EEE 199550",
+      "6 FFF 187000",
+      "7 GGG 184050",
+      "8 HHH 152000",
+      "9 III 141000",
+      "10 JKL 120550"
+    ],
+    "source": "capture ecran table hi-score interne (SUPER PLAYER'S), lecture directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_skatekds": {
+    "lines": [
+      "1 AAA 221100",
+      "2 BBB 220200",
+      "3 CCC 218800",
+      "4 DDD 214500",
+      "5 EEE 199550",
+      "6 FFF 187000",
+      "7 GGG 184050",
+      "8 HHH 152000",
+      "9 III 141000",
+      "10 JKL 120550"
+    ],
+    "source": "capture ecran table hi-score interne (SUPER PLAYER'S), lecture directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_skattv": {
+    "lines": [
+      "1 ABZ 185",
+      "2 CCB 170",
+      "3 GSB 160",
+      "4 UOE 140",
+      "5 ALL 130",
+      "6 BER 125",
+      "7 MTB 80",
+      "8 FC 60",
+      "9 BOR 20",
+      "10 BB 10"
+    ],
+    "source": "capture ecran table hi-score interne (classement EINWURF FREI), lecture directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_skattv": {
+    "lines": [
+      "1 ABZ 185",
+      "2 CCB 170",
+      "3 GSB 160",
+      "4 UOE 140",
+      "5 ALL 130",
+      "6 BER 125",
+      "7 MTB 80",
+      "8 FC 60",
+      "9 BOR 20",
+      "10 BB 10"
+    ],
+    "source": "capture ecran table hi-score interne (classement EINWURF FREI), lecture directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_skyrobo": {
+    "lines": [
+      "1 AAA 80000",
+      "2 BBB 45000",
+      "3 CCC 40000",
+      "4 DBG 38100",
+      "5 DDD 35000",
+      "6 EEE 30000",
+      "7 FFF 25000",
+      "8 GGG 20000"
+    ],
+    "source": "capture ecran table hi-score interne, lecture directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_skyrobo": {
+    "lines": [
+      "1 AAA 80000",
+      "2 BBB 45000",
+      "3 CCC 40000",
+      "4 DBG 38100",
+      "5 DDD 35000",
+      "6 EEE 30000",
+      "7 FFF 25000",
+      "8 GGG 20000"
+    ],
+    "source": "capture ecran table hi-score interne, lecture directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_slyspy": {
+    "lines": [
+      "1 007 300000",
+      "2 110 285000",
+      "3 117 270000",
+      "4 177 255000",
+      "5 813 240000",
+      "6 893 220000",
+      "7 999 200000",
+      "8 991 190000",
+      "9 991 180000",
+      "10 123 170000",
+      "11 234 150000",
+      "12 345 142000",
+      "13 456 138000",
+      "14 567 125000",
+      "15 678 110000",
+      "16 789 96000",
+      "17 666 88000",
+      "18 001 75000",
+      "19 002 60000",
+      "20 003 50000"
+    ],
+    "source": "capture ecran table hi-score interne (BEST PLAYERS, Data East 1989), lecture directe -- slyspy2/3 = clones de revision, table partagee",
+    "date": "2026-09-05"
+  },
+  "fbneo_slyspy": {
+    "lines": [
+      "1 007 300000",
+      "2 110 285000",
+      "3 117 270000",
+      "4 177 255000",
+      "5 813 240000",
+      "6 893 220000",
+      "7 999 200000",
+      "8 991 190000",
+      "9 991 180000",
+      "10 123 170000",
+      "11 234 150000",
+      "12 345 142000",
+      "13 456 138000",
+      "14 567 125000",
+      "15 678 110000",
+      "16 789 96000",
+      "17 666 88000",
+      "18 001 75000",
+      "19 002 60000",
+      "20 003 50000"
+    ],
+    "source": "capture ecran table hi-score interne (BEST PLAYERS, Data East 1989), lecture directe -- slyspy2/3 = clones de revision, table partagee",
+    "date": "2026-09-05"
+  },
+  "mame0278_slyspy2": {
+    "lines": [
+      "1 007 300000",
+      "2 110 285000",
+      "3 117 270000",
+      "4 177 255000",
+      "5 813 240000",
+      "6 893 220000",
+      "7 999 200000",
+      "8 991 190000",
+      "9 991 180000",
+      "10 123 170000",
+      "11 234 150000",
+      "12 345 142000",
+      "13 456 138000",
+      "14 567 125000",
+      "15 678 110000",
+      "16 789 96000",
+      "17 666 88000",
+      "18 001 75000",
+      "19 002 60000",
+      "20 003 50000"
+    ],
+    "source": "capture ecran table hi-score interne (BEST PLAYERS, Data East 1989), lecture directe -- slyspy2/3 = clones de revision, table partagee",
+    "date": "2026-09-05"
+  },
+  "fbneo_slyspy2": {
+    "lines": [
+      "1 007 300000",
+      "2 110 285000",
+      "3 117 270000",
+      "4 177 255000",
+      "5 813 240000",
+      "6 893 220000",
+      "7 999 200000",
+      "8 991 190000",
+      "9 991 180000",
+      "10 123 170000",
+      "11 234 150000",
+      "12 345 142000",
+      "13 456 138000",
+      "14 567 125000",
+      "15 678 110000",
+      "16 789 96000",
+      "17 666 88000",
+      "18 001 75000",
+      "19 002 60000",
+      "20 003 50000"
+    ],
+    "source": "capture ecran table hi-score interne (BEST PLAYERS, Data East 1989), lecture directe -- slyspy2/3 = clones de revision, table partagee",
+    "date": "2026-09-05"
+  },
+  "mame0278_slyspy3": {
+    "lines": [
+      "1 007 300000",
+      "2 110 285000",
+      "3 117 270000",
+      "4 177 255000",
+      "5 813 240000",
+      "6 893 220000",
+      "7 999 200000",
+      "8 991 190000",
+      "9 991 180000",
+      "10 123 170000",
+      "11 234 150000",
+      "12 345 142000",
+      "13 456 138000",
+      "14 567 125000",
+      "15 678 110000",
+      "16 789 96000",
+      "17 666 88000",
+      "18 001 75000",
+      "19 002 60000",
+      "20 003 50000"
+    ],
+    "source": "capture ecran table hi-score interne (BEST PLAYERS, Data East 1989), lecture directe -- slyspy2/3 = clones de revision, table partagee",
+    "date": "2026-09-05"
+  },
+  "fbneo_slyspy3": {
+    "lines": [
+      "1 007 300000",
+      "2 110 285000",
+      "3 117 270000",
+      "4 177 255000",
+      "5 813 240000",
+      "6 893 220000",
+      "7 999 200000",
+      "8 991 190000",
+      "9 991 180000",
+      "10 123 170000",
+      "11 234 150000",
+      "12 345 142000",
+      "13 456 138000",
+      "14 567 125000",
+      "15 678 110000",
+      "16 789 96000",
+      "17 666 88000",
+      "18 001 75000",
+      "19 002 60000",
+      "20 003 50000"
+    ],
+    "source": "capture ecran table hi-score interne (BEST PLAYERS, Data East 1989), lecture directe -- slyspy2/3 = clones de revision, table partagee",
+    "date": "2026-09-05"
+  },
+  "mame0278_slapshot": {
+    "lines": [
+      "1 HAR 30000",
+      "2 IKE 27000",
+      "3 MIS 25000",
+      "4 KAZ 22000",
+      "5 UEP 20000"
+    ],
+    "source": "capture ecran table hi-score interne (BEST PLAYERS), lecture directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_slapshot": {
+    "lines": [
+      "1 HAR 30000",
+      "2 IKE 27000",
+      "3 MIS 25000",
+      "4 KAZ 22000",
+      "5 UEP 20000"
+    ],
+    "source": "capture ecran table hi-score interne (BEST PLAYERS), lecture directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_slapshtr": {
+    "lines": [
+      "1 ITO 50000",
+      "2 KOB 40000",
+      "3 IDA 30000",
+      "4 FUK 20000",
+      "5 UWA 10000",
+      "6 MUR 8000",
+      "7 HIR 5000"
+    ],
+    "source": "capture ecran table hi-score interne (RANKING LIST, Sega 1986), lecture directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_slapshtr": {
+    "lines": [
+      "1 ITO 50000",
+      "2 KOB 40000",
+      "3 IDA 30000",
+      "4 FUK 20000",
+      "5 UWA 10000",
+      "6 MUR 8000",
+      "7 HIR 5000"
+    ],
+    "source": "capture ecran table hi-score interne (RANKING LIST, Sega 1986), lecture directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_slither": {
+    "lines": [
+      "1 DET 26532",
+      "2 SKT 23238",
+      "3 LMV 19468",
+      "4 SLC 17184",
+      "5 PAT 16245",
+      "6 DBC 15124",
+      "7 EKC 15003",
+      "8 ERK 13752"
+    ],
+    "source": "capture ecran table hi-score interne, lecture directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_slither": {
+    "lines": [
+      "1 DET 26532",
+      "2 SKT 23238",
+      "3 LMV 19468",
+      "4 SLC 17184",
+      "5 PAT 16245",
+      "6 DBC 15124",
+      "7 EKC 15003",
+      "8 ERK 13752"
+    ],
+    "source": "capture ecran table hi-score interne, lecture directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_slrasslt": {
+    "lines": [
+      "1 H.M 57300",
+      "2 UME 37500",
+      "3 KOB 30000",
+      "4 MAX 25000",
+      "5 KEN 20000"
+    ],
+    "source": "capture ecran table hi-score interne (GREAT FIGHTERS SCORE RANKING), lecture directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_slrasslt": {
+    "lines": [
+      "1 H.M 57300",
+      "2 UME 37500",
+      "3 KOB 30000",
+      "4 MAX 25000",
+      "5 KEN 20000"
+    ],
+    "source": "capture ecran table hi-score interne (GREAT FIGHTERS SCORE RANKING), lecture directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_slammast": {
+    "lines": [
+      "1 CAP 100000",
+      "2 COM 95000",
+      "3 C P 90000",
+      "4 SYS 85000",
+      "5 TEM 80000",
+      "6 TOM 75000"
+    ],
+    "source": "capture ecran identique confirmee sur les 3 roms (meme jeu Capcom, regions differentes -- Saturday Night Slam Masters US / Muscle Bomber JP), table CWA OFFICIAL RATINGS, lecture directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_slammast": {
+    "lines": [
+      "1 CAP 100000",
+      "2 COM 95000",
+      "3 C P 90000",
+      "4 SYS 85000",
+      "5 TEM 80000",
+      "6 TOM 75000"
+    ],
+    "source": "capture ecran identique confirmee sur les 3 roms (meme jeu Capcom, regions differentes -- Saturday Night Slam Masters US / Muscle Bomber JP), table CWA OFFICIAL RATINGS, lecture directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_slampic": {
+    "lines": [
+      "1 CAP 100000",
+      "2 COM 95000",
+      "3 C P 90000",
+      "4 SYS 85000",
+      "5 TEM 80000",
+      "6 TOM 75000"
+    ],
+    "source": "capture ecran identique confirmee sur les 3 roms (meme jeu Capcom, regions differentes -- Saturday Night Slam Masters US / Muscle Bomber JP), table CWA OFFICIAL RATINGS, lecture directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_slampic": {
+    "lines": [
+      "1 CAP 100000",
+      "2 COM 95000",
+      "3 C P 90000",
+      "4 SYS 85000",
+      "5 TEM 80000",
+      "6 TOM 75000"
+    ],
+    "source": "capture ecran identique confirmee sur les 3 roms (meme jeu Capcom, regions differentes -- Saturday Night Slam Masters US / Muscle Bomber JP), table CWA OFFICIAL RATINGS, lecture directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_slampic2": {
+    "lines": [
+      "1 CAP 100000",
+      "2 COM 95000",
+      "3 C P 90000",
+      "4 SYS 85000",
+      "5 TEM 80000",
+      "6 TOM 75000"
+    ],
+    "source": "capture ecran identique confirmee sur les 3 roms (meme jeu Capcom, regions differentes -- Saturday Night Slam Masters US / Muscle Bomber JP), table CWA OFFICIAL RATINGS, lecture directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_slampic2": {
+    "lines": [
+      "1 CAP 100000",
+      "2 COM 95000",
+      "3 C P 90000",
+      "4 SYS 85000",
+      "5 TEM 80000",
+      "6 TOM 75000"
+    ],
+    "source": "capture ecran identique confirmee sur les 3 roms (meme jeu Capcom, regions differentes -- Saturday Night Slam Masters US / Muscle Bomber JP), table CWA OFFICIAL RATINGS, lecture directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_smgp": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "fbneo_smgp": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "mame0278_smgp5": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "fbneo_smgp5": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "mame0278_smgp6": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "fbneo_smgp6": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "mame0278_smgpj": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "fbneo_smgpj": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "mame0278_smgpu": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "fbneo_smgpu": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "mame0278_smgpu1": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "fbneo_smgpu1": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "mame0278_smgpu2": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "fbneo_smgpu2": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "mame0278_smgpd": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "fbneo_smgpd": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "mame0278_smgp5d": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "fbneo_smgp5d": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "mame0278_smgp6d": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "fbneo_smgp6d": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "mame0278_smgpjd": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "fbneo_smgpjd": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "mame0278_smgpu1d": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "fbneo_smgpu1d": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "mame0278_smgpu2d": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "fbneo_smgpu2d": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "mame0278_smgpud": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "fbneo_smgpud": {
+    "lines": [
+      "1 OGU 2134",
+      "2 KON 2034",
+      "3 OZK 1989",
+      "4 4ST 1328",
+      "5 MIT 1222",
+      "6 NAO 1220",
+      "7 MIK 1219",
+      "8 TOI 1030",
+      "9 TAK 1000"
+    ],
+    "source": "capture ecran identique confirmee entre smgp et smgpd (Driver's Point Ranking fige, meme jeu toutes revisions), lecture directe -- table partagee sur toute la famille de clones",
+    "date": "2026-09-05"
+  },
+  "mame0278_smbomb": {
+    "lines": [
+      "1 CAP 200000",
+      "2 CAP 180000",
+      "3 COM 170000",
+      "4 C P 160000",
+      "5 SYS 150000",
+      "6 TEM 140000"
+    ],
+    "source": "capture ecran table hi-score interne (CWA OFFICIAL RANKING), lecture directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_smbomb": {
+    "lines": [
+      "1 CAP 200000",
+      "2 CAP 180000",
+      "3 COM 170000",
+      "4 C P 160000",
+      "5 SYS 150000",
+      "6 TEM 140000"
+    ],
+    "source": "capture ecran table hi-score interne (CWA OFFICIAL RANKING), lecture directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_smoto16": {
+    "lines": [
+      "1 RFA 200",
+      "2 FIV 80",
+      "3 SFL 50",
+      "4 FOU 20",
+      "5 FHA 10",
+      "6 FLA 7",
+      "7 STR 5",
+      "8 TRE 3",
+      "9 TWO 2",
+      "10 ONE 1"
+    ],
+    "source": "capture ecran table hi-score interne, lecture directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_smoto16": {
+    "lines": [
+      "1 RFA 200",
+      "2 FIV 80",
+      "3 SFL 50",
+      "4 FOU 20",
+      "5 FHA 10",
+      "6 FLA 7",
+      "7 STR 5",
+      "8 TRE 3",
+      "9 TWO 2",
+      "10 ONE 1"
+    ],
+    "source": "capture ecran table hi-score interne, lecture directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_smissw": {
+    "lines": [
+      "1 JYR 50000",
+      "2 OHK 45000",
+      "3 IKS 40000"
+    ],
+    "source": "capture ecran table hi-score interne (Today's Winner), lecture directe",
+    "date": "2026-09-05"
+  },
+  "fbneo_smissw": {
+    "lines": [
+      "1 JYR 50000",
+      "2 OHK 45000",
+      "3 IKS 40000"
+    ],
+    "source": "capture ecran table hi-score interne (Today's Winner), lecture directe",
+    "date": "2026-09-05"
+  },
+  "mame0278_smashtv": {
+    "lines": [
+      "1 JON 3051048",
+      "2 TIM 1840800",
+      "3 TJE 1758218",
+      "4 LIP 1750072",
+      "5 GWS 1651008",
+      "6 MLZ 1631196",
+      "7 ALT 1606233",
+      "8 BLS 570218",
+      "9 JON2 500001"
+    ],
+    "source": "identique a smashtv3 deja verifie (meme jeu, revisions differentes), copie directe -- table partagee",
+    "date": "2026-09-05"
+  },
+  "fbneo_smashtv": {
+    "lines": [
+      "1 JON 3051048",
+      "2 TIM 1840800",
+      "3 TJE 1758218",
+      "4 LIP 1750072",
+      "5 GWS 1651008",
+      "6 MLZ 1631196",
+      "7 ALT 1606233",
+      "8 BLS 570218",
+      "9 JON2 500001"
+    ],
+    "source": "identique a smashtv3 deja verifie (meme jeu, revisions differentes), copie directe -- table partagee",
+    "date": "2026-09-05"
+  },
+  "mame0278_smashtv4": {
+    "lines": [
+      "1 JON 3051048",
+      "2 TIM 1840800",
+      "3 TJE 1758218",
+      "4 LIP 1750072",
+      "5 GWS 1651008",
+      "6 MLZ 1631196",
+      "7 ALT 1606233",
+      "8 BLS 570218",
+      "9 JON2 500001"
+    ],
+    "source": "identique a smashtv3 deja verifie (meme jeu, revisions differentes), copie directe -- table partagee",
+    "date": "2026-09-05"
+  },
+  "fbneo_smashtv4": {
+    "lines": [
+      "1 JON 3051048",
+      "2 TIM 1840800",
+      "3 TJE 1758218",
+      "4 LIP 1750072",
+      "5 GWS 1651008",
+      "6 MLZ 1631196",
+      "7 ALT 1606233",
+      "8 BLS 570218",
+      "9 JON2 500001"
+    ],
+    "source": "identique a smashtv3 deja verifie (meme jeu, revisions differentes), copie directe -- table partagee",
+    "date": "2026-09-05"
+  },
+  "mame0278_smashtv5": {
+    "lines": [
+      "1 JON 3051048",
+      "2 TIM 1840800",
+      "3 TJE 1758218",
+      "4 LIP 1750072",
+      "5 GWS 1651008",
+      "6 MLZ 1631196",
+      "7 ALT 1606233",
+      "8 BLS 570218",
+      "9 JON2 500001"
+    ],
+    "source": "identique a smashtv3 deja verifie (meme jeu, revisions differentes), copie directe -- table partagee",
+    "date": "2026-09-05"
+  },
+  "fbneo_smashtv5": {
+    "lines": [
+      "1 JON 3051048",
+      "2 TIM 1840800",
+      "3 TJE 1758218",
+      "4 LIP 1750072",
+      "5 GWS 1651008",
+      "6 MLZ 1631196",
+      "7 ALT 1606233",
+      "8 BLS 570218",
+      "9 JON2 500001"
+    ],
+    "source": "identique a smashtv3 deja verifie (meme jeu, revisions differentes), copie directe -- table partagee",
+    "date": "2026-09-05"
+  },
+  "mame0278_smashtv6": {
+    "lines": [
+      "1 JON 3051048",
+      "2 TIM 1840800",
+      "3 TJE 1758218",
+      "4 LIP 1750072",
+      "5 GWS 1651008",
+      "6 MLZ 1631196",
+      "7 ALT 1606233",
+      "8 BLS 570218",
+      "9 JON2 500001"
+    ],
+    "source": "identique a smashtv3 deja verifie (meme jeu, revisions differentes), copie directe -- table partagee",
+    "date": "2026-09-05"
+  },
+  "fbneo_smashtv6": {
+    "lines": [
+      "1 JON 3051048",
+      "2 TIM 1840800",
+      "3 TJE 1758218",
+      "4 LIP 1750072",
+      "5 GWS 1651008",
+      "6 MLZ 1631196",
+      "7 ALT 1606233",
+      "8 BLS 570218",
+      "9 JON2 500001"
+    ],
+    "source": "identique a smashtv3 deja verifie (meme jeu, revisions differentes), copie directe -- table partagee",
+    "date": "2026-09-05"
   }
 }

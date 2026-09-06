@@ -1,4 +1,4 @@
-# RecalBoxDMD — Raw565 Edition
+# RecalBoxDMD — Raw565 Edition <img alt="Firmware: Raw565 Ed. v12" src="https://img.shields.io/badge/firmware-Raw565%20Ed.%20v12-blueviolet.svg"> <img alt="Herramienta PC: v5438" src="https://img.shields.io/badge/herramienta%20PC-v5438-blueviolet.svg">
 
 **Un verdadero marquee LED para tu mueble arcade Recalbox — visualización instantánea, incluso con un fullset MAME de 30 000 juegos.**
 
@@ -93,6 +93,7 @@ Es un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), reco
 - ⚡ **Flashea el firmware desde el navegador** — un [instalador web en un clic](https://shan-aya.github.io/RecalBoxDMD/) (Chrome/Edge) flashea el ESP32 por USB, sin Arduino IDE.
 - 📡 **Integración MQTT** con Recalbox para mostrar juegos/sistemas/eventos en tiempo real, además de una consola **Telnet** para depuración en el dispositivo.
 - 🌍 **Totalmente trilingüe** — tanto la interfaz web del firmware como la caja de herramientas de PC están disponibles en **francés, inglés y español**.
+- 🗣️ **Imágenes de sistema/género multilingües** — el pack de respaldo `_defaults` (insignias de género, Favoritos, Últimos Jugados...) está disponible en francés y español, seleccionable desde la caja de herramientas de PC con una vista previa comparativa en vivo; los géneros aún no traducidos simplemente quedan en inglés.
 - 🔁 **Scraping consciente de la versión de Recalbox** — apunta automáticamente a la etiqueta correcta de `gamelist.xml` y a la carpeta de medios adecuada para Recalbox 10.x / 9.x / legacy, con una guía de «cómo hacer el scrape» integrada.
 
 ---
@@ -530,7 +531,11 @@ telnet <ip-esp32>
 │   │   └── <juego>.meta               ← marquee animada (tiempos)
 │   └── _defaults/
 │       ├── default.raw565             ← respaldo global
-│       └── <sistema>.raw565           ← respaldo por sistema
+│       └── <sistema>.raw565           ← respaldo por sistema, en el idioma
+│                                         elegido (inglés por defecto; las
+│                                         versiones FR/ES sobrescriben este
+│                                         mismo archivo si se seleccionan
+│                                         en la herramienta de PC)
 ├── gifs/                              ← playlists de modo de espera (aquí llega el pack de 600 GIFs)
 │   ├── Arcade/  Consoles/  Computers/  Pinball_Short/  Pinball_Story/
 │   └── Halloween/  XMAS/  Logo/  Other/ ...

@@ -2,9 +2,19 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v53
+# Version actuelle : v58
 #
-# v53 — 2026-09-03 — safe-modify — Bug remonte par un utilisateur du build
+# v58 — 2026-09-06 — safe-modify — Fusion `master` -> `dev/core-reassignment`
+#      (resolution de la divergence des deux branches, 17 commits master
+#      independants depuis le point de divergence commun) : les deux
+#      branches avaient chacune numerote leurs propres versions depuis
+#      v49 (commun), d'ou la collision de numeros ci-dessous -- historique
+#      complet des deux cotes reconstitue et renumerote sequentiellement
+#      par date reelle, rien de perdu. Voir HANDOFF_SESSION_2026-09-05_
+#      merge-divergence.md pour le detail du diagnostic et le plan de
+#      resolution.
+#
+# v57 — 2026-09-03 — safe-modify — Bug remonte par un utilisateur du build
 #      GitHub (RecalBoxDMD_GUI_v5438.exe, publie depuis master/main) :
 #      "RuntimeError: main thread is not in main loop" visible dans le log
 #      de l'appli (PAS un crash -- sys.stdout/stderr redirige globalement
@@ -17,6 +27,9 @@
 #      _start_worker() bascule automatiquement sur l'onglet Logs a ce
 #      moment-la (was_idle), rendant visible pour la premiere fois un
 #      message en realite deja present depuis le lancement de l'appli.
+#      (Corrige independamment et a l'identique sur master et sur
+#      dev-core-reassignment le meme jour, avant la fusion v58
+#      ci-dessus -- meme code des deux cotes, un seul et meme correctif.)
 #      Cause racine reelle : _start_mode9_autodetect() (sonde reseau SMB)
 #      est appelee EN PLEIN MILIEU de __init__ (construction du panneau
 #      Mode 9), tres largement AVANT root.mainloop() (tout en fin de
@@ -54,50 +67,25 @@
 #        UI) reste volontairement HORS _is_processing() : l'y ajouter
 #        aurait rendu "Quitter" bloquant plusieurs dizaines de secondes
 #        des l'ouverture de l'appli sur un reseau sans Recalbox.
-#      Porte a l'identique sur master (meme code, non diverge sur cette
-#      zone) dans la meme session.
 #
-# v52 — 2026-08-23 — safe-modify — Retour utilisateur : "la fenetre de
-#      copie SD est vide" -- bug DEJA CORRIGE sur master (v51-v54, jamais
-#      porte vers cette branche dev, divergee juste avant ce fix -- dernier
-#      commit commun 450dd26). Porte le fix complet depuis master (diff
-#      isole 3d48f31..edac447, en excluant le travail v50 sans rapport
-#      "langue des images systeme") :
-#      - v51 master : BUG REEL racine -- _center_toplevel(dlg) etait
-#        appelee dans _on_mode6_flash_done() (popup "Explorer SD/Explorer
-#        temp/Fermer", LE dialogue "fin de copie SD" concerne) et dans la
-#        popup de nettoyage de _on_quit_app_clicked(), juste apres la
-#        creation du Toplevel, AVANT le pack()/grid() de tous ses widgets
-#        -- le calcul de centrage se basait donc sur winfo_reqwidth()/
-#        reqheight() d'une fenetre encore VIDE (~1x1) au lieu de sa taille
-#        reelle une fois remplie, plaçant son coin superieur-gauche au
-#        centre de root et laissant tout le contenu deborder hors champ --
-#        exactement le symptome "fenetre vide" signale. Fix : appel
-#        deplace apres le pack()/grid() de tous les widgets dans ces 2
-#        dialogues (les 14 autres, deja dans le bon ordre, inchanges).
-#      - v52 master : DPI-awareness (SetProcessDpiAwareness, repli
-#        SetProcessDPIAware) declaree avant tk.Tk() + nouvelle
-#        _clamp_to_root_monitor() (MonitorFromWindow/GetMonitorInfo, PAS
-#        winfo_screenwidth/height qui ne renvoie que le moniteur PRIMAIRE)
-#        appelee dans _center_toplevel() -- protection residuelle pour un
-#        setup multi-ecrans (popup ne peut plus finir sur un autre ecran
-#        que celui de l'outil, meme si le calcul de centrage derive).
-#      - v53 master : root elle-meme n'avait jusqu'ici JAMAIS de position
-#        explicite au lancement (geometry() sans +x+y) -- Tk la placait
-#        selon son propre defaut, empiriquement pres du coin haut-gauche.
-#        Fix : root explicitement centree sur l'ecran primaire au
-#        demarrage.
-#      - v54 master : lecon permanente conservee -- _center_toplevel()
-#        loggue desormais toute exception (print) au lieu de l'avaler
-#        silencieusement (ancien "except Exception: pass").
-#      Verifie : les 3 patchs distincts (call sites, DPI/clamp, root
-#      centree) recompiles/importes proprement (py_compile OK, cle de
-#      traduction inchangee -- ce fix ne touche aucun texte UI). PAS
-#      ENCORE reteste sur materiel/poste utilisateur reel apres portage
-#      (le bug d'origine avait ete confirme resolu sur master par
-#      l'utilisateur avant le portage ici).
+# v56 — 2026-08-23 — safe-modify — Retour utilisateur : "la fenetre de
+#      copie SD est vide" -- bug DEJA CORRIGE sur master (v51-v54
+#      ci-dessous, jamais porte vers cette branche dev, divergee juste
+#      avant ce fix -- dernier commit commun 450dd26). Porte a l'identique
+#      depuis master (diff isole 3d48f31..edac447, en excluant le travail
+#      v50 sans rapport "langue des images systeme", voir plus bas) : le
+#      detail complet des 4 patchs successifs (ordre pack/centrage,
+#      DPI-awareness + clamp moniteur, root centree, log d'exception) est
+#      documente en v51/v52/v53/v54 ci-dessous, sous leur numerotation
+#      d'origine cote master -- meme code des deux cotes depuis ce
+#      portage, non redivergee. Verifie a l'epoque : les 3 patchs distincts
+#      (call sites, DPI/clamp, root centree) recompiles/importes proprement
+#      (py_compile OK, cle de traduction inchangee -- ce fix ne touche
+#      aucun texte UI). PAS reteste sur materiel/poste utilisateur reel
+#      apres ce portage (le bug d'origine avait deja ete confirme resolu
+#      sur master par l'utilisateur avant le portage ici).
 #
-# v51 — 2026-08-23 — safe-modify — Retour utilisateur : Mode 6 et Mode 7
+# v55 — 2026-08-23 — safe-modify — Retour utilisateur : Mode 6 et Mode 7
 #      restaient figes sur self.sd_dir/"systems" (dossier de travail
 #      temporaire), impossible de les faire pointer directement sur une
 #      vraie carte SD externe deja preparee sans repasser par tout le
@@ -113,14 +101,110 @@
 #      existait deja. Textes d'aide Mode 6/7 (3 langues) mis a jour (ne
 #      disent plus "aucun dossier a choisir").
 #
-# v50 — 2026-08-23 — safe-modify — Repli du seuil flag "L" (onglet
+# v54 — 2026-08-23 — safe-modify — Repli du seuil flag "L" (onglet
 #      Parametres) ramene de 5000 a 800 (retour utilisateur, chantier
 #      "bucket" -- voir DECISIONS.md RecalBox_DMD et RecalBoxDMD_prefs.py
-#      v8) : 5000 n'avait de sens que pour l'ancien calcul PAR SYSTEME
+#      v9) : 5000 n'avait de sens que pour l'ancien calcul PAR SYSTEME
 #      ENTIER (evitait de marquer a tort de petits systemes "lents" a
 #      cause d'un seul gros sous-dossier) -- avec le flag L desormais
 #      calcule PAR BUCKET alphabetique, ce probleme n'existe plus par
 #      construction, 800 (seuil d'origine) redevient pertinent PAR BUCKET.
+#
+# ── Les 4 entrees suivantes documentent, dans leur numerotation et leur
+#    date d'origine cote master, le meme correctif que le v56 ci-dessus
+#    (popup "fin de copie SD"/"SD card" mal centre) : elles ont ete
+#    developpees sur master pendant que dev-core-reassignment avait deja
+#    diverge, puis portees a l'identique dans dev via le v56 (2026-08-23).
+#
+# v54 (master) — 2026-08-19 — safe-modify — Diagnostic temporaire dans
+#      _center_toplevel() : bug utilisateur persistant malgre le fix v53
+#      (root desormais bien centree, confirme par mesure Windows externe
+#      GetWindowRect) -- le popup "SD card" (_prompt_sd_card_dialog,
+#      seule fenetre en cause d'apres confirmation utilisateur) reste mal
+#      place. Le residu n'est donc PAS herite de root. Prints
+#      "[DEBUG centerToplevel]" ajoutes (deja captes par l'onglet Logs de
+#      l'appli, redirection stdout permanente existante) : root
+#      avant centrage, taille demandee du popup, position cible calculee,
+#      PUIS position reelle apres geometry() -- et l'exception n'est plus
+#      jamais avalee silencieusement (ancien except Exception: pass).
+#      Objectif : obtenir les vrais chiffres au moment ou ca casse plutot
+#      que continuer a deviner (echec des fixes v51/v52/v53 malgre
+#      verification systematique en isolation a chaque etape).
+#
+#      -> RESOLU : confirme par l'utilisateur que le fix v53 (root
+#      explicitement centree au lancement) suffisait bel et bien -- le
+#      test precedent de l'utilisateur portait sur un exe pas encore a
+#      jour. Prints de diagnostic retires du chemin normal juste apres
+#      (meme entree de changelog, meme version) pour ne pas polluer
+#      l'onglet Logs des utilisateurs finaux ; seule l'exception reste
+#      loguee au lieu d'etre avalee silencieusement (amelioration
+#      permanente, conservee).
+#
+# v53 (master) — 2026-08-19 — safe-modify — Root cause enfin identifiee du
+#      popup "SD card" (Mode 1) toujours en haut a gauche du bureau, meme
+#      apres les fixes v51/v52 (ordre pack/centrage, DPI-awareness, clamp
+#      moniteur, manifest .exe) : root n'avait JAMAIS de position explicite
+#      au lancement (self.root.geometry("1100x750"), sans +x+y), donc Tk la
+#      placait selon son propre defaut (~130,130 sur la machine de test,
+#      empiriquement pres du coin haut-gauche de l'ecran primaire -- PAS
+#      centre). Confirme par l'utilisateur : la fenetre principale n'avait
+#      jamais ete deplacee manuellement, elle demarrait deja coincee dans
+#      le coin -- tous les popups par ailleurs correctement centres
+#      RELATIVEMENT a root (dont _prompt_sd_card_dialog, deja verifie
+#      correct en isolation aux 2 fixes precedents) heritaient donc de
+#      cette meme position bancale. Fix : root explicitement centree sur
+#      l'ecran primaire Windows (winfo_screenwidth/height) au demarrage,
+#      avant toute autre configuration de fenetre.
+#
+# v52 (master) — 2026-08-19 — safe-modify — Le fix v51 (ordre
+#      pack/_center_toplevel) etait CORRECT mais INSUFFISANT -- signale par
+#      l'utilisateur : popup fin de copie SD toujours hors fenetre, en
+#      haut a gauche de l'ecran. Reproduit le calcul de _center_toplevel()
+#      isolement (mainloop factice) : le resultat est bien centre
+#      RELATIVEMENT a root — donc le bug residuel vient d'ailleurs. Machine
+#      de l'utilisateur : setup multi-ecrans confirme, avec une
+#      disposition atypique (moniteur secondaire en portrait, hors de
+#      l'etendue du moniteur "primaire" Windows). 2 fixes complementaires,
+#      aucun ne depend de diagnostiquer lequel est la cause exacte :
+#      (1) Declaration DPI-awareness du process AVANT toute creation de
+#      fenetre (SetProcessDpiAwareness, repli SetProcessDPIAware) --
+#      aucune des deux n'etait presente avant ce fix ; sans elle, Windows
+#      applique une virtualisation DPI "legacy" a l'appli qui peut fausser
+#      les coordonnees rapportees par Tk selon le moniteur de demarrage,
+#      cause connue de popups Tk mal places sur setup multi-ecrans.
+#      (2) _center_toplevel() confine desormais le resultat a l'interieur
+#      du moniteur Windows REEL qui contient root (MonitorFromWindow +
+#      GetMonitorInfo, PAS winfo_screenwidth/height qui ne renvoie QUE le
+#      moniteur primaire sous Tk) : meme si le calcul de centrage derive
+#      encore un peu, la popup ne peut plus finir sur un autre ecran.
+#
+# v51 (master) — 2026-08-19 — safe-modify — Fix popup fin de copie SD
+#      (_on_mode6_flash_done, "Explorer SD/Explorer temp/Fermer") signalee
+#      hors de la fenetre de l'outil par un utilisateur. Cause :
+#      _center_toplevel(dlg) etait appelee juste apres la creation du
+#      Toplevel, AVANT le pack() du Label et des 3 boutons -- le calcul se
+#      basait donc sur winfo_reqwidth()/reqheight() d'une fenetre encore
+#      vide (~1x1) au lieu de sa taille reelle une fois remplie, plaçant
+#      le coin superieur-gauche au centre de la fenetre principale et
+#      laissant le reste du dialogue deborder hors champ. Fix : deplace
+#      l'appel apres le pack() de tous les widgets (meme ordre que les
+#      autres popups du fichier, ex: _on_mode6_flash_error()). Meme
+#      bug/meme fix trouve en auditant les 16 appels a _center_toplevel()
+#      du fichier dans la popup de fermeture liee au nettoyage du dossier
+#      temporaire SD (fin de _on_quit_app_clicked, titre
+#      "quit_app_warning_title").
+#
+# v50 — 2026-08-15 — safe-modify — Nouveau dialogue _prompt_systems_image_lang_dialog()
+#      (choix EN/FR/ES des images systemes/genres _defaults, avec miniature
+#      comparative bundlee tools/assets/lang_preview/compare_systems_lang.png)
+#      pose en Mode 1 (_on_start_clicked, avec les autres pre-vol) ET en
+#      Mode 2 onglet Avance (telechargement _defaults seul). Choix persiste
+#      (prefs "systems_image_lang", pre-selectionne au dialogue suivant) et
+#      transmis a toolkit.download_defaults(..., lang=...) dans
+#      _pipeline_mode_1()/_pipeline_mode_2(). Voir RecalBoxDMD_tool.py v36 et
+#      RecalBoxDMD_prefs.py v9. Absent de dev-core-reassignment jusqu'a la
+#      fusion v57 (2026-09-06) -- cette branche avait diverge avant l'ajout
+#      de cette fonctionnalite sur master.
 #
 # v49 — 2026-08-13 — safe-modify — Texte long du panneau Mode 9 (FR/EN/ES)
 #      mis a jour pour citer les 6 scripts installes (ajout de Reboot DMD,
@@ -1297,6 +1381,16 @@ UI_TRANSLATIONS = {
         ),
         "gifpack_q_yes": "Oui",
         "gifpack_q_no": "Non",
+        "lang_images_title": "Langue des images système",
+        "lang_images_msg": (
+            "Dans quelle langue veux-tu les images système/genres "
+            "(_defaults/) ? Les genres pas encore traduits dans la langue "
+            "choisie restent affichés en anglais.\n\n"
+            "Aperçu (exemple ci-dessous) :"
+        ),
+        "lang_images_en": "🇬🇧 Anglais (EN)",
+        "lang_images_fr": "🇫🇷 Français (FR)",
+        "lang_images_es": "🇪🇸 Espagnol (ES)",
         "customgifs_q_title": "GIFs personnalisés",
         "customgifs_q_msg": (
             "Voulez-vous ajouter vos propres GIFs (onglet Playlist) avant "
@@ -1730,6 +1824,16 @@ UI_TRANSLATIONS = {
         ),
         "gifpack_q_yes": "Yes",
         "gifpack_q_no": "No",
+        "lang_images_title": "System images language",
+        "lang_images_msg": (
+            "Which language do you want the system/genre images "
+            "(_defaults/) in? Genres not yet translated into the chosen "
+            "language stay displayed in English.\n\n"
+            "Preview (example below):"
+        ),
+        "lang_images_en": "🇬🇧 English (EN)",
+        "lang_images_fr": "🇫🇷 French (FR)",
+        "lang_images_es": "🇪🇸 Spanish (ES)",
         "customgifs_q_title": "Custom GIFs",
         "customgifs_q_msg": (
             "Do you want to add your own GIFs (Playlist tab) before "
@@ -2166,6 +2270,16 @@ UI_TRANSLATIONS = {
         ),
         "gifpack_q_yes": "Sí",
         "gifpack_q_no": "No",
+        "lang_images_title": "Idioma de las imágenes de sistemas",
+        "lang_images_msg": (
+            "¿En qué idioma quieres las imágenes de sistemas/géneros "
+            "(_defaults/)? Los géneros aún no traducidos al idioma elegido "
+            "se muestran en inglés.\n\n"
+            "Vista previa (ejemplo abajo):"
+        ),
+        "lang_images_en": "🇬🇧 Inglés (EN)",
+        "lang_images_fr": "🇫🇷 Francés (FR)",
+        "lang_images_es": "🇪🇸 Español (ES)",
         "customgifs_q_title": "GIFs personalizados",
         "customgifs_q_msg": (
             "¿Quieres añadir tus propios GIFs (pestaña Playlist) antes de "
@@ -2338,16 +2452,15 @@ class RetroBoxLEDGui:
         # Dossier final choisi par l'utilisateur (copie depuis sd_dir/tems de travail).
         self._final_output_dir: Optional[Path] = None
 
-        # v52, safe-modify (chantier "bucket", porte depuis master) :
-        # declaration DPI-awareness AVANT la moindre fenetre (doit preceder
-        # tk.Tk() pour avoir un effet). Sans elle, Windows virtualise le DPI
-        # d'une appli non declaree "consciente", ce qui peut fausser les
-        # coordonnees que Tk rapporte ensuite (winfo_x/y, geometry()) selon
-        # le moniteur de demarrage -- cause connue de popups Tk mal
-        # repositionnes sur un setup multi-ecrans. PROCESS_SYSTEM_DPI_AWARE
-        # (1) en priorite, repli sur l'ancienne API (Vista+, moins precise
-        # mais suffisante ici) si Shcore indisponible (Windows 7 sans mise a
-        # jour de plateforme).
+        # v52 (master), safe-modify : declaration DPI-awareness AVANT la
+        # moindre fenetre (doit precéder tk.Tk() pour avoir un effet). Sans
+        # elle, Windows virtualise le DPI d'une appli non declaree
+        # "consciente", ce qui peut fausser les coordonnees que Tk rapporte
+        # ensuite (winfo_x/y, geometry()) selon le moniteur de demarrage --
+        # cause connue de popups Tk mal repositionnes sur un setup
+        # multi-ecrans. PROCESS_SYSTEM_DPI_AWARE (1) en priorite, repli sur
+        # l'ancienne API (Vista+, moins precise mais suffisante ici) si
+        # Shcore indisponible (Windows 7 sans mise a jour de plateforme).
         if sys.platform == "win32":
             try:
                 import ctypes
@@ -2442,7 +2555,7 @@ class RetroBoxLEDGui:
         # meme session (l'utilisateur ne doit pas la re-cocher a chaque fois
         # s'il annule puis rouvre la popup).
         self._quit_keep_temp_dir = False
-        # v53, safe-modify -- vrai des que la fermeture reelle de l'appli
+        # v57, safe-modify -- vrai des que la fermeture reelle de l'appli
         # est engagee (juste avant chaque root.destroy()). Les threads
         # d'arriere-plan non suivis par _is_processing() (sonde reseau
         # Mode 9, ex.) doivent le consulter avant tout self.root.after(...),
@@ -2633,15 +2746,18 @@ class RetroBoxLEDGui:
         # l'onglet Main est plutot resserre pour tenir dans 750px (voir
         # _build_mode6_panel : listbox lecteurs reduite, paddings reduits).
         self.root.minsize(1100, 750)
-        # v53, safe-modify (chantier "bucket", porte depuis master) :
-        # fenetre principale explicitement CENTREE sur l'ecran primaire au
-        # lancement -- root n'avait jusqu'ici JAMAIS de position explicite
-        # (geometry() ne donnait que WxH), donc Tk la placait selon son
-        # propre defaut (~130,130 sur la machine de test, empiriquement pres
-        # du coin haut-gauche de l'ecran primaire, pas du tout centre). Tous
-        # les popups "correctement centres" par ailleurs (ex:
-        # _prompt_sd_card_dialog, _on_mode6_flash_done) heritent de cette
-        # meme position bancale puisqu'ils se centrent relativement a root.
+        # v53 (master), safe-modify : fenetre principale explicitement
+        # CENTREE sur l'ecran primaire au lancement -- root n'avait
+        # jusqu'ici JAMAIS de position explicite (geometry() ne donnait que
+        # WxH), donc Tk la placait selon son propre defaut (~130,130 sur
+        # cette machine, empiriquement pres du coin haut-gauche de l'ecran
+        # primaire, pas du tout centre). Tous les popups "correctement
+        # centres" par ailleurs (ex: _prompt_sd_card_dialog,
+        # _on_mode6_flash_done) heritent de cette meme position bancale
+        # puisqu'ils se centrent relativement a root -- bug signale par
+        # l'utilisateur ("fenetre SD card en haut a gauche du bureau")
+        # alors meme que root n'avait jamais ete deplacee manuellement :
+        # root elle-meme demarrait deja coincee dans le coin.
         # winfo_screenwidth/height (PAS MonitorFromWindow -- root n'a pas
         # encore d'HWND stable tant qu'elle n'a pas ete mappee/dessinee)
         # donnent les dimensions de l'ecran PRIMAIRE Windows, un point de
@@ -4894,7 +5010,7 @@ class RetroBoxLEDGui:
         self._detail_templates = {
             "fr": {
                 "1": "Le mode AUTO extrait les images à partir de vos gamelists, convertit les PNG en 128x32 (raw565) et les GIF en raw565pack/meta, construit le cache, télécharge les images par défaut et génère systems_cache.dat. Installe aussi les scripts Recalbox et transmet la langue au DMD, en tout début de pipeline.\n\nImportant : choisissez d'abord la « Version Recalbox » ci-dessous (10.x / 9.x / legacy) — elle détermine quelle balise du gamelist.xml est utilisée (logo/thumbnail/image). Cliquez « Comment scraper ? » pour savoir quoi cocher dans l'onglet Scraper de Recalbox.\n\nMarche à suivre :\n1. « Choisir dossier ROMs » (détection des systèmes automatique)\n2. Sélectionnez les systèmes à traiter\n3. « Démarrer »",
-                "2": "Le mode 2 télécharge uniquement les images situées dans “systems/_defaults” depuis GitHub. Il ne réalise aucune extraction ni conversion d’images.\n\nMarche à suivre :\n1. Cliquez directement sur « Démarrer ».\nAucun dossier ROMs ni sélection de systèmes n'est nécessaire (bouton désactivé).",
+                "2": "Le mode 2 télécharge uniquement les images situées dans “systems/_defaults” depuis GitHub. Il ne réalise aucune extraction ni conversion d’images.\n\nMarche à suivre :\n1. Cliquez directement sur « Démarrer ».\n2. Choisissez la langue des images système/genres (EN/FR/ES, avec aperçu comparatif) — les genres pas encore traduits dans la langue choisie restent en anglais.\n3. La galerie d'image de secours s'ouvre systématiquement — choisissez-en une, ou fermez sans choisir pour revenir au visuel par défaut du projet.\nAucun dossier ROMs ni sélection de systèmes n'est nécessaire (bouton désactivé).",
                 "3": "Le mode 3 récupère exclusivement les images présentes dans votre dossier ROMS, en se basant sur le fichier gamelist.xml.\n\nImportant : choisissez d'abord la « Version Recalbox » ci-dessous (10.x / 9.x / legacy) — elle détermine quelle balise du gamelist.xml est utilisée. Cliquez « Comment scraper ? » pour savoir quoi cocher dans l'onglet Scraper de Recalbox.\n\nMarche à suivre :\n1. « Choisir dossier ROMs »\n2. « Détection des systèmes (gamelist.xml) »\n3. Sélectionnez les systèmes à traiter\n4. « Démarrer »",
                 "4": "Le mode 4 convertit les images PNG en raw565 et les GIF en raw565pack accompagnés de méta-données. Cette conversion concerne uniquement les formats raw.\n\nMarche à suivre :\n1. « Choisir dossier IMAGES »\n2. « Sélection des dossiers images »\n3. Sélectionnez les dossiers à convertir\n4. « Démarrer » (un dossier de sortie vous sera demandé)",
                 "5": "Le mode 5 convertit les images PNG et raw565 pour les redimensionner en 128x32 pixels.\n\nMarche à suivre :\n1. « Choisir dossier IMAGES »\n2. « Sélection des dossiers images »\n3. Sélectionnez les dossiers à convertir\n4. « Démarrer » (un dossier de sortie vous sera demandé)",
@@ -4907,7 +5023,7 @@ class RetroBoxLEDGui:
             },
             "en": {
                 "1": "Auto Mode extracts images from your gamelists, converts PNG to 128x32 (raw565) and GIF to raw565pack/meta, builds the cache, downloads the default images and generates systems_cache.dat. Also installs the Recalbox scripts and sends the language to the DMD, right at the start of the pipeline.\n\nImportant: pick the \"Recalbox version\" below first (10.x / 9.x / legacy) — it determines which gamelist.xml tag is used (logo/thumbnail/image). Click \"How to scrape?\" to see exactly what to enable in Recalbox's Scraper tab.\n\nSteps:\n1. « Choose ROMs folder » (systems auto-detected)\n2. Select the systems to process\n3. « Start »",
-                "2": "Mode 2: downloads “systems/_defaults” from GitHub only (no extraction or conversion).\n\nSteps:\n1. Click « Start » directly.\nNo ROMs folder or system selection needed (button disabled).",
+                "2": "Mode 2: downloads “systems/_defaults” from GitHub only (no extraction or conversion).\n\nSteps:\n1. Click « Start » directly.\n2. Choose the system/genre images language (EN/FR/ES, with a comparison preview) — genres not yet translated into the chosen language stay in English.\n3. The fallback image gallery always opens — pick one, or close without choosing to revert to the project's default visual.\nNo ROMs folder or system selection needed (button disabled).",
                 "3": "Mode 3: pulls images only from your ROM folder via gamelist.xml.\n\nImportant: pick the \"Recalbox version\" below first (10.x / 9.x / legacy) — it determines which gamelist.xml tag is used. Click \"How to scrape?\" to see what to enable in Recalbox's Scraper tab.\n\nSteps:\n1. « Choose ROMs folder »\n2. « Detect systems (gamelist.xml) »\n3. Select the systems to process\n4. « Start »",
                 "4": "Mode 4: converts PNG → raw565 and GIF → raw565pack + meta (raw-only conversion).\n\nSteps:\n1. « Choose images folder »\n2. « Select image folders »\n3. Select the folders to convert\n4. « Start » (you'll be asked for an output folder)",
                 "5": "Mode 5: converts PNG and raw565 images to 128x32.\n\nSteps:\n1. « Choose images folder »\n2. « Select image folders »\n3. Select the folders to convert\n4. « Start » (you'll be asked for an output folder)",
@@ -4920,7 +5036,7 @@ class RetroBoxLEDGui:
             },
             "es": {
                 "1": "Modo 1 (AUTO): extrae imágenes desde tus gamelists, convierte PNG a 128x32 (raw565) y GIF a raw565pack/meta, crea la caché, descarga las imágenes por defecto y genera systems_cache.dat. También instala los scripts de Recalbox y transmite el idioma al DMD, al principio del proceso.\n\nImportante: elige primero la « Versión de Recalbox » abajo (10.x / 9.x / legacy) — determina la etiqueta del gamelist.xml usada (logo/thumbnail/image). Haz clic en « Cómo hacer el scrape? » para saber qué activar en la pestaña Scraper de Recalbox.\n\nPasos:\n1. « Elegir carpeta ROMs » (detección de sistemas automática)\n2. Seleccione los sistemas a procesar\n3. « Iniciar »",
-                "2": "Modo 2: descarga “systems/_defaults” desde GitHub solo (sin extracción ni conversión).\n\nPasos:\n1. Haga clic directamente en « Iniciar ».\nNo se necesita carpeta ROMs ni selección de sistemas (botón desactivado).",
+                "2": "Modo 2: descarga “systems/_defaults” desde GitHub solo (sin extracción ni conversión).\n\nPasos:\n1. Haga clic directamente en « Iniciar ».\n2. Elija el idioma de las imágenes de sistemas/géneros (EN/FR/ES, con vista previa comparativa) — los géneros aún no traducidos al idioma elegido se muestran en inglés.\n3. La galería de imagen de respaldo se abre siempre — elija una, o ciérrela sin elegir para volver al visual predeterminado del proyecto.\nNo se necesita carpeta ROMs ni selección de sistemas (botón desactivado).",
                 "3": "Modo 3: extrae solo imágenes desde tu carpeta ROMs vía gamelist.xml.\n\nImportante: elige primero la « Versión de Recalbox » abajo (10.x / 9.x / legacy) — determina la etiqueta del gamelist.xml usada. Haz clic en « Cómo hacer el scrape? » para saber qué activar en la pestaña Scraper de Recalbox.\n\nPasos:\n1. « Elegir carpeta ROMs »\n2. « Detectar sistemas (gamelist.xml) »\n3. Seleccione los sistemas a procesar\n4. « Iniciar »",
                 "4": "Modo 4: convierte PNG → raw565 y GIF → raw565pack + meta (conversión “raw-only”).\n\nPasos:\n1. « Elegir carpeta de imágenes »\n2. « Selección de carpetas de imágenes »\n3. Seleccione las carpetas a convertir\n4. « Iniciar » (se le pedirá una carpeta de salida)",
                 "5": "Modo 5: convierte las imágenes PNG y raw565 a 128x32.\n\nPasos:\n1. « Elegir carpeta de imágenes »\n2. « Selección de carpetas de imágenes »\n3. Seleccione las carpetas a convertir\n4. « Iniciar » (se le pedirá una carpeta de salida)",
@@ -5629,7 +5745,7 @@ class RetroBoxLEDGui:
         # Detection auto en arriere-plan : Path(UNC).exists() peut prendre
         # plusieurs secondes si le nom ne resout pas -- jamais appele sur le
         # thread principal (ni a la construction du GUI, ni au clic radio).
-        # v53, safe-modify -- appel differe via after(0) plutot qu'immediat :
+        # v57, safe-modify -- appel differe via after(0) plutot qu'immediat :
         # ce point du __init__ (construction du panneau Mode 9) s'execute
         # BIEN AVANT root.mainloop() (tout en fin de fichier, run()), et la
         # construction du reste du GUI qui suit peut prendre plus d'1s. Si
@@ -7564,6 +7680,75 @@ class RetroBoxLEDGui:
         self.root.wait_window(dlg)
         return result["value"]
 
+    def _prompt_systems_image_lang_dialog(self) -> str:
+        """Popup themee : choix de la langue des images systemes/genres
+        (_defaults/) telechargees depuis GitHub -- "en"/"fr"/"es". Affiche
+        une miniature comparative bundlee (tools/assets/lang_preview/) a
+        titre d'exemple. Pre-selectionne le dernier choix sauvegarde
+        (prefs "systems_image_lang") ; le choix fait ici est aussitot
+        persiste, quel que soit le bouton clique. Fermer le dialogue (X)
+        conserve le dernier choix sans le changer."""
+        ui = self._get_ui_t()
+        c = self._theme_colors()
+        bg = c.get("bg_main", "#F3F3F3")
+        fg = c.get("fg_text", "#000000")
+        bg_action = c.get("bg_button_action", "#FFD400")
+        bg_normal = c.get("bg_button_normal", "#FFFFFF")
+        current = prefs.get("systems_image_lang") or "en"
+        result = {"value": current}
+
+        dlg = tk.Toplevel(self.root)
+        dlg.title(ui["lang_images_title"])
+        dlg.configure(bg=bg)
+        dlg.transient(self.root)
+        dlg.resizable(False, False)
+        body = tk.Frame(dlg, bg=bg, padx=16, pady=16)
+        body.pack(fill="both", expand=True)
+        tk.Label(
+            body, text=ui["lang_images_msg"], bg=bg, fg=fg,
+            font=("TkDefaultFont", 9), wraplength=460, justify="left",
+        ).pack(anchor="w", pady=(0, 10))
+
+        img_path = Path(__file__).resolve().parent / "assets" / "lang_preview" / "compare_systems_lang.png"
+        if img_path.exists():
+            try:
+                from PIL import Image, ImageTk
+
+                img = Image.open(img_path)
+                max_w = 460
+                if img.width > max_w:
+                    ratio = max_w / img.width
+                    img = img.resize((max_w, int(img.height * ratio)))
+                photo = ImageTk.PhotoImage(img)
+                lbl_img = tk.Label(body, image=photo, bg=bg, bd=2, relief="solid")
+                lbl_img.image = photo  # garder une reference (evite le garbage collect)
+                lbl_img.pack(pady=(0, 12))
+            except Exception:
+                pass
+
+        btns = tk.Frame(body, bg=bg)
+        btns.pack(fill="x")
+
+        def _pick(value: str):
+            result["value"] = value
+            prefs.set("systems_image_lang", value)
+            dlg.destroy()
+
+        for value, key in (("en", "lang_images_en"), ("fr", "lang_images_fr"), ("es", "lang_images_es")):
+            is_current = value == current
+            tk.Button(
+                btns, text=ui[key], command=lambda v=value: _pick(v),
+                bg=bg_action if is_current else bg_normal, fg="#000000" if is_current else fg,
+                bd=2, relief="solid", padx=10, pady=6, font=("TkDefaultFont", 10, "bold"),
+            ).pack(side="left", expand=True, fill="x", padx=2)
+
+        dlg.protocol("WM_DELETE_WINDOW", dlg.destroy)
+        dlg.update_idletasks()
+        self._center_toplevel(dlg)
+        dlg.grab_set()
+        self.root.wait_window(dlg)
+        return result["value"]
+
     def _prompt_recalbox_ip_dialog(self, default: str = "") -> Optional[str]:
         """Popup themee avec un champ de saisie pour l'IP/nom reseau de la
         Recalbox (remplace un simpledialog.askstring natif, non theme et
@@ -7755,6 +7940,7 @@ class RetroBoxLEDGui:
             is_unc = False
 
             if mode == "2":
+                ui2 = self._get_ui_t()
                 # Si des fichiers existent deja dans _defaults/, proposer
                 # d'ecraser (recuperer les dernieres versions) ou de conserver
                 # les fichiers actuels. Choix lu sur le thread principal (avant
@@ -7765,13 +7951,33 @@ class RetroBoxLEDGui:
                 self._mode2_overwrite_existing = True
                 defaults_dir = self.sd_dir / "systems" / "_defaults"
                 if defaults_dir.exists() and any(defaults_dir.iterdir()):
-                    ui2 = self._get_ui_t()
                     # Popup themee (2026-08-11) -- messagebox.askyesno() est
                     # un rendu Windows natif fixe, ne suit pas le theme
                     # clair/sombre actif.
                     self._mode2_overwrite_existing = self._themed_yesno(
                         ui2["mode2_overwrite_title"], ui2["mode2_overwrite_msg"]
                     )
+
+                # Image de secours personnalisee (default.raw565) -- ajoutee
+                # ici car le Mode 2 telecharge aussi _defaults/
+                # (download_defaults() re-ecrase default.raw565 a chaque
+                # fois, voir sa docstring) et n'offrait jusqu'ici aucun
+                # moyen de la definir sans passer par le Mode 1 complet.
+                # Contrairement au Mode 1 (question oui/non, une seule fois
+                # tant qu'aucun choix n'est enregistre), la galerie est
+                # proposee SYSTEMATIQUEMENT ici, a chaque lancement du Mode
+                # 2 -- demande explicite utilisateur. Fermer sans choisir
+                # (bouton Fermer ou X) retombe alors sur le visuel par
+                # defaut du projet (reset_on_close=True) plutot que de
+                # laisser silencieusement un ancien choix personnalise en
+                # place.
+                self._on_default_image_picker_clicked(reset_on_close=True)
+
+                # Langue des images systemes/genres telechargees (voir
+                # toolkit.download_defaults(lang=...)) -- posee que le
+                # telechargement soit un premier remplissage ou une mise a
+                # jour, dans les deux cas download_defaults() est appele.
+                self._systems_image_lang = self._prompt_systems_image_lang_dialog()
         else:
             # Verifie/alerte sur le dossier ROMs AVANT tout prompt Mode 1
             # (RB/image de secours, ci-dessous) : si aucun dossier n'est
@@ -7981,6 +8187,11 @@ class RetroBoxLEDGui:
                     ui_pre["mode1_fallback_image_title"], ui_pre["mode1_fallback_image_msg"]
                 ):
                     self._on_default_image_picker_clicked()
+
+            # Langue des images systemes/genres telechargees depuis GitHub
+            # (voir toolkit.download_defaults(lang=...)) -- meme question
+            # qu'en Mode 2 (onglet Avance), posee ici pour le Mode 1 auto.
+            self._systems_image_lang = self._prompt_systems_image_lang_dialog()
 
             # Banque de GIFs (pack GitHub + GIFs perso via l'onglet
             # Playlist) : question posee ICI (thread principal, avant
@@ -8327,6 +8538,7 @@ class RetroBoxLEDGui:
             listen_keyboard=False,
             replace_existing=True,
             download_missing=True,
+            lang=getattr(self, "_systems_image_lang", None) or prefs.get("systems_image_lang") or "en",
         )
         self._apply_custom_default_fallback(sd_dir)
 
@@ -8455,6 +8667,7 @@ class RetroBoxLEDGui:
             replace_existing=True,
             download_missing=True,
             overwrite_existing_files=getattr(self, "_mode2_overwrite_existing", True),
+            lang=getattr(self, "_systems_image_lang", None) or prefs.get("systems_image_lang") or "en",
         )
         self._apply_custom_default_fallback(sd_dir)
 
@@ -8790,7 +9003,7 @@ class RetroBoxLEDGui:
             return True
         if self._mode6_flash_thread and self._mode6_flash_thread.is_alive():
             return True
-        # v53, safe-modify -- l'installation Mode 9 ecrit reellement sur le
+        # v57, safe-modify -- l'installation Mode 9 ecrit reellement sur le
         # partage SMB de l'utilisateur, au meme titre que le pipeline
         # principal/le flash SD : fermer l'appli en plein milieu ne doit
         # pas l'abandonner dans un thread orphelin (voir entete de fichier).
@@ -9253,7 +9466,7 @@ class RetroBoxLEDGui:
                 host = self.tkmod.detect_recalbox_share()
             except Exception:
                 host = None
-            # v53, safe-modify -- ce thread n'est pas suivi par
+            # v57, safe-modify -- ce thread n'est pas suivi par
             # _is_processing() (sonde reseau, pas un vrai traitement) : si
             # l'appli s'est fermee entre-temps (root deja detruite, thread
             # principal sorti de mainloop()), self.root.after() plante en
@@ -9330,7 +9543,7 @@ class RetroBoxLEDGui:
         finally:
             sys.stdout = old_stdout
             sys.stderr = old_stderr
-        # v53, safe-modify -- meme garde que _start_mode9_autodetect() :
+        # v57, safe-modify -- meme garde que _start_mode9_autodetect() :
         # self._mode9_thread est desormais suivi par _is_processing() (donc
         # attendu par _wait_for_threads_then_exit() dans le cas normal),
         # mais ce filet couvre la fermeture directe (aucun traitement vu au
@@ -9516,7 +9729,16 @@ class RetroBoxLEDGui:
         except Exception as e:
             print(f"[GUI] Echec application image de secours : {e}")
 
-    def _on_default_image_picker_clicked(self) -> None:
+    def _on_default_image_picker_clicked(self, reset_on_close: bool = False) -> None:
+        """reset_on_close : si True, fermer le dialogue SANS choisir
+        explicitement une tuile (bouton Fermer ou X de la fenetre) applique
+        quand meme le "visuel par defaut du projet" (equivalent a cliquer la
+        tuile de reset) au lieu de ne rien faire. Utilise par le Mode 2
+        (galerie proposee systematiquement a chaque lancement -- fermer sans
+        choisir doit alors retomber sur un etat connu/par defaut plutot que
+        de laisser silencieusement l'ancien choix personnalise en place).
+        False (comportement d'origine, inchange) pour l'usage bouton normal
+        (onglet Avance, Mode 10) : fermer sans choisir ne change rien."""
         ui = self._get_ui_t()
         c = self._theme_colors()
         bg = c.get("bg_main", "#F3F3F3")
@@ -9582,18 +9804,14 @@ class RetroBoxLEDGui:
 
             dlg.destroy()
             if not applied_now:
+                # Garde uniquement la popup d'ERREUR (information utile,
+                # echec silencieux serait trompeur) -- les confirmations de
+                # succes (reset/choix applique) ont ete retirees a la
+                # demande utilisateur : le choix est deja visible/applique
+                # immediatement, une popup supplementaire etait de trop.
                 messagebox.showerror(
                     ui["default_image_btn"],
                     ui["default_image_apply_failed_msg"].format(name=display_name),
-                )
-            elif is_reset:
-                messagebox.showinfo(
-                    ui["default_image_btn"], ui["default_image_reset_applied_msg"]
-                )
-            else:
-                messagebox.showinfo(
-                    ui["default_image_btn"],
-                    ui["default_image_applied_now_msg"].format(name=display_name),
                 )
 
         PROJECT_DEFAULT_IMAGE_FILENAME = self.PROJECT_DEFAULT_IMAGE_FILENAME
@@ -9728,10 +9946,16 @@ class RetroBoxLEDGui:
             font=("TkDefaultFont", 10, "bold"),
         ).pack(fill="x", pady=(12, 6))
 
+        def _on_close():
+            if reset_on_close:
+                _apply_choice(None, "", is_reset=True)
+            else:
+                dlg.destroy()
+
         tk.Button(
             body,
             text=ui["btn_close"],
-            command=dlg.destroy,
+            command=_on_close,
             bg=bg_normal,
             fg=fg,
             bd=2,
@@ -9741,6 +9965,7 @@ class RetroBoxLEDGui:
             font=("TkDefaultFont", 10, "bold"),
         ).pack(fill="x")
 
+        dlg.protocol("WM_DELETE_WINDOW", _on_close)
         dlg.update_idletasks()
         self._center_toplevel(dlg)
         dlg.grab_set()
@@ -9890,11 +10115,14 @@ class RetroBoxLEDGui:
     def _center_toplevel(self, win: tk.Toplevel) -> None:
         # Centre la popup au milieu de la fenêtre principale
 
-        # v54, safe-modify (chantier "bucket", porte depuis master) : garde
-        # la lecon de la chasse au bug "popup SD card hors fenetre" -- ancien
-        # "except Exception: pass" masquait silencieusement toute erreur ici
-        # sans aucune trace exploitable ; une eventuelle exception reste
-        # desormais loguee.
+        # v54 (master), safe-modify : les prints de diagnostic "[DEBUG
+        # centerToplevel]" (ajoutes pour chasser le bug "popup SD card hors
+        # fenetre", resolu par le fix root-centree v53 (master)) sont retires
+        # du chemin normal une fois le fix confirme par l'utilisateur -- pas
+        # de bruit dans l'onglet Logs des utilisateurs finaux. On garde
+        # neanmoins la lecon : l'ancien "except Exception: pass" masquait
+        # silencieusement toute erreur ici sans aucune trace exploitable ;
+        # une eventuelle exception reste desormais loguee.
         try:
             root_x = self.root.winfo_x()
             root_y = self.root.winfo_y()
@@ -9911,17 +10139,18 @@ class RetroBoxLEDGui:
 
     def _clamp_to_root_monitor(self, x: int, y: int, w: int, h: int) -> tuple[int, int]:
         """
-        v52, safe-modify (chantier "bucket", porte depuis master) : confine
-        (x, y) a l'interieur du moniteur Windows REEL qui contient root
-        (MonitorFromWindow + GetMonitorInfo), pas winfo_screenwidth()/
-        winfo_screenheight() qui ne renvoie QUE les dimensions du moniteur
-        PRIMAIRE sous Tk -- source du bug "popup fin de copie SD hors
-        fenetre / coin haut-gauche de l'ecran" sur un setup multi-ecrans
-        (moniteur secondaire hors de l'etendue du moniteur primaire, ex:
-        portrait). Meme si le calcul de centrage dans _center_toplevel()
-        derive encore un peu (DPI virtualise, arrondi...), la popup ne peut
-        plus finir sur un autre ecran que celui de l'outil. No-op (retourne
-        x, y tels quels) hors Windows ou en cas d'echec de l'appel API.
+        v52 (master), safe-modify : confine (x, y) a l'interieur du
+        moniteur Windows REEL qui contient root (MonitorFromWindow +
+        GetMonitorInfo), pas winfo_screenwidth()/winfo_screenheight() qui
+        ne renvoie QUE les dimensions du moniteur PRIMAIRE sous Tk --
+        source du bug "popup fin de copie SD hors fenetre / coin
+        haut-gauche de l'ecran" signale par l'utilisateur sur un setup
+        multi-ecrans (moniteur secondaire hors de l'etendue du moniteur
+        primaire, ex: portrait). Meme si le calcul de centrage dans
+        _center_toplevel() derive encore un peu (DPI virtualise,
+        arrondi...), la popup ne peut plus finir sur un autre ecran que
+        celui de l'outil. No-op (retourne x, y tels quels) hors Windows ou
+        en cas d'echec de l'appel API.
         """
         if sys.platform != "win32":
             return x, y
@@ -10580,16 +10809,16 @@ class RetroBoxLEDGui:
         )
         btn_close.pack(fill="x", pady=2)
 
-        # v51, safe-modify (chantier "bucket", porte depuis master) : BUG
-        # REEL corrige (retour utilisateur : "la fenetre de copie SD est
-        # vide") -- _center_toplevel(dlg) etait appelee juste apres la
-        # creation du Toplevel, AVANT le pack() du Label et des 3 boutons --
-        # le calcul se basait donc sur winfo_reqwidth()/reqheight() d'une
-        # fenetre encore vide (~1x1) au lieu de sa taille reelle une fois
-        # remplie, placant le coin superieur-gauche au centre de la fenetre
-        # principale et laissant le reste du dialogue deborder hors champ
-        # (percu comme une fenetre "vide"). Fix : appel deplace ICI, apres
-        # le pack() de tous les widgets.
+        # v51 (master), safe-modify : BUG REEL corrige (retour utilisateur :
+        # "la fenetre de copie SD est vide") -- _center_toplevel(dlg) etait
+        # appelee juste apres la creation du Toplevel, AVANT le pack() du
+        # Label et des 3 boutons -- le calcul se basait donc sur
+        # winfo_reqwidth()/reqheight() d'une fenetre encore vide (~1x1) au
+        # lieu de sa taille reelle une fois remplie, placant le coin
+        # superieur-gauche au centre de la fenetre principale et laissant
+        # le reste du dialogue deborder hors champ (percu comme une
+        # fenetre "vide"). Fix : appel deplace ICI, apres le pack() de tous
+        # les widgets.
         self._center_toplevel(dlg)
 
     def _on_quit_app_clicked(self) -> None:
@@ -10867,10 +11096,9 @@ class RetroBoxLEDGui:
         )
         ok_btn.grid(row=0, column=1, padx=6)
 
-        # v51, safe-modify (chantier "bucket", porte depuis master) : meme
-        # bug/meme fix que _on_mode6_flash_done() (voir son commentaire
-        # complet) -- appel deplace apres le pack()/grid() de tous les
-        # widgets, plus avant.
+        # v51 (master), safe-modify : meme bug/meme fix que
+        # _on_mode6_flash_done() (voir son commentaire complet) -- appel
+        # deplace apres le pack()/grid() de tous les widgets, plus avant.
         self._center_toplevel(dlg)
 
     def _wait_for_threads_then_exit(self) -> None:
