@@ -2,7 +2,39 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v59
+# Version actuelle : v61
+#
+# v61 — 2026-09-06 — safe-modify — Retour utilisateur (test Mode 1 en
+#      direct) : le prompt "Voulez-vous choisir une image de secours
+#      personnalisee ?" (pre-vol Mode 1) ne se posait plus une fois une
+#      preference "default_fallback_image" deja enregistree (condition
+#      "if not prefs.get(...)", en place depuis le v27) -- silencieux a
+#      chaque Mode 1 suivant des qu'un choix avait ete fait une fois.
+#      Change de comportement demande explicitement : pose desormais la
+#      question a CHAQUE lancement de Mode 1, sans condition. Repondre
+#      "Non" ne touche a rien (garde la preference/le visuel deja en
+#      place, comme avant). Le bouton dedie du Mode 10 (Avance) reste
+#      inchange, cette modification ne concerne que le pre-vol Mode 1.
+#
+# v60 — 2026-09-06 — safe-modify — Retour utilisateur (test Mode 1 en
+#      direct, chantier fusion master->dev) : apres avoir repondu "Oui" a
+#      la question "Voulez-vous ajouter vos propres GIFs" (pre-vol Mode
+#      1, _enter_playlist_temp_mode()), le bouton "Quitter" (et le X de
+#      la fenetre) quittait purement et simplement l'application (avec le
+#      popup de nettoyage destructif du dossier temporaire) au lieu de
+#      simplement reprendre le Mode 1 sans avoir ajoute de GIF -- alors
+#      que ce comportement de reprise existait deja via le bouton
+#      "Continuer" (_continue_mode1_from_temp_playlist()). Le comportement
+#      normal de "Quitter" AVANT ce fix etait deliberement conserve tel
+#      quel en mode temporaire (voir commentaire dans
+#      _enter_playlist_temp_mode(), decision utilisateur anterieure :
+#      "Annuler l'ajout" retire car rien n'est copie avant "Copier la
+#      selection") -- ce fix inverse specifiquement ce point pour le
+#      bouton Quitter/X, sans toucher au reste. _on_quit_app_clicked()
+#      redirige desormais vers _continue_mode1_from_temp_playlist() si
+#      self._playlist_temp_mode est actif, sinon comportement inchange
+#      (quitte reellement l'application, hors Mode 1 ou en utilisation
+#      normale de l'onglet Playlist).
 #
 # v59 — 2026-09-06 — safe-modify — 2 bugs remontes par l'utilisateur lors
 #      du test reel juste apres la fusion v58 (aucun des deux cause par la
@@ -8208,11 +8240,19 @@ class RetroBoxLEDGui:
                         break
                     # sinon : reboucle et redemande une IP
 
-            if not prefs.get("default_fallback_image"):
-                if self._themed_yesno(
-                    ui_pre["mode1_fallback_image_title"], ui_pre["mode1_fallback_image_msg"]
-                ):
-                    self._on_default_image_picker_clicked()
+            # v61, safe-modify -- retour utilisateur : ce prompt ne se
+            # posait plus une fois une image de secours personnalisee deja
+            # enregistree (condition "if not prefs.get(...)"), silencieux
+            # ensuite a chaque Mode 1 suivant. Demande desormais a CHAQUE
+            # lancement de Mode 1, sans condition -- l'utilisateur peut
+            # ainsi reconsiderer/changer son choix a tout moment plutot
+            # que de devoir passer par le Mode 10 dedie pour le modifier.
+            # Repondre "Non" ne touche a rien (garde la preference/le
+            # visuel deja en place, exactement comme avant ce fix).
+            if self._themed_yesno(
+                ui_pre["mode1_fallback_image_title"], ui_pre["mode1_fallback_image_msg"]
+            ):
+                self._on_default_image_picker_clicked()
 
             # Langue des images systemes/genres telechargees depuis GitHub
             # (voir toolkit.download_defaults(lang=...)) -- meme question
@@ -10848,6 +10888,22 @@ class RetroBoxLEDGui:
         self._center_toplevel(dlg)
 
     def _on_quit_app_clicked(self) -> None:
+        # v60, safe-modify -- retour utilisateur (test Mode 1 en direct) :
+        # pendant le mode temporaire de l'onglet Playlist (ajout de GIFs
+        # perso propose par le pre-vol du Mode 1, voir
+        # _enter_playlist_temp_mode()), le bouton "Quitter" (et le X de la
+        # fenetre, qui delegue ici via _on_close_attempt) ne doit PLUS
+        # quitter l'application ni proposer le nettoyage destructif du
+        # dossier temporaire -- il doit reprendre le Mode 1 SANS avoir
+        # ajoute de GIF, exactement comme le bouton "Continuer"
+        # (_continue_mode1_from_temp_playlist()). Hors de ce mode
+        # temporaire (utilisation normale de l'onglet Playlist, ou tout
+        # autre moment de l'appli), comportement inchange -- quitte
+        # reellement l'application, comme avant ce fix.
+        if getattr(self, "_playlist_temp_mode", False):
+            self._continue_mode1_from_temp_playlist()
+            return
+
         ui = self._get_ui_t()
         # Remplace messagebox.askokcancel par une popup custom avec bouton "Explorer"
         result_holder: dict[str, bool] = {"ok": False}
