@@ -5,6 +5,13 @@
 *.hex
 *.o
 
+# Exception : binaries/ contient les images firmware pre-compilees que le
+# Web Installer (docs/manifest.json, ESP Web Tools) va chercher directement
+# sur raw.githubusercontent.com -- doivent rester versionnees malgre la
+# regle *.bin ci-dessus (jamais commitees jusqu'ici, lien du Web Installer
+# mort tant que ce n'est pas corrige -- voir README, section Firmware).
+!binaries/*.bin
+
 # Archive Files
 *.rar
 *.zip

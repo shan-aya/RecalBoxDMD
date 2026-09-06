@@ -1,0 +1,16 @@
+{
+  "name": "RecalBoxDMD — Raw565 Edition",
+  "version": "1.0.0",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32",
+      "parts": [
+        {
+          "path": "https://raw.githubusercontent.com/shan-aya/RecalBoxDMD/main/binaries/RecalBox_DMD.ino.merged.bin",
+          "offset": 0
+        }
+      ]
+    }
+  ]
+}
