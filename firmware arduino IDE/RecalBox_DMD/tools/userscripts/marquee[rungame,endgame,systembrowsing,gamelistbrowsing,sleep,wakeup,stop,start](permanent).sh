@@ -60,7 +60,17 @@ renice -n -10 -p $$ >/dev/null 2>&1
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v48
+# Version actuelle : v49
+#
+# v49 - 2026-09-08 - safe-modify - REVERT BURST_THRESHOLD 10 -> 5 (retour
+#   utilisateur, meme soir : 2 episodes reels de DMD "fige" apres le
+#   passage a 10 -- CMD=game plus traites, meme apres RecalBox_DMD.ino
+#   v164 (borne la vidange UDP a 20/appel). Cause exacte non identifiee
+#   (loop()/[LOOPDIAG] continuent de tourner normalement dans les 2 cas --
+#   pas un hang classique). Priorite a la stabilite : revient au seuil
+#   eprouve depuis des mois (v15) plutot que de continuer a exposer de la
+#   navigation reelle a un bug non compris. Les fix firmware v163/v164
+#   restent en place (ameliorations valides independamment).
 #
 # v48 - 2026-09-08 - safe-modify - BURST_THRESHOLD 5 -> 10 (retour
 #   utilisateur direct : le fix v47 n'a "rien change" -- analyse du log
@@ -1293,12 +1303,17 @@ boot_sweep_seen_any=0
 # v48 -- 5 -> 10 (retour utilisateur, piste UDP : le shuffle se declenche
 # des une navigation rapide mais pas extreme -- "pas le turbo alpha" --
 # et reste affiche toute la duree du survol, pas juste un delai fixe).
-# Le flicker qui avait motive la descente a 5 (v14/v15) est desormais
-# couvert autrement : RecalBox_DMD.ino v163 vide tout le buffer UDP a
-# chaque loop() et ne garde que la DERNIERE position -- le DMD ne peut
-# plus rejouer une suite d'images perimees, meme sans throttle. Seuil
-# releve pour ne plus throttler qu'une navigation VRAIMENT extreme.
-BURST_THRESHOLD=10
+# Le flicker qui avait motive la descente a 5 (v14/v15) etait cense etre
+# couvert autrement (RecalBox_DMD.ino v163, vidange UDP) -- INSUFFISANT en
+# pratique.
+# v49 -- REVERT 10 -> 5 (retour utilisateur, meme soir) : le seuil a 10 a
+# expose 2 episodes reels de DMD "fige" (plus aucune commande UDP traitee,
+# meme apres v164 qui borne pourtant la vidange a 20 paquets/appel) --
+# cause exacte encore NON IDENTIFIEE (loop()/LOOPDIAG continuent de
+# tourner normalement dans les 2 cas, donc pas un hang classique). Priorite
+# a la stabilite : revient au seuil eprouve depuis des mois plutot que de
+# continuer a tester en conditions reelles sans comprendre la cause.
+BURST_THRESHOLD=5
 # v16 -- voir changelog v16 : nombre de secondes CONSECUTIVES a
 # >=BURST_THRESHOLD requises avant de declencher !SHUFFLE (au lieu
 # d'un declenchement instantane des la 1ere seconde qui depasse le seuil).
