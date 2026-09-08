@@ -60,7 +60,17 @@ renice -n -10 -p $$ >/dev/null 2>&1
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v47
+# Version actuelle : v48
+#
+# v48 - 2026-09-08 - safe-modify - BURST_THRESHOLD 5 -> 10 (retour
+#   utilisateur direct : le fix v47 n'a "rien change" -- analyse du log
+#   reel a montre que le shuffle reste affiche pendant TOUTE la duree du
+#   survol (pas un delai fixe reglable), des qu'une navigation "rapide
+#   mais pas extreme" depasse 5/s. Le flicker qui avait fait descendre ce
+#   seuil de 10 a 5 en v14/v15 (rejouer une suite d'images perimees) est
+#   desormais couvert par RecalBox_DMD.ino v163 (vidange UDP) -- seuil
+#   releve pour ne throttler qu'une navigation vraiment extreme. Voir le
+#   commentaire complet pres de la constante.
 #
 # v47 - 2026-09-08 - safe-modify - EARLY_STABLE_SECONDS 2 -> 1 (retour
 #   utilisateur : latence de sortie de rafale trop longue en navigation
@@ -1275,11 +1285,20 @@ boot_sweep_seen_any=0
 # mode rapide -- verifie que ca ne change rien a l'approche : chaque
 # position atteinte, meme par saut, publie un vrai evenement
 # gamelistbrowsing, seul le DEBIT de ces evenements compte pour ce
-# detecteur). Seuil remis a 10 (valeur de DEPART a ajuster sur test reel,
-# demande explicite "5 est trop bas teste en reel essaye 10 et on
-# modifiera" -- ni le 5 d'origine (juge trop bas cette fois) ni le 50
-# (equivalent a desactive), point de depart intermediaire pour tester.
-BURST_THRESHOLD=5
+# detecteur). Seuil remis a 10 a titre d'essai, puis redescendu par v14
+# (10->6) et v15 (6->5) suite a des retours reels defavorables sur le 10 --
+# a l'epoque, un flicker/flottement visuel cote DMD (rejouait plusieurs
+# positions perimees a la suite, voir tout l'historique v28-v31 de ce
+# fichier), PAS un souci de stabilite RB1.
+# v48 -- 5 -> 10 (retour utilisateur, piste UDP : le shuffle se declenche
+# des une navigation rapide mais pas extreme -- "pas le turbo alpha" --
+# et reste affiche toute la duree du survol, pas juste un delai fixe).
+# Le flicker qui avait motive la descente a 5 (v14/v15) est desormais
+# couvert autrement : RecalBox_DMD.ino v163 vide tout le buffer UDP a
+# chaque loop() et ne garde que la DERNIERE position -- le DMD ne peut
+# plus rejouer une suite d'images perimees, meme sans throttle. Seuil
+# releve pour ne plus throttler qu'une navigation VRAIMENT extreme.
+BURST_THRESHOLD=10
 # v16 -- voir changelog v16 : nombre de secondes CONSECUTIVES a
 # >=BURST_THRESHOLD requises avant de declencher !SHUFFLE (au lieu
 # d'un declenchement instantane des la 1ere seconde qui depasse le seuil).
