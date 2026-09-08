@@ -1,7 +1,38 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v167
+// Version actuelle : v169
+//
+// v169 - 2026-09-08 - safe-modify - VRAIE CAUSE trouvee (pas juste une
+//   mitigation) des 5 blocages UDP de ce soir, par lecture du CODE SOURCE
+//   de la librairie NetworkUDP (core ESP32-Arduino, NetworkUdp.cpp) :
+//   parsePacket() renvoie 0 DEFINITIVEMENT tant qu'un rx_buffer interne
+//   precedent n'a pas ete ENTIEREMENT lu -- et read(buffer,len) ne le
+//   libere que si tout a ete consomme. L'ancien buffer de 256 octets
+//   (v1, dimensionne sur le score MQTT "multi-rangs" ~90 octets) laissait
+//   un reste non lu pour tout payload UDP de plus de 255 octets -- les
+//   panneaux description/info de dmd_score.sh peuvent faire jusqu'a ~700
+//   octets (meme raison que mqttClient.setBufferSize(1024), v79). Un seul
+//   payload trop long bloquait le socket UDP EN PERMANENCE, pas une
+//   histoire de charge/rafale comme suppose a tort dans les changelogs
+//   precedents (v163-v168). Fix : buffer porte a 1024 (buf et scratch
+//   dans handleUdpCommand()) + boucle defensive apres chaque read() qui
+//   vide tout reste malgre tout (garde-fou supplementaire, cout nul dans
+//   le cas normal). La mitigation v168 (re-arm socket toutes les 30s)
+//   reste en place en filet de securite complementaire. PAS ENCORE TESTE
+//   SUR MATERIEL.
+//
+// v168 - 2026-09-08 - safe-modify - MITIGATION (pas un vrai fix, cause
+//   exacte non confirmee) pour le blocage UDP intermittent constate en
+//   usage reel ce soir (5 episodes) : l'instrumentation v166/v167
+//   ([LOOPDIAG2], udpSeen=/udpAgoMs=) prouve que udpSeen s'arrete NETTEMENT
+//   d'avancer au moment du blocage (udpAgoMs grimpe lineairement, aucun
+//   nouveau paquet vu au niveau socket) alors que loop()/WiFi.status()/
+//   rssi restent parfaitement normaux -- confirme un probleme reseau/
+//   socket bas niveau (probablement lwIP), pas applicatif. Re-cree
+//   desormais le socket UDP (dmdUdp.stop()+begin()) toutes les 30s -- si
+//   le socket se bloque, ceci le debloque automatiquement sans
+//   intervention manuelle. PAS ENCORE TESTE SUR MATERIEL.
 //
 // v167 - 2026-09-08 - safe-modify - BUG REEL confirme en usage reel (retour
 //   utilisateur : la ligne [LOOPDIAG] s'affichait tronquee/corrompue en
@@ -7566,14 +7597,28 @@ void handleUdpCommand()
   // cote RB1 (marquee.sh v30, "read -t 0" -- voir son commentaire complet)
   // pour exactement le meme probleme. Remplace le traitement "1 paquet par
   // appel" du prototype initial (v1).
-  char buf[256];
+  // v12 -- BUG REEL trouve par lecture du CODE SOURCE de la librairie
+  // NetworkUDP (voir NetworkUdp.cpp du core ESP32-Arduino, cause exacte des
+  // 5 blocages UDP de ce soir, PAS une histoire de charge/rafale) :
+  // parsePacket() commence par `if (rx_buffer) return 0;` -- si un paquet
+  // PRECEDENT n'a pas ete ENTIEREMENT lu (rx_buffer pas encore libere),
+  // AUCUN nouveau paquet n'est plus jamais vu, DEFINITIVEMENT (jusqu'a un
+  // stop()/begin()). Et read(buffer,len) ne libere rx_buffer QUE si
+  // rx_buffer->available()==0 APRES la lecture. Avec l'ancien buffer de
+  // 256 octets (v1, dimensionne sur le score MQTT "multi-rangs" ~90
+  // octets), tout paquet UDP de plus de 255 octets (les panneaux
+  // description/info de dmd_score.sh peuvent faire jusqu'a ~700 octets --
+  // c'est exactement pourquoi mqttClient.setBufferSize(1024) avait ete
+  // pose cote MQTT, v79) laissait un reste non lu -- rx_buffer jamais
+  // libere, socket UDP bloque en PERMANENCE des le 1er payload trop long
+  // recu. Fix : buffer porte a 1024 (meme taille que le buffer MQTT,
+  // memes raisons) + boucle defensive apres read() qui vide tout ce qui
+  // resterait malgre tout (voir plus bas) -- rx_buffer ne peut plus jamais
+  // rester bloque non-vide.
+  char buf[1024];
   int len = 0;
   bool gotPacket = false;
   int packetSize;
-  // v1 -- 255 = tres large marge (le plus long payload MQTT connu, le score
-  // multi-rangs, fait ~90 octets, voir commentaire v79 pres de
-  // mqttClient.setBufferSize()) ; un paquet UDP plus long que le buffer est
-  // tronque par read(), jamais un debordement.
   // v7 -- BUG REEL confirme en usage reel (retour utilisateur, APRES le fix
   // v163 "vidange -> ne garder que le dernier paquet") : au DEMARRAGE d'une
   // navigation rapide (pas extreme), les 2-3 PREMIERS marquees ne
@@ -7602,8 +7647,16 @@ void handleUdpCommand()
     drained++;
     g_udpPacketsSeen++;          // v8 -- voir declaration, avant tout filtrage
     g_lastUdpSeenMs = millis();  // v8
-    char scratch[256];
+    char scratch[1024]; // v12 -- 256 -> 1024, voir commentaire complet plus haut
     int l = dmdUdp.read(scratch, sizeof(scratch) - 1);
+    // v12 -- garde-fou defensif : si malgre le buffer agrandi un paquet
+    // encore plus long laissait un reste (rx_buffer non vide), read()
+    // suivant re-livrerait CE MEME paquet residuel au lieu d'un nouveau --
+    // dmdUdp.available() detecte ce cas et vide le reste explicitement
+    // (jete, jamais retenu comme "le" paquet -- deja tronque de toute
+    // facon). Cout nul dans le cas normal (available()==0 apres un read()
+    // qui a tout consomme).
+    while (dmdUdp.available() > 0) { char trash[256]; dmdUdp.read(trash, sizeof(trash)); }
     if (l <= 0) continue;
     // v7 -- ne retient QUE le premier paquet lu tant que le retard reste
     // petit (<= SKIP_AHEAD_THRESHOLD) -- a partir du paquet suivant, bascule
@@ -9877,6 +9930,44 @@ void loop()
     bool wifiNowConnected = (WiFi.status() == WL_CONNECTED);
     if (wifiNowConnected && !s_wifiWasConnected) sendUdpHello();
     s_wifiWasConnected = wifiNowConnected;
+  }
+  // v10 -- MITIGATION (pas un vrai fix -- cause exacte non confirmee) pour
+  // le blocage UDP intermittent constate en usage reel ce soir (5
+  // episodes) : instrumentation v166/v167 (udpSeen=/udpAgoMs=, voir
+  // [LOOPDIAG2]) prouve que udpSeen s'arrete NETTEMENT d'avancer au
+  // moment du blocage (millis()-g_lastUdpSeenMs grimpe lineairement,
+  // aucun nouveau paquet vu au niveau socket) alors que loop()/WiFi.status()/
+  // rssi restent parfaitement normaux -- confirme un probleme reseau/
+  // socket bas niveau (probablement lwIP), pas applicatif. Sans certitude
+  // sur le mecanisme exact (file de reception bloquee ? pool de buffers ?),
+  // re-creer periodiquement le socket UDP (stop()+begin()) est une
+  // mitigation defensive raisonnable : si le socket etait bloque, ceci le
+  // debloque automatiquement sans attendre une intervention manuelle. Cout
+  // negligeable (un appel toutes les 30s), risque negligeable (au pire un
+  // paquet perdu pile au moment du re-bind, deja tolere par design -- UDP
+  // fire-and-forget). A RETIRER/reevaluer si la vraie cause est identifiee
+  // plus tard.
+  {
+    static unsigned long s_lastUdpRearmMs = 0;
+    const unsigned long UDP_REARM_INTERVAL_MS = 30000;
+    unsigned long nowMs = millis();
+    if (nowMs - s_lastUdpRearmMs >= UDP_REARM_INTERVAL_MS)
+    {
+      s_lastUdpRearmMs = nowMs;
+      if (WiFi.status() == WL_CONNECTED)
+      {
+        // v11 -- log explicite (demande utilisateur, augmenter la capacite
+        // de diagnostic) : udpSeen/udpAgoMs AVANT le re-arm -- permet de
+        // correler directement "re-arm declenche pendant un vrai blocage"
+        // (udpAgoMs deja eleve a cet instant) avec "udpSeen repart apres"
+        // dans les [LOOPDIAG2] suivants, preuve que CETTE mitigation est
+        // bien ce qui debloque (et pas juste une coincidence).
+        Serial.println("[UDPREARM] stop+begin udpSeen=" + String(g_udpPacketsSeen)
+                       + " udpAgoMs=" + String(g_lastUdpSeenMs > 0 ? (long)(nowMs - g_lastUdpSeenMs) : -1));
+        dmdUdp.stop();
+        dmdUdp.begin(UDP_CMD_PORT);
+      }
+    }
   }
   // playlistGenStep() (2026-08-10, RETOUR de cette architecture -- voir
   // changelog v67) : avance la generation de playlist d'un pas borne, cout
