@@ -15,7 +15,12 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v46
+# Version actuelle : v47
+#
+# v47 - 2026-09-08 - safe-modify - Piste UDP (voir TRANSPORT_PLAN_UDP.md,
+#   marquee.sh v44 meme motif) : send_udp() (python3, best-effort) appelee
+#   EN PARALLELE de mosquitto_pub dans send_score() -- MQTT INCHANGE, rien
+#   coupe. PAS ENCORE DEPLOYE SUR RB1 au moment de ce commit.
 #
 # v46 - 2026-09-05 - safe-modify - Placeholder niveau 3 (v43) : nom rang 1
 #   corrige en "ShaN" (S/N majuscules) -- valeur exacte demandee par
@@ -715,6 +720,18 @@
 # commentaire complet la-bas). Ne pas le reintroduire ici.
 
 LOG="/recalbox/share/system/logs/dmd_score.log"
+# v47 -- piste UDP (voir TRANSPORT_PLAN_UDP.md, marquee.sh v44 meme motif) :
+# IP/port EN DUR pour l'instant, pas de decouverte dynamique.
+DMD_UDP_IP="192.168.0.51"
+DMD_UDP_PORT=5005
+send_udp() {
+    # v47 -- voir commentaire complet pres de send_udp() dans marquee.sh
+    # (meme fonction, dupliquee -- risque de perf identique : send_score()
+    # est appelee bien moins souvent que le survol de liste de marquee.sh,
+    # donc moins expose au meme risque, mais pas nul pour autant pendant
+    # une pagination hi-score rapide, voir send_paginated()).
+    python3 -c "import socket,sys; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(sys.argv[1].encode('utf-8','replace'), (sys.argv[2], int(sys.argv[3])))" "$1" "$DMD_UDP_IP" "$DMD_UDP_PORT" 2>/dev/null
+}
 SCRIPT_DIR=$(dirname "$0")
 # v36 -- BUG REEL MAJEUR confirme sur materiel (retour utilisateur,
 # 2026-09-01 : navigation turbo -> CPU sature 100% tous coeurs, 65C+,
@@ -1335,6 +1352,8 @@ send_score() {
     # contenu) est inchange, ARG prend tout jusqu'a la fin cote DMD donc
     # compatible avec les espaces/pipes deja presents dans ce payload.
     mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=score ARG=@${fw_dur}|${payload}" 2>/dev/null
+    # v47 -- piste UDP EN PARALLELE (voir send_udp() et marquee.sh v44).
+    send_udp "CMD=score ARG=@${fw_dur}|${payload}"
     echo "$(date '+%H:%M:%S') [$(precise_ts)] SEND marquee/cmd/score ref=${ref} = @${fw_dur}|${payload}" >> "$LOG"
 }
 

@@ -17,6 +17,12 @@
 . /recalbox/share/userscripts/dmd_helpers/singleton_lock.sh marquee 2>/dev/null || exit 1
 echo "$(date '+%H:%M:%S.%N') TRACE proceeding pid=$$ ppid=$PPID arg0=$0" >> /tmp/marquee_trace.log
 LOG="/recalbox/share/system/logs/marquee_mqtt.log"
+# v44 -- piste UDP (voir TRANSPORT_PLAN_UDP.md, worktree dev/dmd-udp-
+# transport) : IP/port EN DUR pour l'instant, pas de decouverte dynamique
+# cote script (le DMD, lui, decouvre RB1 via mDNS -- rien d'equivalent en
+# sens inverse aujourd'hui). A adapter si le DMD change d'adresse.
+DMD_UDP_IP="192.168.0.51"
+DMD_UDP_PORT=5005
 # v35 -- BUG REEL confirme sur materiel (retour utilisateur, meme session,
 # apres v34 : le sondage direct de es_state.inf elimine bien toute
 # contention MQTT -- log verifie : une seule publication propre et rapide
@@ -54,7 +60,22 @@ renice -n -10 -p $$ >/dev/null 2>&1
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v43
+# Version actuelle : v44
+#
+# v44 - 2026-09-08 - safe-modify - Piste UDP (voir TRANSPORT_PLAN_UDP.md,
+#   firmware RecalBox_DMD.ino v158/v159 deja valide sur materiel reel cote
+#   DMD) : nouvelle fonction send_udp() (python3, best-effort, silencieuse
+#   si echec) appelee EN PARALLELE de mosquitto_pub dans send_mqtt_retain()
+#   et aux 2 sites d'envoi direct !SHUFFLE -- MQTT INCHANGE, rien coupe,
+#   comparaison en conditions reelles. RISQUE DE PERF IDENTIFIE ET NON
+#   ENCORE MESURE : un fork+demarrage interpreteur Python par appel double
+#   le nombre de forks par publication pendant une rafale de navigation
+#   (jusqu'a 5-8/s, voir BURST_THRESHOLD) -- ce script a deja subi une
+#   vraie regression CPU/thermique liee a des lancements Python trop
+#   frequents (dmd_score.sh v36). A RETESTER EN CHARGE REELLE (navigation
+#   rapide soutenue) avant de considerer ce chemin fiable. IP DMD
+#   (DMD_UDP_IP) EN DUR pour l'instant (192.168.0.51), pas de decouverte
+#   dynamique. PAS ENCORE DEPLOYE SUR RB1 au moment de ce commit.
 #
 # v43 - 2026-09-04 - safe-modify - Verrou anti-relance extrait vers
 #   dmd_helpers/singleton_lock.sh -- code identique retire d'ici, de
@@ -874,6 +895,26 @@ extract_field() {
     echo "$1" | grep "^${2}=" | cut -d= -f2- | tr -d '\r\n '
 }
 
+send_udp() {
+    # v44 -- piste UDP (voir TRANSPORT_PLAN_UDP.md) : envoi EN PARALLELE de
+    # MQTT, best-effort, silencieux si echec -- comparaison en conditions
+    # reelles avant de decider si UDP remplace MQTT (voir "Points a
+    # trancher" du plan). $1 = payload complet deja forme ("CMD=<nom>
+    # ARG=<valeur>"), PASSE EN ARGV a python3 (pas interpole dans le code
+    # Python) pour eviter tout probleme d'echappement shell/Python avec des
+    # valeurs contenant espaces/pipes/apostrophes (ex. texte de description
+    # hi-score). ATTENTION COUT : un fork+demarrage interpreteur Python par
+    # appel (~20-40ms sur ce materiel) -- CE SCRIPT A DEJA SUBI une vraie
+    # regression CPU/thermique liee a des lancements Python trop frequents
+    # (voir dmd_score.sh v36, "CPU 99%->0%" une fois les helpers Python
+    # retires du chemin chaud) : ajouter cet appel A CHAQUE send_mqtt_retain
+    # DOUBLE le nombre de forks par publication pendant une rafale de
+    # navigation (jusqu'a 5-8/s mesure, voir BURST_THRESHOLD). A RETESTER EN
+    # CHARGE REELLE (navigation rapide soutenue) avant de considerer ce
+    # chemin fiable -- pas encore fait au moment de ce commit.
+    python3 -c "import socket,sys; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(sys.argv[1].encode('utf-8','replace'), (sys.argv[2], int(sys.argv[3])))" "$1" "$DMD_UDP_IP" "$DMD_UDP_PORT" 2>/dev/null
+}
+
 send_mqtt_retain() {
     # v38 -- diagnostic pub_time (v36) retire (retour utilisateur, une fois
     # la vraie cause de la saturation CPU trouvee et corrigee -- voir
@@ -897,6 +938,9 @@ send_mqtt_retain() {
     # suffixes utilises avec send_mqtt_retain() dans tout ce script), donc
     # ce chemin ne cree jamais plus de 4 topics distincts.
     mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -r -t "marquee/cmd/${1}" -m "CMD=${1} ARG=$2" 2>/dev/null
+    # v44 -- piste UDP EN PARALLELE (voir send_udp(), son commentaire complet
+    # sur le cout et le risque de regression CPU).
+    send_udp "CMD=${1} ARG=$2"
     # v39 -- precise_ts() ajoute (voir sa declaration complete) : diagnostic
     # desync overlay/marquee, correlation avec les logs dmd_score.sh v37.
     echo "$(date '+%H:%M:%S') [$(precise_ts)] SEND(R) marquee/cmd/${1} = $2" >> "$LOG"
@@ -1007,6 +1051,7 @@ poll_navigation_position() {
             throttled=1
             echo "$(date '+%H:%M:%S') BURST start (seuil $BURST_THRESHOLD/s soutenu sur ${BURST_SUSTAIN_SECONDS}s) [poll]" >> "$LOG"
             mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=game ARG=!SHUFFLE" 2>/dev/null
+            send_udp "CMD=game ARG=!SHUFFLE" # v44 -- piste UDP en parallele
             echo "$(date '+%H:%M:%S') SEND !SHUFFLE (non retenu)" >> "$LOG"
         fi
         last_real_change_ts="$now"
@@ -1519,6 +1564,7 @@ while true; do
                     # v9 -- coupe-circuit anti-rafale, affichage transitoire
                     # (animation locale firmware, RecalBox_DMD.ino v107).
                     mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=game ARG=!SHUFFLE" 2>/dev/null
+                    send_udp "CMD=game ARG=!SHUFFLE" # v44 -- piste UDP en parallele
                     echo "$(date '+%H:%M:%S') SEND !SHUFFLE (non retenu)" >> "$LOG"
                 fi
                 last_real_change_ts="$now"
