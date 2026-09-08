@@ -1,7 +1,23 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v166
+// Version actuelle : v167
+//
+// v167 - 2026-09-08 - safe-modify - BUG REEL confirme en usage reel (retour
+//   utilisateur : la ligne [LOOPDIAG] s'affichait tronquee/corrompue en
+//   BOUCLE, systematiquement, sur des centaines de cycles consecutifs --
+//   seuls les tout derniers champs (wifiStatus=/rssi=, ajoutes en v166)
+//   survivaient, tout le reste de la ligne (mode=/free=/udpSeen=/etc.)
+//   disparaissait). Le DMD lui-meme fonctionnait normalement (confirme
+//   par le retour reseau/usage) -- purement un probleme d'AFFICHAGE de ce
+//   log diagnostic, cause exacte non confirmee (String trop longue/trop
+//   de concatenations chainees dans un seul Serial.println(), ou limite
+//   du buffer Serial -- la ligne avait grossi a chaque ajout d'instrumentation
+//   ce soir, v163->v166). Fix : la ligne [LOOPDIAG] retrouve son contenu
+//   d'origine (v143) ; les champs ajoutes ce soir (udpSeen/udpKept/
+//   udpAgoMs/wifiStatus/rssi, v166) passent dans un 2e appel separe,
+//   [LOOPDIAG2], juste apres -- 2 lignes plus courtes au lieu d'une
+//   longue.
 //
 // v166 - 2026-09-08 - safe-modify - Instrumentation diagnostic (demande
 //   utilisateur) pour le blocage UDP intermittent constate en usage reel
@@ -9812,20 +9828,20 @@ void loop()
                      + " minFreeHeap=" + String(ESP.getMinFreeHeap())
                      + " connectAttempts=" + String(g_totalConnectAttempts)
                      + " pendingType=" + String((int)pendingCmd.type)
-                     + " stackMinBytes=" + String(stackMinWords * 4)
-                     // v8 -- instrumentation blocages UDP intermittents (voir
-                     // declaration de g_udpPacketsSeen) : udpSeen/udpKept
-                     // cumulatifs (si udpSeen stagne alors que RB1 envoie
-                     // toujours -> rien n'arrive au socket, probleme reseau/
-                     // lwIP ; si udpSeen avance mais udpKept stagne ->
-                     // probleme applicatif dans le dispatch) ; udpAgoMs =
-                     // ms depuis le dernier paquet vu, quel qu'il soit.
-                     + " udpSeen=" + String(g_udpPacketsSeen)
+                     + " stackMinBytes=" + String(stackMinWords * 4));
+      // v9 -- separe de la ligne [LOOPDIAG] ci-dessus (v8, meme contenu) :
+      // la ligne combinee etait systematiquement affichee tronquee/corrompue
+      // en usage reel (confirme sur des centaines de cycles consecutifs,
+      // meme motif chaque fois -- pas un artefact ponctuel) une fois ces
+      // champs ajoutes a la chaine deja longue de la ligne [LOOPDIAG]
+      // principale. Cause exacte non confirmee (String trop longue/trop de
+      // concatenations chainees dans un seul appel, ou limite du buffer
+      // Serial) -- separer en 2 appels distincts plus courts est la
+      // reponse la plus sure sans avoir a trancher laquelle des deux.
+      long udpAgoMs = (g_lastUdpSeenMs > 0) ? (long)(millis() - g_lastUdpSeenMs) : -1;
+      Serial.println("[LOOPDIAG2] udpSeen=" + String(g_udpPacketsSeen)
                      + " udpKept=" + String(g_udpPacketsKept)
-                     + " udpAgoMs=" + String(g_lastUdpSeenMs > 0 ? (long)(millis() - g_lastUdpSeenMs) : -1)
-                     // v8 -- wifiStatus/rssi : ecarte (ou confirme) une
-                     // degradation radio silencieuse (WiFi.status() reste
-                     // WL_CONNECTED mais rssi en chute, ou l'inverse).
+                     + " udpAgoMs=" + String(udpAgoMs)
                      + " wifiStatus=" + String((int)WiFi.status())
                      + " rssi=" + String(WiFi.RSSI()));
     }
