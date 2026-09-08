@@ -1,7 +1,21 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v163
+// Version actuelle : v164
+//
+// v164 - 2026-09-08 - safe-modify - BUG REEL confirme en usage reel (retour
+//   utilisateur, apres relevement de BURST_THRESHOLD cote RB1/marquee.sh
+//   v48 : navigation soutenue) : DMD "figé sur un marquee", plus aucune
+//   commande UDP traitee ET plus de reponse ping -- alors que [LOOPDIAG]
+//   continuait de s'imprimer normalement (loop() PAS bloque, donc pas un
+//   hang classique). La boucle de vidange UDP (v163) n'avait AUCUNE limite
+//   -- un flux entrant soutenu pouvait la faire tourner sans jamais rendre
+//   la main, avec un risque de degradation du buffer socket/pool lwIP
+//   (partage avec ICMP, coherent avec le ping egalement mort). Fix :
+//   handleUdpCommand() borne desormais la vidange a 20 paquets max par
+//   appel -- rend TOUJOURS la main a loop() rapidement, quel que soit le
+//   debit entrant. PAS ENCORE TESTE SUR MATERIEL (le DMD etait bloque au
+//   moment de ce commit, recuperation via le hard-reset du flash lui-meme).
 //
 // v163 - 2026-09-08 - safe-modify - BUG REEL confirme en usage reel (retour
 //   utilisateur, navigation rapide RB1 : "le DMD continue a defiler jusqu'aux
@@ -7502,8 +7516,24 @@ void handleUdpCommand()
   // multi-rangs, fait ~90 octets, voir commentaire v79 pres de
   // mqttClient.setBufferSize()) ; un paquet UDP plus long que le buffer est
   // tronque par read(), jamais un debordement.
-  while ((packetSize = dmdUdp.parsePacket()) > 0)
+  // v6 -- BUG REEL confirme en usage reel (retour utilisateur, navigation
+  // soutenue apres le relevement de BURST_THRESHOLD, marquee.sh v48) :
+  // DMD "figé sur un marquee", plus aucune commande UDP traitee ET plus
+  // de reponse ping -- alors que [LOOPDIAG] continuait de s'imprimer
+  // normalement (loop() PAS bloque). Cause probable : cette boucle de
+  // vidange (v163) n'avait AUCUNE limite -- un flux entrant suffisamment
+  // soutenu peut la faire tourner plus longtemps qu'un cycle udp/lwIP
+  // normal, avec un risque de laisser le buffer de reception socket se
+  // remplir/se degrader (pourrait expliquer que meme l'ICMP, qui partage
+  // le meme pool de buffers lwIP, ait cesse de repondre). Fix : borne
+  // dure (20 paquets max par appel) -- largement suffisant pour rattraper
+  // une rafale normale, mais garantit que cette fonction rend TOUJOURS la
+  // main a loop() rapidement, quel que soit le debit entrant.
+  const int MAX_UDP_DRAIN_PER_CALL = 20;
+  int drained = 0;
+  while ((packetSize = dmdUdp.parsePacket()) > 0 && drained < MAX_UDP_DRAIN_PER_CALL)
   {
+    drained++;
     int l = dmdUdp.read(buf, sizeof(buf) - 1);
     if (l > 0) { len = l; gotPacket = true; }
   }
