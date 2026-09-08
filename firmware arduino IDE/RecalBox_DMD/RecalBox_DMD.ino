@@ -1,7 +1,13 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v159
+// Version actuelle : v160
+//
+// v160 - 2026-09-08 - safe-modify - RETRO_VERSION (splash boot, ecran
+//   physique) renomme "Raw565 Ed. dev13" -> "Raw565 Ed. v13UDP" (demande
+//   utilisateur) -- identifie visuellement ce build comme la piste UDP en
+//   cours de validation, distinct du dev13 "de base" (branche dev/dmd-udp-
+//   transport). Aucun changement fonctionnel.
 //
 // v159 - 2026-09-08 - safe-modify - Piste UDP : extension de
 //   handleUdpCommand() (v158) a TOUT le jeu de commandes marquee/cmd
@@ -8685,7 +8691,7 @@ int buildOffsetIndex()
 // --------------------------------------------------
 // Splash screen â€” version au dÃ©marrage (info=1 uniquement)
 // --------------------------------------------------
-#define RETRO_VERSION "Raw565 Ed. dev13"
+#define RETRO_VERSION "Raw565 Ed. v13UDP"
 
 void showSplashScreen()
 {
