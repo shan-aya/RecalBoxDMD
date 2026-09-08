@@ -1,7 +1,24 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v160
+// Version actuelle : v161
+//
+// v161 - 2026-09-08 - safe-modify - BASCULE FULL UDP (demande utilisateur
+//   explicite : "on teste la version mqtt depuis plusieurs mois et on
+//   connait sa fragilite cote reseau, c'est bien pour ca qu'on essaye de
+//   passer sur udp"). Nouveau #define MQTT_ENABLED=false (voir sa
+//   declaration complete) : empeche uniquement la creation de mqttTask()
+//   dans setup() -- plus aucun connect()/subscribe() n'a jamais lieu, donc
+//   plus aucune exposition au mur de plateforme (le bug reseau documente
+//   depuis des semaines, cause de toute cette piste). Reste du code MQTT
+//   intact (juste inerte) -- un seul flag a remettre a true pour revenir
+//   en arriere si besoin. Les etats "RecalBox non connectee"/"waiting"
+//   pilotes par mqttTask() ne se declenchent plus jamais -- pas un manque
+//   fonctionnel : c'est le meme repli robuste et deja teste depuis des
+//   mois pour "RB1 injoignable" (retour direct playlist locale),
+//   desormais permanent. UDP (v158-v160) devient l'unique canal de
+//   commandes temps reel. PAS ENCORE TESTE EN CONDITIONS REELLES
+//   PROLONGEES au moment de ce commit.
 //
 // v160 - 2026-09-08 - safe-modify - RETRO_VERSION (splash boot, ecran
 //   physique) renomme "Raw565 Ed. dev13" -> "Raw565 Ed. v13UDP" (demande
@@ -3575,6 +3592,25 @@ char findInGamesCache(const String &sysName, const String &gameName)
 // v1 -- piste UDP (voir TRANSPORT_PLAN_UDP.md) : port dedie, fire-and-forget,
 // prototype limite a CMD=score pour valider la fiabilite avant d'etendre.
 #define UDP_CMD_PORT      5005
+// v3 -- bascule FULL UDP (demande utilisateur explicite, 2026-09-08) :
+// MQTT teste depuis des mois, fragilite reseau cote DMD deja bien
+// documentee (mur de plateforme -- connect()/subscribe() bloquants, voir
+// memoire projet/DECISIONS.md) -- raison d'etre de toute la piste UDP.
+// MQTT_ENABLED=false empeche uniquement la CREATION de mqttTask() (voir
+// setup()) : aucune tentative connect()/subscribe() n'a plus jamais lieu,
+// donc plus aucune exposition au mur de plateforme. Tout le reste du code
+// MQTT (mqttClient, onMqttMessage(), processPendingMqttCommand()) reste
+// intact et inchange -- processPendingMqttCommand() continue de traiter
+// pendingCmd quelle que soit sa source (uniquement UDP desormais). Les
+// etats "RecalBox non connectee"/"waiting" pilotes par mqttTask()
+// (g_recalboxDisconnectedPending etc.) ne se declenchent plus jamais --
+// pas un manque : c'est exactement le meme repli deja robuste et teste
+// depuis des mois pour le cas "RB1 injoignable" (retour direct a la
+// playlist locale), desormais permanent puisque MQTT ne se connecte plus
+// -- UDP prend le relais pour toutes les commandes en temps reel.
+// Flag unique pour revenir en arriere instantanement si besoin (mettre a
+// true relance MQTT en parallele de l'UDP, comme avant ce commit).
+#define MQTT_ENABLED      false
 
 // --------------------------------------------------
 // Globaux
@@ -9509,7 +9545,11 @@ start_mqtt_task:
   // amelioration (voir memoire projet pour le detail). Revert au coeur 0
   // (etat historique, identique a master -- voir memoire projet) faute de
   // benefice demontre.
-  if(wifiEnabled&&recalboxIP.length()>0)
+  // v3 -- bascule FULL UDP (voir MQTT_ENABLED, sa declaration) : mqttTask()
+  // n'est plus jamais cree quand MQTT_ENABLED=false -- ni connect() ni
+  // subscribe() n'ont donc plus jamais lieu, eliminant completement
+  // l'exposition au mur de plateforme MQTT.
+  if(MQTT_ENABLED && wifiEnabled&&recalboxIP.length()>0)
     xTaskCreatePinnedToCore(mqttTask,"mqttTask",4096,NULL,1,&mqttTaskHandle,0);
 
   // Interface web de configuration
