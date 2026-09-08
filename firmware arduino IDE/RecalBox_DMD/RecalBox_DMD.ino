@@ -1,7 +1,19 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v161
+// Version actuelle : v162
+//
+// v162 - 2026-09-08 - safe-modify - Resync UDP (comble le trou laisse par
+//   v161/full UDP : sans retain MQTT, un DMD qui reboote/perd le WiFi en
+//   session reste fige sur son dernier etat jusqu'au prochain evenement
+//   REEL). Nouveau port UDP_HELLO_PORT=5006 + sendUdpHello() : envoie un
+//   simple datagramme a RB1 (recalboxIP:5006) a la 1ere connexion WiFi
+//   (setupWiFiFromConfig()) ET a chaque reconnexion ulterieure detectee
+//   dans loop() (transition WiFi.status() deconnecte->connecte, static
+//   bool, cout nul hors transition). Cote RB1, dmd_helpers/
+//   dmd_udp_resync.py (marquee.sh v46) ecoute ce port et relit
+//   es_state.inf A NEUF a chaque hello pour renvoyer l'etat reel courant.
+//   PAS ENCORE TESTE SUR MATERIEL.
 //
 // v161 - 2026-09-08 - safe-modify - BASCULE FULL UDP (demande utilisateur
 //   explicite : "on teste la version mqtt depuis plusieurs mois et on
@@ -3592,6 +3604,15 @@ char findInGamesCache(const String &sysName, const String &gameName)
 // v1 -- piste UDP (voir TRANSPORT_PLAN_UDP.md) : port dedie, fire-and-forget,
 // prototype limite a CMD=score pour valider la fiabilite avant d'etendre.
 #define UDP_CMD_PORT      5005
+// v4 -- resync UDP (voir TRANSPORT_PLAN_UDP.md, point 1 "Aucune garantie de
+// livraison ni d'ordre") : port DEDIE (distinct de UDP_CMD_PORT) sur lequel
+// RB1 ecoute un "hello" du DMD a chaque connexion/reconnexion WiFi, pour
+// renvoyer l'etat REEL courant (relu depuis /tmp/es_state.inf a cet
+// instant, pas un etat mis en cache) -- comble le trou laisse par l'absence
+// de retain MQTT en mode full UDP (v161) : un DMD qui reboote/perd le WiFi
+// pendant une session recoit l'etat a jour des sa reconnexion, sans
+// attendre le prochain evenement de navigation reel.
+#define UDP_HELLO_PORT    5006
 // v3 -- bascule FULL UDP (demande utilisateur explicite, 2026-09-08) :
 // MQTT teste depuis des mois, fragilite reseau cote DMD deja bien
 // documentee (mur de plateforme -- connect()/subscribe() bloquants, voir
@@ -7417,6 +7438,26 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
 // quand aucun datagramme n'arrive.
 // MQTT reste actif en parallele (comparaison prevue par le plan) --
 // AUCUNE des 2 voies n'est encore coupee.
+
+// v4 -- resync UDP (voir declaration de UDP_HELLO_PORT). Envoie un simple
+// datagramme "HELLO" a RB1 -- le contenu exact n'a pas d'importance (RB1
+// traite TOUT paquet recu sur ce port comme un signal "renvoie l'etat
+// courant", voir dmd_helpers/dmd_udp_resync.py cote RB1), seul le fait de
+// l'envoyer compte. Non bloquant, best-effort (pas d'accuse de reception
+// possible en UDP -- si ce paquet se perd, le DMD reste sur son dernier
+// etat jusqu'au prochain vrai evenement de navigation, comme avant cette
+// fonction -- pas une regression, juste pas d'amelioration ce coup-la).
+void sendUdpHello()
+{
+  if (recalboxIP.length() == 0) return;
+  IPAddress ip;
+  if (!parseIP(recalboxIP, ip)) return;
+  dmdUdp.beginPacket(ip, UDP_HELLO_PORT);
+  dmdUdp.write((const uint8_t*)"HELLO", 5);
+  dmdUdp.endPacket();
+  Serial.println("[UDP] hello envoye a " + recalboxIP + ":" + String(UDP_HELLO_PORT));
+}
+
 void handleUdpCommand()
 {
   int packetSize = dmdUdp.parsePacket();
@@ -8354,6 +8395,9 @@ void setupWiFiFromConfig()
     Serial.println("[UDP] listening on port " + String(UDP_CMD_PORT));
     delay(1200);
     autoDetectRecalboxIP();
+    // v4 -- resync UDP (voir sendUdpHello()) : INDEPENDANT de MQTT_ENABLED,
+    // recalboxIP vient d'etre resolu ci-dessus -- premier hello du boot.
+    sendUdpHello();
     if(recalboxIP.length()>0){
       mqttClient.setServer(recalboxIP.c_str(),MQTT_PORT);
       mqttClient.setCallback(onMqttMessage);
@@ -9658,6 +9702,19 @@ void loop()
   // juste au-dessus (consommer/poser pendingCmd tot dans l'iteration, avant
   // tout risque de blocage plus bas type handleWebConfig()).
   handleUdpCommand();
+  // v4 -- resync UDP (voir sendUdpHello()) : detecte la transition
+  // deconnecte->connecte APRES le boot (ex. coupure WiFi transitoire suivie
+  // d'une reconnexion via maintainWiFi()) -- le hello du tout premier boot
+  // est deja envoye dans setupWiFiFromConfig(), celui-ci couvre tout le
+  // reste de la session. Comparaison d'etat simple (static bool), cout nul
+  // hors transition -- recalboxIP deja resolu au boot, pas de nouvelle
+  // requete mDNS ici (WiFi.status() seul suffit a detecter la transition).
+  {
+    static bool s_wifiWasConnected = false;
+    bool wifiNowConnected = (WiFi.status() == WL_CONNECTED);
+    if (wifiNowConnected && !s_wifiWasConnected) sendUdpHello();
+    s_wifiWasConnected = wifiNowConnected;
+  }
   // playlistGenStep() (2026-08-10, RETOUR de cette architecture -- voir
   // changelog v67) : avance la generation de playlist d'un pas borne, cout
   // quasi nul quand aucune generation n'est active (un seul if). Appelee
