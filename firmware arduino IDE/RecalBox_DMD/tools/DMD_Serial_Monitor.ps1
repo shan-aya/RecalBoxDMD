@@ -107,7 +107,7 @@ if (-not $candidates -or $candidates.Count -eq 0) {
     exit 0
 }
 
-$likely = $candidates | Where-Object { $_.Likely }
+$likely = @($candidates | Where-Object { $_.Likely })
 $selectedPort = $null
 
 if ($likely.Count -eq 1) {
