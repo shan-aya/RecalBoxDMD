@@ -15,7 +15,12 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v47
+# Version actuelle : v48
+#
+# v48 - 2026-09-08 - safe-modify - BASCULE FULL UDP (demande utilisateur
+#   explicite, meme motif que RecalBox_DMD.ino v161/marquee.sh v45).
+#   mosquitto_pub de send_score() COMMENTE (pas supprime), seul send_udp()
+#   reste actif.
 #
 # v47 - 2026-09-08 - safe-modify - Piste UDP (voir TRANSPORT_PLAN_UDP.md,
 #   marquee.sh v44 meme motif) : send_udp() (python3, best-effort) appelee
@@ -1351,8 +1356,9 @@ send_score() {
     # post-CONNACK. Payload prefixe "CMD=score ARG=" -- le reste (@duree|
     # contenu) est inchange, ARG prend tout jusqu'a la fin cote DMD donc
     # compatible avec les espaces/pipes deja presents dans ce payload.
-    mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=score ARG=@${fw_dur}|${payload}" 2>/dev/null
-    # v47 -- piste UDP EN PARALLELE (voir send_udp() et marquee.sh v44).
+    # v48 -- FULL UDP, mosquitto_pub commente (voir v48 en tete de fichier +
+    # marquee.sh v45, meme motif) -- retour arriere instantane si besoin.
+    # mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=score ARG=@${fw_dur}|${payload}" 2>/dev/null
     send_udp "CMD=score ARG=@${fw_dur}|${payload}"
     echo "$(date '+%H:%M:%S') [$(precise_ts)] SEND marquee/cmd/score ref=${ref} = @${fw_dur}|${payload}" >> "$LOG"
 }

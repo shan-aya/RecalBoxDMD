@@ -60,7 +60,16 @@ renice -n -10 -p $$ >/dev/null 2>&1
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v44
+# Version actuelle : v45
+#
+# v45 - 2026-09-08 - safe-modify - BASCULE FULL UDP (demande utilisateur
+#   explicite, meme motif que RecalBox_DMD.ino v161/MQTT_ENABLED=false :
+#   fragilite MQTT documentee depuis des mois, raison d'etre de la piste
+#   UDP). Les 3 appels mosquitto_pub (send_mqtt_retain() + les 2 !SHUFFLE)
+#   COMMENTES (pas supprimes -- retour arriere instantane si besoin), seul
+#   send_udp() reste actif. Le pipe mosquitto_sub qui ECOUTE les evenements
+#   ES (Recalbox/EmulationStation/Event, RB1-interne) reste lui INCHANGE --
+#   n'a jamais rien a voir avec le canal DMD.
 #
 # v44 - 2026-09-08 - safe-modify - Piste UDP (voir TRANSPORT_PLAN_UDP.md,
 #   firmware RecalBox_DMD.ino v158/v159 deja valide sur materiel reel cote
@@ -937,9 +946,12 @@ send_mqtt_retain() {
     # fichier) : ${1} vaut toujours game/system/default/ingame ici (seuls
     # suffixes utilises avec send_mqtt_retain() dans tout ce script), donc
     # ce chemin ne cree jamais plus de 4 topics distincts.
-    mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -r -t "marquee/cmd/${1}" -m "CMD=${1} ARG=$2" 2>/dev/null
-    # v44 -- piste UDP EN PARALLELE (voir send_udp(), son commentaire complet
-    # sur le cout et le risque de regression CPU).
+    # v45 -- FULL UDP (demande utilisateur explicite, 2026-09-08 : fragilite
+    # MQTT documentee depuis des mois, raison d'etre de toute cette piste --
+    # voir MQTT_ENABLED=false cote firmware, RecalBox_DMD.ino v161). mosquitto_pub
+    # COMMENTE (pas supprime, retour arriere instantane si besoin) : le DMD
+    # ne se connecte plus jamais au broker, cet envoi serait pur gaspillage.
+    # mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -r -t "marquee/cmd/${1}" -m "CMD=${1} ARG=$2" 2>/dev/null
     send_udp "CMD=${1} ARG=$2"
     # v39 -- precise_ts() ajoute (voir sa declaration complete) : diagnostic
     # desync overlay/marquee, correlation avec les logs dmd_score.sh v37.
@@ -1050,8 +1062,9 @@ poll_navigation_position() {
         if [ "$burst_qualifying_streak" -ge "$BURST_SUSTAIN_SECONDS" ] && [ "$throttled" -eq 0 ]; then
             throttled=1
             echo "$(date '+%H:%M:%S') BURST start (seuil $BURST_THRESHOLD/s soutenu sur ${BURST_SUSTAIN_SECONDS}s) [poll]" >> "$LOG"
-            mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=game ARG=!SHUFFLE" 2>/dev/null
-            send_udp "CMD=game ARG=!SHUFFLE" # v44 -- piste UDP en parallele
+            # v45 -- FULL UDP, mosquitto_pub commente (voir v45 en tete de fichier)
+            # mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=game ARG=!SHUFFLE" 2>/dev/null
+            send_udp "CMD=game ARG=!SHUFFLE"
             echo "$(date '+%H:%M:%S') SEND !SHUFFLE (non retenu)" >> "$LOG"
         fi
         last_real_change_ts="$now"
@@ -1563,8 +1576,9 @@ while true; do
                     echo "$(date '+%H:%M:%S') BURST start (seuil $BURST_THRESHOLD/s soutenu sur ${BURST_SUSTAIN_SECONDS}s)" >> "$LOG"
                     # v9 -- coupe-circuit anti-rafale, affichage transitoire
                     # (animation locale firmware, RecalBox_DMD.ino v107).
-                    mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=game ARG=!SHUFFLE" 2>/dev/null
-                    send_udp "CMD=game ARG=!SHUFFLE" # v44 -- piste UDP en parallele
+                    # v45 -- FULL UDP, mosquitto_pub commente (voir v45 en tete de fichier)
+                    # mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=game ARG=!SHUFFLE" 2>/dev/null
+                    send_udp "CMD=game ARG=!SHUFFLE"
                     echo "$(date '+%H:%M:%S') SEND !SHUFFLE (non retenu)" >> "$LOG"
                 fi
                 last_real_change_ts="$now"
