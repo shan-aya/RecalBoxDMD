@@ -1,7 +1,22 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v162
+// Version actuelle : v163
+//
+// v163 - 2026-09-08 - safe-modify - BUG REEL confirme en usage reel (retour
+//   utilisateur, navigation rapide RB1 : "le DMD continue a defiler jusqu'aux
+//   bons marquees" apres l'arret de la navigation -- ecart de perf
+//   inacceptable). handleUdpCommand() traitait UN SEUL paquet UDP par appel
+//   -- contrairement a MQTT (pendingCmd = 1 seul slot, ecrase par chaque
+//   nouveau message), chaque datagramme UDP s'accumule dans le buffer
+//   socket, rien ne l'ecrase. Une rafale de survols (meme sous le seuil de
+//   rafale marquee.sh, 5/s) suffit a accumuler plusieurs CMD=game en
+//   attente plus vite que le DMD ne peut les rendre un par un (100-300ms/
+//   GIF mesures), creant un retard qui continue de rattraper apres coup.
+//   Fix : handleUdpCommand() vide desormais TOUT le buffer socket en une
+//   seule iteration de loop(), ne garde que le DERNIER paquet -- meme
+//   principe que la vidange non-bloquante deja en place cote RB1
+//   (marquee.sh v30). PAS ENCORE TESTE SUR MATERIEL.
 //
 // v162 - 2026-09-08 - safe-modify - Resync UDP (comble le trou laisse par
 //   v161/full UDP : sans retain MQTT, un DMD qui reboote/perd le WiFi en
@@ -7460,16 +7475,39 @@ void sendUdpHello()
 
 void handleUdpCommand()
 {
-  int packetSize = dmdUdp.parsePacket();
-  if (packetSize <= 0) return;
-
+  // v5 -- BUG REEL confirme en usage reel (retour utilisateur : navigation
+  // rapide sur RB1, "le DMD continue a defiler jusqu'aux bons marquees"
+  // APRES l'arret de la navigation cote RB1 -- ecart de perf inacceptable).
+  // Cause : contrairement a MQTT (pendingCmd = UN SEUL slot, ECRASE par
+  // chaque nouveau message -- les positions perimees etaient donc
+  // silencieusement abandonnees, seule la DERNIERE comptait), chaque
+  // datagramme UDP est mis en FILE dans le buffer socket du systeme --
+  // rien ne les ecrase. Chaque CMD=game traite ouvre un vrai GIF (SD +
+  // decode, 100-300ms mesures en usage reel) -- une rafale de survols,
+  // MEME SOUS le seuil de rafale de marquee.sh (BURST_THRESHOLD=5/s, qui
+  // ne se declenche donc pas), suffit a accumuler plusieurs paquets en
+  // attente plus vite que le DMD ne peut les rendre un par un, creant un
+  // retard qui continue de se rattraper apres coup. Fix : VIDER tout le
+  // buffer socket en une seule iteration de loop() (boucle tant que
+  // parsePacket() renvoie >0), ne garder QUE LE DERNIER paquet lu -- meme
+  // principe et meme raison que la "vidange non-bloquante" deja en place
+  // cote RB1 (marquee.sh v30, "read -t 0" -- voir son commentaire complet)
+  // pour exactement le meme probleme. Remplace le traitement "1 paquet par
+  // appel" du prototype initial (v1).
+  char buf[256];
+  int len = 0;
+  bool gotPacket = false;
+  int packetSize;
   // v1 -- 255 = tres large marge (le plus long payload MQTT connu, le score
   // multi-rangs, fait ~90 octets, voir commentaire v79 pres de
   // mqttClient.setBufferSize()) ; un paquet UDP plus long que le buffer est
   // tronque par read(), jamais un debordement.
-  char buf[256];
-  int len = dmdUdp.read(buf, sizeof(buf) - 1);
-  if (len <= 0) return;
+  while ((packetSize = dmdUdp.parsePacket()) > 0)
+  {
+    int l = dmdUdp.read(buf, sizeof(buf) - 1);
+    if (l > 0) { len = l; gotPacket = true; }
+  }
+  if (!gotPacket) return;
   buf[len] = '\0';
   String msg = String(buf);
   msg.trim();
