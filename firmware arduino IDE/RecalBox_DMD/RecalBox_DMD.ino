@@ -1,7 +1,19 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v158
+// Version actuelle : v159
+//
+// v159 - 2026-09-08 - safe-modify - Piste UDP : extension de
+//   handleUdpCommand() (v158) a TOUT le jeu de commandes marquee/cmd
+//   (stop/default/system/game/show_config/wifi_recovery/reboot/
+//   brightness/brightness_up/brightness_down/score/ingame), meme dispatch
+//   qu'onMqttMessage() (v148), duplique plutot que factorise -- ne pas
+//   restructurer un chemin MQTT eprouve depuis des mois pour un prototype
+//   pas encore valide en charge. CMD_SCORE seul avait ete valide sur
+//   materiel reel juste avant cette extension (v158, voir DECISIONS.md) --
+//   le reste des commandes PAS ENCORE teste. Prochaine etape : test reel
+//   des autres commandes (stop/default/system/game au minimum) avant
+//   d'envisager de reduire/couper MQTT.
 //
 // v158 - 2026-09-06 - safe-modify - Piste UDP (voir TRANSPORT_PLAN_UDP.md,
 //   branche dev/dmd-udp-transport) : PROTOTYPE MINIMAL, CMD_SCORE
@@ -7344,20 +7356,25 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
 }
 
 // --------------------------------------------------
-// v1 -- piste UDP (voir TRANSPORT_PLAN_UDP.md), prototype minimal
+// v1/v2 -- piste UDP (voir TRANSPORT_PLAN_UDP.md)
 // --------------------------------------------------
 // Fire-and-forget, sans connexion/handshake -- objectif : eliminer la classe
 // de bug MQTT documentee (mur de plateforme, connect()/subscribe() bloquants,
 // voir memoire projet) en s'affranchissant de tout etat TCP a faire "caler".
-// PROTOTYPE volontairement limite a UNE seule commande (score) avant
-// d'etendre au reste -- voir "Etat"/"Prochaine etape" dans
-// TRANSPORT_PLAN_UDP.md et la consigne de validation incrementale du
-// projet (un point a la fois, teste sur materiel avant le suivant).
+// v1 -- prototype limite a CMD_SCORE seul, VALIDE sur materiel reel le
+// 2026-09-08 (paquet UDP -> [UDP] logue -> CMD_SCORE affiche -> retour
+// normal, voir DECISIONS.md). v2 -- etendu a TOUT le jeu de commandes du
+// bloc marquee/cmd de onMqttMessage() (stop/default/system/game/
+// show_config/wifi_recovery/reboot/brightness*/score/ingame), meme
+// dispatch, duplique plutot que factorise (voir commentaire pres du
+// dispatch plus bas). PAS ENCORE teste sur materiel au-dela de score.
 // Meme format de payload que MQTT (v148) : "CMD=<nom> ARG=<reste>", memes
 // extractField()/dispatch que onMqttMessage() -- seule la SOURCE change.
 // Non bloquant : parsePacket() renvoie 0 immediatement s'il n'y a rien a
 // lire (pas d'attente), donc un appel a chaque loop() est sans cout notable
 // quand aucun datagramme n'arrive.
+// MQTT reste actif en parallele (comparaison prevue par le plan) --
+// AUCUNE des 2 voies n'est encore coupee.
 void handleUdpCommand()
 {
   int packetSize = dmdUdp.parsePacket();
@@ -7380,17 +7397,32 @@ void handleUdpCommand()
   int argIdx = msg.indexOf("ARG=");
   String arg = (argIdx >= 0) ? msg.substring(argIdx + 4) : "";
 
-  // v1 -- CMD_SCORE uniquement pour ce prototype (voir commentaire d'entete
-  // de la fonction) -- tout autre CMD est logue ci-dessus (visible) mais
-  // sciemment ignore, pas une erreur.
-  if (cmd == "score" && arg.length() > 0)
-  {
-    if (mqttCmdMutex != nullptr && xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(10)) == pdTRUE)
-    {
-      pendingCmd = MqttCommand(MqttCommand::CMD_SCORE, arg);
-      xSemaphoreGive(mqttCmdMutex);
-    }
-  }
+  if (mqttCmdMutex == nullptr) return;
+  if (xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(10)) != pdTRUE) return;
+
+  // v2 -- extension : meme jeu de commandes que le bloc marquee/cmd de
+  // onMqttMessage() (voir son commentaire complet, v148/v150), DELIBEREMENT
+  // duplique plutot que factorise -- onMqttMessage() est un chemin
+  // eprouve en conditions reelles depuis des mois, ne pas le restructurer
+  // pour ce prototype encore non valide en charge. game_info/achievement
+  // restent hors scope (deja retires cote MQTT, v104). CMD_STARTCLIP/
+  // CMD_RESUMESYS (topic evenement ES brut, pas marquee/cmd) restent hors
+  // scope : rien cote RB1 ne publierait ca en UDP, ce topic n'est pas sous
+  // notre controle de publication.
+  if      (cmd=="stop")    pendingCmd=MqttCommand(MqttCommand::CMD_STOP,"");
+  else if (cmd=="default") g_pendingDefault = true;
+  else if (cmd=="system")  { lastSysName=arg; g_pendingSystemArg=arg; g_pendingSystem=true; }
+  else if (cmd=="game")    { g_pendingGameArg=arg; g_pendingGame=true; }
+  else if (cmd=="show_config")     pendingCmd=MqttCommand(MqttCommand::CMD_SHOW_CONFIG,"");
+  else if (cmd=="wifi_recovery")   pendingCmd=MqttCommand(MqttCommand::CMD_WIFI_RECOVERY,"");
+  else if (cmd=="reboot")          pendingCmd=MqttCommand(MqttCommand::CMD_REBOOT,"");
+  else if (cmd=="brightness")      pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS,arg);
+  else if (cmd=="brightness_up")   pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_UP,"");
+  else if (cmd=="brightness_down") pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_DOWN,"");
+  else if (cmd=="score") { if(arg.length()>0) pendingCmd=MqttCommand(MqttCommand::CMD_SCORE,arg); }
+  else if (cmd=="ingame") g_recalboxInGame = (arg=="1");
+
+  xSemaphoreGive(mqttCmdMutex);
 }
 
 // --------------------------------------------------
