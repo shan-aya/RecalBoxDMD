@@ -74,13 +74,34 @@ est maintenant celle utilisée en pratique :
   réelles** : reboot du DMD pendant une vraie partie en cours, resync correct
   (`CMD=game`), bascule sur l'écran du jeu au lieu de rester sur la playlist.
 
-Tout ça déployé et actif sur RB1/DMD réels au moment de cette mise à jour.
+**2026-09-08 (nuit) — 5 épisodes de blocage UDP en usage réel, VRAIE CAUSE trouvée et
+corrigée.** Le DMD s'arrêtait de traiter toute commande UDP (parfois aussi plus de
+réponse ping), `loop()`/`WiFi.status()`/`rssi` restant pourtant parfaitement normaux.
+D'abord attribué à tort à la charge/rafale de navigation (v163-v168, plusieurs
+correctifs de dispatch + une mitigation de re-arm périodique du socket, v168, posée
+par précaution). **Cause réelle trouvée en lisant le code source de la librairie
+`NetworkUDP`** (core ESP32-Arduino) : `parsePacket()` refuse tout nouveau paquet tant
+qu'un `rx_buffer` interne précédent n'a pas été *entièrement* lu — et notre buffer de
+lecture (256 octets, dimensionné sur le score MQTT "multi-rangs" ~90 octets) laissait
+un reste non lu pour tout payload UDP de plus de 255 octets. Les panneaux
+description/info de `dmd_score.sh` peuvent faire jusqu'à ~700 octets (exactement la
+raison de `mqttClient.setBufferSize(1024)` côté MQTT, v79) — un seul payload trop
+long bloquait donc le socket UDP **en permanence**, pas une histoire de rafale.
 
-**Prochaine étape possible** : observer en usage réel prolongé (pas juste quelques
-minutes de test) — fiabilité UDP sous charge de navigation rapide (risque perf des 2
-forks Python par événement déjà documenté dans les changelogs `marquee.sh`/
-`dmd_score.sh`, jamais formellement mesuré en rafale), et robustesse du mécanisme de
-resync sur plusieurs cycles reboot/reconnexion.
+Fix v169 : buffer porté à 1024 (comme côté MQTT) + boucle défensive qui vide tout
+reste après chaque lecture. La mitigation v168 (re-arm socket toutes les 30s) reste
+en place en filet de sécurité complémentaire. Voir aussi les fix de dispatch
+indépendants faits pendant l'investigation (toujours valides) : v165 (ne pas sauter
+les 2-3 premières positions d'une navigation qui démarre) et le revert
+`BURST_THRESHOLD` côté `marquee.sh` (10→5, v49, la cause n'étant pas liée au volume).
+
+Tout ça déployé et actif sur RB1/DMD réels au moment de cette mise à jour — pas
+encore confirmé stable sur une session de jeu complète après ce fix.
+
+**Prochaine étape** : confirmer sur une vraie session prolongée (panneaux
+description longs + navigation) que le blocage ne se reproduit plus avec le buffer
+1024. Si confirmé, la mitigation v168 (re-arm périodique) pourrait être retirée --
+gardée pour l'instant par prudence.
 
 ## Historique (prototype initial, avant la bascule full UDP)
 
