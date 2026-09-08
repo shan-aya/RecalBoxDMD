@@ -2,7 +2,26 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v1
+# Version actuelle : v2
+#
+# v2 - 2026-09-08 - safe-modify - BUG REEL trouve en revue (pas en usage
+#   reel -- retour utilisateur explicite : "qu'est-ce qu'on aurait pu
+#   oublier de mettre a jour ?"). broadcastFeatureStatus() (RecalBox_DMD.ino,
+#   les 8 reglages hi-score/info/description/RA de la page web du DMD) ne
+#   publiait plus QUE via MQTT (marquee/status/features, lu par
+#   dmd_score.sh ET dmd_achievement.sh via mosquitto_sub) -- mort depuis la
+#   bascule full UDP (v161, MQTT_ENABLED=false) : tout changement de
+#   reglage sur la page web du DMD n'atteignait plus jamais RB1,
+#   silencieusement (les 2 scripts continuaient de lire un cache perime
+#   dans FEATURES_CACHE_PATH). Fix cote firmware (RecalBox_DMD.ino v13,
+#   sendUdpFeatureStatus()) : envoie desormais aussi un message
+#   "FEATURES:<meme format qu'avant>" sur ce MEME port (UDP_HELLO_PORT) a
+#   chaque sauvegarde web ET a chaque (re)connexion WiFi. Ce script
+#   distingue maintenant les 2 types de message recus sur ce port (au lieu
+#   de traiter systematiquement tout paquet comme un "hello") -- un
+#   message FEATURES: est ecrit tel quel dans FEATURES_CACHE_PATH (meme
+#   format/emplacement que l'ancien features_watcher() MQTT, aucun
+#   changement cote dmd_score.sh/dmd_achievement.sh necessaire).
 #
 # v1 - 2026-09-08 - safe-modify - Creation. Piste UDP full (voir
 #   TRANSPORT_PLAN_UDP.md, RecalBox_DMD.ino v161 MQTT_ENABLED=false,
@@ -42,6 +61,11 @@ DMD_UDP_IP = "192.168.0.51"  # EN DUR pour l'instant, voir marquee.sh DMD_UDP_IP
 DMD_UDP_PORT = 5005  # doit rester identique a UDP_CMD_PORT, RecalBox_DMD.ino
 ES_STATE_PATH = "/tmp/es_state.inf"
 LOG_PATH = "/recalbox/share/system/logs/dmd_udp_resync.log"
+# v2 -- meme chemin/format que FEATURES_FILE dans dmd_score.sh (voir
+# features_watcher()/feat_enabled()) -- ecrit tel quel, lu par dmd_score.sh
+# ET dmd_achievement.sh sans aucun changement de leur cote.
+FEATURES_CACHE_PATH = "/tmp/dmd_features_cache"
+FEATURES_PREFIX = "FEATURES:"
 
 
 def log(msg):
@@ -122,9 +146,23 @@ def main():
             time.sleep(1)
             continue
 
-        # v1 -- tout paquet recu sur ce port est traite comme un "hello" --
-        # le contenu exact n'est pas verifie (seul le DMD envoie ici en
-        # pratique, port dedie non expose ailleurs).
+        # v2 -- distingue desormais 2 types de message sur ce port (avant,
+        # v1 traitait TOUT paquet comme un "hello") :
+        # - "FEATURES:<...>" : reglages hi-score/info/description/RA, ecrits
+        #   tels quels dans FEATURES_CACHE_PATH (voir sa declaration).
+        # - tout le reste (typiquement "HELLO") : comportement v1 inchange,
+        #   resync de l'etat de navigation courant.
+        text = data.decode("utf-8", "replace")
+        if text.startswith(FEATURES_PREFIX):
+            payload = text[len(FEATURES_PREFIX):]
+            try:
+                with open(FEATURES_CACHE_PATH, "w") as f:
+                    f.write(payload + "\n")
+                log(f"features de {addr[0]} -> cache mis a jour: {payload}")
+            except Exception as e:
+                log(f"ERREUR ecriture {FEATURES_CACHE_PATH}: {e}")
+            continue
+
         cmds = compute_current_state()
         log(f"hello de {addr[0]} -> resync {cmds}")
         for cmd, arg in cmds:
