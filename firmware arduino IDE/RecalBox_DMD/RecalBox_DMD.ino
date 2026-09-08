@@ -1,7 +1,36 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v164
+// Version actuelle : v166
+//
+// v166 - 2026-09-08 - safe-modify - Instrumentation diagnostic (demande
+//   utilisateur) pour le blocage UDP intermittent constate en usage reel
+//   ce soir (3 episodes, cause encore non identifiee -- DMD arretant de
+//   traiter les commandes UDP, avec/sans reponse ping, loop()/[LOOPDIAG]
+//   pourtant toujours actifs, parfois auto-resolu). [LOOPDIAG] affiche
+//   desormais udpSeen=/udpKept=/udpAgoMs= (compteurs cumulatifs +
+//   anciennete du dernier paquet vu au niveau socket, AVANT tout
+//   filtrage) et wifiStatus=/rssi= -- objectif : la PROCHAINE fois que ca
+//   se reproduit, distinguer directement "rien n'arrive au socket"
+//   (udpSeen stagne -- probleme reseau/lwIP) de "ca arrive mais n'est
+//   plus applique" (udpSeen avance, udpKept stagne -- probleme
+//   applicatif), et ecarter/confirmer une degradation radio silencieuse.
+//   Purement diagnostic, aucun changement de comportement.
+//
+// v165 - 2026-09-08 - safe-modify - BUG REEL confirme en usage reel (retour
+//   utilisateur, APRES le fix v163) : au demarrage d'une navigation rapide
+//   (pas extreme), les 2-3 premiers marquees ne s'affichent plus du tout --
+//   le vieux marquee (d'avant la navigation) reste affiche plusieurs
+//   secondes avant de sauter directement a la position courante. Cause :
+//   v163 ecrasait TOUJOURS par le dernier paquet lu, meme quand seulement
+//   2-3 etaient en attente (pas encore un vrai retard accumule) --
+//   confirme par lecture du log RB1 (marquee.sh publie chaque survol
+//   individuellement AVANT que son propre detecteur de rafale ne se
+//   declenche). Fix : handleUdpCommand() ne "saute en avant" que si le
+//   retard depasse SKIP_AHEAD_THRESHOLD=3 paquets en attente -- sous ce
+//   seuil, garde le PREMIER (plus ancien) paquet lu, comme avant v163.
+//   MAX_UDP_DRAIN_PER_CALL (v164, 20/appel) inchange. PAS ENCORE TESTE SUR
+//   MATERIEL.
 //
 // v164 - 2026-09-08 - safe-modify - BUG REEL confirme en usage reel (retour
 //   utilisateur, apres relevement de BURST_THRESHOLD cote RB1/marquee.sh
@@ -3996,6 +4025,19 @@ String       displayedMaskSysName = "";
 // recree pas l'interface elle-meme -- pas encore confirme sur materiel).
 WiFiUDP      dmdUdp;
 
+// v8 -- instrumentation diagnostic (investigation des blocages UDP
+// intermittents constates en usage reel, 2026-09-08 soir -- DMD arretant
+// de traiter toute commande UDP, avec ou sans reponse ping, loop()/
+// [LOOPDIAG] pourtant toujours actifs, parfois auto-resolu apres coup).
+// Objectif : distinguer "rien n'arrive au socket" (probleme reseau/lwIP)
+// de "ca arrive mais n'est plus traite" (probleme applicatif) la
+// PROCHAINE fois que ca se reproduit, sans avoir a deviner. Compteurs
+// cumulatifs jamais remis a zero (paralleles a minFreeHeap), lus depuis
+// [LOOPDIAG].
+unsigned long g_udpPacketsSeen = 0;   // parsePacket()>0, avant tout filtrage
+unsigned long g_udpPacketsKept = 0;   // ont mene a un dispatch reel (pendingCmd/g_pending* poses)
+unsigned long g_lastUdpSeenMs = 0;    // millis() du dernier parsePacket()>0, quel qu'il soit
+
 // v139 -- voir changelog v139 en entete pour le contexte complet. Contourne
 // NetworkClient::write() (coeur Arduino-ESP32, NetworkClient.cpp) qui peut
 // bloquer jusqu'a WIFI_CLIENT_MAX_WRITE_RETRY(10) x
@@ -7516,26 +7558,47 @@ void handleUdpCommand()
   // multi-rangs, fait ~90 octets, voir commentaire v79 pres de
   // mqttClient.setBufferSize()) ; un paquet UDP plus long que le buffer est
   // tronque par read(), jamais un debordement.
-  // v6 -- BUG REEL confirme en usage reel (retour utilisateur, navigation
-  // soutenue apres le relevement de BURST_THRESHOLD, marquee.sh v48) :
-  // DMD "figé sur un marquee", plus aucune commande UDP traitee ET plus
-  // de reponse ping -- alors que [LOOPDIAG] continuait de s'imprimer
-  // normalement (loop() PAS bloque). Cause probable : cette boucle de
-  // vidange (v163) n'avait AUCUNE limite -- un flux entrant suffisamment
-  // soutenu peut la faire tourner plus longtemps qu'un cycle udp/lwIP
-  // normal, avec un risque de laisser le buffer de reception socket se
-  // remplir/se degrader (pourrait expliquer que meme l'ICMP, qui partage
-  // le meme pool de buffers lwIP, ait cesse de repondre). Fix : borne
-  // dure (20 paquets max par appel) -- largement suffisant pour rattraper
-  // une rafale normale, mais garantit que cette fonction rend TOUJOURS la
-  // main a loop() rapidement, quel que soit le debit entrant.
+  // v7 -- BUG REEL confirme en usage reel (retour utilisateur, APRES le fix
+  // v163 "vidange -> ne garder que le dernier paquet") : au DEMARRAGE d'une
+  // navigation rapide (pas extreme), les 2-3 PREMIERS marquees ne
+  // s'affichent plus du tout -- le vieux marquee (d'avant la navigation)
+  // reste affiche plusieurs secondes avant de sauter directement a la
+  // position courante. Cause : v163 ecrasait TOUJOURS par le DERNIER
+  // paquet lu, meme quand seulement 2-3 etaient en attente (navigation qui
+  // vient de commencer, pas encore un vrai retard accumule) -- alors que
+  // marquee.sh envoie chaque survol individuellement AVANT que son propre
+  // detecteur de rafale ne se declenche (voir BURST_SUSTAIN_SECONDS, les 2
+  // premieres secondes d'une rafale publient normalement un evenement par
+  // survol). Fix : ne "sauter en avant" que si le retard est VRAIMENT
+  // important -- les premiers SKIP_AHEAD_THRESHOLD paquets sont traites
+  // UN PAR UN au fil des appels successifs de loop() (comme avant v163,
+  // chaque position vraiment affichee) ; seulement APRES ce seuil, les
+  // paquets suivants ecrasent le paquet retenu (rattrape la position
+  // reellement la plus recente si le flux entrant depasse largement ce
+  // que le rendu peut suivre). MAX_UDP_DRAIN_PER_CALL (v164, borne dure a
+  // 20/appel, voir son commentaire) reste inchange -- garde-fou contre un
+  // flux entrant degradant le buffer socket/pool lwIP.
   const int MAX_UDP_DRAIN_PER_CALL = 20;
+  const int SKIP_AHEAD_THRESHOLD = 3;
   int drained = 0;
   while ((packetSize = dmdUdp.parsePacket()) > 0 && drained < MAX_UDP_DRAIN_PER_CALL)
   {
     drained++;
-    int l = dmdUdp.read(buf, sizeof(buf) - 1);
-    if (l > 0) { len = l; gotPacket = true; }
+    g_udpPacketsSeen++;          // v8 -- voir declaration, avant tout filtrage
+    g_lastUdpSeenMs = millis();  // v8
+    char scratch[256];
+    int l = dmdUdp.read(scratch, sizeof(scratch) - 1);
+    if (l <= 0) continue;
+    // v7 -- ne retient QUE le premier paquet lu tant que le retard reste
+    // petit (<= SKIP_AHEAD_THRESHOLD) -- a partir du paquet suivant, bascule
+    // sur le plus recent (retard confirme important, les positions
+    // intermediaires sont perimees).
+    if (!gotPacket || drained > SKIP_AHEAD_THRESHOLD)
+    {
+      memcpy(buf, scratch, l);
+      len = l;
+      gotPacket = true;
+    }
   }
   if (!gotPacket) return;
   buf[len] = '\0';
@@ -7572,6 +7635,7 @@ void handleUdpCommand()
   else if (cmd=="brightness_down") pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_DOWN,"");
   else if (cmd=="score") { if(arg.length()>0) pendingCmd=MqttCommand(MqttCommand::CMD_SCORE,arg); }
   else if (cmd=="ingame") g_recalboxInGame = (arg=="1");
+  g_udpPacketsKept++; // v8 -- voir declaration : le paquet retenu par la vidange a bien ete dispatche
 
   xSemaphoreGive(mqttCmdMutex);
 }
@@ -9748,7 +9812,22 @@ void loop()
                      + " minFreeHeap=" + String(ESP.getMinFreeHeap())
                      + " connectAttempts=" + String(g_totalConnectAttempts)
                      + " pendingType=" + String((int)pendingCmd.type)
-                     + " stackMinBytes=" + String(stackMinWords * 4));
+                     + " stackMinBytes=" + String(stackMinWords * 4)
+                     // v8 -- instrumentation blocages UDP intermittents (voir
+                     // declaration de g_udpPacketsSeen) : udpSeen/udpKept
+                     // cumulatifs (si udpSeen stagne alors que RB1 envoie
+                     // toujours -> rien n'arrive au socket, probleme reseau/
+                     // lwIP ; si udpSeen avance mais udpKept stagne ->
+                     // probleme applicatif dans le dispatch) ; udpAgoMs =
+                     // ms depuis le dernier paquet vu, quel qu'il soit.
+                     + " udpSeen=" + String(g_udpPacketsSeen)
+                     + " udpKept=" + String(g_udpPacketsKept)
+                     + " udpAgoMs=" + String(g_lastUdpSeenMs > 0 ? (long)(millis() - g_lastUdpSeenMs) : -1)
+                     // v8 -- wifiStatus/rssi : ecarte (ou confirme) une
+                     // degradation radio silencieuse (WiFi.status() reste
+                     // WL_CONNECTED mais rssi en chute, ou l'inverse).
+                     + " wifiStatus=" + String((int)WiFi.status())
+                     + " rssi=" + String(WiFi.RSSI()));
     }
   }
   // processPendingMqttCommand() APPELE EN PREMIER (2026-08-09, v62) --
