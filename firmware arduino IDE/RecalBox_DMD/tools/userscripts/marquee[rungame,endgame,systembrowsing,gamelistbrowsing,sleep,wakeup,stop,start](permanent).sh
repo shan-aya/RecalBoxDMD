@@ -60,7 +60,17 @@ renice -n -10 -p $$ >/dev/null 2>&1
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v46
+# Version actuelle : v47
+#
+# v47 - 2026-09-08 - safe-modify - EARLY_STABLE_SECONDS 2 -> 1 (retour
+#   utilisateur : latence de sortie de rafale trop longue en navigation
+#   rapide non-extreme, "le DMD affiche un marquee plusieurs secondes avant
+#   de sauter a celui en cours de defilement"). Risque d'arrondi seconde
+#   entiere (raison du 2 d'origine, v31) accepte : desormais couvert par
+#   RecalBox_DMD.ino v163 (vidange UDP), une sortie prematuree n'affiche
+#   plus qu'une position potentiellement pas finale, jamais une file
+#   d'images perimees a rattraper. Voir le commentaire complet pres de la
+#   constante.
 #
 # v46 - 2026-09-08 - safe-modify - Resync UDP (demande utilisateur, comble
 #   le trou laisse par la bascule full UDP v45 : sans retain MQTT, un DMD
@@ -1284,9 +1294,18 @@ throttled=0
 last_real_change_ts=0
 # v31 -- secondes ecoulees (bucketing entier, voir changelog v31) depuis
 # last_real_change_ts exigees avant de considerer un doublon ES comme une
-# preuve de position stabilisee. 2, pas 1 -- meme valeur/philosophie que
-# BURST_SUSTAIN_SECONDS, marge contre l'arrondi a la seconde entiere.
-EARLY_STABLE_SECONDS=2
+# preuve de position stabilisee.
+# v47 -- 2 -> 1 (retour utilisateur, piste UDP : "le DMD affiche un marquee
+# plusieurs secondes avant de sauter a celui en cours de defilement" en
+# navigation rapide mais pas extreme -- latence de sortie de rafale trop
+# longue). v31 avait choisi 2 (pas 1) specifiquement pour une marge contre
+# l'arrondi seconde entiere -- ce risque (declarer "stable" apres ~0.1s
+# reel dans le pire cas d'arrondi) est accepte ici car BEAUCOUP moins grave
+# qu'avant : le DMD ne rejoue plus la file d'attente (RecalBox_DMD.ino
+# v163, vidange UDP a chaque loop()) -- une sortie de rafale legerement
+# prematuree n'affiche plus qu'UNE position potentiellement pas tout a
+# fait finale, jamais une suite d'images perimees a rattraper.
+EARLY_STABLE_SECONDS=1
 # v34 -- cadence de sondage direct de es_state.inf quand aucun evenement
 # n'est deja disponible dans le pipe (voir poll_navigation_position() et son
 # changelog complet) -- "sleep" supporte les valeurs fractionnaires sur cet
