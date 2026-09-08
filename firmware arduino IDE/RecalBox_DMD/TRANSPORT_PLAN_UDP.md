@@ -54,7 +54,27 @@ même format de payload texte que MQTT aujourd'hui (`CMD=<nom> ARG=<valeur>`).
 
 ## État
 
-Rien codé. Prochaine étape suggérée : prototype minimal (DMD écoute UDP + republie un
-seul type de commande côté RB1, ex. `CMD=score`) pour valider la fiabilité en charge
-réelle avant de migrer le reste. Comparer avec la piste HTTP (`dev/dmd-http-transport`)
-sur le même protocole de test avant de choisir laquelle poursuivre.
+**2026-09-08 — Prototype DMD codé et validé EN DIRECT sur matériel réel** (v158 puis
+v159, voir changelog `RecalBox_DMD.ino`) :
+- `WiFiUDP dmdUdp` sur le port `UDP_CMD_PORT=5005`, `handleUdpCommand()` appelée à
+  chaque `loop()` (non bloquant), même parsing/dispatch que `onMqttMessage()`
+  (dupliqué, pas factorisé — ne pas restructurer un chemin MQTT éprouvé pour un
+  prototype pas encore validé en charge).
+- v158 : `CMD_SCORE` seul, testé et validé (paquet UDP → écran score affiché).
+- v159 : étendu à tout le jeu `stop/default/system/game/show_config/
+  wifi_recovery/reboot/brightness/brightness_up/brightness_down/score/ingame`.
+  Tous testés un par un via UDP direct vers `192.168.0.51:5005` (sauf
+  `wifi_recovery`/`reboot`, disruptifs, non testés) — dispatch correct, y compris
+  interaction propre avec le chemin MQTT concurrent (un vrai score MQTT arrivé en
+  cours de test a été interrompu proprement par un `show_config` UDP, preuve que le
+  partage de `pendingCmd`/`mqttCmdMutex` entre les 2 sources fonctionne).
+- MQTT reste actif en parallèle, rien coupé. Côté RB1 (scripts `marquee.sh`/
+  `dmd_score.sh`), **rien encore fait** — seul le DMD écoute, personne ne lui parle
+  encore en UDP en conditions réelles de jeu.
+
+**Prochaine étape** : côté RB1, remplacer (ou dupliquer en parallèle pour comparer)
+les appels `mosquitto_pub` par un envoi UDP dans `marquee.sh`/`dmd_score.sh`, puis
+observer en charge réelle (session de jeu complète) si le mur de plateforme MQTT
+(déconnexions/subscribe bloquant) est bien évité côté UDP. Comparer avec la piste
+HTTP (`dev/dmd-http-transport`) avant de choisir laquelle poursuivre — décision pas
+encore prise à ce stade, aucune des deux voies n'est encore coupée.
