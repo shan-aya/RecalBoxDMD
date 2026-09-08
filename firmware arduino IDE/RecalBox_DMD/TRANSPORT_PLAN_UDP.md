@@ -54,7 +54,37 @@ même format de payload texte que MQTT aujourd'hui (`CMD=<nom> ARG=<valeur>`).
 
 ## État
 
-**2026-09-08 — Prototype DMD codé et validé EN DIRECT sur matériel réel** (v158 puis
+**2026-09-08 (fin de soirée) — BASCULE FULL UDP décidée et faite, MQTT coupé.**
+Décision utilisateur explicite (fragilité réseau MQTT documentée depuis des mois,
+raison d'être de toute cette piste) — plus une question de comparaison, la piste UDP
+est maintenant celle utilisée en pratique :
+- Firmware v161 : `MQTT_ENABLED=false`, `mqttTask()` n'est plus jamais créée (aucun
+  `connect()`/`subscribe()`, élimination complète du mur de plateforme). Code MQTT
+  laissé intact mais inerte, un seul flag pour revenir en arrière.
+- RB1 v45 (`marquee.sh`)/v48 (`dmd_score.sh`) : les 3 `mosquitto_pub` commentés (pas
+  supprimés), seul `send_udp()` reste actif.
+- **Effet de bord mesuré et documenté séparément** (`MQTT_HEAP_COST_INVESTIGATION.md`,
+  remonté sur `master`) : ~4700-4800 octets de heap libre en PLUS en permanence sans
+  `mqttTask()`, même quand MQTT n'était pas connecté — candidat concret (non prouvé)
+  pour le crash mémoire déjà documenté dans `DECISIONS.md`.
+- **Trou identifié et comblé le même soir** : sans retain MQTT, un DMD qui
+  reboote/perd le WiFi en session restait figé sur son dernier état. Fix v162
+  (firmware, `sendUdpHello()` au (re)connect WiFi) + `dmd_helpers/dmd_udp_resync.py`
+  v1 (RB1, écoute le hello et relit `es_state.inf` à neuf) — **validé en conditions
+  réelles** : reboot du DMD pendant une vraie partie en cours, resync correct
+  (`CMD=game`), bascule sur l'écran du jeu au lieu de rester sur la playlist.
+
+Tout ça déployé et actif sur RB1/DMD réels au moment de cette mise à jour.
+
+**Prochaine étape possible** : observer en usage réel prolongé (pas juste quelques
+minutes de test) — fiabilité UDP sous charge de navigation rapide (risque perf des 2
+forks Python par événement déjà documenté dans les changelogs `marquee.sh`/
+`dmd_score.sh`, jamais formellement mesuré en rafale), et robustesse du mécanisme de
+resync sur plusieurs cycles reboot/reconnexion.
+
+## Historique (prototype initial, avant la bascule full UDP)
+
+**2026-09-08 (après-midi) — Prototype DMD codé et validé EN DIRECT sur matériel réel** (v158 puis
 v159, voir changelog `RecalBox_DMD.ino`) :
 - `WiFiUDP dmdUdp` sur le port `UDP_CMD_PORT=5005`, `handleUdpCommand()` appelée à
   chaque `loop()` (non bloquant), même parsing/dispatch que `onMqttMessage()`
