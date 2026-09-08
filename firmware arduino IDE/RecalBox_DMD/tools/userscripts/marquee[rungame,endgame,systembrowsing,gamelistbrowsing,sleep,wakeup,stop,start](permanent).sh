@@ -60,7 +60,16 @@ renice -n -10 -p $$ >/dev/null 2>&1
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v45
+# Version actuelle : v46
+#
+# v46 - 2026-09-08 - safe-modify - Resync UDP (demande utilisateur, comble
+#   le trou laisse par la bascule full UDP v45 : sans retain MQTT, un DMD
+#   qui reboote/perd le WiFi en session reste fige sur son dernier etat).
+#   Lance dmd_helpers/dmd_udp_resync.py en sous-processus au demarrage
+#   (meme motif que features_watcher()) -- ecoute le "hello" UDP envoye par
+#   le DMD a chaque connexion/reconnexion WiFi (RecalBox_DMD.ino v161,
+#   sendUdpHello()), relit es_state.inf a neuf a chaque hello et renvoie
+#   l'etat reel courant. PAS ENCORE TESTE SUR MATERIEL.
 #
 # v45 - 2026-09-08 - safe-modify - BASCULE FULL UDP (demande utilisateur
 #   explicite, meme motif que RecalBox_DMD.ino v161/MQTT_ENABLED=false :
@@ -1312,6 +1321,16 @@ echo "$(date) - Marquee bridge started (v41, veille ciblee demo/gameclip desacti
 # "read -t 1" remplace "-W 1" pour le timeout de detection de silence
 # pendant une rafale, "read" bloquant simple sinon, tous deux sur le MEME
 # pipe deja ouvert -- plus aucun trou d'ecoute entre 2 evenements.
+# v45 -- resync UDP (voir TRANSPORT_PLAN_UDP.md, RecalBox_DMD.ino v161
+# sendUdpHello()) : sous-processus DEDIE, meme motif que features_watcher()
+# (dmd_score.sh) -- ecoute en permanence le "hello" du DMD (a chaque
+# connexion/reconnexion WiFi) et relit /tmp/es_state.inf a neuf pour
+# renvoyer l'etat REEL courant, comble le trou laisse par l'absence de
+# retain MQTT en mode full UDP. Tue automatiquement quand ce process
+# (marquee.sh, le singleton) meurt -- pas de gestion d'orphelin separee,
+# comme features_watcher.
+python3 "/recalbox/share/userscripts/dmd_helpers/dmd_udp_resync.py" >> "$LOG" 2>&1 &
+
 mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 -t "Recalbox/EmulationStation/Event" 2>/dev/null | \
 while true; do
     PREV_EVENT="$event"
