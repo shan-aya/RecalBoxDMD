@@ -1,7 +1,30 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v169
+// Version actuelle : v170
+//
+// v170 - 2026-09-08 - safe-modify - Oubli reel trouve EN REVUE (pas en
+//   usage -- retour utilisateur explicite : "qu'est-ce qu'on aurait pu
+//   oublier de mettre a jour ?") : broadcastFeatureStatus() (les 8
+//   reglages hi-score/info/description/RA de la page web du DMD, lus par
+//   dmd_score.sh ET dmd_achievement.sh via mosquitto_sub sur
+//   marquee/status/features) ne publiait plus QUE via MQTT -- mort depuis
+//   la bascule full UDP (v161, MQTT_ENABLED=false), aux 2 points d'appel
+//   existants (mqttTask() et handleWebConfigSave()) : tout changement de
+//   reglage sur la page web n'atteignait plus jamais RB1, silencieusement.
+//   Fix : le early-return "pas connecte" est retire, le message est
+//   construit INCONDITIONNELLEMENT, publie en MQTT seulement si connecte
+//   (compat), et desormais TOUJOURS envoye en UDP (nouvelle fonction
+//   sendUdpFeatureStatus(), meme port que sendUdpHello(), prefixe
+//   "FEATURES:") -- corrige les 2 points d'appel a la fois. Appelee aussi
+//   au (re)connect WiFi (meme motif que le hello) pour rattraper un DMD
+//   qui redemarre. Cote RB1, dmd_helpers/dmd_udp_resync.py v2 distingue ce
+//   nouveau message du "hello" et ecrit directement dans
+//   FEATURES_CACHE_PATH (meme fichier que l'ancien mecanisme MQTT, aucun
+//   changement necessaire dans dmd_score.sh/dmd_achievement.sh).
+//   dmd_achievement.sh v6 recoit aussi son propre send_udp() (oublie lors
+//   de la bascule initiale, jamais touche jusqu'ici). PAS ENCORE TESTE SUR
+//   MATERIEL.
 //
 // v169 - 2026-09-08 - safe-modify - VRAIE CAUSE trouvee (pas juste une
 //   mitigation) des 5 blocages UDP de ce soir, par lecture du CODE SOURCE
@@ -7576,6 +7599,25 @@ void sendUdpHello()
   Serial.println("[UDP] hello envoye a " + recalboxIP + ":" + String(UDP_HELLO_PORT));
 }
 
+// v13 -- canal DMD->RB1 pour les 8 reglages hi-score/info/description/RA
+// (voir broadcastFeatureStatus(), son seul appelant) -- MEME port que le
+// hello (UDP_HELLO_PORT), prefixe "FEATURES:" pour que dmd_udp_resync.py
+// (RB1) distingue ce message d'un simple "HELLO". best-effort, comme tout
+// le reste de cette piste -- si perdu, la valeur en cache cote RB1 reste
+// celle d'avant (pas pire qu'avant cette fonction, qui ne partait plus du
+// tout depuis la bascule full UDP, MQTT_ENABLED=false).
+void sendUdpFeatureStatus(const char *featuresPayload)
+{
+  if (recalboxIP.length() == 0) return;
+  IPAddress ip;
+  if (!parseIP(recalboxIP, ip)) return;
+  String msg = String("FEATURES:") + featuresPayload;
+  dmdUdp.beginPacket(ip, UDP_HELLO_PORT);
+  dmdUdp.write((const uint8_t*)msg.c_str(), msg.length());
+  dmdUdp.endPacket();
+  Serial.println("[UDP] features envoye a " + recalboxIP + ":" + String(UDP_HELLO_PORT) + " -> " + String(featuresPayload));
+}
+
 void handleUdpCommand()
 {
   // v5 -- BUG REEL confirme en usage reel (retour utilisateur : navigation
@@ -8599,6 +8641,10 @@ void setupWiFiFromConfig()
     // v4 -- resync UDP (voir sendUdpHello()) : INDEPENDANT de MQTT_ENABLED,
     // recalboxIP vient d'etre resolu ci-dessus -- premier hello du boot.
     sendUdpHello();
+    // v13 -- diffuse aussi les reglages hi-score/info/description/RA au
+    // boot (voir broadcastFeatureStatus()) -- rattrape un DMD qui redemarre
+    // pendant que RB1 tourne deja, meme motif que le hello juste au-dessus.
+    broadcastFeatureStatus();
     if(recalboxIP.length()>0){
       mqttClient.setServer(recalboxIP.c_str(),MQTT_PORT);
       mqttClient.setCallback(onMqttMessage);
@@ -8850,7 +8896,22 @@ void loadConfig()
 // esprit que le reste du protocole marquee/cmd/*).
 void broadcastFeatureStatus()
 {
-  if (mqttClient.state() != 0) return; // pas connecte, rien a publier
+  // v13 -- BUG REEL trouve en revue (pas en usage reel cette fois -- retour
+  // utilisateur explicite : "qu'est-ce qu'on aurait pu oublier de mettre a
+  // jour ?") : cette fonction est le SEUL point qui diffuse les 8 reglages
+  // hi-score/info/description/RA (page web du DMD) vers RB1
+  // (marquee/status/features, lu par dmd_score.sh ET dmd_achievement.sh
+  // via mosquitto_sub). Le early-return original ("pas connecte, rien a
+  // publier") supposait implicitement que MQTT est le SEUL canal --
+  // devenu FAUX depuis la bascule full UDP (v161, MQTT_ENABLED=false) :
+  // plus aucun connect() n'a jamais lieu, donc cette fonction ne faisait
+  // plus RIEN depuis ce soir, silencieusement, aux 2 points d'appel
+  // existants (ici et handleWebConfigSave()) -- tout changement de
+  // reglage sur la page web du DMD n'atteignait plus jamais RB1. Fix :
+  // construit le message INCONDITIONNELLEMENT, publie en MQTT seulement
+  // si connecte (compat si MQTT_ENABLED repasse a true), ET envoie
+  // TOUJOURS en UDP (voir sendUdpFeatureStatus() plus bas) -- corrige les
+  // 2 points d'appel a la fois sans les toucher.
   // v127 -- METHODE ENTIEREMENT REVUE (retour utilisateur explicite : "la
   // methode est a revoir pour le transfert des reglages", pas juste un
   // patch par-dessus). Validation live du garde v126 CETTE MEME SOIREE :
@@ -8891,8 +8952,11 @@ void broadcastFeatureStatus()
     Serial.println("[MQTT] broadcastFeatureStatus ABANDON (snprintf n=" + String(n) + "): " + String(buf));
     return;
   }
-  mqttClient.publish("marquee/status/features", buf, true);
-  Serial.println(String("[MQTT] marquee/status/features -> ") + buf);
+  if (mqttClient.connected()) {
+    mqttClient.publish("marquee/status/features", buf, true);
+    Serial.println(String("[MQTT] marquee/status/features -> ") + buf);
+  }
+  sendUdpFeatureStatus(buf); // v13 -- voir sa declaration, canal independant de MQTT
 }
 
 bool isValidPlaylistLine(String line){line.trim();return line.length()&&line[0]!='#'&&line[0]!=';'&&line[0]=='/';}
@@ -9928,7 +9992,7 @@ void loop()
   {
     static bool s_wifiWasConnected = false;
     bool wifiNowConnected = (WiFi.status() == WL_CONNECTED);
-    if (wifiNowConnected && !s_wifiWasConnected) sendUdpHello();
+    if (wifiNowConnected && !s_wifiWasConnected) { sendUdpHello(); broadcastFeatureStatus(); }
     s_wifiWasConnected = wifiNowConnected;
   }
   // v10 -- MITIGATION (pas un vrai fix -- cause exacte non confirmee) pour
