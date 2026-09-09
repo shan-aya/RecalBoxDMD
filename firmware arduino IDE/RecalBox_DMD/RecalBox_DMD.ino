@@ -1,7 +1,139 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v170
+// Version actuelle : v176
+//
+// v176 - 2026-09-09 - safe-modify - Les 4 alertes de connexion (RecalBox
+//   connectee/CMD_WAITING_MQTT, RecalBox non connectee, pas de wifi,
+//   filet de reprise playlist v175) retablies en UDP -- retour utilisateur
+//   direct : "es-tu sur qu'elles sont fonctionnelles ? aucune ne s'est
+//   jamais affichee". Verifie : les 4 vivaient exclusivement dans
+//   mqttTask() (mort depuis MQTT_ENABLED=false, v161) ou dans des chemins
+//   gates sur mqttClient.connected() (jamais vrai en full UDP) -- v175 seul
+//   ne couvrait que le repli SILENCIEUX (retour playlist), pas les 3
+//   ecrans/textes eux-memes. Fix : "RecalBox connectee" (CMD_WAITING_MQTT)
+//   poste au meme site que le hello de (re)connexion WiFi existant (couvre
+//   aussi le 1er boot, s_wifiWasConnected demarre a false) ; "pas de wifi"
+//   et "RecalBox non connectee" reimplementes en loop() avec la meme
+//   cadence "3 affichages max" que l'original mqttTask(), sur WiFi.status()
+//   et g_lastUdpSeenMs au lieu de mqttClient/g_lastMqttUsefulMs (morts).
+//   L'affichage/effacement lui-meme (showXAlert(), clignotement, effacement
+//   sur tout CMD_* recu) etait deja transport-agnostique, inchange -- ne
+//   manquait que le DECLENCHEMENT. PAS ENCORE TESTE SUR MATERIEL (aucun des
+//   4 cas -- coupure wifi, RB1 injoignable, (re)connexion, blocage UDP --
+//   n'a encore ete observe avec ce firmware).
+//
+// v175 - 2026-09-09 - safe-modify - VRAIE CAUSE DE LA PERMANENCE DU GEL
+//   trouvee (retour utilisateur decisif : "je ne pense pas a une saturation
+//   de pool vu que sur un reboot sain, le 1er marquee suffit a figer le DMD
+//   qui ne repasse meme plus en mode playlist automatique apres 60s
+//   d'inactivite"). Verification : le filet "60s sans activite utile ->
+//   reprise playlist" EXISTE deja dans le firmware (MQTT_OFFLINE_FALLBACK_MS/
+//   g_lastMqttUsefulMs) mais vit ENTIEREMENT dans mqttTask() -- mort depuis
+//   MQTT_ENABLED=false (v161), 3e canal casse par la bascule full UDP apres
+//   les alertes "RecalBox (dé)connectee" et broadcastFeatureStatus()/
+//   dmd_achievement.sh deja corriges plus tot. Sous MQTT, N'IMPORTE QUEL
+//   blocage reseau finissait TOUJOURS par etre rattrape ici en 60-90s ; en
+//   full UDP, plus rien ne surveillait l'inactivite reseau -- transformant
+//   n'importe quel hoquet (dont la cause exacte reste non elucidee, voir
+//   v174) en gel PERMANENT necessitant une extinction physique. Fix :
+//   filet reimplemente en loop() sur g_lastUdpSeenMs (deja suivi par
+//   handleUdpCommand()) au lieu de g_lastMqttUsefulMs (mort), meme seuil
+//   MQTT_OFFLINE_FALLBACK_MS (60s), meme mecanisme de reprise
+//   (g_pendingDefault). Ne resout PAS la cause du blocage reseau lui-meme
+//   (toujours non expliquee) mais restaure le comportement d'origine :
+//   auto-recuperation en playlist locale au lieu d'un gel definitif. PAS
+//   ENCORE TESTE SUR MATERIEL.
+//
+// v174 - 2026-09-09 - safe-modify - OUTIL DE MESURE (PAS un fix -- retour
+//   utilisateur explicite apres le revert v172/v173 : "tu proposes encore de
+//   corriger un symptome au lieu de chercher la cause"). Le gel de reception
+//   UDP (udpSeen figé en permanence, meme a un trafic minime de 1 paquet/20s
+//   pendant 17min mesure ce soir, WiFi.status()/RSSI toujours sains) reste
+//   totalement non explique -- recherche web faite (voir DECISIONS.md/memoire
+//   pour les references), aucun match exact trouve pour ce symptome precis
+//   (blocage PERMANENT, pas juste une perte transitoire de mailbox pleine).
+//   Question jamais testee jusqu'ici : pendant que la RECEPTION est figee,
+//   l'EMISSION du DMD fonctionne-t-elle encore sur ce MEME socket ? Ajoute
+//   sendUdpHello() dans le bloc UDPREARM existant (deja a frequence 30s,
+//   cout negligeable, AUCUN risque du type v172 -- ne touche pas la boucle
+//   de rendu par frame), envoye AVANT le stop()/begin() pour tester le socket
+//   potentiellement figé lui-meme, pas un socket neuf. Verification : au
+//   prochain gel reel, comparer dmd_udp_resync.log (RB1, deja a l'ecoute) --
+//   le HELLO de mesure arrive-t-il pendant que udpSeen etait figé cote DMD ?
+//   Reponse attendue : localise le blocage a la reception seule (si HELLO
+//   recu) ou a toute la pile reseau (si HELLO absent, a rapprocher du "trou
+//   noir TCP" MQTT deja documente dans DECISIONS.md). PAS ENCORE OBSERVE EN
+//   CONDITIONS REELLES (attend le prochain gel naturel).
+//
+// v173 - 2026-09-09 - safe-modify - REVERT de v172 (retour utilisateur
+//   direct apres flash+test reel : "fige marquee comme toujours" -- gel
+//   udpSeen sur actfancr/heap ~5000-6100, MEME signature que le gel non
+//   resolu documente plus tot cette nuit AVANT meme v172). Impossible de
+//   determiner avec certitude si v172 a cree ce gel ou a simplement laisse
+//   resurgir le bug preexistant (meme jeu, meme fourchette de heap
+//   suspecte) -- mais handleUdpCommand() appele potentiellement des
+//   centaines de fois/seconde depuis l'interieur des boucles d'attente
+//   (chaque appel peut tenter un malloc() interne a la librairie UDP)
+//   est un vecteur d'aggravation plausible sous heap deja critique,
+//   risque juge superieur au benefice (lag de confort, pas un blocage).
+//   Retour a v171 tel quel (handleUdpCommand() retire des 2 boucles
+//   d'attente, uniquement present au niveau superieur de loop() comme
+//   avant) -- le lag de 0.2-1.25s en navigation lente revient, mais plus
+//   de risque nouveau de gel. Root cause du lag reste documentee (voir
+//   changelog v172 ci-dessous, conserve pour memoire) pour une reprise
+//   future avec une approche plus sure (ex: n'appeler handleUdpCommand()
+//   dans la boucle d'attente que si heap au-dessus d'un seuil de securite).
+//
+// v172 - 2026-09-09 - safe-modify - [REVERTE PAR v173, VOIR CI-DESSUS --
+//   conserve pour memoire/reprise future] BUG REEL trouve par lecture du CODE
+//   (retour utilisateur direct, compare a MQTT : "en navigation lente
+//   l'affichage marquee est bien moins reactif, 0.5s environ de lag" --
+//   confirme NOUVEAU par l'utilisateur, absent sous MQTT, PAS un mecanisme
+//   anti-scintillement volontaire comme suppose a tort dans un 1er temps).
+//   Cause exacte, mesuree dans le serial (ecart "[UDP] CMD=game" ->
+//   "[DIAG] currentMode" variable de 0.2s a 1.25s selon le jeu) : les 2
+//   boucles d'attente par frame (case MODE_PLAYLIST l.10299, MODE_GIF
+//   l.10334 desormais, "while(millis()-t<fd){if(hasPendingMqttCommand())
+//   break; processPendingMqttCommand(); delay(1);}", PREEXISTANTES,
+//   inchangees ce soir) appellent processPendingMqttCommand() (qui ne fait
+//   que CONSOMMER les slots deja remplis) mais jamais handleUdpCommand()
+//   (qui LIT le socket et REMPLIT ces slots) -- sous MQTT, mqttTask()
+//   tournait sur un coeur separe et continuait de remplir ces memes slots
+//   PENDANT cette attente, masquant totalement le probleme. En full UDP
+//   (v161, pas de tache separee), un paquet arrivant PENDANT l'attente
+//   d'une frame reste dans le buffer socket, invisible de
+//   hasPendingMqttCommand(), jusqu'a la fin du "fd" ms de cette frame --
+//   d'ou un lag proportionnel a la duree d'affichage encodee de la frame
+//   COURANTE (quasi nul sur un marquee anime a frames courtes, jusqu'a
+//   ~1.2s mesure sur un marquee statique "1 frame" a delay long). Fix :
+//   handleUdpCommand() ajoute dans les 2 boucles, memes emplacements que
+//   processPendingMqttCommand() -- les nouveaux paquets sont desormais lus
+//   et rendent hasPendingMqttCommand() vrai des qu'ils arrivent, meme en
+//   pleine attente de frame. PAS ENCORE TESTE SUR MATERIEL.
+//
+// v171 - 2026-09-09 - safe-modify - BUG REEL trouve par lecture du CODE
+//   (retour utilisateur repete 3+ fois : "le shuffle ne se declenche pas"
+//   -- ni le reglage EARLY_STABLE_SECONDS (v?) ni le va-et-vient sur
+//   BURST_THRESHOLD (v48/v49) n'avaient d'effet, pour cause : le probleme
+//   n'est PAS cote detecteur RB1 (confirme sain -- marquee_mqtt.log montre
+//   208x "BURST start"/188x "SEND !SHUFFLE" bien envoyes, dont 2 cette nuit
+//   meme) mais cote vidange UDP du DMD (handleUdpCommand(), v163/v165).
+//   Cause exacte : juste avant qu'une rafale cote RB1 ne franchisse son
+//   seuil, plusieurs "game=<rom>" individuels (survols pre-seuil) arrivent
+//   deja en file d'attente sur le socket du DMD ; des que "!SHUFFLE" est
+//   ensuite envoye, si le retard cumule au moment du prochain drain est
+//   <=SKIP_AHEAD_THRESHOLD(3), la regle "garde le PREMIER paquet du lot"
+//   (v165, ajoutee pour corriger l'affichage des 2-3 premiers marquees)
+//   retient un vieux "game=<rom>" au lieu de "!SHUFFLE" -- le signal est
+//   jete SILENCIEUSEMENT, sans lien avec les seuils de rafale, d'ou son
+//   caractere apparemment aleatoire. Fix : "!SHUFFLE" est desormais
+//   toujours prioritaire quel que soit son rang dans le lot drainé (scan
+//   de chaque paquet lu, retenu des qu'il contient "ARG=!SHUFFLE",
+//   remplace n'importe quel "game=<rom>" deja garde par la regle
+//   generique) -- comportement des autres commandes (dont la regle
+//   premier/dernier "game" normale) totalement inchange. PAS ENCORE
+//   TESTE SUR MATERIEL.
 //
 // v170 - 2026-09-08 - safe-modify - Oubli reel trouve EN REVUE (pas en
 //   usage -- retour utilisateur explicite : "qu'est-ce qu'on aurait pu
@@ -7661,6 +7793,15 @@ void handleUdpCommand()
   int len = 0;
   bool gotPacket = false;
   int packetSize;
+  // v171 -- "!SHUFFLE" est un signal RARE et IMPORTANT (coupe-circuit
+  // anti-rafale), pas une position de navigation comme les autres "game" --
+  // s'il tombe dans le lot drainé sans etre le paquet retenu par la regle
+  // generique premier/dernier ci-dessous (typiquement : quelques "game=rom"
+  // pre-seuil deja en file quand il arrive), il etait jete silencieusement.
+  // Retenu a part, prioritaire sur le paquet "normal" choisi plus bas.
+  char shuffleBuf[1024];
+  int shuffleLen = 0;
+  bool gotShuffle = false;
   // v7 -- BUG REEL confirme en usage reel (retour utilisateur, APRES le fix
   // v163 "vidange -> ne garder que le dernier paquet") : au DEMARRAGE d'une
   // navigation rapide (pas extreme), les 2-3 PREMIERS marquees ne
@@ -7700,6 +7841,16 @@ void handleUdpCommand()
     // qui a tout consomme).
     while (dmdUdp.available() > 0) { char trash[256]; dmdUdp.read(trash, sizeof(trash)); }
     if (l <= 0) continue;
+    // v171 -- verifie AVANT tout le reste si ce paquet est le signal
+    // shuffle -- l >= 0 et < sizeof(scratch), l'ecriture du '\0' est donc
+    // toujours dans les bornes du tableau.
+    scratch[l] = '\0';
+    if (strstr(scratch, "ARG=!SHUFFLE") != nullptr)
+    {
+      memcpy(shuffleBuf, scratch, l);
+      shuffleLen = l;
+      gotShuffle = true;
+    }
     // v7 -- ne retient QUE le premier paquet lu tant que le retard reste
     // petit (<= SKIP_AHEAD_THRESHOLD) -- a partir du paquet suivant, bascule
     // sur le plus recent (retard confirme important, les positions
@@ -7710,6 +7861,14 @@ void handleUdpCommand()
       len = l;
       gotPacket = true;
     }
+  }
+  // v171 -- "!SHUFFLE" prioritaire sur le paquet retenu par la regle
+  // generique ci-dessus, voir son commentaire de declaration.
+  if (gotShuffle)
+  {
+    memcpy(buf, shuffleBuf, shuffleLen);
+    len = shuffleLen;
+    gotPacket = true;
   }
   if (!gotPacket) return;
   buf[len] = '\0';
@@ -9992,7 +10151,27 @@ void loop()
   {
     static bool s_wifiWasConnected = false;
     bool wifiNowConnected = (WiFi.status() == WL_CONNECTED);
-    if (wifiNowConnected && !s_wifiWasConnected) { sendUdpHello(); broadcastFeatureStatus(); }
+    if (wifiNowConnected && !s_wifiWasConnected)
+    {
+      sendUdpHello(); broadcastFeatureStatus();
+      // v176 -- ecran "RecalBox connectee" (CMD_WAITING_MQTT) retabli (retour
+      // utilisateur : verifie qu'aucune des 4 alertes -- connectee/
+      // deconnectee/pas de wifi/pas de recalbox -- ne s'affichait plus en
+      // UDP, toutes les 4 vivaient exclusivement dans mqttTask(), mort
+      // depuis MQTT_ENABLED=false). Cette couverture-ci suffit pour couvrir
+      // AUSSI le tout 1er boot (s_wifiWasConnected demarre a false) -- pas
+      // besoin de dupliquer au site setup()/sendUdpHello(), qui tourne de
+      // toute facon AVANT que mqttCmdMutex n'existe (cree ligne ~9830).
+      // L'affichage/effacement de cet ecran (drawRecalboxConnectedOverlay(),
+      // g_mqttConnectedScreenUntilMs, delai minimum) est deja transport-
+      // agnostique -- ne verifie que pendingCmd.type, jamais mqttClient --
+      // donc fonctionne tel quel une fois seulement POSTE depuis l'UDP.
+      if (mqttCmdMutex != nullptr && xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(100)) == pdTRUE)
+      {
+        pendingCmd = MqttCommand(MqttCommand::CMD_WAITING_MQTT, "");
+        xSemaphoreGive(mqttCmdMutex);
+      }
+    }
     s_wifiWasConnected = wifiNowConnected;
   }
   // v10 -- MITIGATION (pas un vrai fix -- cause exacte non confirmee) pour
@@ -10028,8 +10207,123 @@ void loop()
         // bien ce qui debloque (et pas juste une coincidence).
         Serial.println("[UDPREARM] stop+begin udpSeen=" + String(g_udpPacketsSeen)
                        + " udpAgoMs=" + String(g_lastUdpSeenMs > 0 ? (long)(nowMs - g_lastUdpSeenMs) : -1));
+        // v174 -- OUTIL DE MESURE, pas un fix (retour utilisateur explicite :
+        // chercher la vraie cause, pas un symptome de plus). Question non
+        // encore tranchee : pendant un blocage de RECEPTION confirme (udpSeen
+        // figé), l'EMISSION du DMD fonctionne-t-elle encore ? IMPORTANT :
+        // envoye ICI, AVANT le stop()/begin() ci-dessous -- sur le MEME socket
+        // potentiellement figé, pas un socket tout neuf (qui, lui, emettrait
+        // presque certainement sans rien prouver). sendUdpHello() (deja
+        // existant, cout negligeable) -- dmd_udp_resync.py (RB1, deja a
+        // l'ecoute sur UDP_HELLO_PORT) le logue tel quel, avec un message
+        // dedie ici pour ne pas le confondre avec le hello de boot/reconnexion
+        // WiFi normal. Si un HELLO apparait dans dmd_udp_resync.log PENDANT
+        // une fenetre ou udpSeen etait figé cote DMD -> emission saine,
+        // blocage localise a la reception seule (mailbox/pbuf RX). S'il
+        // n'apparait PAS -> panne plus large de la pile reseau (a rapprocher
+        // du "trou noir TCP" MQTT deja documente dans DECISIONS.md, blocage
+        // cote emission analogue).
+        Serial.println("[UDPREARM] hello de mesure envoye SUR LE SOCKET ACTUEL (avant rearm) -- voir dmd_udp_resync.log RB1");
+        sendUdpHello();
         dmdUdp.stop();
         dmdUdp.begin(UDP_CMD_PORT);
+      }
+    }
+  }
+  // v175 -- FILET DE SECURITE RETABLI (retour utilisateur decisif : "sur un
+  // reboot sain, le 1er marquee suffit a figer le DMD qui ne repasse meme
+  // plus en playlist automatique apres 60s d'inactivite" -- observation qui
+  // a permis de trouver la vraie cause de la PERMANENCE du symptome, meme si
+  // la cause du blocage reseau lui-meme reste non elucidee). Ce filet
+  // existait deja, IDENTIQUE dans l'esprit, a l'interieur de mqttTask() (voir
+  // MQTT_OFFLINE_FALLBACK_MS/g_lastMqttUsefulMs juste au-dessus dans ce
+  // fichier) -- mort depuis MQTT_ENABLED=false (v161) comme les alertes
+  // "RecalBox (dé)connectee" (voir commentaire v3 pres de MQTT_ENABLED) :
+  // sous MQTT, un reseau bloque finissait TOUJOURS par etre rattrape ici
+  // apres 60s ; en full UDP, plus AUCUN mecanisme ne surveillait
+  // l'inactivite reseau -- un blocage UDP (n'importe laquelle sa cause
+  // exacte) devenait donc un gel PERMANENT au lieu d'un simple hoquet de 60-
+  // 90s. Reimplemente ici sur g_lastUdpSeenMs (deja suivi, MAJ a CHAQUE
+  // paquet vu par handleUdpCommand(), pas seulement les paquets retenus)
+  // au lieu de g_lastMqttUsefulMs -- meme seuil MQTT_OFFLINE_FALLBACK_MS
+  // (60s), meme mecanisme de reprise (g_pendingDefault, slot dedie deja
+  // utilise partout ailleurs). Verifie a chaque iteration de loop() (cout
+  // nul : une comparaison d'entiers) mais ne DECLENCHE qu'une fois par
+  // episode de blocage (garde currentMode!=MODE_PLAYLIST, comme l'original).
+  {
+    unsigned long nowMs2 = millis();
+    if (g_lastUdpSeenMs > 0 && (nowMs2 - g_lastUdpSeenMs) >= MQTT_OFFLINE_FALLBACK_MS
+        && currentMode != MODE_PLAYLIST && gifCount > 0 && !g_sdOpInProgress)
+    {
+      Serial.println("[UDP] injoignable (" + String(MQTT_OFFLINE_FALLBACK_MS / 1000)
+                     + "s sans paquet) -> reprise playlist");
+      if (mqttCmdMutex != nullptr && xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(100)) == pdTRUE)
+      {
+        g_pendingDefault = true;
+        xSemaphoreGive(mqttCmdMutex);
+      }
+    }
+  }
+  // v176 -- 2 dernieres alertes retablies (retour utilisateur : verifie
+  // qu'aucune des 4 n'etait fonctionnelle en UDP -- voir aussi CMD_WAITING_MQTT
+  // ci-dessus pour "RecalBox connectee"). "Pas de wifi" et "RecalBox non
+  // connectee" vivaient toutes les 2 dans mqttTask() (wifiDownStreak/
+  // recalboxDisconnectedAlertCount, morts depuis MQTT_ENABLED=false) --
+  // reimplementees ici avec la MEME cadence (immediat puis 3 affichages max,
+  // ~toutes les 20s pour "non connectee" -- rythme adapte a la boucle loop()
+  // qui tourne bien plus vite que les ~1s/15s de mqttTask(), contrairement
+  // au filet v175 juste au-dessus qui reutilise le seuil MQTT_OFFLINE_
+  // FALLBACK_MS=60s tel quel). "Pas de wifi" reste prioritaire et
+  // independante de tout ce qui suit UDP (WiFi.status() seul suffit, comme
+  // l'original). L'affichage/effacement (showNoWifiRecalboxAlert()/
+  // showRecalboxDisconnectedAlert(), leur clignotement, leur effacement sur
+  // tout vrai CMD_* recu) est deja transport-agnostique, inchange.
+  {
+    static unsigned long s_wifiDownSinceMs = 0;
+    static int s_wifiAlertCount = 0;
+    static unsigned long s_lastRecalboxDisconnectedAlertMs = 0;
+    static int s_recalboxDisconnectedAlertCount = 0;
+    const int UDP_ALERT_MAX_COUNT = 3;
+    const unsigned long UDP_ALERT_REPEAT_MS = 20000UL;
+    unsigned long nowMs3 = millis();
+    if (WiFi.status() != WL_CONNECTED)
+    {
+      if (s_wifiDownSinceMs == 0) s_wifiDownSinceMs = nowMs3;
+      // WiFi coupe -- inutile de compter aussi "RecalBox non connectee" en
+      // parallele (meme cause visible, "pas de wifi" prend le pas), et evite
+      // de faire defiler les 3 affichages "non connectee" pendant une
+      // coupure WiFi qui n'a rien a voir.
+      s_recalboxDisconnectedAlertCount = 0;
+      s_lastRecalboxDisconnectedAlertMs = 0;
+      if (!g_sdOpInProgress && s_wifiAlertCount < UDP_ALERT_MAX_COUNT)
+      {
+        unsigned long downMs = nowMs3 - s_wifiDownSinceMs;
+        bool dueNow = (s_wifiAlertCount == 0 && downMs >= 1000UL)
+                    || (s_wifiAlertCount > 0 && downMs >= (unsigned long)s_wifiAlertCount * UDP_ALERT_REPEAT_MS);
+        if (dueNow) { g_noWifiRecalboxPending = true; s_wifiAlertCount++; }
+      }
+    }
+    else
+    {
+      s_wifiDownSinceMs = 0;
+      s_wifiAlertCount = 0;
+      unsigned long idleMs = (g_lastUdpSeenMs > 0) ? (nowMs3 - g_lastUdpSeenMs) : 0;
+      if (g_lastUdpSeenMs == 0 || idleMs < 5000UL)
+      {
+        // trafic recent (ou jamais rien vu depuis le boot, pas encore un
+        // vrai episode de coupure) -- remet les compteurs a zero, un futur
+        // episode redeclenchera bien ses 3 affichages depuis le debut.
+        s_recalboxDisconnectedAlertCount = 0;
+        s_lastRecalboxDisconnectedAlertMs = 0;
+      }
+      else if (!g_sdOpInProgress && currentMode != MODE_PLAYLIST
+               && s_recalboxDisconnectedAlertCount < UDP_ALERT_MAX_COUNT
+               && idleMs >= UDP_ALERT_REPEAT_MS
+               && (s_lastRecalboxDisconnectedAlertMs == 0 || (nowMs3 - s_lastRecalboxDisconnectedAlertMs) >= UDP_ALERT_REPEAT_MS))
+      {
+        g_recalboxDisconnectedPending = true;
+        s_lastRecalboxDisconnectedAlertMs = nowMs3;
+        s_recalboxDisconnectedAlertCount++;
       }
     }
   }
