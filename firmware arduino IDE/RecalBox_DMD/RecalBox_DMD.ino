@@ -1,7 +1,95 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v176
+// Version actuelle : v181
+//
+// v181 - 2026-09-09 - safe-modify - REVERT URGENT de v180 (voir le
+//   commentaire complet la ou la creation de la tache est desormais
+//   commentee) : 3 crashes abort()/PANIC consecutifs observes en direct
+//   (~90s, boucle de reboot) sur fs::FS::open()/VFSImpl::open(), meme
+//   famille que le crash heap-exhaustion deja documente 23/08 et 25/08 --
+//   cause plausible : les 8192 octets de pile de udpListenerTask(),
+//   reserves en permanence sur le heap dès le boot, ont fait basculer une
+//   situation heap deja tendue. Tache desactivee (creation commentee),
+//   fonction conservee pour reference. Les 4 sites v177/v179 (correctifs
+//   ponctuels + garde heap ESP.getFreeHeap()>=7000) restent seuls actifs --
+//   testes plusieurs heures ce soir, aucun crash observe avec eux seuls.
+//
+// v180 - 2026-09-09 - safe-modify - [REVERTE PAR v181, VOIR CI-DESSUS] TACHE DEDIEE udpListenerTask()
+//   (retour utilisateur, apres discussion sur les limites de l'approche
+//   ponctuelle v177/v179 : "il faudrait un regulateur qui distribue les
+//   paquets... pour simuler MQTT ?") -- voir son commentaire complet pres
+//   de sa declaration pour le detail. Recree le role de mqttTask() (lecture
+//   reseau en tache de fond, independante de loop()) mais pour l'UDP,
+//   structurellement plus sur (parsePacket() non bloquant, contrairement
+//   aux connect()/subscribe() MQTT). Couvre desormais TOUT site bloquant,
+//   present ou futur, sans avoir a le chasser au cas par cas. GARDE HEAP
+//   ajoutee ICI ET RETROACTIVEMENT sur les 4 sites v177/v179 (nouvelle
+//   constante UDP_POLL_IN_WAIT_MIN_HEAP=7000, verifie ESP.getFreeHeap() --
+//   PAS ESP.getMaxAllocHeap()/PREFETCH_NEXT_GIF_MIN_HEAP existant, qui
+//   reste bloque a ~4596 en permanence d'apres les logs de cette nuit et
+//   n'aurait donc jamais discrimine notre cas) : retour utilisateur
+//   explicite "vaut mieux un lag qu'un blocage" -- si le heap est sous ce
+//   seuil (zone empiriquement corrélée au gel UDP encore non elucide,
+//   ~5000-6100 observe cette nuit vs ~9000-19000 en sain), le sondage est
+//   simplement saute, sur les 4 sites ET dans cette nouvelle tache. Les 4
+//   sites v177/v179 sont CONSERVES (redondance sans risque, meme mutex)
+//   plutot que retires, pour ne pas re-tester une suppression de code
+//   deja compile ce soir. PAS ENCORE TESTE SUR MATERIEL.
+//
+// v179 - 2026-09-09 - safe-modify - AUDIT SYSTEMATIQUE de TOUS les
+//   appelants de hasPendingMqttCommand() (demande utilisateur explicite :
+//   "parcourir le firmware une fois pour toute... au lieu de les decouvrir
+//   au petit bonheur la chance -- projet en vue d'une production, pas d'un
+//   lobby"), suite au bug reel trouve sur showClock() (retour utilisateur :
+//   ecran horloge qui ne quitte qu'apres plus de 10s malgre une navigation
+//   reprise -- "le mode horloge cede la place a MQTT comme le mode
+//   playlist"). Recherche de TOUS les `while` bloquants du fichier (pas
+//   seulement ceux dejà connus) : 4 sites au total identifies, TOUS
+//   corriges avec le meme motif attenue (handleUdpCommand() au plus 1x/
+//   75ms, voir v177 pour le detail du risque/de la mitigation) :
+//   1) MODE_PLAYLIST (prefetch) -- deja corrige v177
+//   2) MODE_GIF (frame) -- deja corrige v177
+//   3) showClock() (3 sous-boucles : banniere de nom x2 + boucle
+//      principale) -- NOUVEAU, cause du symptome horloge rapporte
+//   4) MODE_PNG (attente 100ms) -- NOUVEAU, trouve par cet audit, impact
+//      dejà limite (100ms max) mais corrige par completude
+//   Verifie aussi initNTP() (boucle bloquante distincte, ligne ~9365) :
+//   ecartee -- tourne UNE FOIS au boot, avant toute navigation possible,
+//   hors du champ de ce bug. MODE_SCORE/MODE_BLACK verifies aussi : pas de
+//   boucle interne bloquante (juste delay(1) par iteration de loop(),
+//   handleUdpCommand() deja appele normalement au tour suivant). PAS
+//   ENCORE TESTE SUR MATERIEL (le fix showClock() en particulier).
+//
+// v178 - 2026-09-09 - safe-modify - INSTRUMENTATION CORRIGEE pour mesurer
+//   le VRAI delai commande->affichage (retour utilisateur : re-analyse en
+//   direct de v177 a montre que ma mesure precedente, basee sur
+//   "[DIAG] currentMode X -> Y", etait FAUSSE -- ce print ne sort qu'au
+//   DEBUT de l'iteration loop() SUIVANTE, laquelle dessine sa propre 1ere
+//   frame PUIS entre dans SA PROPRE attente de frame (fd) avant de
+//   revenir en haut de loop() ou le print sort enfin -- mesurait donc la
+//   fin de l'attente de la frame SUIVANTE, pas le delai d'affichage reel
+//   (qui, lui, est synchrone avec le dispatch CMD_GAME -- currentMode/
+//   gifOpened poses dans le MEME appel que "[GIF] open OK"). Nouveau print
+//   "[LATENCY] game recv->dispatch=Xms" : timestamp de reception capture
+//   DANS handleUdpCommand() (g_pendingGameRecvMs), lu juste apres le
+//   dispatch synchrone dans processPendingMqttCommand() -- reflete le vrai
+//   temps recv->pret-a-dessiner, le rendu lui-meme suivant dans les
+//   quelques instructions suivantes de la MEME iteration. PAS ENCORE
+//   TESTE SUR MATERIEL.
+//
+// v177 - 2026-09-09 - safe-modify - VERSION ATTENUEE du fix de lag v172
+//   (reverte en v173) -- confirme en direct sur materiel ce soir (rafale
+//   observee : ecart commande->affichage variable de 17ms a 1.25s selon le
+//   moment d'arrivee du paquet par rapport a l'attente de frame en cours,
+//   exactement le mecanisme documente pour v172). Au lieu d'appeler
+//   handleUdpCommand() a CHAQUE tick de 1ms des 2 boucles d'attente par
+//   frame (MODE_PLAYLIST/MODE_GIF, jusqu'a ~1000x/s -- risque identifie de
+//   v172 : multiplie les malloc(1460) internes a la librairie UDP sous heap
+//   deja bas), limite ici a 1 appel toutes les 75ms (~13x/s, ~75x moins
+//   frequent que v172). Borne le pire cas de latence a ~75-100ms au lieu de
+//   ~1.25s, pour une fraction du risque d'allocation de v172. PAS ENCORE
+//   TESTE SUR MATERIEL.
 //
 // v176 - 2026-09-09 - safe-modify - Les 4 alertes de connexion (RecalBox
 //   connectee/CMD_WAITING_MQTT, RecalBox non connectee, pas de wifi,
@@ -4453,6 +4541,16 @@ unsigned long g_lastMqttUsefulMs = 0;
 bool   g_pendingDefault   = false;
 bool   g_pendingSystem    = false;  String g_pendingSystemArg = "";
 bool   g_pendingGame      = false;  String g_pendingGameArg   = "";
+// v178 -- INSTRUMENTATION DIAGNOSTIC (retour utilisateur : la mesure
+// precedente via [DIAG] currentMode etait FAUSSE -- ce print ne sort qu'au
+// DEBUT de l'iteration loop() SUIVANTE, donc apres que cette iteration-la
+// ait aussi dessine sa PROPRE 1ere frame puis attende SON PROPRE fd --
+// mesurait la fin de l'attente de la frame suivante, pas le delai d'affichage
+// reel (qui, lui, est synchrone avec le dispatch CMD_GAME). Capture le vrai
+// instant de reception ICI (handleUdpCommand(), avant tout traitement) pour
+// mesurer honnetement recv->dispatch (voir le print correspondant dans
+// processPendingMqttCommand()).
+unsigned long g_pendingGameRecvMs = 0;
 // v104 -- g_pendingIngame/g_pendingGameInfo retires (CMD_INGAME/CMD_GAME_INFO
 // n'existent plus, voir suppression du sous-systeme hi-score/overlay).
 //
@@ -5781,6 +5879,25 @@ const size_t OPEN_NEXT_GIF_MIN_HEAP = 4000;
 // pres du 1er site corrige (openNextGif(), v91/v95) pour le detail du crash.
 const size_t PREFETCH_NEXT_GIF_MIN_HEAP = 8000;
 
+// v180 -- seuil de securite DEDIE pour le sondage handleUdpCommand() dans les
+// boucles d'attente bloquantes (v177/v179) -- retour utilisateur explicite :
+// "vaut mieux un lag qu'un blocage". Contrairement a PREFETCH_NEXT_GIF_MIN_HEAP
+// ci-dessus (verifie ESP.getMaxAllocHeap(), le plus gros bloc CONTIGU -- reste
+// bloque a ~4596 en permanence en usage normal d'apres les logs de cette nuit,
+// donc jamais discriminant pour NOTRE cas), ce seuil verifie ESP.getFreeHeap()
+// (heap TOTAL libre, fragmente ou pas) -- c'est CETTE valeur qui variait entre
+// les episodes sains observes cette nuit (~9000-19000) et les episodes de gel
+// UDP permanent, cause encore non elucidee (~5000-6100, voir DECISIONS.md).
+// handleUdpCommand() ne fait qu'un malloc(1460) (bien moins que
+// PREFETCH_NEXT_GIF_MIN_HEAP, qui protege une operation differente et plus
+// couteuse -- SD.open() d'un nouveau fichier), donc un seuil bien plus bas
+// suffit tout en restant confortablement au-dessus de la zone a risque
+// observee. Si le heap est sous ce seuil, le sondage est simplement saute
+// (le lag redevient ce qu'il etait avant v177/v179, uniquement dans ce cas
+// precis) plutot que de risquer d'ajouter de la pression d'allocation
+// pendant la fenetre la plus suspecte du gel non resolu.
+const size_t UDP_POLL_IN_WAIT_MIN_HEAP = 7000;
+
 String getNextGifRandom()
 {
   if(gifCount<=0) return "";
@@ -6663,9 +6780,14 @@ void processPendingMqttCommand()
   // consomme par appel, comme avant -- les autres suivront au(x) prochain(s)
   // appel(s) de loop() (quelques ms plus tard), jamais perdus entre-temps.
   MqttCommand cmd(MqttCommand::CMD_NONE,"");
+  // v178 -- snapshot local AVANT de relacher le mutex (voir declaration de
+  // g_pendingGameRecvMs) : evite qu'un NOUVEAU paquet, lu par
+  // handleUdpCommand() entre ce point et le print plus bas, n'ecrase la
+  // valeur avant qu'on ait fini de mesurer CETTE commande-ci.
+  unsigned long gameRecvMsSnapshot = 0;
   if      (g_pendingDefault) { g_pendingDefault=false; cmd=MqttCommand(MqttCommand::CMD_DEFAULT,""); }
   else if (g_pendingSystem)  { g_pendingSystem=false;  cmd=MqttCommand(MqttCommand::CMD_SYSTEM,g_pendingSystemArg); }
-  else if (g_pendingGame)    { g_pendingGame=false;    cmd=MqttCommand(MqttCommand::CMD_GAME,g_pendingGameArg); }
+  else if (g_pendingGame)    { g_pendingGame=false;    cmd=MqttCommand(MqttCommand::CMD_GAME,g_pendingGameArg); gameRecvMsSnapshot=g_pendingGameRecvMs; }
   else                       { cmd=pendingCmd; pendingCmd=MqttCommand(MqttCommand::CMD_NONE,""); }
   xSemaphoreGive(mqttCmdMutex);
   if(cmd.type==MqttCommand::CMD_NONE) return;
@@ -7547,6 +7669,21 @@ void processPendingMqttCommand()
 
   default: break;
   }
+  // v178 -- INSTRUMENTATION DIAGNOSTIC (voir declaration de
+  // g_pendingGameRecvMs) : mesure honnete recv->dispatch. A CE point,
+  // currentMode/gifOpened/etc. sont DEJA a jour (le case CMD_GAME ci-dessus
+  // vient de les poser, de facon synchrone) -- le rendu reel (switch
+  // (currentMode) dans loop()) suit dans quelques instructions, MEME
+  // iteration. Contrairement au [DIAG] currentMode (autre detecteur,
+  // generique, imprime au DEBUT de l'iteration SUIVANTE -- mesurait donc en
+  // realite la fin de l'attente de LA FRAME SUIVANTE, pas ce delai-ci), ce
+  // print-ci reflete le vrai temps ecoule entre la reception UDP et le
+  // moment ou le contenu est pret a etre dessine.
+  if (cmd.type == MqttCommand::CMD_GAME && gameRecvMsSnapshot != 0)
+  {
+    Serial.println("[LATENCY] game recv->dispatch=" + String(millis() - gameRecvMsSnapshot)
+                   + "ms arg=" + cmd.arg);
+  }
 }
 
 // --------------------------------------------------
@@ -7896,7 +8033,7 @@ void handleUdpCommand()
   if      (cmd=="stop")    pendingCmd=MqttCommand(MqttCommand::CMD_STOP,"");
   else if (cmd=="default") g_pendingDefault = true;
   else if (cmd=="system")  { lastSysName=arg; g_pendingSystemArg=arg; g_pendingSystem=true; }
-  else if (cmd=="game")    { g_pendingGameArg=arg; g_pendingGame=true; }
+  else if (cmd=="game")    { g_pendingGameArg=arg; g_pendingGame=true; g_pendingGameRecvMs=millis(); }
   else if (cmd=="show_config")     pendingCmd=MqttCommand(MqttCommand::CMD_SHOW_CONFIG,"");
   else if (cmd=="wifi_recovery")   pendingCmd=MqttCommand(MqttCommand::CMD_WIFI_RECOVERY,"");
   else if (cmd=="reboot")          pendingCmd=MqttCommand(MqttCommand::CMD_REBOOT,"");
@@ -7908,6 +8045,53 @@ void handleUdpCommand()
   g_udpPacketsKept++; // v8 -- voir declaration : le paquet retenu par la vidange a bien ete dispatche
 
   xSemaphoreGive(mqttCmdMutex);
+}
+
+// --------------------------------------------------
+// v180 -- tache dediee udpListenerTask() (retour utilisateur explicite,
+// apres l'audit systematique v179 des 4 boucles bloquantes qui affamaient
+// la lecture UDP : "il faudrait un regulateur qui distribue les paquets...
+// pour simuler le meme fonctionnement que MQTT ?"). Recree EXACTEMENT le
+// role que jouait mqttTask() (lisait le reseau en continu, en tache de
+// fond, independamment de ce que faisait loop()) -- mais pour l'UDP,
+// beaucoup plus simple/sur : parsePacket() est NON BLOQUANT par
+// construction (MSG_DONTWAIT, voir NetworkUdp.cpp) contrairement aux
+// connect()/subscribe() MQTT qui pouvaient rester bloques 8-10s (toute
+// l'histoire de blocage documentee dans DECISIONS.md concerne CE
+// mecanisme bloquant precis, absent ici). Ecrit dans les MEMES slots
+// partages (g_pendingGame/g_pendingSystem/pendingCmd) proteges par le MEME
+// mutex (mqttCmdMutex) que mqttTask() utilisait deja pendant des mois --
+// aucune nouvelle primitive de synchronisation, motif deja eprouve.
+// Avantage sur les 4 correctifs ponctuels (v177/v179, CONSERVES tels
+// quels, redondance sans risque grace au mutex) : couvre AUSSI tout futur
+// site bloquant qu'on n'aurait pas encore trouve, au lieu de continuer a
+// les chasser un par un.
+// Garde heap IDENTIQUE (UDP_POLL_IN_WAIT_MIN_HEAP, voir sa declaration) --
+// retour utilisateur explicite : "vaut mieux un lag qu'un blocage".
+// Contrairement a un appel niche dans une boucle de rendu (frein naturel
+// par la vitesse de rendu elle-meme), cette tache tourne a SON PROPRE
+// rythme fixe (vTaskDelay), independant de la charge de rendu -- sans
+// cette garde, elle appellerait handleUdpCommand() (et son malloc(1460)
+// interne) SANS le frein naturel qu'offrait le placement dans une boucle
+// de rendu, y compris pendant les fenetres de heap bas les plus suspectes
+// du gel encore non elucide. Avec la garde, le comportement bascule
+// proprement sur le repli existant (les 4 sites v177/v179, eux-memes
+// gardes) si le heap est temporairement insuffisant.
+// Epinglee sur le MEME coeur que loop() (LoopCore=0, coeur 0) -- meme
+// choix final que mqttTask() (voir son xTaskCreatePinnedToCore, dernier
+// parametre) : un test de deplacement vers le coeur 1 avait ete fait et
+// REFUTE pour mqttTask() (v107, meme signature de blocage observee) --
+// mais ce test concernait le blocage TCP bloquant, absent ici ; le coeur 0
+// reste neanmoins le choix le plus simple/coherent, la tache elle-meme
+// etant tres legere (parsePacket() non bloquant, vTaskDelay cooperatif).
+static void udpListenerTask(void *param)
+{
+  (void)param;
+  for (;;)
+  {
+    if (ESP.getFreeHeap() >= UDP_POLL_IN_WAIT_MIN_HEAP) handleUdpCommand();
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
 }
 
 // --------------------------------------------------
@@ -9382,6 +9566,22 @@ static bool getClockTime(int &h, int &m, int &s)
 // verifie a chaque iteration, y met fin -- nouvelle selection ou "stop").
 static bool showClock(int forceTheme)
 {
+  // v179 -- BUG REEL trouve par lecture du code (retour utilisateur : gel
+  // constate sur l'ecran horloge, ne quitte qu'apres plus de 10s malgre une
+  // vraie navigation reprise -- "le mode horloge cede la place a MQTT comme
+  // le mode playlist", confirmant le MEME defaut deja identifie/corrige
+  // v177 pour MODE_PLAYLIST/MODE_GIF : les 3 boucles bloquantes de cette
+  // fonction verifient hasPendingMqttCommand() mais n'appellent JAMAIS
+  // handleUdpCommand() -- aucun nouveau paquet UDP n'est donc jamais lu
+  // PENDANT toute la duree de l'horloge (clockDuration, 8s par defaut),
+  // laissant hasPendingMqttCommand() aveugle a toute commande arrivee APRES
+  // l'entree dans cette fonction. La sortie n'arrive alors qu'au terme
+  // naturel (clockDuration), jamais plus tot -- exactement le symptome
+  // rapporte. Meme fix attenue que v177 : handleUdpCommand() au plus 1x/75ms,
+  // partage entre les 3 boucles (une seule horloge active a la fois, pas de
+  // risque de concurrence entre elles).
+  unsigned long s_lastUdpPollInClockMs = 0;
+  const unsigned long UDP_POLL_IN_CLOCK_MS = 75;
   bool previewMode = (forceTheme != -2);
   if (!previewMode) {
     if (!clockEnabled) return true;
@@ -9431,6 +9631,8 @@ static bool showClock(int forceTheme)
     while (millis() < nameEnd) {
       handleWebConfig();
       yield();
+      // v179 -- voir commentaire complet en tete de fonction.
+      { unsigned long nowPollC=millis(); if(nowPollC-s_lastUdpPollInClockMs>=UDP_POLL_IN_CLOCK_MS && ESP.getFreeHeap()>=UDP_POLL_IN_WAIT_MIN_HEAP){s_lastUdpPollInClockMs=nowPollC;handleUdpCommand();} }
       if (!previewMode && g_sdOpInProgress) { // v73 fix, voir plus haut
         clockVisible = false;
         return true;
@@ -9456,6 +9658,8 @@ static bool showClock(int forceTheme)
   while (previewMode || millis() < endMs) {
     handleWebConfig();
     yield();
+    // v179 -- voir commentaire complet en tete de fonction.
+    { unsigned long nowPollC=millis(); if(nowPollC-s_lastUdpPollInClockMs>=UDP_POLL_IN_CLOCK_MS && ESP.getFreeHeap()>=UDP_POLL_IN_WAIT_MIN_HEAP){s_lastUdpPollInClockMs=nowPollC;handleUdpCommand();} }
 
     // Interruption si page web ouverte (v73 : jamais en previewMode, ou
     // g_sdOpInProgress est en permanence vrai -- voir garde en tete de
@@ -9507,6 +9711,8 @@ static bool showClock(int forceTheme)
         unsigned long nameEnd = millis() + 800UL;
         while (millis() < nameEnd) {
           yield();
+          // v179 -- voir commentaire complet en tete de fonction (3e sous-boucle, oubliee au 1er passage).
+          { unsigned long nowPollC=millis(); if(nowPollC-s_lastUdpPollInClockMs>=UDP_POLL_IN_CLOCK_MS && ESP.getFreeHeap()>=UDP_POLL_IN_WAIT_MIN_HEAP){s_lastUdpPollInClockMs=nowPollC;handleUdpCommand();} }
           if (!previewMode && g_sdOpInProgress) { // v73 fix, voir plus haut
             clockVisible = false;
             return true;
@@ -10019,6 +10225,27 @@ start_mqtt_task:
   // l'exposition au mur de plateforme MQTT.
   if(MQTT_ENABLED && wifiEnabled&&recalboxIP.length()>0)
     xTaskCreatePinnedToCore(mqttTask,"mqttTask",4096,NULL,1,&mqttTaskHandle,0);
+  // v181 -- REVERT de v180 : la tache udpListenerTask() ETAIT active pendant
+  // ~90s en conditions reelles (navigation lente) et a produit 3 crashes
+  // abort()/PANIC consecutifs (backtraces confirmes : fs::FS::open()/
+  // VFSImpl::open() echouant a allouer un nouveau descripteur fichier --
+  // MEME famille de crash deja documentee 23/08 et 25/08 dans DECISIONS.md,
+  // mais jamais en boucle de reboot repetee avant ce soir). Cause plausible
+  // actee (pas prouvee a 100%, mais suffisante pour reverter sans plus
+  // attendre) : cette tache reservait 8192 octets de PILE en PERMANENCE
+  // dès le boot (alloues sur le heap par FreeRTOS, jamais liberes) -- le
+  // tout 1er boot log de v180 montrait deja un heap anormalement bas juste
+  // apres setupWebConfig() (~5400 octets, contre ~9000-19000+ observe sur
+  // les boots precedents) : cette reservation supplementaire a
+  // vraisemblablement fait basculer une situation deja tendue dans la zone
+  // de crash. Desactivee ICI (creation commentee) -- le code de la tache
+  // reste plus bas (v180) pour reference/reprise future avec un budget
+  // heap different (stack plus petite, et/ou allocation STATIQUE au lieu
+  // du heap via xTaskCreateStaticPinnedToCore) si cette piste est reprise.
+  // Les 4 sites v177/v179 (correctifs ponctuels + garde heap) restent seuls
+  // en place -- testes plusieurs heures ce soir sans aucun crash observe.
+  // if(wifiEnabled && recalboxIP.length()>0)
+  //   xTaskCreatePinnedToCore(udpListenerTask,"udpListener",8192,NULL,1,NULL,0);
 
   // Interface web de configuration
   if (wifiEnabled) setupWebConfig();
@@ -10540,7 +10767,29 @@ void loop()
       // jumelle case MODE_GIF (rawpack) plus bas -- voir son commentaire
       // complet. Ce site touche SD moins souvent (prefetch, pas par frame)
       // mais c'est exactement le meme motif, applique par coherence.
-      while((long)(millis()-t)<fd){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(1);}
+      // v177 -- VERSION ATTENUEE de v172 (reverte en v173 -- voir son
+      // changelog complet pour le risque identifie : appeler
+      // handleUdpCommand() a CHAQUE tick de 1ms, soit jusqu'a ~1000x/s,
+      // multipliait les tentatives de malloc(1460) internes a la librairie
+      // UDP sous heap deja bas, cause plausible d'un gel reel observe sur
+      // materiel). Ici : au plus 1 appel toutes les UDP_POLL_IN_WAIT_MS
+      // (75ms) -- borne le pire cas de latence a ~75-100ms (au lieu de
+      // jusqu'a ~1.25s mesure en reel sans ce fix) tout en divisant la
+      // frequence d'appel par ~75x par rapport a v172. Static locale a ce
+      // site (independante du site jumeau MODE_GIF juste plus bas).
+      {
+        static unsigned long s_lastUdpPollInWaitMs = 0;
+        const unsigned long UDP_POLL_IN_WAIT_MS = 75;
+        while((long)(millis()-t)<fd)
+        {
+          if(hasPendingMqttCommand())break;
+          processPendingMqttCommand();
+          unsigned long nowPoll=millis();
+          // v180 -- garde heap ajoutee (voir declaration de UDP_POLL_IN_WAIT_MIN_HEAP) : "vaut mieux un lag qu'un blocage".
+          if(nowPoll-s_lastUdpPollInWaitMs>=UDP_POLL_IN_WAIT_MS && ESP.getFreeHeap()>=UDP_POLL_IN_WAIT_MIN_HEAP){s_lastUdpPollInWaitMs=nowPoll;handleUdpCommand();}
+          delay(1);
+        }
+      }
       // Pre-chargement opportuniste (deja optionnel avant : ne fait rien si
       // nextGifFile est deja pris). sdAccessMutex retire (2026-08-10).
       if(nextGifPath.length()>0&&!nextGifFile){
@@ -10575,7 +10824,25 @@ void loop()
       // repetees. N'affecte pas la duree totale d'attente (la boucle
       // continue de cibler fd ms, juste avec des iterations moins
       // frequentes/plus efficaces) ni la fluidite visible de l'animation.
-      while((long)(millis()-t)<fd){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(1);}
+      // v177 -- meme motif que le site jumeau MODE_PLAYLIST plus haut (voir
+      // son commentaire complet) : handleUdpCommand() au plus 1x/75ms au
+      // lieu de v172 (chaque tick 1ms, reverte en v173, risque de malloc
+      // repete sous heap bas). Static locale INDEPENDANTE de celle du site
+      // MODE_PLAYLIST (2 cases mutuellement exclusives du meme switch, pas
+      // besoin de partager).
+      {
+        static unsigned long s_lastUdpPollInWaitMs2 = 0;
+        const unsigned long UDP_POLL_IN_WAIT_MS = 75;
+        while((long)(millis()-t)<fd)
+        {
+          if(hasPendingMqttCommand())break;
+          processPendingMqttCommand();
+          unsigned long nowPoll=millis();
+          // v180 -- garde heap ajoutee (voir declaration de UDP_POLL_IN_WAIT_MIN_HEAP) : "vaut mieux un lag qu'un blocage".
+          if(nowPoll-s_lastUdpPollInWaitMs2>=UDP_POLL_IN_WAIT_MS && ESP.getFreeHeap()>=UDP_POLL_IN_WAIT_MIN_HEAP){s_lastUdpPollInWaitMs2=nowPoll;handleUdpCommand();}
+          delay(1);
+        }
+      }
     }
     break;
 
@@ -10638,8 +10905,24 @@ void loop()
     // v104 -- consommation de l'overlay en attente retiree (hi-score port
     // supprime, test empirique rc=-4).
     {
+      // v179 -- meme defaut que MODE_PLAYLIST/MODE_GIF (v177)/showClock()
+      // (voir leurs commentaires complets) trouve par l'audit systematique
+      // de TOUS les appelants de hasPendingMqttCommand() (demande
+      // utilisateur explicite : chercher tous les sites d'un coup plutot
+      // que de les decouvrir un par un). Attente courte (100ms max, donc
+      // impact deja limite avant meme ce fix) mais meme correction par
+      // coherence/completude.
+      static unsigned long s_lastUdpPollInPngWaitMs = 0;
+      const unsigned long UDP_POLL_IN_PNGWAIT_MS = 75;
       unsigned long t=millis();
-      while((long)(millis()-t)<100){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(1);}
+      while((long)(millis()-t)<100)
+      {
+        if(hasPendingMqttCommand())break;
+        processPendingMqttCommand();
+        unsigned long nowPoll=millis();
+        if(nowPoll-s_lastUdpPollInPngWaitMs>=UDP_POLL_IN_PNGWAIT_MS && ESP.getFreeHeap()>=UDP_POLL_IN_WAIT_MIN_HEAP){s_lastUdpPollInPngWaitMs=nowPoll;handleUdpCommand();}
+        delay(1);
+      }
     }
     break;
 
