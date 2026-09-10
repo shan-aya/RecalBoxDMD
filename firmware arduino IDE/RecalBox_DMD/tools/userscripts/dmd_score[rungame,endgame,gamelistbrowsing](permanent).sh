@@ -13,7 +13,7 @@
 # canal UNIQUE, architecture "DMD bete" v110 -- voir RecalBox_DMD.ino)
 #
 # ============================================
-# safe-modify — Historique des modifications
+# safe-modify â€” Historique des modifications
 # ============================================
 # Version actuelle : v49
 #

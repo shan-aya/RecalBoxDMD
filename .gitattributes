@@ -1,0 +1,9 @@
+# Scripts shell RB1 (userscripts) : DOIVENT rester en LF pur, quel que soit
+# core.autocrlf local -- un CRLF dans ces fichiers casse le parsing ash/dash
+# sur RB1 (BUG REEL vecu le 2026-09-10 : dmd_score.sh refusait de demarrer,
+# "syntax error near unexpected token" sur un `\r` litteral avant une accolade
+# -- voir DECISIONS.md, firmware/RecalBox_DMD). Sans cette regle, un simple
+# checkout/pull sur Windows avec core.autocrlf=true reintroduit le CRLF a
+# chaque fois, meme apres une correction manuelle du fichier.
+"firmware arduino IDE/RecalBox_DMD/tools/userscripts/**/*.sh" text eol=lf
+"firmware arduino IDE/RecalBox_DMD/tools/userscripts/**/*.py" text eol=lf

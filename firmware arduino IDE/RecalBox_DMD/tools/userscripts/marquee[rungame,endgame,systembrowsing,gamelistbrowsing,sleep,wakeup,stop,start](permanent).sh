@@ -58,7 +58,7 @@ DMD_UDP_PORT=5005
 # le script de demarrer.
 renice -n -10 -p $$ >/dev/null 2>&1
 # ============================================
-# safe-modify — Historique des modifications
+# safe-modify â€” Historique des modifications
 # ============================================
 # Version actuelle : v49
 #
@@ -412,7 +412,7 @@ renice -n -10 -p $$ >/dev/null 2>&1
 #   avait en fait une cause reelle et corrigeable de CE cote-ci. Preuve
 #   directe : sur la video, le relachement manette est visible au moment ou
 #   RB1 affiche la selection finale stabilisee (art+description charges,
-#   "COMMANDO (SEGA)") -- confirme par le log correlé au meme timestamp
+#   "COMMANDO (SEGA)") -- confirme par le log correlÃ© au meme timestamp
 #   (12:40:02, evenement gamelistbrowsing sur commsega). Mais le DMD ne
 #   recoit la vraie commande que 11s plus tard (12:40:13, "BURST end"),
 #   pendant lesquelles marquee_mqtt.log montre ES republier gamelistbrowsing
@@ -839,7 +839,7 @@ renice -n -10 -p $$ >/dev/null 2>&1
 #   Fonctionnement : compteur de survols (gamelistbrowsing/systembrowsing)
 #   dans la MEME seconde horloge (precision seconde entiere -- ash/BusyBox
 #   n'a pas d'horloge sub-seconde fiable partout, et ce n'est pas necessaire
-#   ici : le seuil visé est "plusieurs survols dans la meme seconde", pas
+#   ici : le seuil visÃ© est "plusieurs survols dans la meme seconde", pas
 #   un intervalle precis). BURST_THRESHOLD survols dans la meme seconde ->
 #   bascule en mode "throttled" : les survols suivants ne publient PLUS
 #   (LAST_SYSTEM/LAST_ROM restent a jour en interne, silencieusement) tant
@@ -875,7 +875,7 @@ renice -n -10 -p $$ >/dev/null 2>&1
 #   Fix initial tente : flock -n sur un fd dedie -- ECARTE apres test reel,
 #   un fd ouvert via "exec 9>" est HERITE par tout process fils issu d'un
 #   fork() ulterieur (meme sans re-executer le flock), donc un fils qui
-#   hérite du fd deja verrouille par son parent continue de tourner sans
+#   hÃ©rite du fd deja verrouille par son parent continue de tourner sans
 #   jamais etre bloque -- observe sur materiel : 2 process actifs
 #   simultanement partageant le meme fd 9 (verifie via /proc/PID/fd/9).
 #   Fix retenu : verrou par FICHIER PID classique, insensible a l'heritage
@@ -1573,7 +1573,7 @@ while true; do
                 # Attendre la fin de la rafale automatique de boot
                 sleep 5
 
-                # Lire le vrai système affiché
+                # Lire le vrai systÃ¨me affichÃ©
                 system_raw=$(read_state "SystemId")
                 system=$(normalize_system "$system_raw")
                 echo "$(date '+%H:%M:%S') BOOT settle -> sys=$system" >> "$LOG"

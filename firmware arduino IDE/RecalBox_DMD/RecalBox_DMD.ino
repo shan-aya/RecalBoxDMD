@@ -1,7 +1,73 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v181
+// Version actuelle : v184
+//
+// v184 - 2026-09-10 - safe-modify - BUG REEL corrige (retour utilisateur en
+//   conditions reelles, jeu fbneo/actfancr, "j'ai un marque qui apparait
+//   apres le 2eme panneau description") : le hello periodique de mesure
+//   v174 (UDPREARM, 30s) declenchait un resync COMPLET cote RB1
+//   (dmd_udp_resync.py renvoie le dernier CMD=game connu), redispatche
+//   comme une VRAIE commande -- coupait le marquee/round-robin en cours
+//   TOUTES LES 30s (currentMode force de MODE_SCORE/5 a MODE_GIF/1), meme
+//   sans navigation reelle. round_robin() (v49, dmd_score.sh) confirme
+//   propre sur ce meme test (log RB1 sequentiel, aucun chevauchement) --
+//   ce bug etait entierement cote firmware, independant du fix v47/v49.
+//   Fix : sendUdpHello() (UDPREARM) REMPLACE par sendUdpPing() -- meme
+//   capacite de diagnostic (teste l'emission sur un socket potentiellement
+//   fige) mais SANS redispatch, dmd_udp_resync.py repond "PONG" a un
+//   "PING" au lieu d'un resync complet. Le hello COMPLET reste utilise
+//   UNIQUEMENT pour les vraies (re)connexions WiFi (seul cas ou un
+//   rattrapage d'etat est justifie). PAS ENCORE VALIDE SUR MATERIEL au
+//   moment de ce commit.
+//
+// v183 - 2026-09-10 - safe-modify - RE-TENTATIVE du ping/pong pour l'alerte
+//   "RecalBox non connectee" (voir v182 pour la 1ere tentative -- deja
+//   validee stable en isolation, ~40s/4 cycles -- puis CRASH quand branchee
+//   a l'alerte). Diagnostic depuis affine : ce crash n'etait PAS du au
+//   ping/pong ni a la logique d'alerte elle-meme, mais au hello de boot qui
+//   arrivait TROP TOT (avant le fix boot-delay ci-dessous) -- le
+//   CMD_GAME resultant crashait dans la fenetre de heap la plus basse du
+//   boot, QUELLE QUE SOIT la logique branchee dessus. Le fix boot-delay
+//   (5s apres le 1er loop()) etant maintenant valide sur materiel (2 power
+//   cycles reels, 0 crash), le ping/pong + l'alerte dessus peuvent
+//   redevenir surs. Meme design que la 1ere tentative (voir DECISIONS.md
+//   pour le detail complet du principe -- ping/pong dedie, INDEPENDANT du
+//   hello de mesure v174, cadence 15s alignee sur l'ancien keepalive MQTT,
+//   declenchement des le 1er cycle rate, max 3 affichages). **VALIDE SUR
+//   MATERIEL** (108s, 0 crash, alerte declenchee 1 fois puis stoppee au
+//   lieu de boucler).
+//
+// v182 - 2026-09-10 - safe-modify - BUG REEL corrige (CRASH confirme sur
+//   materiel, plusieurs fois, backtrace decode 2 fois : fs::FS::open()/
+//   operator new -> std::bad_alloc, puis fopen()/lock_init_generic() ->
+//   abort() direct non rattrapable -- voir DECISIONS.md pour le detail
+//   complet). Retour utilisateur decisif : ce comportement N'EXISTE PAS
+//   sur master, donc PAS une fragilite generique ESP32/newlib qu'il
+//   faudrait juste rattraper au coup par coup -- c'est une regression
+//   propre a cette branche. Cause identifiee : master n'a AUCUN
+//   mecanisme declenchant un CMD_GAME de facon asynchrone pendant le
+//   boot -- cette branche si (sendUdpHello() au tout premier
+//   setupWiFiFromConfig(), v162), et sa reponse resync (dmd_udp_resync.py
+//   cote RB1, renvoie le dernier etat de navigation connu) atterrit
+//   systematiquement au tout debut de loop() -- exactement le point le
+//   PLUS BAS du heap de tout le cycle de boot (confirme sur materiel :
+//   ~52KB apres chargement caches -> ~30KB apres WiFi -> ~24KB apres
+//   playlist -> ~19KB apres 1er GIF -> ~14KB apres config web, puis
+//   openGifImpl() du CMD_GAME tente d'ouvrir un fichier PAR-DESSUS cette
+//   fenetre deja tendue). Fix : (1) le hello de la 1ere connexion WiFi
+//   (setupWiFiFromConfig(), ligne ~8986) SUPPRIME -- deja explicitement
+//   documente comme redondant avec (2) juste apres (commentaire
+//   preexistant, jamais applique) ; (2) le hello de detection de
+//   reconnexion en loop() (qui couvrait deja le 1er boot vu que
+//   s_wifiWasConnected demarre a false) retarde de
+//   BOOT_HELLO_MIN_DELAY_MS=5000 APRES le 1er appel de loop() -- laisse
+//   le temps aux buffers temporaires de setup() (ecran playlist, 1er GIF,
+//   config web) de se liberer avant de risquer un CMD_GAME resync
+//   dessus. Les reconnexions WiFi ULTERIEURES (loin du boot, heap deja
+//   stable) restent immediates, aucun changement pour elles. PAS ENCORE
+//   VALIDE SUR MATERIEL au moment de ce commit -- prochain test : power
+//   cycle reel, verifier l'absence de crash au boot.
 //
 // v181 - 2026-09-09 - safe-modify - REVERT URGENT de v180 (voir le
 //   commentaire complet la ou la creation de la tache est desormais
@@ -4327,6 +4393,15 @@ WiFiUDP      dmdUdp;
 unsigned long g_udpPacketsSeen = 0;   // parsePacket()>0, avant tout filtrage
 unsigned long g_udpPacketsKept = 0;   // ont mene a un dispatch reel (pendingCmd/g_pending* poses)
 unsigned long g_lastUdpSeenMs = 0;    // millis() du dernier parsePacket()>0, quel qu'il soit
+// v183 -- ping/pong DEDIE a l'alerte "RecalBox non connectee",
+// INDEPENDANT du hello de mesure v174 (outil de diagnostic du gel de
+// reception, voir sendUdpHello()/UDPREARM plus bas -- ne pas melanger les
+// 2 mecanismes). Cadence alignee sur l'ancien keepalive MQTT
+// (mqttClient.setKeepAlive(15)) -- voir DECISIONS.md pour le detail
+// complet du principe.
+const unsigned long UDP_PING_INTERVAL_MS = 15000UL;
+unsigned long g_lastPingSentMs = 0;    // millis() du dernier PING envoye
+unsigned long g_lastPongSeenMs = 0;    // millis() du dernier PONG recu
 
 // v139 -- voir changelog v139 en entete pour le contexte complet. Contourne
 // NetworkClient::write() (coeur Arduino-ESP32, NetworkClient.cpp) qui peut
@@ -7868,6 +7943,21 @@ void sendUdpHello()
   Serial.println("[UDP] hello envoye a " + recalboxIP + ":" + String(UDP_HELLO_PORT));
 }
 
+// v183 -- ping/pong DEDIE a l'alerte "RecalBox non connectee", separe du
+// hello ci-dessus -- voir sa declaration/DECISIONS.md pour le principe
+// complet. Meme port que hello/features (UDP_HELLO_PORT), prefixe
+// distinct "PING" pour que dmd_udp_resync.py (RB1, deja a jour v3)
+// reponde "PONG" immediatement, sans relire es_state.inf.
+void sendUdpPing()
+{
+  if (recalboxIP.length() == 0) return;
+  IPAddress ip;
+  if (!parseIP(recalboxIP, ip)) return;
+  dmdUdp.beginPacket(ip, UDP_HELLO_PORT);
+  dmdUdp.write((const uint8_t*)"PING", 4);
+  dmdUdp.endPacket();
+}
+
 // v13 -- canal DMD->RB1 pour les 8 reglages hi-score/info/description/RA
 // (voir broadcastFeatureStatus(), son seul appelant) -- MEME port que le
 // hello (UDP_HELLO_PORT), prefixe "FEATURES:" pour que dmd_udp_resync.py
@@ -7982,6 +8072,13 @@ void handleUdpCommand()
     // shuffle -- l >= 0 et < sizeof(scratch), l'ecriture du '\0' est donc
     // toujours dans les bornes du tableau.
     scratch[l] = '\0';
+    // v183 -- reponse au ping dedie (voir sendUdpPing()) -- jamais un
+    // CMD=, consommee ICI, jamais retenue comme "le" paquet du drain.
+    if (strcmp(scratch, "PONG") == 0)
+    {
+      g_lastPongSeenMs = g_lastUdpSeenMs;
+      continue;
+    }
     if (strstr(scratch, "ARG=!SHUFFLE") != nullptr)
     {
       memcpy(shuffleBuf, scratch, l);
@@ -8981,13 +9078,16 @@ void setupWiFiFromConfig()
     Serial.println("[UDP] listening on port " + String(UDP_CMD_PORT));
     delay(1200);
     autoDetectRecalboxIP();
-    // v4 -- resync UDP (voir sendUdpHello()) : INDEPENDANT de MQTT_ENABLED,
-    // recalboxIP vient d'etre resolu ci-dessus -- premier hello du boot.
-    sendUdpHello();
-    // v13 -- diffuse aussi les reglages hi-score/info/description/RA au
-    // boot (voir broadcastFeatureStatus()) -- rattrape un DMD qui redemarre
-    // pendant que RB1 tourne deja, meme motif que le hello juste au-dessus.
-    broadcastFeatureStatus();
+    // v182 -- hello + broadcastFeatureStatus() du tout premier boot RETIRES
+    // d'ici (voir changelog v182) : CRASH REEL confirme sur materiel --
+    // recalboxIP vient tout juste d'etre resolu, mais le reste de setup()
+    // (playlist, 1er GIF, config web) n'a pas encore tourne -- la reponse
+    // resync a ce hello (CMD_GAME) atterrissait au tout debut de loop(),
+    // exactement le point le plus bas du heap de tout le boot. Ce hello
+    // etait de toute facon deja documente comme redondant (voir commentaire
+    // v176 pres de la detection de reconnexion en loop(), qui couvre AUSSI
+    // le 1er boot) -- cette 2e couverture, elle, est desormais retardee
+    // (BOOT_HELLO_MIN_DELAY_MS) pour laisser le heap se stabiliser d'abord.
     if(recalboxIP.length()>0){
       mqttClient.setServer(recalboxIP.c_str(),MQTT_PORT);
       mqttClient.setCallback(onMqttMessage);
@@ -10369,37 +10469,57 @@ void loop()
   // tout risque de blocage plus bas type handleWebConfig()).
   handleUdpCommand();
   // v4 -- resync UDP (voir sendUdpHello()) : detecte la transition
-  // deconnecte->connecte APRES le boot (ex. coupure WiFi transitoire suivie
-  // d'une reconnexion via maintainWiFi()) -- le hello du tout premier boot
-  // est deja envoye dans setupWiFiFromConfig(), celui-ci couvre tout le
-  // reste de la session. Comparaison d'etat simple (static bool), cout nul
-  // hors transition -- recalboxIP deja resolu au boot, pas de nouvelle
-  // requete mDNS ici (WiFi.status() seul suffit a detecter la transition).
+  // deconnecte->connecte (couvre AUSSI le tout 1er boot, s_wifiWasConnected
+  // demarre a false -- voir changelog v182, le hello dedie de
+  // setupWiFiFromConfig() a ete retire, cette couverture-ci est desormais
+  // la SEULE source du hello de boot). Comparaison d'etat simple (static
+  // bool), cout nul hors transition -- recalboxIP deja resolu au boot, pas
+  // de nouvelle requete mDNS ici (WiFi.status() seul suffit a detecter la
+  // transition).
+  // v182 -- BOOT_HELLO_MIN_DELAY_MS=5000 : retarde SPECIFIQUEMENT le hello
+  // de la toute 1ere connexion (boot) jusqu'a ce que le heap ait eu le
+  // temps de se stabiliser apres le reste de setup() (playlist, 1er GIF,
+  // config web -- CRASH REEL confirme sur materiel sinon, voir DECISIONS.md
+  // et le changelog v182 pour le detail complet). N'affecte QUE le tout
+  // premier appel (s_bootFirstLoopMs fige au tout premier passage ici) --
+  // toute reconnexion WiFi ULTERIEURE (loin du boot, heap deja stable au
+  // fonctionnement normal) reste immediate, comme avant.
   {
     static bool s_wifiWasConnected = false;
+    static unsigned long s_bootFirstLoopMs = 0;
+    if (s_bootFirstLoopMs == 0) s_bootFirstLoopMs = millis();
+    const unsigned long BOOT_HELLO_MIN_DELAY_MS = 5000UL;
     bool wifiNowConnected = (WiFi.status() == WL_CONNECTED);
-    if (wifiNowConnected && !s_wifiWasConnected)
+    bool bootGraceElapsed = (millis() - s_bootFirstLoopMs) >= BOOT_HELLO_MIN_DELAY_MS;
+    if (wifiNowConnected && !s_wifiWasConnected && bootGraceElapsed)
     {
       sendUdpHello(); broadcastFeatureStatus();
       // v176 -- ecran "RecalBox connectee" (CMD_WAITING_MQTT) retabli (retour
       // utilisateur : verifie qu'aucune des 4 alertes -- connectee/
       // deconnectee/pas de wifi/pas de recalbox -- ne s'affichait plus en
       // UDP, toutes les 4 vivaient exclusivement dans mqttTask(), mort
-      // depuis MQTT_ENABLED=false). Cette couverture-ci suffit pour couvrir
-      // AUSSI le tout 1er boot (s_wifiWasConnected demarre a false) -- pas
-      // besoin de dupliquer au site setup()/sendUdpHello(), qui tourne de
-      // toute facon AVANT que mqttCmdMutex n'existe (cree ligne ~9830).
-      // L'affichage/effacement de cet ecran (drawRecalboxConnectedOverlay(),
-      // g_mqttConnectedScreenUntilMs, delai minimum) est deja transport-
-      // agnostique -- ne verifie que pendingCmd.type, jamais mqttClient --
-      // donc fonctionne tel quel une fois seulement POSTE depuis l'UDP.
+      // depuis MQTT_ENABLED=false). L'affichage/effacement de cet ecran
+      // (drawRecalboxConnectedOverlay(), g_mqttConnectedScreenUntilMs,
+      // delai minimum) est deja transport-agnostique -- ne verifie que
+      // pendingCmd.type, jamais mqttClient -- donc fonctionne tel quel une
+      // fois seulement POSTE depuis l'UDP.
       if (mqttCmdMutex != nullptr && xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(100)) == pdTRUE)
       {
         pendingCmd = MqttCommand(MqttCommand::CMD_WAITING_MQTT, "");
         xSemaphoreGive(mqttCmdMutex);
       }
+      s_wifiWasConnected = true;
     }
-    s_wifiWasConnected = wifiNowConnected;
+    else if (!wifiNowConnected)
+    {
+      // v182 -- ne marque la transition consommee QUE sur un vrai envoi
+      // (ci-dessus) -- si le delai de grace n'est pas encore ecoule
+      // (wifiNowConnected && !s_wifiWasConnected && !bootGraceElapsed),
+      // s_wifiWasConnected reste false et ce bloc retentera au prochain
+      // tour de loop(), jusqu'a ce que le delai soit passe -- le hello de
+      // boot n'est donc jamais perdu, juste retarde.
+      s_wifiWasConnected = false;
+    }
   }
   // v10 -- MITIGATION (pas un vrai fix -- cause exacte non confirmee) pour
   // le blocage UDP intermittent constate en usage reel ce soir (5
@@ -10440,18 +10560,25 @@ void loop()
         // figé), l'EMISSION du DMD fonctionne-t-elle encore ? IMPORTANT :
         // envoye ICI, AVANT le stop()/begin() ci-dessous -- sur le MEME socket
         // potentiellement figé, pas un socket tout neuf (qui, lui, emettrait
-        // presque certainement sans rien prouver). sendUdpHello() (deja
-        // existant, cout negligeable) -- dmd_udp_resync.py (RB1, deja a
-        // l'ecoute sur UDP_HELLO_PORT) le logue tel quel, avec un message
-        // dedie ici pour ne pas le confondre avec le hello de boot/reconnexion
-        // WiFi normal. Si un HELLO apparait dans dmd_udp_resync.log PENDANT
-        // une fenetre ou udpSeen etait figé cote DMD -> emission saine,
-        // blocage localise a la reception seule (mailbox/pbuf RX). S'il
-        // n'apparait PAS -> panne plus large de la pile reseau (a rapprocher
-        // du "trou noir TCP" MQTT deja documente dans DECISIONS.md, blocage
-        // cote emission analogue).
-        Serial.println("[UDPREARM] hello de mesure envoye SUR LE SOCKET ACTUEL (avant rearm) -- voir dmd_udp_resync.log RB1");
-        sendUdpHello();
+        // presque certainement sans rien prouver).
+        // v183 -- sendUdpHello() REMPLACE par sendUdpPing() ici -- BUG REEL
+        // confirme en conditions reelles (retour utilisateur, jeu
+        // fbneo/actfancr) : le hello complet declenche un resync COMPLET
+        // cote RB1 (dmd_udp_resync.py renvoie le dernier CMD=game/default
+        // connu), redispatche comme une VRAIE commande -- ce qui **coupe
+        // le marquee au beau milieu d'un cycle round-robin en cours**
+        // toutes les 30s (currentMode force de MODE_SCORE/5 a MODE_GIF/1),
+        // meme si rien n'a reellement change cote navigation. sendUdpPing()
+        // teste EXACTEMENT la meme chose pour ce diagnostic (une emission
+        // sur le socket potentiellement fige) mais sans provoquer de
+        // redispatch -- dmd_udp_resync.py (RB1, deja a jour v3) repond
+        // "PONG" a un "PING", jamais un resync complet. Le hello COMPLET
+        // reste utilise ailleurs (1ere connexion WiFi/reconnexions
+        // ulterieures, voir sa detection en loop()) -- lui seul doit
+        // continuer a redispatcher, car c'est le seul cas ou un vrai
+        // rattrapage d'etat est justifie.
+        Serial.println("[UDPREARM] ping de mesure envoye SUR LE SOCKET ACTUEL (avant rearm)");
+        sendUdpPing();
         dmdUdp.stop();
         dmdUdp.begin(UDP_CMD_PORT);
       }
@@ -10491,37 +10618,28 @@ void loop()
       }
     }
   }
-  // v176 -- 2 dernieres alertes retablies (retour utilisateur : verifie
-  // qu'aucune des 4 n'etait fonctionnelle en UDP -- voir aussi CMD_WAITING_MQTT
-  // ci-dessus pour "RecalBox connectee"). "Pas de wifi" et "RecalBox non
-  // connectee" vivaient toutes les 2 dans mqttTask() (wifiDownStreak/
-  // recalboxDisconnectedAlertCount, morts depuis MQTT_ENABLED=false) --
-  // reimplementees ici avec la MEME cadence (immediat puis 3 affichages max,
-  // ~toutes les 20s pour "non connectee" -- rythme adapte a la boucle loop()
-  // qui tourne bien plus vite que les ~1s/15s de mqttTask(), contrairement
-  // au filet v175 juste au-dessus qui reutilise le seuil MQTT_OFFLINE_
-  // FALLBACK_MS=60s tel quel). "Pas de wifi" reste prioritaire et
-  // independante de tout ce qui suit UDP (WiFi.status() seul suffit, comme
-  // l'original). L'affichage/effacement (showNoWifiRecalboxAlert()/
-  // showRecalboxDisconnectedAlert(), leur clignotement, leur effacement sur
-  // tout vrai CMD_* recu) est deja transport-agnostique, inchange.
+  // v176 -- "Pas de wifi" retablie (retour utilisateur : verifie qu'aucune
+  // des 4 n'etait fonctionnelle en UDP -- voir aussi CMD_WAITING_MQTT
+  // ci-dessus pour "RecalBox connectee"). Vivait dans mqttTask()
+  // (wifiDownStreak, mort depuis MQTT_ENABLED=false) -- reimplementee ici,
+  // independante de tout ce qui suit UDP (WiFi.status() seul suffit,
+  // comme l'original). L'affichage/effacement (showNoWifiRecalboxAlert(),
+  // clignotement, effacement sur tout vrai CMD_* recu) est deja
+  // transport-agnostique, inchange.
+  // v183 -- "RecalBox non connectee" RETIREE d'ici, deplacee dans le bloc
+  // ping/pong dedie plus bas (voir son commentaire complet + DECISIONS.md)
+  // -- l'ancienne logique (silence applicatif = deconnexion) confondait un
+  // DMD sain sans navigation active avec une vraie injoignabilite de RB1,
+  // cause du bug de boucle infinie documente dans DECISIONS.md.
   {
     static unsigned long s_wifiDownSinceMs = 0;
     static int s_wifiAlertCount = 0;
-    static unsigned long s_lastRecalboxDisconnectedAlertMs = 0;
-    static int s_recalboxDisconnectedAlertCount = 0;
     const int UDP_ALERT_MAX_COUNT = 3;
     const unsigned long UDP_ALERT_REPEAT_MS = 20000UL;
     unsigned long nowMs3 = millis();
     if (WiFi.status() != WL_CONNECTED)
     {
       if (s_wifiDownSinceMs == 0) s_wifiDownSinceMs = nowMs3;
-      // WiFi coupe -- inutile de compter aussi "RecalBox non connectee" en
-      // parallele (meme cause visible, "pas de wifi" prend le pas), et evite
-      // de faire defiler les 3 affichages "non connectee" pendant une
-      // coupure WiFi qui n'a rien a voir.
-      s_recalboxDisconnectedAlertCount = 0;
-      s_lastRecalboxDisconnectedAlertMs = 0;
       if (!g_sdOpInProgress && s_wifiAlertCount < UDP_ALERT_MAX_COUNT)
       {
         unsigned long downMs = nowMs3 - s_wifiDownSinceMs;
@@ -10534,22 +10652,35 @@ void loop()
     {
       s_wifiDownSinceMs = 0;
       s_wifiAlertCount = 0;
-      unsigned long idleMs = (g_lastUdpSeenMs > 0) ? (nowMs3 - g_lastUdpSeenMs) : 0;
-      if (g_lastUdpSeenMs == 0 || idleMs < 5000UL)
+    }
+  }
+  // v183 -- ping/pong dedie (voir sa declaration/DECISIONS.md) -- pilote
+  // l'alerte "RecalBox non connectee" (declenchement ET reset du
+  // compteur). Independant du hello de mesure v174 (UDPREARM plus bas,
+  // qui garde son role de diagnostic du gel de reception, jamais utilise
+  // pour une alerte de connectivite).
+  {
+    static int s_recalboxDisconnectedAlertCount = 0;
+    const int UDP_ALERT_MAX_COUNT = 3;
+    unsigned long nowMsPing = millis();
+    if (WiFi.status() == WL_CONNECTED && (nowMsPing - g_lastPingSentMs) >= UDP_PING_INTERVAL_MS)
+    {
+      // Le ping envoye au cycle precedent (g_lastPingSentMs) n'a jamais
+      // recu son pong depuis -- ce cycle est rate. g_lastPingSentMs==0 =
+      // tout premier ping depuis le boot, pas encore de cycle a juger.
+      bool pingMissed = (g_lastPingSentMs != 0) && (g_lastPongSeenMs < g_lastPingSentMs);
+      g_lastPingSentMs = nowMsPing;
+      sendUdpPing();
+      if (!pingMissed)
       {
-        // trafic recent (ou jamais rien vu depuis le boot, pas encore un
-        // vrai episode de coupure) -- remet les compteurs a zero, un futur
-        // episode redeclenchera bien ses 3 affichages depuis le debut.
+        // pong recu a temps -- connexion saine, un futur episode
+        // redeclenchera bien ses 3 affichages depuis le debut.
         s_recalboxDisconnectedAlertCount = 0;
-        s_lastRecalboxDisconnectedAlertMs = 0;
       }
       else if (!g_sdOpInProgress && currentMode != MODE_PLAYLIST
-               && s_recalboxDisconnectedAlertCount < UDP_ALERT_MAX_COUNT
-               && idleMs >= UDP_ALERT_REPEAT_MS
-               && (s_lastRecalboxDisconnectedAlertMs == 0 || (nowMs3 - s_lastRecalboxDisconnectedAlertMs) >= UDP_ALERT_REPEAT_MS))
+               && s_recalboxDisconnectedAlertCount < UDP_ALERT_MAX_COUNT)
       {
         g_recalboxDisconnectedPending = true;
-        s_lastRecalboxDisconnectedAlertMs = nowMs3;
         s_recalboxDisconnectedAlertCount++;
       }
     }
