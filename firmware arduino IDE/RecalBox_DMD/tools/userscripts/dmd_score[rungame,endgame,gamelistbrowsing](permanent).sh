@@ -15,7 +15,37 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v48
+# Version actuelle : v49
+#
+# v49 - 2026-09-10 - safe-modify - BUG REEL corrige (retour utilisateur en
+#   conditions reelles, jeu fbneo/actfancr) : panneaux DESCRIPTION affiches
+#   dans le desordre/repetes (1->2->1(repete)->3->2(repete)->4), marquee qui
+#   "s'intercale" de facon erratique -- confirme en direct par `ps aux` : 6
+#   processus dmd_score.sh simultanes (au lieu d'1, malgre singleton_lock.sh
+#   -- celui-ci empeche plusieurs LANCEMENTS du SCRIPT, pas l'accumulation
+#   de plusieurs round_robin() en arriere-plan internes au meme script,
+#   indiscernables dans `ps aux`). Cause : la seule protection de
+#   round_robin() contre le chevauchement est une comparaison de chaine
+#   d'etat (current=expected) verifiee UNIQUEMENT apres chaque
+#   sleep/publication -- pas immediate. Pire, revisiter EXACTEMENT le meme
+#   jeu apres un aller-retour fait revenir l'etat a une valeur IDENTIQUE a
+#   celle qu'une vieille instance encore endormie considere comme "toujours
+#   valide" : elle se reveille, voit current=expected=vrai, et continue de
+#   tourner EN MEME TEMPS qu'une toute nouvelle instance vient de demarrer
+#   pour ce meme retour -- aucune frequence de verification ne peut
+#   distinguer "meme session ininterrompue" de "nouvelle session au meme
+#   etat" par comparaison de chaine seule. Fix : kill_previous_round_robin()
+#   (voir juste avant round_robin()) tue explicitement, par PID trace dans
+#   un fichier DEDIE PAR CONTEXTE (ingame/browse), toute instance precedente
+#   AVANT de lancer une nouvelle -- garantit au plus 1 round_robin() vivant
+#   par contexte, independamment de toute coincidence de chaine d'etat.
+#   Applique aux 2 sites de lancement (rungame/ingame, dwell-settle/browse).
+#   Valide sur materiel reel (RB1) : stress-test 5 allers-retours rapproches
+#   sur le meme jeu pendant qu'un round_robin() tournait deja -- un seul
+#   DWELL settled, aucune accumulation de processus, sortie propre. Voir
+#   DECISIONS.md et HANDOFF_SESSION_2026-09-10_udp-transport.md pour le
+#   detail complet du diagnostic (initialement identifie sur cette branche,
+#   en toute fin de session precedente).
 #
 # v48 - 2026-09-08 - safe-modify - BASCULE FULL UDP (demande utilisateur
 #   explicite, meme motif que RecalBox_DMD.ino v161/marquee.sh v45).
@@ -823,6 +853,11 @@ DWELL_MIN_SECONDS=3
 BROWSE_STATE_FILE="/tmp/dmd_browse_state"
 # v4 -- session de partie en cours (voir round_robin()).
 GAME_SESSION_FILE="/tmp/dmd_game_session"
+# v49 -- PID de la derniere instance round_robin() lancee, UN fichier par
+# contexte (ingame/browse) -- permet de la tuer explicitement avant d'en
+# lancer une nouvelle, voir kill_previous_round_robin() et le changelog v49.
+ROUNDROBIN_PID_FILE_INGAME="/tmp/dmd_roundrobin_ingame.pid"
+ROUNDROBIN_PID_FILE_BROWSE="/tmp/dmd_roundrobin_browse.pid"
 
 read_state() {
     grep "^${1}=" "/tmp/es_state.inf" 2>/dev/null | cut -d= -f2- | tr -d '\r\n '
@@ -1179,6 +1214,25 @@ send_hiscore_paginated() {
 # Continue INDEFINIMENT tant que $state_file contient toujours $expected.
 # $1=ctx("ingame"/"browse") $2=sys $3=gpath $4=rom $5=state_file
 # $6=expected $7=ratio_key(feat_value)
+# v49 -- tue toute instance round_robin() precedente pour LE MEME contexte
+# (ingame ou browse) avant d'en lancer une nouvelle. $1 = fichier PID du
+# contexte (ROUNDROBIN_PID_FILE_INGAME/BROWSE). Necessaire car la seule
+# protection interne de round_robin() (comparaison de chaine d'etat) ne
+# detecte PAS le cas ou l'etat redevient IDENTIQUE (meme jeu revisite) --
+# voir le changelog v49 en tete de fichier pour le detail du bug corrige.
+# kill_previous_round_robin() est le seul ECRIVAIN de ces fichiers PID
+# (round_robin() lui-meme ne les touche jamais) -- appele uniquement
+# depuis le processus principal du script, pas de race d'ecriture entre
+# 2 lecteurs/ecrivains contrairement au verrou singleton_lock.sh (qui
+# protege un cas different : plusieurs LANCEMENTS du script).
+kill_previous_round_robin() {
+    pid_file="$1"
+    oldpid=$(cat "$pid_file" 2>/dev/null)
+    if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then
+        kill "$oldpid" 2>/dev/null
+    fi
+}
+
 round_robin() {
     ctx="$1"; sys="$2"; gpath="$3"; rom="$4"; state_file="$5"; expected="$6"; ratio_key="$7"
     idx=0
@@ -1776,7 +1830,11 @@ while IFS= read -r event; do
                 rom=$(basename "$game_path" | sed 's/\.[^.]*$//')
                 session="${system}|${rom}"
                 printf '%s\n' "$session" > "$GAME_SESSION_FILE"
+                # v49 -- tue l'ancienne instance round_robin("ingame") AVANT
+                # d'en lancer une nouvelle, voir kill_previous_round_robin().
+                kill_previous_round_robin "$ROUNDROBIN_PID_FILE_INGAME"
                 round_robin "ingame" "$system" "$game_path" "$rom" "$GAME_SESSION_FILE" "$session" "repeat_cycles" &
+                echo $! > "$ROUNDROBIN_PID_FILE_INGAME"
             fi
             ;;
         endgame)
@@ -1910,6 +1968,11 @@ while IFS= read -r event; do
                     dwell=$(feat_value "dwell_seconds")
                     if [ "$dwell" -lt "$DWELL_MIN_SECONDS" ]; then dwell="$DWELL_MIN_SECONDS"; fi
                     echo "$(date '+%H:%M:%S') [$(precise_ts)] BROWSE sys=$system rom=$rom (dwell ${dwell}s)" >> "$LOG"
+                    # v49 -- tue l'ancienne instance round_robin("browse")
+                    # (ou son dwell encore en attente) AVANT de lancer le
+                    # nouveau pipeline dwell+round_robin, voir
+                    # kill_previous_round_robin().
+                    kill_previous_round_robin "$ROUNDROBIN_PID_FILE_BROWSE"
                     (
                         sleep "$dwell"
                         current=$(cat "$BROWSE_STATE_FILE" 2>/dev/null)
@@ -1931,6 +1994,13 @@ while IFS= read -r event; do
                             echo "$(date '+%H:%M:%S') [$(precise_ts)] DWELL abandoned sys=$system rom=$rom (deplace entre-temps)" >> "$LOG"
                         fi
                     ) &
+                    # v49 -- le PID de CE sous-shell reste celui de
+                    # round_robin("browse") une fois le dwell ecoule (meme
+                    # processus, round_robin est le dernier appel de ce
+                    # sous-shell, pas de fork supplementaire) -- valable
+                    # aussi pendant le dwell lui-meme (kill_previous_
+                    # round_robin() l'interrompt alors avant qu'il demarre).
+                    echo $! > "$ROUNDROBIN_PID_FILE_BROWSE"
                 fi
             else
                 LAST_BROWSE_SYS=""
