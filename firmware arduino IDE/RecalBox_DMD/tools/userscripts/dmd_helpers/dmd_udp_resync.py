@@ -2,7 +2,19 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v2
+# Version actuelle : v3
+#
+# v3 - 2026-09-10 - safe-modify - Ping/pong DEDIE a l'alerte firmware
+#   "RecalBox non connectee" (v183, RecalBox_DMD.ino) -- INDEPENDANT du
+#   "HELLO" de resync ci-dessous (outil de diagnostic du gel de reception,
+#   pas un mecanisme de fiabilite -- retour utilisateur explicite : ne pas
+#   batir l'alerte de connectivite sur l'outil qui sert a mesurer/
+#   contourner le bug qu'on cherche a resoudre). Reconnait desormais un
+#   3e type de message sur ce port : "PING" (le firmware l'envoie toutes
+#   les 15s, cadence alignee sur l'ancien keepalive MQTT) -> reponse
+#   "PONG" immediate, brute, SANS relire es_state.inf (accuse de vie pur,
+#   aussi leger/rapide que possible -- contrairement au hello qui
+#   recalcule l'etat de navigation complet).
 #
 # v2 - 2026-09-08 - safe-modify - BUG REEL trouve en revue (pas en usage
 #   reel -- retour utilisateur explicite : "qu'est-ce qu'on aurait pu
@@ -153,6 +165,11 @@ def main():
         # - tout le reste (typiquement "HELLO") : comportement v1 inchange,
         #   resync de l'etat de navigation courant.
         text = data.decode("utf-8", "replace")
+        # v3 -- ping/pong dedie, voir changelog v3 -- reponse immediate,
+        # brute (pas via send_udp(), qui formate en "CMD=.../ARG=...").
+        if text == "PING":
+            send_sock.sendto(b"PONG", (DMD_UDP_IP, DMD_UDP_PORT))
+            continue
         if text.startswith(FEATURES_PREFIX):
             payload = text[len(FEATURES_PREFIX):]
             try:
