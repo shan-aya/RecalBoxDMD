@@ -1,7 +1,26 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v184
+// Version actuelle : v185
+//
+// v185 - 2026-09-11 - safe-modify - COSMETIQUE, demande utilisateur ("les
+//   print MQTT du serial ne sont plus adaptes") : le tag "[MQTT]" affiche
+//   sur 28 lignes qui n'ont plus rien a voir avec le protocole MQTT
+//   (dispatch generique de `processPendingMqttCommand()`, alertes
+//   "RecalBox non connectee"/"connectee", diffusion des reglages
+//   hi-score/RA) renomme en "[CMD]" -- ces lignes s'affichent desormais
+//   systematiquement en UDP (MQTT_ENABLED=false depuis v161), le tag
+//   "[MQTT]" y etait devenu trompeur en lecture de serial. Le tag "[MQTT]"
+//   reste INCHANGE sur les ~24 lignes reellement specifiques au protocole
+//   MQTT lui-meme (`mqttSubscribeFast()`, `onMqttMessage()`, `mqttTask()`
+//   -- connexion/subscribe/escalade TCP) : ce code existe toujours (mort
+//   tant que MQTT_ENABLED=false) et redeviendrait pertinent si MQTT etait
+//   un jour reactive. Les commentaires de changelog historiques citant
+//   litteralement d'anciens logs "[MQTT] connecting"/"[MQTT] connected"
+//   (evenements REELS d'une session passee, avant la bascule UDP)
+//   volontairement laisses tels quels -- ce sont des citations d'un fait
+//   passe, pas des tags a jour. Purement cosmetique (renommage de chaines
+//   de log), aucun changement de logique.
 //
 // v184 - 2026-09-10 - safe-modify - BUG REEL corrige (retour utilisateur en
 //   conditions reelles, jeu fbneo/actfancr, "j'ai un marque qui apparait
@@ -6480,7 +6499,7 @@ void showRecalboxDisconnectedAlert()
   g_recalboxDisconnectedScreenActive = true;
   g_recalboxDisconnectedUntilMs = millis() + NO_WIFI_ALERT_DISPLAY_MS;
   g_recalboxDisconnectedPending = false;
-  Serial.println("[MQTT] RecalBox non connectee -- alerte affichee");
+  Serial.println("[CMD] RecalBox non connectee -- alerte affichee");
 }
 
 String trOpenUrl(const String &ip)
@@ -6886,7 +6905,7 @@ void processPendingMqttCommand()
   switch(cmd.type)
   {
   case MqttCommand::CMD_STOP:
-    if(currentMode==MODE_PLAYLIST||g_sdOpInProgress){Serial.println("[MQTT] stop ignored");break;}
+    if(currentMode==MODE_PLAYLIST||g_sdOpInProgress){Serial.println("[CMD] stop ignored");break;}
     // v104 -- g_inGameMarquee retire (hi-score port supprime).
     g_mqttConnectedScreenUntilMs = 0;
     // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
@@ -6902,7 +6921,7 @@ void processPendingMqttCommand()
     break;
 
   case MqttCommand::CMD_DEFAULT:
-    if (g_sdOpInProgress) { Serial.println("[MQTT] default ignored (web open)"); break; }
+    if (g_sdOpInProgress) { Serial.println("[CMD] default ignored (web open)"); break; }
     // v122 -- 2e ligne de defense (voir declaration de g_recalboxInGame) :
     // un "default" recu alors que RB affirme encore etre EN JEU (dernier
     // marquee/cmd/ingame retenu = "1") est traite comme perime/errone --
@@ -6912,7 +6931,7 @@ void processPendingMqttCommand()
     // ce fix (autre source de "default" non identifiee, etc.) sans risque :
     // le pire cas est de rester sur le dernier affichage connu un peu plus
     // longtemps, jamais un ecran errone.
-    if (g_recalboxInGame) { Serial.println("[MQTT] default ignore (RB toujours en jeu selon ingame=1)"); break; }
+    if (g_recalboxInGame) { Serial.println("[CMD] default ignore (RB toujours en jeu selon ingame=1)"); break; }
     // v104 -- g_inGameMarquee retire (hi-score port supprime).
     g_lastMqttWasDefault = true; // v50 -- pose ici, avant meme le differe eventuel : RB a bien annonce "default"
     // Delai minimum d'affichage de l'ecran "RecalBox connectee" (v49) : si
@@ -6923,7 +6942,7 @@ void processPendingMqttCommand()
     // (regression du fix v46).
     if (g_mqttConnectedScreenUntilMs != 0 && millis() < g_mqttWaitingMinDisplayUntilMs)
     {
-      Serial.println("[MQTT] default recu pendant l'ecran de connexion -- differe jusqu'au delai minimum");
+      Serial.println("[CMD] default recu pendant l'ecran de connexion -- differe jusqu'au delai minimum");
       g_mqttDefaultPendingAfterMinDisplay = true;
       break;
     }
@@ -6946,7 +6965,7 @@ void processPendingMqttCommand()
   // CMD_DEFAULT (qui reste utilise par le pont marquee sur stop/sleep et
   // doit continuer a relancer la playlist normalement).
   case MqttCommand::CMD_WAITING_MQTT:
-    if (g_sdOpInProgress) { Serial.println("[MQTT] waiting ignored (web open)"); break; }
+    if (g_sdOpInProgress) { Serial.println("[CMD] waiting ignored (web open)"); break; }
     // Bug trouve sur test reel (ecran DMD noir/vide) : le case MODE_PNG de
     // loop() efface l'ecran et repasse en MODE_BLACK des que
     // currentPngPath est vide (voir loop(), ~ligne 3970) -- currentPngPath="",
@@ -6959,7 +6978,7 @@ void processPendingMqttCommand()
     {
       bool okDraw = drawDefaultRaw565Cached();
       currentMode = okDraw ? MODE_PNG : MODE_BLACK;
-      Serial.println(String("[MQTT] waiting -> default.raw565 ") + (okDraw ? "OK" : "FAIL (ecran vide)"));
+      Serial.println(String("[CMD] waiting -> default.raw565 ") + (okDraw ? "OK" : "FAIL (ecran vide)"));
       if (okDraw)
       {
         // Texte superpose (demande utilisateur) -- pngDrawn=true fait sauter
@@ -6982,7 +7001,7 @@ void processPendingMqttCommand()
     break;
 
   case MqttCommand::CMD_SYSTEM:
-    if (g_sdOpInProgress) { Serial.println("[MQTT] system ignored (web open)"); break; }
+    if (g_sdOpInProgress) { Serial.println("[CMD] system ignored (web open)"); break; }
     // v104 -- g_inGameMarquee retire (hi-score port supprime).
     g_mqttConnectedScreenUntilMs = 0;
     // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
@@ -7003,7 +7022,7 @@ void processPendingMqttCommand()
     break;
 
   case MqttCommand::CMD_GAME:
-    if (g_sdOpInProgress) { Serial.println("[MQTT] game ignored (web open)"); break; }
+    if (g_sdOpInProgress) { Serial.println("[CMD] game ignored (web open)"); break; }
     g_mqttConnectedScreenUntilMs = 0;
     // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
     // contenu MQTT reprend la main, plus besoin d'attendre son
@@ -7043,7 +7062,7 @@ void processPendingMqttCommand()
         pngDrawn = false;
         currentPngPath = "";
         currentMode = MODE_GIF;
-        Serial.println("[MQTT] game -> shuffle (anti-rafale)");
+        Serial.println("[CMD] game -> shuffle (anti-rafale)");
       }
       break;
     }
@@ -7494,7 +7513,7 @@ void processPendingMqttCommand()
   }
 
   case MqttCommand::CMD_STARTCLIP:
-    if (g_sdOpInProgress) { Serial.println("[MQTT] startclip ignored"); break; }
+    if (g_sdOpInProgress) { Serial.println("[CMD] startclip ignored"); break; }
     // v104 -- g_inGameMarquee retire (hi-score port supprime).
     g_mqttConnectedScreenUntilMs = 0;
     // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
@@ -7506,12 +7525,12 @@ void processPendingMqttCommand()
     g_recalboxDisconnectedPending = false;
     g_mqttDefaultPendingAfterMinDisplay = false;
     g_lastMqttWasDefault = true; // v50
-    Serial.println("[MQTT] startgameclip -> playlist");
+    Serial.println("[CMD] startgameclip -> playlist");
     resumePlaylist();
     break;
 
   case MqttCommand::CMD_RESUMESYS:
-    if (g_sdOpInProgress) { Serial.println("[MQTT] resumesys ignored"); break; }
+    if (g_sdOpInProgress) { Serial.println("[CMD] resumesys ignored"); break; }
     // v104 -- g_inGameMarquee retire (hi-score port supprime).
     g_mqttConnectedScreenUntilMs = 0;
     // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
@@ -7523,7 +7542,7 @@ void processPendingMqttCommand()
     g_recalboxDisconnectedPending = false;
     g_mqttDefaultPendingAfterMinDisplay = false;
     g_lastMqttWasDefault = false; // v50
-    Serial.println("[MQTT] resumesys -> "+cmd.arg);
+    Serial.println("[CMD] resumesys -> "+cmd.arg);
     gif.close();gifOpened=false;pngDrawn=false;currentPngPath="";
     currentMode=MODE_BLACK;
     if(nextGifFile){nextGifFile.close();nextGifFile=File();nextGifPath="";}
@@ -7537,7 +7556,7 @@ void processPendingMqttCommand()
     // afficher l'IP du DMD sans toucher au WiFi -- reutilise exactement
     // l'affichage deja declenche par handleDmdOpen() quand la page web est
     // ouverte normalement.
-    if (g_sdOpInProgress) { Serial.println("[MQTT] show_config ignored (web deja ouvert)"); break; }
+    if (g_sdOpInProgress) { Serial.println("[CMD] show_config ignored (web deja ouvert)"); break; }
     // v150 -- un CMD_SHOW_CONFIG est un vrai message MQTT au meme titre que
     // CMD_GAME/CMD_SYSTEM/CMD_DEFAULT/CMD_SCORE (qui levent deja ce drapeau,
     // voir nettoyage pre-merge master) -- change de mode d'affichage de
@@ -7566,7 +7585,7 @@ void processPendingMqttCommand()
     // Redemarre en WIFI_AP pur (seul mode fiable mesure sur ce materiel, cf
     // AP_STA rejete precedemment) avec compte a rebours de 3 min avant retour
     // automatique.
-    Serial.println("[MQTT] wifi_recovery -> reboot en AP secours");
+    Serial.println("[CMD] wifi_recovery -> reboot en AP secours");
     writeConfigFlag("force_ap_recovery", "1");
     delay(100);
     ESP.restart();
@@ -7577,7 +7596,7 @@ void processPendingMqttCommand()
     // sans condition (pas de garde g_sdOpInProgress) -- c'est le bouton de
     // secours en cas de DMD bloque/affichage fige, il ne doit jamais pouvoir
     // etre lui-meme ignore.
-    Serial.println("[MQTT] reboot demande par l'utilisateur");
+    Serial.println("[CMD] reboot demande par l'utilisateur");
     delay(100);
     ESP.restart();
     break;
@@ -7602,9 +7621,9 @@ void processPendingMqttCommand()
     if (pct >= 0 && pct <= 100) {
       screenBrightness = map(pct, 0, 100, 0, 255);
       if (display) display->setBrightness8(screenBrightness);
-      Serial.println("[MQTT] brightness -> " + String(pct) + "%");
+      Serial.println("[CMD] brightness -> " + String(pct) + "%");
     } else {
-      Serial.println("[MQTT] brightness ignoree (valeur hors 0-100: " + cmd.arg + ")");
+      Serial.println("[CMD] brightness ignoree (valeur hors 0-100: " + cmd.arg + ")");
     }
     break;
   }
@@ -7631,10 +7650,10 @@ void processPendingMqttCommand()
       screenBrightness = map(newPct, 0, 100, 0, 255);
       if (display) display->setBrightness8(screenBrightness);
       writeConfigFlag("brightness", String(newPct));
-      Serial.println("[MQTT] brightness " + String(delta > 0 ? "+" : "") + String(delta) +
+      Serial.println("[CMD] brightness " + String(delta > 0 ? "+" : "") + String(delta) +
                       "% -> " + String(newPct) + "% (sauvegarde config.ini)");
     } else {
-      Serial.println("[MQTT] brightness deja au " + String(newPct == 0 ? "minimum" : "maximum") + " (" + String(newPct) + "%)");
+      Serial.println("[CMD] brightness deja au " + String(newPct == 0 ? "minimum" : "maximum") + " (" + String(newPct) + "%)");
     }
     break;
   }
@@ -7644,7 +7663,7 @@ void processPendingMqttCommand()
   // reintroduit ci-dessous en v110, voir entete changelog complet.
   case MqttCommand::CMD_SCORE:
   {
-    if (g_sdOpInProgress) { Serial.println("[MQTT] score ignore (web open)"); break; }
+    if (g_sdOpInProgress) { Serial.println("[CMD] score ignore (web open)"); break; }
     // v149 -- un CMD_SCORE est un "vrai message MQTT" au meme titre que
     // CMD_GAME/CMD_SYSTEM/CMD_DEFAULT (qui levent deja ce drapeau) : sans
     // cette ligne, un score recu pendant l'ecran "RecalBox connectee"
@@ -7692,7 +7711,7 @@ void processPendingMqttCommand()
       // currentMode ne changeait tout simplement pas.
       currentMode = MODE_SCORE;
       g_scoreShowUntilMs = millis() + durMs;
-      Serial.println("[MQTT] score -> affiche " + String(durMs / 1000.0, 1) + "s puis retour auto au jeu");
+      Serial.println("[CMD] score -> affiche " + String(durMs / 1000.0, 1) + "s puis retour auto au jeu");
     }
     break;
   }
@@ -9392,12 +9411,12 @@ void broadcastFeatureStatus()
   // conserve.
   if (n <= 0 || n >= (int)sizeof(buf) || strncmp(buf, "hiscore_ingame=", 15) != 0)
   {
-    Serial.println("[MQTT] broadcastFeatureStatus ABANDON (snprintf n=" + String(n) + "): " + String(buf));
+    Serial.println("[CMD] broadcastFeatureStatus ABANDON (snprintf n=" + String(n) + "): " + String(buf));
     return;
   }
   if (mqttClient.connected()) {
     mqttClient.publish("marquee/status/features", buf, true);
-    Serial.println(String("[MQTT] marquee/status/features -> ") + buf);
+    Serial.println(String("[CMD] marquee/status/features -> ") + buf);
   }
   sendUdpFeatureStatus(buf); // v13 -- voir sa declaration, canal independant de MQTT
 }
@@ -10738,7 +10757,7 @@ void loop()
     // C'etait la cause du bug "overlay ne s'affiche jamais" (voir memoire
     // projet) -- PAS une corruption memoire.
     // v104 -- g_inGameMarquee retire (hi-score port supprime).
-    Serial.println("[MQTT] default differe applique -> reprise playlist");
+    Serial.println("[CMD] default differe applique -> reprise playlist");
     resumePlaylist();
   }
   // Clignotement du texte "RecalBox connectee" pendant tout l'affichage
@@ -10807,7 +10826,7 @@ void loop()
     {
       g_recalboxDisconnectedScreenActive = false;
       // v104 -- g_inGameMarquee retire (hi-score port supprime).
-      Serial.println("[MQTT] RecalBox non connectee -- delai ecoule, reprise playlist");
+      Serial.println("[CMD] RecalBox non connectee -- delai ecoule, reprise playlist");
       resumePlaylist();
     }
   }
@@ -11129,7 +11148,7 @@ void loop()
       // de mode. MODE_GIF/MODE_PLAYLIST n'ont pas besoin de ca :
       // gifPlayFrameCompat() redessine integralement a chaque appel.
       if (currentMode == MODE_PNG) pngDrawn = false;
-      Serial.println("[MQTT] score expire -> retour au jeu (mode=" + String((int)currentMode) + ")");
+      Serial.println("[CMD] score expire -> retour au jeu (mode=" + String((int)currentMode) + ")");
     }
     delay(1);
     break;
