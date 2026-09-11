@@ -1,7 +1,32 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v192
+// Version actuelle : v193
+//
+// v193 - 2026-09-11 - safe-modify - CAUSE RACINE TROUVEE ET CORRIGEE (a
+//   valider sur duree) : le power-save WiFi mesure par v192 (juste flashe,
+//   validation IMMEDIATE sur materiel en quelques minutes -- frequence
+//   56,7% du temps oblige) confirme `[WIFIPS] mode=1` (WIFI_PS_MIN_MODEM)
+//   EN PERMANENCE depuis la connexion, y compris pendant un [UDPGAP]
+//   capture en direct. Lecture du code source WiFiGeneric.cpp du core
+//   arduino-esp32 3.3.11 : `WiFi.setSleep(false)` est un NO-OP SILENCIEUX
+//   tant que `WiFi.STA.started()==false` au moment de l'appel -- il se
+//   contente de memoriser la valeur voulue dans une variable interne
+//   (`_sleepEnabled`) JAMAIS relue ni appliquee au driver nulle part
+//   ailleurs dans la lib, et renvoie `true` (faux succes, aucune erreur
+//   visible). Exactement le cas de ce firmware : `WiFi.setSleep(false)`
+//   pose dans `setup()` AVANT `WiFi.begin()` (STA pas encore demarree) --
+//   toutes les autres reapplications du projet (maintainWiFi(), retry de
+//   connexion) sont conditionnees a un evenement de RECONNEXION qui, pour
+//   ce bug precis, ne se produit jamais (WiFi.status() reste WL_CONNECTED
+//   en continu pendant les episodes de gel) -- donc jamais revisitees non
+//   plus en pratique. Fix : bloc auto-correcteur ajoute dans la mesure
+//   [WIFIPS] (v192, ~2s de cycle) -- appel DIRECT a `esp_wifi_set_ps
+//   (WIFI_PS_NONE)` (contourne le wrapper Arduino defaillant) des que
+//   l'etat mesure n'est pas deja WIFI_PS_NONE, reappuye tant que
+//   necessaire. PAS ENCORE VALIDE SUR MATERIEL au moment de ce commit --
+//   a observer si le taux de 56,7% de coupure chute reellement une fois
+//   flashe (verification immediate possible, frequence tres elevee).
 //
 // v192 - 2026-09-11 - safe-modify - CHASSE AU BUG (etape 0 du plan) --
 //   MESURE, aucun changement de comportement. Contexte : test de 2h avec
@@ -10778,6 +10803,29 @@ void loop()
         wifi_ps_type_t psMode;
         if (esp_wifi_get_ps(&psMode) == ESP_OK) s_lastPsMode = (int8_t)psMode;
         Serial.println("[WIFIPS] mode=" + String(s_lastPsMode));
+        // v193 -- CAUSE TROUVEE (lecture du code source WiFiGeneric.cpp du
+        // core 3.3.11) : WiFi.setSleep(false) est un NO-OP SILENCIEUX tant
+        // que WiFi.STA.started()==false au moment de l'appel -- il se
+        // contente alors de memoriser la valeur voulue dans une variable
+        // interne (_sleepEnabled) JAMAIS relue/appliquee nulle part
+        // ensuite, et renvoie true (faux succes). Exactement le cas de cette
+        // branche : setSleep(false) pose dans setup() AVANT WiFi.begin()
+        // (STA pas encore demarree) -- confirme sur materiel : [WIFIPS]
+        // mode=1 (WIFI_PS_MIN_MODEM) en PERMANENCE depuis le tout premier
+        // log apres connexion jusqu'a 100s+ d'uptime, jamais 0, y compris
+        // pendant un [UDPGAP] capture en direct. Fix auto-correcteur ICI
+        // (independant de savoir OU exactement WiFi.setSleep(false) a ete
+        // avale silencieusement) : appel direct a esp_wifi_set_ps()
+        // (contourne le wrapper Arduino defaillant) des que l'etat mesure
+        // n'est pas deja WIFI_PS_NONE, reappuye a chaque cycle ~2s tant que
+        // necessaire -- assez tot pour couper le power-save avant qu'il
+        // n'ait l'occasion de causer une seule coupure de reception.
+        if (s_lastPsMode != (int8_t)WIFI_PS_NONE)
+        {
+          esp_err_t psErr = esp_wifi_set_ps(WIFI_PS_NONE);
+          Serial.println("[WIFIPS] power-save actif (mode=" + String(s_lastPsMode)
+                         + ") -> esp_wifi_set_ps(WIFI_PS_NONE) direct, err=" + String((int)psErr));
+        }
       }
     }
   }
