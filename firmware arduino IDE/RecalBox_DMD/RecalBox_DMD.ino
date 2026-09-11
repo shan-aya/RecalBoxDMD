@@ -1,7 +1,29 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v186
+// Version actuelle : v187
+//
+// v187 - 2026-09-11 - safe-modify - BUG REEL corrige (retour utilisateur en
+//   conditions reelles, "crash en sortie de veille mode demo de jeu",
+//   sys=fbneo rom=actfancr, backtrace confirme fs::FS::open()/
+//   VFSImpl::open()/make_shared<VFSFileImpl>/operator new -> std::bad_alloc
+//   non rattrapee -> abort(), meme famille que le crash de boot deja
+//   corrige en v184 mais dans un contexte DIFFERENT -- ici bien apres le
+//   boot, en fonctionnement normal (heap libre=6024 juste avant, donc pas
+//   un heap generalement bas, une fragmentation ponctuelle). Cause :
+//   le garde-fou heap CMD_GAME_MIN_HEAP_FOR_FILE_OPEN (v81/v91) ne protege
+//   openGif() QUE dans le chemin SLOW du dispatch CMD_GAME -- le chemin
+//   FAST (isSlow=false, cas de fbneo) appelait openGif() sans AUCUNE
+//   verification de heap avant, exposant openGifImpl() et ses jusqu'a 6
+//   SD.open() non gardes (dont un abort() direct via lock_init_generic(),
+//   non rattrapable meme par le try/catch de openGif() -- meme lecon que
+//   la bisection v183). Fix : meme garde-fou (ESP.getMaxAllocHeap() >=
+//   CMD_GAME_MIN_HEAP_FOR_FILE_OPEN) ajoute avant les 2 appels openGif()
+//   du chemin FAST -- si heap trop bas, openGif() n'est pas tente du tout,
+//   repli immediat sur drawPng()/default.png (deja proteges via
+//   drawRaw565(), meme mecanisme que le chemin SLOW). Comportement normal
+//   (heap suffisant) strictement inchange. PAS ENCORE VALIDE SUR MATERIEL
+//   au moment de ce commit.
 //
 // v186 - 2026-09-11 - safe-modify - MESURE (serial uniquement, aucun
 //   affichage) demandee par l'utilisateur avant de decider d'un rattrapage
@@ -7140,8 +7162,26 @@ void processPendingMqttCommand()
 
       if (!fastSkipToDefault)
       {
+        // v187 -- BUG REEL confirme sur materiel ("crash en sortie de veille
+        // mode demo de jeu", sys=fbneo rom=actfancr, maxalloc bas) : le
+        // garde-fou heap (v81/v91, CMD_GAME_MIN_HEAP_FOR_FILE_OPEN) protege
+        // deja openGif() dans le chemin SLOW (voir plus bas) mais PAS ici
+        // dans le chemin FAST -- openGifImpl() peut faire jusqu'a 6
+        // SD.open() non gardes, dont l'echec est parfois un abort() direct
+        // (lock_init_generic(), non rattrapable meme par le try/catch de
+        // openGif()). Meme principe applique ici : ne PAS tenter openGif()
+        // si le heap est deja trop bas, tomber directement sur le fallback
+        // suivant (drawPng -- deja protege via drawRaw565() -- puis
+        // default.png plus bas, protege de la meme facon).
+        bool fastHeapOkForGif = (ESP.getMaxAllocHeap() >= CMD_GAME_MIN_HEAP_FOR_FILE_OPEN);
+        if (!fastHeapOkForGif)
+        {
+          Serial.println("[CMD_GAME] heap trop bas (maxalloc=" + String(ESP.getMaxAllocHeap())
+                         + ") -> skip openGif() fast path, repli sur drawPng/default t=" + String(millis()));
+        }
+
         // Pour B : raw565pack d'abord (openGif sur .gif => .raw565pack+.meta)
-        if(sysT == 'B')
+        if(sysT == 'B' && fastHeapOkForGif)
         {
           if(openGif(gameGif, false, true))
           {
@@ -7162,7 +7202,7 @@ void processPendingMqttCommand()
         }
 
         // Puis GIF
-        if(openGif(gameGif, false, true))
+        if(fastHeapOkForGif && openGif(gameGif, false, true))
         {
           pngDrawn = false;
           currentPngPath = "";
