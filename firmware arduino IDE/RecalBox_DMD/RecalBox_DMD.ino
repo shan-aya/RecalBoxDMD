@@ -1,7 +1,32 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v189
+// Version actuelle : v190
+//
+// v190 - 2026-09-11 - safe-modify - BUG REEL DE LISIBILITE corrige (retour
+//   utilisateur, apres un exemple concret analyse en direct : un ping
+//   UDPREARM ET le ping dedie de l'alerte sont tous 2 restes sans reponse
+//   ~15-17s chacun, udpSeen fige tout du long, MAIS le log affichait juste
+//   "deconnexion en cours depuis ~30s" suivi 9ms plus tard d'un pong recu
+//   -- lisible comme contradictoire alors que ca decrivait 2 evenements
+//   distincts (l'ancien ping rate, et le nouveau ping tout juste envoye).
+//   "je n'arrive pas a me rendre compte de la frequence et de la duree des
+//   pertes de connexion" : le log v186/v188 ne mesurait qu'UN ping dedie
+//   manque par cycle de 15s -- indiscernable d'un simple paquet UDP isole
+//   perdu (banal, sans consequence) sans recouper manuellement udpSeen/
+//   udpAgoMs, ce que l'utilisateur ne peut pas faire en lisant le serial
+//   en direct. Remplace par un suivi d'EPISODE explicite (g_udpGapStartMs)
+//   base sur g_lastUdpSeenMs (n'importe quel paquet recu, pong inclus, pas
+//   seulement le ping dedie) : une ligne "[UDPGAP] debut coupure" des que
+//   l'absence de TOUT trafic depasse 15s (verifiee a chaque loop(), pas
+//   seulement au cycle 15s), une ligne "[UDPGAP] fin coupure, duree=Xms"
+//   des le tout premier paquet qui revient (detection temps reel dans le
+//   drain loop de handleUdpCommand(), pas au prochain cycle 15s) --
+//   frequence (nombre de "debut") et duree (valeur "duree=") lisibles
+//   directement par un grep, sans recoupement manuel. Aucun changement de
+//   logique d'affichage ni de declenchement d'alerte (pingMissed/
+//   s_recalboxDisconnectedAlertCount inchanges). PAS ENCORE VALIDE SUR
+//   MATERIEL au moment de ce commit.
 //
 // v189 - 2026-09-11 - safe-modify - BUG REEL corrige (retour utilisateur
 //   decisif, en analysant un vrai episode capture en direct : "c'est pire
@@ -4502,6 +4527,23 @@ WiFiUDP      dmdUdp;
 unsigned long g_udpPacketsSeen = 0;   // parsePacket()>0, avant tout filtrage
 unsigned long g_udpPacketsKept = 0;   // ont mene a un dispatch reel (pendingCmd/g_pending* poses)
 unsigned long g_lastUdpSeenMs = 0;    // millis() du dernier parsePacket()>0, quel qu'il soit
+// v190 -- BUG REEL de LISIBILITE trouve par l'utilisateur sur le log v186/
+// v188 ("je n'arrive pas a me rendre compte de la frequence et de la duree
+// des pertes de connexion") : "[UDPCHK] ping rate -- deconnexion... en
+// cours depuis ~Xms" ne mesurait qu'UN SEUL ping dedie manque (cycle 15s)
+// -- indiscernable d'un simple paquet isole perdu (banal en UDP) sans
+// recouper manuellement udpSeen/udpAgoMs, ce que l'utilisateur ne peut pas
+// faire en lisant le serial en direct. Remplace par un suivi d'EPISODE
+// explicite base sur g_lastUdpSeenMs (MAJ sur N'IMPORTE QUEL paquet recu,
+// pong inclus -- pas seulement le ping dedie) : g_udpGapStartMs=0 signifie
+// "aucune coupure en cours" ; sinon il retient le dernier instant de trafic
+// reel CONNU avant la coupure. Une seule ligne "[UDPGAP] debut" au moment
+// ou l'absence de tout trafic depasse UDP_PING_INTERVAL_MS, une seule
+// ligne "[UDPGAP] fin ... duree=Xms" DES le premier paquet qui revient
+// (detection temps reel dans le drain loop, pas au prochain cycle 15s) --
+// frequence et duree lisibles directement par un grep, sans recoupement
+// manuel.
+unsigned long g_udpGapStartMs = 0;
 // v183 -- ping/pong DEDIE a l'alerte "RecalBox non connectee",
 // INDEPENDANT du hello de mesure v174 (outil de diagnostic du gel de
 // reception, voir sendUdpHello()/UDPREARM plus bas -- ne pas melanger les
@@ -8183,6 +8225,19 @@ void handleUdpCommand()
   {
     drained++;
     g_udpPacketsSeen++;          // v8 -- voir declaration, avant tout filtrage
+    // v190 -- detection de FIN de coupure en temps reel, DES le premier
+    // paquet qui revient (pas au prochain cycle 15s de l'alerte) -- voir
+    // g_udpGapStartMs. Duree = ecart entre le dernier trafic reel connu
+    // avant la coupure et ce paquet-ci, la mesure la plus precise possible
+    // sans horodatage cote emetteur.
+    if (g_udpGapStartMs != 0)
+    {
+      unsigned long dureeMs = millis() - g_udpGapStartMs;
+      Serial.print("[UDPGAP] fin coupure, duree=");
+      Serial.print(dureeMs);
+      Serial.println("ms");
+      g_udpGapStartMs = 0;
+    }
     g_lastUdpSeenMs = millis();  // v8
     char scratch[1024]; // v12 -- 256 -> 1024, voir commentaire complet plus haut
     int l = dmdUdp.read(scratch, sizeof(scratch) - 1);
@@ -10834,6 +10889,21 @@ void loop()
     static int s_recalboxDisconnectedAlertCount = 0;
     const int UDP_ALERT_MAX_COUNT = 3;
     unsigned long nowMsPing = millis();
+    // v190 -- detection de DEBUT de coupure, verifiee a CHAQUE loop() (pas
+    // seulement au cycle 15s ci-dessous) pour un horodatage de debut
+    // precis. Basee sur g_lastUdpSeenMs (n'importe quel paquet recu, pas
+    // seulement le ping dedie) -- volontairement DECOUPLEE de pingMissed
+    // plus bas, qui peut rester vrai meme si du VRAI trafic (une commande
+    // reelle, ou le pong d'un autre ping comme UDPREARM) est arrive entre-
+    // temps -- voir g_udpGapStartMs pour le detail complet du pourquoi.
+    if (WiFi.status() == WL_CONNECTED && g_udpGapStartMs == 0
+        && g_lastUdpSeenMs != 0 && (nowMsPing - g_lastUdpSeenMs) >= UDP_PING_INTERVAL_MS)
+    {
+      g_udpGapStartMs = g_lastUdpSeenMs;
+      Serial.print("[UDPGAP] debut coupure (dernier paquet vu il y a ");
+      Serial.print(nowMsPing - g_lastUdpSeenMs);
+      Serial.println("ms)");
+    }
     if (WiFi.status() == WL_CONNECTED && (nowMsPing - g_lastPingSentMs) >= UDP_PING_INTERVAL_MS)
     {
       // Le ping envoye au cycle precedent (g_lastPingSentMs) n'a jamais
@@ -10851,15 +10921,14 @@ void loop()
       }
       else
       {
-        // v186 -- mesure serial uniquement : duree ecoulee depuis le
-        // dernier pong confirme, pour chiffrer la coupure en cours quel
-        // que soit l'etat de l'alerte (compteur sature ou non, ecran
-        // occupe par une operation SD ou non). Fallback sur previousPingSentMs
-        // (avant reassignation ci-dessus) si aucun pong n'a jamais ete recu.
-        unsigned long depuisMs = (g_lastPongSeenMs != 0) ? (nowMsPing - g_lastPongSeenMs) : (nowMsPing - previousPingSentMs);
-        Serial.print("[UDPCHK] ping rate -- deconnexion applicative en cours depuis ~");
-        Serial.print(depuisMs);
-        Serial.print("ms (alerteCount=");
+        // v190 -- l'ancien log "ping rate -- deconnexion... en cours
+        // depuis ~Xms" ici (v186) mesurait UN SEUL ping dedie manque,
+        // indiscernable d'un simple paquet isole perdu -- remplace par le
+        // suivi d'episode [UDPGAP] debut/fin ci-dessus/dans le drain loop,
+        // qui se base sur TOUT paquet recu et donne une duree reelle sans
+        // ambiguite. Le compteur d'alerte reste logge ici, utile pour
+        // suivre le fonctionnement de l'alerte affichee elle-meme.
+        Serial.print("[UDPCHK] ping rate (alerteCount=");
         Serial.print(s_recalboxDisconnectedAlertCount);
         Serial.println("/3)");
       }
