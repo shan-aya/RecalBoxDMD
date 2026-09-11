@@ -1,7 +1,31 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v190
+// Version actuelle : v191
+//
+// v191 - 2026-09-11 - safe-modify - BUG REEL corrige, crash reel survenu en
+//   conditions reelles ("juste apres une deco et navigation pendant la
+//   reprise immediate de connexion") : backtrace decode -> meme famille que
+//   v184/v187 (fs::FS::open()/VFSImpl::open()/make_shared<VFSFileImpl>/
+//   operator new -> std::bad_alloc non rattrapee -> abort()), cette fois
+//   dans preloadBigram() (ligne de son 2e SD.open()), appelee direct depuis
+//   le chemin FAST du dispatch CMD_GAME -- confirme par [UDPGAP] (v190) :
+//   ~17.75s de coupure UDP juste avant, 2 commandes arrivees d'un coup a la
+//   reprise (score puis game), la 2e declenchant le chargement d'une table
+//   systeme jamais utilisee (gamecube) au moment le plus charge. Cause :
+//   preloadBigram() n'avait NI le garde-fou heap absolu
+//   (CMD_GAME_MIN_HEAP_FOR_FILE_OPEN) NI le try/catch que sa fonction soeur
+//   loadBigramTable() (juste au-dessus dans le fichier) a deja depuis
+//   longtemps -- seul un garde RELATIF (sliceSize > maxAlloc/2) existait,
+//   insuffisant quand le heap est deja critique dans l'absolu (la petite
+//   allocation fixe de make_shared<VFSFileImpl> peut echouer meme pour un
+//   sliceSize minuscule). Fix : meme garde absolu + meme try/catch ajoutes
+//   a preloadBigram(), alignes sur le pattern deja eprouve de
+//   loadBigramTable() -- protege ses 3 sites d'appel (FAST + 2x SLOW) d'un
+//   seul coup, aucun changement de comportement en heap sain. Ne couvre
+//   toujours pas le chemin abort() direct non catchable (lock_init_generic(),
+//   deja documente ailleurs) mais rattrape la variante bad_alloc vue ici.
+//   PAS ENCORE VALIDE SUR MATERIEL au moment de ce commit.
 //
 // v190 - 2026-09-11 - safe-modify - BUG REEL DE LISIBILITE corrige (retour
 //   utilisateur, apres un exemple concret analyse en direct : un ping
@@ -3935,50 +3959,88 @@ bool preloadBigram(const String &sysName, const String &gameName)
   uint32_t bigramOffset = bigramTable[bi];
   if (bigramOffset == 0) return false;
 
-  // Trouver l'offset suivant non nul dans la table (RAM)
-  uint32_t nextOffset = 0;
-  for (int nbi = bi + 1; nbi < NB_IDX; nbi++)
-    if (bigramTable[nbi] != 0) { nextOffset = bigramTable[nbi]; break; }
-
-  if (nextOffset == 0 || nextOffset <= bigramOffset)
-  {
-    for (int i = 0; i < gamesIdxCount - 1; i++)
-      if (sysName == gamesIdx[i].sysName) { nextOffset = gamesIdx[i+1].offset; break; }
-    if (nextOffset == 0 || nextOffset <= bigramOffset)
-    {
-      File f = SD.open(gamesCacheFile.c_str(), FILE_READ);
-      if (f) { nextOffset = f.size(); f.close(); }
-    }
-  }
-
-  size_t sliceSize = (nextOffset > bigramOffset) ? nextOffset - bigramOffset : 0;
-  if (sliceSize == 0) return false;
-
-  size_t maxAlloc = ESP.getMaxAllocHeap();
-  if (sliceSize > maxAlloc / 2)
-  {
-    Serial.println("[GCACHE] tranche " + key + " trop grande ("
-                   + String(sliceSize) + ") -> SD directe");
+  // v191 -- BUG REEL confirme sur materiel (crash "juste apres une deco et
+  // navigation pendant la reprise immediate de connexion") : backtrace
+  // decode -> fs::FS::open()/VFSImpl::open()/make_shared<VFSFileImpl>/
+  // operator new -> std::bad_alloc non rattrapee -> abort(), exactement
+  // depuis CETTE fonction (ligne des 2 SD.open() plus bas), appelee ICI
+  // SANS AUCUNE protection alors que sa fonction soeur loadBigramTable()
+  // (juste au-dessus) a deja le meme garde-fou + le meme try/catch depuis
+  // longtemps. Le garde relatif existant plus bas (sliceSize > maxAlloc/2)
+  // ne protege PAS contre un heap deja critique dans l'absolu (la petite
+  // allocation fixe de make_shared<VFSFileImpl> peut echouer meme quand
+  // sliceSize est petit). Meme seuil que partout ailleurs dans le fichier
+  // (CMD_GAME_MIN_HEAP_FOR_FILE_OPEN) + meme filet try/catch que
+  // loadBigramTable() -- defense en profondeur, le garde n'empeche pas a
+  // 100% le chemin non catchable (abort() direct via lock_init_generic(),
+  // deja documente ailleurs) mais rattrape au moins la variante bad_alloc
+  // vue dans ce crash reel.
+  if (ESP.getMaxAllocHeap() < CMD_GAME_MIN_HEAP_FOR_FILE_OPEN) {
+    Serial.println("[GCACHE] preloadBigram heap trop bas (maxalloc=" + String(ESP.getMaxAllocHeap())
+                   + ") -> skip, repli sur SD directe");
     return false;
   }
 
-  freeBigramBuffer();
-  bigramBuf = (uint8_t*)malloc(sliceSize);
-  if (!bigramBuf) return false;
+  try
+  {
+    // Trouver l'offset suivant non nul dans la table (RAM)
+    uint32_t nextOffset = 0;
+    for (int nbi = bi + 1; nbi < NB_IDX; nbi++)
+      if (bigramTable[nbi] != 0) { nextOffset = bigramTable[nbi]; break; }
 
-  File f = SD.open(gamesCacheFile.c_str(), FILE_READ);
-  if (!f) { freeBigramBuffer(); return false; }
-  f.seek(bigramOffset);
-  f.read(bigramBuf, sliceSize);
-  f.close();
+    if (nextOffset == 0 || nextOffset <= bigramOffset)
+    {
+      for (int i = 0; i < gamesIdxCount - 1; i++)
+        if (sysName == gamesIdx[i].sysName) { nextOffset = gamesIdx[i+1].offset; break; }
+      if (nextOffset == 0 || nextOffset <= bigramOffset)
+      {
+        File f = SD.open(gamesCacheFile.c_str(), FILE_READ);
+        if (f) { nextOffset = f.size(); f.close(); }
+      }
+    }
 
-  bigramBufSize      = sliceSize;
-  bigramBufKey       = key;
-  bigramBufAbsOffset = bigramOffset;
+    size_t sliceSize = (nextOffset > bigramOffset) ? nextOffset - bigramOffset : 0;
+    if (sliceSize == 0) return false;
 
-  Serial.println("[GCACHE] preload " + key + " (" + String(sliceSize)
-                 + " bytes) free=" + String(ESP.getFreeHeap()));
-  return true;
+    size_t maxAlloc = ESP.getMaxAllocHeap();
+    if (sliceSize > maxAlloc / 2)
+    {
+      Serial.println("[GCACHE] tranche " + key + " trop grande ("
+                     + String(sliceSize) + ") -> SD directe");
+      return false;
+    }
+
+    freeBigramBuffer();
+    bigramBuf = (uint8_t*)malloc(sliceSize);
+    if (!bigramBuf) return false;
+
+    File f = SD.open(gamesCacheFile.c_str(), FILE_READ);
+    if (!f) { freeBigramBuffer(); return false; }
+    f.seek(bigramOffset);
+    f.read(bigramBuf, sliceSize);
+    f.close();
+
+    bigramBufSize      = sliceSize;
+    bigramBufKey       = key;
+    bigramBufAbsOffset = bigramOffset;
+
+    Serial.println("[GCACHE] preload " + key + " (" + String(sliceSize)
+                   + " bytes) free=" + String(ESP.getFreeHeap()));
+    return true;
+  }
+  catch (std::exception &e)
+  {
+    Serial.println(String("[GCACHE] EXCEPTION rattrapee dans preloadBigram() (heap critique, maxalloc=")
+                   + String(ESP.getMaxAllocHeap()) + ") : " + e.what());
+    freeBigramBuffer();
+    return false;
+  }
+  catch (...)
+  {
+    Serial.println("[GCACHE] EXCEPTION inconnue rattrapee dans preloadBigram() (maxalloc=" + String(ESP.getMaxAllocHeap()) + ")");
+    freeBigramBuffer();
+    return false;
+  }
 }
 
 // Si le systÃ¨me est flag 'L' (lent), le cache bigram est inutile :
