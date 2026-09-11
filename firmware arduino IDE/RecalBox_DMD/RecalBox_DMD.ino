@@ -1,7 +1,34 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v191
+// Version actuelle : v192
+//
+// v192 - 2026-09-11 - safe-modify - CHASSE AU BUG (etape 0 du plan) --
+//   MESURE, aucun changement de comportement. Contexte : test de 2h avec
+//   simulation d'activite continue a revele que le gel de reception UDP
+//   est BEAUCOUP plus severe que suppose -- 110 episodes, moyenne 37s,
+//   56,7% du temps total en coupure (voir DECISIONS.md pour le detail
+//   complet). Piste jamais confirmee depuis v131 : le power-save WiFi
+//   (WIFI_PS_MIN_MODEM, "station se reveille pour recevoir le beacon a
+//   chaque periode DTIM") est deja activement combattu (WiFi.setSleep
+//   (false) pose a plusieurs endroits) mais son etat REEL n'a jamais pu
+//   etre observe depuis l'API Arduino seule. Ajoute : esp_wifi_get_ps()
+//   (API ESP-IDF bas niveau, deja liee dans le core, aucun changement de
+//   core necessaire) loggee (1) en continu dans une ligne DEDIEE
+//   `[WIFIPS] mode=N` (SEPAREE de [LOOPDIAG]/[LOOPDIAG2] -- voir
+//   commentaire v9 sur la corruption d'une ligne trop longue/trop
+//   concatenee, ne pas repeter cette erreur) au meme rythme que
+//   [LOOPDIAG2] ; (2) directement dans les lignes `[UDPGAP] debut coupure`
+//   et `[UDPGAP] fin coupure` (champ `psmode=N`) pour une correlation
+//   immediate sans avoir a chercher la ligne LOOPDIAG la plus proche.
+//   0=WIFI_PS_NONE (sain), 1=WIFI_PS_MIN_MODEM (suspect), 2=
+//   WIFI_PS_MAX_MODEM, -1=lecture echouee (WiFi pas encore pret).
+//   Prochaine etape une fois flashe : observer si psmode passe a 1/2 juste
+//   avant/pendant un episode -- si oui, piste confirmee, escalade vers
+//   esp_wifi_set_ps(WIFI_PS_NONE) direct + reapplication en boucle dans
+//   loop() ; si non (reste a 0 tout du long), piste ecartee, reoriente
+//   vers la mailbox lwIP/le sketch minimal d'isolation. PAS ENCORE VALIDE
+//   SUR MATERIEL au moment de ce commit.
 //
 // v191 - 2026-09-11 - safe-modify - BUG REEL corrige, crash reel survenu en
 //   conditions reelles ("juste apres une deco et navigation pendant la
@@ -3372,6 +3399,17 @@ typedef uint8_t BitOrder; // Workaround: Adafruit_BusIO attend BitOrder (AVR) ma
 #include <SPI.h>
 #include <WiFi.h>
 #include <WiFiUdp.h> // v1 (piste UDP, voir TRANSPORT_PLAN_UDP.md) -- prototype minimal, cmd=score uniquement
+// v192 -- chasse au bug du gel de reception UDP (voir DECISIONS.md) :
+// mesure sur 2h reelle (2026-09-11 soir, simulation d'activite continue) ->
+// 110 episodes, moyenne 37s, 56.7% du temps total en coupure -- bien plus
+// frequent/severe que suppose jusqu'ici. Etape 0 du plan de chasse :
+// verifier DEFINITIVEMENT si le power-save WiFi (WIFI_PS_MIN_MODEM, deja
+// suspecte depuis v131, jamais confirmable via l'API Arduino seule) est
+// reellement actif au moment des coupures. esp_wifi_get_ps()/set_ps() sont
+// des API ESP-IDF de bas niveau, deja liees dans le core arduino-esp32
+// (WiFi.h les utilise en interne) -- accessibles directement depuis un
+// sketch sans changement de core.
+#include "esp_wifi.h"
 #include <ESPmDNS.h>
 #include <PubSubClient.h>
 #include "BluetoothSerial.h"
@@ -8295,9 +8333,16 @@ void handleUdpCommand()
     if (g_udpGapStartMs != 0)
     {
       unsigned long dureeMs = millis() - g_udpGapStartMs;
+      // v192 -- psmode releve ICI (fin de coupure) : si le power-save etait
+      // la cause, on s'attend a le voir actif pendant TOUTE la coupure --
+      // pas de garantie qu'il ait ete constant, mais un releve au debut ET
+      // a la fin donne deja un signal fort si les 2 valeurs different.
+      wifi_ps_type_t psModeEnd;
+      int8_t psEndVal = (esp_wifi_get_ps(&psModeEnd) == ESP_OK) ? (int8_t)psModeEnd : -1;
       Serial.print("[UDPGAP] fin coupure, duree=");
       Serial.print(dureeMs);
-      Serial.println("ms");
+      Serial.print("ms psmode=");
+      Serial.println(psEndVal);
       g_udpGapStartMs = 0;
     }
     g_lastUdpSeenMs = millis();  // v8
@@ -10720,6 +10765,20 @@ void loop()
                      + " udpAgoMs=" + String(udpAgoMs)
                      + " wifiStatus=" + String((int)WiFi.status())
                      + " rssi=" + String(WiFi.RSSI()));
+      // v192 -- ligne SEPAREE et COURTE (voir commentaire v9 juste au-dessus
+      // : une ligne trop longue/trop de concatenations se corrompt en usage
+      // reel) -- etat power-save WiFi reel, jamais visible jusqu'ici.
+      // 0=WIFI_PS_NONE (sain), 1=WIFI_PS_MIN_MODEM (suspect, DTIM), 2=
+      // WIFI_PS_MAX_MODEM. esp_wifi_get_ps() peut echouer avant que le
+      // driver WiFi soit pleinement initialise (tres tot au boot) -- err
+      // ignoree, psmode reste alors a sa valeur precedente (ou -1 au tout
+      // 1er appel, jamais un etat reel confondu avec NONE=0).
+      {
+        static int8_t s_lastPsMode = -1;
+        wifi_ps_type_t psMode;
+        if (esp_wifi_get_ps(&psMode) == ESP_OK) s_lastPsMode = (int8_t)psMode;
+        Serial.println("[WIFIPS] mode=" + String(s_lastPsMode));
+      }
     }
   }
   // processPendingMqttCommand() APPELE EN PREMIER (2026-08-09, v62) --
@@ -10962,9 +11021,14 @@ void loop()
         && g_lastUdpSeenMs != 0 && (nowMsPing - g_lastUdpSeenMs) >= UDP_PING_INTERVAL_MS)
     {
       g_udpGapStartMs = g_lastUdpSeenMs;
+      // v192 -- psmode releve ICI (debut de coupure) -- voir commentaire
+      // complet pres du releve jumeau en fin de coupure.
+      wifi_ps_type_t psModeStart;
+      int8_t psStartVal = (esp_wifi_get_ps(&psModeStart) == ESP_OK) ? (int8_t)psModeStart : -1;
       Serial.print("[UDPGAP] debut coupure (dernier paquet vu il y a ");
       Serial.print(nowMsPing - g_lastUdpSeenMs);
-      Serial.println("ms)");
+      Serial.print("ms) psmode=");
+      Serial.println(psStartVal);
     }
     if (WiFi.status() == WL_CONNECTED && (nowMsPing - g_lastPingSentMs) >= UDP_PING_INTERVAL_MS)
     {
