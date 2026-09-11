@@ -1,7 +1,32 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v188
+// Version actuelle : v189
+//
+// v189 - 2026-09-11 - safe-modify - BUG REEL corrige (retour utilisateur
+//   decisif, en analysant un vrai episode capture en direct : "c'est pire
+//   que tes 5s car rien ne vient arreter la playlist pour remettre le bon
+//   etat sur le dmd") : une fois le delai d'affichage de l'alerte "RecalBox
+//   non connectee" ecoule, resumePlaylist() bascule currentMode en
+//   MODE_PLAYLIST -- mais RIEN ne resynchronisait ensuite l'etat reel de
+//   RB1 (en jeu/en survol/etc). Episode reel analyse (~30s de coupure
+//   applicative reelle, 17:18:13-17:18:43) : l'affichage restait bloque en
+//   playlist BIEN APRES la reconnexion effective (confirmee par pong recu
+//   quasi immediatement), potentiellement indefiniment tant qu'aucune
+//   VRAIE navigation ne survient sur RB1 -- le hello de reconnexion WiFi
+//   (v182) ne couvre QUE le cas WiFi reellement coupe, jamais ce cas
+//   applicatif (WiFi toujours up). Fix : nouveau drapeau
+//   g_recalboxDisconnectedForcedPlaylist, arme au moment precis ou
+//   resumePlaylist() est force par le timeout de l'alerte (PAS par un vrai
+//   choix utilisateur) -- consomme au tout PROCHAIN pong recu (handler
+//   PONG, temps reel, pas le cycle 15s de l'alerte) pour declencher un
+//   resync complet (sendUdpHello(), meme mecanisme que la reconnexion
+//   WiFi) et rattraper l'etat reel de RB1 immediatement, au lieu d'attendre
+//   une navigation qui pourrait ne jamais arriver. Garde
+//   currentMode==MODE_PLAYLIST au moment du pong : si une vraie navigation
+//   a deja fait sortir l'affichage de la playlist entre-temps, aucun
+//   resync redondant n'est demande. PAS ENCORE VALIDE SUR MATERIEL au
+//   moment de ce commit.
 //
 // v188 - 2026-09-11 - safe-modify - BUG REEL trouve en analysant les
 //   premieres donnees collectees par v186 ("bilan de surveillance") :
@@ -4408,6 +4433,18 @@ const unsigned long NO_WIFI_ALERT_DISPLAY_MS = 5000;
 bool g_recalboxDisconnectedPending = false;
 bool g_recalboxDisconnectedScreenActive = false;
 unsigned long g_recalboxDisconnectedUntilMs = 0;
+// v189 -- BUG REEL confirme sur materiel (retour utilisateur : "c'est pire
+// que tes 5s car rien ne vient arreter la playlist pour remettre le bon
+// etat sur le dmd") : une fois le delai d'alerte ecoule, resumePlaylist()
+// bascule currentMode en MODE_PLAYLIST mais RIEN ne resynchronise ensuite
+// l'etat reel de RB1 -- seule une VRAIE nouvelle navigation (hors ligne
+// indefiniment sinon) en sort. Ce drapeau memorise qu'on a ete force en
+// playlist par une coupure applicative (PAS par un vrai choix utilisateur
+// ni par une coupure WiFi reelle, deja geree par le hello de reconnexion
+// WiFi existant) -- consomme au premier PONG recu ensuite pour demander un
+// resync complet (sendUdpHello()) et rattraper l'etat reel immediatement,
+// au lieu d'attendre une navigation qui pourrait ne jamais arriver.
+bool g_recalboxDisconnectedForcedPlaylist = false;
 
 // Dernier etat MQTT reellement affiche (v50, 2026-08-03, bug reel confirme :
 // apres "Reprendre DMD" alors que RB est en mode clip, la playlist ne
@@ -8177,6 +8214,25 @@ void handleUdpCommand()
         Serial.print(latenceMs);
         Serial.println("ms");
       }
+      // v189 -- la coupure applicative est terminee (pong recu) : si le
+      // dernier passage en playlist a ete FORCE par cette coupure (voir
+      // g_recalboxDisconnectedForcedPlaylist), on ne laisse plus l'affichage
+      // bloque en playlist jusqu'a une hypothetique navigation future --
+      // resync complet immediat (sendUdpHello(), meme mecanisme qu'une
+      // reconnexion WiFi) pour rattraper l'etat reel de RB1 (en jeu, en
+      // survol...) des que la reconnexion est confirmee. Garde
+      // currentMode==MODE_PLAYLIST : si une vraie navigation est deja
+      // arrivee entre-temps (ex. via un paquet CMD= traite juste avant ce
+      // PONG dans le meme drain), inutile de redemander un resync.
+      if (g_recalboxDisconnectedForcedPlaylist)
+      {
+        g_recalboxDisconnectedForcedPlaylist = false;
+        if (currentMode == MODE_PLAYLIST)
+        {
+          Serial.println("[CMD] RecalBox reconnectee (pong recu) -- resync etat reel demande");
+          sendUdpHello();
+        }
+      }
       continue;
     }
     if (strstr(scratch, "ARG=!SHUFFLE") != nullptr)
@@ -10938,6 +10994,10 @@ void loop()
       g_recalboxDisconnectedScreenActive = false;
       // v104 -- g_inGameMarquee retire (hi-score port supprime).
       Serial.println("[CMD] RecalBox non connectee -- delai ecoule, reprise playlist");
+      // v189 -- marque explicitement que CE passage en playlist est force
+      // par une coupure applicative (pas un choix reel) -- consomme au
+      // prochain PONG recu pour rattraper l'etat reel (voir sa declaration).
+      g_recalboxDisconnectedForcedPlaylist = true;
       resumePlaylist();
     }
   }
