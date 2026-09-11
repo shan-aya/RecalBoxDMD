@@ -1,7 +1,25 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v187
+// Version actuelle : v188
+//
+// v188 - 2026-09-11 - safe-modify - BUG REEL trouve en analysant les
+//   premieres donnees collectees par v186 ("bilan de surveillance") :
+//   ~26% des lignes `[UDPCHK] pong recu` affichaient une latence de 11 a
+//   15 SECONDES au lieu de quelques dizaines de ms. Cause : le ping
+//   periodique UDPREARM (30s, outil de diagnostic du gel de reception
+//   UDP, v183/v184) appelle sendUdpPing() directement SANS mettre a jour
+//   g_lastPingSentMs (seul le bloc alerte "RecalBox non connectee", 15s,
+//   le faisait) -- le PONG recu en reponse a CE ping calculait donc sa
+//   latence par rapport au ping DEDIE precedent (jusqu'a 15s plus vieux),
+//   pollution pure de la mesure, aucun rapport avec un vrai probleme
+//   reseau. Fix : g_lastPingSentMs mis a jour aussi au site d'envoi
+//   UDPREARM -- la latence loggee reste desormais toujours relative au
+//   ping qui vient reellement d'etre envoye, quelle que soit son origine.
+//   Aucun changement sur la logique de detection de coupure (pingMissed,
+//   bloc alerte 15s) : un vrai episode de blocage manque de toute facon
+//   les deux pings (alerte ET rearm), donc reste correctement detecte.
+//   PAS ENCORE VALIDE SUR MATERIEL au moment de ce commit.
 //
 // v187 - 2026-09-11 - safe-modify - BUG REEL corrige (retour utilisateur en
 //   conditions reelles, "crash en sortie de veille mode demo de jeu",
@@ -10660,6 +10678,21 @@ void loop()
         // continuer a redispatcher, car c'est le seul cas ou un vrai
         // rattrapage d'etat est justifie.
         Serial.println("[UDPREARM] ping de mesure envoye SUR LE SOCKET ACTUEL (avant rearm)");
+        // v188 -- BUG REEL trouve en analysant les logs [UDPCHK] (v186) :
+        // ce ping ne mettait PAS a jour g_lastPingSentMs (seul le bloc
+        // alerte, 15s, le faisait) -- le PONG recu en reponse a CE ping
+        // calculait donc sa latence par rapport au ping DEDIE precedent
+        // (jusqu'a 15s plus vieux), produisant des "latence=11000-15000ms"
+        // artificielles (~26% des echantillons) qui n'ont rien a voir avec
+        // un vrai probleme reseau -- juste un defaut de mesure qui polluait
+        // les stats. Fix : g_lastPingSentMs mis a jour ICI AUSSI, comme
+        // dans le bloc alerte -- la latence loggee au prochain PONG reste
+        // toujours relative au ping qui vient reellement d'etre envoye,
+        // quelle que soit son origine (alerte ou UDPREARM). N'affecte pas
+        // la logique de detection de coupure (pingMissed, bloc alerte) :
+        // un vrai episode de blocage manquerait de toute facon les DEUX
+        // pings (alerte ET rearm), donc reste correctement detecte.
+        g_lastPingSentMs = nowMs;
         sendUdpPing();
         dmdUdp.stop();
         dmdUdp.begin(UDP_CMD_PORT);
