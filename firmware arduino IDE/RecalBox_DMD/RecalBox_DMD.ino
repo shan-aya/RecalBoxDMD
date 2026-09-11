@@ -1,7 +1,20 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v185
+// Version actuelle : v186
+//
+// v186 - 2026-09-11 - safe-modify - MESURE (serial uniquement, aucun
+//   affichage) demandee par l'utilisateur avant de decider d'un rattrapage
+//   d'etat sur coupure applicative ("avant de decider quoi implementer sur
+//   les coupures applicatives il faut effectivement les mesurer"). Ajoute :
+//   (1) `[UDPCHK] pong recu, latence=Xms` a chaque PONG recu (latence
+//   ping->pong) ; (2) `[UDPCHK] ping rate -- deconnexion applicative en
+//   cours depuis ~Xms (alerteCount=N/3)` a chaque cycle de ping RATE, avec
+//   la duree ecoulee depuis le dernier pong confirme -- log emis MEME si
+//   l'alerte n'est plus declenchee (compteur sature, ecran SD occupe ou
+//   MODE_PLAYLIST), pour ne pas fausser la mesure de duree/frequence
+//   reelle. Aucun changement de logique d'affichage ni de declenchement
+//   d'alerte. PAS ENCORE VALIDE SUR MATERIEL au moment de ce commit.
 //
 // v185 - 2026-09-11 - safe-modify - COSMETIQUE, demande utilisateur ("les
 //   print MQTT du serial ne sont plus adaptes") : le tag "[MQTT]" affiche
@@ -8096,6 +8109,16 @@ void handleUdpCommand()
     if (strcmp(scratch, "PONG") == 0)
     {
       g_lastPongSeenMs = g_lastUdpSeenMs;
+      // v186 -- mesure serial uniquement (pas d'affichage), pour chiffrer
+      // duree/frequence reelles des coupures applicatives avant de decider
+      // d'un rattrapage d'etat a la reconnexion (voir DECISIONS.md).
+      if (g_lastPingSentMs != 0)
+      {
+        long latenceMs = (long)(g_lastPongSeenMs - g_lastPingSentMs);
+        Serial.print("[UDPCHK] pong recu, latence=");
+        Serial.print(latenceMs);
+        Serial.println("ms");
+      }
       continue;
     }
     if (strstr(scratch, "ARG=!SHUFFLE") != nullptr)
@@ -10687,7 +10710,8 @@ void loop()
       // Le ping envoye au cycle precedent (g_lastPingSentMs) n'a jamais
       // recu son pong depuis -- ce cycle est rate. g_lastPingSentMs==0 =
       // tout premier ping depuis le boot, pas encore de cycle a juger.
-      bool pingMissed = (g_lastPingSentMs != 0) && (g_lastPongSeenMs < g_lastPingSentMs);
+      unsigned long previousPingSentMs = g_lastPingSentMs;
+      bool pingMissed = (previousPingSentMs != 0) && (g_lastPongSeenMs < previousPingSentMs);
       g_lastPingSentMs = nowMsPing;
       sendUdpPing();
       if (!pingMissed)
@@ -10696,7 +10720,21 @@ void loop()
         // redeclenchera bien ses 3 affichages depuis le debut.
         s_recalboxDisconnectedAlertCount = 0;
       }
-      else if (!g_sdOpInProgress && currentMode != MODE_PLAYLIST
+      else
+      {
+        // v186 -- mesure serial uniquement : duree ecoulee depuis le
+        // dernier pong confirme, pour chiffrer la coupure en cours quel
+        // que soit l'etat de l'alerte (compteur sature ou non, ecran
+        // occupe par une operation SD ou non). Fallback sur previousPingSentMs
+        // (avant reassignation ci-dessus) si aucun pong n'a jamais ete recu.
+        unsigned long depuisMs = (g_lastPongSeenMs != 0) ? (nowMsPing - g_lastPongSeenMs) : (nowMsPing - previousPingSentMs);
+        Serial.print("[UDPCHK] ping rate -- deconnexion applicative en cours depuis ~");
+        Serial.print(depuisMs);
+        Serial.print("ms (alerteCount=");
+        Serial.print(s_recalboxDisconnectedAlertCount);
+        Serial.println("/3)");
+      }
+      if (pingMissed && !g_sdOpInProgress && currentMode != MODE_PLAYLIST
                && s_recalboxDisconnectedAlertCount < UDP_ALERT_MAX_COUNT)
       {
         g_recalboxDisconnectedPending = true;
