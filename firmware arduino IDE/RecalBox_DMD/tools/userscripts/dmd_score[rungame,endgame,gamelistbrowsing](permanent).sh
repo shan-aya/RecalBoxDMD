@@ -15,7 +15,27 @@
 # ============================================
 # safe-modify â€” Historique des modifications
 # ============================================
-# Version actuelle : v50
+# Version actuelle : v51
+#
+# v51 - 2026-09-12 - safe-modify - BUG REEL corrige (retour utilisateur en
+#   direct : "hiscore et playlist qui s'affichent en meme temps ce qui est
+#   impossible") : "wakeup" (sortie de veille demo -> retour navigation)
+#   n'avait AUCUN case dedie, tombait dans "*)" qui ne nettoie jamais
+#   GAME_SESSION_FILE -- le round-robin "ingame" du dernier jeu demo
+#   restait un ZOMBIE permanent apres un reveil (2min30+ observees en
+#   direct), rien ne garantissant qu'un evenement ulterieur relance la
+#   detection differee (current!=expected) qui aurait pu l'arreter.
+#   Renforcement complet suite a une demande explicite de controle
+#   ("eviter les zombies, les enchevetrements") : "wakeup" rejoint "sleep"
+#   (memes besoins de nettoyage) + kill_previous_round_robin() EXPLICITE
+#   ajoute PARTOUT (sleep|wakeup, rungame|rundemo, gamelistbrowsing,
+#   systembrowsing, stop) sur les 2 contextes (ingame/browse) -- ne plus
+#   compter sur la seule detection differee (fichier vide) pour arreter un
+#   round-robin en vol, le tuer directement et immediatement partout ou
+#   c'est possible, meme philosophie que le fix v49 (kill-avant-lancer).
+#   Verifie egalement (demande explicite) : enabled_panel_types() lit bien
+#   dynamiquement hiscore_${ctx}/description_${ctx}/info_${ctx} depuis la
+#   config -- rien de cable en dur, aucun bug trouve sur ce point.
 #
 # v50 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de reception UDP",
 #   demande explicite utilisateur : "rundemo" REJOINT "rungame" (round-robin
@@ -1805,9 +1825,18 @@ while IFS= read -r event; do
             # handlers -- invalide BROWSE_STATE_FILE, la boucle en vol le
             # detectera a sa prochaine verification et s'arretera d'elle-
             # meme.
+            #
+            # v51 -- renforcement (voir changelog complet pres du case
+            # "sleep|wakeup)") : GAME_SESSION_FILE + kill ingame ajoutes ici
+            # aussi, defense en profondeur -- remonter au niveau systeme ne
+            # devrait normalement jamais survenir avec un round-robin
+            # "ingame" encore en vol (il faudrait un endgame/stop manque),
+            # mais ne coute rien a garantir vu le cout nul de l'appel.
             : > "$BROWSE_STATE_FILE"
+            : > "$GAME_SESSION_FILE"
             LAST_BROWSE_SYS=""
             LAST_BROWSE_ROM=""
+            kill_previous_round_robin "$ROUNDROBIN_PID_FILE_INGAME"
             ;;
         rungame|rundemo)
             # v50 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de
@@ -1845,6 +1874,15 @@ while IFS= read -r event; do
             : > "$BROWSE_STATE_FILE"
             LAST_BROWSE_SYS=""
             LAST_BROWSE_ROM=""
+            # v51 -- renforcement (voir changelog complet pres du case
+            # "sleep|wakeup)") : la seule ecriture de BROWSE_STATE_FILE
+            # compte sur round_robin("browse") pour se relire et s'arreter
+            # de lui-meme A SA PROCHAINE VERIFICATION -- deja montre
+            # insuffisant (cas wakeup) quand aucun evenement ulterieur ne
+            # relance le check. kill_previous_round_robin() explicite
+            # ajoute ici aussi, meme si ce chemin etait moins expose (un
+            # rungame/rundemo reel republie de toute facon en continu).
+            kill_previous_round_robin "$ROUNDROBIN_PID_FILE_BROWSE"
             system=$(read_state "SystemId")
             game_path=$(read_state "GamePath")
             echo "$(date '+%H:%M:%S') RUNGAME sys=$system path=$game_path" >> "$LOG"
@@ -1879,16 +1917,45 @@ while IFS= read -r event; do
         stop)
             # v4 -- defensif : ES peut envoyer "stop" sans "endgame"
             # prealable -- efface quand meme la session.
+            # v51 -- renforcement symetrique (voir changelog complet pres
+            # du case "sleep|wakeup)") : BROWSE_STATE_FILE + kill ingame ET
+            # browse ajoutes ici aussi -- "stop" peut survenir depuis
+            # n'importe quel etat, ne pas supposer qu'un seul des 2 types
+            # de round-robin pourrait etre en vol.
             : > "$GAME_SESSION_FILE"
+            : > "$BROWSE_STATE_FILE"
+            kill_previous_round_robin "$ROUNDROBIN_PID_FILE_INGAME"
+            kill_previous_round_robin "$ROUNDROBIN_PID_FILE_BROWSE"
             ;;
-        sleep)
-            # v6 -- NOUVEAU cas explicite : la mise en veille doit arreter
-            # TOUT round-robin en vol, ingame ET navigation.
+        sleep|wakeup)
+            # v51 - 2026-09-12 - safe-modify - BUG REEL trouve en direct
+            # (retour utilisateur : "hiscore et playlist qui s'affichent en
+            # meme temps ce qui est impossible") : "wakeup" (sortie de
+            # veille demo -> retour navigation) n'avait AUCUN case dedie,
+            # tombait dans le "*)" par defaut qui ne fait que reinitialiser
+            # LAST_BROWSE_SYS/ROM -- ne touche JAMAIS GAME_SESSION_FILE.
+            # Le round-robin "ingame" du DERNIER jeu demo (rundemo)
+            # continuait donc de tourner INDEFINIMENT apres le reveil (2min
+            # 30+ observees en direct), car rien ne garantit qu'un
+            # "gamelistbrowsing" frais soit republie ensuite pour la MEME
+            # position deja affichee (Action reste a "wakeup" dans
+            # es_state.inf) -- le seul mecanisme qui aurait pu l'arreter
+            # (detection differee current!=expected dans round_robin(), sur
+            # la PROCHAINE verification) ne se declenche jamais faute de
+            # nouvel evenement. "wakeup" REJOINT donc "sleep" ici (memes
+            # besoins de nettoyage exactement) + kill_previous_round_robin()
+            # EXPLICITE ajoute sur les 2 contextes (ingame ET browse) --
+            # ne plus compter sur la seule detection differee (fichier vide)
+            # pour arreter un round-robin en vol, la tuer directement et
+            # immediatement, meme philosophie que le fix v49
+            # (kill-avant-lancer) applique ailleurs.
             : > "$GAME_SESSION_FILE"
             : > "$BROWSE_STATE_FILE"
             LAST_BROWSE_SYS=""
             LAST_BROWSE_ROM=""
-            echo "$(date '+%H:%M:%S') SLEEP (round-robin ingame/browse arretes)" >> "$LOG"
+            kill_previous_round_robin "$ROUNDROBIN_PID_FILE_INGAME"
+            kill_previous_round_robin "$ROUNDROBIN_PID_FILE_BROWSE"
+            echo "$(date '+%H:%M:%S') ${event} (round-robin ingame/browse arretes)" >> "$LOG"
             ;;
         startgameclip)
             # v50 -- "rundemo" RETIRE de ce case (voir son changelog complet
@@ -1966,6 +2033,12 @@ while IFS= read -r event; do
             # ne doit pas continuer a publier en parallele du dwell/
             # round-robin browse qui va demarrer.
             : > "$GAME_SESSION_FILE"
+            # v51 -- renforcement (voir changelog complet pres du case
+            # "sleep|wakeup)") : meme motif que le kill ajoute dans
+            # rungame|rundemo) -- ne plus compter sur la seule detection
+            # differee (fichier vide) pour arreter un round-robin "ingame"
+            # en vol.
+            kill_previous_round_robin "$ROUNDROBIN_PID_FILE_INGAME"
             system=$(read_state "SystemId")
             game_path=$(read_state "GamePath")
             if [ -n "$system" ] && [ -n "$game_path" ] && [ ! -d "$game_path" ]; then
