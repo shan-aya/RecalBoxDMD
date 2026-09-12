@@ -1,7 +1,26 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v193
+// Version actuelle : v194
+//
+// v194 - 2026-09-12 - safe-modify - MITIGATION EXPERIMENTALE pour le crash
+//   recurrent abort()/bad_alloc de la famille openGifImpl()/preloadBigram()
+//   (v98/v184/v187/v191, reproduit une 3e fois cette nuit AU SITE MEME
+//   protege par v187 -- voir DECISIONS.md pour l'analyse complete). Piste
+//   du seuil heap DEJA TENTEE ET REJETEE (commentaire v98 : maxalloc=4596
+//   identique avant des dizaines d'ouvertures reussies -- pas un
+//   predicteur fiable). Nouvelle piste, appuyee sur une recherche web
+//   (issues ESP-IDF documentees) : le pilote WiFi alloue/libere des
+//   buffers en permanence sur le MEME tas fragmente -- une collision
+//   transitoire de quelques ms avec notre propre allocation SD est
+//   plausible et coherente avec le timing observe (crash ~18ms apres un
+//   hello+resync UDP). Ajoute delay(2) au tout debut de openGifImpl()
+//   (protege TOUS les appelants -- CMD_GAME FAST/SLOW, playlist -- d'un
+//   seul coup), pour laisser une eventuelle allocation WiFi transitoire
+//   se liberer avant notre propre tentative. Cout quasi nul, HYPOTHESE
+//   PAS CONFIRMEE -- a observer sur la duree si la frequence de ce crash
+//   baisse reellement. PAS ENCORE VALIDE SUR MATERIEL au moment de ce
+//   commit.
 //
 // v193 - 2026-09-11 - safe-modify - CAUSE RACINE TROUVEE ET CORRIGEE (a
 //   valider sur duree) : le power-save WiFi mesure par v192 (juste flashe,
@@ -5929,6 +5948,29 @@ static void gifResetCompat()
 // positif/regression fonctionnelle contrairement a un seuil heuristique.
 bool openGifImpl(const String &path, bool clearBefore, bool skipProbe, bool skipRawPack)
 {
+  // v194 -- MITIGATION EXPERIMENTALE (a valider sur duree, pas un fix
+  // confirme) pour le meme crash famille que v98/v184/v187/v191 --
+  // recherche web (voir DECISIONS.md) : sur ESP32, le pilote WiFi alloue/
+  // libere en permanence des buffers de taille variable a CHAQUE paquet
+  // recu/envoye, sur le MEME tas fragmente que nos propres allocations --
+  // "il est probablement impossible d'allouer un seul bloc de memoire
+  // meme quand l'espace libre total semble suffisant" (issues ESP-IDF
+  // documentees). Le crash du 12/09 matin est survenu ~18ms apres un
+  // hello+resync UDP (paquet recu, paquet envoye) -- compatible avec une
+  // collision transitoire entre une allocation WiFi interne et notre
+  // propre SD.open()/make_shared<VFSFileImpl>, sur un pool memoire
+  // fragmente -- PAS un manque de heap global (deja ecarte par le
+  // commentaire v98 : maxalloc=4596 identique avant des dizaines
+  // d'ouvertures reussies). Un seuil statique ne peut rien contre une
+  // collision de quelques ms ; un petit delai avant TOUTE la cascade de
+  // SD.open() de cette fonction (appelee par tous les chemins a risque :
+  // CMD_GAME FAST/SLOW, playlist) laisse le temps a une allocation WiFi
+  // transitoire de se liberer avant que nous tentions la notre. Cout
+  // quasi nul (2ms, imperceptible face aux centaines de ms deja normales
+  // pour un chargement de GIF) compare aux minutes perdues a chaque
+  // crash+reboot. Hypothese, PAS une certitude -- a observer sur la duree
+  // si la frequence de ce crash baisse reellement.
+  delay(2);
   if (!skipProbe)
   {
     // Essayer sous-dossier d'abord, puis plat
