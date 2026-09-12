@@ -1,7 +1,33 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v197
+// Version actuelle : v198
+//
+// v198 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de reception UDP",
+//   sonde active pendant un [UDPGAP] -- MESURE, aucun changement de
+//   comportement. Constat en analysant les 42 premiers episodes captures
+//   par v197 : environ la moitie se resolvent en <150ms apres detection
+//   (tres probablement un faux positif -- rien n'avait besoin d'etre
+//   envoye pendant exactement 15s, resolu des le premier ping/trafic
+//   suivant), l'autre moitie montre un delai reel de 400ms a ~4.9s apres
+//   detection -- mais SANS qu'aucune sonde ne soit tentee avant le
+//   PROCHAIN cycle programme (15s alerte ou 30s UDPREARM) : on ne peut
+//   donc pas distinguer "vraiment bloque tout ce temps" de "aucun trafic,
+//   applicatif ou diagnostic, n'a eu l'occasion d'etre teste avant qu'un
+//   paquet arrive par hasard". Ajoute g_lastGapProbeMs/g_udpGapProbeCount :
+//   sonde DEDIEE (independante de g_lastPingSentMs, expres pour ne pas
+//   perturber le rythme de detection de l'alerte "RecalBox non
+//   connectee") envoyee toutes les ~1s UNIQUEMENT pendant qu'un [UDPGAP]
+//   est en cours -- loggue dans la ligne "fin coupure" (champ probes=),
+//   compte exact de sondes actives restees sans reponse avant la
+//   resolution. Egalement confirme sur ces memes 42 episodes : sdMax/
+//   frameMax (v197) restent triviaux (max ~230ms/35ms) meme sur les
+//   episodes a delai reel (jusqu'a 4.9s) -- 3e generation d'instrumentation
+//   (apres la somme v195/v196, puis le max v197) qui infirme l'hypothese
+//   "notre code bloque loop()" ; la sonde active (ce commit) vise
+//   maintenant a confirmer si la reception est reellement indisponible
+//   pendant ces episodes, plutot que le temps qu'elle y reste indisponible.
+//   PAS ENCORE VALIDE SUR MATERIEL au moment de ce commit.
 //
 // v197 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de reception UDP",
 //   PISTE AFFINEE (suite a discussion sur l'ecart rawpack/GIF-decode) --
@@ -4822,6 +4848,23 @@ unsigned long g_lastUdpSeenMs = 0;    // millis() du dernier parsePacket()>0, qu
 // frequence et duree lisibles directement par un grep, sans recoupement
 // manuel.
 unsigned long g_udpGapStartMs = 0;
+// v198 -- constat en analysant les episodes v197 : entre le "debut coupure"
+// et sa resolution, aucune sonde active n'est tentee avant le PROCHAIN cycle
+// programme (15s alerte ou 30s UDPREARM) -- pour une partie des episodes on
+// ne sait donc pas si la reception etait VRAIMENT bloquee pendant tout ce
+// temps, ou si aucun trafic (applicatif ou diagnostic) n'a simplement eu
+// l'occasion d'etre teste avant que le prochain vrai paquet arrive par
+// hasard. g_lastGapProbeMs/g_udpGapProbeCount pilotent une sonde DEDIEE,
+// independante de g_lastPingSentMs (surtout ne pas la reutiliser : ca
+// romprait le cycle 15s de l'alerte "RecalBox non connectee", qui doit
+// garder son propre rythme de detection intact), envoyee toutes les ~1s
+// UNIQUEMENT pendant qu'un [UDPGAP] est en cours -- le compteur, loggue a
+// la fin de coupure, dit exactement combien de sondes actives sont restees
+// sans reponse avant la resolution (0 = resolu par une sonde standard/du
+// trafic reel, jamais vraiment teste par CETTE sonde ; N>=1 = N secondes de
+// silence confirme par une sonde dediee, pas juste une absence de trafic).
+unsigned long g_lastGapProbeMs = 0;
+int g_udpGapProbeCount = 0;
 // v183 -- ping/pong DEDIE a l'alerte "RecalBox non connectee",
 // INDEPENDANT du hello de mesure v174 (outil de diagnostic du gel de
 // reception, voir sendUdpHello()/UDPREARM plus bas -- ne pas melanger les
@@ -8576,8 +8619,16 @@ void handleUdpCommand()
       Serial.print(" sdMax=");
       Serial.print(g_sdBlockedMaxMs);
       Serial.print(" frameMax=");
-      Serial.println(g_frameRenderMaxMs);
+      Serial.print(g_frameRenderMaxMs);
+      // v198 -- voir g_udpGapProbeCount : combien de sondes actives (~1s
+      // d'intervalle) sont restees sans reponse pendant CE gel avant sa
+      // resolution. 0 = jamais teste par une sonde dediee avant que la
+      // reception reprenne d'elle-meme (resolu par le trafic normal ou un
+      // cycle programme) -- N>=1 = N secondes de silence confirme.
+      Serial.print(" probes=");
+      Serial.println(g_udpGapProbeCount);
       g_udpGapStartMs = 0;
+      g_udpGapProbeCount = 0;
     }
     // v195/v196/v197 -- remise a zero a CHAQUE paquet reellement vu (pas
     // seulement en fin de coupure) pour que les compteurs refletent
@@ -11311,6 +11362,21 @@ void loop()
       Serial.print(g_frameRenderAccumMs);
       Serial.print(" frameMax=");
       Serial.println(g_frameRenderMaxMs);
+    }
+    // v198 -- sonde active pendant un [UDPGAP] en cours (voir declaration
+    // de g_lastGapProbeMs) -- INDEPENDANTE du cycle g_lastPingSentMs
+    // ci-dessous, expres pour ne pas perturber le rythme de detection de
+    // l'alerte "RecalBox non connectee". Le PONG resultant reutilise le
+    // handler [UDPCHK] generique existant (latence affichee relative a
+    // g_lastPingSentMs, potentiellement perimee ici -- cosmetique
+    // uniquement, aucune decision ne s'appuie dessus) ; ce qui compte est
+    // g_udpGapProbeCount, logue a la fin de coupure.
+    if (g_udpGapStartMs != 0 && WiFi.status() == WL_CONNECTED
+        && (nowMsPing - g_lastGapProbeMs) >= 1000)
+    {
+      g_lastGapProbeMs = nowMsPing;
+      g_udpGapProbeCount++;
+      sendUdpPing();
     }
     if (WiFi.status() == WL_CONNECTED && (nowMsPing - g_lastPingSentMs) >= UDP_PING_INTERVAL_MS)
     {
