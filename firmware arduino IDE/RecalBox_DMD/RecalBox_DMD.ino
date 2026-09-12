@@ -1,7 +1,26 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v200
+// Version actuelle : v201
+//
+// v201 - 2026-09-12 - safe-modify - PREVENTION partielle du crash SD.open()/
+//   make_shared<VFSFileImpl> (retour utilisateur : "un moyen de prevenir ou
+//   de rattraper ce type de crash ?", suite au crash reel sur mame/zeropnt2,
+//   maxalloc=9204 sain juste avant -- suggere une COLLISION TRANSITOIRE avec
+//   une allocation concurrente WiFi/lwIP plutot qu'un etat durable de heap
+//   bas). openGif() retente desormais UNE FOIS (delay(3) entre les 2) si
+//   openGifImpl() leve une exception catchable (std::bad_alloc) -- bonnes
+//   chances d'esquiver la meme collision, l'allocation concurrente ayant eu
+//   le temps de se liberer. Piste "garde base sur un ratio de fragmentation"
+//   ETUDIEE PUIS ECARTEE : un pre-check calcule quelques ms avant ne peut
+//   pas predire une collision qui n'a pas encore eu lieu (maxalloc etait
+//   deja sain juste avant le crash reel observe) -- ajouter ce garde
+//   aurait ete un faux sentiment de securite, pas une vraie prevention.
+//   SANS EFFET sur la variante non catchable (lock_init_generic() ->
+//   abort() direct, jamais un retour normal a ce code) -- reste geree
+//   uniquement par le reboot + la reprise deja en place (v199).
+//   preloadBigramImpl() volontairement PAS modifiee (aucun crash observe
+//   la ce soir, dispose deja d'un repli fonctionnel "SD directe").
 //
 // v200 - 2026-09-12 - safe-modify - SIMPLIFICATION suite a la chasse au bug
 //   "gel de reception UDP" de cette session (retour utilisateur : "tous ces
@@ -6326,22 +6345,46 @@ bool openGif(const String &path, bool clearBefore=true, bool skipProbe=false, bo
   // est plus simple/sur que d'instrumenter chaque retour interne).
   unsigned long t0Sd = millis();
   bool result;
-  try
+  // v201 - 2026-09-12 - safe-modify - Piste de prevention (demande
+  // explicite utilisateur, "un moyen de prevenir ou de rattraper ce type
+  // de crash ?") pour la variante CATCHABLE (std::bad_alloc via
+  // operator new sur make_shared<VFSFileImpl>) confirmee en direct sur
+  // mame/zeropnt2 -- maxalloc semblait sain (9204, largement > le seuil
+  // 3000) juste avant, ce qui suggere une COLLISION TRANSITOIRE avec une
+  // allocation concurrente (WiFi/lwIP, sur le meme tas) plutot qu'un etat
+  // durable de heap bas -- un pre-check calcule quelques ms avant ne
+  // peut pas predire une collision qui n'a pas encore eu lieu. Une
+  // RETENTATIVE apres un court delai a de bonnes chances d'esquiver cette
+  // meme collision, l'allocation concurrente ayant eu le temps de se
+  // liberer. AUCUN effet sur la variante NON catchable (lock_init_generic()
+  // -> abort() direct C, jamais un retour normal a ce code) -- seule la
+  // variante std::bad_alloc/std::exception profite de cette retentative.
+  const int OPEN_GIF_MAX_ATTEMPTS = 2;
+  for (int attempt = 1; attempt <= OPEN_GIF_MAX_ATTEMPTS; attempt++)
   {
-    result = openGifImpl(path, clearBefore, skipProbe, skipRawPack);
-  }
-  catch (std::exception &e)
-  {
-    Serial.println(String("[GIF] EXCEPTION rattrapee dans openGif() (heap critique, maxalloc=")
-                   + String(ESP.getMaxAllocHeap()) + ") : " + e.what());
-    gifRawPackMode = false; gifOpened = false;
-    result = false;
-  }
-  catch (...)
-  {
-    Serial.println("[GIF] EXCEPTION inconnue rattrapee dans openGif() (maxalloc=" + String(ESP.getMaxAllocHeap()) + ")");
-    gifRawPackMode = false; gifOpened = false;
-    result = false;
+    try
+    {
+      result = openGifImpl(path, clearBefore, skipProbe, skipRawPack);
+      break;
+    }
+    catch (std::exception &e)
+    {
+      Serial.println(String("[GIF] EXCEPTION rattrapee dans openGif() (heap critique, maxalloc=")
+                     + String(ESP.getMaxAllocHeap()) + ", tentative=" + String(attempt)
+                     + "/" + String(OPEN_GIF_MAX_ATTEMPTS) + ") : " + e.what());
+      gifRawPackMode = false; gifOpened = false;
+      result = false;
+      if (attempt < OPEN_GIF_MAX_ATTEMPTS) { delay(3); continue; }
+    }
+    catch (...)
+    {
+      Serial.println("[GIF] EXCEPTION inconnue rattrapee dans openGif() (maxalloc="
+                     + String(ESP.getMaxAllocHeap()) + ", tentative=" + String(attempt)
+                     + "/" + String(OPEN_GIF_MAX_ATTEMPTS) + ")");
+      gifRawPackMode = false; gifOpened = false;
+      result = false;
+      if (attempt < OPEN_GIF_MAX_ATTEMPTS) { delay(3); continue; }
+    }
   }
   unsigned long dSd = millis() - t0Sd;
   g_sdBlockedAccumMs += dSd;
