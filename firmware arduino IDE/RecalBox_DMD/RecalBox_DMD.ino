@@ -1,7 +1,36 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v196
+// Version actuelle : v197
+//
+// v197 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de reception UDP",
+//   PISTE AFFINEE (suite a discussion sur l'ecart rawpack/GIF-decode) --
+//   MESURE, aucun changement de comportement. Faille methodologique
+//   identifiee dans v195/v196 : les 2 accumulateurs ne sont loggues qu'A
+//   LA FIN de la coupure, sur une fenetre qui commence bien AVANT le gel
+//   ET continue PENDANT tout le gel (15-50s) -- melange donc du temps
+//   bloque CAUSAL (juste avant que la reception s'arrete) avec du temps
+//   bloque simplement CONCOMITANT (le rendu qui continue alors que la
+//   reception est deja gelee, sans lien de cause). Une somme peut aussi
+//   diluer un seul appel tres long derriere plusieurs appels courts.
+//   2 ajouts : (1) g_sdBlockedMaxMs/g_frameRenderMaxMs, le MAX d'un seul
+//   appel (pas la somme) a cote de chaque accumulateur existant, meme
+//   remise a zero (chaque paquet reellement vu) -- teste specifiquement
+//   "un seul appel assez long a-t-il pu faire deborder la mailbox lwIP au
+//   mauvais moment" plutot que le temps cumule total. (2) Log symetrique
+//   au DEBUT de coupure (pas seulement a la fin) reprenant les 4 valeurs
+//   SANS les remettre a zero -- cette ligne-la est la seule vraiment
+//   causale (fenetre = dernier paquet -> instant ou le silence est
+//   detecte), la ligne "fin coupure" reste utile mais melange desormais
+//   explicitement fenetre causale + fenetre pendant le gel (differencier
+//   les 2 par soustraction entre les 2 lignes d'un meme episode).
+//   Rawpack (nav/jeu) vs GIF standard (playlist) : d'apres lecture directe
+//   du code, rawpack fait 1 SEULE lecture bulk de 8192 octets/frame (gros
+//   appel unique) alors que le decodage GIF LZW fait plusieurs PETITES
+//   lectures entrecoupees de calcul CPU (plus d'appels, chacun plus
+//   court) -- la somme peut etre proche mais le PROFIL differe, d'ou
+//   l'interet du max par-appel plutot que la seule somme deja mesuree.
+//   PAS ENCORE VALIDE SUR MATERIEL au moment de ce commit.
 //
 // v196 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de reception UDP",
 //   PISTE AFFINEE -- MESURE, aucun changement de comportement. v195 a
@@ -4107,6 +4136,19 @@ unsigned long g_sdBlockedAccumMs = 0;
 // g_sdBlockedAccumMs, compteur separe pour ne pas melanger les 2
 // hypotheses dans la meme donnee.
 unsigned long g_frameRenderAccumMs = 0;
+// v197 -- piste encore affinee suite a discussion : v195/v196 mesurent une
+// SOMME sur toute la fenetre "depuis le dernier paquet vu", qui pour la
+// ligne "fin coupure" englobe en realite TOUTE la duree du gel (15-50s),
+// y compris le rendu qui continue APRES que la reception se soit deja
+// arretee -- non causal, juste concomitant. Le mecanisme physique le plus
+// plausible n'est pas "la somme du temps bloque pendant tout le gel" mais
+// "un SEUL appel bloquant assez long pour rater un paquet au moment ou il
+// arrive" (mailbox lwIP ~6 emplacements, un blocage de quelques dizaines
+// de ms suffit a la remplir si une rafale arrive pile a ce moment). Ajoute
+// donc le MAX d'un seul appel (pas la somme) a cote de chaque accumulateur
+// existant, remis a zero au meme moment (chaque paquet reellement vu).
+unsigned long g_sdBlockedMaxMs = 0;
+unsigned long g_frameRenderMaxMs = 0;
 
 // v195 -- renommee Impl + wrapper de mesure (voir g_sdBlockedAccumMs) --
 // meme motif que openGif()/openGifImpl() : mesurer au point d'appel
@@ -4211,7 +4253,9 @@ bool preloadBigram(const String &sysName, const String &gameName)
 {
   unsigned long t0Sd = millis();
   bool result = preloadBigramImpl(sysName, gameName);
-  g_sdBlockedAccumMs += (millis() - t0Sd);
+  unsigned long dSd = millis() - t0Sd;
+  g_sdBlockedAccumMs += dSd;
+  if (dSd > g_sdBlockedMaxMs) g_sdBlockedMaxMs = dSd;  // v197
   return result;
 }
 
@@ -6219,7 +6263,9 @@ bool openGif(const String &path, bool clearBefore=true, bool skipProbe=false, bo
     gifRawPackMode = false; gifOpened = false;
     result = false;
   }
-  g_sdBlockedAccumMs += (millis() - t0Sd);
+  unsigned long dSd = millis() - t0Sd;
+  g_sdBlockedAccumMs += dSd;
+  if (dSd > g_sdBlockedMaxMs) g_sdBlockedMaxMs = dSd;  // v197
   return result;
 }
 
@@ -8521,15 +8567,26 @@ void handleUdpCommand()
       // sdBlockedMs (v195) ait refute l'hypothese "ouverture de fichier"
       // (max 339ms mesure face a des coupures de 15-20s).
       Serial.print(" frameRenderMs=");
-      Serial.println(g_frameRenderAccumMs);
+      Serial.print(g_frameRenderAccumMs);
+      // v197 -- max d'un seul appel (voir declaration de g_sdBlockedMaxMs) :
+      // cette ligne "fin coupure" cumule TOUTE la fenetre de gel (15-50s),
+      // y compris le rendu qui continue APRES l'arret de reception --
+      // concomitant, pas causal. Le "debut coupure" jumeau (voir plus bas
+      // dans loop()) donne la fenetre causale (juste AVANT le gel).
+      Serial.print(" sdMax=");
+      Serial.print(g_sdBlockedMaxMs);
+      Serial.print(" frameMax=");
+      Serial.println(g_frameRenderMaxMs);
       g_udpGapStartMs = 0;
     }
-    // v195/v196 -- remise a zero a CHAQUE paquet reellement vu (pas
-    // seulement en fin de coupure) pour que les 2 compteurs refletent
+    // v195/v196/v197 -- remise a zero a CHAQUE paquet reellement vu (pas
+    // seulement en fin de coupure) pour que les compteurs refletent
     // toujours la fenetre depuis le dernier paquet, meme hors coupure
     // averee.
     g_sdBlockedAccumMs = 0;
     g_frameRenderAccumMs = 0;
+    g_sdBlockedMaxMs = 0;
+    g_frameRenderMaxMs = 0;
     g_lastUdpSeenMs = millis();  // v8
     char scratch[1024]; // v12 -- 256 -> 1024, voir commentaire complet plus haut
     int l = dmdUdp.read(scratch, sizeof(scratch) - 1);
@@ -11236,7 +11293,24 @@ void loop()
       Serial.print("[UDPGAP] debut coupure (dernier paquet vu il y a ");
       Serial.print(nowMsPing - g_lastUdpSeenMs);
       Serial.print("ms) psmode=");
-      Serial.println(psStartVal);
+      Serial.print(psStartVal);
+      // v197 -- fenetre CAUSALE (avant le gel, pas pendant) : ces
+      // accumulateurs ne sont PAS remis a zero ici (seulement a la
+      // reception d'un vrai paquet) -- ils refletent donc exactement le
+      // temps bloque/rendu entre le dernier paquet recu et l'instant ou
+      // le silence est detecte. A comparer au "sdMax"/"frameMax" du
+      // "fin coupure" jumeau : si un pic ici (sdMax/frameMax) coincide
+      // avec le debut du gel, hypothese "collision SD/reception"
+      // fortement confirmee -- si les 2 restent petits ici alors que le
+      // gel demarre quand meme, la cause est ailleurs qu'un blocage SD.
+      Serial.print(" sdBlockedMs=");
+      Serial.print(g_sdBlockedAccumMs);
+      Serial.print(" sdMax=");
+      Serial.print(g_sdBlockedMaxMs);
+      Serial.print(" frameRenderMs=");
+      Serial.print(g_frameRenderAccumMs);
+      Serial.print(" frameMax=");
+      Serial.println(g_frameRenderMaxMs);
     }
     if (WiFi.status() == WL_CONNECTED && (nowMsPing - g_lastPingSentMs) >= UDP_PING_INTERVAL_MS)
     {
@@ -11445,7 +11519,9 @@ void loop()
       // boucle d'attente juste en dessous.
       unsigned long t0Frame = millis();
       int fd=0; bool frameOk=gifPlayFrameCompat(false,&fd);
-      g_frameRenderAccumMs += (millis() - t0Frame);
+      unsigned long dFrame = millis() - t0Frame;
+      g_frameRenderAccumMs += dFrame;
+      if (dFrame > g_frameRenderMaxMs) g_frameRenderMaxMs = dFrame;  // v197
       if(!frameOk){
         // Alerte "No wifi, No Recalbox" (2026-08-05, demande utilisateur) :
         // le GIF courant vient de se terminer naturellement (frameOk==false)
@@ -11535,7 +11611,9 @@ void loop()
       // commentaire complet + la declaration de g_frameRenderAccumMs.
       unsigned long t0Frame = millis();
       int fd=0; bool frameOk=gifPlayFrameCompat(false,&fd);
-      g_frameRenderAccumMs += (millis() - t0Frame);
+      unsigned long dFrame = millis() - t0Frame;
+      g_frameRenderAccumMs += dFrame;
+      if (dFrame > g_frameRenderMaxMs) g_frameRenderMaxMs = dFrame;  // v197
       if(!frameOk){
         gifResetCompat();
         // v104 -- point de coupure overlay score/game_info/achievement retire
