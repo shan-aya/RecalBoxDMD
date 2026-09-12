@@ -2,7 +2,25 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v3
+# Version actuelle : v4
+#
+# v4 - 2026-09-12 - safe-modify - BUG REEL trouve en direct (retour
+#   utilisateur : "j'ai un sacre melange... playlist melange avec hiscore
+#   du jeu en demo") : compute_current_state() ne reconnaissait QUE
+#   Action=rungame/gamelistbrowsing/systembrowsing -- AUCUN cas pour
+#   "rundemo" (reactive cette session, voir marquee.sh v50/dmd_score.sh
+#   v50), donc tout hello de resync recu PENDANT la veille demo (ex. juste
+#   apres un reboot DMD) retombait sur le cas par defaut ("default",
+#   playlist) au lieu de restaurer le jeu demo REELLEMENT affiche --
+#   pendant que le round-robin ingame/hiscore (independant de l'etat du
+#   DMD) continuait d'envoyer ses overlays HI-SCORE par-dessus, d'ou le
+#   melange observe. Ce trou existait avant la reactivation de rundemo,
+#   simplement jamais expose (ce cas ne pouvait jamais se produire tant
+#   que rundemo etait un no-op). Fix : "rundemo" rejoint "rungame" dans le
+#   test -- memes champs es_state.inf (GamePath/SystemId), meme
+#   comportement de restauration. Se corrige aussi tout seul au prochain
+#   vrai changement de jeu demo (~98s), mais laisse un melange visible
+#   inutilement jusque-la sans ce fix.
 #
 # v3 - 2026-09-10 - safe-modify - Ping/pong DEDIE a l'alerte firmware
 #   "RecalBox non connectee" (v183, RecalBox_DMD.ino) -- INDEPENDANT du
@@ -123,7 +141,7 @@ def compute_current_state():
     game_path = extract_field(content, "GamePath")
     system_id = extract_field(content, "SystemId")
 
-    if action == "rungame" and game_path:
+    if action in ("rungame", "rundemo") and game_path:
         rom = normalize_rom(game_path)
         if system_id and rom:
             return [("game", f"{system_id}/{rom}"), ("ingame", "1")]
