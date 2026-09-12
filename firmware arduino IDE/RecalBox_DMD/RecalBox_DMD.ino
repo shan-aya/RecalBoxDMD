@@ -1,7 +1,31 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v194
+// Version actuelle : v195
+//
+// v195 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de reception UDP" --
+//   MESURE, aucun changement de comportement. Contexte : bisection
+//   decisive de la nuit -- sous trafic realiste soutenu, le module isole
+//   (ecran HUB75 actif, ZERO acces SD) ne montre quasiment aucune
+//   coupure UDP sur ~2h, alors que le DMD de prod (meme trafic exact) en
+//   montre ~30 en 53 minutes. Hypothese de synthese : chaque changement
+//   de jeu declenche jusqu'a 6 SD.open() sequentiels dans openGifImpl()
+//   (potentiellement plusieurs dizaines de ms chacun), bloquant loop() --
+//   si une rafale de paquets UDP arrive PENDANT ce blocage, la mailbox de
+//   reception d'ESP-IDF (6 emplacements par defaut, jamais confirme
+//   modifiable sur ce core) se remplit et lwIP jette silencieusement les
+//   paquets suivants AVANT meme que notre code les voie -- indiscernable
+//   d'un gel de reception classique. Coherent avec TOUTES les
+//   observations cumulees cette nuit (localise a la reception, absent
+//   sans acces SD, absent en trafic leger, present en trafic actif,
+//   auto-resolu). Ajoute : g_sdBlockedAccumMs, mesure le temps reel passe
+//   dans openGif()/preloadBigram() (wrappers de mesure autour de
+//   openGifImpl()/preloadBigramImpl(), meme motif qu'openGif() deja
+//   existant) depuis le dernier paquet UDP vu -- loggue directement dans
+//   la ligne [UDPGAP] fin coupure (champ sdBlockedMs=) pour correler
+//   directement duree du gel <-> temps reellement bloque sur SD juste
+//   avant, sans travail d'analyse a posteriori. PAS ENCORE VALIDE SUR
+//   MATERIEL au moment de ce commit.
 //
 // v194 - 2026-09-12 - safe-modify - MITIGATION EXPERIMENTALE pour le crash
 //   recurrent abort()/bad_alloc de la famille openGifImpl()/preloadBigram()
@@ -4030,7 +4054,27 @@ bool loadBigramTable(const String &sysName)
 
 // Charge la tranche du bigramme en heap
 // La table doit etre chargee (loadBigramTable)
-bool preloadBigram(const String &sysName, const String &gameName)
+// v195 -- chasse au bug "gel de reception UDP" : mesure directe (pas une
+// supposition) du temps passe dans les fonctions SD lourdes (openGif(),
+// preloadBigram()) depuis le dernier paquet UDP vu -- hypothese testee :
+// une rafale d'acces SD (plusieurs SD.open() consecutifs pendant un
+// changement de jeu) bloque loop() assez longtemps pour que la mailbox
+// de reception UDP d'ESP-IDF (6 emplacements par defaut) se remplisse et
+// jette silencieusement les paquets suivants AVANT meme que notre propre
+// code les voie -- indiscernable de l'exterieur d'un gel de reception.
+// Remis a zero a CHAQUE paquet reellement vu (meme mecanisme que
+// g_lastUdpSeenMs), loggue dans la ligne [UDPGAP] fin coupure pour
+// correler directement duree du gel <-> temps reellement bloque sur SD
+// juste avant. Declaree ICI (pas pres de g_udpGapStartMs, bien plus loin
+// dans le fichier) car preloadBigram() (juste en dessous) en a besoin
+// avant -- contrairement aux fonctions, les variables globales C++ ne
+// beneficient pas du prototypage automatique de l'IDE Arduino.
+unsigned long g_sdBlockedAccumMs = 0;
+
+// v195 -- renommee Impl + wrapper de mesure (voir g_sdBlockedAccumMs) --
+// meme motif que openGif()/openGifImpl() : mesurer au point d'appel
+// unique plutot que d'instrumenter chaque return interne (nombreux ici).
+bool preloadBigramImpl(const String &sysName, const String &gameName)
 {
   if (!loadBigramTable(sysName)) return false;
 
@@ -4123,6 +4167,15 @@ bool preloadBigram(const String &sysName, const String &gameName)
     freeBigramBuffer();
     return false;
   }
+}
+
+// v195 -- wrapper de mesure, voir commentaire pres de preloadBigramImpl().
+bool preloadBigram(const String &sysName, const String &gameName)
+{
+  unsigned long t0Sd = millis();
+  bool result = preloadBigramImpl(sysName, gameName);
+  g_sdBlockedAccumMs += (millis() - t0Sd);
+  return result;
 }
 
 // Si le systÃ¨me est flag 'L' (lent), le cache bigram est inutile :
@@ -6106,23 +6159,31 @@ bool openGifImpl(const String &path, bool clearBefore, bool skipProbe, bool skip
 // openGifImpl() ci-dessus) -- meme technique que getNextGifRandom() (v78).
 bool openGif(const String &path, bool clearBefore=true, bool skipProbe=false, bool skipRawPack=false)
 {
+  // v195 -- mesure du temps reellement passe ici (voir declaration de
+  // g_sdBlockedAccumMs) -- englobe TOUS les chemins de sortie
+  // (openGifImpl() a plusieurs return, mesurer au point d'appel unique
+  // est plus simple/sur que d'instrumenter chaque retour interne).
+  unsigned long t0Sd = millis();
+  bool result;
   try
   {
-    return openGifImpl(path, clearBefore, skipProbe, skipRawPack);
+    result = openGifImpl(path, clearBefore, skipProbe, skipRawPack);
   }
   catch (std::exception &e)
   {
     Serial.println(String("[GIF] EXCEPTION rattrapee dans openGif() (heap critique, maxalloc=")
                    + String(ESP.getMaxAllocHeap()) + ") : " + e.what());
     gifRawPackMode = false; gifOpened = false;
-    return false;
+    result = false;
   }
   catch (...)
   {
     Serial.println("[GIF] EXCEPTION inconnue rattrapee dans openGif() (maxalloc=" + String(ESP.getMaxAllocHeap()) + ")");
     gifRawPackMode = false; gifOpened = false;
-    return false;
+    result = false;
   }
+  g_sdBlockedAccumMs += (millis() - t0Sd);
+  return result;
 }
 
 // --------------------------------------------------
@@ -8409,9 +8470,21 @@ void handleUdpCommand()
       Serial.print("[UDPGAP] fin coupure, duree=");
       Serial.print(dureeMs);
       Serial.print("ms psmode=");
-      Serial.println(psEndVal);
+      Serial.print(psEndVal);
+      // v195 -- temps cumule dans openGif()/preloadBigram() depuis le
+      // dernier paquet vu (voir g_sdBlockedAccumMs) -- teste l'hypothese
+      // "rafale d'acces SD -> mailbox reception UDP saturee". Si ce
+      // chiffre est proche ou depasse la duree de la coupure elle-meme,
+      // hypothese fortement confirmee ; s'il reste petit alors que la
+      // coupure est longue, hypothese infirmee -- chercher ailleurs.
+      Serial.print(" sdBlockedMs=");
+      Serial.println(g_sdBlockedAccumMs);
       g_udpGapStartMs = 0;
     }
+    // v195 -- remise a zero a CHAQUE paquet reellement vu (pas seulement
+    // en fin de coupure) pour que sdBlockedMs reflete toujours la fenetre
+    // depuis le dernier paquet, meme hors coupure averee.
+    g_sdBlockedAccumMs = 0;
     g_lastUdpSeenMs = millis();  // v8
     char scratch[1024]; // v12 -- 256 -> 1024, voir commentaire complet plus haut
     int l = dmdUdp.read(scratch, sizeof(scratch) - 1);
