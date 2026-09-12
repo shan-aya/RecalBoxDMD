@@ -1,7 +1,25 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v199
+// Version actuelle : v200
+//
+// v200 - 2026-09-12 - safe-modify - SIMPLIFICATION suite a la chasse au bug
+//   "gel de reception UDP" de cette session (retour utilisateur : "tous ces
+//   ping/pong et rearm sont toujours necessaire ?") -- 2 changements :
+//   (1) UDPREARM retire entierement (stop()+begin() du socket toutes les
+//   30s, v10) : jamais confirme comme un vrai fix, AUCUN episode sur toute
+//   la session (v195-v199, instrumentation complete) n'a montre une
+//   reception reellement figee -- pire, la fenetre sans listener UDP que
+//   cree stop()/begin() pourrait avoir contribue a des coupures plutot que
+//   les resoudre. Voir le commentaire complet a son ancien emplacement.
+//   (2) Alerte "RecalBox hors ligne" corrigee (retour utilisateur : "cette
+//   alerte est fausse, le DMD n'est pas deconnecte") : declenchee avant
+//   par UN SEUL ping dedie rate (evenement UDP normal, aucune garantie de
+//   livraison) -- desormais exige 2 ratés CONSECUTIFS
+//   (s_consecutivePingMissed) avant d'afficher quoi que ce soit, elimine
+//   les faux positifs sur perte isolee sans perdre la detection d'une
+//   vraie coupure prolongee. Voir DECISIONS.md pour le detail complet de
+//   l'investigation.
 //
 // v199 - 2026-09-12 - safe-modify - BUG REEL corrige (retour utilisateur en
 //   direct : "en cas de deconnexion le DMD revient en mode playlist mais
@@ -11205,84 +11223,23 @@ void loop()
       s_wifiWasConnected = false;
     }
   }
-  // v10 -- MITIGATION (pas un vrai fix -- cause exacte non confirmee) pour
-  // le blocage UDP intermittent constate en usage reel ce soir (5
-  // episodes) : instrumentation v166/v167 (udpSeen=/udpAgoMs=, voir
-  // [LOOPDIAG2]) prouve que udpSeen s'arrete NETTEMENT d'avancer au
-  // moment du blocage (millis()-g_lastUdpSeenMs grimpe lineairement,
-  // aucun nouveau paquet vu au niveau socket) alors que loop()/WiFi.status()/
-  // rssi restent parfaitement normaux -- confirme un probleme reseau/
-  // socket bas niveau (probablement lwIP), pas applicatif. Sans certitude
-  // sur le mecanisme exact (file de reception bloquee ? pool de buffers ?),
-  // re-creer periodiquement le socket UDP (stop()+begin()) est une
-  // mitigation defensive raisonnable : si le socket etait bloque, ceci le
-  // debloque automatiquement sans attendre une intervention manuelle. Cout
-  // negligeable (un appel toutes les 30s), risque negligeable (au pire un
-  // paquet perdu pile au moment du re-bind, deja tolere par design -- UDP
-  // fire-and-forget). A RETIRER/reevaluer si la vraie cause est identifiee
-  // plus tard.
-  {
-    static unsigned long s_lastUdpRearmMs = 0;
-    const unsigned long UDP_REARM_INTERVAL_MS = 30000;
-    unsigned long nowMs = millis();
-    if (nowMs - s_lastUdpRearmMs >= UDP_REARM_INTERVAL_MS)
-    {
-      s_lastUdpRearmMs = nowMs;
-      if (WiFi.status() == WL_CONNECTED)
-      {
-        // v11 -- log explicite (demande utilisateur, augmenter la capacite
-        // de diagnostic) : udpSeen/udpAgoMs AVANT le re-arm -- permet de
-        // correler directement "re-arm declenche pendant un vrai blocage"
-        // (udpAgoMs deja eleve a cet instant) avec "udpSeen repart apres"
-        // dans les [LOOPDIAG2] suivants, preuve que CETTE mitigation est
-        // bien ce qui debloque (et pas juste une coincidence).
-        Serial.println("[UDPREARM] stop+begin udpSeen=" + String(g_udpPacketsSeen)
-                       + " udpAgoMs=" + String(g_lastUdpSeenMs > 0 ? (long)(nowMs - g_lastUdpSeenMs) : -1));
-        // v174 -- OUTIL DE MESURE, pas un fix (retour utilisateur explicite :
-        // chercher la vraie cause, pas un symptome de plus). Question non
-        // encore tranchee : pendant un blocage de RECEPTION confirme (udpSeen
-        // figé), l'EMISSION du DMD fonctionne-t-elle encore ? IMPORTANT :
-        // envoye ICI, AVANT le stop()/begin() ci-dessous -- sur le MEME socket
-        // potentiellement figé, pas un socket tout neuf (qui, lui, emettrait
-        // presque certainement sans rien prouver).
-        // v183 -- sendUdpHello() REMPLACE par sendUdpPing() ici -- BUG REEL
-        // confirme en conditions reelles (retour utilisateur, jeu
-        // fbneo/actfancr) : le hello complet declenche un resync COMPLET
-        // cote RB1 (dmd_udp_resync.py renvoie le dernier CMD=game/default
-        // connu), redispatche comme une VRAIE commande -- ce qui **coupe
-        // le marquee au beau milieu d'un cycle round-robin en cours**
-        // toutes les 30s (currentMode force de MODE_SCORE/5 a MODE_GIF/1),
-        // meme si rien n'a reellement change cote navigation. sendUdpPing()
-        // teste EXACTEMENT la meme chose pour ce diagnostic (une emission
-        // sur le socket potentiellement fige) mais sans provoquer de
-        // redispatch -- dmd_udp_resync.py (RB1, deja a jour v3) repond
-        // "PONG" a un "PING", jamais un resync complet. Le hello COMPLET
-        // reste utilise ailleurs (1ere connexion WiFi/reconnexions
-        // ulterieures, voir sa detection en loop()) -- lui seul doit
-        // continuer a redispatcher, car c'est le seul cas ou un vrai
-        // rattrapage d'etat est justifie.
-        Serial.println("[UDPREARM] ping de mesure envoye SUR LE SOCKET ACTUEL (avant rearm)");
-        // v188 -- BUG REEL trouve en analysant les logs [UDPCHK] (v186) :
-        // ce ping ne mettait PAS a jour g_lastPingSentMs (seul le bloc
-        // alerte, 15s, le faisait) -- le PONG recu en reponse a CE ping
-        // calculait donc sa latence par rapport au ping DEDIE precedent
-        // (jusqu'a 15s plus vieux), produisant des "latence=11000-15000ms"
-        // artificielles (~26% des echantillons) qui n'ont rien a voir avec
-        // un vrai probleme reseau -- juste un defaut de mesure qui polluait
-        // les stats. Fix : g_lastPingSentMs mis a jour ICI AUSSI, comme
-        // dans le bloc alerte -- la latence loggee au prochain PONG reste
-        // toujours relative au ping qui vient reellement d'etre envoye,
-        // quelle que soit son origine (alerte ou UDPREARM). N'affecte pas
-        // la logique de detection de coupure (pingMissed, bloc alerte) :
-        // un vrai episode de blocage manquerait de toute facon les DEUX
-        // pings (alerte ET rearm), donc reste correctement detecte.
-        g_lastPingSentMs = nowMs;
-        sendUdpPing();
-        dmdUdp.stop();
-        dmdUdp.begin(UDP_CMD_PORT);
-      }
-    }
-  }
+  // v200 - 2026-09-12 - safe-modify - UDPREARM RETIRE ENTIEREMENT (retour
+  // utilisateur explicite, apres toute la chasse au bug de cette session --
+  // "tous ces ping/pong et rearm sont toujours necessaire ?") : ce
+  // mecanisme (v10, ci-dessous, MITIGATION jamais confirmee comme un vrai
+  // fix) recreait le socket UDP (stop()+begin()) toutes les 30s au cas ou
+  // il aurait ete bloque. Sur TOUTE cette session de mesure intensive
+  // (v195 a v199 : accumulateurs de temps bloque, max par-appel, sonde
+  // active a 1s pendant une coupure detectee), AUCUN episode n'a jamais
+  // montre une reception reellement figee (la sonde active obtient
+  // TOUJOURS une reponse en quelques dizaines de ms, jamais de
+  // "probes>1") -- rien ne prouve que ce rearm ait jamais debloque quoi
+  // que ce soit. Pire : stop()+begin() ouvre forcement une breve fenetre
+  // sans aucun listener UDP cote OS -- si un vrai paquet arrivait pile a
+  // ce moment, il serait perdu, ce qui pourrait avoir CONTRIBUE a une
+  // partie des coupures observees plutot que les resoudre. Retire sans
+  // remplacement -- voir DECISIONS.md pour le detail complet de
+  // l'investigation qui a mene a ce retrait.
   // v175 -- FILET DE SECURITE RETABLI (retour utilisateur decisif : "sur un
   // reboot sain, le 1er marquee suffit a figer le DMD qui ne repasse meme
   // plus en playlist automatique apres 60s d'inactivite" -- observation qui
@@ -11423,14 +11380,31 @@ void loop()
       bool pingMissed = (previousPingSentMs != 0) && (g_lastPongSeenMs < previousPingSentMs);
       g_lastPingSentMs = nowMsPing;
       sendUdpPing();
+      // v200 - 2026-09-12 - safe-modify - BUG REEL corrige (retour
+      // utilisateur : "cette alerte est fausse, le DMD n'est pas
+      // deconnecte") : UN SEUL ping dedie rate suffisait a afficher
+      // l'alerte "RecalBox hors ligne" -- or toute cette session de
+      // mesure (v195-v199) a montre que la reception repond TOUJOURS en
+      // quelques dizaines de ms des qu'on la teste reellement (sonde
+      // active, jamais de probes>1) : un ping isole perdu est un
+      // evenement UDP normal (fire-and-forget, aucune garantie de
+      // livraison), pas une preuve de deconnexion. static
+      // s_consecutivePingMissed compte les cycles RATES D'AFFILEE (remis
+      // a 0 des qu'un pong arrive a temps) -- l'alerte n'est plus
+      // declenchee qu'a partir de 2 ratés consecutifs (~30s de silence
+      // confirme sur 2 cycles independants), ce qu'un simple paquet isole
+      // perdu ne peut plus produire.
+      static int s_consecutivePingMissed = 0;
       if (!pingMissed)
       {
         // pong recu a temps -- connexion saine, un futur episode
         // redeclenchera bien ses 3 affichages depuis le debut.
         s_recalboxDisconnectedAlertCount = 0;
+        s_consecutivePingMissed = 0;
       }
       else
       {
+        s_consecutivePingMissed++;
         // v190 -- l'ancien log "ping rate -- deconnexion... en cours
         // depuis ~Xms" ici (v186) mesurait UN SEUL ping dedie manque,
         // indiscernable d'un simple paquet isole perdu -- remplace par le
@@ -11438,11 +11412,13 @@ void loop()
         // qui se base sur TOUT paquet recu et donne une duree reelle sans
         // ambiguite. Le compteur d'alerte reste logge ici, utile pour
         // suivre le fonctionnement de l'alerte affichee elle-meme.
-        Serial.print("[UDPCHK] ping rate (alerteCount=");
+        Serial.print("[UDPCHK] ping rate (consecutif=");
+        Serial.print(s_consecutivePingMissed);
+        Serial.print(" alerteCount=");
         Serial.print(s_recalboxDisconnectedAlertCount);
         Serial.println("/3)");
       }
-      if (pingMissed && !g_sdOpInProgress && currentMode != MODE_PLAYLIST
+      if (pingMissed && s_consecutivePingMissed >= 2 && !g_sdOpInProgress && currentMode != MODE_PLAYLIST
                && s_recalboxDisconnectedAlertCount < UDP_ALERT_MAX_COUNT)
       {
         g_recalboxDisconnectedPending = true;
