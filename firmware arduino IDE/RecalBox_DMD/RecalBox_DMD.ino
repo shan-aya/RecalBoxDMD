@@ -1,7 +1,20 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v202
+// Version actuelle : v203
+//
+// v203 - 2026-09-12 - safe-modify - BUG REEL corrige (retour utilisateur en
+//   direct : "reprendre DMD -> playlist au lieu de l'etat actuel de RB1").
+//   webDmdResume() ("Reprendre DMD" cote page web) verifiait
+//   mqttClient.connected() -- reliquat MQTT (v50, 03/08) jamais adapte au
+//   passage UDP : ce client n'est JAMAIS connecte en UDP (MQTT_ENABLED=
+//   false), la condition etait donc impossible a satisfaire depuis la
+//   bascule transport -- resumePlaylist() etait systematiquement appele en
+//   aveugle, ignorant l'etat reel de RB1. Fix : meme mecanisme que la
+//   (re)connexion WiFi -- sendUdpHello() demande un resync complet a RB1
+//   (jeu/demo/gameclip/navigation, dmd_udp_resync.py deja a jour pour tous
+//   ces cas) au lieu de forcer la playlist. Voir le commentaire complet au
+//   point d'usage (webDmdResume()).
 //
 // v202 - 2026-09-12 - safe-modify - REDUCTION du nombre d'appels SD.open()
 //   par changement de jeu (retour utilisateur, option 3 de la prevention du
@@ -6868,8 +6881,27 @@ void webDmdResume()
   // perime, mieux vaut attendre une confirmation fraiche -- partie en cours
   // par ex.). Si MQTT n'est PAS connecte (Recalbox injoignable), aucune
   // autre source de contenu -- comportement inchange, reprend la playlist.
-  if (mqttClient.connected() && !g_lastMqttWasDefault)
+  // v203 - 2026-09-12 - safe-modify - BUG REEL corrige (retour utilisateur
+  // en direct : "reprendre DMD -> playlist au lieu de l'etat actuel de
+  // RB1"). Cette garde datait de l'ere MQTT (v50, 2026-08-03) et n'a
+  // JAMAIS ete adaptee au passage UDP : mqttClient.connected() est
+  // TOUJOURS false en UDP (MQTT_ENABLED=false, le client MQTT n'est meme
+  // plus connecte) -- la condition etait donc IMPOSSIBLE a satisfaire,
+  // cette branche (attendre une confirmation fraiche avant de choisir)
+  // n'a jamais pu s'executer depuis la bascule transport, resumePlaylist()
+  // etait systematiquement appelee en aveugle. Fix : meme mecanisme que la
+  // (re)connexion WiFi (sendUdpHello(), voir son site d'appel dans loop())
+  // -- si le WiFi est up, demande un resync complet a RB1 (etat REEL
+  // courant : jeu/demo/gameclip/navigation, dmd_udp_resync.py deja a jour
+  // pour reconnaitre tous ces cas, voir DECISIONS.md) au lieu de forcer la
+  // playlist a l'aveugle. Ecran d'attente (CMD_WAITING_MQTT, deja
+  // transport-agnostique, voir son propre commentaire) affiche pendant ce
+  // temps, avec son repli existant sur playlist en cas de non-reponse
+  // (meme filet que le boot). resumePlaylist() direct seulement si le
+  // WiFi lui-meme est down (rien a demander a personne).
+  if (WiFi.status() == WL_CONNECTED)
   {
+    sendUdpHello(); broadcastFeatureStatus();
     if (mqttCmdMutex != nullptr && xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(100)) == pdTRUE)
     {
       pendingCmd = MqttCommand(MqttCommand::CMD_WAITING_MQTT, "");
