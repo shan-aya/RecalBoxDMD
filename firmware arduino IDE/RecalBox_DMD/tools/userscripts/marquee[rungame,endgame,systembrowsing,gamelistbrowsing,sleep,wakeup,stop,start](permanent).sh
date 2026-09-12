@@ -60,7 +60,20 @@ renice -n -10 -p $$ >/dev/null 2>&1
 # ============================================
 # safe-modify â€” Historique des modifications
 # ============================================
-# Version actuelle : v50
+# Version actuelle : v52
+#
+# v52 - 2026-09-12 - safe-modify - BUG REEL corrige (retour utilisateur,
+#   confirme apres verification en direct : "je veux en mode gameclip que
+#   le marquee du jeu s'affiche, uniquement, car les clips sont trop courts
+#   pour afficher autre chose") : "startgameclip" REJOINT desormais
+#   "rundemo" -- restaure la conception d'origine documentee depuis
+#   toujours dans la banniere de demarrage de dmd_score.sh ("startgameclip
+#   = marquee seul mais rundemo garde l'overlay complet"), que le v41
+#   (02/09, priorite stabilite MQTT) avait par erreur desactivee EN ENTIER
+#   au lieu de ne couper QUE le round-robin overlay (deja et toujours geree
+#   correctement cote dmd_score.sh, qui garde son "startgameclip)" no-op
+#   inchange). Voir le commentaire complet pres du nouveau case
+#   "startgameclip|rundemo)".
 #
 # v50 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de reception UDP",
 #   demande explicite utilisateur : "rundemo" separe de "startgameclip" et
@@ -1846,38 +1859,28 @@ while true; do
         # rythme stable ~30s/clip (verifie en direct, jamais de rafale
         # observee) -- la meme limite de frequence (DEMO_MIN_PUBLISH_
         # INTERVAL_S=3s) protege les 2 sans jamais gener gameclip (30s >> 3s).
-        startgameclip)
-            # v50 -- "rundemo" RETIRE de ce case (voir son changelog complet
-            # pres du nouveau case "rundemo)" ci-dessous) -- seul
-            # "startgameclip" (clips video) reste ici en no-op v41, inchange,
-            # non concerne par la demande utilisateur de cette session.
-            if [ "$demo_veille_playlist_sent" != "1" ]; then
-                echo "$(date '+%H:%M:%S') CLIP -> playlist (veille ciblee desactivee, v41)" >> "$LOG"
-                send_mqtt_retain "default" "1"
-                demo_veille_playlist_sent=1
-            fi
-            continue
-            ;;
-
-        rundemo)
-            # v50 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de
-            # reception UDP" (voir DECISIONS.md/memoire projet), demande
-            # explicite utilisateur : REACTIVE le mecanisme de tracking
-            # SystemId/GamePath/DEMO_SYSTEM/DEMO_ROM ci-dessous (desactive
-            # depuis v41, 02/09, priorite stabilite MQTT), inverse de ce
-            # choix -- "startgameclip" reste separe et desactive (voir
-            # case ci-dessus), seul "rundemo" est concerne ici. Precedent
-            # trouve en relisant dmd_score.sh v31 : ce meme generateur de
-            # trafic (jeux qui s'enchainent en veille demo) avait deja
-            # cause des deconnexions courtes MQTT (rc=-4) correlees a un
-            # rendu CMD_GAME/MODE_GIF tenant le DMD occupe ~27s -- jamais
-            # retente depuis la bascule transport UDP. dmd_score.sh v50
-            # reactive symetriquement round_robin("ingame") pour ce meme
-            # evenement (hiscore, pas description/info -- demande
-            # explicite : "le dmd devra afficher marquee & hiscore").
-            # demo_veille_playlist_sent desormais inutile pour rundemo
-            # (jamais mis a 1 ici) mais reste utilise par startgameclip
-            # ci-dessus, inchange.
+        startgameclip|rundemo)
+            # v52 - 2026-09-12 - safe-modify - BUG REEL corrige (retour
+            # utilisateur, en verifiant "gameclip" en direct : "CLIP ->
+            # playlist" -- pas le comportement attendu). "startgameclip"
+            # REJOINT desormais "rundemo" ici -- la bannière de demarrage de
+            # dmd_score.sh documente depuis TOUJOURS (texte v40, jamais
+            # modifie) : "startgameclip = marquee seul mais rundemo garde
+            # l'overlay complet". Le v41 (02/09, priorite stabilite MQTT)
+            # avait desactive les 2 identiquement, mais seul le round-robin
+            # overlay (deja et TOUJOURS un no-op cote dmd_score.sh pour
+            # startgameclip, jamais touche) devait etre coupe -- le MARQUEE
+            # lui-meme (gere ICI, dans marquee.sh) aurait du rester actif
+            # pour gameclip, exactement comme pour rundemo. v50 avait
+            # reactive rundemo seul par prudence/portee minimale ; ce fix
+            # etend la meme reactivation a startgameclip, conformement a la
+            # conception d'origine. Cote dmd_score.sh : AUCUN changement --
+            # son "startgameclip)" no-op (jamais de round-robin hiscore
+            # pour gameclip) reste exactement comme prevu.
+            # demo_veille_playlist_sent (garde de l'ancien comportement
+            # v41) devient inutile pour les 2 evenements desormais, laissee
+            # en place (plus jamais mise a 1) au cas ou un futur retour en
+            # arriere serait souhaite.
             now=$(date +%s)
             # v34 -- horodatage du dernier evenement vu ICI (pas seulement
             # au moment d'une publication effective) -- voir changelog v34
