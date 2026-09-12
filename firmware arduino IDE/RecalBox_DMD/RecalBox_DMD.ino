@@ -1,7 +1,26 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v198
+// Version actuelle : v199
+//
+// v199 - 2026-09-12 - safe-modify - BUG REEL corrige (retour utilisateur en
+//   direct : "en cas de deconnexion le DMD revient en mode playlist mais
+//   vu que RB1 est en demo il devrait afficher marquee du jeu... ca n'a
+//   pas fonctionne sur la demo en cours, ca a fonctionne sur la demo
+//   suivante") : la garde du resync automatique post-coupure (v189) ne
+//   verifiait QUE currentMode==MODE_PLAYLIST -- or plusieurs jeux demo
+//   consecutifs en cache-miss (CMD_GAME chemin FAST, "cached=?") retombent
+//   sur /systems/_defaults/default.png (MODE_PNG, pas MODE_PLAYLIST).
+//   Confirme sur materiel : currentMode reste bloque en PNG pendant la
+//   coupure, le pong de reconnexion arrive dans cet etat, la garde
+//   echoue, sendUdpHello() n'est jamais appele -- le DMD reste sur le
+//   contenu perime jusqu'a ce qu'un TOUT NOUVEAU CMD=game arrive
+//   naturellement (la demo suivante) et debloque tout par un autre
+//   chemin. Fix : MODE_PNG et MODE_BLACK ajoutes a la garde (memes etats
+//   de repli sans contenu reel que MODE_PLAYLIST) -- MODE_GIF/MODE_SCORE
+//   volontairement PAS ajoutes (contenu deja reel affiche, resync y
+//   serait redondant/intrusif). Voir le commentaire complet au point
+//   d'usage (handler PONG).
 //
 // v198 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de reception UDP",
 //   sonde active pendant un [UDPGAP] -- MESURE, aucun changement de
@@ -8679,10 +8698,27 @@ void handleUdpCommand()
       // currentMode==MODE_PLAYLIST : si une vraie navigation est deja
       // arrivee entre-temps (ex. via un paquet CMD= traite juste avant ce
       // PONG dans le meme drain), inutile de redemander un resync.
+      //
+      // v199 - 2026-09-12 - safe-modify - BUG REEL trouve en direct (retour
+      // utilisateur : "ca n'a pas fonctionne sur la demo en cours, ca a
+      // fonctionne sur la demo suivante") : la garde ne verifiait QUE
+      // MODE_PLAYLIST, jamais MODE_PNG -- or plusieurs jeux demo consecutifs
+      // en cache-miss (CMD_GAME chemin FAST, "cached=?") retombent sur
+      // /systems/_defaults/default.png, donc MODE_PNG, PAS MODE_PLAYLIST.
+      // Confirme sur materiel (serial) : currentMode reste bloque en
+      // PNG (2) pendant toute la coupure, le pong de reconnexion arrive
+      // pendant cet etat, la garde echoue, sendUdpHello() n'est JAMAIS
+      // appele -- le DMD reste sur le contenu perime jusqu'a ce qu'un
+      // TOUT NOUVEAU CMD=game arrive naturellement (la demo suivante) et
+      // debloque tout par un autre chemin. MODE_PNG et MODE_BLACK ajoutes
+      // a la garde -- memes "etats de repli sans contenu reel" que
+      // MODE_PLAYLIST du point de vue de cette logique (a l'inverse de
+      // MODE_GIF/MODE_SCORE, qui EUX signifient qu'un vrai contenu est deja
+      // affiche -- resync y serait redondant/intrusif, pas ajoutes ici).
       if (g_recalboxDisconnectedForcedPlaylist)
       {
         g_recalboxDisconnectedForcedPlaylist = false;
-        if (currentMode == MODE_PLAYLIST)
+        if (currentMode == MODE_PLAYLIST || currentMode == MODE_PNG || currentMode == MODE_BLACK)
         {
           Serial.println("[CMD] RecalBox reconnectee (pong recu) -- resync etat reel demande");
           sendUdpHello();
