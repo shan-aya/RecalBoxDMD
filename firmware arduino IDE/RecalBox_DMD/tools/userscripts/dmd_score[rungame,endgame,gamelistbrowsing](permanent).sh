@@ -15,7 +15,16 @@
 # ============================================
 # safe-modify â€” Historique des modifications
 # ============================================
-# Version actuelle : v49
+# Version actuelle : v50
+#
+# v50 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de reception UDP",
+#   demande explicite utilisateur : "rundemo" REJOINT "rungame" (round-robin
+#   ingame/hiscore reactive), inverse du choix v40 (04/09, stabilite MQTT).
+#   Voir le changelog complet pres du case "rungame|rundemo)" plus bas pour
+#   le detail et la justification (precedent v31 : ~27s de blocage
+#   CMD_GAME/MODE_GIF deja observe sous ce meme generateur de trafic, sous
+#   MQTT -- jamais retente sous UDP). "startgameclip" (clips video) non
+#   concerne, reste en no-op.
 #
 # v49 - 2026-09-10 - safe-modify - BUG REEL corrige (retour utilisateur en
 #   conditions reelles, jeu fbneo/actfancr) : panneaux DESCRIPTION affiches
@@ -1800,7 +1809,21 @@ while IFS= read -r event; do
             LAST_BROWSE_SYS=""
             LAST_BROWSE_ROM=""
             ;;
-        rungame)
+        rungame|rundemo)
+            # v50 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de
+            # reception UDP" (voir DECISIONS.md/memoire projet) : "rundemo"
+            # REJOINT desormais "rungame" (round-robin "ingame"/hiscore
+            # relance, meme code que pour une vraie partie), inverse du
+            # choix v40 (04/09) qui l'avait mis en no-op au profit de la
+            # stabilite MQTT. Demande explicite utilisateur : reactiver
+            # deliberement ce generateur de trafic/echange (jeux qui
+            # s'enchainent en veille demo -> CMD_GAME repete a cadence
+            # soutenue, voir marquee.sh v49) pour tester si le mur de
+            # plateforme observe sous MQTT (v31, deconnexions courtes
+            # rc=-4 correlees a un rendu CMD_GAME/MODE_GIF tenant le DMD
+            # occupe ~27s) se reproduit sous UDP -- jamais retente depuis
+            # la bascule transport. "startgameclip" (clips video, pas
+            # demande ici) reste dans son bloc no-op ci-dessous, inchange.
             # v10 -- BUG REEL corrige (retour utilisateur explicite : "info
             # page1 - description page2 - hiscore - info page2 - marquee",
             # melange incoherent de plusieurs types de contenu apres le
@@ -1867,7 +1890,14 @@ while IFS= read -r event; do
             LAST_BROWSE_ROM=""
             echo "$(date '+%H:%M:%S') SLEEP (round-robin ingame/browse arretes)" >> "$LOG"
             ;;
-        startgameclip|rundemo)
+        startgameclip)
+            # v50 -- "rundemo" RETIRE de ce case (voir son changelog complet
+            # pres du case "rungame|rundemo)" ci-dessus) -- rejoint desormais
+            # rungame (round-robin ingame/hiscore reactive, test deliberer
+            # du generateur de trafic pour la chasse au bug UDP). Seul
+            # "startgameclip" (clips video) reste ici en no-op, inchange --
+            # non concerne par la demande utilisateur de cette session.
+            #
             # v41 - 2026-09-02 - safe-modify - retour utilisateur explicite
             # (priorite stabilite > fonctionnalite cosmetique -- "la
             # fonction veille ciblee n'est que cosmetique et ne pese rien

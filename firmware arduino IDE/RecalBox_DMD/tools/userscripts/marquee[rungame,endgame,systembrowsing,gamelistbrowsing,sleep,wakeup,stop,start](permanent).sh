@@ -60,7 +60,16 @@ renice -n -10 -p $$ >/dev/null 2>&1
 # ============================================
 # safe-modify â€” Historique des modifications
 # ============================================
-# Version actuelle : v49
+# Version actuelle : v50
+#
+# v50 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de reception UDP",
+#   demande explicite utilisateur : "rundemo" separe de "startgameclip" et
+#   REACTIVE (tracking SystemId/GamePath/DEMO_SYSTEM/DEMO_ROM + publication
+#   UDP throttlee "CMD=game ARG=..."), inverse du choix v41 (02/09,
+#   stabilite MQTT). "startgameclip" (clips video) non concerne, reste en
+#   no-op. Voir le changelog complet pres du nouveau case "rundemo)" plus
+#   bas pour le detail et le precedent v18/v31 (dmd_score.sh) qui justifie
+#   ce test deliberer sous UDP.
 #
 # v49 - 2026-09-08 - safe-modify - REVERT BURST_THRESHOLD 10 -> 5 (retour
 #   utilisateur, meme soir : 2 episodes reels de DMD "fige" apres le
@@ -1837,33 +1846,38 @@ while true; do
         # rythme stable ~30s/clip (verifie en direct, jamais de rafale
         # observee) -- la meme limite de frequence (DEMO_MIN_PUBLISH_
         # INTERVAL_S=3s) protege les 2 sans jamais gener gameclip (30s >> 3s).
-        rundemo|startgameclip)
-            # v41 -- retour utilisateur explicite (02/09 tard, priorite
-            # stabilite > fonctionnalite cosmetique -- "la fonction veille
-            # ciblee n'est que cosmetique et ne pese rien face au besoin de
-            # stabilite") : la veille CIBLEE (marquee + panneaux hiscore/
-            # description/info pendant demo/gameclip, tout le mecanisme
-            # ci-dessous) est DESACTIVEE au profit de la PLAYLIST simple,
-            # exactement comme dim/black/bouncing (voir sleep) plus haut) --
-            # meme demarche que le fix v40 (fusion des 12 topics MQTT) :
-            # reduire l'EXPOSITION au blocage TX MQTT post-CONNACK plutot
-            # que de continuer a le corriger a la source (mur de plateforme
-            # atteint, voir DECISIONS.md/memoire projet) -- la veille ciblee
-            # generait un flux MQTT continu et soutenu (round-robin toutes
-            # les ~14s + jusqu'a ~1/s en rafale de changement de jeu demo,
-            # deja documente comme cas extreme, voir BUG REEL #2 plus haut)
-            # pour un benefice purement cosmetique. return anticipe :
-            # publie "default" (playlist) UNE SEULE FOIS par entree en
-            # veille (garde demo_veille_playlist_sent, remise a 0 seulement
-            # au reveil) -- tout le mecanisme de tracking SystemId/GamePath/
-            # DEMO_SYSTEM/DEMO_ROM plus bas reste en place mais N'EST PLUS
-            # ATTEINT, conserve tel quel au cas ou ce choix serait revu.
+        startgameclip)
+            # v50 -- "rundemo" RETIRE de ce case (voir son changelog complet
+            # pres du nouveau case "rundemo)" ci-dessous) -- seul
+            # "startgameclip" (clips video) reste ici en no-op v41, inchange,
+            # non concerne par la demande utilisateur de cette session.
             if [ "$demo_veille_playlist_sent" != "1" ]; then
-                echo "$(date '+%H:%M:%S') DEMO/CLIP -> playlist (veille ciblee desactivee, v41)" >> "$LOG"
+                echo "$(date '+%H:%M:%S') CLIP -> playlist (veille ciblee desactivee, v41)" >> "$LOG"
                 send_mqtt_retain "default" "1"
                 demo_veille_playlist_sent=1
             fi
             continue
+            ;;
+
+        rundemo)
+            # v50 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de
+            # reception UDP" (voir DECISIONS.md/memoire projet), demande
+            # explicite utilisateur : REACTIVE le mecanisme de tracking
+            # SystemId/GamePath/DEMO_SYSTEM/DEMO_ROM ci-dessous (desactive
+            # depuis v41, 02/09, priorite stabilite MQTT), inverse de ce
+            # choix -- "startgameclip" reste separe et desactive (voir
+            # case ci-dessus), seul "rundemo" est concerne ici. Precedent
+            # trouve en relisant dmd_score.sh v31 : ce meme generateur de
+            # trafic (jeux qui s'enchainent en veille demo) avait deja
+            # cause des deconnexions courtes MQTT (rc=-4) correlees a un
+            # rendu CMD_GAME/MODE_GIF tenant le DMD occupe ~27s -- jamais
+            # retente depuis la bascule transport UDP. dmd_score.sh v50
+            # reactive symetriquement round_robin("ingame") pour ce meme
+            # evenement (hiscore, pas description/info -- demande
+            # explicite : "le dmd devra afficher marquee & hiscore").
+            # demo_veille_playlist_sent desormais inutile pour rundemo
+            # (jamais mis a 1 ici) mais reste utilise par startgameclip
+            # ci-dessus, inchange.
             now=$(date +%s)
             # v34 -- horodatage du dernier evenement vu ICI (pas seulement
             # au moment d'une publication effective) -- voir changelog v34
