@@ -1,7 +1,29 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v195
+// Version actuelle : v196
+//
+// v196 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de reception UDP",
+//   PISTE AFFINEE -- MESURE, aucun changement de comportement. v195 a
+//   REFUTE l'hypothese "ouverture de fichier" par mesure directe (max
+//   339ms mesure face a des coupures de 15-20s, sans commune mesure).
+//   Nouvelle cible trouvee en lisant un commentaire DEJA PRESENT dans ce
+//   fichier depuis l'epoque MQTT (v128) : gifPlayFrameCompat() fait un
+//   SD.read() a CHAQUE frame, en CONTINU pendant toute la duree de
+//   N'IMPORTE QUELLE animation (playlist ou jeu) -- deja documente a
+//   l'epoque comme "le point de contention le plus frequent... deadlock
+//   mqttTask/LWIP". Contrairement a l'ouverture (evenement ponctuel), ce
+//   rendu se produit en PERMANENCE des qu'un GIF est affiche (quasiment
+//   tout le temps sur ce DMD) -- explique a la fois la frequence elevee
+//   des coupures ET pourquoi le module isole (simple balayage de pixel,
+//   pas de vrai decodage GIF) reste sain sous le meme trafic. Ajoute
+//   g_frameRenderAccumMs, meme mesure/correlation que g_sdBlockedAccumMs
+//   (v195) mais autour des 2 sites d'appel de gifPlayFrameCompat()
+//   (MODE_PLAYLIST/MODE_GIF, les 2 seuls qui appellent cette fonction en
+//   continu sans yield/poll UDP autour) -- loggue dans la meme ligne
+//   [UDPGAP] fin coupure (champ frameRenderMs=), compteur separe de
+//   sdBlockedMs pour ne pas melanger les 2 hypotheses dans la meme
+//   donnee. PAS ENCORE VALIDE SUR MATERIEL au moment de ce commit.
 //
 // v195 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de reception UDP" --
 //   MESURE, aucun changement de comportement. Contexte : bisection
@@ -4070,6 +4092,21 @@ bool loadBigramTable(const String &sysName)
 // avant -- contrairement aux fonctions, les variables globales C++ ne
 // beneficient pas du prototypage automatique de l'IDE Arduino.
 unsigned long g_sdBlockedAccumMs = 0;
+// v196 -- meme chasse au bug, piste affinee : g_sdBlockedAccumMs (v195) a
+// REFUTE l'hypothese "ouverture de fichier" (max 339ms mesure face a des
+// coupures de 15-20s, sans commune mesure). Nouvelle cible, trouvee en
+// lisant un commentaire DEJA PRESENT dans ce fichier (v128, epoque MQTT) :
+// gifPlayFrameCompat() fait un SD.read() a CHAQUE frame, en CONTINU
+// pendant toute la duree de N'IMPORTE QUELLE animation (playlist ou jeu)
+// -- deja documente a l'epoque comme "le point de contention le plus
+// frequent". Contrairement a l'ouverture (evenement ponctuel), le rendu
+// de frame se produit en PERMANENCE des qu'un GIF est affiche (quasiment
+// tout le temps sur ce DMD) -- explique a la fois la frequence elevee des
+// coupures ET pourquoi le module isole (simple balayage de pixel, pas de
+// vrai decodage GIF) reste sain. Meme mecanisme de mesure/correlation que
+// g_sdBlockedAccumMs, compteur separe pour ne pas melanger les 2
+// hypotheses dans la meme donnee.
+unsigned long g_frameRenderAccumMs = 0;
 
 // v195 -- renommee Impl + wrapper de mesure (voir g_sdBlockedAccumMs) --
 // meme motif que openGif()/openGifImpl() : mesurer au point d'appel
@@ -8478,13 +8515,21 @@ void handleUdpCommand()
       // hypothese fortement confirmee ; s'il reste petit alors que la
       // coupure est longue, hypothese infirmee -- chercher ailleurs.
       Serial.print(" sdBlockedMs=");
-      Serial.println(g_sdBlockedAccumMs);
+      Serial.print(g_sdBlockedAccumMs);
+      // v196 -- voir g_frameRenderAccumMs -- piste affinee (rendu de
+      // frame en continu, pas seulement l'ouverture) apres que
+      // sdBlockedMs (v195) ait refute l'hypothese "ouverture de fichier"
+      // (max 339ms mesure face a des coupures de 15-20s).
+      Serial.print(" frameRenderMs=");
+      Serial.println(g_frameRenderAccumMs);
       g_udpGapStartMs = 0;
     }
-    // v195 -- remise a zero a CHAQUE paquet reellement vu (pas seulement
-    // en fin de coupure) pour que sdBlockedMs reflete toujours la fenetre
-    // depuis le dernier paquet, meme hors coupure averee.
+    // v195/v196 -- remise a zero a CHAQUE paquet reellement vu (pas
+    // seulement en fin de coupure) pour que les 2 compteurs refletent
+    // toujours la fenetre depuis le dernier paquet, meme hors coupure
+    // averee.
     g_sdBlockedAccumMs = 0;
+    g_frameRenderAccumMs = 0;
     g_lastUdpSeenMs = millis();  // v8
     char scratch[1024]; // v12 -- 256 -> 1024, voir commentaire complet plus haut
     int l = dmdUdp.read(scratch, sizeof(scratch) - 1);
@@ -11394,7 +11439,13 @@ void loop()
   case MODE_PLAYLIST:
     if(!gifOpened){display->clearScreen();currentMode=MODE_BLACK;break;}
     {
+      // v196 -- mesure du rendu de frame lui-meme (voir g_frameRenderAccumMs)
+      // -- SEUL ce site jumeau (+ MODE_GIF) fait un vrai SD.read() par
+      // frame, en continu, sans le yield/poll UDP deja present dans la
+      // boucle d'attente juste en dessous.
+      unsigned long t0Frame = millis();
       int fd=0; bool frameOk=gifPlayFrameCompat(false,&fd);
+      g_frameRenderAccumMs += (millis() - t0Frame);
       if(!frameOk){
         // Alerte "No wifi, No Recalbox" (2026-08-05, demande utilisateur) :
         // le GIF courant vient de se terminer naturellement (frameOk==false)
@@ -11480,7 +11531,11 @@ void loop()
   case MODE_GIF:
     if(!gifOpened){display->clearScreen();currentMode=MODE_BLACK;break;}
     {
+      // v196 -- meme mesure que le site jumeau MODE_PLAYLIST, voir son
+      // commentaire complet + la declaration de g_frameRenderAccumMs.
+      unsigned long t0Frame = millis();
       int fd=0; bool frameOk=gifPlayFrameCompat(false,&fd);
+      g_frameRenderAccumMs += (millis() - t0Frame);
       if(!frameOk){
         gifResetCompat();
         // v104 -- point de coupure overlay score/game_info/achievement retire
