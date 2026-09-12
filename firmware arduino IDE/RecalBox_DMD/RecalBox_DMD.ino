@@ -1,7 +1,26 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v201
+// Version actuelle : v202
+//
+// v202 - 2026-09-12 - safe-modify - REDUCTION du nombre d'appels SD.open()
+//   par changement de jeu (retour utilisateur, option 3 de la prevention du
+//   crash SD.open()/make_shared<VFSFileImpl> -- voir le commentaire complet
+//   pres de g_sdSubdirPreference/openWithSubdirPreference()). openGifImpl()
+//   tentait TOUJOURS sous-dossier alphabetique PUIS repli plat, dans cet
+//   ordre fixe, pour CHACUN des 3 fichiers (probe .gif, .raw565pack, .meta)
+//   -- jusqu'a 6 SD.open() par changement de jeu dans le pire cas. La
+//   convention sous-dossier/plat est une caracteristique de LA CARTE SD
+//   ENTIERE (alphaSubdirPath() ne depend que du nom de fichier, pas du
+//   systeme) -- une fois determinee, elle reste valable pour tous les
+//   fichiers suivants. Nouvelle fonction openWithSubdirPreference()
+//   factorise les 3 sites d'appel identiques, memorise le dernier choix
+//   gagnant (g_sdSubdirPreference) et le tente en premier -- reduit le
+//   nombre moyen d'appels SD.open() par changement de jeu de ~6 a ~3 dans
+//   le cas normal. N'AURAIT PAS empeche le crash reel observe sur
+//   mame/zeropnt2 cette session (celui-ci a frappe sur l'ouverture
+//   NECESSAIRE, pas une tentative de repli redondante) -- reduit
+//   l'exposition globale sur la duree, pas une prevention ciblee.
 //
 // v201 - 2026-09-12 - safe-modify - PREVENTION partielle du crash SD.open()/
 //   make_shared<VFSFileImpl> (retour utilisateur : "un moyen de prevenir ou
@@ -5481,6 +5500,53 @@ static String alphaSubdirPath(const String &path)
   return dir + "/" + subdir + "/" + fname;
 }
 
+// v202 - 2026-09-12 - safe-modify - Reduction du nombre d'appels SD.open()
+// (retour utilisateur : "un moyen de prevenir ou de rattraper ce type de
+// crash ?", option 3 -- moins d'allocations make_shared<VFSFileImpl> au
+// total sur la duree = moins d'occasions de collision avec une allocation
+// WiFi/lwIP concurrente, meme si ca n'aurait PAS empeche le crash reel
+// observe sur mame/zeropnt2 cette session, celui-ci ayant frappe sur
+// l'ouverture NECESSAIRE, pas une tentative de repli redondante -- voir
+// DECISIONS.md). openGifImpl() tentait TOUJOURS sous-dossier alphabetique
+// PUIS repli plat, dans cet ordre fixe, pour CHACUN des 3 fichiers
+// (probe .gif, .raw565pack, .meta) -- soit jusqu'a 6 SD.open() par
+// changement de jeu dans le pire cas. Or la convention sous-dossier/plat
+// est une caracteristique de LA CARTE SD ENTIERE (alphaSubdirPath() ne
+// depend que du 1er caractere du nom de fichier, pas du systeme) --
+// une fois determinee par un premier succes, elle reste valable pour tous
+// les fichiers suivants. g_sdSubdirPreference (globale, init a true =
+// comportement historique inchange par defaut) memorise le dernier
+// choix gagnant et est tentee EN PREMIER a chaque appel -- la tentative
+// perdante n'est retentee que si la preference se revele fausse (bascule
+// de carte SD a chaud, cas limite). Reduit le nombre moyen d'appels
+// SD.open() par changement de jeu de ~6 a ~3 dans le cas normal (la carte
+// utilise une seule convention, coherente sur tous ses fichiers).
+static bool g_sdSubdirPreference = true;
+
+static File openWithSubdirPreference(const String &subPath, const String &flatPath)
+{
+  File f;
+  if (g_sdSubdirPreference)
+  {
+    f = SD.open(subPath.c_str(), FILE_READ);
+    if (!f)
+    {
+      f = SD.open(flatPath.c_str(), FILE_READ);
+      if (f) g_sdSubdirPreference = false;
+    }
+  }
+  else
+  {
+    f = SD.open(flatPath.c_str(), FILE_READ);
+    if (!f)
+    {
+      f = SD.open(subPath.c_str(), FILE_READ);
+      if (f) g_sdSubdirPreference = true;
+    }
+  }
+  return f;
+}
+
 static uint16_t *raw565FullBuf = nullptr;
 
 // CMD_GAME_MIN_HEAP_FOR_FILE_OPEN deplacee plus haut dans le fichier en v81
@@ -6206,12 +6272,9 @@ bool openGifImpl(const String &path, bool clearBefore, bool skipProbe, bool skip
   delay(2);
   if (!skipProbe)
   {
-    // Essayer sous-dossier d'abord, puis plat
+    // v202 -- voir openWithSubdirPreference()/g_sdSubdirPreference.
     String subPath = alphaSubdirPath(path);
-    File p = SD.open(subPath.c_str(), FILE_READ);
-    if (!p) {
-      p = SD.open(path.c_str(), FILE_READ);
-    }
+    File p = openWithSubdirPreference(subPath, path);
     if (!p) return false;
     p.close();
   }
@@ -6250,16 +6313,9 @@ bool openGifImpl(const String &path, bool clearBefore, bool skipProbe, bool skip
     // Evite un pattern "probe" SD.exists()+SD.open() : on ouvre directement.
     if (clearBefore) display->clearScreen();
 
-    // Tenter sous-dossier d'abord, puis plat (compatibilitÃ© ascendante)
-    gifRawPackFile = SD.open(subRawPack.c_str(), FILE_READ);
-    if (!gifRawPackFile) {
-      gifRawPackFile = SD.open(rawPack.c_str(), FILE_READ);
-    }
-
-    gifRawMetaFile = SD.open(subMetaPath.c_str(), FILE_READ);
-    if (!gifRawMetaFile) {
-      gifRawMetaFile = SD.open(metaPath.c_str(), FILE_READ);
-    }
+    // v202 -- voir openWithSubdirPreference()/g_sdSubdirPreference.
+    gifRawPackFile = openWithSubdirPreference(subRawPack, rawPack);
+    gifRawMetaFile = openWithSubdirPreference(subMetaPath, metaPath);
 
       if (gifRawPackFile && gifRawMetaFile)
       {
