@@ -3,7 +3,21 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v64
+// Version actuelle : v65
+//
+// v65 — 2026-09-13 — safe-modify — BUG REEL corrige (signale par
+//   l'utilisateur en plein diagnostic de la boucle AP : "dans le champ
+//   selectionner reseau il affiche 3 fois mon reseau 2.4ghz"). Cause :
+//   WiFi.scanNetworks() sur ESP32 retourne UNE ENTREE PAR BSSID (par point
+//   d'acces physique), pas par SSID -- un routeur mesh/repeteur qui diffuse
+//   le meme nom sur plusieurs bornes produisait donc autant de doublons
+//   dans la liste JSON de handleWebConfigScanWiFi(). Fix : deduplication
+//   par SSID (garde le meilleur RSSI de chaque nom), tri par signal
+//   decroissant, reseaux caches (SSID vide) ignores. Sans lien confirme
+//   avec la boucle AP elle-meme (WiFi.begin(ssid,...) laisse de toute
+//   facon le driver choisir la meilleure BSSID pour un SSID donne) --
+//   corrige car c'est un bug reel independant, la cause de la boucle AP
+//   reste a l'investigation (voir DECISIONS.md).
 //
 // v64 — 2026-08-23 — safe-modify — BUG REEL corrige (signale par
 //   l'utilisateur : "les pages web n'ont pas de champs pre-remplis",
@@ -804,6 +818,7 @@
 
 #include <WiFi.h>
 #include <WebServer.h>
+#include <vector>
 #include "web_config_html_gz.h"
 
 extern int    screenBrightness;
@@ -4803,15 +4818,49 @@ static void handleWebConfigReboot() { webServer->send(200, "text/plain", "REBOOT
 // non protegee ici, et donc capable d'aggraver le probleme qu'il servait
 // a surveiller).
 
+// v2 (2026-09-13, rapporte par l'utilisateur : son reseau 2,4GHz apparait
+// 3 fois dans la liste) -- WiFi.scanNetworks() sur ESP32 retourne UNE
+// ENTREE PAR BSSID (par radio physique), pas par SSID : un routeur mesh/
+// repeteur qui diffuse le meme nom sur plusieurs points d'acces produit
+// autant d'entrees identiques dans le JSON. Deduplique desormais par SSID
+// en ne gardant que le meilleur RSSI (evite aussi de laisser l'utilisateur
+// choisir "au hasard" une des copies -- WiFi.begin() par SSID seul
+// laisse de toute facon le driver choisir, mais une liste propre evite la
+// confusion signalee).
 static void handleWebConfigScanWiFi()
 {
   int n = WiFi.scanComplete();
   if (n == WIFI_SCAN_FAILED) { WiFi.scanNetworks(true); webServer->send(200, "application/json", "[]"); return; }
   if (n == WIFI_SCAN_RUNNING) { webServer->send(200, "application/json", "[]"); return; }
-  String json = "[";
+  std::vector<String> uniqueSsids;
+  std::vector<int32_t> bestRssi;
   for (int i = 0; i < n; i++) {
-    if (i > 0) json += ",";
     String ssid = WiFi.SSID(i);
+    if (ssid.length() == 0) continue; // reseau cache, rien a proposer
+    int32_t rssi = WiFi.RSSI(i);
+    bool found = false;
+    for (size_t j = 0; j < uniqueSsids.size(); j++) {
+      if (uniqueSsids[j] == ssid) {
+        found = true;
+        if (rssi > bestRssi[j]) bestRssi[j] = rssi;
+        break;
+      }
+    }
+    if (!found) { uniqueSsids.push_back(ssid); bestRssi.push_back(rssi); }
+  }
+  // Tri par signal decroissant (le plus proche/fort en premier)
+  for (size_t i = 0; i < uniqueSsids.size(); i++) {
+    for (size_t j = i + 1; j < uniqueSsids.size(); j++) {
+      if (bestRssi[j] > bestRssi[i]) {
+        std::swap(uniqueSsids[i], uniqueSsids[j]);
+        std::swap(bestRssi[i], bestRssi[j]);
+      }
+    }
+  }
+  String json = "[";
+  for (size_t i = 0; i < uniqueSsids.size(); i++) {
+    if (i > 0) json += ",";
+    String ssid = uniqueSsids[i];
     ssid.replace("\"", "\\\"");
     json += "\"" + ssid + "\"";
   }
