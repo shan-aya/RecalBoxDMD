@@ -3,9 +3,19 @@
 # UNIQUE, architecture "DMD bete" v110 -- voir RecalBox_DMD.ino)
 #
 # ============================================
-# safe-modify — Historique des modifications
+# safe-modify â€” Historique des modifications
 # ============================================
-# Version actuelle : v5
+# Version actuelle : v6
+#
+# v6 - 2026-09-08 - safe-modify - Piste UDP (demande utilisateur explicite,
+#   apres revue : "qu'est-ce qu'on aurait pu oublier de mettre a jour ?").
+#   Ce script n'avait jamais ete touche lors de la bascule full UDP
+#   (marquee.sh v45/dmd_score.sh v48) -- ses notifications de succes
+#   RetroAchievements ne partaient plus que via mosquitto_pub, mort depuis
+#   RecalBox_DMD.ino v161 (MQTT_ENABLED=false). Ajoute send_udp() (meme
+#   motif que les 2 autres scripts, duplique pas factorise), appele EN
+#   PARALLELE du mosquitto_pub existant -- MQTT inchange, rien coupe.
+#   PAS ENCORE TESTE SUR MATERIEL.
 #
 # v5 - 2026-09-04 - safe-modify - Verrou anti-relance extrait vers
 #   dmd_helpers/singleton_lock.sh, voir marquee.sh v43 pour le detail
@@ -83,6 +93,18 @@
 LOG="/recalbox/share/system/logs/dmd_achievement_mqtt.log"
 RA_LOG="/recalbox/share/system/logs/retroarch.log"
 FEATURES_FILE="/tmp/dmd_features_cache"
+# v6 -- BUG REEL trouve en revue (pas en usage reel -- retour utilisateur
+# explicite : "qu'est-ce qu'on aurait pu oublier de mettre a jour ?").
+# Ce script n'avait JAMAIS ete touche lors de la bascule full UDP
+# (marquee.sh v45, dmd_score.sh v48) -- ses notifications de succes
+# RetroAchievements ne partaient plus QUE via mosquitto_pub, mort depuis
+# RecalBox_DMD.ino v161 (MQTT_ENABLED=false). Meme send_udp() que les 2
+# autres scripts (duplique, pas factorise -- meme motif qu'eux).
+DMD_UDP_IP="192.168.0.51"
+DMD_UDP_PORT=5005
+send_udp() {
+    python3 -c "import socket,sys; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(sys.argv[1].encode('utf-8','replace'), (sys.argv[2], int(sys.argv[3])))" "$1" "$DMD_UDP_IP" "$DMD_UDP_PORT" 2>/dev/null
+}
 
 # v2 -- identique a dmd_score[...].sh (voir ce fichier pour le
 # raisonnement complet) : sous-processus dedie qui cache localement le
@@ -119,6 +141,7 @@ while IFS= read -r line; do
             if feat_enabled "ra_ingame"; then
                 echo "$(date '+%H:%M:%S') ACHIEVEMENT $name" >> "$LOG"
                 mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=score ARG=SUCCES|${name}" 2>/dev/null
+                send_udp "CMD=score ARG=SUCCES|${name}" # v6 -- piste UDP, voir en tete de fichier
             else
                 echo "$(date '+%H:%M:%S') ACHIEVEMENT $name (ignore, ra_ingame desactive)" >> "$LOG"
             fi

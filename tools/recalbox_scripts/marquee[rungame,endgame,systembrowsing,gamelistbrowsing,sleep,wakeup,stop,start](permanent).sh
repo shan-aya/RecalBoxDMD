@@ -17,6 +17,12 @@
 . /recalbox/share/userscripts/dmd_helpers/singleton_lock.sh marquee 2>/dev/null || exit 1
 echo "$(date '+%H:%M:%S.%N') TRACE proceeding pid=$$ ppid=$PPID arg0=$0" >> /tmp/marquee_trace.log
 LOG="/recalbox/share/system/logs/marquee_mqtt.log"
+# v44 -- piste UDP (voir TRANSPORT_PLAN_UDP.md, worktree dev/dmd-udp-
+# transport) : IP/port EN DUR pour l'instant, pas de decouverte dynamique
+# cote script (le DMD, lui, decouvre RB1 via mDNS -- rien d'equivalent en
+# sens inverse aujourd'hui). A adapter si le DMD change d'adresse.
+DMD_UDP_IP="192.168.0.51"
+DMD_UDP_PORT=5005
 # v35 -- BUG REEL confirme sur materiel (retour utilisateur, meme session,
 # apres v34 : le sondage direct de es_state.inf elimine bien toute
 # contention MQTT -- log verifie : une seule publication propre et rapide
@@ -52,9 +58,94 @@ LOG="/recalbox/share/system/logs/marquee_mqtt.log"
 # le script de demarrer.
 renice -n -10 -p $$ >/dev/null 2>&1
 # ============================================
-# safe-modify — Historique des modifications
+# safe-modify â€” Historique des modifications
 # ============================================
-# Version actuelle : v43
+# Version actuelle : v52
+#
+# v52 - 2026-09-12 - safe-modify - BUG REEL corrige (retour utilisateur,
+#   confirme apres verification en direct : "je veux en mode gameclip que
+#   le marquee du jeu s'affiche, uniquement, car les clips sont trop courts
+#   pour afficher autre chose") : "startgameclip" REJOINT desormais
+#   "rundemo" -- restaure la conception d'origine documentee depuis
+#   toujours dans la banniere de demarrage de dmd_score.sh ("startgameclip
+#   = marquee seul mais rundemo garde l'overlay complet"), que le v41
+#   (02/09, priorite stabilite MQTT) avait par erreur desactivee EN ENTIER
+#   au lieu de ne couper QUE le round-robin overlay (deja et toujours geree
+#   correctement cote dmd_score.sh, qui garde son "startgameclip)" no-op
+#   inchange). Voir le commentaire complet pres du nouveau case
+#   "startgameclip|rundemo)".
+#
+# v50 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de reception UDP",
+#   demande explicite utilisateur : "rundemo" separe de "startgameclip" et
+#   REACTIVE (tracking SystemId/GamePath/DEMO_SYSTEM/DEMO_ROM + publication
+#   UDP throttlee "CMD=game ARG=..."), inverse du choix v41 (02/09,
+#   stabilite MQTT). "startgameclip" (clips video) non concerne, reste en
+#   no-op. Voir le changelog complet pres du nouveau case "rundemo)" plus
+#   bas pour le detail et le precedent v18/v31 (dmd_score.sh) qui justifie
+#   ce test deliberer sous UDP.
+#
+# v49 - 2026-09-08 - safe-modify - REVERT BURST_THRESHOLD 10 -> 5 (retour
+#   utilisateur, meme soir : 2 episodes reels de DMD "fige" apres le
+#   passage a 10 -- CMD=game plus traites, meme apres RecalBox_DMD.ino
+#   v164 (borne la vidange UDP a 20/appel). Cause exacte non identifiee
+#   (loop()/[LOOPDIAG] continuent de tourner normalement dans les 2 cas --
+#   pas un hang classique). Priorite a la stabilite : revient au seuil
+#   eprouve depuis des mois (v15) plutot que de continuer a exposer de la
+#   navigation reelle a un bug non compris. Les fix firmware v163/v164
+#   restent en place (ameliorations valides independamment).
+#
+# v48 - 2026-09-08 - safe-modify - BURST_THRESHOLD 5 -> 10 (retour
+#   utilisateur direct : le fix v47 n'a "rien change" -- analyse du log
+#   reel a montre que le shuffle reste affiche pendant TOUTE la duree du
+#   survol (pas un delai fixe reglable), des qu'une navigation "rapide
+#   mais pas extreme" depasse 5/s. Le flicker qui avait fait descendre ce
+#   seuil de 10 a 5 en v14/v15 (rejouer une suite d'images perimees) est
+#   desormais couvert par RecalBox_DMD.ino v163 (vidange UDP) -- seuil
+#   releve pour ne throttler qu'une navigation vraiment extreme. Voir le
+#   commentaire complet pres de la constante.
+#
+# v47 - 2026-09-08 - safe-modify - EARLY_STABLE_SECONDS 2 -> 1 (retour
+#   utilisateur : latence de sortie de rafale trop longue en navigation
+#   rapide non-extreme, "le DMD affiche un marquee plusieurs secondes avant
+#   de sauter a celui en cours de defilement"). Risque d'arrondi seconde
+#   entiere (raison du 2 d'origine, v31) accepte : desormais couvert par
+#   RecalBox_DMD.ino v163 (vidange UDP), une sortie prematuree n'affiche
+#   plus qu'une position potentiellement pas finale, jamais une file
+#   d'images perimees a rattraper. Voir le commentaire complet pres de la
+#   constante.
+#
+# v46 - 2026-09-08 - safe-modify - Resync UDP (demande utilisateur, comble
+#   le trou laisse par la bascule full UDP v45 : sans retain MQTT, un DMD
+#   qui reboote/perd le WiFi en session reste fige sur son dernier etat).
+#   Lance dmd_helpers/dmd_udp_resync.py en sous-processus au demarrage
+#   (meme motif que features_watcher()) -- ecoute le "hello" UDP envoye par
+#   le DMD a chaque connexion/reconnexion WiFi (RecalBox_DMD.ino v161,
+#   sendUdpHello()), relit es_state.inf a neuf a chaque hello et renvoie
+#   l'etat reel courant. PAS ENCORE TESTE SUR MATERIEL.
+#
+# v45 - 2026-09-08 - safe-modify - BASCULE FULL UDP (demande utilisateur
+#   explicite, meme motif que RecalBox_DMD.ino v161/MQTT_ENABLED=false :
+#   fragilite MQTT documentee depuis des mois, raison d'etre de la piste
+#   UDP). Les 3 appels mosquitto_pub (send_mqtt_retain() + les 2 !SHUFFLE)
+#   COMMENTES (pas supprimes -- retour arriere instantane si besoin), seul
+#   send_udp() reste actif. Le pipe mosquitto_sub qui ECOUTE les evenements
+#   ES (Recalbox/EmulationStation/Event, RB1-interne) reste lui INCHANGE --
+#   n'a jamais rien a voir avec le canal DMD.
+#
+# v44 - 2026-09-08 - safe-modify - Piste UDP (voir TRANSPORT_PLAN_UDP.md,
+#   firmware RecalBox_DMD.ino v158/v159 deja valide sur materiel reel cote
+#   DMD) : nouvelle fonction send_udp() (python3, best-effort, silencieuse
+#   si echec) appelee EN PARALLELE de mosquitto_pub dans send_mqtt_retain()
+#   et aux 2 sites d'envoi direct !SHUFFLE -- MQTT INCHANGE, rien coupe,
+#   comparaison en conditions reelles. RISQUE DE PERF IDENTIFIE ET NON
+#   ENCORE MESURE : un fork+demarrage interpreteur Python par appel double
+#   le nombre de forks par publication pendant une rafale de navigation
+#   (jusqu'a 5-8/s, voir BURST_THRESHOLD) -- ce script a deja subi une
+#   vraie regression CPU/thermique liee a des lancements Python trop
+#   frequents (dmd_score.sh v36). A RETESTER EN CHARGE REELLE (navigation
+#   rapide soutenue) avant de considerer ce chemin fiable. IP DMD
+#   (DMD_UDP_IP) EN DUR pour l'instant (192.168.0.51), pas de decouverte
+#   dynamique. PAS ENCORE DEPLOYE SUR RB1 au moment de ce commit.
 #
 # v43 - 2026-09-04 - safe-modify - Verrou anti-relance extrait vers
 #   dmd_helpers/singleton_lock.sh -- code identique retire d'ici, de
@@ -343,7 +434,7 @@ renice -n -10 -p $$ >/dev/null 2>&1
 #   avait en fait une cause reelle et corrigeable de CE cote-ci. Preuve
 #   directe : sur la video, le relachement manette est visible au moment ou
 #   RB1 affiche la selection finale stabilisee (art+description charges,
-#   "COMMANDO (SEGA)") -- confirme par le log correlé au meme timestamp
+#   "COMMANDO (SEGA)") -- confirme par le log correlÃ© au meme timestamp
 #   (12:40:02, evenement gamelistbrowsing sur commsega). Mais le DMD ne
 #   recoit la vraie commande que 11s plus tard (12:40:13, "BURST end"),
 #   pendant lesquelles marquee_mqtt.log montre ES republier gamelistbrowsing
@@ -770,7 +861,7 @@ renice -n -10 -p $$ >/dev/null 2>&1
 #   Fonctionnement : compteur de survols (gamelistbrowsing/systembrowsing)
 #   dans la MEME seconde horloge (precision seconde entiere -- ash/BusyBox
 #   n'a pas d'horloge sub-seconde fiable partout, et ce n'est pas necessaire
-#   ici : le seuil visé est "plusieurs survols dans la meme seconde", pas
+#   ici : le seuil visÃ© est "plusieurs survols dans la meme seconde", pas
 #   un intervalle precis). BURST_THRESHOLD survols dans la meme seconde ->
 #   bascule en mode "throttled" : les survols suivants ne publient PLUS
 #   (LAST_SYSTEM/LAST_ROM restent a jour en interne, silencieusement) tant
@@ -806,7 +897,7 @@ renice -n -10 -p $$ >/dev/null 2>&1
 #   Fix initial tente : flock -n sur un fd dedie -- ECARTE apres test reel,
 #   un fd ouvert via "exec 9>" est HERITE par tout process fils issu d'un
 #   fork() ulterieur (meme sans re-executer le flock), donc un fils qui
-#   hérite du fd deja verrouille par son parent continue de tourner sans
+#   hÃ©rite du fd deja verrouille par son parent continue de tourner sans
 #   jamais etre bloque -- observe sur materiel : 2 process actifs
 #   simultanement partageant le meme fd 9 (verifie via /proc/PID/fd/9).
 #   Fix retenu : verrou par FICHIER PID classique, insensible a l'heritage
@@ -874,6 +965,26 @@ extract_field() {
     echo "$1" | grep "^${2}=" | cut -d= -f2- | tr -d '\r\n '
 }
 
+send_udp() {
+    # v44 -- piste UDP (voir TRANSPORT_PLAN_UDP.md) : envoi EN PARALLELE de
+    # MQTT, best-effort, silencieux si echec -- comparaison en conditions
+    # reelles avant de decider si UDP remplace MQTT (voir "Points a
+    # trancher" du plan). $1 = payload complet deja forme ("CMD=<nom>
+    # ARG=<valeur>"), PASSE EN ARGV a python3 (pas interpole dans le code
+    # Python) pour eviter tout probleme d'echappement shell/Python avec des
+    # valeurs contenant espaces/pipes/apostrophes (ex. texte de description
+    # hi-score). ATTENTION COUT : un fork+demarrage interpreteur Python par
+    # appel (~20-40ms sur ce materiel) -- CE SCRIPT A DEJA SUBI une vraie
+    # regression CPU/thermique liee a des lancements Python trop frequents
+    # (voir dmd_score.sh v36, "CPU 99%->0%" une fois les helpers Python
+    # retires du chemin chaud) : ajouter cet appel A CHAQUE send_mqtt_retain
+    # DOUBLE le nombre de forks par publication pendant une rafale de
+    # navigation (jusqu'a 5-8/s mesure, voir BURST_THRESHOLD). A RETESTER EN
+    # CHARGE REELLE (navigation rapide soutenue) avant de considerer ce
+    # chemin fiable -- pas encore fait au moment de ce commit.
+    python3 -c "import socket,sys; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(sys.argv[1].encode('utf-8','replace'), (sys.argv[2], int(sys.argv[3])))" "$1" "$DMD_UDP_IP" "$DMD_UDP_PORT" 2>/dev/null
+}
+
 send_mqtt_retain() {
     # v38 -- diagnostic pub_time (v36) retire (retour utilisateur, une fois
     # la vraie cause de la saturation CPU trouvee et corrigee -- voir
@@ -896,7 +1007,13 @@ send_mqtt_retain() {
     # fichier) : ${1} vaut toujours game/system/default/ingame ici (seuls
     # suffixes utilises avec send_mqtt_retain() dans tout ce script), donc
     # ce chemin ne cree jamais plus de 4 topics distincts.
-    mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -r -t "marquee/cmd/${1}" -m "CMD=${1} ARG=$2" 2>/dev/null
+    # v45 -- FULL UDP (demande utilisateur explicite, 2026-09-08 : fragilite
+    # MQTT documentee depuis des mois, raison d'etre de toute cette piste --
+    # voir MQTT_ENABLED=false cote firmware, RecalBox_DMD.ino v161). mosquitto_pub
+    # COMMENTE (pas supprime, retour arriere instantane si besoin) : le DMD
+    # ne se connecte plus jamais au broker, cet envoi serait pur gaspillage.
+    # mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -r -t "marquee/cmd/${1}" -m "CMD=${1} ARG=$2" 2>/dev/null
+    send_udp "CMD=${1} ARG=$2"
     # v39 -- precise_ts() ajoute (voir sa declaration complete) : diagnostic
     # desync overlay/marquee, correlation avec les logs dmd_score.sh v37.
     echo "$(date '+%H:%M:%S') [$(precise_ts)] SEND(R) marquee/cmd/${1} = $2" >> "$LOG"
@@ -1006,7 +1123,9 @@ poll_navigation_position() {
         if [ "$burst_qualifying_streak" -ge "$BURST_SUSTAIN_SECONDS" ] && [ "$throttled" -eq 0 ]; then
             throttled=1
             echo "$(date '+%H:%M:%S') BURST start (seuil $BURST_THRESHOLD/s soutenu sur ${BURST_SUSTAIN_SECONDS}s) [poll]" >> "$LOG"
-            mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=game ARG=!SHUFFLE" 2>/dev/null
+            # v45 -- FULL UDP, mosquitto_pub commente (voir v45 en tete de fichier)
+            # mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=game ARG=!SHUFFLE" 2>/dev/null
+            send_udp "CMD=game ARG=!SHUFFLE"
             echo "$(date '+%H:%M:%S') SEND !SHUFFLE (non retenu)" >> "$LOG"
         fi
         last_real_change_ts="$now"
@@ -1198,10 +1317,24 @@ boot_sweep_seen_any=0
 # mode rapide -- verifie que ca ne change rien a l'approche : chaque
 # position atteinte, meme par saut, publie un vrai evenement
 # gamelistbrowsing, seul le DEBIT de ces evenements compte pour ce
-# detecteur). Seuil remis a 10 (valeur de DEPART a ajuster sur test reel,
-# demande explicite "5 est trop bas teste en reel essaye 10 et on
-# modifiera" -- ni le 5 d'origine (juge trop bas cette fois) ni le 50
-# (equivalent a desactive), point de depart intermediaire pour tester.
+# detecteur). Seuil remis a 10 a titre d'essai, puis redescendu par v14
+# (10->6) et v15 (6->5) suite a des retours reels defavorables sur le 10 --
+# a l'epoque, un flicker/flottement visuel cote DMD (rejouait plusieurs
+# positions perimees a la suite, voir tout l'historique v28-v31 de ce
+# fichier), PAS un souci de stabilite RB1.
+# v48 -- 5 -> 10 (retour utilisateur, piste UDP : le shuffle se declenche
+# des une navigation rapide mais pas extreme -- "pas le turbo alpha" --
+# et reste affiche toute la duree du survol, pas juste un delai fixe).
+# Le flicker qui avait motive la descente a 5 (v14/v15) etait cense etre
+# couvert autrement (RecalBox_DMD.ino v163, vidange UDP) -- INSUFFISANT en
+# pratique.
+# v49 -- REVERT 10 -> 5 (retour utilisateur, meme soir) : le seuil a 10 a
+# expose 2 episodes reels de DMD "fige" (plus aucune commande UDP traitee,
+# meme apres v164 qui borne pourtant la vidange a 20 paquets/appel) --
+# cause exacte encore NON IDENTIFIEE (loop()/LOOPDIAG continuent de
+# tourner normalement dans les 2 cas, donc pas un hang classique). Priorite
+# a la stabilite : revient au seuil eprouve depuis des mois plutot que de
+# continuer a tester en conditions reelles sans comprendre la cause.
 BURST_THRESHOLD=5
 # v16 -- voir changelog v16 : nombre de secondes CONSECUTIVES a
 # >=BURST_THRESHOLD requises avant de declencher !SHUFFLE (au lieu
@@ -1217,9 +1350,18 @@ throttled=0
 last_real_change_ts=0
 # v31 -- secondes ecoulees (bucketing entier, voir changelog v31) depuis
 # last_real_change_ts exigees avant de considerer un doublon ES comme une
-# preuve de position stabilisee. 2, pas 1 -- meme valeur/philosophie que
-# BURST_SUSTAIN_SECONDS, marge contre l'arrondi a la seconde entiere.
-EARLY_STABLE_SECONDS=2
+# preuve de position stabilisee.
+# v47 -- 2 -> 1 (retour utilisateur, piste UDP : "le DMD affiche un marquee
+# plusieurs secondes avant de sauter a celui en cours de defilement" en
+# navigation rapide mais pas extreme -- latence de sortie de rafale trop
+# longue). v31 avait choisi 2 (pas 1) specifiquement pour une marge contre
+# l'arrondi seconde entiere -- ce risque (declarer "stable" apres ~0.1s
+# reel dans le pire cas d'arrondi) est accepte ici car BEAUCOUP moins grave
+# qu'avant : le DMD ne rejoue plus la file d'attente (RecalBox_DMD.ino
+# v163, vidange UDP a chaque loop()) -- une sortie de rafale legerement
+# prematuree n'affiche plus qu'UNE position potentiellement pas tout a
+# fait finale, jamais une suite d'images perimees a rattraper.
+EARLY_STABLE_SECONDS=1
 # v34 -- cadence de sondage direct de es_state.inf quand aucun evenement
 # n'est deja disponible dans le pipe (voir poll_navigation_position() et son
 # changelog complet) -- "sleep" supporte les valeurs fractionnaires sur cet
@@ -1254,6 +1396,16 @@ echo "$(date) - Marquee bridge started (v41, veille ciblee demo/gameclip desacti
 # "read -t 1" remplace "-W 1" pour le timeout de detection de silence
 # pendant une rafale, "read" bloquant simple sinon, tous deux sur le MEME
 # pipe deja ouvert -- plus aucun trou d'ecoute entre 2 evenements.
+# v45 -- resync UDP (voir TRANSPORT_PLAN_UDP.md, RecalBox_DMD.ino v161
+# sendUdpHello()) : sous-processus DEDIE, meme motif que features_watcher()
+# (dmd_score.sh) -- ecoute en permanence le "hello" du DMD (a chaque
+# connexion/reconnexion WiFi) et relit /tmp/es_state.inf a neuf pour
+# renvoyer l'etat REEL courant, comble le trou laisse par l'absence de
+# retain MQTT en mode full UDP. Tue automatiquement quand ce process
+# (marquee.sh, le singleton) meurt -- pas de gestion d'orphelin separee,
+# comme features_watcher.
+python3 "/recalbox/share/userscripts/dmd_helpers/dmd_udp_resync.py" >> "$LOG" 2>&1 &
+
 mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 -t "Recalbox/EmulationStation/Event" 2>/dev/null | \
 while true; do
     PREV_EVENT="$event"
@@ -1443,7 +1595,7 @@ while true; do
                 # Attendre la fin de la rafale automatique de boot
                 sleep 5
 
-                # Lire le vrai système affiché
+                # Lire le vrai systÃ¨me affichÃ©
                 system_raw=$(read_state "SystemId")
                 system=$(normalize_system "$system_raw")
                 echo "$(date '+%H:%M:%S') BOOT settle -> sys=$system" >> "$LOG"
@@ -1518,7 +1670,9 @@ while true; do
                     echo "$(date '+%H:%M:%S') BURST start (seuil $BURST_THRESHOLD/s soutenu sur ${BURST_SUSTAIN_SECONDS}s)" >> "$LOG"
                     # v9 -- coupe-circuit anti-rafale, affichage transitoire
                     # (animation locale firmware, RecalBox_DMD.ino v107).
-                    mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=game ARG=!SHUFFLE" 2>/dev/null
+                    # v45 -- FULL UDP, mosquitto_pub commente (voir v45 en tete de fichier)
+                    # mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=game ARG=!SHUFFLE" 2>/dev/null
+                    send_udp "CMD=game ARG=!SHUFFLE"
                     echo "$(date '+%H:%M:%S') SEND !SHUFFLE (non retenu)" >> "$LOG"
                 fi
                 last_real_change_ts="$now"
@@ -1705,33 +1859,28 @@ while true; do
         # rythme stable ~30s/clip (verifie en direct, jamais de rafale
         # observee) -- la meme limite de frequence (DEMO_MIN_PUBLISH_
         # INTERVAL_S=3s) protege les 2 sans jamais gener gameclip (30s >> 3s).
-        rundemo|startgameclip)
-            # v41 -- retour utilisateur explicite (02/09 tard, priorite
-            # stabilite > fonctionnalite cosmetique -- "la fonction veille
-            # ciblee n'est que cosmetique et ne pese rien face au besoin de
-            # stabilite") : la veille CIBLEE (marquee + panneaux hiscore/
-            # description/info pendant demo/gameclip, tout le mecanisme
-            # ci-dessous) est DESACTIVEE au profit de la PLAYLIST simple,
-            # exactement comme dim/black/bouncing (voir sleep) plus haut) --
-            # meme demarche que le fix v40 (fusion des 12 topics MQTT) :
-            # reduire l'EXPOSITION au blocage TX MQTT post-CONNACK plutot
-            # que de continuer a le corriger a la source (mur de plateforme
-            # atteint, voir DECISIONS.md/memoire projet) -- la veille ciblee
-            # generait un flux MQTT continu et soutenu (round-robin toutes
-            # les ~14s + jusqu'a ~1/s en rafale de changement de jeu demo,
-            # deja documente comme cas extreme, voir BUG REEL #2 plus haut)
-            # pour un benefice purement cosmetique. return anticipe :
-            # publie "default" (playlist) UNE SEULE FOIS par entree en
-            # veille (garde demo_veille_playlist_sent, remise a 0 seulement
-            # au reveil) -- tout le mecanisme de tracking SystemId/GamePath/
-            # DEMO_SYSTEM/DEMO_ROM plus bas reste en place mais N'EST PLUS
-            # ATTEINT, conserve tel quel au cas ou ce choix serait revu.
-            if [ "$demo_veille_playlist_sent" != "1" ]; then
-                echo "$(date '+%H:%M:%S') DEMO/CLIP -> playlist (veille ciblee desactivee, v41)" >> "$LOG"
-                send_mqtt_retain "default" "1"
-                demo_veille_playlist_sent=1
-            fi
-            continue
+        startgameclip|rundemo)
+            # v52 - 2026-09-12 - safe-modify - BUG REEL corrige (retour
+            # utilisateur, en verifiant "gameclip" en direct : "CLIP ->
+            # playlist" -- pas le comportement attendu). "startgameclip"
+            # REJOINT desormais "rundemo" ici -- la bannière de demarrage de
+            # dmd_score.sh documente depuis TOUJOURS (texte v40, jamais
+            # modifie) : "startgameclip = marquee seul mais rundemo garde
+            # l'overlay complet". Le v41 (02/09, priorite stabilite MQTT)
+            # avait desactive les 2 identiquement, mais seul le round-robin
+            # overlay (deja et TOUJOURS un no-op cote dmd_score.sh pour
+            # startgameclip, jamais touche) devait etre coupe -- le MARQUEE
+            # lui-meme (gere ICI, dans marquee.sh) aurait du rester actif
+            # pour gameclip, exactement comme pour rundemo. v50 avait
+            # reactive rundemo seul par prudence/portee minimale ; ce fix
+            # etend la meme reactivation a startgameclip, conformement a la
+            # conception d'origine. Cote dmd_score.sh : AUCUN changement --
+            # son "startgameclip)" no-op (jamais de round-robin hiscore
+            # pour gameclip) reste exactement comme prevu.
+            # demo_veille_playlist_sent (garde de l'ancien comportement
+            # v41) devient inutile pour les 2 evenements desormais, laissee
+            # en place (plus jamais mise a 1) au cas ou un futur retour en
+            # arriere serait souhaite.
             now=$(date +%s)
             # v34 -- horodatage du dernier evenement vu ICI (pas seulement
             # au moment d'une publication effective) -- voir changelog v34

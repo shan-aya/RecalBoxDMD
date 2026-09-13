@@ -13,9 +13,78 @@
 # canal UNIQUE, architecture "DMD bete" v110 -- voir RecalBox_DMD.ino)
 #
 # ============================================
-# safe-modify — Historique des modifications
+# safe-modify â€” Historique des modifications
 # ============================================
-# Version actuelle : v46
+# Version actuelle : v51
+#
+# v51 - 2026-09-12 - safe-modify - BUG REEL corrige (retour utilisateur en
+#   direct : "hiscore et playlist qui s'affichent en meme temps ce qui est
+#   impossible") : "wakeup" (sortie de veille demo -> retour navigation)
+#   n'avait AUCUN case dedie, tombait dans "*)" qui ne nettoie jamais
+#   GAME_SESSION_FILE -- le round-robin "ingame" du dernier jeu demo
+#   restait un ZOMBIE permanent apres un reveil (2min30+ observees en
+#   direct), rien ne garantissant qu'un evenement ulterieur relance la
+#   detection differee (current!=expected) qui aurait pu l'arreter.
+#   Renforcement complet suite a une demande explicite de controle
+#   ("eviter les zombies, les enchevetrements") : "wakeup" rejoint "sleep"
+#   (memes besoins de nettoyage) + kill_previous_round_robin() EXPLICITE
+#   ajoute PARTOUT (sleep|wakeup, rungame|rundemo, gamelistbrowsing,
+#   systembrowsing, stop) sur les 2 contextes (ingame/browse) -- ne plus
+#   compter sur la seule detection differee (fichier vide) pour arreter un
+#   round-robin en vol, le tuer directement et immediatement partout ou
+#   c'est possible, meme philosophie que le fix v49 (kill-avant-lancer).
+#   Verifie egalement (demande explicite) : enabled_panel_types() lit bien
+#   dynamiquement hiscore_${ctx}/description_${ctx}/info_${ctx} depuis la
+#   config -- rien de cable en dur, aucun bug trouve sur ce point.
+#
+# v50 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de reception UDP",
+#   demande explicite utilisateur : "rundemo" REJOINT "rungame" (round-robin
+#   ingame/hiscore reactive), inverse du choix v40 (04/09, stabilite MQTT).
+#   Voir le changelog complet pres du case "rungame|rundemo)" plus bas pour
+#   le detail et la justification (precedent v31 : ~27s de blocage
+#   CMD_GAME/MODE_GIF deja observe sous ce meme generateur de trafic, sous
+#   MQTT -- jamais retente sous UDP). "startgameclip" (clips video) non
+#   concerne, reste en no-op.
+#
+# v49 - 2026-09-10 - safe-modify - BUG REEL corrige (retour utilisateur en
+#   conditions reelles, jeu fbneo/actfancr) : panneaux DESCRIPTION affiches
+#   dans le desordre/repetes (1->2->1(repete)->3->2(repete)->4), marquee qui
+#   "s'intercale" de facon erratique -- confirme en direct par `ps aux` : 6
+#   processus dmd_score.sh simultanes (au lieu d'1, malgre singleton_lock.sh
+#   -- celui-ci empeche plusieurs LANCEMENTS du SCRIPT, pas l'accumulation
+#   de plusieurs round_robin() en arriere-plan internes au meme script,
+#   indiscernables dans `ps aux`). Cause : la seule protection de
+#   round_robin() contre le chevauchement est une comparaison de chaine
+#   d'etat (current=expected) verifiee UNIQUEMENT apres chaque
+#   sleep/publication -- pas immediate. Pire, revisiter EXACTEMENT le meme
+#   jeu apres un aller-retour fait revenir l'etat a une valeur IDENTIQUE a
+#   celle qu'une vieille instance encore endormie considere comme "toujours
+#   valide" : elle se reveille, voit current=expected=vrai, et continue de
+#   tourner EN MEME TEMPS qu'une toute nouvelle instance vient de demarrer
+#   pour ce meme retour -- aucune frequence de verification ne peut
+#   distinguer "meme session ininterrompue" de "nouvelle session au meme
+#   etat" par comparaison de chaine seule. Fix : kill_previous_round_robin()
+#   (voir juste avant round_robin()) tue explicitement, par PID trace dans
+#   un fichier DEDIE PAR CONTEXTE (ingame/browse), toute instance precedente
+#   AVANT de lancer une nouvelle -- garantit au plus 1 round_robin() vivant
+#   par contexte, independamment de toute coincidence de chaine d'etat.
+#   Applique aux 2 sites de lancement (rungame/ingame, dwell-settle/browse).
+#   Valide sur materiel reel (RB1) : stress-test 5 allers-retours rapproches
+#   sur le meme jeu pendant qu'un round_robin() tournait deja -- un seul
+#   DWELL settled, aucune accumulation de processus, sortie propre. Voir
+#   DECISIONS.md et HANDOFF_SESSION_2026-09-10_udp-transport.md pour le
+#   detail complet du diagnostic (initialement identifie sur cette branche,
+#   en toute fin de session precedente).
+#
+# v48 - 2026-09-08 - safe-modify - BASCULE FULL UDP (demande utilisateur
+#   explicite, meme motif que RecalBox_DMD.ino v161/marquee.sh v45).
+#   mosquitto_pub de send_score() COMMENTE (pas supprime), seul send_udp()
+#   reste actif.
+#
+# v47 - 2026-09-08 - safe-modify - Piste UDP (voir TRANSPORT_PLAN_UDP.md,
+#   marquee.sh v44 meme motif) : send_udp() (python3, best-effort) appelee
+#   EN PARALLELE de mosquitto_pub dans send_score() -- MQTT INCHANGE, rien
+#   coupe. PAS ENCORE DEPLOYE SUR RB1 au moment de ce commit.
 #
 # v46 - 2026-09-05 - safe-modify - Placeholder niveau 3 (v43) : nom rang 1
 #   corrige en "ShaN" (S/N majuscules) -- valeur exacte demandee par
@@ -715,6 +784,18 @@
 # commentaire complet la-bas). Ne pas le reintroduire ici.
 
 LOG="/recalbox/share/system/logs/dmd_score.log"
+# v47 -- piste UDP (voir TRANSPORT_PLAN_UDP.md, marquee.sh v44 meme motif) :
+# IP/port EN DUR pour l'instant, pas de decouverte dynamique.
+DMD_UDP_IP="192.168.0.51"
+DMD_UDP_PORT=5005
+send_udp() {
+    # v47 -- voir commentaire complet pres de send_udp() dans marquee.sh
+    # (meme fonction, dupliquee -- risque de perf identique : send_score()
+    # est appelee bien moins souvent que le survol de liste de marquee.sh,
+    # donc moins expose au meme risque, mais pas nul pour autant pendant
+    # une pagination hi-score rapide, voir send_paginated()).
+    python3 -c "import socket,sys; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(sys.argv[1].encode('utf-8','replace'), (sys.argv[2], int(sys.argv[3])))" "$1" "$DMD_UDP_IP" "$DMD_UDP_PORT" 2>/dev/null
+}
 SCRIPT_DIR=$(dirname "$0")
 # v36 -- BUG REEL MAJEUR confirme sur materiel (retour utilisateur,
 # 2026-09-01 : navigation turbo -> CPU sature 100% tous coeurs, 65C+,
@@ -801,6 +882,11 @@ DWELL_MIN_SECONDS=3
 BROWSE_STATE_FILE="/tmp/dmd_browse_state"
 # v4 -- session de partie en cours (voir round_robin()).
 GAME_SESSION_FILE="/tmp/dmd_game_session"
+# v49 -- PID de la derniere instance round_robin() lancee, UN fichier par
+# contexte (ingame/browse) -- permet de la tuer explicitement avant d'en
+# lancer une nouvelle, voir kill_previous_round_robin() et le changelog v49.
+ROUNDROBIN_PID_FILE_INGAME="/tmp/dmd_roundrobin_ingame.pid"
+ROUNDROBIN_PID_FILE_BROWSE="/tmp/dmd_roundrobin_browse.pid"
 
 read_state() {
     grep "^${1}=" "/tmp/es_state.inf" 2>/dev/null | cut -d= -f2- | tr -d '\r\n '
@@ -1157,6 +1243,25 @@ send_hiscore_paginated() {
 # Continue INDEFINIMENT tant que $state_file contient toujours $expected.
 # $1=ctx("ingame"/"browse") $2=sys $3=gpath $4=rom $5=state_file
 # $6=expected $7=ratio_key(feat_value)
+# v49 -- tue toute instance round_robin() precedente pour LE MEME contexte
+# (ingame ou browse) avant d'en lancer une nouvelle. $1 = fichier PID du
+# contexte (ROUNDROBIN_PID_FILE_INGAME/BROWSE). Necessaire car la seule
+# protection interne de round_robin() (comparaison de chaine d'etat) ne
+# detecte PAS le cas ou l'etat redevient IDENTIQUE (meme jeu revisite) --
+# voir le changelog v49 en tete de fichier pour le detail du bug corrige.
+# kill_previous_round_robin() est le seul ECRIVAIN de ces fichiers PID
+# (round_robin() lui-meme ne les touche jamais) -- appele uniquement
+# depuis le processus principal du script, pas de race d'ecriture entre
+# 2 lecteurs/ecrivains contrairement au verrou singleton_lock.sh (qui
+# protege un cas different : plusieurs LANCEMENTS du script).
+kill_previous_round_robin() {
+    pid_file="$1"
+    oldpid=$(cat "$pid_file" 2>/dev/null)
+    if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then
+        kill "$oldpid" 2>/dev/null
+    fi
+}
+
 round_robin() {
     ctx="$1"; sys="$2"; gpath="$3"; rom="$4"; state_file="$5"; expected="$6"; ratio_key="$7"
     idx=0
@@ -1334,7 +1439,10 @@ send_score() {
     # post-CONNACK. Payload prefixe "CMD=score ARG=" -- le reste (@duree|
     # contenu) est inchange, ARG prend tout jusqu'a la fin cote DMD donc
     # compatible avec les espaces/pipes deja presents dans ce payload.
-    mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=score ARG=@${fw_dur}|${payload}" 2>/dev/null
+    # v48 -- FULL UDP, mosquitto_pub commente (voir v48 en tete de fichier +
+    # marquee.sh v45, meme motif) -- retour arriere instantane si besoin.
+    # mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=score ARG=@${fw_dur}|${payload}" 2>/dev/null
+    send_udp "CMD=score ARG=@${fw_dur}|${payload}"
     echo "$(date '+%H:%M:%S') [$(precise_ts)] SEND marquee/cmd/score ref=${ref} = @${fw_dur}|${payload}" >> "$LOG"
 }
 
@@ -1717,11 +1825,34 @@ while IFS= read -r event; do
             # handlers -- invalide BROWSE_STATE_FILE, la boucle en vol le
             # detectera a sa prochaine verification et s'arretera d'elle-
             # meme.
+            #
+            # v51 -- renforcement (voir changelog complet pres du case
+            # "sleep|wakeup)") : GAME_SESSION_FILE + kill ingame ajoutes ici
+            # aussi, defense en profondeur -- remonter au niveau systeme ne
+            # devrait normalement jamais survenir avec un round-robin
+            # "ingame" encore en vol (il faudrait un endgame/stop manque),
+            # mais ne coute rien a garantir vu le cout nul de l'appel.
             : > "$BROWSE_STATE_FILE"
+            : > "$GAME_SESSION_FILE"
             LAST_BROWSE_SYS=""
             LAST_BROWSE_ROM=""
+            kill_previous_round_robin "$ROUNDROBIN_PID_FILE_INGAME"
             ;;
-        rungame)
+        rungame|rundemo)
+            # v50 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de
+            # reception UDP" (voir DECISIONS.md/memoire projet) : "rundemo"
+            # REJOINT desormais "rungame" (round-robin "ingame"/hiscore
+            # relance, meme code que pour une vraie partie), inverse du
+            # choix v40 (04/09) qui l'avait mis en no-op au profit de la
+            # stabilite MQTT. Demande explicite utilisateur : reactiver
+            # deliberement ce generateur de trafic/echange (jeux qui
+            # s'enchainent en veille demo -> CMD_GAME repete a cadence
+            # soutenue, voir marquee.sh v49) pour tester si le mur de
+            # plateforme observe sous MQTT (v31, deconnexions courtes
+            # rc=-4 correlees a un rendu CMD_GAME/MODE_GIF tenant le DMD
+            # occupe ~27s) se reproduit sous UDP -- jamais retente depuis
+            # la bascule transport. "startgameclip" (clips video, pas
+            # demande ici) reste dans son bloc no-op ci-dessous, inchange.
             # v10 -- BUG REEL corrige (retour utilisateur explicite : "info
             # page1 - description page2 - hiscore - info page2 - marquee",
             # melange incoherent de plusieurs types de contenu apres le
@@ -1743,6 +1874,15 @@ while IFS= read -r event; do
             : > "$BROWSE_STATE_FILE"
             LAST_BROWSE_SYS=""
             LAST_BROWSE_ROM=""
+            # v51 -- renforcement (voir changelog complet pres du case
+            # "sleep|wakeup)") : la seule ecriture de BROWSE_STATE_FILE
+            # compte sur round_robin("browse") pour se relire et s'arreter
+            # de lui-meme A SA PROCHAINE VERIFICATION -- deja montre
+            # insuffisant (cas wakeup) quand aucun evenement ulterieur ne
+            # relance le check. kill_previous_round_robin() explicite
+            # ajoute ici aussi, meme si ce chemin etait moins expose (un
+            # rungame/rundemo reel republie de toute facon en continu).
+            kill_previous_round_robin "$ROUNDROBIN_PID_FILE_BROWSE"
             system=$(read_state "SystemId")
             game_path=$(read_state "GamePath")
             echo "$(date '+%H:%M:%S') RUNGAME sys=$system path=$game_path" >> "$LOG"
@@ -1751,7 +1891,11 @@ while IFS= read -r event; do
                 rom=$(basename "$game_path" | sed 's/\.[^.]*$//')
                 session="${system}|${rom}"
                 printf '%s\n' "$session" > "$GAME_SESSION_FILE"
+                # v49 -- tue l'ancienne instance round_robin("ingame") AVANT
+                # d'en lancer une nouvelle, voir kill_previous_round_robin().
+                kill_previous_round_robin "$ROUNDROBIN_PID_FILE_INGAME"
                 round_robin "ingame" "$system" "$game_path" "$rom" "$GAME_SESSION_FILE" "$session" "repeat_cycles" &
+                echo $! > "$ROUNDROBIN_PID_FILE_INGAME"
             fi
             ;;
         endgame)
@@ -1773,18 +1917,54 @@ while IFS= read -r event; do
         stop)
             # v4 -- defensif : ES peut envoyer "stop" sans "endgame"
             # prealable -- efface quand meme la session.
+            # v51 -- renforcement symetrique (voir changelog complet pres
+            # du case "sleep|wakeup)") : BROWSE_STATE_FILE + kill ingame ET
+            # browse ajoutes ici aussi -- "stop" peut survenir depuis
+            # n'importe quel etat, ne pas supposer qu'un seul des 2 types
+            # de round-robin pourrait etre en vol.
             : > "$GAME_SESSION_FILE"
+            : > "$BROWSE_STATE_FILE"
+            kill_previous_round_robin "$ROUNDROBIN_PID_FILE_INGAME"
+            kill_previous_round_robin "$ROUNDROBIN_PID_FILE_BROWSE"
             ;;
-        sleep)
-            # v6 -- NOUVEAU cas explicite : la mise en veille doit arreter
-            # TOUT round-robin en vol, ingame ET navigation.
+        sleep|wakeup)
+            # v51 - 2026-09-12 - safe-modify - BUG REEL trouve en direct
+            # (retour utilisateur : "hiscore et playlist qui s'affichent en
+            # meme temps ce qui est impossible") : "wakeup" (sortie de
+            # veille demo -> retour navigation) n'avait AUCUN case dedie,
+            # tombait dans le "*)" par defaut qui ne fait que reinitialiser
+            # LAST_BROWSE_SYS/ROM -- ne touche JAMAIS GAME_SESSION_FILE.
+            # Le round-robin "ingame" du DERNIER jeu demo (rundemo)
+            # continuait donc de tourner INDEFINIMENT apres le reveil (2min
+            # 30+ observees en direct), car rien ne garantit qu'un
+            # "gamelistbrowsing" frais soit republie ensuite pour la MEME
+            # position deja affichee (Action reste a "wakeup" dans
+            # es_state.inf) -- le seul mecanisme qui aurait pu l'arreter
+            # (detection differee current!=expected dans round_robin(), sur
+            # la PROCHAINE verification) ne se declenche jamais faute de
+            # nouvel evenement. "wakeup" REJOINT donc "sleep" ici (memes
+            # besoins de nettoyage exactement) + kill_previous_round_robin()
+            # EXPLICITE ajoute sur les 2 contextes (ingame ET browse) --
+            # ne plus compter sur la seule detection differee (fichier vide)
+            # pour arreter un round-robin en vol, la tuer directement et
+            # immediatement, meme philosophie que le fix v49
+            # (kill-avant-lancer) applique ailleurs.
             : > "$GAME_SESSION_FILE"
             : > "$BROWSE_STATE_FILE"
             LAST_BROWSE_SYS=""
             LAST_BROWSE_ROM=""
-            echo "$(date '+%H:%M:%S') SLEEP (round-robin ingame/browse arretes)" >> "$LOG"
+            kill_previous_round_robin "$ROUNDROBIN_PID_FILE_INGAME"
+            kill_previous_round_robin "$ROUNDROBIN_PID_FILE_BROWSE"
+            echo "$(date '+%H:%M:%S') ${event} (round-robin ingame/browse arretes)" >> "$LOG"
             ;;
-        startgameclip|rundemo)
+        startgameclip)
+            # v50 -- "rundemo" RETIRE de ce case (voir son changelog complet
+            # pres du case "rungame|rundemo)" ci-dessus) -- rejoint desormais
+            # rungame (round-robin ingame/hiscore reactive, test deliberer
+            # du generateur de trafic pour la chasse au bug UDP). Seul
+            # "startgameclip" (clips video) reste ici en no-op, inchange --
+            # non concerne par la demande utilisateur de cette session.
+            #
             # v41 - 2026-09-02 - safe-modify - retour utilisateur explicite
             # (priorite stabilite > fonctionnalite cosmetique -- "la
             # fonction veille ciblee n'est que cosmetique et ne pese rien
@@ -1853,6 +2033,12 @@ while IFS= read -r event; do
             # ne doit pas continuer a publier en parallele du dwell/
             # round-robin browse qui va demarrer.
             : > "$GAME_SESSION_FILE"
+            # v51 -- renforcement (voir changelog complet pres du case
+            # "sleep|wakeup)") : meme motif que le kill ajoute dans
+            # rungame|rundemo) -- ne plus compter sur la seule detection
+            # differee (fichier vide) pour arreter un round-robin "ingame"
+            # en vol.
+            kill_previous_round_robin "$ROUNDROBIN_PID_FILE_INGAME"
             system=$(read_state "SystemId")
             game_path=$(read_state "GamePath")
             if [ -n "$system" ] && [ -n "$game_path" ] && [ ! -d "$game_path" ]; then
@@ -1885,6 +2071,11 @@ while IFS= read -r event; do
                     dwell=$(feat_value "dwell_seconds")
                     if [ "$dwell" -lt "$DWELL_MIN_SECONDS" ]; then dwell="$DWELL_MIN_SECONDS"; fi
                     echo "$(date '+%H:%M:%S') [$(precise_ts)] BROWSE sys=$system rom=$rom (dwell ${dwell}s)" >> "$LOG"
+                    # v49 -- tue l'ancienne instance round_robin("browse")
+                    # (ou son dwell encore en attente) AVANT de lancer le
+                    # nouveau pipeline dwell+round_robin, voir
+                    # kill_previous_round_robin().
+                    kill_previous_round_robin "$ROUNDROBIN_PID_FILE_BROWSE"
                     (
                         sleep "$dwell"
                         current=$(cat "$BROWSE_STATE_FILE" 2>/dev/null)
@@ -1906,6 +2097,13 @@ while IFS= read -r event; do
                             echo "$(date '+%H:%M:%S') [$(precise_ts)] DWELL abandoned sys=$system rom=$rom (deplace entre-temps)" >> "$LOG"
                         fi
                     ) &
+                    # v49 -- le PID de CE sous-shell reste celui de
+                    # round_robin("browse") une fois le dwell ecoule (meme
+                    # processus, round_robin est le dernier appel de ce
+                    # sous-shell, pas de fork supplementaire) -- valable
+                    # aussi pendant le dwell lui-meme (kill_previous_
+                    # round_robin() l'interrompt alors avant qu'il demarre).
+                    echo $! > "$ROUNDROBIN_PID_FILE_BROWSE"
                 fi
             else
                 LAST_BROWSE_SYS=""
