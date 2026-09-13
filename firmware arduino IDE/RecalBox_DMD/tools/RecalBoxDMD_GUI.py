@@ -2,7 +2,13 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v62
+# Version actuelle : v63
+#
+# v63 — 2026-09-13 — safe-modify — _net_use_connect()/_net_use_disconnect()
+#      (mode reseau SMB) ouvraient une fenetre console visible le temps de
+#      la commande "net use" -- meme cause/fix que RecalBoxDMD_tool.py v44
+#      (creationflags=CREATE_NO_WINDOW absent). Ajoute _NO_WINDOW (module-
+#      level) et applique aux deux appels.
 #
 # v62 — 2026-09-06 — safe-modify — Demande utilisateur : la langue par
 #      defaut de l'appli au tout premier lancement doit etre celle du
@@ -2489,14 +2495,17 @@ def _unc_root(unc_path: str) -> str:
     return "\\\\" + parts[2] + "\\" + parts[3]
 
 
+_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+
+
 def _net_use_connect(unc_root: str, username: str, password: str) -> None:
     cmd = ["net", "use", unc_root, f"/user:{username}", password, "/persistent:no"]
-    subprocess.check_call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.check_call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=_NO_WINDOW)
 
 
 def _net_use_disconnect(unc_root: str) -> None:
     cmd = ["net", "use", unc_root, "/delete", "/y"]
-    subprocess.call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=_NO_WINDOW)
 
 
 def _detect_system_language() -> str:

@@ -1,7 +1,22 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v43
+# Version actuelle : v44
+#
+# v44 - 2026-09-13 - safe-modify - Retour utilisateur : des fenetres
+#      console (DOS) s'ouvraient brievement pendant le Mode 1 (pip
+#      install Pillow/paramiko, detection de lecteurs amovibles via
+#      PowerShell/wmic, et surtout la copie SD via robocopy -- la plus
+#      visible car la plus longue). Cause : ces subprocess.Popen()/
+#      check_call()/check_output() n'avaient pas creationflags=
+#      CREATE_NO_WINDOW, donc Windows ouvre une console pour tout
+#      processus enfant lance sans console attachee explicitement.
+#      Fix : ajoute creationflags=(subprocess.CREATE_NO_WINDOW if
+#      sys.platform=="win32" else 0) a chaque appel concerne
+#      (ensure_dependencies(), _ensure_paramiko(), _list_removable_
+#      drives() PowerShell+wmic, _robocopy()). Meme correctif applique
+#      a _net_use_connect()/_net_use_disconnect() dans
+#      RecalBoxDMD_GUI.py (utilises par le mode reseau SMB).
 #
 # v43 - 2026-09-06 - safe-modify - Retour utilisateur (test reel Mode 9
 #      post-fusion v42) : ni dmd_helpers/ ni le nettoyage stale
@@ -1540,6 +1555,7 @@ def ensure_dependencies():
                 [sys.executable, "-m", "pip", "install", "Pillow"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                creationflags=(subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0),
             )
             print(tr("pillow_ok"))
             PIL_AVAILABLE = True
@@ -1570,6 +1586,7 @@ def _ensure_paramiko() -> bool:
                 [sys.executable, "-m", "pip", "install", "paramiko"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                creationflags=(subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0),
             )
             print(tr("paramiko_ok"))
             return True
@@ -5107,6 +5124,7 @@ def _query_logical_disks(drive_type: int = 2) -> list:
             text=True,
             stderr=subprocess.DEVNULL,
             timeout=15,
+            creationflags=(subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0),
         )
         rows = [row for row in csv.DictReader(io.StringIO(out)) if row.get("DeviceID")]
         if rows or out.strip():
@@ -5132,6 +5150,7 @@ def _query_logical_disks(drive_type: int = 2) -> list:
             text=True,
             stderr=subprocess.DEVNULL,
             timeout=15,
+            creationflags=(subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0),
         )
         rows = []
         for line in out.splitlines():
@@ -5523,6 +5542,7 @@ def _robocopy(src: Path, dst: str, overwrite: bool = True, progress_cb=None) -> 
         stderr=subprocess.STDOUT,
         encoding="utf-8",
         errors="replace",
+        creationflags=(subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0),
     )
 
     for line in proc.stdout:
