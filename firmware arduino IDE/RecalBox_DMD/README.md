@@ -1,4 +1,4 @@
-# RecalBoxDMD — Raw565 Edition <img alt="Firmware: Raw565 Ed. v13" src="https://img.shields.io/badge/firmware-Raw565%20Ed.%20v13-blueviolet.svg"> <img alt="PC Toolkit: v6243" src="https://img.shields.io/badge/PC%20Toolkit-v6243-blueviolet.svg">
+# RecalBoxDMD — RawEdition v2.0 <img alt="Firmware: RawEdition v2.0" src="https://img.shields.io/badge/firmware-RawEdition%20v2.0-blueviolet.svg"> <img alt="PC Toolkit: v6243" src="https://img.shields.io/badge/PC%20Toolkit-v6243-blueviolet.svg">
 
 **A real LED marquee for your Recalbox arcade cabinet — instant display, even with a 30,000-game MAME fullset.**
 
@@ -45,7 +45,7 @@
 
 It is a fork of [Jamyz's RetroBoxLED](https://github.com/Jamyz/RetroBoxLED), rebuilt around a custom **raw565** pixel format and a Windows **GUI toolkit** to solve one specific problem: on big collections (MAME fullset, FBNeo...) the original PNG/GIF-based firmware would freeze or show a black screen for seconds between games. This edition doesn't.
 
-|                          | Original PNG/GIF | **RecalBoxDMD Raw565 Edition** |
+|                          | Original PNG/GIF | **RecalBoxDMD RawEdition v2.0** |
 |--------------------------|-------------------|----------------------------------|
 | Display time per game    | 500 ms – 3 s+     | **5 – 15 ms**                    |
 | RAM needed on the ESP32  | 50–100 KB         | **8 KB**                         |
@@ -72,7 +72,7 @@ It is a fork of [Jamyz's RetroBoxLED](https://github.com/Jamyz/RetroBoxLED), reb
 10. [Firmware — compiling & flashing](#firmware--compiling--flashing)
 11. [Configuration (`config.ini`)](#configuration-configini)
 12. [Web configuration — live, in your browser](#web-configuration--live-in-your-browser)
-13. [MQTT & Telnet](#mqtt--telnet)
+13. [UDP & Telnet](#udp--telnet)
 14. [In-game overlays — Hi-Score, Game Info, Achievements & RB Challenge](#in-game-overlays--hi-score-game-info-achievements--rb-challenge)
 15. [The raw565 format in detail](#the-raw565-format-in-detail)
 16. [SD card layout](#sd-card-layout)
@@ -92,9 +92,9 @@ It is a fork of [Jamyz's RetroBoxLED](https://github.com/Jamyz/RetroBoxLED), reb
 - 🕹️ **10 built-in pixel-art clock themes** — Super Mario, Tetris, Pac-Man, Space Invaders, Pong, Neon, Matrix, Fire, Rainbow, and a scrolling Level 1‑1 — shown periodically between games (or full-time), theme selectable from the web UI with **live preview on the physical panel**.
 - 📦 **~600 free retro GIFs included** — an optional one-click download (Arcade, Consoles, Computers, Pinball, Halloween, Xmas, and more) for idle/attract-mode playlists.
 - 🖥️ **One-click Windows PC Toolkit** (GUI, FR/EN/ES) — from raw ROMs + `gamelist.xml` to a ready-to-use SD card: scraping-aware extraction, conversion, caching, and resumable SD-card copy, all in a single "Start" click.
-- 🌐 **Live web configuration page** served by the ESP32 — WiFi, MQTT, brightness, playlist, clock themes (with instant on-panel preview) — no recompiling needed to tweak settings.
+- 🌐 **Live web configuration page** served by the ESP32 — WiFi, UDP transport, brightness, playlist, clock themes (with instant on-panel preview) — no recompiling needed to tweak settings.
 - ⚡ **Flash the firmware from your browser** — a [one-click Web Installer](https://shan-aya.github.io/RecalBoxDMD/) (Chrome/Edge) flashes the ESP32 over USB, no Arduino IDE required.
-- 📡 **MQTT integration** with Recalbox for real-time game/system/event display, plus a **Telnet** console for on-device debugging.
+- 📡 **Real-time UDP link** with Recalbox for instant game/system/event display, plus a **Telnet** console for on-device debugging.
 - 🏆 **In-game overlays — Hi-Score, Game Info, RetroAchievements & RB Challenge** — while you're actually playing, the panel automatically alternates the marquee with the real MAME/FBNeo top scores (community manifest, ~2,758 games), the game's description/genre/year, unlocked RetroAchievements, and Recalbox's own monthly community Challenge leaderboard. Zero configuration: install the scripts once (Mode 9) and it just works — see [details below](#in-game-overlays--hi-score-game-info-achievements--rb-challenge).
 - 🎬 **Playlist tab — build your own attract-mode rotations** — pick any mix of the bundled 600-GIF pack and your own GIFs (drag a PC folder in), name it, and it's ready to select as the active playlist; works straight off an inserted SD card or, mid-`Mode 1`, off the working folder before it's even copied.
 - 🌍 **Fully trilingual** — both the firmware's web UI and the PC toolkit are available in **French, English and Spanish**.
@@ -109,7 +109,7 @@ It is a fork of [Jamyz's RetroBoxLED](https://github.com/Jamyz/RetroBoxLED), reb
 ┌─────────────────────────────────────────────────────────────┐
 │                          RECALBOX                            │
 │   Launches a game → marquee[...].sh sends "mame/kof98"       │
-│                         via MQTT                              │
+│                           via UDP                           │
 └──────────────────────────────┬────────────────────────────────┘
                                 │
                                 ▼
@@ -387,7 +387,7 @@ Using **Chrome or Edge**, plug the ESP32 in via USB, click **Install**, pick the
 | [pngle](https://github.com/kikuchan/pngle) | PNG decoding (fallback path, bundled in the sketch) |
 | [WiFiManager](https://github.com/tzapu/WiFiManager) | WiFi configuration |
 | [Adafruit GFX Library](https://github.com/adafruit/Adafruit-GFX-Library) | Text/shape rendering |
-| [PubSubClient](https://github.com/knolleary/pubsubclient) | MQTT |
+| [PubSubClient](https://github.com/knolleary/pubsubclient) | MQTT (kept dormant since v2.0 -- UDP is the default transport) |
 | [ArduinoJson](https://github.com/bblanchon/ArduinoJson) | Config & web page (de)serialization |
 
 3. Tools → Board: **ESP32 Dev Module**, Flash size **4 MB**, Partition Scheme **Huge APP**.
@@ -438,7 +438,7 @@ wifi_static_ip=192.168.1.240
 wifi_gateway=192.168.1.1
 wifi_subnet=255.255.255.0
 
-# MQTT
+# Recalbox link (UDP)
 recalbox_ip=192.168.1.104     # fixed IP of your Recalbox
 
 # Clock (retro clock themes)
@@ -460,7 +460,7 @@ Type the ESP32's IP (shown at boot, or on the panel itself) into any phone/PC br
 
 <p align="center"><img src="medias/screenshots/webconfig_display_playlists.png" alt="Web config — Display & Playlists page" width="420"></p>
 
-**📶 Wi-Fi & Bluetooth** — network scan and selection, password, static IP (gateway/subnet/DNS), Bluetooth toggle (handy if it conflicts with a controller like the 8BitDo Pro 3), and the Recalbox IP used for the MQTT connection.
+**📶 Wi-Fi & Bluetooth** — network scan and selection, password, static IP (gateway/subnet/DNS), Bluetooth toggle (handy if it conflicts with a controller like the 8BitDo Pro 3), and the Recalbox IP used for the UDP link.
 
 <p align="center"><img src="medias/screenshots/webconfig_wifi_bluetooth.png" alt="Web config — Wi-Fi & Bluetooth page" width="420"></p>
 
@@ -474,10 +474,10 @@ Type the ESP32's IP (shown at boot, or on the panel itself) into any phone/PC br
 
 ---
 
-## MQTT & Telnet
+## UDP & Telnet
 
 ```
-Recalbox → marquee[rungame,endgame,...].sh → MQTT → ESP32 → LED panel
+Recalbox → marquee[rungame,endgame,...].sh → UDP → ESP32 → LED panel
 
 1. You launch "King of Fighters '98"
 2. The bash userscript detects the event → publishes "mame/kof98"
@@ -502,7 +502,7 @@ Install the userscript with **Mode 9** of the toolkit, or copy `marquee[...].sh`
 | **Reboot DMD** | Reboots the DMD remotely. |
 | **Luminosité DMD +10% / -10%** | Adjusts screen brightness by 10 percentage points (clamped 0-100%), applied instantly and saved to `config.ini`. |
 
-All of these go through the same MQTT channel as the marquee bridge, without ever interrupting what's currently on screen.
+All of these go through the same UDP channel as the marquee bridge, without ever interrupting what's currently on screen.
 
 A **Telnet** console is built in for on-device debugging:
 ```
@@ -598,7 +598,7 @@ docs/                          ← GitHub Pages: browser-based Web Installer (sh
 ## Credits & License
 
 - **Original RetroBoxLED project**: [Jamyz](https://github.com/Jamyz/RetroBoxLED) — the ESP32 firmware base and idea
-- **Raw565 Edition**: **Shan_ayA** — raw565 format, bigram cache, mask system, PC toolkit, clock themes, Recalbox-version handling, web live-preview
+- **RawEdition**: **Shan_ayA** — raw565 format, bigram cache, mask system, PC toolkit, clock themes, Recalbox-version handling, web live-preview
 - **Inspiration**: [RetroPixelLED](https://github.com/fjgordillo86/RetroPixelLED) by fjgordillo86
 - **600-GIF pack**: **eLLuiGi** / [RpiTeaM](https://rpiteam.carrd.co/) — free sample of their curated retro GIF collection
 - **Hi-Score manifest**: converted from the community **hi2txt-xml** format built around MAME's own `hiscore.dat` project — ~2,758 games covered
@@ -613,4 +613,4 @@ Licensed under the [MIT License](LICENSE).
 
 ☕ If this project helps you: [donate via PayPal](https://www.paypal.com/paypalme/felysaya)
 
-<p align="center"><i>RecalBoxDMD Raw565 Edition — Recalbox + a real LED marquee, instant even with 30,000 MAME games.</i> 🎮⚡</p>
+<p align="center"><i>RecalBoxDMD RawEdition v2.0 — Recalbox + a real LED marquee, instant even with 30,000 MAME games.</i> 🎮⚡</p>

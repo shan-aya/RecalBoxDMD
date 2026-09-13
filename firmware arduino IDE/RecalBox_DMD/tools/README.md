@@ -1,4 +1,4 @@
-# RecalBoxDMD — Raw565 Edition <img alt="Firmware: Raw565 Ed. v13" src="https://img.shields.io/badge/firmware-Raw565%20Ed.%20v13-blueviolet.svg"> <img alt="PC Toolkit: v6243" src="https://img.shields.io/badge/PC%20Toolkit-v6243-blueviolet.svg">
+# RecalBoxDMD — RawEdition v2.0 <img alt="Firmware: RawEdition v2.0" src="https://img.shields.io/badge/firmware-RawEdition%20v2.0-blueviolet.svg"> <img alt="PC Toolkit: v6243" src="https://img.shields.io/badge/PC%20Toolkit-v6243-blueviolet.svg">
 
 **A real LED marquee for your Recalbox arcade cabinet — instant display, even with a 30,000-game MAME fullset.**
 
@@ -45,7 +45,7 @@
 
 It is a fork of [Jamyz's RetroBoxLED](https://github.com/Jamyz/RetroBoxLED), rebuilt around a custom **raw565** pixel format and a Windows **GUI toolkit** to solve one specific problem: on big collections (MAME fullset, FBNeo...) the original PNG/GIF-based firmware would freeze or show a black screen for seconds between games. This edition doesn't.
 
-|                          | Original PNG/GIF | **RecalBoxDMD Raw565 Edition** |
+|                          | Original PNG/GIF | **RecalBoxDMD RawEdition v2.0** |
 |--------------------------|-------------------|----------------------------------|
 | Display time per game    | 500 ms – 3 s+     | **5 – 15 ms**                    |
 | RAM needed on the ESP32  | 50–100 KB         | **8 KB**                         |
@@ -598,7 +598,7 @@ docs/                          ← GitHub Pages: browser-based Web Installer (sh
 ## Credits & License
 
 - **Original RetroBoxLED project**: [Jamyz](https://github.com/Jamyz/RetroBoxLED) — the ESP32 firmware base and idea
-- **Raw565 Edition**: **Shan_ayA** — raw565 format, bigram cache, mask system, PC toolkit, clock themes, Recalbox-version handling, web live-preview
+- **RawEdition**: **Shan_ayA** — raw565 format, bigram cache, mask system, PC toolkit, clock themes, Recalbox-version handling, web live-preview
 - **Inspiration**: [RetroPixelLED](https://github.com/fjgordillo86/RetroPixelLED) by fjgordillo86
 - **600-GIF pack**: **eLLuiGi** / [RpiTeaM](https://rpiteam.carrd.co/) — free sample of their curated retro GIF collection
 - **Hi-Score manifest**: converted from the community **hi2txt-xml** format built around MAME's own `hiscore.dat` project — ~2,758 games covered
@@ -613,4 +613,4 @@ Licensed under the [MIT License](LICENSE).
 
 ☕ If this project helps you: [donate via PayPal](https://www.paypal.com/paypalme/felysaya)
 
-<p align="center"><i>RecalBoxDMD Raw565 Edition — Recalbox + a real LED marquee, instant even with 30,000 MAME games.</i> 🎮⚡</p>
+<p align="center"><i>RecalBoxDMD RawEdition v2.0 — Recalbox + a real LED marquee, instant even with 30,000 MAME games.</i> 🎮⚡</p>

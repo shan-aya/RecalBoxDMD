@@ -1,7 +1,17 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v203
+// Version actuelle : v204
+//
+// v204 - 2026-09-13 - safe-modify - RENOMMAGE de marque suite a la fusion
+//   dev/dmd-udp-transport -> master (bascule transport MQTT -> UDP) :
+//   RETRO_VERSION passe de "Raw565 Ed. v13UDP" a "RawEdition v2.0" (splash
+//   boot, centrage recalcule : 15 x 6 = 90px -> x=19). "Raw565" reste par
+//   ailleurs le nom technique du format pixel interne (drawRaw565(),
+//   gifToRaw565PackPath(), etc.) -- inchange, seul le nom de PRODUIT/marque
+//   est renomme. Version numerotee "v2.0" pour marquer publiquement le
+//   changement de transport (le compteur safe-modify interne, lui, continue
+//   sa propre numerotation en continu depuis v1).
 //
 // v203 - 2026-09-12 - safe-modify - BUG REEL corrige (retour utilisateur en
 //   direct : "reprendre DMD -> playlist au lieu de l'etat actuel de RB1").
@@ -10275,7 +10285,7 @@ int buildOffsetIndex()
 // --------------------------------------------------
 // Splash screen â€” version au dÃ©marrage (info=1 uniquement)
 // --------------------------------------------------
-#define RETRO_VERSION "Raw565 Ed. v13UDP"
+#define RETRO_VERSION "RawEdition v2.0"
 
 void showSplashScreen()
 {
@@ -10299,8 +10309,8 @@ void showSplashScreen()
   display->setTextColor(blue);  display->print("Box");
   display->setTextColor(green); display->print("DMD");
 
-  // Ligne 2 : version centrée ("Raw565 Ed. dev_pl" = 17 x 6 = 102px -> x = (128-102)/2 = 13)
-  display->setCursor(13, 21);
+  // Ligne 2 : version centrée ("RawEdition v2.0" = 15 x 6 = 90px -> x = (128-90)/2 = 19)
+  display->setCursor(19, 21);
   display->setTextColor(white);
   display->print(RETRO_VERSION);
 

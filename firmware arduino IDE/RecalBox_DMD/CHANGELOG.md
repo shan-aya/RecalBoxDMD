@@ -1,12 +1,25 @@
 # Changelog
 
-History of **RecalBoxDMD — Raw565 Edition**, covering both the **ESP32 firmware** (including its web configuration page) and the **PC Toolkit**, from the very first commit to today. Entries are grouped by date; each bullet is tagged with the part of the project it changes.
+History of **RecalBoxDMD — RawEdition v2.0**, covering both the **ESP32 firmware** (including its web configuration page) and the **PC Toolkit**, from the very first commit to today. Entries are grouped by date; each bullet is tagged with the part of the project it changes.
 
 🇬🇧 **English** · [🇫🇷 Français](CHANGELOG.fr.md) · [🇪🇸 Español](CHANGELOG.es.md)
 
-This is a curated summary of the project's internal version history (157+ firmware revisions, 64+ web-config revisions, 43+ toolkit revisions, 62+ GUI revisions) — grouped into the milestones that actually matter if you use the project, not a raw dump of every micro-fix.
+This is a curated summary of the project's internal version history (185+ firmware revisions, 64+ web-config revisions, 43+ toolkit revisions, 62+ GUI revisions) — grouped into the milestones that actually matter if you use the project, not a raw dump of every micro-fix.
 
 ---
+
+## 2026-09-13 — MQTT → UDP transport: `dev/dmd-udp-transport` merged to master
+
+- **Firmware**: real-time link between Recalbox and the DMD switched from **MQTT to UDP** — the previous transport hit a platform-level wall inside the ESP32's TCP/IP stack (a fixed ~5.7 KB `TCP_SND_BUF`, baked into the precompiled Arduino core, no application-level fix possible) that could stall an MQTT `SUBSCRIBE` for several seconds after a reconnect; UDP has no such handshake to stall on. MQTT support is kept in the firmware, disabled by default, as a rollback path — see [UPGRADING.md](UPGRADING.md).
+- **Firmware**: months-long hunt for a historically-reported severe UDP reception freeze (12–90s+) — never reproduced after an intensive instrumentation campaign (active gap-probing, max-per-call timing, sustained real traffic), even though roughly ten real, unrelated bugs surfaced and got fixed along the way (below). Current conclusion: the original freeze reports were most likely a benign side effect of a too-aggressive detection threshold colliding with ordinary UDP packet loss, not an actual reception stall — documented in detail in `DECISIONS.md`.
+- **Firmware**: fixed a false "Recalbox offline" alert firing on a single dropped UDP packet (normal, expected for UDP) — now requires two consecutive missed pings before warning.
+- **Firmware**: fixed the resync-after-reconnect logic getting stuck in the cached-fallback display mode (`MODE_PNG`) instead of catching up to Recalbox's real state.
+- **Firmware**: fixed "Resume DMD" (web config page) always forcing the idle playlist regardless of what Recalbox was actually doing (in-game, demo, gameclip...) — a dead MQTT-era check made the correct branch unreachable since the UDP switch; now resyncs the real state the same way a reconnect does.
+- **Firmware**: reduced SD-card `open()` calls per game change (up to 6 before, as few as 1 now) by remembering which of the two SD folder-naming conventions the card uses instead of probing both every time — also reduces exposure to a rare ESP32 heap-allocation crash inside the SD filesystem driver; a retry-once mitigation was added for the catchable variant of that same crash.
+- **Recalbox scripts**: fixed a zombie hi-score round-robin process that could survive a screensaver wake-up and keep drawing an old score panel over the marquee indefinitely.
+- **Recalbox scripts**: fixed `gameclip`/demo mode showing the generic playlist instead of the clip's own game marquee (a leftover from an old MQTT-era workaround that had over-disabled it).
+- **Docs**: the previous master is archived as `archive/mqtt-pre-udp-transport-final` — last state of the project before this transport switch, kept for rollback.
+- **Branding**: the project's firmware edition is renamed **Raw565 Edition → RawEdition v2.0** (the `raw565` pixel format itself, and everything built on it, is unchanged — only the product name/version badge changes).
 
 ## 2026-09-06 — `dev/core-reassignment` merged to master: in-game overlays, RB Challenge, Playlist tab
 

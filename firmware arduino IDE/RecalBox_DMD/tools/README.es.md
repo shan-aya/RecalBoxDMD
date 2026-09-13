@@ -1,4 +1,4 @@
-# RecalBoxDMD — Raw565 Edition <img alt="Firmware: Raw565 Ed. v13" src="https://img.shields.io/badge/firmware-Raw565%20Ed.%20v13-blueviolet.svg"> <img alt="Herramienta PC: v6243" src="https://img.shields.io/badge/herramienta%20PC-v6243-blueviolet.svg">
+# RecalBoxDMD — RawEdition v2.0 <img alt="Firmware: RawEdition v2.0" src="https://img.shields.io/badge/firmware-RawEdition%20v2.0-blueviolet.svg"> <img alt="Herramienta PC: v6243" src="https://img.shields.io/badge/herramienta%20PC-v6243-blueviolet.svg">
 
 **Un verdadero marquee LED para tu mueble arcade Recalbox — visualización instantánea, incluso con un fullset MAME de 30 000 juegos.**
 
@@ -45,7 +45,7 @@
 
 Es un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), reconstruido alrededor de un formato de píxeles propio, **raw565**, y una **caja de herramientas de PC (GUI de Windows)** para resolver un problema concreto: en colecciones grandes (fullset MAME, FBNeo...), el firmware original en PNG/GIF terminaba congelándose o mostrando pantalla negra varios segundos entre cada juego. Esta edición, no.
 
-|                          | PNG/GIF original | **RecalBoxDMD Raw565 Edition** |
+|                          | PNG/GIF original | **RecalBoxDMD RawEdition v2.0** |
 |--------------------------|--------------------|----------------------------------|
 | Tiempo de visualización por juego | 500 ms – 3 s+     | **5 – 15 ms**                    |
 | RAM necesaria en el ESP32 | 50-100 KB         | **8 KB**                         |
@@ -599,7 +599,7 @@ docs/                          ← GitHub Pages: instalador web (shan-aya.github
 ## Créditos y licencia
 
 - **Proyecto original RetroBoxLED**: [Jamyz](https://github.com/Jamyz/RetroBoxLED) — la base del firmware ESP32 y la idea original
-- **Raw565 Edition**: **Shan_ayA** — formato raw565, caché de bigramas, sistema de máscara, caja de herramientas de PC, temas de reloj, gestión de versiones de Recalbox, vista previa web en vivo
+- **RawEdition**: **Shan_ayA** — formato raw565, caché de bigramas, sistema de máscara, caja de herramientas de PC, temas de reloj, gestión de versiones de Recalbox, vista previa web en vivo
 - **Inspiración**: [RetroPixelLED](https://github.com/fjgordillo86/RetroPixelLED) de fjgordillo86
 - **Pack de 600 GIFs**: **eLLuiGi** / [RpiTeaM](https://rpiteam.carrd.co/) — muestra gratuita de su colección de GIFs retro
 - **Manifiesto Hi-Score**: convertido desde el formato comunitario **hi2txt-xml**, construido en torno al proyecto `hiscore.dat` de MAME — ~2758 juegos cubiertos
@@ -614,4 +614,4 @@ Bajo licencia [MIT](LICENSE).
 
 ☕ Si este proyecto te resulta útil: [dona vía PayPal](https://www.paypal.com/paypalme/felysaya)
 
-<p align="center"><i>RecalBoxDMD Raw565 Edition — Recalbox + un verdadero marquee LED, instantáneo incluso con 30 000 juegos de MAME.</i> 🎮⚡</p>
+<p align="center"><i>RecalBoxDMD RawEdition v2.0 — Recalbox + un verdadero marquee LED, instantáneo incluso con 30 000 juegos de MAME.</i> 🎮⚡</p>

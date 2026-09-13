@@ -1,12 +1,25 @@
 # Changelog
 
-Historique de **RecalBoxDMD — Raw565 Edition**, couvrant à la fois le **firmware ESP32** (y compris sa page de configuration web) et la **boîte à outils PC**, depuis le tout premier commit jusqu'à aujourd'hui. Les entrées sont groupées par date ; chaque puce est étiquetée avec la partie du projet qu'elle concerne.
+Historique de **RecalBoxDMD — RawEdition v2.0**, couvrant à la fois le **firmware ESP32** (y compris sa page de configuration web) et la **boîte à outils PC**, depuis le tout premier commit jusqu'à aujourd'hui. Les entrées sont groupées par date ; chaque puce est étiquetée avec la partie du projet qu'elle concerne.
 
 [🇬🇧 English](CHANGELOG.md) · 🇫🇷 **Français** · [🇪🇸 Español](CHANGELOG.es.md)
 
-Ceci est un résumé sélectionné de l'historique interne des versions du projet (157+ révisions firmware, 64+ révisions config web, 43+ révisions boîte à outils, 62+ révisions GUI) — regroupé par jalons réellement pertinents pour un utilisateur, pas un déversement brut de chaque micro-correctif.
+Ceci est un résumé sélectionné de l'historique interne des versions du projet (185+ révisions firmware, 64+ révisions config web, 43+ révisions boîte à outils, 62+ révisions GUI) — regroupé par jalons réellement pertinents pour un utilisateur, pas un déversement brut de chaque micro-correctif.
 
 ---
+
+## 2026-09-13 — MQTT → UDP : fusion de `dev/dmd-udp-transport` sur master
+
+- **Firmware** : la liaison temps réel entre Recalbox et le DMD passe de **MQTT à UDP** — l'ancien transport se heurtait à un mur au niveau de la plateforme, dans la pile TCP/IP de l'ESP32 (un `TCP_SND_BUF` fixe d'environ 5,7 Ko, figé dans le core Arduino précompilé, sans levier applicatif possible) qui pouvait bloquer un `SUBSCRIBE` MQTT plusieurs secondes après une reconnexion ; l'UDP n'a pas cette poignée de main à bloquer. Le support MQTT reste présent dans le firmware, désactivé par défaut, comme filet de repli — voir [UPGRADING.md](UPGRADING.md).
+- **Firmware** : chasse de plusieurs mois à un gel de réception UDP sévère historiquement signalé (12 à 90s+) — jamais reproduit après une campagne d'instrumentation intensive (sonde active de gel, mesure du pire cas par appel, trafic réel soutenu), bien qu'une dizaine de bugs réels sans rapport aient été trouvés et corrigés au passage (ci-dessous). Conclusion actuelle : les signalements initiaux étaient très probablement un effet de bord bénin d'un seuil de détection trop agressif face à une perte de paquet UDP ordinaire, pas un véritable gel de réception — détaillé dans `DECISIONS.md`.
+- **Firmware** : corrige une fausse alerte "Recalbox hors ligne" déclenchée par la perte d'un seul paquet UDP (normal, attendu en UDP) — exige désormais deux pertes consécutives avant d'alerter.
+- **Firmware** : corrige la resynchronisation après reconnexion qui pouvait rester bloquée sur le mode d'affichage de repli en cache (`MODE_PNG`) au lieu de rattraper l'état réel de Recalbox.
+- **Firmware** : corrige "Reprendre DMD" (page de config web) qui forçait systématiquement la playlist d'attente quoi que fasse Recalbox (en jeu, démo, gameclip...) — une vérification obsolète datant de l'ère MQTT rendait la bonne branche inatteignable depuis la bascule UDP ; resynchronise désormais l'état réel, comme le fait une reconnexion.
+- **Firmware** : réduit le nombre d'ouvertures SD par changement de jeu (jusqu'à 6 auparavant, 1 seule désormais dans le meilleur des cas) en mémorisant laquelle des deux conventions de nommage de dossiers la carte SD utilise, au lieu de tester les deux à chaque fois — réduit aussi l'exposition à un rare crash d'allocation mémoire dans le pilote de système de fichiers SD ; une nouvelle tentative automatique a été ajoutée pour la variante rattrapable de ce même crash.
+- **Scripts Recalbox** : corrige un processus zombie du round-robin hi-score qui pouvait survivre à un réveil de l'écran de veille et continuer à afficher un vieux score par-dessus le marquee indéfiniment.
+- **Scripts Recalbox** : corrige le mode `gameclip`/démo qui affichait la playlist générique au lieu du marquee du jeu du clip (reliquat d'un contournement de l'ère MQTT qui l'avait trop largement désactivé).
+- **Docs** : l'ancien master est archivé sous `archive/mqtt-pre-udp-transport-final` — dernier état du projet avant cette bascule de transport, conservé pour pouvoir revenir en arrière.
+- **Image de marque** : l'édition firmware du projet est renommée **Raw565 Edition → RawEdition v2.0** (le format pixel `raw565` lui-même, et tout ce qui repose dessus, ne change pas — seuls le nom produit/le badge de version changent).
 
 ## 2026-09-06 — Fusion de `dev/core-reassignment` sur master : écrans superposés en jeu, Challenge RB, onglet Playlist
 

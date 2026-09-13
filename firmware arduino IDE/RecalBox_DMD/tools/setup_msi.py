@@ -32,7 +32,7 @@ bdist_msi_options = {
     "initial_target_dir": r"[ProgramFilesFolder]\RecalBoxDMD Toolkit",
     "summary_data": {
         "author": "Shan_ayA",
-        "comments": "RecalBoxDMD Toolkit - Raw565 Edition PC Toolkit",
+        "comments": "RecalBoxDMD Toolkit - RawEdition PC Toolkit",
     },
 }
 
@@ -57,7 +57,7 @@ executables = [
 setup(
     name="RecalBoxDMD Toolkit",
     version="1.0.0",
-    description="RecalBoxDMD Toolkit - Raw565 Edition PC Toolkit",
+    description="RecalBoxDMD Toolkit - RawEdition PC Toolkit",
     options={"build_exe": build_exe_options, "bdist_msi": bdist_msi_options},
     executables=executables,
 )
