@@ -24,6 +24,24 @@
 #   Fix : `rm -rf` au lieu de `rmdir` -- supprime le dossier ET son
 #   contenu en un seul appel, quel que soit son etat.
 #
+# v3 - 2026-09-12 - safe-modify - BUG REEL trouve en direct sur RB1 (chasse
+#   au bug UDP) : marquee.sh ET dmd_score.sh retrouves morts (aucun process
+#   actif), DMD fige sur le dernier marquee affiche depuis plusieurs
+#   minutes -- toute tentative de relance (manuelle SSH, et donc aussi une
+#   relance normale par ES) echouait silencieusement via ce fichier. Cause :
+#   `kill -0 "$oldpid"` reussit aussi pour un ZOMBIE (process termine mais
+#   jamais "reap" par son parent, `ps` le montre `<defunct>`, confirme sur
+#   les 2 PID bloques ici) -- le verrou le traite comme "toujours vivant" et
+#   bloque indefiniment tout nouveau demarrage, alors que le processus ne
+#   fait plus RIEN depuis son exit. Meme famille que le DEADLOCK PERMANENT
+#   deja documente en v2 (`rmdir` sur dossier non vide) mais un chemin
+#   different : ici mkdir echoue, kill -0 "reussit" a tort, on ne descend
+#   JAMAIS jusqu'au rm -rf/retry qui aurait resolu le cas. Fix : verifie
+#   AUSSI l'etat du process via /proc/$oldpid/stat (champ etat juste apres
+#   le dernier ')' du "comm" -- gere les noms de commande contenant des
+#   espaces/parentheses) -- un etat "Z" (zombie) n'est plus traite comme un
+#   process actif, meme si kill -0 reussit encore techniquement.
+#
 # A SOURCER (jamais executer directement), tout en haut du script appelant,
 # AVANT tout le reste -- $1 = nom du verrou (ex. "marquee" -> LOCKDIR
 # derive en /tmp/marquee_singleton.lock, compatible a l'identique avec les
@@ -47,7 +65,10 @@
 LOCKDIR="/tmp/${1}_singleton.lock"
 if ! mkdir "$LOCKDIR" 2>/dev/null; then
     oldpid=$(cat "$LOCKDIR/pid" 2>/dev/null)
-    if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then
+    # v3 -- voir changelog complet ci-dessus : un zombie (etat "Z") repond
+    # toujours OK a kill -0 mais ne fait plus rien -- ne doit plus bloquer.
+    oldstate=$(sed 's/.*) //' "/proc/$oldpid/stat" 2>/dev/null | cut -d' ' -f1)
+    if [ -n "$oldpid" ] && [ "$oldstate" != "Z" ] && kill -0 "$oldpid" 2>/dev/null; then
         exit 0
     fi
     rm -rf "$LOCKDIR" 2>/dev/null

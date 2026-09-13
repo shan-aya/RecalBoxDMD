@@ -1,0 +1,6 @@
+# Sorties de compilation Arduino (regenerees a chaque build, ne pas versionner)
+firmware arduino IDE/RecalBox_DMD/compiled/
+firmware arduino IDE/RecalBox_DMD/tools/diagnostic/udp_freeze_isolation/compiled/
+
+# Genere automatiquement par compile.ps1 depuis les WEB_CONFIG_*.html sources
+firmware arduino IDE/RecalBox_DMD/web_config_html_gz.h

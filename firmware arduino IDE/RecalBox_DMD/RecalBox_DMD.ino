@@ -1,7 +1,892 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v157
+// Version actuelle : v203
+//
+// v203 - 2026-09-12 - safe-modify - BUG REEL corrige (retour utilisateur en
+//   direct : "reprendre DMD -> playlist au lieu de l'etat actuel de RB1").
+//   webDmdResume() ("Reprendre DMD" cote page web) verifiait
+//   mqttClient.connected() -- reliquat MQTT (v50, 03/08) jamais adapte au
+//   passage UDP : ce client n'est JAMAIS connecte en UDP (MQTT_ENABLED=
+//   false), la condition etait donc impossible a satisfaire depuis la
+//   bascule transport -- resumePlaylist() etait systematiquement appele en
+//   aveugle, ignorant l'etat reel de RB1. Fix : meme mecanisme que la
+//   (re)connexion WiFi -- sendUdpHello() demande un resync complet a RB1
+//   (jeu/demo/gameclip/navigation, dmd_udp_resync.py deja a jour pour tous
+//   ces cas) au lieu de forcer la playlist. Voir le commentaire complet au
+//   point d'usage (webDmdResume()).
+//
+// v202 - 2026-09-12 - safe-modify - REDUCTION du nombre d'appels SD.open()
+//   par changement de jeu (retour utilisateur, option 3 de la prevention du
+//   crash SD.open()/make_shared<VFSFileImpl> -- voir le commentaire complet
+//   pres de g_sdSubdirPreference/openWithSubdirPreference()). openGifImpl()
+//   tentait TOUJOURS sous-dossier alphabetique PUIS repli plat, dans cet
+//   ordre fixe, pour CHACUN des 3 fichiers (probe .gif, .raw565pack, .meta)
+//   -- jusqu'a 6 SD.open() par changement de jeu dans le pire cas. La
+//   convention sous-dossier/plat est une caracteristique de LA CARTE SD
+//   ENTIERE (alphaSubdirPath() ne depend que du nom de fichier, pas du
+//   systeme) -- une fois determinee, elle reste valable pour tous les
+//   fichiers suivants. Nouvelle fonction openWithSubdirPreference()
+//   factorise les 3 sites d'appel identiques, memorise le dernier choix
+//   gagnant (g_sdSubdirPreference) et le tente en premier -- reduit le
+//   nombre moyen d'appels SD.open() par changement de jeu de ~6 a ~3 dans
+//   le cas normal. N'AURAIT PAS empeche le crash reel observe sur
+//   mame/zeropnt2 cette session (celui-ci a frappe sur l'ouverture
+//   NECESSAIRE, pas une tentative de repli redondante) -- reduit
+//   l'exposition globale sur la duree, pas une prevention ciblee.
+//
+// v201 - 2026-09-12 - safe-modify - PREVENTION partielle du crash SD.open()/
+//   make_shared<VFSFileImpl> (retour utilisateur : "un moyen de prevenir ou
+//   de rattraper ce type de crash ?", suite au crash reel sur mame/zeropnt2,
+//   maxalloc=9204 sain juste avant -- suggere une COLLISION TRANSITOIRE avec
+//   une allocation concurrente WiFi/lwIP plutot qu'un etat durable de heap
+//   bas). openGif() retente desormais UNE FOIS (delay(3) entre les 2) si
+//   openGifImpl() leve une exception catchable (std::bad_alloc) -- bonnes
+//   chances d'esquiver la meme collision, l'allocation concurrente ayant eu
+//   le temps de se liberer. Piste "garde base sur un ratio de fragmentation"
+//   ETUDIEE PUIS ECARTEE : un pre-check calcule quelques ms avant ne peut
+//   pas predire une collision qui n'a pas encore eu lieu (maxalloc etait
+//   deja sain juste avant le crash reel observe) -- ajouter ce garde
+//   aurait ete un faux sentiment de securite, pas une vraie prevention.
+//   SANS EFFET sur la variante non catchable (lock_init_generic() ->
+//   abort() direct, jamais un retour normal a ce code) -- reste geree
+//   uniquement par le reboot + la reprise deja en place (v199).
+//   preloadBigramImpl() volontairement PAS modifiee (aucun crash observe
+//   la ce soir, dispose deja d'un repli fonctionnel "SD directe").
+//
+// v200 - 2026-09-12 - safe-modify - SIMPLIFICATION suite a la chasse au bug
+//   "gel de reception UDP" de cette session (retour utilisateur : "tous ces
+//   ping/pong et rearm sont toujours necessaire ?") -- 2 changements :
+//   (1) UDPREARM retire entierement (stop()+begin() du socket toutes les
+//   30s, v10) : jamais confirme comme un vrai fix, AUCUN episode sur toute
+//   la session (v195-v199, instrumentation complete) n'a montre une
+//   reception reellement figee -- pire, la fenetre sans listener UDP que
+//   cree stop()/begin() pourrait avoir contribue a des coupures plutot que
+//   les resoudre. Voir le commentaire complet a son ancien emplacement.
+//   (2) Alerte "RecalBox hors ligne" corrigee (retour utilisateur : "cette
+//   alerte est fausse, le DMD n'est pas deconnecte") : declenchee avant
+//   par UN SEUL ping dedie rate (evenement UDP normal, aucune garantie de
+//   livraison) -- desormais exige 2 ratés CONSECUTIFS
+//   (s_consecutivePingMissed) avant d'afficher quoi que ce soit, elimine
+//   les faux positifs sur perte isolee sans perdre la detection d'une
+//   vraie coupure prolongee. Voir DECISIONS.md pour le detail complet de
+//   l'investigation.
+//
+// v199 - 2026-09-12 - safe-modify - BUG REEL corrige (retour utilisateur en
+//   direct : "en cas de deconnexion le DMD revient en mode playlist mais
+//   vu que RB1 est en demo il devrait afficher marquee du jeu... ca n'a
+//   pas fonctionne sur la demo en cours, ca a fonctionne sur la demo
+//   suivante") : la garde du resync automatique post-coupure (v189) ne
+//   verifiait QUE currentMode==MODE_PLAYLIST -- or plusieurs jeux demo
+//   consecutifs en cache-miss (CMD_GAME chemin FAST, "cached=?") retombent
+//   sur /systems/_defaults/default.png (MODE_PNG, pas MODE_PLAYLIST).
+//   Confirme sur materiel : currentMode reste bloque en PNG pendant la
+//   coupure, le pong de reconnexion arrive dans cet etat, la garde
+//   echoue, sendUdpHello() n'est jamais appele -- le DMD reste sur le
+//   contenu perime jusqu'a ce qu'un TOUT NOUVEAU CMD=game arrive
+//   naturellement (la demo suivante) et debloque tout par un autre
+//   chemin. Fix : MODE_PNG et MODE_BLACK ajoutes a la garde (memes etats
+//   de repli sans contenu reel que MODE_PLAYLIST) -- MODE_GIF/MODE_SCORE
+//   volontairement PAS ajoutes (contenu deja reel affiche, resync y
+//   serait redondant/intrusif). Voir le commentaire complet au point
+//   d'usage (handler PONG).
+//
+// v198 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de reception UDP",
+//   sonde active pendant un [UDPGAP] -- MESURE, aucun changement de
+//   comportement. Constat en analysant les 42 premiers episodes captures
+//   par v197 : environ la moitie se resolvent en <150ms apres detection
+//   (tres probablement un faux positif -- rien n'avait besoin d'etre
+//   envoye pendant exactement 15s, resolu des le premier ping/trafic
+//   suivant), l'autre moitie montre un delai reel de 400ms a ~4.9s apres
+//   detection -- mais SANS qu'aucune sonde ne soit tentee avant le
+//   PROCHAIN cycle programme (15s alerte ou 30s UDPREARM) : on ne peut
+//   donc pas distinguer "vraiment bloque tout ce temps" de "aucun trafic,
+//   applicatif ou diagnostic, n'a eu l'occasion d'etre teste avant qu'un
+//   paquet arrive par hasard". Ajoute g_lastGapProbeMs/g_udpGapProbeCount :
+//   sonde DEDIEE (independante de g_lastPingSentMs, expres pour ne pas
+//   perturber le rythme de detection de l'alerte "RecalBox non
+//   connectee") envoyee toutes les ~1s UNIQUEMENT pendant qu'un [UDPGAP]
+//   est en cours -- loggue dans la ligne "fin coupure" (champ probes=),
+//   compte exact de sondes actives restees sans reponse avant la
+//   resolution. Egalement confirme sur ces memes 42 episodes : sdMax/
+//   frameMax (v197) restent triviaux (max ~230ms/35ms) meme sur les
+//   episodes a delai reel (jusqu'a 4.9s) -- 3e generation d'instrumentation
+//   (apres la somme v195/v196, puis le max v197) qui infirme l'hypothese
+//   "notre code bloque loop()" ; la sonde active (ce commit) vise
+//   maintenant a confirmer si la reception est reellement indisponible
+//   pendant ces episodes, plutot que le temps qu'elle y reste indisponible.
+//   PAS ENCORE VALIDE SUR MATERIEL au moment de ce commit.
+//
+// v197 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de reception UDP",
+//   PISTE AFFINEE (suite a discussion sur l'ecart rawpack/GIF-decode) --
+//   MESURE, aucun changement de comportement. Faille methodologique
+//   identifiee dans v195/v196 : les 2 accumulateurs ne sont loggues qu'A
+//   LA FIN de la coupure, sur une fenetre qui commence bien AVANT le gel
+//   ET continue PENDANT tout le gel (15-50s) -- melange donc du temps
+//   bloque CAUSAL (juste avant que la reception s'arrete) avec du temps
+//   bloque simplement CONCOMITANT (le rendu qui continue alors que la
+//   reception est deja gelee, sans lien de cause). Une somme peut aussi
+//   diluer un seul appel tres long derriere plusieurs appels courts.
+//   2 ajouts : (1) g_sdBlockedMaxMs/g_frameRenderMaxMs, le MAX d'un seul
+//   appel (pas la somme) a cote de chaque accumulateur existant, meme
+//   remise a zero (chaque paquet reellement vu) -- teste specifiquement
+//   "un seul appel assez long a-t-il pu faire deborder la mailbox lwIP au
+//   mauvais moment" plutot que le temps cumule total. (2) Log symetrique
+//   au DEBUT de coupure (pas seulement a la fin) reprenant les 4 valeurs
+//   SANS les remettre a zero -- cette ligne-la est la seule vraiment
+//   causale (fenetre = dernier paquet -> instant ou le silence est
+//   detecte), la ligne "fin coupure" reste utile mais melange desormais
+//   explicitement fenetre causale + fenetre pendant le gel (differencier
+//   les 2 par soustraction entre les 2 lignes d'un meme episode).
+//   Rawpack (nav/jeu) vs GIF standard (playlist) : d'apres lecture directe
+//   du code, rawpack fait 1 SEULE lecture bulk de 8192 octets/frame (gros
+//   appel unique) alors que le decodage GIF LZW fait plusieurs PETITES
+//   lectures entrecoupees de calcul CPU (plus d'appels, chacun plus
+//   court) -- la somme peut etre proche mais le PROFIL differe, d'ou
+//   l'interet du max par-appel plutot que la seule somme deja mesuree.
+//   PAS ENCORE VALIDE SUR MATERIEL au moment de ce commit.
+//
+// v196 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de reception UDP",
+//   PISTE AFFINEE -- MESURE, aucun changement de comportement. v195 a
+//   REFUTE l'hypothese "ouverture de fichier" par mesure directe (max
+//   339ms mesure face a des coupures de 15-20s, sans commune mesure).
+//   Nouvelle cible trouvee en lisant un commentaire DEJA PRESENT dans ce
+//   fichier depuis l'epoque MQTT (v128) : gifPlayFrameCompat() fait un
+//   SD.read() a CHAQUE frame, en CONTINU pendant toute la duree de
+//   N'IMPORTE QUELLE animation (playlist ou jeu) -- deja documente a
+//   l'epoque comme "le point de contention le plus frequent... deadlock
+//   mqttTask/LWIP". Contrairement a l'ouverture (evenement ponctuel), ce
+//   rendu se produit en PERMANENCE des qu'un GIF est affiche (quasiment
+//   tout le temps sur ce DMD) -- explique a la fois la frequence elevee
+//   des coupures ET pourquoi le module isole (simple balayage de pixel,
+//   pas de vrai decodage GIF) reste sain sous le meme trafic. Ajoute
+//   g_frameRenderAccumMs, meme mesure/correlation que g_sdBlockedAccumMs
+//   (v195) mais autour des 2 sites d'appel de gifPlayFrameCompat()
+//   (MODE_PLAYLIST/MODE_GIF, les 2 seuls qui appellent cette fonction en
+//   continu sans yield/poll UDP autour) -- loggue dans la meme ligne
+//   [UDPGAP] fin coupure (champ frameRenderMs=), compteur separe de
+//   sdBlockedMs pour ne pas melanger les 2 hypotheses dans la meme
+//   donnee. PAS ENCORE VALIDE SUR MATERIEL au moment de ce commit.
+//
+// v195 - 2026-09-12 - safe-modify - CHASSE AU BUG "gel de reception UDP" --
+//   MESURE, aucun changement de comportement. Contexte : bisection
+//   decisive de la nuit -- sous trafic realiste soutenu, le module isole
+//   (ecran HUB75 actif, ZERO acces SD) ne montre quasiment aucune
+//   coupure UDP sur ~2h, alors que le DMD de prod (meme trafic exact) en
+//   montre ~30 en 53 minutes. Hypothese de synthese : chaque changement
+//   de jeu declenche jusqu'a 6 SD.open() sequentiels dans openGifImpl()
+//   (potentiellement plusieurs dizaines de ms chacun), bloquant loop() --
+//   si une rafale de paquets UDP arrive PENDANT ce blocage, la mailbox de
+//   reception d'ESP-IDF (6 emplacements par defaut, jamais confirme
+//   modifiable sur ce core) se remplit et lwIP jette silencieusement les
+//   paquets suivants AVANT meme que notre code les voie -- indiscernable
+//   d'un gel de reception classique. Coherent avec TOUTES les
+//   observations cumulees cette nuit (localise a la reception, absent
+//   sans acces SD, absent en trafic leger, present en trafic actif,
+//   auto-resolu). Ajoute : g_sdBlockedAccumMs, mesure le temps reel passe
+//   dans openGif()/preloadBigram() (wrappers de mesure autour de
+//   openGifImpl()/preloadBigramImpl(), meme motif qu'openGif() deja
+//   existant) depuis le dernier paquet UDP vu -- loggue directement dans
+//   la ligne [UDPGAP] fin coupure (champ sdBlockedMs=) pour correler
+//   directement duree du gel <-> temps reellement bloque sur SD juste
+//   avant, sans travail d'analyse a posteriori. PAS ENCORE VALIDE SUR
+//   MATERIEL au moment de ce commit.
+//
+// v194 - 2026-09-12 - safe-modify - MITIGATION EXPERIMENTALE pour le crash
+//   recurrent abort()/bad_alloc de la famille openGifImpl()/preloadBigram()
+//   (v98/v184/v187/v191, reproduit une 3e fois cette nuit AU SITE MEME
+//   protege par v187 -- voir DECISIONS.md pour l'analyse complete). Piste
+//   du seuil heap DEJA TENTEE ET REJETEE (commentaire v98 : maxalloc=4596
+//   identique avant des dizaines d'ouvertures reussies -- pas un
+//   predicteur fiable). Nouvelle piste, appuyee sur une recherche web
+//   (issues ESP-IDF documentees) : le pilote WiFi alloue/libere des
+//   buffers en permanence sur le MEME tas fragmente -- une collision
+//   transitoire de quelques ms avec notre propre allocation SD est
+//   plausible et coherente avec le timing observe (crash ~18ms apres un
+//   hello+resync UDP). Ajoute delay(2) au tout debut de openGifImpl()
+//   (protege TOUS les appelants -- CMD_GAME FAST/SLOW, playlist -- d'un
+//   seul coup), pour laisser une eventuelle allocation WiFi transitoire
+//   se liberer avant notre propre tentative. Cout quasi nul, HYPOTHESE
+//   PAS CONFIRMEE -- a observer sur la duree si la frequence de ce crash
+//   baisse reellement. PAS ENCORE VALIDE SUR MATERIEL au moment de ce
+//   commit.
+//
+// v193 - 2026-09-11 - safe-modify - CAUSE RACINE TROUVEE ET CORRIGEE (a
+//   valider sur duree) : le power-save WiFi mesure par v192 (juste flashe,
+//   validation IMMEDIATE sur materiel en quelques minutes -- frequence
+//   56,7% du temps oblige) confirme `[WIFIPS] mode=1` (WIFI_PS_MIN_MODEM)
+//   EN PERMANENCE depuis la connexion, y compris pendant un [UDPGAP]
+//   capture en direct. Lecture du code source WiFiGeneric.cpp du core
+//   arduino-esp32 3.3.11 : `WiFi.setSleep(false)` est un NO-OP SILENCIEUX
+//   tant que `WiFi.STA.started()==false` au moment de l'appel -- il se
+//   contente de memoriser la valeur voulue dans une variable interne
+//   (`_sleepEnabled`) JAMAIS relue ni appliquee au driver nulle part
+//   ailleurs dans la lib, et renvoie `true` (faux succes, aucune erreur
+//   visible). Exactement le cas de ce firmware : `WiFi.setSleep(false)`
+//   pose dans `setup()` AVANT `WiFi.begin()` (STA pas encore demarree) --
+//   toutes les autres reapplications du projet (maintainWiFi(), retry de
+//   connexion) sont conditionnees a un evenement de RECONNEXION qui, pour
+//   ce bug precis, ne se produit jamais (WiFi.status() reste WL_CONNECTED
+//   en continu pendant les episodes de gel) -- donc jamais revisitees non
+//   plus en pratique. Fix : bloc auto-correcteur ajoute dans la mesure
+//   [WIFIPS] (v192, ~2s de cycle) -- appel DIRECT a `esp_wifi_set_ps
+//   (WIFI_PS_NONE)` (contourne le wrapper Arduino defaillant) des que
+//   l'etat mesure n'est pas deja WIFI_PS_NONE, reappuye tant que
+//   necessaire. PAS ENCORE VALIDE SUR MATERIEL au moment de ce commit --
+//   a observer si le taux de 56,7% de coupure chute reellement une fois
+//   flashe (verification immediate possible, frequence tres elevee).
+//
+// v192 - 2026-09-11 - safe-modify - CHASSE AU BUG (etape 0 du plan) --
+//   MESURE, aucun changement de comportement. Contexte : test de 2h avec
+//   simulation d'activite continue a revele que le gel de reception UDP
+//   est BEAUCOUP plus severe que suppose -- 110 episodes, moyenne 37s,
+//   56,7% du temps total en coupure (voir DECISIONS.md pour le detail
+//   complet). Piste jamais confirmee depuis v131 : le power-save WiFi
+//   (WIFI_PS_MIN_MODEM, "station se reveille pour recevoir le beacon a
+//   chaque periode DTIM") est deja activement combattu (WiFi.setSleep
+//   (false) pose a plusieurs endroits) mais son etat REEL n'a jamais pu
+//   etre observe depuis l'API Arduino seule. Ajoute : esp_wifi_get_ps()
+//   (API ESP-IDF bas niveau, deja liee dans le core, aucun changement de
+//   core necessaire) loggee (1) en continu dans une ligne DEDIEE
+//   `[WIFIPS] mode=N` (SEPAREE de [LOOPDIAG]/[LOOPDIAG2] -- voir
+//   commentaire v9 sur la corruption d'une ligne trop longue/trop
+//   concatenee, ne pas repeter cette erreur) au meme rythme que
+//   [LOOPDIAG2] ; (2) directement dans les lignes `[UDPGAP] debut coupure`
+//   et `[UDPGAP] fin coupure` (champ `psmode=N`) pour une correlation
+//   immediate sans avoir a chercher la ligne LOOPDIAG la plus proche.
+//   0=WIFI_PS_NONE (sain), 1=WIFI_PS_MIN_MODEM (suspect), 2=
+//   WIFI_PS_MAX_MODEM, -1=lecture echouee (WiFi pas encore pret).
+//   Prochaine etape une fois flashe : observer si psmode passe a 1/2 juste
+//   avant/pendant un episode -- si oui, piste confirmee, escalade vers
+//   esp_wifi_set_ps(WIFI_PS_NONE) direct + reapplication en boucle dans
+//   loop() ; si non (reste a 0 tout du long), piste ecartee, reoriente
+//   vers la mailbox lwIP/le sketch minimal d'isolation. PAS ENCORE VALIDE
+//   SUR MATERIEL au moment de ce commit.
+//
+// v191 - 2026-09-11 - safe-modify - BUG REEL corrige, crash reel survenu en
+//   conditions reelles ("juste apres une deco et navigation pendant la
+//   reprise immediate de connexion") : backtrace decode -> meme famille que
+//   v184/v187 (fs::FS::open()/VFSImpl::open()/make_shared<VFSFileImpl>/
+//   operator new -> std::bad_alloc non rattrapee -> abort()), cette fois
+//   dans preloadBigram() (ligne de son 2e SD.open()), appelee direct depuis
+//   le chemin FAST du dispatch CMD_GAME -- confirme par [UDPGAP] (v190) :
+//   ~17.75s de coupure UDP juste avant, 2 commandes arrivees d'un coup a la
+//   reprise (score puis game), la 2e declenchant le chargement d'une table
+//   systeme jamais utilisee (gamecube) au moment le plus charge. Cause :
+//   preloadBigram() n'avait NI le garde-fou heap absolu
+//   (CMD_GAME_MIN_HEAP_FOR_FILE_OPEN) NI le try/catch que sa fonction soeur
+//   loadBigramTable() (juste au-dessus dans le fichier) a deja depuis
+//   longtemps -- seul un garde RELATIF (sliceSize > maxAlloc/2) existait,
+//   insuffisant quand le heap est deja critique dans l'absolu (la petite
+//   allocation fixe de make_shared<VFSFileImpl> peut echouer meme pour un
+//   sliceSize minuscule). Fix : meme garde absolu + meme try/catch ajoutes
+//   a preloadBigram(), alignes sur le pattern deja eprouve de
+//   loadBigramTable() -- protege ses 3 sites d'appel (FAST + 2x SLOW) d'un
+//   seul coup, aucun changement de comportement en heap sain. Ne couvre
+//   toujours pas le chemin abort() direct non catchable (lock_init_generic(),
+//   deja documente ailleurs) mais rattrape la variante bad_alloc vue ici.
+//   PAS ENCORE VALIDE SUR MATERIEL au moment de ce commit.
+//
+// v190 - 2026-09-11 - safe-modify - BUG REEL DE LISIBILITE corrige (retour
+//   utilisateur, apres un exemple concret analyse en direct : un ping
+//   UDPREARM ET le ping dedie de l'alerte sont tous 2 restes sans reponse
+//   ~15-17s chacun, udpSeen fige tout du long, MAIS le log affichait juste
+//   "deconnexion en cours depuis ~30s" suivi 9ms plus tard d'un pong recu
+//   -- lisible comme contradictoire alors que ca decrivait 2 evenements
+//   distincts (l'ancien ping rate, et le nouveau ping tout juste envoye).
+//   "je n'arrive pas a me rendre compte de la frequence et de la duree des
+//   pertes de connexion" : le log v186/v188 ne mesurait qu'UN ping dedie
+//   manque par cycle de 15s -- indiscernable d'un simple paquet UDP isole
+//   perdu (banal, sans consequence) sans recouper manuellement udpSeen/
+//   udpAgoMs, ce que l'utilisateur ne peut pas faire en lisant le serial
+//   en direct. Remplace par un suivi d'EPISODE explicite (g_udpGapStartMs)
+//   base sur g_lastUdpSeenMs (n'importe quel paquet recu, pong inclus, pas
+//   seulement le ping dedie) : une ligne "[UDPGAP] debut coupure" des que
+//   l'absence de TOUT trafic depasse 15s (verifiee a chaque loop(), pas
+//   seulement au cycle 15s), une ligne "[UDPGAP] fin coupure, duree=Xms"
+//   des le tout premier paquet qui revient (detection temps reel dans le
+//   drain loop de handleUdpCommand(), pas au prochain cycle 15s) --
+//   frequence (nombre de "debut") et duree (valeur "duree=") lisibles
+//   directement par un grep, sans recoupement manuel. Aucun changement de
+//   logique d'affichage ni de declenchement d'alerte (pingMissed/
+//   s_recalboxDisconnectedAlertCount inchanges). PAS ENCORE VALIDE SUR
+//   MATERIEL au moment de ce commit.
+//
+// v189 - 2026-09-11 - safe-modify - BUG REEL corrige (retour utilisateur
+//   decisif, en analysant un vrai episode capture en direct : "c'est pire
+//   que tes 5s car rien ne vient arreter la playlist pour remettre le bon
+//   etat sur le dmd") : une fois le delai d'affichage de l'alerte "RecalBox
+//   non connectee" ecoule, resumePlaylist() bascule currentMode en
+//   MODE_PLAYLIST -- mais RIEN ne resynchronisait ensuite l'etat reel de
+//   RB1 (en jeu/en survol/etc). Episode reel analyse (~30s de coupure
+//   applicative reelle, 17:18:13-17:18:43) : l'affichage restait bloque en
+//   playlist BIEN APRES la reconnexion effective (confirmee par pong recu
+//   quasi immediatement), potentiellement indefiniment tant qu'aucune
+//   VRAIE navigation ne survient sur RB1 -- le hello de reconnexion WiFi
+//   (v182) ne couvre QUE le cas WiFi reellement coupe, jamais ce cas
+//   applicatif (WiFi toujours up). Fix : nouveau drapeau
+//   g_recalboxDisconnectedForcedPlaylist, arme au moment precis ou
+//   resumePlaylist() est force par le timeout de l'alerte (PAS par un vrai
+//   choix utilisateur) -- consomme au tout PROCHAIN pong recu (handler
+//   PONG, temps reel, pas le cycle 15s de l'alerte) pour declencher un
+//   resync complet (sendUdpHello(), meme mecanisme que la reconnexion
+//   WiFi) et rattraper l'etat reel de RB1 immediatement, au lieu d'attendre
+//   une navigation qui pourrait ne jamais arriver. Garde
+//   currentMode==MODE_PLAYLIST au moment du pong : si une vraie navigation
+//   a deja fait sortir l'affichage de la playlist entre-temps, aucun
+//   resync redondant n'est demande. PAS ENCORE VALIDE SUR MATERIEL au
+//   moment de ce commit.
+//
+// v188 - 2026-09-11 - safe-modify - BUG REEL trouve en analysant les
+//   premieres donnees collectees par v186 ("bilan de surveillance") :
+//   ~26% des lignes `[UDPCHK] pong recu` affichaient une latence de 11 a
+//   15 SECONDES au lieu de quelques dizaines de ms. Cause : le ping
+//   periodique UDPREARM (30s, outil de diagnostic du gel de reception
+//   UDP, v183/v184) appelle sendUdpPing() directement SANS mettre a jour
+//   g_lastPingSentMs (seul le bloc alerte "RecalBox non connectee", 15s,
+//   le faisait) -- le PONG recu en reponse a CE ping calculait donc sa
+//   latence par rapport au ping DEDIE precedent (jusqu'a 15s plus vieux),
+//   pollution pure de la mesure, aucun rapport avec un vrai probleme
+//   reseau. Fix : g_lastPingSentMs mis a jour aussi au site d'envoi
+//   UDPREARM -- la latence loggee reste desormais toujours relative au
+//   ping qui vient reellement d'etre envoye, quelle que soit son origine.
+//   Aucun changement sur la logique de detection de coupure (pingMissed,
+//   bloc alerte 15s) : un vrai episode de blocage manque de toute facon
+//   les deux pings (alerte ET rearm), donc reste correctement detecte.
+//   PAS ENCORE VALIDE SUR MATERIEL au moment de ce commit.
+//
+// v187 - 2026-09-11 - safe-modify - BUG REEL corrige (retour utilisateur en
+//   conditions reelles, "crash en sortie de veille mode demo de jeu",
+//   sys=fbneo rom=actfancr, backtrace confirme fs::FS::open()/
+//   VFSImpl::open()/make_shared<VFSFileImpl>/operator new -> std::bad_alloc
+//   non rattrapee -> abort(), meme famille que le crash de boot deja
+//   corrige en v184 mais dans un contexte DIFFERENT -- ici bien apres le
+//   boot, en fonctionnement normal (heap libre=6024 juste avant, donc pas
+//   un heap generalement bas, une fragmentation ponctuelle). Cause :
+//   le garde-fou heap CMD_GAME_MIN_HEAP_FOR_FILE_OPEN (v81/v91) ne protege
+//   openGif() QUE dans le chemin SLOW du dispatch CMD_GAME -- le chemin
+//   FAST (isSlow=false, cas de fbneo) appelait openGif() sans AUCUNE
+//   verification de heap avant, exposant openGifImpl() et ses jusqu'a 6
+//   SD.open() non gardes (dont un abort() direct via lock_init_generic(),
+//   non rattrapable meme par le try/catch de openGif() -- meme lecon que
+//   la bisection v183). Fix : meme garde-fou (ESP.getMaxAllocHeap() >=
+//   CMD_GAME_MIN_HEAP_FOR_FILE_OPEN) ajoute avant les 2 appels openGif()
+//   du chemin FAST -- si heap trop bas, openGif() n'est pas tente du tout,
+//   repli immediat sur drawPng()/default.png (deja proteges via
+//   drawRaw565(), meme mecanisme que le chemin SLOW). Comportement normal
+//   (heap suffisant) strictement inchange. PAS ENCORE VALIDE SUR MATERIEL
+//   au moment de ce commit.
+//
+// v186 - 2026-09-11 - safe-modify - MESURE (serial uniquement, aucun
+//   affichage) demandee par l'utilisateur avant de decider d'un rattrapage
+//   d'etat sur coupure applicative ("avant de decider quoi implementer sur
+//   les coupures applicatives il faut effectivement les mesurer"). Ajoute :
+//   (1) `[UDPCHK] pong recu, latence=Xms` a chaque PONG recu (latence
+//   ping->pong) ; (2) `[UDPCHK] ping rate -- deconnexion applicative en
+//   cours depuis ~Xms (alerteCount=N/3)` a chaque cycle de ping RATE, avec
+//   la duree ecoulee depuis le dernier pong confirme -- log emis MEME si
+//   l'alerte n'est plus declenchee (compteur sature, ecran SD occupe ou
+//   MODE_PLAYLIST), pour ne pas fausser la mesure de duree/frequence
+//   reelle. Aucun changement de logique d'affichage ni de declenchement
+//   d'alerte. PAS ENCORE VALIDE SUR MATERIEL au moment de ce commit.
+//
+// v185 - 2026-09-11 - safe-modify - COSMETIQUE, demande utilisateur ("les
+//   print MQTT du serial ne sont plus adaptes") : le tag "[MQTT]" affiche
+//   sur 28 lignes qui n'ont plus rien a voir avec le protocole MQTT
+//   (dispatch generique de `processPendingMqttCommand()`, alertes
+//   "RecalBox non connectee"/"connectee", diffusion des reglages
+//   hi-score/RA) renomme en "[CMD]" -- ces lignes s'affichent desormais
+//   systematiquement en UDP (MQTT_ENABLED=false depuis v161), le tag
+//   "[MQTT]" y etait devenu trompeur en lecture de serial. Le tag "[MQTT]"
+//   reste INCHANGE sur les ~24 lignes reellement specifiques au protocole
+//   MQTT lui-meme (`mqttSubscribeFast()`, `onMqttMessage()`, `mqttTask()`
+//   -- connexion/subscribe/escalade TCP) : ce code existe toujours (mort
+//   tant que MQTT_ENABLED=false) et redeviendrait pertinent si MQTT etait
+//   un jour reactive. Les commentaires de changelog historiques citant
+//   litteralement d'anciens logs "[MQTT] connecting"/"[MQTT] connected"
+//   (evenements REELS d'une session passee, avant la bascule UDP)
+//   volontairement laisses tels quels -- ce sont des citations d'un fait
+//   passe, pas des tags a jour. Purement cosmetique (renommage de chaines
+//   de log), aucun changement de logique.
+//
+// v184 - 2026-09-10 - safe-modify - BUG REEL corrige (retour utilisateur en
+//   conditions reelles, jeu fbneo/actfancr, "j'ai un marque qui apparait
+//   apres le 2eme panneau description") : le hello periodique de mesure
+//   v174 (UDPREARM, 30s) declenchait un resync COMPLET cote RB1
+//   (dmd_udp_resync.py renvoie le dernier CMD=game connu), redispatche
+//   comme une VRAIE commande -- coupait le marquee/round-robin en cours
+//   TOUTES LES 30s (currentMode force de MODE_SCORE/5 a MODE_GIF/1), meme
+//   sans navigation reelle. round_robin() (v49, dmd_score.sh) confirme
+//   propre sur ce meme test (log RB1 sequentiel, aucun chevauchement) --
+//   ce bug etait entierement cote firmware, independant du fix v47/v49.
+//   Fix : sendUdpHello() (UDPREARM) REMPLACE par sendUdpPing() -- meme
+//   capacite de diagnostic (teste l'emission sur un socket potentiellement
+//   fige) mais SANS redispatch, dmd_udp_resync.py repond "PONG" a un
+//   "PING" au lieu d'un resync complet. Le hello COMPLET reste utilise
+//   UNIQUEMENT pour les vraies (re)connexions WiFi (seul cas ou un
+//   rattrapage d'etat est justifie). PAS ENCORE VALIDE SUR MATERIEL au
+//   moment de ce commit.
+//
+// v183 - 2026-09-10 - safe-modify - RE-TENTATIVE du ping/pong pour l'alerte
+//   "RecalBox non connectee" (voir v182 pour la 1ere tentative -- deja
+//   validee stable en isolation, ~40s/4 cycles -- puis CRASH quand branchee
+//   a l'alerte). Diagnostic depuis affine : ce crash n'etait PAS du au
+//   ping/pong ni a la logique d'alerte elle-meme, mais au hello de boot qui
+//   arrivait TROP TOT (avant le fix boot-delay ci-dessous) -- le
+//   CMD_GAME resultant crashait dans la fenetre de heap la plus basse du
+//   boot, QUELLE QUE SOIT la logique branchee dessus. Le fix boot-delay
+//   (5s apres le 1er loop()) etant maintenant valide sur materiel (2 power
+//   cycles reels, 0 crash), le ping/pong + l'alerte dessus peuvent
+//   redevenir surs. Meme design que la 1ere tentative (voir DECISIONS.md
+//   pour le detail complet du principe -- ping/pong dedie, INDEPENDANT du
+//   hello de mesure v174, cadence 15s alignee sur l'ancien keepalive MQTT,
+//   declenchement des le 1er cycle rate, max 3 affichages). **VALIDE SUR
+//   MATERIEL** (108s, 0 crash, alerte declenchee 1 fois puis stoppee au
+//   lieu de boucler).
+//
+// v182 - 2026-09-10 - safe-modify - BUG REEL corrige (CRASH confirme sur
+//   materiel, plusieurs fois, backtrace decode 2 fois : fs::FS::open()/
+//   operator new -> std::bad_alloc, puis fopen()/lock_init_generic() ->
+//   abort() direct non rattrapable -- voir DECISIONS.md pour le detail
+//   complet). Retour utilisateur decisif : ce comportement N'EXISTE PAS
+//   sur master, donc PAS une fragilite generique ESP32/newlib qu'il
+//   faudrait juste rattraper au coup par coup -- c'est une regression
+//   propre a cette branche. Cause identifiee : master n'a AUCUN
+//   mecanisme declenchant un CMD_GAME de facon asynchrone pendant le
+//   boot -- cette branche si (sendUdpHello() au tout premier
+//   setupWiFiFromConfig(), v162), et sa reponse resync (dmd_udp_resync.py
+//   cote RB1, renvoie le dernier etat de navigation connu) atterrit
+//   systematiquement au tout debut de loop() -- exactement le point le
+//   PLUS BAS du heap de tout le cycle de boot (confirme sur materiel :
+//   ~52KB apres chargement caches -> ~30KB apres WiFi -> ~24KB apres
+//   playlist -> ~19KB apres 1er GIF -> ~14KB apres config web, puis
+//   openGifImpl() du CMD_GAME tente d'ouvrir un fichier PAR-DESSUS cette
+//   fenetre deja tendue). Fix : (1) le hello de la 1ere connexion WiFi
+//   (setupWiFiFromConfig(), ligne ~8986) SUPPRIME -- deja explicitement
+//   documente comme redondant avec (2) juste apres (commentaire
+//   preexistant, jamais applique) ; (2) le hello de detection de
+//   reconnexion en loop() (qui couvrait deja le 1er boot vu que
+//   s_wifiWasConnected demarre a false) retarde de
+//   BOOT_HELLO_MIN_DELAY_MS=5000 APRES le 1er appel de loop() -- laisse
+//   le temps aux buffers temporaires de setup() (ecran playlist, 1er GIF,
+//   config web) de se liberer avant de risquer un CMD_GAME resync
+//   dessus. Les reconnexions WiFi ULTERIEURES (loin du boot, heap deja
+//   stable) restent immediates, aucun changement pour elles. PAS ENCORE
+//   VALIDE SUR MATERIEL au moment de ce commit -- prochain test : power
+//   cycle reel, verifier l'absence de crash au boot.
+//
+// v181 - 2026-09-09 - safe-modify - REVERT URGENT de v180 (voir le
+//   commentaire complet la ou la creation de la tache est desormais
+//   commentee) : 3 crashes abort()/PANIC consecutifs observes en direct
+//   (~90s, boucle de reboot) sur fs::FS::open()/VFSImpl::open(), meme
+//   famille que le crash heap-exhaustion deja documente 23/08 et 25/08 --
+//   cause plausible : les 8192 octets de pile de udpListenerTask(),
+//   reserves en permanence sur le heap dès le boot, ont fait basculer une
+//   situation heap deja tendue. Tache desactivee (creation commentee),
+//   fonction conservee pour reference. Les 4 sites v177/v179 (correctifs
+//   ponctuels + garde heap ESP.getFreeHeap()>=7000) restent seuls actifs --
+//   testes plusieurs heures ce soir, aucun crash observe avec eux seuls.
+//
+// v180 - 2026-09-09 - safe-modify - [REVERTE PAR v181, VOIR CI-DESSUS] TACHE DEDIEE udpListenerTask()
+//   (retour utilisateur, apres discussion sur les limites de l'approche
+//   ponctuelle v177/v179 : "il faudrait un regulateur qui distribue les
+//   paquets... pour simuler MQTT ?") -- voir son commentaire complet pres
+//   de sa declaration pour le detail. Recree le role de mqttTask() (lecture
+//   reseau en tache de fond, independante de loop()) mais pour l'UDP,
+//   structurellement plus sur (parsePacket() non bloquant, contrairement
+//   aux connect()/subscribe() MQTT). Couvre desormais TOUT site bloquant,
+//   present ou futur, sans avoir a le chasser au cas par cas. GARDE HEAP
+//   ajoutee ICI ET RETROACTIVEMENT sur les 4 sites v177/v179 (nouvelle
+//   constante UDP_POLL_IN_WAIT_MIN_HEAP=7000, verifie ESP.getFreeHeap() --
+//   PAS ESP.getMaxAllocHeap()/PREFETCH_NEXT_GIF_MIN_HEAP existant, qui
+//   reste bloque a ~4596 en permanence d'apres les logs de cette nuit et
+//   n'aurait donc jamais discrimine notre cas) : retour utilisateur
+//   explicite "vaut mieux un lag qu'un blocage" -- si le heap est sous ce
+//   seuil (zone empiriquement corrélée au gel UDP encore non elucide,
+//   ~5000-6100 observe cette nuit vs ~9000-19000 en sain), le sondage est
+//   simplement saute, sur les 4 sites ET dans cette nouvelle tache. Les 4
+//   sites v177/v179 sont CONSERVES (redondance sans risque, meme mutex)
+//   plutot que retires, pour ne pas re-tester une suppression de code
+//   deja compile ce soir. PAS ENCORE TESTE SUR MATERIEL.
+//
+// v179 - 2026-09-09 - safe-modify - AUDIT SYSTEMATIQUE de TOUS les
+//   appelants de hasPendingMqttCommand() (demande utilisateur explicite :
+//   "parcourir le firmware une fois pour toute... au lieu de les decouvrir
+//   au petit bonheur la chance -- projet en vue d'une production, pas d'un
+//   lobby"), suite au bug reel trouve sur showClock() (retour utilisateur :
+//   ecran horloge qui ne quitte qu'apres plus de 10s malgre une navigation
+//   reprise -- "le mode horloge cede la place a MQTT comme le mode
+//   playlist"). Recherche de TOUS les `while` bloquants du fichier (pas
+//   seulement ceux dejà connus) : 4 sites au total identifies, TOUS
+//   corriges avec le meme motif attenue (handleUdpCommand() au plus 1x/
+//   75ms, voir v177 pour le detail du risque/de la mitigation) :
+//   1) MODE_PLAYLIST (prefetch) -- deja corrige v177
+//   2) MODE_GIF (frame) -- deja corrige v177
+//   3) showClock() (3 sous-boucles : banniere de nom x2 + boucle
+//      principale) -- NOUVEAU, cause du symptome horloge rapporte
+//   4) MODE_PNG (attente 100ms) -- NOUVEAU, trouve par cet audit, impact
+//      dejà limite (100ms max) mais corrige par completude
+//   Verifie aussi initNTP() (boucle bloquante distincte, ligne ~9365) :
+//   ecartee -- tourne UNE FOIS au boot, avant toute navigation possible,
+//   hors du champ de ce bug. MODE_SCORE/MODE_BLACK verifies aussi : pas de
+//   boucle interne bloquante (juste delay(1) par iteration de loop(),
+//   handleUdpCommand() deja appele normalement au tour suivant). PAS
+//   ENCORE TESTE SUR MATERIEL (le fix showClock() en particulier).
+//
+// v178 - 2026-09-09 - safe-modify - INSTRUMENTATION CORRIGEE pour mesurer
+//   le VRAI delai commande->affichage (retour utilisateur : re-analyse en
+//   direct de v177 a montre que ma mesure precedente, basee sur
+//   "[DIAG] currentMode X -> Y", etait FAUSSE -- ce print ne sort qu'au
+//   DEBUT de l'iteration loop() SUIVANTE, laquelle dessine sa propre 1ere
+//   frame PUIS entre dans SA PROPRE attente de frame (fd) avant de
+//   revenir en haut de loop() ou le print sort enfin -- mesurait donc la
+//   fin de l'attente de la frame SUIVANTE, pas le delai d'affichage reel
+//   (qui, lui, est synchrone avec le dispatch CMD_GAME -- currentMode/
+//   gifOpened poses dans le MEME appel que "[GIF] open OK"). Nouveau print
+//   "[LATENCY] game recv->dispatch=Xms" : timestamp de reception capture
+//   DANS handleUdpCommand() (g_pendingGameRecvMs), lu juste apres le
+//   dispatch synchrone dans processPendingMqttCommand() -- reflete le vrai
+//   temps recv->pret-a-dessiner, le rendu lui-meme suivant dans les
+//   quelques instructions suivantes de la MEME iteration. PAS ENCORE
+//   TESTE SUR MATERIEL.
+//
+// v177 - 2026-09-09 - safe-modify - VERSION ATTENUEE du fix de lag v172
+//   (reverte en v173) -- confirme en direct sur materiel ce soir (rafale
+//   observee : ecart commande->affichage variable de 17ms a 1.25s selon le
+//   moment d'arrivee du paquet par rapport a l'attente de frame en cours,
+//   exactement le mecanisme documente pour v172). Au lieu d'appeler
+//   handleUdpCommand() a CHAQUE tick de 1ms des 2 boucles d'attente par
+//   frame (MODE_PLAYLIST/MODE_GIF, jusqu'a ~1000x/s -- risque identifie de
+//   v172 : multiplie les malloc(1460) internes a la librairie UDP sous heap
+//   deja bas), limite ici a 1 appel toutes les 75ms (~13x/s, ~75x moins
+//   frequent que v172). Borne le pire cas de latence a ~75-100ms au lieu de
+//   ~1.25s, pour une fraction du risque d'allocation de v172. PAS ENCORE
+//   TESTE SUR MATERIEL.
+//
+// v176 - 2026-09-09 - safe-modify - Les 4 alertes de connexion (RecalBox
+//   connectee/CMD_WAITING_MQTT, RecalBox non connectee, pas de wifi,
+//   filet de reprise playlist v175) retablies en UDP -- retour utilisateur
+//   direct : "es-tu sur qu'elles sont fonctionnelles ? aucune ne s'est
+//   jamais affichee". Verifie : les 4 vivaient exclusivement dans
+//   mqttTask() (mort depuis MQTT_ENABLED=false, v161) ou dans des chemins
+//   gates sur mqttClient.connected() (jamais vrai en full UDP) -- v175 seul
+//   ne couvrait que le repli SILENCIEUX (retour playlist), pas les 3
+//   ecrans/textes eux-memes. Fix : "RecalBox connectee" (CMD_WAITING_MQTT)
+//   poste au meme site que le hello de (re)connexion WiFi existant (couvre
+//   aussi le 1er boot, s_wifiWasConnected demarre a false) ; "pas de wifi"
+//   et "RecalBox non connectee" reimplementes en loop() avec la meme
+//   cadence "3 affichages max" que l'original mqttTask(), sur WiFi.status()
+//   et g_lastUdpSeenMs au lieu de mqttClient/g_lastMqttUsefulMs (morts).
+//   L'affichage/effacement lui-meme (showXAlert(), clignotement, effacement
+//   sur tout CMD_* recu) etait deja transport-agnostique, inchange -- ne
+//   manquait que le DECLENCHEMENT. PAS ENCORE TESTE SUR MATERIEL (aucun des
+//   4 cas -- coupure wifi, RB1 injoignable, (re)connexion, blocage UDP --
+//   n'a encore ete observe avec ce firmware).
+//
+// v175 - 2026-09-09 - safe-modify - VRAIE CAUSE DE LA PERMANENCE DU GEL
+//   trouvee (retour utilisateur decisif : "je ne pense pas a une saturation
+//   de pool vu que sur un reboot sain, le 1er marquee suffit a figer le DMD
+//   qui ne repasse meme plus en mode playlist automatique apres 60s
+//   d'inactivite"). Verification : le filet "60s sans activite utile ->
+//   reprise playlist" EXISTE deja dans le firmware (MQTT_OFFLINE_FALLBACK_MS/
+//   g_lastMqttUsefulMs) mais vit ENTIEREMENT dans mqttTask() -- mort depuis
+//   MQTT_ENABLED=false (v161), 3e canal casse par la bascule full UDP apres
+//   les alertes "RecalBox (dé)connectee" et broadcastFeatureStatus()/
+//   dmd_achievement.sh deja corriges plus tot. Sous MQTT, N'IMPORTE QUEL
+//   blocage reseau finissait TOUJOURS par etre rattrape ici en 60-90s ; en
+//   full UDP, plus rien ne surveillait l'inactivite reseau -- transformant
+//   n'importe quel hoquet (dont la cause exacte reste non elucidee, voir
+//   v174) en gel PERMANENT necessitant une extinction physique. Fix :
+//   filet reimplemente en loop() sur g_lastUdpSeenMs (deja suivi par
+//   handleUdpCommand()) au lieu de g_lastMqttUsefulMs (mort), meme seuil
+//   MQTT_OFFLINE_FALLBACK_MS (60s), meme mecanisme de reprise
+//   (g_pendingDefault). Ne resout PAS la cause du blocage reseau lui-meme
+//   (toujours non expliquee) mais restaure le comportement d'origine :
+//   auto-recuperation en playlist locale au lieu d'un gel definitif. PAS
+//   ENCORE TESTE SUR MATERIEL.
+//
+// v174 - 2026-09-09 - safe-modify - OUTIL DE MESURE (PAS un fix -- retour
+//   utilisateur explicite apres le revert v172/v173 : "tu proposes encore de
+//   corriger un symptome au lieu de chercher la cause"). Le gel de reception
+//   UDP (udpSeen figé en permanence, meme a un trafic minime de 1 paquet/20s
+//   pendant 17min mesure ce soir, WiFi.status()/RSSI toujours sains) reste
+//   totalement non explique -- recherche web faite (voir DECISIONS.md/memoire
+//   pour les references), aucun match exact trouve pour ce symptome precis
+//   (blocage PERMANENT, pas juste une perte transitoire de mailbox pleine).
+//   Question jamais testee jusqu'ici : pendant que la RECEPTION est figee,
+//   l'EMISSION du DMD fonctionne-t-elle encore sur ce MEME socket ? Ajoute
+//   sendUdpHello() dans le bloc UDPREARM existant (deja a frequence 30s,
+//   cout negligeable, AUCUN risque du type v172 -- ne touche pas la boucle
+//   de rendu par frame), envoye AVANT le stop()/begin() pour tester le socket
+//   potentiellement figé lui-meme, pas un socket neuf. Verification : au
+//   prochain gel reel, comparer dmd_udp_resync.log (RB1, deja a l'ecoute) --
+//   le HELLO de mesure arrive-t-il pendant que udpSeen etait figé cote DMD ?
+//   Reponse attendue : localise le blocage a la reception seule (si HELLO
+//   recu) ou a toute la pile reseau (si HELLO absent, a rapprocher du "trou
+//   noir TCP" MQTT deja documente dans DECISIONS.md). PAS ENCORE OBSERVE EN
+//   CONDITIONS REELLES (attend le prochain gel naturel).
+//
+// v173 - 2026-09-09 - safe-modify - REVERT de v172 (retour utilisateur
+//   direct apres flash+test reel : "fige marquee comme toujours" -- gel
+//   udpSeen sur actfancr/heap ~5000-6100, MEME signature que le gel non
+//   resolu documente plus tot cette nuit AVANT meme v172). Impossible de
+//   determiner avec certitude si v172 a cree ce gel ou a simplement laisse
+//   resurgir le bug preexistant (meme jeu, meme fourchette de heap
+//   suspecte) -- mais handleUdpCommand() appele potentiellement des
+//   centaines de fois/seconde depuis l'interieur des boucles d'attente
+//   (chaque appel peut tenter un malloc() interne a la librairie UDP)
+//   est un vecteur d'aggravation plausible sous heap deja critique,
+//   risque juge superieur au benefice (lag de confort, pas un blocage).
+//   Retour a v171 tel quel (handleUdpCommand() retire des 2 boucles
+//   d'attente, uniquement present au niveau superieur de loop() comme
+//   avant) -- le lag de 0.2-1.25s en navigation lente revient, mais plus
+//   de risque nouveau de gel. Root cause du lag reste documentee (voir
+//   changelog v172 ci-dessous, conserve pour memoire) pour une reprise
+//   future avec une approche plus sure (ex: n'appeler handleUdpCommand()
+//   dans la boucle d'attente que si heap au-dessus d'un seuil de securite).
+//
+// v172 - 2026-09-09 - safe-modify - [REVERTE PAR v173, VOIR CI-DESSUS --
+//   conserve pour memoire/reprise future] BUG REEL trouve par lecture du CODE
+//   (retour utilisateur direct, compare a MQTT : "en navigation lente
+//   l'affichage marquee est bien moins reactif, 0.5s environ de lag" --
+//   confirme NOUVEAU par l'utilisateur, absent sous MQTT, PAS un mecanisme
+//   anti-scintillement volontaire comme suppose a tort dans un 1er temps).
+//   Cause exacte, mesuree dans le serial (ecart "[UDP] CMD=game" ->
+//   "[DIAG] currentMode" variable de 0.2s a 1.25s selon le jeu) : les 2
+//   boucles d'attente par frame (case MODE_PLAYLIST l.10299, MODE_GIF
+//   l.10334 desormais, "while(millis()-t<fd){if(hasPendingMqttCommand())
+//   break; processPendingMqttCommand(); delay(1);}", PREEXISTANTES,
+//   inchangees ce soir) appellent processPendingMqttCommand() (qui ne fait
+//   que CONSOMMER les slots deja remplis) mais jamais handleUdpCommand()
+//   (qui LIT le socket et REMPLIT ces slots) -- sous MQTT, mqttTask()
+//   tournait sur un coeur separe et continuait de remplir ces memes slots
+//   PENDANT cette attente, masquant totalement le probleme. En full UDP
+//   (v161, pas de tache separee), un paquet arrivant PENDANT l'attente
+//   d'une frame reste dans le buffer socket, invisible de
+//   hasPendingMqttCommand(), jusqu'a la fin du "fd" ms de cette frame --
+//   d'ou un lag proportionnel a la duree d'affichage encodee de la frame
+//   COURANTE (quasi nul sur un marquee anime a frames courtes, jusqu'a
+//   ~1.2s mesure sur un marquee statique "1 frame" a delay long). Fix :
+//   handleUdpCommand() ajoute dans les 2 boucles, memes emplacements que
+//   processPendingMqttCommand() -- les nouveaux paquets sont desormais lus
+//   et rendent hasPendingMqttCommand() vrai des qu'ils arrivent, meme en
+//   pleine attente de frame. PAS ENCORE TESTE SUR MATERIEL.
+//
+// v171 - 2026-09-09 - safe-modify - BUG REEL trouve par lecture du CODE
+//   (retour utilisateur repete 3+ fois : "le shuffle ne se declenche pas"
+//   -- ni le reglage EARLY_STABLE_SECONDS (v?) ni le va-et-vient sur
+//   BURST_THRESHOLD (v48/v49) n'avaient d'effet, pour cause : le probleme
+//   n'est PAS cote detecteur RB1 (confirme sain -- marquee_mqtt.log montre
+//   208x "BURST start"/188x "SEND !SHUFFLE" bien envoyes, dont 2 cette nuit
+//   meme) mais cote vidange UDP du DMD (handleUdpCommand(), v163/v165).
+//   Cause exacte : juste avant qu'une rafale cote RB1 ne franchisse son
+//   seuil, plusieurs "game=<rom>" individuels (survols pre-seuil) arrivent
+//   deja en file d'attente sur le socket du DMD ; des que "!SHUFFLE" est
+//   ensuite envoye, si le retard cumule au moment du prochain drain est
+//   <=SKIP_AHEAD_THRESHOLD(3), la regle "garde le PREMIER paquet du lot"
+//   (v165, ajoutee pour corriger l'affichage des 2-3 premiers marquees)
+//   retient un vieux "game=<rom>" au lieu de "!SHUFFLE" -- le signal est
+//   jete SILENCIEUSEMENT, sans lien avec les seuils de rafale, d'ou son
+//   caractere apparemment aleatoire. Fix : "!SHUFFLE" est desormais
+//   toujours prioritaire quel que soit son rang dans le lot drainé (scan
+//   de chaque paquet lu, retenu des qu'il contient "ARG=!SHUFFLE",
+//   remplace n'importe quel "game=<rom>" deja garde par la regle
+//   generique) -- comportement des autres commandes (dont la regle
+//   premier/dernier "game" normale) totalement inchange. PAS ENCORE
+//   TESTE SUR MATERIEL.
+//
+// v170 - 2026-09-08 - safe-modify - Oubli reel trouve EN REVUE (pas en
+//   usage -- retour utilisateur explicite : "qu'est-ce qu'on aurait pu
+//   oublier de mettre a jour ?") : broadcastFeatureStatus() (les 8
+//   reglages hi-score/info/description/RA de la page web du DMD, lus par
+//   dmd_score.sh ET dmd_achievement.sh via mosquitto_sub sur
+//   marquee/status/features) ne publiait plus QUE via MQTT -- mort depuis
+//   la bascule full UDP (v161, MQTT_ENABLED=false), aux 2 points d'appel
+//   existants (mqttTask() et handleWebConfigSave()) : tout changement de
+//   reglage sur la page web n'atteignait plus jamais RB1, silencieusement.
+//   Fix : le early-return "pas connecte" est retire, le message est
+//   construit INCONDITIONNELLEMENT, publie en MQTT seulement si connecte
+//   (compat), et desormais TOUJOURS envoye en UDP (nouvelle fonction
+//   sendUdpFeatureStatus(), meme port que sendUdpHello(), prefixe
+//   "FEATURES:") -- corrige les 2 points d'appel a la fois. Appelee aussi
+//   au (re)connect WiFi (meme motif que le hello) pour rattraper un DMD
+//   qui redemarre. Cote RB1, dmd_helpers/dmd_udp_resync.py v2 distingue ce
+//   nouveau message du "hello" et ecrit directement dans
+//   FEATURES_CACHE_PATH (meme fichier que l'ancien mecanisme MQTT, aucun
+//   changement necessaire dans dmd_score.sh/dmd_achievement.sh).
+//   dmd_achievement.sh v6 recoit aussi son propre send_udp() (oublie lors
+//   de la bascule initiale, jamais touche jusqu'ici). PAS ENCORE TESTE SUR
+//   MATERIEL.
+//
+// v169 - 2026-09-08 - safe-modify - VRAIE CAUSE trouvee (pas juste une
+//   mitigation) des 5 blocages UDP de ce soir, par lecture du CODE SOURCE
+//   de la librairie NetworkUDP (core ESP32-Arduino, NetworkUdp.cpp) :
+//   parsePacket() renvoie 0 DEFINITIVEMENT tant qu'un rx_buffer interne
+//   precedent n'a pas ete ENTIEREMENT lu -- et read(buffer,len) ne le
+//   libere que si tout a ete consomme. L'ancien buffer de 256 octets
+//   (v1, dimensionne sur le score MQTT "multi-rangs" ~90 octets) laissait
+//   un reste non lu pour tout payload UDP de plus de 255 octets -- les
+//   panneaux description/info de dmd_score.sh peuvent faire jusqu'a ~700
+//   octets (meme raison que mqttClient.setBufferSize(1024), v79). Un seul
+//   payload trop long bloquait le socket UDP EN PERMANENCE, pas une
+//   histoire de charge/rafale comme suppose a tort dans les changelogs
+//   precedents (v163-v168). Fix : buffer porte a 1024 (buf et scratch
+//   dans handleUdpCommand()) + boucle defensive apres chaque read() qui
+//   vide tout reste malgre tout (garde-fou supplementaire, cout nul dans
+//   le cas normal). La mitigation v168 (re-arm socket toutes les 30s)
+//   reste en place en filet de securite complementaire. PAS ENCORE TESTE
+//   SUR MATERIEL.
+//
+// v168 - 2026-09-08 - safe-modify - MITIGATION (pas un vrai fix, cause
+//   exacte non confirmee) pour le blocage UDP intermittent constate en
+//   usage reel ce soir (5 episodes) : l'instrumentation v166/v167
+//   ([LOOPDIAG2], udpSeen=/udpAgoMs=) prouve que udpSeen s'arrete NETTEMENT
+//   d'avancer au moment du blocage (udpAgoMs grimpe lineairement, aucun
+//   nouveau paquet vu au niveau socket) alors que loop()/WiFi.status()/
+//   rssi restent parfaitement normaux -- confirme un probleme reseau/
+//   socket bas niveau (probablement lwIP), pas applicatif. Re-cree
+//   desormais le socket UDP (dmdUdp.stop()+begin()) toutes les 30s -- si
+//   le socket se bloque, ceci le debloque automatiquement sans
+//   intervention manuelle. PAS ENCORE TESTE SUR MATERIEL.
+//
+// v167 - 2026-09-08 - safe-modify - BUG REEL confirme en usage reel (retour
+//   utilisateur : la ligne [LOOPDIAG] s'affichait tronquee/corrompue en
+//   BOUCLE, systematiquement, sur des centaines de cycles consecutifs --
+//   seuls les tout derniers champs (wifiStatus=/rssi=, ajoutes en v166)
+//   survivaient, tout le reste de la ligne (mode=/free=/udpSeen=/etc.)
+//   disparaissait). Le DMD lui-meme fonctionnait normalement (confirme
+//   par le retour reseau/usage) -- purement un probleme d'AFFICHAGE de ce
+//   log diagnostic, cause exacte non confirmee (String trop longue/trop
+//   de concatenations chainees dans un seul Serial.println(), ou limite
+//   du buffer Serial -- la ligne avait grossi a chaque ajout d'instrumentation
+//   ce soir, v163->v166). Fix : la ligne [LOOPDIAG] retrouve son contenu
+//   d'origine (v143) ; les champs ajoutes ce soir (udpSeen/udpKept/
+//   udpAgoMs/wifiStatus/rssi, v166) passent dans un 2e appel separe,
+//   [LOOPDIAG2], juste apres -- 2 lignes plus courtes au lieu d'une
+//   longue.
+//
+// v166 - 2026-09-08 - safe-modify - Instrumentation diagnostic (demande
+//   utilisateur) pour le blocage UDP intermittent constate en usage reel
+//   ce soir (3 episodes, cause encore non identifiee -- DMD arretant de
+//   traiter les commandes UDP, avec/sans reponse ping, loop()/[LOOPDIAG]
+//   pourtant toujours actifs, parfois auto-resolu). [LOOPDIAG] affiche
+//   desormais udpSeen=/udpKept=/udpAgoMs= (compteurs cumulatifs +
+//   anciennete du dernier paquet vu au niveau socket, AVANT tout
+//   filtrage) et wifiStatus=/rssi= -- objectif : la PROCHAINE fois que ca
+//   se reproduit, distinguer directement "rien n'arrive au socket"
+//   (udpSeen stagne -- probleme reseau/lwIP) de "ca arrive mais n'est
+//   plus applique" (udpSeen avance, udpKept stagne -- probleme
+//   applicatif), et ecarter/confirmer une degradation radio silencieuse.
+//   Purement diagnostic, aucun changement de comportement.
+//
+// v165 - 2026-09-08 - safe-modify - BUG REEL confirme en usage reel (retour
+//   utilisateur, APRES le fix v163) : au demarrage d'une navigation rapide
+//   (pas extreme), les 2-3 premiers marquees ne s'affichent plus du tout --
+//   le vieux marquee (d'avant la navigation) reste affiche plusieurs
+//   secondes avant de sauter directement a la position courante. Cause :
+//   v163 ecrasait TOUJOURS par le dernier paquet lu, meme quand seulement
+//   2-3 etaient en attente (pas encore un vrai retard accumule) --
+//   confirme par lecture du log RB1 (marquee.sh publie chaque survol
+//   individuellement AVANT que son propre detecteur de rafale ne se
+//   declenche). Fix : handleUdpCommand() ne "saute en avant" que si le
+//   retard depasse SKIP_AHEAD_THRESHOLD=3 paquets en attente -- sous ce
+//   seuil, garde le PREMIER (plus ancien) paquet lu, comme avant v163.
+//   MAX_UDP_DRAIN_PER_CALL (v164, 20/appel) inchange. PAS ENCORE TESTE SUR
+//   MATERIEL.
+//
+// v164 - 2026-09-08 - safe-modify - BUG REEL confirme en usage reel (retour
+//   utilisateur, apres relevement de BURST_THRESHOLD cote RB1/marquee.sh
+//   v48 : navigation soutenue) : DMD "figé sur un marquee", plus aucune
+//   commande UDP traitee ET plus de reponse ping -- alors que [LOOPDIAG]
+//   continuait de s'imprimer normalement (loop() PAS bloque, donc pas un
+//   hang classique). La boucle de vidange UDP (v163) n'avait AUCUNE limite
+//   -- un flux entrant soutenu pouvait la faire tourner sans jamais rendre
+//   la main, avec un risque de degradation du buffer socket/pool lwIP
+//   (partage avec ICMP, coherent avec le ping egalement mort). Fix :
+//   handleUdpCommand() borne desormais la vidange a 20 paquets max par
+//   appel -- rend TOUJOURS la main a loop() rapidement, quel que soit le
+//   debit entrant. PAS ENCORE TESTE SUR MATERIEL (le DMD etait bloque au
+//   moment de ce commit, recuperation via le hard-reset du flash lui-meme).
+//
+// v163 - 2026-09-08 - safe-modify - BUG REEL confirme en usage reel (retour
+//   utilisateur, navigation rapide RB1 : "le DMD continue a defiler jusqu'aux
+//   bons marquees" apres l'arret de la navigation -- ecart de perf
+//   inacceptable). handleUdpCommand() traitait UN SEUL paquet UDP par appel
+//   -- contrairement a MQTT (pendingCmd = 1 seul slot, ecrase par chaque
+//   nouveau message), chaque datagramme UDP s'accumule dans le buffer
+//   socket, rien ne l'ecrase. Une rafale de survols (meme sous le seuil de
+//   rafale marquee.sh, 5/s) suffit a accumuler plusieurs CMD=game en
+//   attente plus vite que le DMD ne peut les rendre un par un (100-300ms/
+//   GIF mesures), creant un retard qui continue de rattraper apres coup.
+//   Fix : handleUdpCommand() vide desormais TOUT le buffer socket en une
+//   seule iteration de loop(), ne garde que le DERNIER paquet -- meme
+//   principe que la vidange non-bloquante deja en place cote RB1
+//   (marquee.sh v30). PAS ENCORE TESTE SUR MATERIEL.
+//
+// v162 - 2026-09-08 - safe-modify - Resync UDP (comble le trou laisse par
+//   v161/full UDP : sans retain MQTT, un DMD qui reboote/perd le WiFi en
+//   session reste fige sur son dernier etat jusqu'au prochain evenement
+//   REEL). Nouveau port UDP_HELLO_PORT=5006 + sendUdpHello() : envoie un
+//   simple datagramme a RB1 (recalboxIP:5006) a la 1ere connexion WiFi
+//   (setupWiFiFromConfig()) ET a chaque reconnexion ulterieure detectee
+//   dans loop() (transition WiFi.status() deconnecte->connecte, static
+//   bool, cout nul hors transition). Cote RB1, dmd_helpers/
+//   dmd_udp_resync.py (marquee.sh v46) ecoute ce port et relit
+//   es_state.inf A NEUF a chaque hello pour renvoyer l'etat reel courant.
+//   PAS ENCORE TESTE SUR MATERIEL.
+//
+// v161 - 2026-09-08 - safe-modify - BASCULE FULL UDP (demande utilisateur
+//   explicite : "on teste la version mqtt depuis plusieurs mois et on
+//   connait sa fragilite cote reseau, c'est bien pour ca qu'on essaye de
+//   passer sur udp"). Nouveau #define MQTT_ENABLED=false (voir sa
+//   declaration complete) : empeche uniquement la creation de mqttTask()
+//   dans setup() -- plus aucun connect()/subscribe() n'a jamais lieu, donc
+//   plus aucune exposition au mur de plateforme (le bug reseau documente
+//   depuis des semaines, cause de toute cette piste). Reste du code MQTT
+//   intact (juste inerte) -- un seul flag a remettre a true pour revenir
+//   en arriere si besoin. Les etats "RecalBox non connectee"/"waiting"
+//   pilotes par mqttTask() ne se declenchent plus jamais -- pas un manque
+//   fonctionnel : c'est le meme repli robuste et deja teste depuis des
+//   mois pour "RB1 injoignable" (retour direct playlist locale),
+//   desormais permanent. UDP (v158-v160) devient l'unique canal de
+//   commandes temps reel. PAS ENCORE TESTE EN CONDITIONS REELLES
+//   PROLONGEES au moment de ce commit.
+//
+// v160 - 2026-09-08 - safe-modify - RETRO_VERSION (splash boot, ecran
+//   physique) renomme "Raw565 Ed. dev13" -> "Raw565 Ed. v13UDP" (demande
+//   utilisateur) -- identifie visuellement ce build comme la piste UDP en
+//   cours de validation, distinct du dev13 "de base" (branche dev/dmd-udp-
+//   transport). Aucun changement fonctionnel.
+//
+// v159 - 2026-09-08 - safe-modify - Piste UDP : extension de
+//   handleUdpCommand() (v158) a TOUT le jeu de commandes marquee/cmd
+//   (stop/default/system/game/show_config/wifi_recovery/reboot/
+//   brightness/brightness_up/brightness_down/score/ingame), meme dispatch
+//   qu'onMqttMessage() (v148), duplique plutot que factorise -- ne pas
+//   restructurer un chemin MQTT eprouve depuis des mois pour un prototype
+//   pas encore valide en charge. CMD_SCORE seul avait ete valide sur
+//   materiel reel juste avant cette extension (v158, voir DECISIONS.md) --
+//   le reste des commandes PAS ENCORE teste. Prochaine etape : test reel
+//   des autres commandes (stop/default/system/game au minimum) avant
+//   d'envisager de reduire/couper MQTT.
+//
+// v158 - 2026-09-06 - safe-modify - Piste UDP (voir TRANSPORT_PLAN_UDP.md,
+//   branche dev/dmd-udp-transport) : PROTOTYPE MINIMAL, CMD_SCORE
+//   uniquement, PAS ENCORE TESTE SUR MATERIEL. Objectif : contourner le mur
+//   de plateforme MQTT non resolu (connect()/subscribe() bloquants, voir
+//   memoire projet/DECISIONS.md) en s'affranchissant de tout etat TCP a
+//   faire "caler" -- UDP est fire-and-forget, sans connexion/handshake.
+//   Ajouts : WiFiUDP dmdUdp (port UDP_CMD_PORT=5005), dmdUdp.begin() une
+//   seule fois apres la 1ere connexion WiFi reussie (setupWiFiFromConfig(),
+//   PAS rearme apres une reconnexion WiFi ulterieure -- a valider),
+//   handleUdpCommand() (parsePacket() non bloquant, appelee a chaque
+//   loop() juste apres processPendingMqttCommand()) : meme format de
+//   payload que MQTT (v148, "CMD=<nom> ARG=<reste>"), meme extractField(),
+//   mais dispatch limite a "score" (ecrit pendingCmd sous mqttCmdMutex,
+//   comme onMqttMessage()) -- tout autre CMD est logue (Serial + mqttLog[])
+//   mais sciemment ignore pour l'instant. MQTT INCHANGE, tourne toujours en
+//   parallele (comparaison prevue, voir plan). Prochaine etape : test reel
+//   (envoi UDP depuis RB1) avant d'etendre aux autres commandes.
 //
 // v157 - 2026-09-05 - safe-modify - drawScoreScreen() : score du rang 1
 //   (ecran hi-score) desormais ALIGNE A DROITE, comme le rang 2 juste en
@@ -2746,6 +3631,18 @@ typedef uint8_t BitOrder; // Workaround: Adafruit_BusIO attend BitOrder (AVR) ma
 #include <SD.h>
 #include <SPI.h>
 #include <WiFi.h>
+#include <WiFiUdp.h> // v1 (piste UDP, voir TRANSPORT_PLAN_UDP.md) -- prototype minimal, cmd=score uniquement
+// v192 -- chasse au bug du gel de reception UDP (voir DECISIONS.md) :
+// mesure sur 2h reelle (2026-09-11 soir, simulation d'activite continue) ->
+// 110 episodes, moyenne 37s, 56.7% du temps total en coupure -- bien plus
+// frequent/severe que suppose jusqu'ici. Etape 0 du plan de chasse :
+// verifier DEFINITIVEMENT si le power-save WiFi (WIFI_PS_MIN_MODEM, deja
+// suspecte depuis v131, jamais confirmable via l'API Arduino seule) est
+// reellement actif au moment des coupures. esp_wifi_get_ps()/set_ps() sont
+// des API ESP-IDF de bas niveau, deja liees dans le core arduino-esp32
+// (WiFi.h les utilise en interne) -- accessibles directement depuis un
+// sketch sans changement de core.
+#include "esp_wifi.h"
 #include <ESPmDNS.h>
 #include <PubSubClient.h>
 #include "BluetoothSerial.h"
@@ -3322,7 +4219,55 @@ bool loadBigramTable(const String &sysName)
 
 // Charge la tranche du bigramme en heap
 // La table doit etre chargee (loadBigramTable)
-bool preloadBigram(const String &sysName, const String &gameName)
+// v195 -- chasse au bug "gel de reception UDP" : mesure directe (pas une
+// supposition) du temps passe dans les fonctions SD lourdes (openGif(),
+// preloadBigram()) depuis le dernier paquet UDP vu -- hypothese testee :
+// une rafale d'acces SD (plusieurs SD.open() consecutifs pendant un
+// changement de jeu) bloque loop() assez longtemps pour que la mailbox
+// de reception UDP d'ESP-IDF (6 emplacements par defaut) se remplisse et
+// jette silencieusement les paquets suivants AVANT meme que notre propre
+// code les voie -- indiscernable de l'exterieur d'un gel de reception.
+// Remis a zero a CHAQUE paquet reellement vu (meme mecanisme que
+// g_lastUdpSeenMs), loggue dans la ligne [UDPGAP] fin coupure pour
+// correler directement duree du gel <-> temps reellement bloque sur SD
+// juste avant. Declaree ICI (pas pres de g_udpGapStartMs, bien plus loin
+// dans le fichier) car preloadBigram() (juste en dessous) en a besoin
+// avant -- contrairement aux fonctions, les variables globales C++ ne
+// beneficient pas du prototypage automatique de l'IDE Arduino.
+unsigned long g_sdBlockedAccumMs = 0;
+// v196 -- meme chasse au bug, piste affinee : g_sdBlockedAccumMs (v195) a
+// REFUTE l'hypothese "ouverture de fichier" (max 339ms mesure face a des
+// coupures de 15-20s, sans commune mesure). Nouvelle cible, trouvee en
+// lisant un commentaire DEJA PRESENT dans ce fichier (v128, epoque MQTT) :
+// gifPlayFrameCompat() fait un SD.read() a CHAQUE frame, en CONTINU
+// pendant toute la duree de N'IMPORTE QUELLE animation (playlist ou jeu)
+// -- deja documente a l'epoque comme "le point de contention le plus
+// frequent". Contrairement a l'ouverture (evenement ponctuel), le rendu
+// de frame se produit en PERMANENCE des qu'un GIF est affiche (quasiment
+// tout le temps sur ce DMD) -- explique a la fois la frequence elevee des
+// coupures ET pourquoi le module isole (simple balayage de pixel, pas de
+// vrai decodage GIF) reste sain. Meme mecanisme de mesure/correlation que
+// g_sdBlockedAccumMs, compteur separe pour ne pas melanger les 2
+// hypotheses dans la meme donnee.
+unsigned long g_frameRenderAccumMs = 0;
+// v197 -- piste encore affinee suite a discussion : v195/v196 mesurent une
+// SOMME sur toute la fenetre "depuis le dernier paquet vu", qui pour la
+// ligne "fin coupure" englobe en realite TOUTE la duree du gel (15-50s),
+// y compris le rendu qui continue APRES que la reception se soit deja
+// arretee -- non causal, juste concomitant. Le mecanisme physique le plus
+// plausible n'est pas "la somme du temps bloque pendant tout le gel" mais
+// "un SEUL appel bloquant assez long pour rater un paquet au moment ou il
+// arrive" (mailbox lwIP ~6 emplacements, un blocage de quelques dizaines
+// de ms suffit a la remplir si une rafale arrive pile a ce moment). Ajoute
+// donc le MAX d'un seul appel (pas la somme) a cote de chaque accumulateur
+// existant, remis a zero au meme moment (chaque paquet reellement vu).
+unsigned long g_sdBlockedMaxMs = 0;
+unsigned long g_frameRenderMaxMs = 0;
+
+// v195 -- renommee Impl + wrapper de mesure (voir g_sdBlockedAccumMs) --
+// meme motif que openGif()/openGifImpl() : mesurer au point d'appel
+// unique plutot que d'instrumenter chaque return interne (nombreux ici).
+bool preloadBigramImpl(const String &sysName, const String &gameName)
 {
   if (!loadBigramTable(sysName)) return false;
 
@@ -3333,50 +4278,99 @@ bool preloadBigram(const String &sysName, const String &gameName)
   uint32_t bigramOffset = bigramTable[bi];
   if (bigramOffset == 0) return false;
 
-  // Trouver l'offset suivant non nul dans la table (RAM)
-  uint32_t nextOffset = 0;
-  for (int nbi = bi + 1; nbi < NB_IDX; nbi++)
-    if (bigramTable[nbi] != 0) { nextOffset = bigramTable[nbi]; break; }
-
-  if (nextOffset == 0 || nextOffset <= bigramOffset)
-  {
-    for (int i = 0; i < gamesIdxCount - 1; i++)
-      if (sysName == gamesIdx[i].sysName) { nextOffset = gamesIdx[i+1].offset; break; }
-    if (nextOffset == 0 || nextOffset <= bigramOffset)
-    {
-      File f = SD.open(gamesCacheFile.c_str(), FILE_READ);
-      if (f) { nextOffset = f.size(); f.close(); }
-    }
-  }
-
-  size_t sliceSize = (nextOffset > bigramOffset) ? nextOffset - bigramOffset : 0;
-  if (sliceSize == 0) return false;
-
-  size_t maxAlloc = ESP.getMaxAllocHeap();
-  if (sliceSize > maxAlloc / 2)
-  {
-    Serial.println("[GCACHE] tranche " + key + " trop grande ("
-                   + String(sliceSize) + ") -> SD directe");
+  // v191 -- BUG REEL confirme sur materiel (crash "juste apres une deco et
+  // navigation pendant la reprise immediate de connexion") : backtrace
+  // decode -> fs::FS::open()/VFSImpl::open()/make_shared<VFSFileImpl>/
+  // operator new -> std::bad_alloc non rattrapee -> abort(), exactement
+  // depuis CETTE fonction (ligne des 2 SD.open() plus bas), appelee ICI
+  // SANS AUCUNE protection alors que sa fonction soeur loadBigramTable()
+  // (juste au-dessus) a deja le meme garde-fou + le meme try/catch depuis
+  // longtemps. Le garde relatif existant plus bas (sliceSize > maxAlloc/2)
+  // ne protege PAS contre un heap deja critique dans l'absolu (la petite
+  // allocation fixe de make_shared<VFSFileImpl> peut echouer meme quand
+  // sliceSize est petit). Meme seuil que partout ailleurs dans le fichier
+  // (CMD_GAME_MIN_HEAP_FOR_FILE_OPEN) + meme filet try/catch que
+  // loadBigramTable() -- defense en profondeur, le garde n'empeche pas a
+  // 100% le chemin non catchable (abort() direct via lock_init_generic(),
+  // deja documente ailleurs) mais rattrape au moins la variante bad_alloc
+  // vue dans ce crash reel.
+  if (ESP.getMaxAllocHeap() < CMD_GAME_MIN_HEAP_FOR_FILE_OPEN) {
+    Serial.println("[GCACHE] preloadBigram heap trop bas (maxalloc=" + String(ESP.getMaxAllocHeap())
+                   + ") -> skip, repli sur SD directe");
     return false;
   }
 
-  freeBigramBuffer();
-  bigramBuf = (uint8_t*)malloc(sliceSize);
-  if (!bigramBuf) return false;
+  try
+  {
+    // Trouver l'offset suivant non nul dans la table (RAM)
+    uint32_t nextOffset = 0;
+    for (int nbi = bi + 1; nbi < NB_IDX; nbi++)
+      if (bigramTable[nbi] != 0) { nextOffset = bigramTable[nbi]; break; }
 
-  File f = SD.open(gamesCacheFile.c_str(), FILE_READ);
-  if (!f) { freeBigramBuffer(); return false; }
-  f.seek(bigramOffset);
-  f.read(bigramBuf, sliceSize);
-  f.close();
+    if (nextOffset == 0 || nextOffset <= bigramOffset)
+    {
+      for (int i = 0; i < gamesIdxCount - 1; i++)
+        if (sysName == gamesIdx[i].sysName) { nextOffset = gamesIdx[i+1].offset; break; }
+      if (nextOffset == 0 || nextOffset <= bigramOffset)
+      {
+        File f = SD.open(gamesCacheFile.c_str(), FILE_READ);
+        if (f) { nextOffset = f.size(); f.close(); }
+      }
+    }
 
-  bigramBufSize      = sliceSize;
-  bigramBufKey       = key;
-  bigramBufAbsOffset = bigramOffset;
+    size_t sliceSize = (nextOffset > bigramOffset) ? nextOffset - bigramOffset : 0;
+    if (sliceSize == 0) return false;
 
-  Serial.println("[GCACHE] preload " + key + " (" + String(sliceSize)
-                 + " bytes) free=" + String(ESP.getFreeHeap()));
-  return true;
+    size_t maxAlloc = ESP.getMaxAllocHeap();
+    if (sliceSize > maxAlloc / 2)
+    {
+      Serial.println("[GCACHE] tranche " + key + " trop grande ("
+                     + String(sliceSize) + ") -> SD directe");
+      return false;
+    }
+
+    freeBigramBuffer();
+    bigramBuf = (uint8_t*)malloc(sliceSize);
+    if (!bigramBuf) return false;
+
+    File f = SD.open(gamesCacheFile.c_str(), FILE_READ);
+    if (!f) { freeBigramBuffer(); return false; }
+    f.seek(bigramOffset);
+    f.read(bigramBuf, sliceSize);
+    f.close();
+
+    bigramBufSize      = sliceSize;
+    bigramBufKey       = key;
+    bigramBufAbsOffset = bigramOffset;
+
+    Serial.println("[GCACHE] preload " + key + " (" + String(sliceSize)
+                   + " bytes) free=" + String(ESP.getFreeHeap()));
+    return true;
+  }
+  catch (std::exception &e)
+  {
+    Serial.println(String("[GCACHE] EXCEPTION rattrapee dans preloadBigram() (heap critique, maxalloc=")
+                   + String(ESP.getMaxAllocHeap()) + ") : " + e.what());
+    freeBigramBuffer();
+    return false;
+  }
+  catch (...)
+  {
+    Serial.println("[GCACHE] EXCEPTION inconnue rattrapee dans preloadBigram() (maxalloc=" + String(ESP.getMaxAllocHeap()) + ")");
+    freeBigramBuffer();
+    return false;
+  }
+}
+
+// v195 -- wrapper de mesure, voir commentaire pres de preloadBigramImpl().
+bool preloadBigram(const String &sysName, const String &gameName)
+{
+  unsigned long t0Sd = millis();
+  bool result = preloadBigramImpl(sysName, gameName);
+  unsigned long dSd = millis() - t0Sd;
+  g_sdBlockedAccumMs += dSd;
+  if (dSd > g_sdBlockedMaxMs) g_sdBlockedMaxMs = dSd;  // v197
+  return result;
 }
 
 // Si le systÃ¨me est flag 'L' (lent), le cache bigram est inutile :
@@ -3535,6 +4529,37 @@ char findInGamesCache(const String &sysName, const String &gameName)
 #define MQTT_CLIENT  "esp32-marquee"
 #define MQTT_RETRY_MS    15000
 #define MQTT_START_DELAY_MS 12000
+// v1 -- piste UDP (voir TRANSPORT_PLAN_UDP.md) : port dedie, fire-and-forget,
+// prototype limite a CMD=score pour valider la fiabilite avant d'etendre.
+#define UDP_CMD_PORT      5005
+// v4 -- resync UDP (voir TRANSPORT_PLAN_UDP.md, point 1 "Aucune garantie de
+// livraison ni d'ordre") : port DEDIE (distinct de UDP_CMD_PORT) sur lequel
+// RB1 ecoute un "hello" du DMD a chaque connexion/reconnexion WiFi, pour
+// renvoyer l'etat REEL courant (relu depuis /tmp/es_state.inf a cet
+// instant, pas un etat mis en cache) -- comble le trou laisse par l'absence
+// de retain MQTT en mode full UDP (v161) : un DMD qui reboote/perd le WiFi
+// pendant une session recoit l'etat a jour des sa reconnexion, sans
+// attendre le prochain evenement de navigation reel.
+#define UDP_HELLO_PORT    5006
+// v3 -- bascule FULL UDP (demande utilisateur explicite, 2026-09-08) :
+// MQTT teste depuis des mois, fragilite reseau cote DMD deja bien
+// documentee (mur de plateforme -- connect()/subscribe() bloquants, voir
+// memoire projet/DECISIONS.md) -- raison d'etre de toute la piste UDP.
+// MQTT_ENABLED=false empeche uniquement la CREATION de mqttTask() (voir
+// setup()) : aucune tentative connect()/subscribe() n'a plus jamais lieu,
+// donc plus aucune exposition au mur de plateforme. Tout le reste du code
+// MQTT (mqttClient, onMqttMessage(), processPendingMqttCommand()) reste
+// intact et inchange -- processPendingMqttCommand() continue de traiter
+// pendingCmd quelle que soit sa source (uniquement UDP desormais). Les
+// etats "RecalBox non connectee"/"waiting" pilotes par mqttTask()
+// (g_recalboxDisconnectedPending etc.) ne se declenchent plus jamais --
+// pas un manque : c'est exactement le meme repli deja robuste et teste
+// depuis des mois pour le cas "RB1 injoignable" (retour direct a la
+// playlist locale), desormais permanent puisque MQTT ne se connecte plus
+// -- UDP prend le relais pour toutes les commandes en temps reel.
+// Flag unique pour revenir en arriere instantanement si besoin (mettre a
+// true relance MQTT en parallele de l'UDP, comme avant ce commit).
+#define MQTT_ENABLED      false
 
 // --------------------------------------------------
 // Globaux
@@ -3825,6 +4850,18 @@ const unsigned long NO_WIFI_ALERT_DISPLAY_MS = 5000;
 bool g_recalboxDisconnectedPending = false;
 bool g_recalboxDisconnectedScreenActive = false;
 unsigned long g_recalboxDisconnectedUntilMs = 0;
+// v189 -- BUG REEL confirme sur materiel (retour utilisateur : "c'est pire
+// que tes 5s car rien ne vient arreter la playlist pour remettre le bon
+// etat sur le dmd") : une fois le delai d'alerte ecoule, resumePlaylist()
+// bascule currentMode en MODE_PLAYLIST mais RIEN ne resynchronise ensuite
+// l'etat reel de RB1 -- seule une VRAIE nouvelle navigation (hors ligne
+// indefiniment sinon) en sort. Ce drapeau memorise qu'on a ete force en
+// playlist par une coupure applicative (PAS par un vrai choix utilisateur
+// ni par une coupure WiFi reelle, deja geree par le hello de reconnexion
+// WiFi existant) -- consomme au premier PONG recu ensuite pour demander un
+// resync complet (sendUdpHello()) et rattraper l'etat reel immediatement,
+// au lieu d'attendre une navigation qui pourrait ne jamais arriver.
+bool g_recalboxDisconnectedForcedPlaylist = false;
 
 // Dernier etat MQTT reellement affiche (v50, 2026-08-03, bug reel confirme :
 // apres "Reprendre DMD" alors que RB est en mode clip, la playlist ne
@@ -3860,6 +4897,71 @@ WiFiClient   wifiClientMqtt;
 PubSubClient mqttClient(wifiClientMqtt);
 String       lastSysName = "";
 String       displayedMaskSysName = "";
+
+// v1 -- piste UDP (voir TRANSPORT_PLAN_UDP.md). dmdUdp.begin(UDP_CMD_PORT)
+// est appele une seule fois, juste apres la 1ere connexion WiFi reussie
+// (setupWiFiFromConfig()) -- PAS REARME apres une reconnexion WiFi
+// ulterieure (maintainWiFi()) pour l'instant : a valider en conditions
+// reelles si necessaire (le socket UDP local, bind() sur INADDR_ANY,
+// devrait en principe survivre a un cycle disconnect/reconnect qui ne
+// recree pas l'interface elle-meme -- pas encore confirme sur materiel).
+WiFiUDP      dmdUdp;
+
+// v8 -- instrumentation diagnostic (investigation des blocages UDP
+// intermittents constates en usage reel, 2026-09-08 soir -- DMD arretant
+// de traiter toute commande UDP, avec ou sans reponse ping, loop()/
+// [LOOPDIAG] pourtant toujours actifs, parfois auto-resolu apres coup).
+// Objectif : distinguer "rien n'arrive au socket" (probleme reseau/lwIP)
+// de "ca arrive mais n'est plus traite" (probleme applicatif) la
+// PROCHAINE fois que ca se reproduit, sans avoir a deviner. Compteurs
+// cumulatifs jamais remis a zero (paralleles a minFreeHeap), lus depuis
+// [LOOPDIAG].
+unsigned long g_udpPacketsSeen = 0;   // parsePacket()>0, avant tout filtrage
+unsigned long g_udpPacketsKept = 0;   // ont mene a un dispatch reel (pendingCmd/g_pending* poses)
+unsigned long g_lastUdpSeenMs = 0;    // millis() du dernier parsePacket()>0, quel qu'il soit
+// v190 -- BUG REEL de LISIBILITE trouve par l'utilisateur sur le log v186/
+// v188 ("je n'arrive pas a me rendre compte de la frequence et de la duree
+// des pertes de connexion") : "[UDPCHK] ping rate -- deconnexion... en
+// cours depuis ~Xms" ne mesurait qu'UN SEUL ping dedie manque (cycle 15s)
+// -- indiscernable d'un simple paquet isole perdu (banal en UDP) sans
+// recouper manuellement udpSeen/udpAgoMs, ce que l'utilisateur ne peut pas
+// faire en lisant le serial en direct. Remplace par un suivi d'EPISODE
+// explicite base sur g_lastUdpSeenMs (MAJ sur N'IMPORTE QUEL paquet recu,
+// pong inclus -- pas seulement le ping dedie) : g_udpGapStartMs=0 signifie
+// "aucune coupure en cours" ; sinon il retient le dernier instant de trafic
+// reel CONNU avant la coupure. Une seule ligne "[UDPGAP] debut" au moment
+// ou l'absence de tout trafic depasse UDP_PING_INTERVAL_MS, une seule
+// ligne "[UDPGAP] fin ... duree=Xms" DES le premier paquet qui revient
+// (detection temps reel dans le drain loop, pas au prochain cycle 15s) --
+// frequence et duree lisibles directement par un grep, sans recoupement
+// manuel.
+unsigned long g_udpGapStartMs = 0;
+// v198 -- constat en analysant les episodes v197 : entre le "debut coupure"
+// et sa resolution, aucune sonde active n'est tentee avant le PROCHAIN cycle
+// programme (15s alerte ou 30s UDPREARM) -- pour une partie des episodes on
+// ne sait donc pas si la reception etait VRAIMENT bloquee pendant tout ce
+// temps, ou si aucun trafic (applicatif ou diagnostic) n'a simplement eu
+// l'occasion d'etre teste avant que le prochain vrai paquet arrive par
+// hasard. g_lastGapProbeMs/g_udpGapProbeCount pilotent une sonde DEDIEE,
+// independante de g_lastPingSentMs (surtout ne pas la reutiliser : ca
+// romprait le cycle 15s de l'alerte "RecalBox non connectee", qui doit
+// garder son propre rythme de detection intact), envoyee toutes les ~1s
+// UNIQUEMENT pendant qu'un [UDPGAP] est en cours -- le compteur, loggue a
+// la fin de coupure, dit exactement combien de sondes actives sont restees
+// sans reponse avant la resolution (0 = resolu par une sonde standard/du
+// trafic reel, jamais vraiment teste par CETTE sonde ; N>=1 = N secondes de
+// silence confirme par une sonde dediee, pas juste une absence de trafic).
+unsigned long g_lastGapProbeMs = 0;
+int g_udpGapProbeCount = 0;
+// v183 -- ping/pong DEDIE a l'alerte "RecalBox non connectee",
+// INDEPENDANT du hello de mesure v174 (outil de diagnostic du gel de
+// reception, voir sendUdpHello()/UDPREARM plus bas -- ne pas melanger les
+// 2 mecanismes). Cadence alignee sur l'ancien keepalive MQTT
+// (mqttClient.setKeepAlive(15)) -- voir DECISIONS.md pour le detail
+// complet du principe.
+const unsigned long UDP_PING_INTERVAL_MS = 15000UL;
+unsigned long g_lastPingSentMs = 0;    // millis() du dernier PING envoye
+unsigned long g_lastPongSeenMs = 0;    // millis() du dernier PONG recu
 
 // v139 -- voir changelog v139 en entete pour le contexte complet. Contourne
 // NetworkClient::write() (coeur Arduino-ESP32, NetworkClient.cpp) qui peut
@@ -4074,6 +5176,16 @@ unsigned long g_lastMqttUsefulMs = 0;
 bool   g_pendingDefault   = false;
 bool   g_pendingSystem    = false;  String g_pendingSystemArg = "";
 bool   g_pendingGame      = false;  String g_pendingGameArg   = "";
+// v178 -- INSTRUMENTATION DIAGNOSTIC (retour utilisateur : la mesure
+// precedente via [DIAG] currentMode etait FAUSSE -- ce print ne sort qu'au
+// DEBUT de l'iteration loop() SUIVANTE, donc apres que cette iteration-la
+// ait aussi dessine sa PROPRE 1ere frame puis attende SON PROPRE fd --
+// mesurait la fin de l'attente de la frame suivante, pas le delai d'affichage
+// reel (qui, lui, est synchrone avec le dispatch CMD_GAME). Capture le vrai
+// instant de reception ICI (handleUdpCommand(), avant tout traitement) pour
+// mesurer honnetement recv->dispatch (voir le print correspondant dans
+// processPendingMqttCommand()).
+unsigned long g_pendingGameRecvMs = 0;
 // v104 -- g_pendingIngame/g_pendingGameInfo retires (CMD_INGAME/CMD_GAME_INFO
 // n'existent plus, voir suppression du sous-systeme hi-score/overlay).
 //
@@ -4399,6 +5511,53 @@ static String alphaSubdirPath(const String &path)
   }
 
   return dir + "/" + subdir + "/" + fname;
+}
+
+// v202 - 2026-09-12 - safe-modify - Reduction du nombre d'appels SD.open()
+// (retour utilisateur : "un moyen de prevenir ou de rattraper ce type de
+// crash ?", option 3 -- moins d'allocations make_shared<VFSFileImpl> au
+// total sur la duree = moins d'occasions de collision avec une allocation
+// WiFi/lwIP concurrente, meme si ca n'aurait PAS empeche le crash reel
+// observe sur mame/zeropnt2 cette session, celui-ci ayant frappe sur
+// l'ouverture NECESSAIRE, pas une tentative de repli redondante -- voir
+// DECISIONS.md). openGifImpl() tentait TOUJOURS sous-dossier alphabetique
+// PUIS repli plat, dans cet ordre fixe, pour CHACUN des 3 fichiers
+// (probe .gif, .raw565pack, .meta) -- soit jusqu'a 6 SD.open() par
+// changement de jeu dans le pire cas. Or la convention sous-dossier/plat
+// est une caracteristique de LA CARTE SD ENTIERE (alphaSubdirPath() ne
+// depend que du 1er caractere du nom de fichier, pas du systeme) --
+// une fois determinee par un premier succes, elle reste valable pour tous
+// les fichiers suivants. g_sdSubdirPreference (globale, init a true =
+// comportement historique inchange par defaut) memorise le dernier
+// choix gagnant et est tentee EN PREMIER a chaque appel -- la tentative
+// perdante n'est retentee que si la preference se revele fausse (bascule
+// de carte SD a chaud, cas limite). Reduit le nombre moyen d'appels
+// SD.open() par changement de jeu de ~6 a ~3 dans le cas normal (la carte
+// utilise une seule convention, coherente sur tous ses fichiers).
+static bool g_sdSubdirPreference = true;
+
+static File openWithSubdirPreference(const String &subPath, const String &flatPath)
+{
+  File f;
+  if (g_sdSubdirPreference)
+  {
+    f = SD.open(subPath.c_str(), FILE_READ);
+    if (!f)
+    {
+      f = SD.open(flatPath.c_str(), FILE_READ);
+      if (f) g_sdSubdirPreference = false;
+    }
+  }
+  else
+  {
+    f = SD.open(flatPath.c_str(), FILE_READ);
+    if (!f)
+    {
+      f = SD.open(subPath.c_str(), FILE_READ);
+      if (f) g_sdSubdirPreference = true;
+    }
+  }
+  return f;
 }
 
 static uint16_t *raw565FullBuf = nullptr;
@@ -5101,14 +6260,34 @@ static void gifResetCompat()
 // positif/regression fonctionnelle contrairement a un seuil heuristique.
 bool openGifImpl(const String &path, bool clearBefore, bool skipProbe, bool skipRawPack)
 {
+  // v194 -- MITIGATION EXPERIMENTALE (a valider sur duree, pas un fix
+  // confirme) pour le meme crash famille que v98/v184/v187/v191 --
+  // recherche web (voir DECISIONS.md) : sur ESP32, le pilote WiFi alloue/
+  // libere en permanence des buffers de taille variable a CHAQUE paquet
+  // recu/envoye, sur le MEME tas fragmente que nos propres allocations --
+  // "il est probablement impossible d'allouer un seul bloc de memoire
+  // meme quand l'espace libre total semble suffisant" (issues ESP-IDF
+  // documentees). Le crash du 12/09 matin est survenu ~18ms apres un
+  // hello+resync UDP (paquet recu, paquet envoye) -- compatible avec une
+  // collision transitoire entre une allocation WiFi interne et notre
+  // propre SD.open()/make_shared<VFSFileImpl>, sur un pool memoire
+  // fragmente -- PAS un manque de heap global (deja ecarte par le
+  // commentaire v98 : maxalloc=4596 identique avant des dizaines
+  // d'ouvertures reussies). Un seuil statique ne peut rien contre une
+  // collision de quelques ms ; un petit delai avant TOUTE la cascade de
+  // SD.open() de cette fonction (appelee par tous les chemins a risque :
+  // CMD_GAME FAST/SLOW, playlist) laisse le temps a une allocation WiFi
+  // transitoire de se liberer avant que nous tentions la notre. Cout
+  // quasi nul (2ms, imperceptible face aux centaines de ms deja normales
+  // pour un chargement de GIF) compare aux minutes perdues a chaque
+  // crash+reboot. Hypothese, PAS une certitude -- a observer sur la duree
+  // si la frequence de ce crash baisse reellement.
+  delay(2);
   if (!skipProbe)
   {
-    // Essayer sous-dossier d'abord, puis plat
+    // v202 -- voir openWithSubdirPreference()/g_sdSubdirPreference.
     String subPath = alphaSubdirPath(path);
-    File p = SD.open(subPath.c_str(), FILE_READ);
-    if (!p) {
-      p = SD.open(path.c_str(), FILE_READ);
-    }
+    File p = openWithSubdirPreference(subPath, path);
     if (!p) return false;
     p.close();
   }
@@ -5147,16 +6326,9 @@ bool openGifImpl(const String &path, bool clearBefore, bool skipProbe, bool skip
     // Evite un pattern "probe" SD.exists()+SD.open() : on ouvre directement.
     if (clearBefore) display->clearScreen();
 
-    // Tenter sous-dossier d'abord, puis plat (compatibilitÃ© ascendante)
-    gifRawPackFile = SD.open(subRawPack.c_str(), FILE_READ);
-    if (!gifRawPackFile) {
-      gifRawPackFile = SD.open(rawPack.c_str(), FILE_READ);
-    }
-
-    gifRawMetaFile = SD.open(subMetaPath.c_str(), FILE_READ);
-    if (!gifRawMetaFile) {
-      gifRawMetaFile = SD.open(metaPath.c_str(), FILE_READ);
-    }
+    // v202 -- voir openWithSubdirPreference()/g_sdSubdirPreference.
+    gifRawPackFile = openWithSubdirPreference(subRawPack, rawPack);
+    gifRawMetaFile = openWithSubdirPreference(subMetaPath, metaPath);
 
       if (gifRawPackFile && gifRawMetaFile)
       {
@@ -5236,23 +6408,57 @@ bool openGifImpl(const String &path, bool clearBefore, bool skipProbe, bool skip
 // openGifImpl() ci-dessus) -- meme technique que getNextGifRandom() (v78).
 bool openGif(const String &path, bool clearBefore=true, bool skipProbe=false, bool skipRawPack=false)
 {
-  try
+  // v195 -- mesure du temps reellement passe ici (voir declaration de
+  // g_sdBlockedAccumMs) -- englobe TOUS les chemins de sortie
+  // (openGifImpl() a plusieurs return, mesurer au point d'appel unique
+  // est plus simple/sur que d'instrumenter chaque retour interne).
+  unsigned long t0Sd = millis();
+  bool result;
+  // v201 - 2026-09-12 - safe-modify - Piste de prevention (demande
+  // explicite utilisateur, "un moyen de prevenir ou de rattraper ce type
+  // de crash ?") pour la variante CATCHABLE (std::bad_alloc via
+  // operator new sur make_shared<VFSFileImpl>) confirmee en direct sur
+  // mame/zeropnt2 -- maxalloc semblait sain (9204, largement > le seuil
+  // 3000) juste avant, ce qui suggere une COLLISION TRANSITOIRE avec une
+  // allocation concurrente (WiFi/lwIP, sur le meme tas) plutot qu'un etat
+  // durable de heap bas -- un pre-check calcule quelques ms avant ne
+  // peut pas predire une collision qui n'a pas encore eu lieu. Une
+  // RETENTATIVE apres un court delai a de bonnes chances d'esquiver cette
+  // meme collision, l'allocation concurrente ayant eu le temps de se
+  // liberer. AUCUN effet sur la variante NON catchable (lock_init_generic()
+  // -> abort() direct C, jamais un retour normal a ce code) -- seule la
+  // variante std::bad_alloc/std::exception profite de cette retentative.
+  const int OPEN_GIF_MAX_ATTEMPTS = 2;
+  for (int attempt = 1; attempt <= OPEN_GIF_MAX_ATTEMPTS; attempt++)
   {
-    return openGifImpl(path, clearBefore, skipProbe, skipRawPack);
+    try
+    {
+      result = openGifImpl(path, clearBefore, skipProbe, skipRawPack);
+      break;
+    }
+    catch (std::exception &e)
+    {
+      Serial.println(String("[GIF] EXCEPTION rattrapee dans openGif() (heap critique, maxalloc=")
+                     + String(ESP.getMaxAllocHeap()) + ", tentative=" + String(attempt)
+                     + "/" + String(OPEN_GIF_MAX_ATTEMPTS) + ") : " + e.what());
+      gifRawPackMode = false; gifOpened = false;
+      result = false;
+      if (attempt < OPEN_GIF_MAX_ATTEMPTS) { delay(3); continue; }
+    }
+    catch (...)
+    {
+      Serial.println("[GIF] EXCEPTION inconnue rattrapee dans openGif() (maxalloc="
+                     + String(ESP.getMaxAllocHeap()) + ", tentative=" + String(attempt)
+                     + "/" + String(OPEN_GIF_MAX_ATTEMPTS) + ")");
+      gifRawPackMode = false; gifOpened = false;
+      result = false;
+      if (attempt < OPEN_GIF_MAX_ATTEMPTS) { delay(3); continue; }
+    }
   }
-  catch (std::exception &e)
-  {
-    Serial.println(String("[GIF] EXCEPTION rattrapee dans openGif() (heap critique, maxalloc=")
-                   + String(ESP.getMaxAllocHeap()) + ") : " + e.what());
-    gifRawPackMode = false; gifOpened = false;
-    return false;
-  }
-  catch (...)
-  {
-    Serial.println("[GIF] EXCEPTION inconnue rattrapee dans openGif() (maxalloc=" + String(ESP.getMaxAllocHeap()) + ")");
-    gifRawPackMode = false; gifOpened = false;
-    return false;
-  }
+  unsigned long dSd = millis() - t0Sd;
+  g_sdBlockedAccumMs += dSd;
+  if (dSd > g_sdBlockedMaxMs) g_sdBlockedMaxMs = dSd;  // v197
+  return result;
 }
 
 // --------------------------------------------------
@@ -5401,6 +6607,25 @@ const size_t OPEN_NEXT_GIF_MIN_HEAP = 4000;
 // loop(), distinct de celui dans openNextGif()) ; voir le commentaire complet
 // pres du 1er site corrige (openNextGif(), v91/v95) pour le detail du crash.
 const size_t PREFETCH_NEXT_GIF_MIN_HEAP = 8000;
+
+// v180 -- seuil de securite DEDIE pour le sondage handleUdpCommand() dans les
+// boucles d'attente bloquantes (v177/v179) -- retour utilisateur explicite :
+// "vaut mieux un lag qu'un blocage". Contrairement a PREFETCH_NEXT_GIF_MIN_HEAP
+// ci-dessus (verifie ESP.getMaxAllocHeap(), le plus gros bloc CONTIGU -- reste
+// bloque a ~4596 en permanence en usage normal d'apres les logs de cette nuit,
+// donc jamais discriminant pour NOTRE cas), ce seuil verifie ESP.getFreeHeap()
+// (heap TOTAL libre, fragmente ou pas) -- c'est CETTE valeur qui variait entre
+// les episodes sains observes cette nuit (~9000-19000) et les episodes de gel
+// UDP permanent, cause encore non elucidee (~5000-6100, voir DECISIONS.md).
+// handleUdpCommand() ne fait qu'un malloc(1460) (bien moins que
+// PREFETCH_NEXT_GIF_MIN_HEAP, qui protege une operation differente et plus
+// couteuse -- SD.open() d'un nouveau fichier), donc un seuil bien plus bas
+// suffit tout en restant confortablement au-dessus de la zone a risque
+// observee. Si le heap est sous ce seuil, le sondage est simplement saute
+// (le lag redevient ce qu'il etait avant v177/v179, uniquement dans ce cas
+// precis) plutot que de risquer d'ajouter de la pression d'allocation
+// pendant la fenetre la plus suspecte du gel non resolu.
+const size_t UDP_POLL_IN_WAIT_MIN_HEAP = 7000;
 
 String getNextGifRandom()
 {
@@ -5656,8 +6881,27 @@ void webDmdResume()
   // perime, mieux vaut attendre une confirmation fraiche -- partie en cours
   // par ex.). Si MQTT n'est PAS connecte (Recalbox injoignable), aucune
   // autre source de contenu -- comportement inchange, reprend la playlist.
-  if (mqttClient.connected() && !g_lastMqttWasDefault)
+  // v203 - 2026-09-12 - safe-modify - BUG REEL corrige (retour utilisateur
+  // en direct : "reprendre DMD -> playlist au lieu de l'etat actuel de
+  // RB1"). Cette garde datait de l'ere MQTT (v50, 2026-08-03) et n'a
+  // JAMAIS ete adaptee au passage UDP : mqttClient.connected() est
+  // TOUJOURS false en UDP (MQTT_ENABLED=false, le client MQTT n'est meme
+  // plus connecte) -- la condition etait donc IMPOSSIBLE a satisfaire,
+  // cette branche (attendre une confirmation fraiche avant de choisir)
+  // n'a jamais pu s'executer depuis la bascule transport, resumePlaylist()
+  // etait systematiquement appelee en aveugle. Fix : meme mecanisme que la
+  // (re)connexion WiFi (sendUdpHello(), voir son site d'appel dans loop())
+  // -- si le WiFi est up, demande un resync complet a RB1 (etat REEL
+  // courant : jeu/demo/gameclip/navigation, dmd_udp_resync.py deja a jour
+  // pour reconnaitre tous ces cas, voir DECISIONS.md) au lieu de forcer la
+  // playlist a l'aveugle. Ecran d'attente (CMD_WAITING_MQTT, deja
+  // transport-agnostique, voir son propre commentaire) affiche pendant ce
+  // temps, avec son repli existant sur playlist en cas de non-reponse
+  // (meme filet que le boot). resumePlaylist() direct seulement si le
+  // WiFi lui-meme est down (rien a demander a personne).
+  if (WiFi.status() == WL_CONNECTED)
   {
+    sendUdpHello(); broadcastFeatureStatus();
     if (mqttCmdMutex != nullptr && xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(100)) == pdTRUE)
     {
       pendingCmd = MqttCommand(MqttCommand::CMD_WAITING_MQTT, "");
@@ -5909,7 +7153,7 @@ void showRecalboxDisconnectedAlert()
   g_recalboxDisconnectedScreenActive = true;
   g_recalboxDisconnectedUntilMs = millis() + NO_WIFI_ALERT_DISPLAY_MS;
   g_recalboxDisconnectedPending = false;
-  Serial.println("[MQTT] RecalBox non connectee -- alerte affichee");
+  Serial.println("[CMD] RecalBox non connectee -- alerte affichee");
 }
 
 String trOpenUrl(const String &ip)
@@ -6284,9 +7528,14 @@ void processPendingMqttCommand()
   // consomme par appel, comme avant -- les autres suivront au(x) prochain(s)
   // appel(s) de loop() (quelques ms plus tard), jamais perdus entre-temps.
   MqttCommand cmd(MqttCommand::CMD_NONE,"");
+  // v178 -- snapshot local AVANT de relacher le mutex (voir declaration de
+  // g_pendingGameRecvMs) : evite qu'un NOUVEAU paquet, lu par
+  // handleUdpCommand() entre ce point et le print plus bas, n'ecrase la
+  // valeur avant qu'on ait fini de mesurer CETTE commande-ci.
+  unsigned long gameRecvMsSnapshot = 0;
   if      (g_pendingDefault) { g_pendingDefault=false; cmd=MqttCommand(MqttCommand::CMD_DEFAULT,""); }
   else if (g_pendingSystem)  { g_pendingSystem=false;  cmd=MqttCommand(MqttCommand::CMD_SYSTEM,g_pendingSystemArg); }
-  else if (g_pendingGame)    { g_pendingGame=false;    cmd=MqttCommand(MqttCommand::CMD_GAME,g_pendingGameArg); }
+  else if (g_pendingGame)    { g_pendingGame=false;    cmd=MqttCommand(MqttCommand::CMD_GAME,g_pendingGameArg); gameRecvMsSnapshot=g_pendingGameRecvMs; }
   else                       { cmd=pendingCmd; pendingCmd=MqttCommand(MqttCommand::CMD_NONE,""); }
   xSemaphoreGive(mqttCmdMutex);
   if(cmd.type==MqttCommand::CMD_NONE) return;
@@ -6310,7 +7559,7 @@ void processPendingMqttCommand()
   switch(cmd.type)
   {
   case MqttCommand::CMD_STOP:
-    if(currentMode==MODE_PLAYLIST||g_sdOpInProgress){Serial.println("[MQTT] stop ignored");break;}
+    if(currentMode==MODE_PLAYLIST||g_sdOpInProgress){Serial.println("[CMD] stop ignored");break;}
     // v104 -- g_inGameMarquee retire (hi-score port supprime).
     g_mqttConnectedScreenUntilMs = 0;
     // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
@@ -6326,7 +7575,7 @@ void processPendingMqttCommand()
     break;
 
   case MqttCommand::CMD_DEFAULT:
-    if (g_sdOpInProgress) { Serial.println("[MQTT] default ignored (web open)"); break; }
+    if (g_sdOpInProgress) { Serial.println("[CMD] default ignored (web open)"); break; }
     // v122 -- 2e ligne de defense (voir declaration de g_recalboxInGame) :
     // un "default" recu alors que RB affirme encore etre EN JEU (dernier
     // marquee/cmd/ingame retenu = "1") est traite comme perime/errone --
@@ -6336,7 +7585,7 @@ void processPendingMqttCommand()
     // ce fix (autre source de "default" non identifiee, etc.) sans risque :
     // le pire cas est de rester sur le dernier affichage connu un peu plus
     // longtemps, jamais un ecran errone.
-    if (g_recalboxInGame) { Serial.println("[MQTT] default ignore (RB toujours en jeu selon ingame=1)"); break; }
+    if (g_recalboxInGame) { Serial.println("[CMD] default ignore (RB toujours en jeu selon ingame=1)"); break; }
     // v104 -- g_inGameMarquee retire (hi-score port supprime).
     g_lastMqttWasDefault = true; // v50 -- pose ici, avant meme le differe eventuel : RB a bien annonce "default"
     // Delai minimum d'affichage de l'ecran "RecalBox connectee" (v49) : si
@@ -6347,7 +7596,7 @@ void processPendingMqttCommand()
     // (regression du fix v46).
     if (g_mqttConnectedScreenUntilMs != 0 && millis() < g_mqttWaitingMinDisplayUntilMs)
     {
-      Serial.println("[MQTT] default recu pendant l'ecran de connexion -- differe jusqu'au delai minimum");
+      Serial.println("[CMD] default recu pendant l'ecran de connexion -- differe jusqu'au delai minimum");
       g_mqttDefaultPendingAfterMinDisplay = true;
       break;
     }
@@ -6370,7 +7619,7 @@ void processPendingMqttCommand()
   // CMD_DEFAULT (qui reste utilise par le pont marquee sur stop/sleep et
   // doit continuer a relancer la playlist normalement).
   case MqttCommand::CMD_WAITING_MQTT:
-    if (g_sdOpInProgress) { Serial.println("[MQTT] waiting ignored (web open)"); break; }
+    if (g_sdOpInProgress) { Serial.println("[CMD] waiting ignored (web open)"); break; }
     // Bug trouve sur test reel (ecran DMD noir/vide) : le case MODE_PNG de
     // loop() efface l'ecran et repasse en MODE_BLACK des que
     // currentPngPath est vide (voir loop(), ~ligne 3970) -- currentPngPath="",
@@ -6383,7 +7632,7 @@ void processPendingMqttCommand()
     {
       bool okDraw = drawDefaultRaw565Cached();
       currentMode = okDraw ? MODE_PNG : MODE_BLACK;
-      Serial.println(String("[MQTT] waiting -> default.raw565 ") + (okDraw ? "OK" : "FAIL (ecran vide)"));
+      Serial.println(String("[CMD] waiting -> default.raw565 ") + (okDraw ? "OK" : "FAIL (ecran vide)"));
       if (okDraw)
       {
         // Texte superpose (demande utilisateur) -- pngDrawn=true fait sauter
@@ -6406,7 +7655,7 @@ void processPendingMqttCommand()
     break;
 
   case MqttCommand::CMD_SYSTEM:
-    if (g_sdOpInProgress) { Serial.println("[MQTT] system ignored (web open)"); break; }
+    if (g_sdOpInProgress) { Serial.println("[CMD] system ignored (web open)"); break; }
     // v104 -- g_inGameMarquee retire (hi-score port supprime).
     g_mqttConnectedScreenUntilMs = 0;
     // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
@@ -6427,7 +7676,7 @@ void processPendingMqttCommand()
     break;
 
   case MqttCommand::CMD_GAME:
-    if (g_sdOpInProgress) { Serial.println("[MQTT] game ignored (web open)"); break; }
+    if (g_sdOpInProgress) { Serial.println("[CMD] game ignored (web open)"); break; }
     g_mqttConnectedScreenUntilMs = 0;
     // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
     // contenu MQTT reprend la main, plus besoin d'attendre son
@@ -6467,7 +7716,7 @@ void processPendingMqttCommand()
         pngDrawn = false;
         currentPngPath = "";
         currentMode = MODE_GIF;
-        Serial.println("[MQTT] game -> shuffle (anti-rafale)");
+        Serial.println("[CMD] game -> shuffle (anti-rafale)");
       }
       break;
     }
@@ -6532,8 +7781,26 @@ void processPendingMqttCommand()
 
       if (!fastSkipToDefault)
       {
+        // v187 -- BUG REEL confirme sur materiel ("crash en sortie de veille
+        // mode demo de jeu", sys=fbneo rom=actfancr, maxalloc bas) : le
+        // garde-fou heap (v81/v91, CMD_GAME_MIN_HEAP_FOR_FILE_OPEN) protege
+        // deja openGif() dans le chemin SLOW (voir plus bas) mais PAS ici
+        // dans le chemin FAST -- openGifImpl() peut faire jusqu'a 6
+        // SD.open() non gardes, dont l'echec est parfois un abort() direct
+        // (lock_init_generic(), non rattrapable meme par le try/catch de
+        // openGif()). Meme principe applique ici : ne PAS tenter openGif()
+        // si le heap est deja trop bas, tomber directement sur le fallback
+        // suivant (drawPng -- deja protege via drawRaw565() -- puis
+        // default.png plus bas, protege de la meme facon).
+        bool fastHeapOkForGif = (ESP.getMaxAllocHeap() >= CMD_GAME_MIN_HEAP_FOR_FILE_OPEN);
+        if (!fastHeapOkForGif)
+        {
+          Serial.println("[CMD_GAME] heap trop bas (maxalloc=" + String(ESP.getMaxAllocHeap())
+                         + ") -> skip openGif() fast path, repli sur drawPng/default t=" + String(millis()));
+        }
+
         // Pour B : raw565pack d'abord (openGif sur .gif => .raw565pack+.meta)
-        if(sysT == 'B')
+        if(sysT == 'B' && fastHeapOkForGif)
         {
           if(openGif(gameGif, false, true))
           {
@@ -6554,7 +7821,7 @@ void processPendingMqttCommand()
         }
 
         // Puis GIF
-        if(openGif(gameGif, false, true))
+        if(fastHeapOkForGif && openGif(gameGif, false, true))
         {
           pngDrawn = false;
           currentPngPath = "";
@@ -6918,7 +8185,7 @@ void processPendingMqttCommand()
   }
 
   case MqttCommand::CMD_STARTCLIP:
-    if (g_sdOpInProgress) { Serial.println("[MQTT] startclip ignored"); break; }
+    if (g_sdOpInProgress) { Serial.println("[CMD] startclip ignored"); break; }
     // v104 -- g_inGameMarquee retire (hi-score port supprime).
     g_mqttConnectedScreenUntilMs = 0;
     // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
@@ -6930,12 +8197,12 @@ void processPendingMqttCommand()
     g_recalboxDisconnectedPending = false;
     g_mqttDefaultPendingAfterMinDisplay = false;
     g_lastMqttWasDefault = true; // v50
-    Serial.println("[MQTT] startgameclip -> playlist");
+    Serial.println("[CMD] startgameclip -> playlist");
     resumePlaylist();
     break;
 
   case MqttCommand::CMD_RESUMESYS:
-    if (g_sdOpInProgress) { Serial.println("[MQTT] resumesys ignored"); break; }
+    if (g_sdOpInProgress) { Serial.println("[CMD] resumesys ignored"); break; }
     // v104 -- g_inGameMarquee retire (hi-score port supprime).
     g_mqttConnectedScreenUntilMs = 0;
     // Idem pour l'alerte "No wifi, No Recalbox" (2026-08-05) : un vrai
@@ -6947,7 +8214,7 @@ void processPendingMqttCommand()
     g_recalboxDisconnectedPending = false;
     g_mqttDefaultPendingAfterMinDisplay = false;
     g_lastMqttWasDefault = false; // v50
-    Serial.println("[MQTT] resumesys -> "+cmd.arg);
+    Serial.println("[CMD] resumesys -> "+cmd.arg);
     gif.close();gifOpened=false;pngDrawn=false;currentPngPath="";
     currentMode=MODE_BLACK;
     if(nextGifFile){nextGifFile.close();nextGifFile=File();nextGifPath="";}
@@ -6961,7 +8228,7 @@ void processPendingMqttCommand()
     // afficher l'IP du DMD sans toucher au WiFi -- reutilise exactement
     // l'affichage deja declenche par handleDmdOpen() quand la page web est
     // ouverte normalement.
-    if (g_sdOpInProgress) { Serial.println("[MQTT] show_config ignored (web deja ouvert)"); break; }
+    if (g_sdOpInProgress) { Serial.println("[CMD] show_config ignored (web deja ouvert)"); break; }
     // v150 -- un CMD_SHOW_CONFIG est un vrai message MQTT au meme titre que
     // CMD_GAME/CMD_SYSTEM/CMD_DEFAULT/CMD_SCORE (qui levent deja ce drapeau,
     // voir nettoyage pre-merge master) -- change de mode d'affichage de
@@ -6990,7 +8257,7 @@ void processPendingMqttCommand()
     // Redemarre en WIFI_AP pur (seul mode fiable mesure sur ce materiel, cf
     // AP_STA rejete precedemment) avec compte a rebours de 3 min avant retour
     // automatique.
-    Serial.println("[MQTT] wifi_recovery -> reboot en AP secours");
+    Serial.println("[CMD] wifi_recovery -> reboot en AP secours");
     writeConfigFlag("force_ap_recovery", "1");
     delay(100);
     ESP.restart();
@@ -7001,7 +8268,7 @@ void processPendingMqttCommand()
     // sans condition (pas de garde g_sdOpInProgress) -- c'est le bouton de
     // secours en cas de DMD bloque/affichage fige, il ne doit jamais pouvoir
     // etre lui-meme ignore.
-    Serial.println("[MQTT] reboot demande par l'utilisateur");
+    Serial.println("[CMD] reboot demande par l'utilisateur");
     delay(100);
     ESP.restart();
     break;
@@ -7026,9 +8293,9 @@ void processPendingMqttCommand()
     if (pct >= 0 && pct <= 100) {
       screenBrightness = map(pct, 0, 100, 0, 255);
       if (display) display->setBrightness8(screenBrightness);
-      Serial.println("[MQTT] brightness -> " + String(pct) + "%");
+      Serial.println("[CMD] brightness -> " + String(pct) + "%");
     } else {
-      Serial.println("[MQTT] brightness ignoree (valeur hors 0-100: " + cmd.arg + ")");
+      Serial.println("[CMD] brightness ignoree (valeur hors 0-100: " + cmd.arg + ")");
     }
     break;
   }
@@ -7055,10 +8322,10 @@ void processPendingMqttCommand()
       screenBrightness = map(newPct, 0, 100, 0, 255);
       if (display) display->setBrightness8(screenBrightness);
       writeConfigFlag("brightness", String(newPct));
-      Serial.println("[MQTT] brightness " + String(delta > 0 ? "+" : "") + String(delta) +
+      Serial.println("[CMD] brightness " + String(delta > 0 ? "+" : "") + String(delta) +
                       "% -> " + String(newPct) + "% (sauvegarde config.ini)");
     } else {
-      Serial.println("[MQTT] brightness deja au " + String(newPct == 0 ? "minimum" : "maximum") + " (" + String(newPct) + "%)");
+      Serial.println("[CMD] brightness deja au " + String(newPct == 0 ? "minimum" : "maximum") + " (" + String(newPct) + "%)");
     }
     break;
   }
@@ -7068,7 +8335,7 @@ void processPendingMqttCommand()
   // reintroduit ci-dessous en v110, voir entete changelog complet.
   case MqttCommand::CMD_SCORE:
   {
-    if (g_sdOpInProgress) { Serial.println("[MQTT] score ignore (web open)"); break; }
+    if (g_sdOpInProgress) { Serial.println("[CMD] score ignore (web open)"); break; }
     // v149 -- un CMD_SCORE est un "vrai message MQTT" au meme titre que
     // CMD_GAME/CMD_SYSTEM/CMD_DEFAULT (qui levent deja ce drapeau) : sans
     // cette ligne, un score recu pendant l'ecran "RecalBox connectee"
@@ -7116,7 +8383,7 @@ void processPendingMqttCommand()
       // currentMode ne changeait tout simplement pas.
       currentMode = MODE_SCORE;
       g_scoreShowUntilMs = millis() + durMs;
-      Serial.println("[MQTT] score -> affiche " + String(durMs / 1000.0, 1) + "s puis retour auto au jeu");
+      Serial.println("[CMD] score -> affiche " + String(durMs / 1000.0, 1) + "s puis retour auto au jeu");
     }
     break;
   }
@@ -7167,6 +8434,21 @@ void processPendingMqttCommand()
   }
 
   default: break;
+  }
+  // v178 -- INSTRUMENTATION DIAGNOSTIC (voir declaration de
+  // g_pendingGameRecvMs) : mesure honnete recv->dispatch. A CE point,
+  // currentMode/gifOpened/etc. sont DEJA a jour (le case CMD_GAME ci-dessus
+  // vient de les poser, de facon synchrone) -- le rendu reel (switch
+  // (currentMode) dans loop()) suit dans quelques instructions, MEME
+  // iteration. Contrairement au [DIAG] currentMode (autre detecteur,
+  // generique, imprime au DEBUT de l'iteration SUIVANTE -- mesurait donc en
+  // realite la fin de l'attente de LA FRAME SUIVANTE, pas ce delai-ci), ce
+  // print-ci reflete le vrai temps ecoule entre la reception UDP et le
+  // moment ou le contenu est pret a etre dessine.
+  if (cmd.type == MqttCommand::CMD_GAME && gameRecvMsSnapshot != 0)
+  {
+    Serial.println("[LATENCY] game recv->dispatch=" + String(millis() - gameRecvMsSnapshot)
+                   + "ms arg=" + cmd.arg);
   }
 }
 
@@ -7310,6 +8592,399 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
     }
   }
   xSemaphoreGive(mqttCmdMutex);
+}
+
+// --------------------------------------------------
+// v1/v2 -- piste UDP (voir TRANSPORT_PLAN_UDP.md)
+// --------------------------------------------------
+// Fire-and-forget, sans connexion/handshake -- objectif : eliminer la classe
+// de bug MQTT documentee (mur de plateforme, connect()/subscribe() bloquants,
+// voir memoire projet) en s'affranchissant de tout etat TCP a faire "caler".
+// v1 -- prototype limite a CMD_SCORE seul, VALIDE sur materiel reel le
+// 2026-09-08 (paquet UDP -> [UDP] logue -> CMD_SCORE affiche -> retour
+// normal, voir DECISIONS.md). v2 -- etendu a TOUT le jeu de commandes du
+// bloc marquee/cmd de onMqttMessage() (stop/default/system/game/
+// show_config/wifi_recovery/reboot/brightness*/score/ingame), meme
+// dispatch, duplique plutot que factorise (voir commentaire pres du
+// dispatch plus bas). PAS ENCORE teste sur materiel au-dela de score.
+// Meme format de payload que MQTT (v148) : "CMD=<nom> ARG=<reste>", memes
+// extractField()/dispatch que onMqttMessage() -- seule la SOURCE change.
+// Non bloquant : parsePacket() renvoie 0 immediatement s'il n'y a rien a
+// lire (pas d'attente), donc un appel a chaque loop() est sans cout notable
+// quand aucun datagramme n'arrive.
+// MQTT reste actif en parallele (comparaison prevue par le plan) --
+// AUCUNE des 2 voies n'est encore coupee.
+
+// v4 -- resync UDP (voir declaration de UDP_HELLO_PORT). Envoie un simple
+// datagramme "HELLO" a RB1 -- le contenu exact n'a pas d'importance (RB1
+// traite TOUT paquet recu sur ce port comme un signal "renvoie l'etat
+// courant", voir dmd_helpers/dmd_udp_resync.py cote RB1), seul le fait de
+// l'envoyer compte. Non bloquant, best-effort (pas d'accuse de reception
+// possible en UDP -- si ce paquet se perd, le DMD reste sur son dernier
+// etat jusqu'au prochain vrai evenement de navigation, comme avant cette
+// fonction -- pas une regression, juste pas d'amelioration ce coup-la).
+void sendUdpHello()
+{
+  if (recalboxIP.length() == 0) return;
+  IPAddress ip;
+  if (!parseIP(recalboxIP, ip)) return;
+  dmdUdp.beginPacket(ip, UDP_HELLO_PORT);
+  dmdUdp.write((const uint8_t*)"HELLO", 5);
+  dmdUdp.endPacket();
+  Serial.println("[UDP] hello envoye a " + recalboxIP + ":" + String(UDP_HELLO_PORT));
+}
+
+// v183 -- ping/pong DEDIE a l'alerte "RecalBox non connectee", separe du
+// hello ci-dessus -- voir sa declaration/DECISIONS.md pour le principe
+// complet. Meme port que hello/features (UDP_HELLO_PORT), prefixe
+// distinct "PING" pour que dmd_udp_resync.py (RB1, deja a jour v3)
+// reponde "PONG" immediatement, sans relire es_state.inf.
+void sendUdpPing()
+{
+  if (recalboxIP.length() == 0) return;
+  IPAddress ip;
+  if (!parseIP(recalboxIP, ip)) return;
+  dmdUdp.beginPacket(ip, UDP_HELLO_PORT);
+  dmdUdp.write((const uint8_t*)"PING", 4);
+  dmdUdp.endPacket();
+}
+
+// v13 -- canal DMD->RB1 pour les 8 reglages hi-score/info/description/RA
+// (voir broadcastFeatureStatus(), son seul appelant) -- MEME port que le
+// hello (UDP_HELLO_PORT), prefixe "FEATURES:" pour que dmd_udp_resync.py
+// (RB1) distingue ce message d'un simple "HELLO". best-effort, comme tout
+// le reste de cette piste -- si perdu, la valeur en cache cote RB1 reste
+// celle d'avant (pas pire qu'avant cette fonction, qui ne partait plus du
+// tout depuis la bascule full UDP, MQTT_ENABLED=false).
+void sendUdpFeatureStatus(const char *featuresPayload)
+{
+  if (recalboxIP.length() == 0) return;
+  IPAddress ip;
+  if (!parseIP(recalboxIP, ip)) return;
+  String msg = String("FEATURES:") + featuresPayload;
+  dmdUdp.beginPacket(ip, UDP_HELLO_PORT);
+  dmdUdp.write((const uint8_t*)msg.c_str(), msg.length());
+  dmdUdp.endPacket();
+  Serial.println("[UDP] features envoye a " + recalboxIP + ":" + String(UDP_HELLO_PORT) + " -> " + String(featuresPayload));
+}
+
+void handleUdpCommand()
+{
+  // v5 -- BUG REEL confirme en usage reel (retour utilisateur : navigation
+  // rapide sur RB1, "le DMD continue a defiler jusqu'aux bons marquees"
+  // APRES l'arret de la navigation cote RB1 -- ecart de perf inacceptable).
+  // Cause : contrairement a MQTT (pendingCmd = UN SEUL slot, ECRASE par
+  // chaque nouveau message -- les positions perimees etaient donc
+  // silencieusement abandonnees, seule la DERNIERE comptait), chaque
+  // datagramme UDP est mis en FILE dans le buffer socket du systeme --
+  // rien ne les ecrase. Chaque CMD=game traite ouvre un vrai GIF (SD +
+  // decode, 100-300ms mesures en usage reel) -- une rafale de survols,
+  // MEME SOUS le seuil de rafale de marquee.sh (BURST_THRESHOLD=5/s, qui
+  // ne se declenche donc pas), suffit a accumuler plusieurs paquets en
+  // attente plus vite que le DMD ne peut les rendre un par un, creant un
+  // retard qui continue de se rattraper apres coup. Fix : VIDER tout le
+  // buffer socket en une seule iteration de loop() (boucle tant que
+  // parsePacket() renvoie >0), ne garder QUE LE DERNIER paquet lu -- meme
+  // principe et meme raison que la "vidange non-bloquante" deja en place
+  // cote RB1 (marquee.sh v30, "read -t 0" -- voir son commentaire complet)
+  // pour exactement le meme probleme. Remplace le traitement "1 paquet par
+  // appel" du prototype initial (v1).
+  // v12 -- BUG REEL trouve par lecture du CODE SOURCE de la librairie
+  // NetworkUDP (voir NetworkUdp.cpp du core ESP32-Arduino, cause exacte des
+  // 5 blocages UDP de ce soir, PAS une histoire de charge/rafale) :
+  // parsePacket() commence par `if (rx_buffer) return 0;` -- si un paquet
+  // PRECEDENT n'a pas ete ENTIEREMENT lu (rx_buffer pas encore libere),
+  // AUCUN nouveau paquet n'est plus jamais vu, DEFINITIVEMENT (jusqu'a un
+  // stop()/begin()). Et read(buffer,len) ne libere rx_buffer QUE si
+  // rx_buffer->available()==0 APRES la lecture. Avec l'ancien buffer de
+  // 256 octets (v1, dimensionne sur le score MQTT "multi-rangs" ~90
+  // octets), tout paquet UDP de plus de 255 octets (les panneaux
+  // description/info de dmd_score.sh peuvent faire jusqu'a ~700 octets --
+  // c'est exactement pourquoi mqttClient.setBufferSize(1024) avait ete
+  // pose cote MQTT, v79) laissait un reste non lu -- rx_buffer jamais
+  // libere, socket UDP bloque en PERMANENCE des le 1er payload trop long
+  // recu. Fix : buffer porte a 1024 (meme taille que le buffer MQTT,
+  // memes raisons) + boucle defensive apres read() qui vide tout ce qui
+  // resterait malgre tout (voir plus bas) -- rx_buffer ne peut plus jamais
+  // rester bloque non-vide.
+  char buf[1024];
+  int len = 0;
+  bool gotPacket = false;
+  int packetSize;
+  // v171 -- "!SHUFFLE" est un signal RARE et IMPORTANT (coupe-circuit
+  // anti-rafale), pas une position de navigation comme les autres "game" --
+  // s'il tombe dans le lot drainé sans etre le paquet retenu par la regle
+  // generique premier/dernier ci-dessous (typiquement : quelques "game=rom"
+  // pre-seuil deja en file quand il arrive), il etait jete silencieusement.
+  // Retenu a part, prioritaire sur le paquet "normal" choisi plus bas.
+  char shuffleBuf[1024];
+  int shuffleLen = 0;
+  bool gotShuffle = false;
+  // v7 -- BUG REEL confirme en usage reel (retour utilisateur, APRES le fix
+  // v163 "vidange -> ne garder que le dernier paquet") : au DEMARRAGE d'une
+  // navigation rapide (pas extreme), les 2-3 PREMIERS marquees ne
+  // s'affichent plus du tout -- le vieux marquee (d'avant la navigation)
+  // reste affiche plusieurs secondes avant de sauter directement a la
+  // position courante. Cause : v163 ecrasait TOUJOURS par le DERNIER
+  // paquet lu, meme quand seulement 2-3 etaient en attente (navigation qui
+  // vient de commencer, pas encore un vrai retard accumule) -- alors que
+  // marquee.sh envoie chaque survol individuellement AVANT que son propre
+  // detecteur de rafale ne se declenche (voir BURST_SUSTAIN_SECONDS, les 2
+  // premieres secondes d'une rafale publient normalement un evenement par
+  // survol). Fix : ne "sauter en avant" que si le retard est VRAIMENT
+  // important -- les premiers SKIP_AHEAD_THRESHOLD paquets sont traites
+  // UN PAR UN au fil des appels successifs de loop() (comme avant v163,
+  // chaque position vraiment affichee) ; seulement APRES ce seuil, les
+  // paquets suivants ecrasent le paquet retenu (rattrape la position
+  // reellement la plus recente si le flux entrant depasse largement ce
+  // que le rendu peut suivre). MAX_UDP_DRAIN_PER_CALL (v164, borne dure a
+  // 20/appel, voir son commentaire) reste inchange -- garde-fou contre un
+  // flux entrant degradant le buffer socket/pool lwIP.
+  const int MAX_UDP_DRAIN_PER_CALL = 20;
+  const int SKIP_AHEAD_THRESHOLD = 3;
+  int drained = 0;
+  while ((packetSize = dmdUdp.parsePacket()) > 0 && drained < MAX_UDP_DRAIN_PER_CALL)
+  {
+    drained++;
+    g_udpPacketsSeen++;          // v8 -- voir declaration, avant tout filtrage
+    // v190 -- detection de FIN de coupure en temps reel, DES le premier
+    // paquet qui revient (pas au prochain cycle 15s de l'alerte) -- voir
+    // g_udpGapStartMs. Duree = ecart entre le dernier trafic reel connu
+    // avant la coupure et ce paquet-ci, la mesure la plus precise possible
+    // sans horodatage cote emetteur.
+    if (g_udpGapStartMs != 0)
+    {
+      unsigned long dureeMs = millis() - g_udpGapStartMs;
+      // v192 -- psmode releve ICI (fin de coupure) : si le power-save etait
+      // la cause, on s'attend a le voir actif pendant TOUTE la coupure --
+      // pas de garantie qu'il ait ete constant, mais un releve au debut ET
+      // a la fin donne deja un signal fort si les 2 valeurs different.
+      wifi_ps_type_t psModeEnd;
+      int8_t psEndVal = (esp_wifi_get_ps(&psModeEnd) == ESP_OK) ? (int8_t)psModeEnd : -1;
+      Serial.print("[UDPGAP] fin coupure, duree=");
+      Serial.print(dureeMs);
+      Serial.print("ms psmode=");
+      Serial.print(psEndVal);
+      // v195 -- temps cumule dans openGif()/preloadBigram() depuis le
+      // dernier paquet vu (voir g_sdBlockedAccumMs) -- teste l'hypothese
+      // "rafale d'acces SD -> mailbox reception UDP saturee". Si ce
+      // chiffre est proche ou depasse la duree de la coupure elle-meme,
+      // hypothese fortement confirmee ; s'il reste petit alors que la
+      // coupure est longue, hypothese infirmee -- chercher ailleurs.
+      Serial.print(" sdBlockedMs=");
+      Serial.print(g_sdBlockedAccumMs);
+      // v196 -- voir g_frameRenderAccumMs -- piste affinee (rendu de
+      // frame en continu, pas seulement l'ouverture) apres que
+      // sdBlockedMs (v195) ait refute l'hypothese "ouverture de fichier"
+      // (max 339ms mesure face a des coupures de 15-20s).
+      Serial.print(" frameRenderMs=");
+      Serial.print(g_frameRenderAccumMs);
+      // v197 -- max d'un seul appel (voir declaration de g_sdBlockedMaxMs) :
+      // cette ligne "fin coupure" cumule TOUTE la fenetre de gel (15-50s),
+      // y compris le rendu qui continue APRES l'arret de reception --
+      // concomitant, pas causal. Le "debut coupure" jumeau (voir plus bas
+      // dans loop()) donne la fenetre causale (juste AVANT le gel).
+      Serial.print(" sdMax=");
+      Serial.print(g_sdBlockedMaxMs);
+      Serial.print(" frameMax=");
+      Serial.print(g_frameRenderMaxMs);
+      // v198 -- voir g_udpGapProbeCount : combien de sondes actives (~1s
+      // d'intervalle) sont restees sans reponse pendant CE gel avant sa
+      // resolution. 0 = jamais teste par une sonde dediee avant que la
+      // reception reprenne d'elle-meme (resolu par le trafic normal ou un
+      // cycle programme) -- N>=1 = N secondes de silence confirme.
+      Serial.print(" probes=");
+      Serial.println(g_udpGapProbeCount);
+      g_udpGapStartMs = 0;
+      g_udpGapProbeCount = 0;
+    }
+    // v195/v196/v197 -- remise a zero a CHAQUE paquet reellement vu (pas
+    // seulement en fin de coupure) pour que les compteurs refletent
+    // toujours la fenetre depuis le dernier paquet, meme hors coupure
+    // averee.
+    g_sdBlockedAccumMs = 0;
+    g_frameRenderAccumMs = 0;
+    g_sdBlockedMaxMs = 0;
+    g_frameRenderMaxMs = 0;
+    g_lastUdpSeenMs = millis();  // v8
+    char scratch[1024]; // v12 -- 256 -> 1024, voir commentaire complet plus haut
+    int l = dmdUdp.read(scratch, sizeof(scratch) - 1);
+    // v12 -- garde-fou defensif : si malgre le buffer agrandi un paquet
+    // encore plus long laissait un reste (rx_buffer non vide), read()
+    // suivant re-livrerait CE MEME paquet residuel au lieu d'un nouveau --
+    // dmdUdp.available() detecte ce cas et vide le reste explicitement
+    // (jete, jamais retenu comme "le" paquet -- deja tronque de toute
+    // facon). Cout nul dans le cas normal (available()==0 apres un read()
+    // qui a tout consomme).
+    while (dmdUdp.available() > 0) { char trash[256]; dmdUdp.read(trash, sizeof(trash)); }
+    if (l <= 0) continue;
+    // v171 -- verifie AVANT tout le reste si ce paquet est le signal
+    // shuffle -- l >= 0 et < sizeof(scratch), l'ecriture du '\0' est donc
+    // toujours dans les bornes du tableau.
+    scratch[l] = '\0';
+    // v183 -- reponse au ping dedie (voir sendUdpPing()) -- jamais un
+    // CMD=, consommee ICI, jamais retenue comme "le" paquet du drain.
+    if (strcmp(scratch, "PONG") == 0)
+    {
+      g_lastPongSeenMs = g_lastUdpSeenMs;
+      // v186 -- mesure serial uniquement (pas d'affichage), pour chiffrer
+      // duree/frequence reelles des coupures applicatives avant de decider
+      // d'un rattrapage d'etat a la reconnexion (voir DECISIONS.md).
+      if (g_lastPingSentMs != 0)
+      {
+        long latenceMs = (long)(g_lastPongSeenMs - g_lastPingSentMs);
+        Serial.print("[UDPCHK] pong recu, latence=");
+        Serial.print(latenceMs);
+        Serial.println("ms");
+      }
+      // v189 -- la coupure applicative est terminee (pong recu) : si le
+      // dernier passage en playlist a ete FORCE par cette coupure (voir
+      // g_recalboxDisconnectedForcedPlaylist), on ne laisse plus l'affichage
+      // bloque en playlist jusqu'a une hypothetique navigation future --
+      // resync complet immediat (sendUdpHello(), meme mecanisme qu'une
+      // reconnexion WiFi) pour rattraper l'etat reel de RB1 (en jeu, en
+      // survol...) des que la reconnexion est confirmee. Garde
+      // currentMode==MODE_PLAYLIST : si une vraie navigation est deja
+      // arrivee entre-temps (ex. via un paquet CMD= traite juste avant ce
+      // PONG dans le meme drain), inutile de redemander un resync.
+      //
+      // v199 - 2026-09-12 - safe-modify - BUG REEL trouve en direct (retour
+      // utilisateur : "ca n'a pas fonctionne sur la demo en cours, ca a
+      // fonctionne sur la demo suivante") : la garde ne verifiait QUE
+      // MODE_PLAYLIST, jamais MODE_PNG -- or plusieurs jeux demo consecutifs
+      // en cache-miss (CMD_GAME chemin FAST, "cached=?") retombent sur
+      // /systems/_defaults/default.png, donc MODE_PNG, PAS MODE_PLAYLIST.
+      // Confirme sur materiel (serial) : currentMode reste bloque en
+      // PNG (2) pendant toute la coupure, le pong de reconnexion arrive
+      // pendant cet etat, la garde echoue, sendUdpHello() n'est JAMAIS
+      // appele -- le DMD reste sur le contenu perime jusqu'a ce qu'un
+      // TOUT NOUVEAU CMD=game arrive naturellement (la demo suivante) et
+      // debloque tout par un autre chemin. MODE_PNG et MODE_BLACK ajoutes
+      // a la garde -- memes "etats de repli sans contenu reel" que
+      // MODE_PLAYLIST du point de vue de cette logique (a l'inverse de
+      // MODE_GIF/MODE_SCORE, qui EUX signifient qu'un vrai contenu est deja
+      // affiche -- resync y serait redondant/intrusif, pas ajoutes ici).
+      if (g_recalboxDisconnectedForcedPlaylist)
+      {
+        g_recalboxDisconnectedForcedPlaylist = false;
+        if (currentMode == MODE_PLAYLIST || currentMode == MODE_PNG || currentMode == MODE_BLACK)
+        {
+          Serial.println("[CMD] RecalBox reconnectee (pong recu) -- resync etat reel demande");
+          sendUdpHello();
+        }
+      }
+      continue;
+    }
+    if (strstr(scratch, "ARG=!SHUFFLE") != nullptr)
+    {
+      memcpy(shuffleBuf, scratch, l);
+      shuffleLen = l;
+      gotShuffle = true;
+    }
+    // v7 -- ne retient QUE le premier paquet lu tant que le retard reste
+    // petit (<= SKIP_AHEAD_THRESHOLD) -- a partir du paquet suivant, bascule
+    // sur le plus recent (retard confirme important, les positions
+    // intermediaires sont perimees).
+    if (!gotPacket || drained > SKIP_AHEAD_THRESHOLD)
+    {
+      memcpy(buf, scratch, l);
+      len = l;
+      gotPacket = true;
+    }
+  }
+  // v171 -- "!SHUFFLE" prioritaire sur le paquet retenu par la regle
+  // generique ci-dessus, voir son commentaire de declaration.
+  if (gotShuffle)
+  {
+    memcpy(buf, shuffleBuf, shuffleLen);
+    len = shuffleLen;
+    gotPacket = true;
+  }
+  if (!gotPacket) return;
+  buf[len] = '\0';
+  String msg = String(buf);
+  msg.trim();
+  Serial.println("[UDP] " + dmdUdp.remoteIP().toString() + " -> " + msg);
+  mqttLogAdd("udp/cmd", msg);
+
+  String cmd = extractField(msg, "CMD");
+  int argIdx = msg.indexOf("ARG=");
+  String arg = (argIdx >= 0) ? msg.substring(argIdx + 4) : "";
+
+  if (mqttCmdMutex == nullptr) return;
+  if (xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(10)) != pdTRUE) return;
+
+  // v2 -- extension : meme jeu de commandes que le bloc marquee/cmd de
+  // onMqttMessage() (voir son commentaire complet, v148/v150), DELIBEREMENT
+  // duplique plutot que factorise -- onMqttMessage() est un chemin
+  // eprouve en conditions reelles depuis des mois, ne pas le restructurer
+  // pour ce prototype encore non valide en charge. game_info/achievement
+  // restent hors scope (deja retires cote MQTT, v104). CMD_STARTCLIP/
+  // CMD_RESUMESYS (topic evenement ES brut, pas marquee/cmd) restent hors
+  // scope : rien cote RB1 ne publierait ca en UDP, ce topic n'est pas sous
+  // notre controle de publication.
+  if      (cmd=="stop")    pendingCmd=MqttCommand(MqttCommand::CMD_STOP,"");
+  else if (cmd=="default") g_pendingDefault = true;
+  else if (cmd=="system")  { lastSysName=arg; g_pendingSystemArg=arg; g_pendingSystem=true; }
+  else if (cmd=="game")    { g_pendingGameArg=arg; g_pendingGame=true; g_pendingGameRecvMs=millis(); }
+  else if (cmd=="show_config")     pendingCmd=MqttCommand(MqttCommand::CMD_SHOW_CONFIG,"");
+  else if (cmd=="wifi_recovery")   pendingCmd=MqttCommand(MqttCommand::CMD_WIFI_RECOVERY,"");
+  else if (cmd=="reboot")          pendingCmd=MqttCommand(MqttCommand::CMD_REBOOT,"");
+  else if (cmd=="brightness")      pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS,arg);
+  else if (cmd=="brightness_up")   pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_UP,"");
+  else if (cmd=="brightness_down") pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_DOWN,"");
+  else if (cmd=="score") { if(arg.length()>0) pendingCmd=MqttCommand(MqttCommand::CMD_SCORE,arg); }
+  else if (cmd=="ingame") g_recalboxInGame = (arg=="1");
+  g_udpPacketsKept++; // v8 -- voir declaration : le paquet retenu par la vidange a bien ete dispatche
+
+  xSemaphoreGive(mqttCmdMutex);
+}
+
+// --------------------------------------------------
+// v180 -- tache dediee udpListenerTask() (retour utilisateur explicite,
+// apres l'audit systematique v179 des 4 boucles bloquantes qui affamaient
+// la lecture UDP : "il faudrait un regulateur qui distribue les paquets...
+// pour simuler le meme fonctionnement que MQTT ?"). Recree EXACTEMENT le
+// role que jouait mqttTask() (lisait le reseau en continu, en tache de
+// fond, independamment de ce que faisait loop()) -- mais pour l'UDP,
+// beaucoup plus simple/sur : parsePacket() est NON BLOQUANT par
+// construction (MSG_DONTWAIT, voir NetworkUdp.cpp) contrairement aux
+// connect()/subscribe() MQTT qui pouvaient rester bloques 8-10s (toute
+// l'histoire de blocage documentee dans DECISIONS.md concerne CE
+// mecanisme bloquant precis, absent ici). Ecrit dans les MEMES slots
+// partages (g_pendingGame/g_pendingSystem/pendingCmd) proteges par le MEME
+// mutex (mqttCmdMutex) que mqttTask() utilisait deja pendant des mois --
+// aucune nouvelle primitive de synchronisation, motif deja eprouve.
+// Avantage sur les 4 correctifs ponctuels (v177/v179, CONSERVES tels
+// quels, redondance sans risque grace au mutex) : couvre AUSSI tout futur
+// site bloquant qu'on n'aurait pas encore trouve, au lieu de continuer a
+// les chasser un par un.
+// Garde heap IDENTIQUE (UDP_POLL_IN_WAIT_MIN_HEAP, voir sa declaration) --
+// retour utilisateur explicite : "vaut mieux un lag qu'un blocage".
+// Contrairement a un appel niche dans une boucle de rendu (frein naturel
+// par la vitesse de rendu elle-meme), cette tache tourne a SON PROPRE
+// rythme fixe (vTaskDelay), independant de la charge de rendu -- sans
+// cette garde, elle appellerait handleUdpCommand() (et son malloc(1460)
+// interne) SANS le frein naturel qu'offrait le placement dans une boucle
+// de rendu, y compris pendant les fenetres de heap bas les plus suspectes
+// du gel encore non elucide. Avec la garde, le comportement bascule
+// proprement sur le repli existant (les 4 sites v177/v179, eux-memes
+// gardes) si le heap est temporairement insuffisant.
+// Epinglee sur le MEME coeur que loop() (LoopCore=0, coeur 0) -- meme
+// choix final que mqttTask() (voir son xTaskCreatePinnedToCore, dernier
+// parametre) : un test de deplacement vers le coeur 1 avait ete fait et
+// REFUTE pour mqttTask() (v107, meme signature de blocage observee) --
+// mais ce test concernait le blocage TCP bloquant, absent ici ; le coeur 0
+// reste neanmoins le choix le plus simple/coherent, la tache elle-meme
+// etant tres legere (parsePacket() non bloquant, vTaskDelay cooperatif).
+static void udpListenerTask(void *param)
+{
+  (void)param;
+  for (;;)
+  {
+    if (ESP.getFreeHeap() >= UDP_POLL_IN_WAIT_MIN_HEAP) handleUdpCommand();
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
 }
 
 // --------------------------------------------------
@@ -8189,8 +9864,26 @@ void setupWiFiFromConfig()
     String ip=WiFi.localIP().toString();
     if(showInfo) showWifiStatusScreen("WIFI OK",fitLabel(ip,14),display->color565(0,255,0));
     Serial.println("[WIFI] connected: "+ip);
+    // v1 -- piste UDP (voir TRANSPORT_PLAN_UDP.md) : ne depend PAS de
+    // recalboxIP (contrairement au bloc mqttClient juste apres) -- le DMD se
+    // contente d'ecouter, n'importe quelle source peut lui envoyer un
+    // datagramme. begin() une seule fois ici ; PAS rearme apres une
+    // reconnexion WiFi ulterieure pour l'instant (voir commentaire pres de
+    // la declaration de dmdUdp).
+    dmdUdp.begin(UDP_CMD_PORT);
+    Serial.println("[UDP] listening on port " + String(UDP_CMD_PORT));
     delay(1200);
     autoDetectRecalboxIP();
+    // v182 -- hello + broadcastFeatureStatus() du tout premier boot RETIRES
+    // d'ici (voir changelog v182) : CRASH REEL confirme sur materiel --
+    // recalboxIP vient tout juste d'etre resolu, mais le reste de setup()
+    // (playlist, 1er GIF, config web) n'a pas encore tourne -- la reponse
+    // resync a ce hello (CMD_GAME) atterrissait au tout debut de loop(),
+    // exactement le point le plus bas du heap de tout le boot. Ce hello
+    // etait de toute facon deja documente comme redondant (voir commentaire
+    // v176 pres de la detection de reconnexion en loop(), qui couvre AUSSI
+    // le 1er boot) -- cette 2e couverture, elle, est desormais retardee
+    // (BOOT_HELLO_MIN_DELAY_MS) pour laisser le heap se stabiliser d'abord.
     if(recalboxIP.length()>0){
       mqttClient.setServer(recalboxIP.c_str(),MQTT_PORT);
       mqttClient.setCallback(onMqttMessage);
@@ -8442,7 +10135,22 @@ void loadConfig()
 // esprit que le reste du protocole marquee/cmd/*).
 void broadcastFeatureStatus()
 {
-  if (mqttClient.state() != 0) return; // pas connecte, rien a publier
+  // v13 -- BUG REEL trouve en revue (pas en usage reel cette fois -- retour
+  // utilisateur explicite : "qu'est-ce qu'on aurait pu oublier de mettre a
+  // jour ?") : cette fonction est le SEUL point qui diffuse les 8 reglages
+  // hi-score/info/description/RA (page web du DMD) vers RB1
+  // (marquee/status/features, lu par dmd_score.sh ET dmd_achievement.sh
+  // via mosquitto_sub). Le early-return original ("pas connecte, rien a
+  // publier") supposait implicitement que MQTT est le SEUL canal --
+  // devenu FAUX depuis la bascule full UDP (v161, MQTT_ENABLED=false) :
+  // plus aucun connect() n'a jamais lieu, donc cette fonction ne faisait
+  // plus RIEN depuis ce soir, silencieusement, aux 2 points d'appel
+  // existants (ici et handleWebConfigSave()) -- tout changement de
+  // reglage sur la page web du DMD n'atteignait plus jamais RB1. Fix :
+  // construit le message INCONDITIONNELLEMENT, publie en MQTT seulement
+  // si connecte (compat si MQTT_ENABLED repasse a true), ET envoie
+  // TOUJOURS en UDP (voir sendUdpFeatureStatus() plus bas) -- corrige les
+  // 2 points d'appel a la fois sans les toucher.
   // v127 -- METHODE ENTIEREMENT REVUE (retour utilisateur explicite : "la
   // methode est a revoir pour le transfert des reglages", pas juste un
   // patch par-dessus). Validation live du garde v126 CETTE MEME SOIREE :
@@ -8480,11 +10188,14 @@ void broadcastFeatureStatus()
   // conserve.
   if (n <= 0 || n >= (int)sizeof(buf) || strncmp(buf, "hiscore_ingame=", 15) != 0)
   {
-    Serial.println("[MQTT] broadcastFeatureStatus ABANDON (snprintf n=" + String(n) + "): " + String(buf));
+    Serial.println("[CMD] broadcastFeatureStatus ABANDON (snprintf n=" + String(n) + "): " + String(buf));
     return;
   }
-  mqttClient.publish("marquee/status/features", buf, true);
-  Serial.println(String("[MQTT] marquee/status/features -> ") + buf);
+  if (mqttClient.connected()) {
+    mqttClient.publish("marquee/status/features", buf, true);
+    Serial.println(String("[CMD] marquee/status/features -> ") + buf);
+  }
+  sendUdpFeatureStatus(buf); // v13 -- voir sa declaration, canal independant de MQTT
 }
 
 bool isValidPlaylistLine(String line){line.trim();return line.length()&&line[0]!='#'&&line[0]!=';'&&line[0]=='/';}
@@ -8564,7 +10275,7 @@ int buildOffsetIndex()
 // --------------------------------------------------
 // Splash screen â€” version au dÃ©marrage (info=1 uniquement)
 // --------------------------------------------------
-#define RETRO_VERSION "Raw565 Ed. dev13"
+#define RETRO_VERSION "Raw565 Ed. v13UDP"
 
 void showSplashScreen()
 {
@@ -8751,6 +10462,22 @@ static bool getClockTime(int &h, int &m, int &s)
 // verifie a chaque iteration, y met fin -- nouvelle selection ou "stop").
 static bool showClock(int forceTheme)
 {
+  // v179 -- BUG REEL trouve par lecture du code (retour utilisateur : gel
+  // constate sur l'ecran horloge, ne quitte qu'apres plus de 10s malgre une
+  // vraie navigation reprise -- "le mode horloge cede la place a MQTT comme
+  // le mode playlist", confirmant le MEME defaut deja identifie/corrige
+  // v177 pour MODE_PLAYLIST/MODE_GIF : les 3 boucles bloquantes de cette
+  // fonction verifient hasPendingMqttCommand() mais n'appellent JAMAIS
+  // handleUdpCommand() -- aucun nouveau paquet UDP n'est donc jamais lu
+  // PENDANT toute la duree de l'horloge (clockDuration, 8s par defaut),
+  // laissant hasPendingMqttCommand() aveugle a toute commande arrivee APRES
+  // l'entree dans cette fonction. La sortie n'arrive alors qu'au terme
+  // naturel (clockDuration), jamais plus tot -- exactement le symptome
+  // rapporte. Meme fix attenue que v177 : handleUdpCommand() au plus 1x/75ms,
+  // partage entre les 3 boucles (une seule horloge active a la fois, pas de
+  // risque de concurrence entre elles).
+  unsigned long s_lastUdpPollInClockMs = 0;
+  const unsigned long UDP_POLL_IN_CLOCK_MS = 75;
   bool previewMode = (forceTheme != -2);
   if (!previewMode) {
     if (!clockEnabled) return true;
@@ -8800,6 +10527,8 @@ static bool showClock(int forceTheme)
     while (millis() < nameEnd) {
       handleWebConfig();
       yield();
+      // v179 -- voir commentaire complet en tete de fonction.
+      { unsigned long nowPollC=millis(); if(nowPollC-s_lastUdpPollInClockMs>=UDP_POLL_IN_CLOCK_MS && ESP.getFreeHeap()>=UDP_POLL_IN_WAIT_MIN_HEAP){s_lastUdpPollInClockMs=nowPollC;handleUdpCommand();} }
       if (!previewMode && g_sdOpInProgress) { // v73 fix, voir plus haut
         clockVisible = false;
         return true;
@@ -8825,6 +10554,8 @@ static bool showClock(int forceTheme)
   while (previewMode || millis() < endMs) {
     handleWebConfig();
     yield();
+    // v179 -- voir commentaire complet en tete de fonction.
+    { unsigned long nowPollC=millis(); if(nowPollC-s_lastUdpPollInClockMs>=UDP_POLL_IN_CLOCK_MS && ESP.getFreeHeap()>=UDP_POLL_IN_WAIT_MIN_HEAP){s_lastUdpPollInClockMs=nowPollC;handleUdpCommand();} }
 
     // Interruption si page web ouverte (v73 : jamais en previewMode, ou
     // g_sdOpInProgress est en permanence vrai -- voir garde en tete de
@@ -8876,6 +10607,8 @@ static bool showClock(int forceTheme)
         unsigned long nameEnd = millis() + 800UL;
         while (millis() < nameEnd) {
           yield();
+          // v179 -- voir commentaire complet en tete de fonction (3e sous-boucle, oubliee au 1er passage).
+          { unsigned long nowPollC=millis(); if(nowPollC-s_lastUdpPollInClockMs>=UDP_POLL_IN_CLOCK_MS && ESP.getFreeHeap()>=UDP_POLL_IN_WAIT_MIN_HEAP){s_lastUdpPollInClockMs=nowPollC;handleUdpCommand();} }
           if (!previewMode && g_sdOpInProgress) { // v73 fix, voir plus haut
             clockVisible = false;
             return true;
@@ -9382,8 +11115,33 @@ start_mqtt_task:
   // amelioration (voir memoire projet pour le detail). Revert au coeur 0
   // (etat historique, identique a master -- voir memoire projet) faute de
   // benefice demontre.
-  if(wifiEnabled&&recalboxIP.length()>0)
+  // v3 -- bascule FULL UDP (voir MQTT_ENABLED, sa declaration) : mqttTask()
+  // n'est plus jamais cree quand MQTT_ENABLED=false -- ni connect() ni
+  // subscribe() n'ont donc plus jamais lieu, eliminant completement
+  // l'exposition au mur de plateforme MQTT.
+  if(MQTT_ENABLED && wifiEnabled&&recalboxIP.length()>0)
     xTaskCreatePinnedToCore(mqttTask,"mqttTask",4096,NULL,1,&mqttTaskHandle,0);
+  // v181 -- REVERT de v180 : la tache udpListenerTask() ETAIT active pendant
+  // ~90s en conditions reelles (navigation lente) et a produit 3 crashes
+  // abort()/PANIC consecutifs (backtraces confirmes : fs::FS::open()/
+  // VFSImpl::open() echouant a allouer un nouveau descripteur fichier --
+  // MEME famille de crash deja documentee 23/08 et 25/08 dans DECISIONS.md,
+  // mais jamais en boucle de reboot repetee avant ce soir). Cause plausible
+  // actee (pas prouvee a 100%, mais suffisante pour reverter sans plus
+  // attendre) : cette tache reservait 8192 octets de PILE en PERMANENCE
+  // dès le boot (alloues sur le heap par FreeRTOS, jamais liberes) -- le
+  // tout 1er boot log de v180 montrait deja un heap anormalement bas juste
+  // apres setupWebConfig() (~5400 octets, contre ~9000-19000+ observe sur
+  // les boots precedents) : cette reservation supplementaire a
+  // vraisemblablement fait basculer une situation deja tendue dans la zone
+  // de crash. Desactivee ICI (creation commentee) -- le code de la tache
+  // reste plus bas (v180) pour reference/reprise future avec un budget
+  // heap different (stack plus petite, et/ou allocation STATIQUE au lieu
+  // du heap via xTaskCreateStaticPinnedToCore) si cette piste est reprise.
+  // Les 4 sites v177/v179 (correctifs ponctuels + garde heap) restent seuls
+  // en place -- testes plusieurs heures ce soir sans aucun crash observe.
+  // if(wifiEnabled && recalboxIP.length()>0)
+  //   xTaskCreatePinnedToCore(udpListenerTask,"udpListener",8192,NULL,1,NULL,0);
 
   // Interface web de configuration
   if (wifiEnabled) setupWebConfig();
@@ -9470,6 +11228,58 @@ void loop()
                      + " connectAttempts=" + String(g_totalConnectAttempts)
                      + " pendingType=" + String((int)pendingCmd.type)
                      + " stackMinBytes=" + String(stackMinWords * 4));
+      // v9 -- separe de la ligne [LOOPDIAG] ci-dessus (v8, meme contenu) :
+      // la ligne combinee etait systematiquement affichee tronquee/corrompue
+      // en usage reel (confirme sur des centaines de cycles consecutifs,
+      // meme motif chaque fois -- pas un artefact ponctuel) une fois ces
+      // champs ajoutes a la chaine deja longue de la ligne [LOOPDIAG]
+      // principale. Cause exacte non confirmee (String trop longue/trop de
+      // concatenations chainees dans un seul appel, ou limite du buffer
+      // Serial) -- separer en 2 appels distincts plus courts est la
+      // reponse la plus sure sans avoir a trancher laquelle des deux.
+      long udpAgoMs = (g_lastUdpSeenMs > 0) ? (long)(millis() - g_lastUdpSeenMs) : -1;
+      Serial.println("[LOOPDIAG2] udpSeen=" + String(g_udpPacketsSeen)
+                     + " udpKept=" + String(g_udpPacketsKept)
+                     + " udpAgoMs=" + String(udpAgoMs)
+                     + " wifiStatus=" + String((int)WiFi.status())
+                     + " rssi=" + String(WiFi.RSSI()));
+      // v192 -- ligne SEPAREE et COURTE (voir commentaire v9 juste au-dessus
+      // : une ligne trop longue/trop de concatenations se corrompt en usage
+      // reel) -- etat power-save WiFi reel, jamais visible jusqu'ici.
+      // 0=WIFI_PS_NONE (sain), 1=WIFI_PS_MIN_MODEM (suspect, DTIM), 2=
+      // WIFI_PS_MAX_MODEM. esp_wifi_get_ps() peut echouer avant que le
+      // driver WiFi soit pleinement initialise (tres tot au boot) -- err
+      // ignoree, psmode reste alors a sa valeur precedente (ou -1 au tout
+      // 1er appel, jamais un etat reel confondu avec NONE=0).
+      {
+        static int8_t s_lastPsMode = -1;
+        wifi_ps_type_t psMode;
+        if (esp_wifi_get_ps(&psMode) == ESP_OK) s_lastPsMode = (int8_t)psMode;
+        Serial.println("[WIFIPS] mode=" + String(s_lastPsMode));
+        // v193 -- CAUSE TROUVEE (lecture du code source WiFiGeneric.cpp du
+        // core 3.3.11) : WiFi.setSleep(false) est un NO-OP SILENCIEUX tant
+        // que WiFi.STA.started()==false au moment de l'appel -- il se
+        // contente alors de memoriser la valeur voulue dans une variable
+        // interne (_sleepEnabled) JAMAIS relue/appliquee nulle part
+        // ensuite, et renvoie true (faux succes). Exactement le cas de cette
+        // branche : setSleep(false) pose dans setup() AVANT WiFi.begin()
+        // (STA pas encore demarree) -- confirme sur materiel : [WIFIPS]
+        // mode=1 (WIFI_PS_MIN_MODEM) en PERMANENCE depuis le tout premier
+        // log apres connexion jusqu'a 100s+ d'uptime, jamais 0, y compris
+        // pendant un [UDPGAP] capture en direct. Fix auto-correcteur ICI
+        // (independant de savoir OU exactement WiFi.setSleep(false) a ete
+        // avale silencieusement) : appel direct a esp_wifi_set_ps()
+        // (contourne le wrapper Arduino defaillant) des que l'etat mesure
+        // n'est pas deja WIFI_PS_NONE, reappuye a chaque cycle ~2s tant que
+        // necessaire -- assez tot pour couper le power-save avant qu'il
+        // n'ait l'occasion de causer une seule coupure de reception.
+        if (s_lastPsMode != (int8_t)WIFI_PS_NONE)
+        {
+          esp_err_t psErr = esp_wifi_set_ps(WIFI_PS_NONE);
+          Serial.println("[WIFIPS] power-save actif (mode=" + String(s_lastPsMode)
+                         + ") -> esp_wifi_set_ps(WIFI_PS_NONE) direct, err=" + String((int)psErr));
+        }
+      }
     }
   }
   // processPendingMqttCommand() APPELE EN PREMIER (2026-08-09, v62) --
@@ -9486,6 +11296,267 @@ void loop()
   // de l'iteration est bien consommee avant tout risque de blocage sur
   // handleWebConfig().
   processPendingMqttCommand();
+  // v1 -- piste UDP (voir TRANSPORT_PLAN_UDP.md) : parsePacket() non
+  // bloquant, meme raisonnement de placement que processPendingMqttCommand()
+  // juste au-dessus (consommer/poser pendingCmd tot dans l'iteration, avant
+  // tout risque de blocage plus bas type handleWebConfig()).
+  handleUdpCommand();
+  // v4 -- resync UDP (voir sendUdpHello()) : detecte la transition
+  // deconnecte->connecte (couvre AUSSI le tout 1er boot, s_wifiWasConnected
+  // demarre a false -- voir changelog v182, le hello dedie de
+  // setupWiFiFromConfig() a ete retire, cette couverture-ci est desormais
+  // la SEULE source du hello de boot). Comparaison d'etat simple (static
+  // bool), cout nul hors transition -- recalboxIP deja resolu au boot, pas
+  // de nouvelle requete mDNS ici (WiFi.status() seul suffit a detecter la
+  // transition).
+  // v182 -- BOOT_HELLO_MIN_DELAY_MS=5000 : retarde SPECIFIQUEMENT le hello
+  // de la toute 1ere connexion (boot) jusqu'a ce que le heap ait eu le
+  // temps de se stabiliser apres le reste de setup() (playlist, 1er GIF,
+  // config web -- CRASH REEL confirme sur materiel sinon, voir DECISIONS.md
+  // et le changelog v182 pour le detail complet). N'affecte QUE le tout
+  // premier appel (s_bootFirstLoopMs fige au tout premier passage ici) --
+  // toute reconnexion WiFi ULTERIEURE (loin du boot, heap deja stable au
+  // fonctionnement normal) reste immediate, comme avant.
+  {
+    static bool s_wifiWasConnected = false;
+    static unsigned long s_bootFirstLoopMs = 0;
+    if (s_bootFirstLoopMs == 0) s_bootFirstLoopMs = millis();
+    const unsigned long BOOT_HELLO_MIN_DELAY_MS = 5000UL;
+    bool wifiNowConnected = (WiFi.status() == WL_CONNECTED);
+    bool bootGraceElapsed = (millis() - s_bootFirstLoopMs) >= BOOT_HELLO_MIN_DELAY_MS;
+    if (wifiNowConnected && !s_wifiWasConnected && bootGraceElapsed)
+    {
+      sendUdpHello(); broadcastFeatureStatus();
+      // v176 -- ecran "RecalBox connectee" (CMD_WAITING_MQTT) retabli (retour
+      // utilisateur : verifie qu'aucune des 4 alertes -- connectee/
+      // deconnectee/pas de wifi/pas de recalbox -- ne s'affichait plus en
+      // UDP, toutes les 4 vivaient exclusivement dans mqttTask(), mort
+      // depuis MQTT_ENABLED=false). L'affichage/effacement de cet ecran
+      // (drawRecalboxConnectedOverlay(), g_mqttConnectedScreenUntilMs,
+      // delai minimum) est deja transport-agnostique -- ne verifie que
+      // pendingCmd.type, jamais mqttClient -- donc fonctionne tel quel une
+      // fois seulement POSTE depuis l'UDP.
+      if (mqttCmdMutex != nullptr && xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(100)) == pdTRUE)
+      {
+        pendingCmd = MqttCommand(MqttCommand::CMD_WAITING_MQTT, "");
+        xSemaphoreGive(mqttCmdMutex);
+      }
+      s_wifiWasConnected = true;
+    }
+    else if (!wifiNowConnected)
+    {
+      // v182 -- ne marque la transition consommee QUE sur un vrai envoi
+      // (ci-dessus) -- si le delai de grace n'est pas encore ecoule
+      // (wifiNowConnected && !s_wifiWasConnected && !bootGraceElapsed),
+      // s_wifiWasConnected reste false et ce bloc retentera au prochain
+      // tour de loop(), jusqu'a ce que le delai soit passe -- le hello de
+      // boot n'est donc jamais perdu, juste retarde.
+      s_wifiWasConnected = false;
+    }
+  }
+  // v200 - 2026-09-12 - safe-modify - UDPREARM RETIRE ENTIEREMENT (retour
+  // utilisateur explicite, apres toute la chasse au bug de cette session --
+  // "tous ces ping/pong et rearm sont toujours necessaire ?") : ce
+  // mecanisme (v10, ci-dessous, MITIGATION jamais confirmee comme un vrai
+  // fix) recreait le socket UDP (stop()+begin()) toutes les 30s au cas ou
+  // il aurait ete bloque. Sur TOUTE cette session de mesure intensive
+  // (v195 a v199 : accumulateurs de temps bloque, max par-appel, sonde
+  // active a 1s pendant une coupure detectee), AUCUN episode n'a jamais
+  // montre une reception reellement figee (la sonde active obtient
+  // TOUJOURS une reponse en quelques dizaines de ms, jamais de
+  // "probes>1") -- rien ne prouve que ce rearm ait jamais debloque quoi
+  // que ce soit. Pire : stop()+begin() ouvre forcement une breve fenetre
+  // sans aucun listener UDP cote OS -- si un vrai paquet arrivait pile a
+  // ce moment, il serait perdu, ce qui pourrait avoir CONTRIBUE a une
+  // partie des coupures observees plutot que les resoudre. Retire sans
+  // remplacement -- voir DECISIONS.md pour le detail complet de
+  // l'investigation qui a mene a ce retrait.
+  // v175 -- FILET DE SECURITE RETABLI (retour utilisateur decisif : "sur un
+  // reboot sain, le 1er marquee suffit a figer le DMD qui ne repasse meme
+  // plus en playlist automatique apres 60s d'inactivite" -- observation qui
+  // a permis de trouver la vraie cause de la PERMANENCE du symptome, meme si
+  // la cause du blocage reseau lui-meme reste non elucidee). Ce filet
+  // existait deja, IDENTIQUE dans l'esprit, a l'interieur de mqttTask() (voir
+  // MQTT_OFFLINE_FALLBACK_MS/g_lastMqttUsefulMs juste au-dessus dans ce
+  // fichier) -- mort depuis MQTT_ENABLED=false (v161) comme les alertes
+  // "RecalBox (dé)connectee" (voir commentaire v3 pres de MQTT_ENABLED) :
+  // sous MQTT, un reseau bloque finissait TOUJOURS par etre rattrape ici
+  // apres 60s ; en full UDP, plus AUCUN mecanisme ne surveillait
+  // l'inactivite reseau -- un blocage UDP (n'importe laquelle sa cause
+  // exacte) devenait donc un gel PERMANENT au lieu d'un simple hoquet de 60-
+  // 90s. Reimplemente ici sur g_lastUdpSeenMs (deja suivi, MAJ a CHAQUE
+  // paquet vu par handleUdpCommand(), pas seulement les paquets retenus)
+  // au lieu de g_lastMqttUsefulMs -- meme seuil MQTT_OFFLINE_FALLBACK_MS
+  // (60s), meme mecanisme de reprise (g_pendingDefault, slot dedie deja
+  // utilise partout ailleurs). Verifie a chaque iteration de loop() (cout
+  // nul : une comparaison d'entiers) mais ne DECLENCHE qu'une fois par
+  // episode de blocage (garde currentMode!=MODE_PLAYLIST, comme l'original).
+  {
+    unsigned long nowMs2 = millis();
+    if (g_lastUdpSeenMs > 0 && (nowMs2 - g_lastUdpSeenMs) >= MQTT_OFFLINE_FALLBACK_MS
+        && currentMode != MODE_PLAYLIST && gifCount > 0 && !g_sdOpInProgress)
+    {
+      Serial.println("[UDP] injoignable (" + String(MQTT_OFFLINE_FALLBACK_MS / 1000)
+                     + "s sans paquet) -> reprise playlist");
+      if (mqttCmdMutex != nullptr && xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(100)) == pdTRUE)
+      {
+        g_pendingDefault = true;
+        xSemaphoreGive(mqttCmdMutex);
+      }
+    }
+  }
+  // v176 -- "Pas de wifi" retablie (retour utilisateur : verifie qu'aucune
+  // des 4 n'etait fonctionnelle en UDP -- voir aussi CMD_WAITING_MQTT
+  // ci-dessus pour "RecalBox connectee"). Vivait dans mqttTask()
+  // (wifiDownStreak, mort depuis MQTT_ENABLED=false) -- reimplementee ici,
+  // independante de tout ce qui suit UDP (WiFi.status() seul suffit,
+  // comme l'original). L'affichage/effacement (showNoWifiRecalboxAlert(),
+  // clignotement, effacement sur tout vrai CMD_* recu) est deja
+  // transport-agnostique, inchange.
+  // v183 -- "RecalBox non connectee" RETIREE d'ici, deplacee dans le bloc
+  // ping/pong dedie plus bas (voir son commentaire complet + DECISIONS.md)
+  // -- l'ancienne logique (silence applicatif = deconnexion) confondait un
+  // DMD sain sans navigation active avec une vraie injoignabilite de RB1,
+  // cause du bug de boucle infinie documente dans DECISIONS.md.
+  {
+    static unsigned long s_wifiDownSinceMs = 0;
+    static int s_wifiAlertCount = 0;
+    const int UDP_ALERT_MAX_COUNT = 3;
+    const unsigned long UDP_ALERT_REPEAT_MS = 20000UL;
+    unsigned long nowMs3 = millis();
+    if (WiFi.status() != WL_CONNECTED)
+    {
+      if (s_wifiDownSinceMs == 0) s_wifiDownSinceMs = nowMs3;
+      if (!g_sdOpInProgress && s_wifiAlertCount < UDP_ALERT_MAX_COUNT)
+      {
+        unsigned long downMs = nowMs3 - s_wifiDownSinceMs;
+        bool dueNow = (s_wifiAlertCount == 0 && downMs >= 1000UL)
+                    || (s_wifiAlertCount > 0 && downMs >= (unsigned long)s_wifiAlertCount * UDP_ALERT_REPEAT_MS);
+        if (dueNow) { g_noWifiRecalboxPending = true; s_wifiAlertCount++; }
+      }
+    }
+    else
+    {
+      s_wifiDownSinceMs = 0;
+      s_wifiAlertCount = 0;
+    }
+  }
+  // v183 -- ping/pong dedie (voir sa declaration/DECISIONS.md) -- pilote
+  // l'alerte "RecalBox non connectee" (declenchement ET reset du
+  // compteur). Independant du hello de mesure v174 (UDPREARM plus bas,
+  // qui garde son role de diagnostic du gel de reception, jamais utilise
+  // pour une alerte de connectivite).
+  {
+    static int s_recalboxDisconnectedAlertCount = 0;
+    const int UDP_ALERT_MAX_COUNT = 3;
+    unsigned long nowMsPing = millis();
+    // v190 -- detection de DEBUT de coupure, verifiee a CHAQUE loop() (pas
+    // seulement au cycle 15s ci-dessous) pour un horodatage de debut
+    // precis. Basee sur g_lastUdpSeenMs (n'importe quel paquet recu, pas
+    // seulement le ping dedie) -- volontairement DECOUPLEE de pingMissed
+    // plus bas, qui peut rester vrai meme si du VRAI trafic (une commande
+    // reelle, ou le pong d'un autre ping comme UDPREARM) est arrive entre-
+    // temps -- voir g_udpGapStartMs pour le detail complet du pourquoi.
+    if (WiFi.status() == WL_CONNECTED && g_udpGapStartMs == 0
+        && g_lastUdpSeenMs != 0 && (nowMsPing - g_lastUdpSeenMs) >= UDP_PING_INTERVAL_MS)
+    {
+      g_udpGapStartMs = g_lastUdpSeenMs;
+      // v192 -- psmode releve ICI (debut de coupure) -- voir commentaire
+      // complet pres du releve jumeau en fin de coupure.
+      wifi_ps_type_t psModeStart;
+      int8_t psStartVal = (esp_wifi_get_ps(&psModeStart) == ESP_OK) ? (int8_t)psModeStart : -1;
+      Serial.print("[UDPGAP] debut coupure (dernier paquet vu il y a ");
+      Serial.print(nowMsPing - g_lastUdpSeenMs);
+      Serial.print("ms) psmode=");
+      Serial.print(psStartVal);
+      // v197 -- fenetre CAUSALE (avant le gel, pas pendant) : ces
+      // accumulateurs ne sont PAS remis a zero ici (seulement a la
+      // reception d'un vrai paquet) -- ils refletent donc exactement le
+      // temps bloque/rendu entre le dernier paquet recu et l'instant ou
+      // le silence est detecte. A comparer au "sdMax"/"frameMax" du
+      // "fin coupure" jumeau : si un pic ici (sdMax/frameMax) coincide
+      // avec le debut du gel, hypothese "collision SD/reception"
+      // fortement confirmee -- si les 2 restent petits ici alors que le
+      // gel demarre quand meme, la cause est ailleurs qu'un blocage SD.
+      Serial.print(" sdBlockedMs=");
+      Serial.print(g_sdBlockedAccumMs);
+      Serial.print(" sdMax=");
+      Serial.print(g_sdBlockedMaxMs);
+      Serial.print(" frameRenderMs=");
+      Serial.print(g_frameRenderAccumMs);
+      Serial.print(" frameMax=");
+      Serial.println(g_frameRenderMaxMs);
+    }
+    // v198 -- sonde active pendant un [UDPGAP] en cours (voir declaration
+    // de g_lastGapProbeMs) -- INDEPENDANTE du cycle g_lastPingSentMs
+    // ci-dessous, expres pour ne pas perturber le rythme de detection de
+    // l'alerte "RecalBox non connectee". Le PONG resultant reutilise le
+    // handler [UDPCHK] generique existant (latence affichee relative a
+    // g_lastPingSentMs, potentiellement perimee ici -- cosmetique
+    // uniquement, aucune decision ne s'appuie dessus) ; ce qui compte est
+    // g_udpGapProbeCount, logue a la fin de coupure.
+    if (g_udpGapStartMs != 0 && WiFi.status() == WL_CONNECTED
+        && (nowMsPing - g_lastGapProbeMs) >= 1000)
+    {
+      g_lastGapProbeMs = nowMsPing;
+      g_udpGapProbeCount++;
+      sendUdpPing();
+    }
+    if (WiFi.status() == WL_CONNECTED && (nowMsPing - g_lastPingSentMs) >= UDP_PING_INTERVAL_MS)
+    {
+      // Le ping envoye au cycle precedent (g_lastPingSentMs) n'a jamais
+      // recu son pong depuis -- ce cycle est rate. g_lastPingSentMs==0 =
+      // tout premier ping depuis le boot, pas encore de cycle a juger.
+      unsigned long previousPingSentMs = g_lastPingSentMs;
+      bool pingMissed = (previousPingSentMs != 0) && (g_lastPongSeenMs < previousPingSentMs);
+      g_lastPingSentMs = nowMsPing;
+      sendUdpPing();
+      // v200 - 2026-09-12 - safe-modify - BUG REEL corrige (retour
+      // utilisateur : "cette alerte est fausse, le DMD n'est pas
+      // deconnecte") : UN SEUL ping dedie rate suffisait a afficher
+      // l'alerte "RecalBox hors ligne" -- or toute cette session de
+      // mesure (v195-v199) a montre que la reception repond TOUJOURS en
+      // quelques dizaines de ms des qu'on la teste reellement (sonde
+      // active, jamais de probes>1) : un ping isole perdu est un
+      // evenement UDP normal (fire-and-forget, aucune garantie de
+      // livraison), pas une preuve de deconnexion. static
+      // s_consecutivePingMissed compte les cycles RATES D'AFFILEE (remis
+      // a 0 des qu'un pong arrive a temps) -- l'alerte n'est plus
+      // declenchee qu'a partir de 2 ratés consecutifs (~30s de silence
+      // confirme sur 2 cycles independants), ce qu'un simple paquet isole
+      // perdu ne peut plus produire.
+      static int s_consecutivePingMissed = 0;
+      if (!pingMissed)
+      {
+        // pong recu a temps -- connexion saine, un futur episode
+        // redeclenchera bien ses 3 affichages depuis le debut.
+        s_recalboxDisconnectedAlertCount = 0;
+        s_consecutivePingMissed = 0;
+      }
+      else
+      {
+        s_consecutivePingMissed++;
+        // v190 -- l'ancien log "ping rate -- deconnexion... en cours
+        // depuis ~Xms" ici (v186) mesurait UN SEUL ping dedie manque,
+        // indiscernable d'un simple paquet isole perdu -- remplace par le
+        // suivi d'episode [UDPGAP] debut/fin ci-dessus/dans le drain loop,
+        // qui se base sur TOUT paquet recu et donne une duree reelle sans
+        // ambiguite. Le compteur d'alerte reste logge ici, utile pour
+        // suivre le fonctionnement de l'alerte affichee elle-meme.
+        Serial.print("[UDPCHK] ping rate (consecutif=");
+        Serial.print(s_consecutivePingMissed);
+        Serial.print(" alerteCount=");
+        Serial.print(s_recalboxDisconnectedAlertCount);
+        Serial.println("/3)");
+      }
+      if (pingMissed && s_consecutivePingMissed >= 2 && !g_sdOpInProgress && currentMode != MODE_PLAYLIST
+               && s_recalboxDisconnectedAlertCount < UDP_ALERT_MAX_COUNT)
+      {
+        g_recalboxDisconnectedPending = true;
+        s_recalboxDisconnectedAlertCount++;
+      }
+    }
+  }
   // playlistGenStep() (2026-08-10, RETOUR de cette architecture -- voir
   // changelog v67) : avance la generation de playlist d'un pas borne, cout
   // quasi nul quand aucune generation n'est active (un seul if). Appelee
@@ -9539,7 +11610,7 @@ void loop()
     // C'etait la cause du bug "overlay ne s'affiche jamais" (voir memoire
     // projet) -- PAS une corruption memoire.
     // v104 -- g_inGameMarquee retire (hi-score port supprime).
-    Serial.println("[MQTT] default differe applique -> reprise playlist");
+    Serial.println("[CMD] default differe applique -> reprise playlist");
     resumePlaylist();
   }
   // Clignotement du texte "RecalBox connectee" pendant tout l'affichage
@@ -9608,7 +11679,11 @@ void loop()
     {
       g_recalboxDisconnectedScreenActive = false;
       // v104 -- g_inGameMarquee retire (hi-score port supprime).
-      Serial.println("[MQTT] RecalBox non connectee -- delai ecoule, reprise playlist");
+      Serial.println("[CMD] RecalBox non connectee -- delai ecoule, reprise playlist");
+      // v189 -- marque explicitement que CE passage en playlist est force
+      // par une coupure applicative (pas un choix reel) -- consomme au
+      // prochain PONG recu pour rattraper l'etat reel (voir sa declaration).
+      g_recalboxDisconnectedForcedPlaylist = true;
       resumePlaylist();
     }
   }
@@ -9647,7 +11722,15 @@ void loop()
   case MODE_PLAYLIST:
     if(!gifOpened){display->clearScreen();currentMode=MODE_BLACK;break;}
     {
+      // v196 -- mesure du rendu de frame lui-meme (voir g_frameRenderAccumMs)
+      // -- SEUL ce site jumeau (+ MODE_GIF) fait un vrai SD.read() par
+      // frame, en continu, sans le yield/poll UDP deja present dans la
+      // boucle d'attente juste en dessous.
+      unsigned long t0Frame = millis();
       int fd=0; bool frameOk=gifPlayFrameCompat(false,&fd);
+      unsigned long dFrame = millis() - t0Frame;
+      g_frameRenderAccumMs += dFrame;
+      if (dFrame > g_frameRenderMaxMs) g_frameRenderMaxMs = dFrame;  // v197
       if(!frameOk){
         // Alerte "No wifi, No Recalbox" (2026-08-05, demande utilisateur) :
         // le GIF courant vient de se terminer naturellement (frameOk==false)
@@ -9699,7 +11782,29 @@ void loop()
       // jumelle case MODE_GIF (rawpack) plus bas -- voir son commentaire
       // complet. Ce site touche SD moins souvent (prefetch, pas par frame)
       // mais c'est exactement le meme motif, applique par coherence.
-      while((long)(millis()-t)<fd){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(1);}
+      // v177 -- VERSION ATTENUEE de v172 (reverte en v173 -- voir son
+      // changelog complet pour le risque identifie : appeler
+      // handleUdpCommand() a CHAQUE tick de 1ms, soit jusqu'a ~1000x/s,
+      // multipliait les tentatives de malloc(1460) internes a la librairie
+      // UDP sous heap deja bas, cause plausible d'un gel reel observe sur
+      // materiel). Ici : au plus 1 appel toutes les UDP_POLL_IN_WAIT_MS
+      // (75ms) -- borne le pire cas de latence a ~75-100ms (au lieu de
+      // jusqu'a ~1.25s mesure en reel sans ce fix) tout en divisant la
+      // frequence d'appel par ~75x par rapport a v172. Static locale a ce
+      // site (independante du site jumeau MODE_GIF juste plus bas).
+      {
+        static unsigned long s_lastUdpPollInWaitMs = 0;
+        const unsigned long UDP_POLL_IN_WAIT_MS = 75;
+        while((long)(millis()-t)<fd)
+        {
+          if(hasPendingMqttCommand())break;
+          processPendingMqttCommand();
+          unsigned long nowPoll=millis();
+          // v180 -- garde heap ajoutee (voir declaration de UDP_POLL_IN_WAIT_MIN_HEAP) : "vaut mieux un lag qu'un blocage".
+          if(nowPoll-s_lastUdpPollInWaitMs>=UDP_POLL_IN_WAIT_MS && ESP.getFreeHeap()>=UDP_POLL_IN_WAIT_MIN_HEAP){s_lastUdpPollInWaitMs=nowPoll;handleUdpCommand();}
+          delay(1);
+        }
+      }
       // Pre-chargement opportuniste (deja optionnel avant : ne fait rien si
       // nextGifFile est deja pris). sdAccessMutex retire (2026-08-10).
       if(nextGifPath.length()>0&&!nextGifFile){
@@ -9711,7 +11816,13 @@ void loop()
   case MODE_GIF:
     if(!gifOpened){display->clearScreen();currentMode=MODE_BLACK;break;}
     {
+      // v196 -- meme mesure que le site jumeau MODE_PLAYLIST, voir son
+      // commentaire complet + la declaration de g_frameRenderAccumMs.
+      unsigned long t0Frame = millis();
       int fd=0; bool frameOk=gifPlayFrameCompat(false,&fd);
+      unsigned long dFrame = millis() - t0Frame;
+      g_frameRenderAccumMs += dFrame;
+      if (dFrame > g_frameRenderMaxMs) g_frameRenderMaxMs = dFrame;  // v197
       if(!frameOk){
         gifResetCompat();
         // v104 -- point de coupure overlay score/game_info/achievement retire
@@ -9734,7 +11845,25 @@ void loop()
       // repetees. N'affecte pas la duree totale d'attente (la boucle
       // continue de cibler fd ms, juste avec des iterations moins
       // frequentes/plus efficaces) ni la fluidite visible de l'animation.
-      while((long)(millis()-t)<fd){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(1);}
+      // v177 -- meme motif que le site jumeau MODE_PLAYLIST plus haut (voir
+      // son commentaire complet) : handleUdpCommand() au plus 1x/75ms au
+      // lieu de v172 (chaque tick 1ms, reverte en v173, risque de malloc
+      // repete sous heap bas). Static locale INDEPENDANTE de celle du site
+      // MODE_PLAYLIST (2 cases mutuellement exclusives du meme switch, pas
+      // besoin de partager).
+      {
+        static unsigned long s_lastUdpPollInWaitMs2 = 0;
+        const unsigned long UDP_POLL_IN_WAIT_MS = 75;
+        while((long)(millis()-t)<fd)
+        {
+          if(hasPendingMqttCommand())break;
+          processPendingMqttCommand();
+          unsigned long nowPoll=millis();
+          // v180 -- garde heap ajoutee (voir declaration de UDP_POLL_IN_WAIT_MIN_HEAP) : "vaut mieux un lag qu'un blocage".
+          if(nowPoll-s_lastUdpPollInWaitMs2>=UDP_POLL_IN_WAIT_MS && ESP.getFreeHeap()>=UDP_POLL_IN_WAIT_MIN_HEAP){s_lastUdpPollInWaitMs2=nowPoll;handleUdpCommand();}
+          delay(1);
+        }
+      }
     }
     break;
 
@@ -9797,8 +11926,24 @@ void loop()
     // v104 -- consommation de l'overlay en attente retiree (hi-score port
     // supprime, test empirique rc=-4).
     {
+      // v179 -- meme defaut que MODE_PLAYLIST/MODE_GIF (v177)/showClock()
+      // (voir leurs commentaires complets) trouve par l'audit systematique
+      // de TOUS les appelants de hasPendingMqttCommand() (demande
+      // utilisateur explicite : chercher tous les sites d'un coup plutot
+      // que de les decouvrir un par un). Attente courte (100ms max, donc
+      // impact deja limite avant meme ce fix) mais meme correction par
+      // coherence/completude.
+      static unsigned long s_lastUdpPollInPngWaitMs = 0;
+      const unsigned long UDP_POLL_IN_PNGWAIT_MS = 75;
       unsigned long t=millis();
-      while((long)(millis()-t)<100){if(hasPendingMqttCommand())break;processPendingMqttCommand();delay(1);}
+      while((long)(millis()-t)<100)
+      {
+        if(hasPendingMqttCommand())break;
+        processPendingMqttCommand();
+        unsigned long nowPoll=millis();
+        if(nowPoll-s_lastUdpPollInPngWaitMs>=UDP_POLL_IN_PNGWAIT_MS && ESP.getFreeHeap()>=UDP_POLL_IN_WAIT_MIN_HEAP){s_lastUdpPollInPngWaitMs=nowPoll;handleUdpCommand();}
+        delay(1);
+      }
     }
     break;
 
@@ -9874,7 +12019,7 @@ void loop()
       // de mode. MODE_GIF/MODE_PLAYLIST n'ont pas besoin de ca :
       // gifPlayFrameCompat() redessine integralement a chaque appel.
       if (currentMode == MODE_PNG) pngDrawn = false;
-      Serial.println("[MQTT] score expire -> retour au jeu (mode=" + String((int)currentMode) + ")");
+      Serial.println("[CMD] score expire -> retour au jeu (mode=" + String((int)currentMode) + ")");
     }
     delay(1);
     break;
