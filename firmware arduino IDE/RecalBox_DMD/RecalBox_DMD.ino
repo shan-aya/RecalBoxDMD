@@ -1,7 +1,31 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v204
+// Version actuelle : v205
+//
+// v205 - 2026-09-13 - safe-modify - BUG RAPPORTE : apres avoir configure le
+//   WiFi depuis l'AP de premier demarrage (192.168.4.1) et redemarre, le
+//   DMD rebouclait sur l'AP au lieu de rejoindre le reseau -- config.ini
+//   relu par l'utilisateur ne contenait aucune cle wifi_* (fichier
+//   identique a celui cree par le PC Toolkit, jamais touche). Cause exacte
+//   non confirmee formellement (unite deja installee sur la borne, plus
+//   d'acces serie) ; 2 correctifs distincts appliques :
+//   (1) handleWebConfigSaveAP() (web_config.h) enchainait 5 appels
+//   writeConfigFlag() (10 SD.open()) pour ecrire wifi_enabled/wifi_ssid/
+//   wifi_password/wifi_static_enabled/wifi_static_ip -- exposition elevee
+//   au crash SD.open()/allocation heap deja documente ailleurs (v201/v202,
+//   openGifImpl()). Nouvelle fonction writeConfigFlags() (patch groupe,
+//   1 lecture + 1 ecriture au lieu de 5+5) + verification par relecture
+//   avant de rebooter, avec un 2e essai si l'ecriture n'a visiblement pas
+//   pris.
+//   (2) Bug distinct trouve en chemin (non confirme comme la cause de CET
+//   incident precis, mot de passe de l'utilisateur sans # ni ; -- mais
+//   reel et corrige) : loadConfig() tronquait toute valeur au premier '#'
+//   ou ';' rencontre, y compris pour wifi_ssid/wifi_password -- un mot de
+//   passe contenant l'un de ces caracteres etait silencieusement tronque
+//   a la relecture, causant un WiFi.begin() avec un mauvais mot de passe.
+//   Ces 2 cles sont desormais exclues de cette troncature (donnees
+//   utilisateur opaques, pas un commentaire de config).
 //
 // v204 - 2026-09-13 - safe-modify - RENOMMAGE de marque suite a la fusion
 //   dev/dmd-udp-transport -> master (bascule transport MQTT -> UDP) :
@@ -3677,6 +3701,7 @@ typedef uint8_t BitOrder; // Workaround: Adafruit_BusIO attend BitOrder (AVR) ma
 bool parseIP(const String &s, IPAddress &ip);
 bool applyStaticIP();
 void writeConfigFlag(const String &key, const String &value);
+void writeConfigFlags(const String keys[], const String values[], int count);
 
 // Generation de playlist -- machine a etats a pas bornes (playlistGenStep(),
 // definie dans web_config.h), appelee depuis loop() a chaque iteration
@@ -6963,18 +6988,47 @@ void clearFirstBoot()
 // pour les flags ajoutes pour le mode secours WiFi (force_ap_recovery).
 void writeConfigFlag(const String &key, const String &value)
 {
+  String keys[1] = { key };
+  String values[1] = { value };
+  writeConfigFlags(keys, values, 1);
+}
+
+// Meme resultat que d'appeler writeConfigFlag() plusieurs fois de suite,
+// mais en UNE SEULE lecture + UNE SEULE ecriture de config.ini au lieu
+// d'une par cle (2 SD.open() total, pas 2*count) -- ajoutee suite a un bug
+// rapporte (retour utilisateur, 2026-09-13) : la sauvegarde WiFi depuis la
+// page AP de premier demarrage (handleWebConfigSaveAP(), web_config.h)
+// enchainait 5 appels a writeConfigFlag() (10 SD.open() d'affilee) pour
+// persister wifi_enabled/wifi_ssid/wifi_password/wifi_static_enabled/
+// wifi_static_ip -- exposition elevee au meme crash SD.open()/allocation
+// heap deja documente et partiellement mitige ailleurs dans ce firmware
+// (v201/v202, openGifImpl()) ; un crash pendant cette rafale d'ecritures
+// redemarre l'ESP32 avant que le fichier soit complete, ce qui de
+// l'exterieur ressemble a "ca a sauvegarde puis redemarre" alors que
+// config.ini n'a jamais ete touche -- symptome rapporte : apres avoir
+// configure le WiFi depuis l'AP de premier demarrage et redemarre, le DMD
+// rebouclait sur l'AP au lieu de rejoindre le reseau (wifi_ssid absent de
+// config.ini a la relecture). Cause non confirmee formellement (pas
+// d'acces serie sur l'unite en cause, deja installee sur la borne), mais
+// coherente avec le pattern de crash deja connu -- fix a cout nul dans
+// tous les cas (moins d'ouvertures SD = moins d'exposition, quelle que
+// soit la cause exacte).
+void writeConfigFlags(const String keys[], const String values[], int count)
+{
   String all;
   File cfg = SD.open("/config.ini", FILE_READ);
   if (cfg) { while (cfg.available()) all += (char)cfg.read(); cfg.close(); }
-  String needle = key + "=";
-  int pos = all.indexOf(needle);
-  if (pos >= 0) {
-    int eol = all.indexOf('\n', pos);
-    if (eol < 0) eol = all.length();
-    all = all.substring(0, pos) + needle + value + "\n" + all.substring(eol + 1);
-  } else {
-    if (all.length() > 0 && all[all.length()-1] != '\n') all += "\n";
-    all += needle + value + "\n";
+  for (int i = 0; i < count; i++) {
+    String needle = keys[i] + "=";
+    int pos = all.indexOf(needle);
+    if (pos >= 0) {
+      int eol = all.indexOf('\n', pos);
+      if (eol < 0) eol = all.length();
+      all = all.substring(0, pos) + needle + values[i] + "\n" + all.substring(eol + 1);
+    } else {
+      if (all.length() > 0 && all[all.length()-1] != '\n') all += "\n";
+      all += needle + values[i] + "\n";
+    }
   }
   cfg = SD.open("/config.ini", FILE_WRITE);
   if (cfg) { cfg.print(all); cfg.close(); }
@@ -10078,9 +10132,16 @@ void loadConfig()
     int eq=line.indexOf('=');if(eq<0) continue;
     String key=line.substring(0,eq),value=line.substring(eq+1);
     key.trim();value.trim();key.toLowerCase();
-    int cp=value.indexOf('#');if(cp>=0)value=value.substring(0,cp);
-    cp=value.indexOf(';');   if(cp>=0)value=value.substring(0,cp);
-    value.trim();
+    // Pas de troncature "commentaire en ligne" (#/;) pour le SSID/mot de
+    // passe WiFi : ce sont des donnees utilisateur opaques (2026-09-13,
+    // bug trouve en investigant un rapport "boucle sur l'AP au premier
+    // demarrage" -- un mot de passe contenant '#' ou ';' etait tronque a
+    // la relecture, WiFi.begin() recevait alors un mot de passe errone).
+    if (key != "wifi_ssid" && key != "wifi_password") {
+      int cp=value.indexOf('#');if(cp>=0)value=value.substring(0,cp);
+      cp=value.indexOf(';');   if(cp>=0)value=value.substring(0,cp);
+      value.trim();
+    }
 
     if     (key=="playlist"            &&value.length()) playlistName     =value;
     else if(key=="wifi_enabled")                         wifiEnabled      =(value=="1");

@@ -4855,18 +4855,43 @@ static void handleWebConfigSaveAP()
     wifiStaticEnabled = false;
     wifiStaticIP = "";
   }
-  // Ecrire config.ini -- patch cle par cle (writeConfigFlag), JAMAIS un
-  // SD.remove()+rewrite complet : ecraserait silencieusement toutes les
-  // autres cles deja presentes (recalbox_ip, playlist, brightness, clock_*,
-  // language...). Meme bug/fix que le 2026-07-21 (voir memoire projet),
-  // reintroduit par la refonte multi-pages -- confirme responsable de la
-  // disparition de recalbox_ip signalee par l'utilisateur.
+  // Ecrire config.ini -- patch cle par cle, JAMAIS un SD.remove()+rewrite
+  // complet : ecraserait silencieusement toutes les autres cles deja
+  // presentes (recalbox_ip, playlist, brightness, clock_*, language...).
+  // Meme bug/fix que le 2026-07-21 (voir memoire projet), reintroduit par
+  // la refonte multi-pages -- confirme responsable de la disparition de
+  // recalbox_ip signalee par l'utilisateur.
+  //
+  // v2 (2026-09-13, bug rapporte "boucle sur l'AP au premier demarrage" --
+  // wifi_ssid absent de config.ini malgre une sauvegarde qui semblait
+  // aboutir normalement, reboot au timing attendu donc pas un crash
+  // manifeste) : les 5 cles sont desormais ecrites en UNE SEULE passe
+  // (writeConfigFlags(), voir son commentaire complet dans
+  // RecalBox_DMD.ino -- 2 SD.open() au lieu de 10) au lieu de 5 appels
+  // writeConfigFlag() separes, ET la relecture est verifiee avant de
+  // rebooter (retry une fois si l'ecriture n'a visiblement pas pris,
+  // meme esprit que le retry openGifImpl() v201) -- cause exacte non
+  // confirmee formellement (pas d'acces serie sur l'unite en cause, deja
+  // installee sur la borne), ce correctif reduit l'exposition SD et
+  // rattrape un echec silencieux quelle que soit sa cause precise.
   Serial.println("[WEB] AP save: ecriture config.ini (SSID=" + wifiSSID + ")");
-  writeConfigFlag("wifi_enabled", "1");
-  writeConfigFlag("wifi_ssid", wifiSSID);
-  writeConfigFlag("wifi_password", wifiPassword);
-  writeConfigFlag("wifi_static_enabled", wifiStaticEnabled ? "1" : "0");
-  writeConfigFlag("wifi_static_ip", wifiStaticIP);
+  String keys[5]   = { "wifi_enabled", "wifi_ssid", "wifi_password", "wifi_static_enabled", "wifi_static_ip" };
+  String values[5] = { "1", wifiSSID, wifiPassword, wifiStaticEnabled ? "1" : "0", wifiStaticIP };
+  writeConfigFlags(keys, values, 5);
+  bool verified = false;
+  for (int attempt = 0; attempt < 2 && !verified; attempt++) {
+    File check = SD.open("/config.ini", FILE_READ);
+    if (check) {
+      String content;
+      while (check.available()) content += (char)check.read();
+      check.close();
+      verified = content.indexOf("wifi_ssid=" + wifiSSID) >= 0;
+    }
+    if (!verified) {
+      Serial.println("[WEB] AP save: verification echouee, nouvel essai (" + String(attempt + 1) + "/2)");
+      writeConfigFlags(keys, values, 5);
+    }
+  }
   // NE PAS ecrire first_boot ici (bug corrige 2026-08-05) : cette page
   // ne couvre que la 1ere des 2 phases du premier demarrage (WiFi).
   // first_boot ne passe a 0 QUE dans handleWebConfigSave() (page BASIC/
@@ -4877,7 +4902,9 @@ static void handleWebConfigSaveAP()
   // phase -- au reboot suivant (WiFi maintenant connecte), l'ecran
   // d'invitation a terminer la config (voir needWebConfigMode dans
   // setup()) etait silencieusement saute.
-  Serial.println("[WEB] AP save: fichier ecrit avec SSID=" + wifiSSID + " -> reboot");
+  Serial.println(verified
+    ? "[WEB] AP save: fichier verifie avec SSID=" + wifiSSID + " -> reboot"
+    : "[WEB] AP save: ECHEC verification apres 2 essais (SSID=" + wifiSSID + ") -> reboot quand meme");
   webServer->send(200, "text/plain", "OK");
   delay(1000);
   ESP.restart();
