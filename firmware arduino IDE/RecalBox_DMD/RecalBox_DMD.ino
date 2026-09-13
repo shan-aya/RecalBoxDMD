@@ -1,7 +1,58 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v205
+// Version actuelle : v208
+//
+// v208 - 2026-09-13 - safe-modify - BUG REEL corrige (trouve en analysant le
+//   log du diagnostic v207) : writeConfigFlags() ecrivait quand meme si sa
+//   propre lecture prealable de config.ini avait echoue (SD.open() en
+//   lecture peut echouer independamment de l'ecriture -- observe reellement
+//   sur cette session) -- le fichier resultant ne contenait alors QUE les
+//   cles patchees par l'appel en cours, toutes les autres (playlist,
+//   recalbox_ip, language, brightness, clock_*...) silencieusement perdues.
+//   Contraire a une consigne explicite de l'utilisateur (preserver
+//   l'existant, ne jamais effacer). Fix : abandonne l'ecriture si la lecture
+//   a echoue (retourne sans rien ecrire) -- le mecanisme de verification/
+//   retry deja en place cote appelant (handleWebConfigSaveAP()) rappelle
+//   cette fonction, une carte SD qui repond a nouveau quelques ms plus tard
+//   (observe aussi reellement dans ce meme log -- acces intermittents, pas
+//   un echec permanent) aboutit alors normalement SANS avoir detruit le
+//   fichier entretemps.
+//
+// v207 - 2026-09-13 - safe-modify - DIAGNOSTIC (pas un correctif definitif).
+//   3 cycles d'alimentation propres consecutifs (carte SD jamais retiree,
+//   capture serie a chaque fois) reproduisent IDENTIQUEMENT le bug : boot OK
+//   -> "[SD] Echec renommage etiquette (code FatFs 1)" systematique juste
+//   apres SD.begin() -> plus tard, SD.open() (lecture ET ecriture) echoue
+//   INSTANTANEMENT (quelques ms, pas les ~5s d'une carte reellement absente)
+//   des que handleWebConfigSaveAP() tente d'ecrire config.ini. f_setlabel()
+//   (Partie C, plan cache_master_gifs, API FatFs brute sur "0:") est le seul
+//   point du boot qui ECRIT sur le volume avant que le bug ne se manifeste
+//   -- hypothese : son echec disque (FR_DISK_ERR, pas juste "carte protegee"
+//   comme suppose a l'origine) invalide le montage FatFs pour le reste de la
+//   session. Desactive temporairement (voir son commentaire, juste apres
+//   SD.begin()) + log ajoute sur la lecture config.ini au boot -- objectif :
+//   confirmer si le bug AP disparait sans ce bloc.
+//
+// v206 - 2026-09-13 - safe-modify - Suite de v205 : le fix v205 (batching +
+//   verification/retry) n'a PAS resolu le probleme -- confirme par capture
+//   serie EN DIRECT cette fois (COM4, USB branche) : "[WEB] AP save:
+//   ecriture config.ini (SSID=...)" puis 2 essais "verification echouee"
+//   espaces d'environ 5s CHACUN, puis "ECHEC verification apres 2 essais ->
+//   reboot quand meme", puis au reboot suivant "[WIFI] No SSID -> AP mode"
+//   -- confirme formellement ce que l'utilisateur avait deja constate en
+//   relisant le fichier : l'ecriture echoue reellement, ce n'est pas un
+//   probleme de connexion WiFi en aval ni un artefact d'horodatage SD (SD
+//   sans callback date/heure, timestamp toujours fixe -- sans rapport).
+//   Le delai d'environ 5s par essai rate est anormal pour une simple
+//   ouverture SD (suggere un timeout/retry interne plutot qu'un echec
+//   immediat) mais writeConfigFlags() n'avait AUCUN log distinguant
+//   lecture/ecriture/duree de chaque etape -- impossible de savoir laquelle
+//   des 2 SD.open() echoue. Ajoute une instrumentation minimale (Serial,
+//   voir writeConfigFlags()) : succes/echec de chaque open(), octets lus/
+//   ecrits, duree de chaque etape -- PAS encore un correctif, juste la
+//   visibilite manquante pour en trouver un. Prochaine capture serie en AP
+//   mode doit reveler exactement ou ca coince.
 //
 // v205 - 2026-09-13 - safe-modify - BUG RAPPORTE : apres avoir configure le
 //   WiFi depuis l'AP de premier demarrage (192.168.4.1) et redemarre, le
@@ -7015,9 +7066,46 @@ void writeConfigFlag(const String &key, const String &value)
 // soit la cause exacte).
 void writeConfigFlags(const String keys[], const String values[], int count)
 {
+  // v2 (2026-09-13) -- instrumentation temporaire ajoutee pour localiser
+  // precisement l'echec reel confirme par capture serie en direct (retour
+  // utilisateur : sauvegarde WiFi depuis l'AP de 1er demarrage -> 2 essais
+  // "verification echouee" espaces d'environ 5s chacun -> config.ini
+  // toujours sans wifi_ssid apres reboot). Jusqu'ici aucune des 2
+  // SD.open() de cette fonction n'etait loguee -- impossible de savoir
+  // laquelle echoue (lecture ? ecriture ?) ni pourquoi chaque essai rate
+  // prend ~5s (BEAUCOUP plus qu'une simple ouverture SD normale, suggere
+  // un timeout/retry interne plutot qu'un echec immediat). Log minimal
+  // (quelques Serial.println, pas de travail lourd) : succes/echec de
+  // chaque open(), nombre d'octets lus/ecrits, duree de chaque etape.
+  unsigned long t0 = millis();
   String all;
   File cfg = SD.open("/config.ini", FILE_READ);
+  bool readOk = (bool)cfg;
+  Serial.println("[CFGWRITE] read-open " + String(readOk ? "OK" : "ECHEC") + " (" + String(millis() - t0) + "ms)");
   if (cfg) { while (cfg.available()) all += (char)cfg.read(); cfg.close(); }
+  Serial.println("[CFGWRITE] read-done len=" + String(all.length()) + " (" + String(millis() - t0) + "ms)");
+  // v3 (2026-09-13) -- BUG REEL corrige, trouve en instrumentant cette
+  // fonction pendant le diagnostic de la boucle AP : si la lecture ci-dessus
+  // echoue (SD.open() en lecture rate -- observe reellement, carte SD
+  // suspectee defaillante par ailleurs), 'all' reste vide et le code
+  // continuait tout droit vers l'ECRITURE avec ce contenu vide : le fichier
+  // ecrit ne contenait plus QUE les cles patchees ici (5 cles WiFi dans le
+  // cas de handleWebConfigSaveAP()), toutes les autres cles deja presentes
+  // (playlist, recalbox_ip, language, brightness, clock_*...) etaient
+  // SILENCIEUSEMENT PERDUES -- exactement ce que l'utilisateur avait
+  // explicitement demande d'eviter ("bien preserver ce qui existe deja sur
+  // le .ini, ne pas l'effacer"). Mieux vaut ne PAS ecrire du tout dans ce
+  // cas (le mecanisme de verification/retry deja en place dans
+  // handleWebConfigSaveAP() rappellera cette fonction) que de detruire le
+  // fichier avec un contenu partiel. Ne bloque QUE si le fichier existant
+  // n'a pas pu etre lu ET n'etait pas simplement vide/absent (all.length()
+  // reste a 0 dans les 2 cas -- readOk distingue "SD.open() a echoue" de
+  // "fichier ouvert mais vide", seul le 1er cas est une vraie perte de
+  // donnees a eviter).
+  if (!readOk) {
+    Serial.println("[CFGWRITE] ABANDON (lecture impossible, ecriture aurait efface le contenu existant)");
+    return;
+  }
   for (int i = 0; i < count; i++) {
     String needle = keys[i] + "=";
     int pos = all.indexOf(needle);
@@ -7030,8 +7118,12 @@ void writeConfigFlags(const String keys[], const String values[], int count)
       all += needle + values[i] + "\n";
     }
   }
+  unsigned long t1 = millis();
   cfg = SD.open("/config.ini", FILE_WRITE);
-  if (cfg) { cfg.print(all); cfg.close(); }
+  bool writeOk = (bool)cfg;
+  Serial.println("[CFGWRITE] write-open " + String(writeOk ? "OK" : "ECHEC") + " (" + String(millis() - t1) + "ms)");
+  if (cfg) { size_t written = cfg.print(all); cfg.close(); Serial.println("[CFGWRITE] write-done bytes=" + String(written) + "/" + String(all.length()) + " (" + String(millis() - t1) + "ms)"); }
+  Serial.println("[CFGWRITE] total " + String(millis() - t0) + "ms");
 }
 
 // --------------------------------------------------
@@ -10855,28 +10947,27 @@ void setup()
   // sans underscore entre "Box" et "DMD"). Non bloquant : une erreur
   // quelconque (carte protegee en ecriture, etc.) est juste loguee, ne doit
   // jamais retarder/interrompre le boot.
-  {
-    char label[34];
-    FRESULT flr = f_getlabel("0:", label, NULL);
-    String current = (flr == FR_OK) ? String(label) : String("");
-    current.trim();
-    current.toUpperCase();
-    if (current != "RECALBOXDMD") {
-      FRESULT fsr = f_setlabel("0:RecalBoxDMD");
-      if (fsr == FR_OK) {
-        Serial.println("[SD] Etiquette renommee: " + current + " -> RecalBoxDMD");
-      } else {
-        Serial.println("[SD] Echec renommage etiquette (code FatFs " + String((int)fsr) + "), etiquette actuelle: " + current);
-      }
-    } else {
-      Serial.println("[SD] Etiquette deja correcte (RecalBoxDMD)");
-    }
-  }
+  // v3 (2026-09-13) -- DESACTIVE TEMPORAIREMENT pour diagnostic. f_setlabel()
+  // echoue ICI a CHAQUE boot (code FatFs 1 = FR_DISK_ERR, echec disque dur,
+  // pas juste "carte protegee") sur l'unite en cause -- 100% reproductible
+  // sur 3 cycles d'alimentation propres consecutifs (carte SD jamais
+  // retiree). Hypothese en cours de verification : cet echec d'ECRITURE bas
+  // niveau juste apres SD.begin() laisse le montage FatFs dans un etat
+  // invalide pour le reste de la session -- correlerait exactement avec le
+  // bug rapporte (SD.open() en lecture ET ecriture echouant instantanement,
+  // quelques ms, depuis handleWebConfigSaveAP(), alors que le meme SD.open()
+  // fonctionne juste en dessous ICI au boot). Desactive pour isoler la
+  // variable : si le bug AP disparait sans ce bloc, root cause confirmee.
+  // Remettre en service (avec un vrai fix, pas juste desactive) une fois
+  // confirme -- fonctionnalite cosmetique (etiquette de volume), pas
+  // critique.
+  Serial.println("[SD] Renommage etiquette desactive (diagnostic v3)");
 
   gif.begin(LITTLE_ENDIAN_PIXELS);
 
   {
     File cfg=SD.open("/config.ini");
+    Serial.println("[BOOTCFG] config.ini open " + String(cfg ? "OK" : "ECHEC"));
     if(cfg){
       while(cfg.available()){
         String line=cfg.readStringUntil('\n');line.trim();
