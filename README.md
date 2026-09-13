@@ -42,7 +42,6 @@
 ## 🎬 What's new in RawEdition v2.0
 
 - 👉 **[Visual overview (interactive page)](https://shan-aya.github.io/RecalBoxDMD/promo/rawedition_infographic_en.html)**
-- ▶️ **[Watch the video](medias/social/rawedition_scroll_en.webm)**
 
 ---
 
