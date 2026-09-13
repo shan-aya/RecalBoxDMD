@@ -101,7 +101,7 @@ Es un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), reco
 - 🌐 **Página de configuración web en vivo** servida por el ESP32 — WiFi, transporte UDP, brillo, playlist, temas de reloj (con vista previa instantánea en el panel) — sin necesidad de recompilar para ajustar nada.
 - ⚡ **Flashea el firmware desde el navegador** — un [instalador web en un clic](https://shan-aya.github.io/RecalBoxDMD/) (Chrome/Edge) flashea el ESP32 por USB, sin Arduino IDE.
 - 📡 **Enlace UDP en tiempo real** con Recalbox para mostrar juegos/sistemas/eventos al instante, además de una consola **Telnet** para depuración en el dispositivo.
-- 🏆 **Superposiciones en juego — Hi-Score, Info del juego, RetroAchievements y Challenge RB** — mientras juegas de verdad, el panel alterna automáticamente el marquee con las mejores puntuaciones reales de MAME/FBNeo (manifiesto comunitario, ~2758 juegos), la descripción/género/año del juego, los logros de RetroAchievements desbloqueados y la clasificación del Challenge comunitario mensual oficial de Recalbox. Cero configuración: instala los scripts una vez (Modo 9) y todo funciona solo — ver [detalles más abajo](#superposiciones-en-juego--hi-score-info-del-juego-logros-y-challenge-rb).
+- 🏆 **Superposiciones en juego — Hi-Score, Info del juego, RetroAchievements y Challenge RB** — mientras juegas de verdad, el panel alterna automáticamente el marquee con las mejores puntuaciones reales de MAME/FBNeo (manifiesto comunitario, 4087 juegos), la descripción/género/año del juego, los logros de RetroAchievements desbloqueados y la clasificación del Challenge comunitario mensual oficial de Recalbox. Cero configuración: instala los scripts una vez (Modo 9) y todo funciona solo — ver [detalles más abajo](#superposiciones-en-juego--hi-score-info-del-juego-logros-y-challenge-rb).
 - 🎬 **Pestaña Playlist — crea tus propias rotaciones en modo atracción** — combina el pack de 600 GIFs y tus propios GIFs (arrastra una carpeta del PC), dale un nombre y queda lista para seleccionar como playlist activa; funciona directamente desde una tarjeta SD insertada o, en pleno Modo 1, desde la carpeta de trabajo antes incluso de copiarla.
 - 🌍 **Totalmente trilingüe** — tanto la interfaz web del firmware como la caja de herramientas de PC están disponibles en **francés, inglés y español**.
 - 🗣️ **Imágenes de sistema/género multilingües** — el pack de respaldo `_defaults` (insignias de género, Favoritos, Últimos Jugados...) está disponible en francés y español, seleccionable desde la caja de herramientas de PC con una vista previa comparativa en vivo; los géneros aún no traducidos simplemente quedan en inglés.
@@ -523,12 +523,12 @@ telnet <ip-esp32>
 ## Superposiciones en juego — Hi-Score, Info del juego, Logros y Challenge RB
 
 <p align="center">
-  <img src="medias/hiscore/hiscore_banner.png" alt="Superposición Hi-Score de MAME/FBNeo en RecalBoxDMD" width="720">
+  <img src="medias/social/hiscore.png" alt="Superposición Hi-Score de MAME/FBNeo en RecalBoxDMD" width="720">
 </p>
 
 Mientras un juego está realmente en marcha (nunca en modo de espera/playlist), el panel puede alternar automáticamente el marquee con hasta **cuatro** superposiciones impulsadas por la comunidad — a pantalla completa, sin bloquear nada, y siempre autolimitadas: cada una vuelve al marquee por sí sola tras una breve duración, con un temporizador que vive **enteramente en el propio DMD**, para que un script de Recalbox lento o fallido nunca pueda dejar el panel bloqueado.
 
-- 🏆 **Hi-Score (MAME / FBNeo)** — decodifica el propio archivo de puntuación guardado por el emulador (`.hi`) contra un manifiesto comunitario convertido desde **hi2txt-xml** (~2758 juegos cubiertos) y muestra la clasificación real de esa máquina, tal como la mostraría el propio MAME/FBNeo. Sin lectura de RAM en vivo, sin receta individual por juego que mantener: si un juego no está en el manifiesto, o su archivo de guardado falta o es inesperado, no se muestra nada — silencioso por diseño, nunca una puntuación equivocada.
+- 🏆 **Hi-Score (MAME / FBNeo)** — decodifica el propio archivo de puntuación guardado por el emulador (`.hi`) contra un manifiesto comunitario convertido desde **hi2txt-xml** (4087 juegos cubiertos) y muestra la clasificación real de esa máquina, tal como la mostraría el propio MAME/FBNeo. Sin lectura de RAM en vivo, sin receta individual por juego que mantener: si un juego no está en el manifiesto, o su archivo de guardado falta o es inesperado, no se muestra nada — silencioso por diseño, nunca una puntuación equivocada.
 - ℹ️ **Info del juego** — descripción, género, desarrollador y año de lanzamiento, extraídos directamente de tu `gamelist.xml` existente (el mismo scrape que ya hiciste para el propio marquee).
 - 🎖️ **RetroAchievements** — aparece en cuanto desbloqueas un logro, en plena partida.
 - 📅 **Challenge RB** — lee la clasificación oficial del Challenge comunitario mensual de Recalbox (un juego elegido por Recalbox cada mes, un solo crédito, sin continuar) directamente desde el recurso compartido de Recalbox — mismo panel, mismo estilo, sin configuración aparte.
@@ -610,7 +610,7 @@ docs/                          ← GitHub Pages: instalador web (shan-aya.github
 - **RawEdition**: **Shan_ayA** — formato raw565, caché de bigramas, sistema de máscara, caja de herramientas de PC, temas de reloj, gestión de versiones de Recalbox, vista previa web en vivo
 - **Inspiración**: [RetroPixelLED](https://github.com/fjgordillo86/RetroPixelLED) de fjgordillo86
 - **Pack de 600 GIFs**: **eLLuiGi** / [RpiTeaM](https://rpiteam.carrd.co/) — muestra gratuita de su colección de GIFs retro
-- **Manifiesto Hi-Score**: convertido desde el formato comunitario **hi2txt-xml**, construido en torno al proyecto `hiscore.dat` de MAME — ~2758 juegos cubiertos
+- **Manifiesto Hi-Score**: convertido desde el formato comunitario **hi2txt-xml**, construido en torno al proyecto `hiscore.dat` de MAME — 4087 juegos cubiertos
 - **Hardware y guía de montaje**: [Mortaca — DMDos Board](https://www.mortaca.com/) / [dmdos.net](https://www.dmdos.net/)
 - **Marco 3D**: Janibol — [Retromojones](https://www.youtube.com/@retromojones)
 - **Comunidad**: [Recalbox](https://www.recalbox.com/)
