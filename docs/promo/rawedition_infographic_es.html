@@ -1,0 +1,293 @@
+<title>RawEdition v2.0</title>
+<meta name="description" content="Un vistazo visual a las novedades de RecalBoxDMD RawEdition v2.0, pensado para compartir en Discord.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  :root{
+    --ink:#0a0d12;
+    --panel:#11161e;
+    --panel-alt:#0d1219;
+    --line:#212b38;
+    --led-red:#ff3b3b;
+    --led-blue:#4a8cff;
+    --led-green:#3ee06a;
+    --led-white:#eef1f5;
+    --amber:#ffb238;
+    --muted:#7c8aa0;
+    --muted-dim:#4d5866;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--ink);
+    color:var(--led-white);
+    font-family:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* faint ambient scanlines across the whole page, evokes the LED/CRT world */
+  body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    z-index:1;
+    background:repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.018) 0px,
+      rgba(255,255,255,0.018) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    mix-blend-mode:screen;
+  }
+
+  .page{
+    position:relative;
+    max-width:640px;
+    margin:0 auto;
+    padding-inline:20px;
+    padding-block:0 40px;
+  }
+
+  /* ---------- shared type scale ---------- */
+  .eyebrow{
+    font-family:"JetBrains Mono",monospace;
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:5px 10px 4px;
+    border-radius:3px;
+    border:1px solid var(--line);
+  }
+  .eyebrow::before{
+    content:"";
+    width:6px;
+    height:6px;
+    border-radius:1px;
+    background:currentColor;
+    box-shadow:0 0 6px currentColor;
+  }
+  h2{
+    font-family:"Anton",system-ui,sans-serif;
+    font-weight:400;
+    letter-spacing:0.01em;
+    text-wrap:balance;
+    line-height:1.02;
+    margin:14px 0 10px;
+    font-size:clamp(30px,7vw,40px);
+  }
+  p{
+    margin:0;
+    color:#c3cbd8;
+    line-height:1.55;
+    font-size:15.5px;
+    max-width:56ch;
+  }
+  strong{color:var(--led-white); font-weight:700;}
+  .num{font-variant-numeric:tabular-nums;}
+
+  /* ---------- real / re-lit device photos ---------- */
+  .shot{
+    margin-top:20px;
+    border-radius:8px;
+    overflow:hidden;
+    border:1px solid var(--line);
+    box-shadow:0 10px 28px -16px rgba(0,0,0,0.8);
+    background:#000;
+  }
+  .shot img{ display:block; width:100%; height:auto; }
+  .shot.portrait{ max-width:300px; margin-inline:auto; }
+  .shot.glow-r{ box-shadow:0 0 0 1px rgba(255,59,59,.3), 0 0 32px -8px rgba(255,59,59,.45), 0 10px 28px -16px rgba(0,0,0,.8); }
+  .shot.glow-b{ box-shadow:0 0 0 1px rgba(74,140,255,.3), 0 0 32px -8px rgba(74,140,255,.45), 0 10px 28px -16px rgba(0,0,0,.8); }
+  .shot.glow-g{ box-shadow:0 0 0 1px rgba(62,224,106,.3), 0 0 32px -8px rgba(62,224,106,.45), 0 10px 28px -16px rgba(0,0,0,.8); }
+  .shot.glow-a{ box-shadow:0 0 0 1px rgba(255,178,56,.3), 0 0 32px -8px rgba(255,178,56,.45), 0 10px 28px -16px rgba(0,0,0,.8); }
+  .shot.glow-w{ box-shadow:0 0 0 1px rgba(238,241,245,.22), 0 0 26px -8px rgba(238,241,245,.3), 0 10px 28px -16px rgba(0,0,0,.8); }
+
+  .pair{
+    display:grid;
+    grid-template-columns:1fr auto 1fr;
+    align-items:center;
+    gap:10px;
+    margin-top:20px;
+  }
+  .pair .shot{ margin-top:0; }
+  .pair .arrow{
+    font-family:"JetBrains Mono",monospace;
+    color:var(--muted-dim);
+    font-size:18px;
+  }
+  .pair figcaption, .cap{
+    font-family:"JetBrains Mono",monospace;
+    font-size:10px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:var(--muted-dim);
+    text-align:center;
+    margin-top:6px;
+  }
+
+  /* ---------- sections ---------- */
+  header.hero{
+    position:relative;
+    z-index:2;
+    padding-block:34px 26px;
+    text-align:center;
+  }
+  header.hero .brand{
+    font-family:"JetBrains Mono",monospace;
+    font-size:12px;
+    letter-spacing:0.32em;
+    color:var(--muted);
+    text-transform:uppercase;
+  }
+  header.hero h1{
+    font-family:"Anton",system-ui,sans-serif;
+    font-weight:400;
+    font-size:clamp(46px,13vw,68px);
+    line-height:0.95;
+    margin:8px 0 4px;
+    text-wrap:balance;
+  }
+  header.hero h1 .raw{color:var(--led-white);}
+  header.hero h1 .v{
+    color:var(--ink);
+    -webkit-text-stroke:1.5px var(--led-white);
+  }
+  header.hero .tag{
+    color:var(--muted);
+    font-size:15px;
+    margin:0 auto 22px;
+    max-width:38ch;
+  }
+  .divider{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    color:var(--muted-dim);
+    font-family:"JetBrains Mono",monospace;
+    font-size:11px;
+    letter-spacing:0.2em;
+    text-transform:uppercase;
+    padding:0 20px 22px;
+    max-width:640px;
+    margin:0 auto;
+  }
+  .divider::before,.divider::after{
+    content:"";
+    flex:1;
+    height:1px;
+    background:var(--line);
+  }
+
+  .feat{
+    position:relative;
+    z-index:2;
+    padding-block:36px;
+    border-top:1px solid var(--line);
+  }
+  .feat:nth-of-type(even){
+    background:linear-gradient(180deg, transparent, rgba(255,255,255,0.014) 40%, transparent);
+  }
+
+  footer.outro{
+    position:relative;
+    z-index:2;
+    text-align:center;
+    padding-block:40px 8px;
+    border-top:1px solid var(--line);
+  }
+  footer.outro .word{
+    font-family:"Anton",system-ui,sans-serif;
+    font-size:clamp(24px,6vw,30px);
+    color:var(--led-white);
+  }
+  footer.outro .word span{color:var(--muted-dim);}
+  footer.outro p{
+    margin:10px auto 0;
+    color:var(--muted);
+    font-size:13.5px;
+  }
+
+  @media (max-width:420px){
+    .pair{grid-template-columns:1fr; }
+    .pair .arrow{ transform:rotate(90deg); justify-self:center; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="hero">
+    <div class="brand">RECALBOXDMD</div>
+    <h1><span class="raw">Raw</span><span class="v">Edition</span><br><span style="font-family:'Anton',sans-serif; color:var(--led-blue); text-shadow:0 0 3px var(--led-blue),0 0 16px rgba(74,140,255,.55);">v2.0</span></h1>
+    <p class="tag">El pequeño panel LED que sigue tu recreativa, partida tras partida.</p>
+  </header>
+
+  <div class="divider">Las novedades de la v2.0</div>
+
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--led-blue)">Marquee y demo</span>
+    <h2>Siempre el logo correcto, al instante</h2>
+    <p>Lanzas un juego y su marquee aparece en <strong>menos de 15&nbsp;ms</strong>. En modo demo, también se muestra el logo real del juego actual — nada de una playlist genérica que ignora lo que realmente hay en pantalla.</p>
+    <figure class="shot glow-b">
+      <img src="marquee.gif" alt="Grabación real del panel LED mostrando el marquee del juego 1941: Counter Attack.">
+    </figure>
+  </section>
+
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--led-red)">MAME + FBNeo</span>
+    <h2>Puntuaciones legendarias, inmortalizadas</h2>
+    <p>Durante la partida, el panel alterna automáticamente el marquee con la <strong>verdadera tabla de mejores puntuaciones</strong> — <strong class="num">4087</strong> juegos cubiertos hasta la fecha, y la lista sigue creciendo.</p>
+    <figure class="shot glow-r">
+      <img src="hiscore.png" alt="Foto real del panel LED mostrando la tabla HI-SCORE durante una partida.">
+    </figure>
+  </section>
+
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--led-green)">Género · año · estudio</span>
+    <h2>La ficha del juego, en el panel</h2>
+    <p>Descripción, género, desarrollador, año de lanzamiento — sacados directamente de tu <strong>gamelist</strong>, mostrados entre vueltas de marquee, sin configurar nada.</p>
+    <figure class="shot glow-g">
+      <img src="infosjeu.png" alt="Foto real del panel LED mostrando la info del juego: desarrollador, editor, año.">
+    </figure>
+  </section>
+
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--amber)">RetroAchievements</span>
+    <h2>Cada logro, celebrado en directo</h2>
+    <p>Desbloqueas un logro y aparece en el panel al instante, sin pausar ni interrumpir nunca la partida.</p>
+    <figure class="shot glow-a">
+      <img src="achievement.png" alt="Panel LED real, reiluminado con el mensaje ACHIEVEMENT UNLOCKED.">
+    </figure>
+  </section>
+
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--led-white)">Desafío comunitario</span>
+    <h2>El marcador de RB Challenge, en vitrina</h2>
+    <p>El desafío mensual de la comunidad Recalbox se muestra directamente en tu recreativa — porque una buena puntuación de la comunidad merece que la vean los que pasan por delante.</p>
+    <figure class="shot glow-w portrait">
+      <img src="challenge.png" alt="Foto real del panel LED mostrando el marcador de RB CHALLENGE sobre la recreativa.">
+    </figure>
+  </section>
+
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--led-blue)">Desplazamiento rápido</span>
+    <h2>Cuida la tarjeta SD, incluso a toda velocidad</h2>
+    <p>Activa el <strong>desplazamiento rápido</strong> de Recalbox — la navegación por letra que salta de golpe al otro extremo de la lista — y el panel pasa deliberadamente a un patrón de interferencia en vez de intentar mostrar un marquee distinto por cada juego que sobrevuela: así evita exigirle a la tarjeta SD un ritmo que no podría seguir. En cuanto se detiene, el marquee correcto vuelve al instante.</p>
+    <figure class="shot portrait glow-b">
+      <img src="shuffle.gif" alt="Grabación real del panel LED interferido durante un desplazamiento rápido, estabilizándose en COMMANDO al detenerse la navegación.">
+    </figure>
+  </section>
+
+  <footer class="outro">
+    <div class="word">Raw<span>Edition</span> v2.0</div>
+    <p>Hecho para recreativas que de verdad funcionan.</p>
+  </footer>
+
+</div>
