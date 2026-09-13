@@ -39,6 +39,13 @@
 
 ---
 
+## 🎬 Les nouveautés de RawEdition v2.0
+
+- 👉 **[Aperçu visuel (page interactive)](https://shan-aya.github.io/RecalBoxDMD/promo/rawedition_infographic_fr.html)**
+- ▶️ **[Voir la vidéo](medias/social/rawedition_scroll_fr.webm)**
+
+---
+
 ## C'est quoi ?
 
 **RecalBoxDMD** transforme un petit **panneau LED 128×32** (2 modules HUB75 64×32 chaînés) en un vrai marquee d'arcade pour votre borne **Recalbox** : lancez un jeu, son logo/marquee s'allume sur le panneau en quelques millisecondes — plus un jeu de 10 **thèmes horloge** pixel-art (Mario, Pac-Man, Tetris, Space Invaders, Pong...) et un pack fourni d'environ **600 GIFs rétro** pour le mode attente/veille.
