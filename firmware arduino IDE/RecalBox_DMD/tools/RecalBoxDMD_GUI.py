@@ -2,7 +2,20 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v63
+# Version actuelle : v64
+#
+# v64 — 2026-09-13 — safe-modify — Demandes utilisateur, onglet Playlist :
+#      (1) le popup de confirmation apres "Construire" precise desormais
+#      que la playlist a bien ete creee sur la carte SD (nouvelle cle
+#      playlist_build_done_msg_temp -- variante distincte pendant le mode
+#      temporaire Mode 1, ou rien n'est encore sur une vraie carte SD tant
+#      que Mode 1 n'a pas copie le dossier de travail). (2) Le bouton
+#      "Quitter" de cet onglet (_playlist_quit_btn) etait visible en
+#      permanence, y compris en usage normal/standalone de l'onglet ou il
+#      est redondant avec le Quitter de la fenetre principale -- cree
+#      desormais sans .pack() (masque par defaut), affiche uniquement par
+#      _enter_playlist_temp_mode() et masque a nouveau par
+#      _exit_playlist_temp_mode().
 #
 # v63 — 2026-09-13 — safe-modify — _net_use_connect()/_net_use_disconnect()
 #      (mode reseau SMB) ouvraient une fenetre console visible le temps de
@@ -1360,7 +1373,8 @@ UI_TRANSLATIONS = {
         ),
         "playlist_name_required_msg": "Indiquez un nom de playlist.",
         "playlist_build_empty_msg": "Cochez au moins un dossier ou un fichier.",
-        "playlist_build_done_msg": "Playlist enregistrée : {n} entrée(s).",
+        "playlist_build_done_msg": "Playlist enregistrée : {n} entrée(s) — bien créée sur la carte SD.",
+        "playlist_build_done_msg_temp": "Playlist enregistrée : {n} entrée(s) — sera créée sur la carte SD une fois le Mode 1 poursuivi.",
         "playlist_delete_confirm_title": "Supprimer la playlist",
         "playlist_delete_confirm_msg": "Supprimer définitivement la playlist « {name} » ?",
         "playlist_regen_done_msg": "Cache régénéré : {nf} dossier(s), {ne} fichier(s).",
@@ -1808,7 +1822,8 @@ UI_TRANSLATIONS = {
         ),
         "playlist_name_required_msg": "Enter a playlist name.",
         "playlist_build_empty_msg": "Check at least one folder or file.",
-        "playlist_build_done_msg": "Playlist saved: {n} entrie(s).",
+        "playlist_build_done_msg": "Playlist saved: {n} entry(ies) — successfully created on the SD card.",
+        "playlist_build_done_msg_temp": "Playlist saved: {n} entry(ies) — will be created on the SD card once you continue Mode 1.",
         "playlist_delete_confirm_title": "Delete playlist",
         "playlist_delete_confirm_msg": "Permanently delete playlist \"{name}\"?",
         "playlist_regen_done_msg": "Cache regenerated: {nf} folder(s), {ne} file(s).",
@@ -2251,7 +2266,8 @@ UI_TRANSLATIONS = {
         ),
         "playlist_name_required_msg": "Indica un nombre de playlist.",
         "playlist_build_empty_msg": "Marca al menos una carpeta o archivo.",
-        "playlist_build_done_msg": "Playlist guardada: {n} entrada(s).",
+        "playlist_build_done_msg": "Playlist guardada: {n} entrada(s) — creada correctamente en la tarjeta SD.",
+        "playlist_build_done_msg_temp": "Playlist guardada: {n} entrada(s) — se creará en la tarjeta SD al continuar el Modo 1.",
         "playlist_delete_confirm_title": "Eliminar playlist",
         "playlist_delete_confirm_msg": "¿Eliminar permanentemente la playlist «{name}»?",
         "playlist_regen_done_msg": "Caché regenerada: {nf} carpeta(s), {ne} archivo(s).",
@@ -3202,6 +3218,11 @@ class RetroBoxLEDGui:
         self._playlist_regen_cache_btn.pack(side="left", fill="x", expand=True, padx=(8, 0))
         self._playlist_regen_cache_btn._fixed_theme_colors = ("#FF9800", "#000000")
 
+        # Cree sans .pack() : masque par defaut (usage normal/standalone de
+        # l'onglet), affiche uniquement pendant le mode temporaire Mode 1
+        # (voir _enter_playlist_temp_mode()/_exit_playlist_temp_mode() --
+        # demande utilisateur : redondant avec le Quitter de la fenetre
+        # principale en dehors de Mode 1).
         self._playlist_quit_btn = tk.Button(
             bottom_row,
             text=(self.tkmod.tr("main_opt_quit") if hasattr(self.tkmod, "tr") else "Quit"),
@@ -3209,7 +3230,6 @@ class RetroBoxLEDGui:
             bg="#FF5C5C", fg="black", bd=2, relief="solid", padx=10, pady=4,
             font=("TkDefaultFont", 11, "bold"),
         )
-        self._playlist_quit_btn.pack(side="left", fill="x", expand=True, padx=(8, 0))
         self._playlist_quit_btn._fixed_theme_colors = ("#FF5C5C", "#000000")
 
     def _enter_playlist_temp_mode(self) -> None:
@@ -3225,6 +3245,9 @@ class RetroBoxLEDGui:
         self._playlist_sd_root = self.sd_dir
         self._playlist_sd_frame.pack_forget()
         self._playlist_temp_note_lbl.pack(side="left", fill="y", before=self._playlist_explanation_frame)
+        # Bouton "Quitter" visible uniquement pendant Mode 1 (masque par
+        # defaut hors mode temporaire, voir sa creation plus haut).
+        self._playlist_quit_btn.pack(side="left", fill="x", expand=True, padx=(8, 0))
         self._playlist_checked.clear()
         self._playlist_folder_checked.clear()
         self._playlist_browsed_folder = None
@@ -3275,6 +3298,8 @@ class RetroBoxLEDGui:
             text=ui["playlist_build_btn"], command=self._on_playlist_build_clicked, state="normal",
         )
         self._playlist_regen_cache_btn.configure(text=ui["playlist_regen_cache_btn"].replace("\n", " "))
+        # Masque le bouton "Quitter" (visible uniquement pendant Mode 1).
+        self._playlist_quit_btn.pack_forget()
         self._refresh_playlist_drives()
         self._stop_playlist_regen_cache_blink()
 
@@ -4538,7 +4563,8 @@ class RetroBoxLEDGui:
         if n_entries < 0:
             return
         ui = self._get_ui_t()
-        self._themed_info(ui["playlist_build_btn"], ui["playlist_build_done_msg"].format(n=n_entries))
+        msg_key = "playlist_build_done_msg_temp" if getattr(self, "_playlist_temp_mode", False) else "playlist_build_done_msg"
+        self._themed_info(ui["playlist_build_btn"], ui[msg_key].format(n=n_entries))
 
     def _on_playlist_delete_clicked(self) -> None:
         ui = self._get_ui_t()
