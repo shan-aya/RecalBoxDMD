@@ -158,6 +158,8 @@ L'outil embarque 9 habillages visuels (SNES, Mega Drive, Dreamcast, PlayStation,
 
 ## Démarrage rapide
 
+*(Aussi disponible en page autonome : [QUICK-START.md](QUICK-START.fr.md))*
+
 <p align="center"><b>🚀 De zéro à un marquee fonctionnel en 4 étapes 🚀</b></p>
 
 <table align="center">

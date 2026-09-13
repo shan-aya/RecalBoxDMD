@@ -158,6 +158,8 @@ The toolkit ships with 9 visual skins (SNES, Mega Drive, Dreamcast, PlayStation,
 
 ## Quick start
 
+*(Also available as a standalone page: [QUICK-START.md](QUICK-START.md))*
+
 <p align="center"><b>🚀 Zero to a working marquee in 4 steps 🚀</b></p>
 
 <table align="center">

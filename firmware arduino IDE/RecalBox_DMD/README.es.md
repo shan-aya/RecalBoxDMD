@@ -158,6 +158,8 @@ La herramienta incluye 9 temas visuales (SNES, Mega Drive, Dreamcast, PlayStatio
 
 ## Inicio rápido
 
+*(También disponible como página independiente: [QUICK-START.md](QUICK-START.es.md))*
+
 <p align="center"><b>🚀 De cero a un marquee funcionando en 4 pasos 🚀</b></p>
 
 <table align="center">
