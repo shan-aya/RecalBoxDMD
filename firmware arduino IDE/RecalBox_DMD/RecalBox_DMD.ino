@@ -1,7 +1,50 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v208
+// Version actuelle : v210
+//
+// v210 - 2026-09-14 - safe-modify - BUG REEL corrige (retour utilisateur en
+//   direct : "RecalBox connecte" affiche alors que RB1 est eteinte).
+//   L'ecran "RecalBox connectee" (CMD_WAITING_MQTT, v176) se posait des que
+//   le WiFi se (re)connectait, en reaction au simple ENVOI de
+//   sendUdpHello() -- fire-and-forget UDP, "reussit" meme si RB1 n'ecoute
+//   pas, aucune confirmation reelle de joignabilite. Fix : nouveau drapeau
+//   g_pendingConnectedScreenOnPong, pose au moment du hello (au lieu de
+//   poster CMD_WAITING_MQTT directement), consomme uniquement quand un
+//   vrai PONG arrive ensuite (handler PONG existant, deja utilise par
+//   l'alerte "RecalBox non connectee") -- preuve reelle que RB1 a repondu.
+//   Compile OK (2077733 octets flash). PAS ENCORE teste sur materiel reel
+//   avec RB1 effectivement eteinte (nécessiterait de couper RB1 pour
+//   verifier que l'ecran ne s'affiche plus -- pas fait ce soir).
+//
+// v209 - 2026-09-14 - safe-modify - Nettoyage : suppression du sous-systeme
+//   MQTT entier, verifie mort en pratique (demande utilisateur explicite,
+//   suite a une double confusion reelle -- moi-meme, 2 fois dans la meme
+//   soiree -- sur "MQTT est-il encore actif ?" en plein diagnostic d'un
+//   gel de DMD2). Chaine complete verifiee : la seule creation de
+//   mqttTask() est gardee par `if(MQTT_ENABLED && ...)`, MQTT_ENABLED est
+//   #define a false depuis v161 (bascule full UDP) -- donc mqttClient.
+//   connect()/subscribe()/loop() ne s'executent JAMAIS. Supprime (~800
+//   lignes, historique recuperable via git) : mqttTask() (#if 0, ~630
+//   lignes), onMqttMessage() (#if 0, ~140 lignes, callback jamais
+//   declenche puisque mqttClient.loop() ne tourne jamais), mqttSubscribeFast()
+//   + socketWritableQuick() + g_fastSubMsgId (code exclusivement appele
+//   par mqttTask(), supprime completement), heartbeatTask() +
+//   g_heartbeatCounter (diagnostic dont le seul lecteur etait dans
+//   mqttTask(), devenu sans utilite), le bloc de configuration mqttClient
+//   dans setup() (setServer/setCallback/setBufferSize/setKeepAlive/
+//   setSocketTimeout), et l'appel xTaskCreatePinnedToCore(mqttTask,...).
+//   Conserve deliberement (risque/benefice defavorable a y toucher) :
+//   les objets mqttClient/wifiClientMqtt, le #include PubSubClient.h, les
+//   constantes MQTT_PORT/MQTT_CLIENT/MQTT_RETRY_MS/MQTT_ENABLED, et le
+//   garde `if(mqttClient.connected())` dans broadcastFeatureStatus()
+//   (toujours faux en pratique mais explicitement documente comme garde
+//   de compatibilite si MQTT_ENABLED repassait un jour a true). Aucune
+//   fonctionnalite perdue : tout le dispatch de commandes que contenait
+//   onMqttMessage() est deja duplique et actif cote UDP (handleUdpCommand()).
+//   Compile OK (2077665 octets flash, -3036 vs v208), flashe et verifie sur
+//   DMD2 : boot propre, WiFi/NTP/playlist/GIF/web config tous normaux,
+//   aucune regression observee.
 //
 // v208 - 2026-09-13 - safe-modify - BUG REEL corrige (trouve en analysant le
 //   log du diagnostic v207) : writeConfigFlags() ecrivait quand meme si sa
@@ -5048,120 +5091,29 @@ int g_udpGapProbeCount = 0;
 const unsigned long UDP_PING_INTERVAL_MS = 15000UL;
 unsigned long g_lastPingSentMs = 0;    // millis() du dernier PING envoye
 unsigned long g_lastPongSeenMs = 0;    // millis() du dernier PONG recu
+// v10 (2026-09-14) -- BUG REEL corrige (retour utilisateur en direct :
+// "RecalBox connecte" affiche alors que RB1 est eteinte). L'ecran
+// "RecalBox connectee" se posait jusqu'ici des que le WIFI se reconnectait
+// (voir le site d'envoi de sendUdpHello() dans loop()), sans aucune
+// confirmation que RB1 ait reellement recu/repondu quoi que ce soit --
+// sendUdpHello() est un fire-and-forget UDP, "reussit" meme si personne
+// n'ecoute a l'autre bout. Ce drapeau retarde l'affichage : pose a true au
+// moment du hello, consomme (affiche CMD_WAITING_MQTT puis remis a false)
+// uniquement quand un vrai PONG arrive ensuite (preuve que RB1 est bien
+// vivante et a repondu) -- voir les 2 points d'usage plus bas.
+bool g_pendingConnectedScreenOnPong = false;
 
-// v139 -- voir changelog v139 en entete pour le contexte complet. Contourne
-// NetworkClient::write() (coeur Arduino-ESP32, NetworkClient.cpp) qui peut
-// bloquer jusqu'a WIFI_CLIENT_MAX_WRITE_RETRY(10) x
-// WIFI_CLIENT_SELECT_TIMEOUT_US(1s) = 10s via sa propre boucle select()
-// interne AVANT le moindre send() si le socket ne devient jamais
-// "ecrit-pret" -- constantes en dur dans un .cpp du coeur, non overridables
-// depuis ce fichier. Reconstruit le MEME paquet MQTT SUBSCRIBE que
-// PubSubClient::subscribe() (fixe header type=8/QoS1 + ID paquet 2 octets +
-// longueur topic 2 octets + topic + octet QoS), envoye via send()/select()
-// MAISON avec un budget BEAUCOUP plus court. Compteur d'ID de paquet
-// INDEPENDANT de celui de PubSubClient (this->nextMsgId est prive,
-// inaccessible) -- sans consequence, le broker ne fait aucun lien entre nos
-// souscriptions et les eventuels PUBLISH/PUBACK QoS>0 de PubSubClient sur ce
-// firmware (aucun publish QoS>0 fait par ce DMD).
-static uint16_t g_fastSubMsgId = 1;
-
-// Sonde ecrit-pret avec budget COURT (ms), remplace l'attente 1s x 10
-// essais du coeur par une seule fenetre select() configurable.
-// v140 -- $outRc/$outErrno optionnels (nullable) : remontent le code retour
-// BRUT de select() (et errno si <0) a l'appelant, pour distinguer "timeout
-// franc" (rc=0, a attendu tout $timeoutMs pour rien) de "select() a
-// lui-meme echoue" (rc<0, retourne probablement quasi instantanement,
-// errno donne la vraie raison -- EBADF si fd invalide/deja ferme, etc.).
-// Precedemment invisible : les 2 cas remontaient identiquement "false".
-static bool socketWritableQuick(int fd, uint32_t timeoutMs, int *outRc = nullptr, int *outErrno = nullptr)
-{
-  if (fd < 0) { if (outRc) *outRc = -1000; if (outErrno) *outErrno = 0; return false; }
-  fd_set set;
-  struct timeval tv;
-  FD_ZERO(&set);
-  FD_SET(fd, &set);
-  tv.tv_sec = timeoutMs / 1000;
-  tv.tv_usec = (timeoutMs % 1000) * 1000;
-  int rc = select(fd + 1, NULL, &set, NULL, &tv);
-  if (outRc) *outRc = rc;
-  if (outErrno) *outErrno = (rc < 0) ? errno : 0;
-  return (rc > 0 && FD_ISSET(fd, &set));
-}
-
-// Retourne true si le paquet SUBSCRIBE complet a ete envoye (send() a
-// accepte tous les octets) -- ne garantit PAS la reception du SUBACK (comme
-// PubSubClient::subscribe() lui-meme, qui ne l'attend pas non plus). $qos
-// attendu 0 ou 1 (meme limite que PubSubClient).
-bool mqttSubscribeFast(WiFiClient &client, const char *topic, uint8_t qos, uint32_t perAttemptMs, uint8_t maxAttempts)
-{
-  int fd = client.fd();
-  if (fd < 0 || topic == nullptr) return false;
-  size_t topicLen = strlen(topic);
-  if (topicLen == 0 || topicLen > 250) return false; // marge large, largeur remaining-length 1 octet suffisante
-
-  // Variable header (ID paquet, QoS1 impose par le protocole pour un
-  // SUBSCRIBE meme si $qos demande=0, meme convention que PubSubClient::
-  // subscribe() -- MQTTSUBSCRIBE|MQTTQOS1 code en dur cote appelant) +
-  // payload (longueur topic 2 octets + topic + 1 octet qos).
-  uint16_t msgId = g_fastSubMsgId++;
-  if (g_fastSubMsgId == 0) g_fastSubMsgId = 1;
-
-  uint8_t remLen = (uint8_t)(2 + 2 + topicLen + 1); // < 128, pas besoin du codage multi-octets
-  uint8_t buf[8 + 256];
-  size_t pos = 0;
-  buf[pos++] = 0x82; // type=8 (SUBSCRIBE), flags=0010 (QoS1 obligatoire)
-  buf[pos++] = remLen;
-  buf[pos++] = (uint8_t)(msgId >> 8);
-  buf[pos++] = (uint8_t)(msgId & 0xFF);
-  buf[pos++] = (uint8_t)(topicLen >> 8);
-  buf[pos++] = (uint8_t)(topicLen & 0xFF);
-  memcpy(buf + pos, topic, topicLen);
-  pos += topicLen;
-  buf[pos++] = qos;
-
-  size_t sent = 0;
-  int lastErrno = 0;
-  int lastSelectRc = 0;
-  int lastSelectErrno = 0;
-  for (uint8_t attempt = 0; attempt < maxAttempts && sent < pos; attempt++)
-  {
-    if (!socketWritableQuick(fd, perAttemptMs, &lastSelectRc, &lastSelectErrno)) continue; // pas ecrit-pret cette fenetre, on retente (budget court)
-    int res = send(fd, buf + sent, pos - sent, MSG_DONTWAIT);
-    if (res > 0) sent += (size_t)res;
-    else if (res < 0)
-    {
-      lastErrno = errno;
-      if (errno != EAGAIN && errno != EWOULDBLOCK) break; // socket vraiment casse, inutile d'insister
-    }
-  }
-  // v140 -- diagnostic root-cause (voir changelog v140) : si l'envoi echoue
-  // (jamais ecrit-pret dans le budget imparti), interroge SO_ERROR --
-  // erreur socket PENDANTE que ni select() ni un send() EAGAIN ne
-  // remontent autrement (getsockopt() la lit ET la remet a zero). Objectif
-  // : voir si le noyau/lwIP sait DEJA que la connexion est morte (ECONNRESET,
-  // ETIMEDOUT...) au moment ou select() refuse "ecrit-pret", ou si le socket
-  // se pretend sain (SO_ERROR=0) alors qu'il ne progresse jamais -- ces 2 cas
-  // pointent vers des causes tres differentes (etat socket connu vs
-  // vraiment bloque sans raison visible du cote applicatif).
-  if (sent != pos)
-  {
-    int soErr = -1;
-    socklen_t soErrLen = sizeof(soErr);
-    int gsoRc = getsockopt(fd, SOL_SOCKET, SO_ERROR, &soErr, &soErrLen);
-    // v143 -- fd= ajoute (voir entete changelog) : les fd POSIX/lwIP sont
-    // normalement recycles au plus bas numero libre -- si cette valeur ne
-    // fait QUE croitre au fil d'une session sans jamais redescendre, c'est
-    // la preuve directe d'une fuite de socket (jamais ferme correctement
-    // quelque part dans le cycle connect/subscribe/disconnect).
-    Serial.println("[MQTT] mqttSubscribeFast ECHEC -> " + String(topic)
-                   + " sent=" + String((unsigned)sent) + "/" + String((unsigned)pos)
-                   + " SO_ERROR=" + String(soErr) + "(gso_rc=" + String(gsoRc) + ")"
-                   + " lastErrno=" + String(lastErrno)
-                   + " lastSelectRc=" + String(lastSelectRc) + " lastSelectErrno=" + String(lastSelectErrno)
-                   + " fd=" + String(fd));
-  }
-  return sent == pos;
-}
+// v4 (2026-09-14) -- SUPPRIME (mqttSubscribeFast()/socketWritableQuick()/
+// g_fastSubMsgId, ~110 lignes). Code MORT verifie : exclusivement appele
+// depuis mqttTask() (voir plus bas), lui-meme jamais cree en pratique
+// (MQTT_ENABLED=false, voir sa declaration -- xTaskCreatePinnedToCore()
+// n'a jamais lieu). Demande explicite utilisateur suite a une confusion
+// reelle (moi-meme, 2 fois dans la meme soiree) sur l'etat "MQTT est-il
+// encore actif ?" en plein diagnostic d'un gel de DMD2 -- ce genre de code
+// invoquable-en-apparence-mais-mort-en-pratique s'est avere une source de
+// fausses pistes concrete, pas juste theorique. Historique complet
+// recuperable via git (grep "mqttSubscribeFast" dans les commits
+// anterieurs a cette suppression) si MQTT devait un jour redevenir actif.
 
 
 struct MqttCommand
@@ -8609,8 +8561,18 @@ void processPendingMqttCommand()
 }
 
 // --------------------------------------------------
-// MQTT callback
+// v5 (2026-09-14) -- onMqttMessage() SUPPRIME (~140 lignes). Code MORT
+// verifie : enregistre comme callback (mqttClient.setCallback(), setup())
+// mais jamais REELLEMENT invoque -- seul mqttClient.loop() peut declencher
+// un callback PubSubClient, et mqttClient.loop() ne s'execute que dans
+// mqttTask() (voir plus bas), jamais cree en pratique (MQTT_ENABLED=false).
+// Toute la logique de dispatch qu'il contenait (stop/default/system/game/
+// show_config/wifi_recovery/reboot/brightness*/score/ingame) est de toute
+// facon deja dupliquee et active cote UDP dans handleUdpCommand() (voir
+// plus bas) -- aucune fonctionnalite perdue. Historique complet recuperable
+// via git si besoin.
 // --------------------------------------------------
+#if 0
 void onMqttMessage(char *topic, byte *payload, unsigned int length)
 {
   // v142 -- voir commentaire complet pres de sa declaration : un message
@@ -8749,6 +8711,7 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
   }
   xSemaphoreGive(mqttCmdMutex);
 }
+#endif // onMqttMessage() -- voir #if 0 ci-dessus
 
 // --------------------------------------------------
 // v1/v2 -- piste UDP (voir TRANSPORT_PLAN_UDP.md)
@@ -8993,6 +8956,20 @@ void handleUdpCommand()
         Serial.print(latenceMs);
         Serial.println("ms");
       }
+      // v10 (2026-09-14) -- voir g_pendingConnectedScreenOnPong (sa
+      // declaration) : ce PONG est la premiere preuve reelle que RB1 est
+      // joignable depuis la (re)connexion WiFi -- affiche desormais l'ecran
+      // "RecalBox connectee" ICI (jamais avant), plutot qu'au simple envoi
+      // (fire-and-forget, sans garantie) du hello.
+      if (g_pendingConnectedScreenOnPong)
+      {
+        g_pendingConnectedScreenOnPong = false;
+        if (mqttCmdMutex != nullptr && xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(100)) == pdTRUE)
+        {
+          pendingCmd = MqttCommand(MqttCommand::CMD_WAITING_MQTT, "");
+          xSemaphoreGive(mqttCmdMutex);
+        }
+      }
       // v189 -- la coupure applicative est terminee (pong recu) : si le
       // dernier passage en playlist a ete FORCE par cette coupure (voir
       // g_recalboxDisconnectedForcedPlaylist), on ne laisse plus l'affichage
@@ -9144,40 +9121,31 @@ static void udpListenerTask(void *param)
 }
 
 // --------------------------------------------------
-// v137 -- Heartbeat CPU0 (diagnostic bissection round 2, voir DECISIONS.md)
+// v7 (2026-09-14) -- heartbeatTask()/g_heartbeatCounter SUPPRIMES. Cette
+// tache (v137) etait un instrument de diagnostic pour la piste MQTT
+// subscribe() bloquant ~9-10s -- son SEUL lecteur (hb0..hb3 dans
+// mqttTask()) vient d'etre supprime avec le reste de mqttTask() (code mort,
+// voir plus bas), la rendant sans utilite : elle continuait de tourner
+// (contexte switch toutes les 20ms, 1536 octets de pile) pour incrementer
+// un compteur que plus rien ne lit. Historique recuperable via git.
 // --------------------------------------------------
-// Instrument pour trancher entre 2 hypotheses jamais distinguees jusqu'ici
-// pour le blocage subscribe() ~9-10s (WiFi/RSSI/heap tous sains a chaque
-// fois, cote broker confirme ne rien recevoir du DMD) :
-//   (a) un vrai blocage bas niveau (syscall socket/lwIP) pendant l'appel
-//   (b) la tache qui appelle subscribe() n'a simplement pas la main
-//       pendant ~9-10s (CPU0 accapare par autre chose -- rendu GIF,
-//       lecture SD/SPI deja documentee comme bloquante ailleurs) -- le
-//       SUBDIAG existant mesure le temps ecoule AUTOUR de tout l'appel,
-//       pas le temps reellement passe dans le syscall bloquant lui-meme,
-//       donc ne peut pas distinguer (a) de (b).
-// Tache independante, tres legere, epinglee sur le MEME coeur que loop()
-// (LoopCore=0) : incremente un compteur toutes les ~20ms. Si ce compteur
-// continue d'avancer normalement pendant un subscribe() bloque -> (a),
-// vrai blocage reseau. S'il se fige lui aussi -> (b), famine CPU0, piste
-// a rediriger vers le rendu/SD plutot que MQTT/lwIP. Note : une
-// contention mqttTask-vs-loop() sur le meme coeur a deja ete testee une
-// fois (v107, 18/08) en deplacant mqttTask() entier vers le coeur 1 --
-// resultat REFUTE (meme signature de tempete observee), mais ce test
-// grossier ne mesurait pas directement si CPU0 stallait reellement au
-// moment precis d'un subscribe() -- ce heartbeat le mesure enfin.
-static volatile uint32_t g_heartbeatCounter = 0;
-
-static void heartbeatTask(void *param)
-{
-  (void)param;
-  for (;;)
-  {
-    g_heartbeatCounter++;
-    vTaskDelay(pdMS_TO_TICKS(20));
-  }
-}
-
+// v6 (2026-09-14) -- mqttTask() SUPPRIME (~630 lignes). Code MORT verifie :
+// la SEULE creation de cette tache (xTaskCreatePinnedToCore(mqttTask,...),
+// voir plus loin dans setup()) est gardee par
+// `if(MQTT_ENABLED && wifiEnabled && recalboxIP.length()>0)` et
+// MQTT_ENABLED est #define a false depuis v161 (bascule full UDP) --
+// cette tache n'est donc JAMAIS instanciee en pratique, ni son
+// mqttClient.connect()/subscribe()/loop() jamais executes. Ce constat a ete
+// verifie deux fois cette meme soiree suite a une confusion reelle (moi-
+// meme, la 1ere fois a tort conclu que ce code etait mort, la 2e fois a
+// tort conclu l'inverse en trouvant cet appel sans verifier s'il etait
+// atteignable) en plein diagnostic d'un gel inexplique de DMD2 -- code
+// invoquable-en-apparence-mais-mort-en-pratique s'est avere une source de
+// vraies fausses pistes, pas juste theorique. Toute la logique de dispatch
+// de commandes qu'il contenait est de toute facon deja dupliquee et active
+// cote UDP dans handleUdpCommand(). Historique complet recuperable via git.
+// --------------------------------------------------
+#if 0
 // --------------------------------------------------
 // MQTT task
 // --------------------------------------------------
@@ -9809,6 +9777,7 @@ void mqttTask(void *param)
     vTaskDelay(pdMS_TO_TICKS(20));
   }
 }
+#endif // mqttTask() -- voir #if 0 ci-dessus
 
 // --------------------------------------------------
 // WiFi
@@ -10040,72 +10009,13 @@ void setupWiFiFromConfig()
     // v176 pres de la detection de reconnexion en loop(), qui couvre AUSSI
     // le 1er boot) -- cette 2e couverture, elle, est desormais retardee
     // (BOOT_HELLO_MIN_DELAY_MS) pour laisser le heap se stabiliser d'abord.
-    if(recalboxIP.length()>0){
-      mqttClient.setServer(recalboxIP.c_str(),MQTT_PORT);
-      mqttClient.setCallback(onMqttMessage);
-      // v79 -- port depuis dev/mame-score-mqtt-bridge : buffer PubSubClient
-      // par defaut = 256 octets (MQTT_MAX_PACKET_SIZE), largement suffisant
-      // pour tous les topics d'avant ce chunk (le plus long, le top 5
-      // hiscore multi-rangs, fait ~90 octets) -- mais game_info peut faire
-      // jusqu'a ~700 octets de texte (voir MAX_TOTAL_LEN dans
-      // dmd_game_info.py), largement au-dela : sans setBufferSize(),
-      // PubSubClient tronque/rejette silencieusement le message (pas
-      // d'erreur visible). 1024 = marge confortable (payload + topic +
-      // entetes MQTT).
-      mqttClient.setBufferSize(1024);
-      // v100 -- BUG REEL confirme sur materiel : connexion "zombie" observee
-      // en DIRECT (silence total >2min30, aucune tentative de reconnexion,
-      // ecran DMD fige sur "RB connectee") -- mqttClient.connected() restait
-      // true (TCP "a moitie mort", pair disparu sans FIN/RST propre), et
-      // AUCUN de nos garde-fous existants (v94, verifie seulement au moment
-      // du connect()) ne peut detecter un silence qui s'installe PLUS TARD
-      // en cours de session. Seul le keepalive interne de PubSubClient
-      // (PINGREQ/PINGRESP) peut detecter ce cas -- mais setKeepAlive(60)
-      // (60s, sans justification documentee, tres au-dessus des 15s par
-      // defaut de la librairie) le rend beaucoup trop lent : il faut ~1.5-2x
-      // ce delai avant que PubSubClient marque la connexion morte, soit
-      // 90-120s+ avant meme de COMMENCER une vraie reconnexion -- cohere
-      // avec les silences de plusieurs minutes observes ce soir. Fix :
-      // retour a 15s (defaut librairie) -- cout reseau negligeable (quelques
-      // octets toutes les 15s sur un WiFi local qui vehicule deja des
-      // payloads bien plus gros), gain direct : detection ~4x plus rapide
-      // d'une connexion zombie.
-      mqttClient.setKeepAlive(15);
-      // v80 (2026-08-17) -- CRASH REEL confirme sur materiel (reset
-      // TASK_WDT, decode via addr2line, hash ELF verifie identique au
-      // binaire plante) : mqttTask() bloque dans PubSubClient::connect()
-      // (PubSubClient.cpp:257, boucle "while(!_client->available())" SANS
-      // AUCUN yield/delay en attendant le CONNACK) -- avec un timeout de
-      // 30s, cette boucle serree peut affamer IDLE0 (cœur 0) assez
-      // longtemps pour declencher le watchdog materiel. Comportement DEJA
-      // documente comme tel dans PubSubClient (pas un bug introduit par ce
-      // chantier -- mqttTask() etait deja seul sur le cœur 0 avant ET apres
-      // le changement LoopCore, ce risque existait deja, juste jamais
-      // declenche en test avant maintenant : il faut une reconnexion qui
-      // traine pour l'atteindre). Premier fix : timeout abaisse a 3s.
-      // v83 (2026-08-17) -- CORRECTIF PLUS PROFOND suite a investigation
-      // reseau sur materiel reel (reconnexions spontanees en rafale meme
-      // au repos, sans rapport avec le rendu/l'overlay -- deja constate sur
-      // dev/mame-score-mqtt-bridge, independant du changement de cœur).
-      // Root cause de la boucle sans yield corrigee DIRECTEMENT dans
-      // PubSubClient.cpp (patch local, voir son commentaire pres de la
-      // ligne 257 : yield() ajoute dans la boucle d'attente du CONNACK,
-      // meme protection que readByte() plus bas dans ce meme fichier, qui
-      // l'avait deja) -- le watchdog ne peut plus se declencher quelle que
-      // soit la duree d'attente. Peut donc remonter ce timeout a une valeur
-      // plus tolerante SANS reintroduire le risque watchdog : 3s s'est
-      // revele trop impatient en usage reel -- setSocketTimeout() couvre
-      // TOUTES les lectures socket de PubSubClient (pas seulement
-      // connect()), donc une lenteur passagere du broker (ex. RB occupee a
-      // emuler un jeu) pendant mqttClient.loop() normal pouvait aussi
-      // declencher une reconnexion prematuree -- qui elle-meme, via l'ID
-      // client FIXE (MQTT_CLIENT="esp32-marquee"), force le broker a fermer
-      // la connexion precedente (cause probable des sockets zombies
-      // "CLOSING" observees cote broker), cascade auto-entretenue. 10s :
-      // large tolerance pour ce cas, tout en restant borne (pas de retour
-      // au risque watchdog d'avant v80, corrige a la racine par le patch).
-      mqttClient.setSocketTimeout(10);
-    }
+    // v9 (2026-09-14) -- configuration mqttClient (setServer/setCallback/
+    // setBufferSize/setKeepAlive/setSocketTimeout) SUPPRIMEE : ne servait
+    // qu'a preparer un client qui ne se connecte jamais (MQTT_ENABLED=false,
+    // mqttTask() -- seul appelant de .connect()/.loop() -- supprime comme
+    // code mort, voir plus loin). setCallback(onMqttMessage) en particulier
+    // referencait une fonction elle-meme supprimee. Historique recuperable
+    // via git.
   }
   else{
     // Repli AP uniquement si le parcours "premier demarrage" n'est pas
@@ -10819,10 +10729,8 @@ void setup()
   brownout_ll_reset_config(false, 0, BROWNOUT_RESET_LEVEL_CHIP);
   Serial.begin(115200); delay(1000);
 
-  // v137 -- heartbeat CPU0, demarre le plus tot possible (voir commentaire
-  // pres de heartbeatTask()) pour couvrir toute la sequence de boot, y
-  // compris les tout premiers subscribe() juste apres connect().
-  xTaskCreatePinnedToCore(heartbeatTask, "heartbeat", 1536, nullptr, 1, nullptr, 0);
+  // v137/v7 -- heartbeatTask() (heartbeat CPU0) supprime avec mqttTask(),
+  // voir son commentaire complet plus loin dans ce fichier.
 
   // v99 -- BUG REEL confirme sur materiel (hash ELF verifie + addr2line,
   // reproduit 2x d'affilee) : crash COMPLETEMENT DIFFERENT de tous les autres
@@ -11281,8 +11189,11 @@ start_mqtt_task:
   // n'est plus jamais cree quand MQTT_ENABLED=false -- ni connect() ni
   // subscribe() n'ont donc plus jamais lieu, eliminant completement
   // l'exposition au mur de plateforme MQTT.
-  if(MQTT_ENABLED && wifiEnabled&&recalboxIP.length()>0)
-    xTaskCreatePinnedToCore(mqttTask,"mqttTask",4096,NULL,1,&mqttTaskHandle,0);
+  // v8 (2026-09-14) -- mqttTask() supprime (code mort, voir son
+  // commentaire complet plus haut dans ce fichier) -- cet appel n'aurait de
+  // toute facon plus rien a creer. Le label start_mqtt_task: ci-dessus est
+  // CONSERVE (plusieurs goto y sautent encore, voir leurs sites d'appel)
+  // meme si son nom ne reflete plus que du code qui suit, pas du MQTT.
   // v181 -- REVERT de v180 : la tache udpListenerTask() ETAIT active pendant
   // ~90s en conditions reelles (navigation lente) et a produit 3 crashes
   // abort()/PANIC consecutifs (backtraces confirmes : fs::FS::open()/
@@ -11498,11 +11409,15 @@ void loop()
       // delai minimum) est deja transport-agnostique -- ne verifie que
       // pendingCmd.type, jamais mqttClient -- donc fonctionne tel quel une
       // fois seulement POSTE depuis l'UDP.
-      if (mqttCmdMutex != nullptr && xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(100)) == pdTRUE)
-      {
-        pendingCmd = MqttCommand(MqttCommand::CMD_WAITING_MQTT, "");
-        xSemaphoreGive(mqttCmdMutex);
-      }
+      // v10 (2026-09-14) -- BUG REEL corrige (retour utilisateur : "RecalBox
+      // connecte" affiche alors que RB1 est eteinte) : ce point ne postait
+      // CMD_WAITING_MQTT qu'en reaction au WiFi, jamais a une confirmation
+      // reelle de RB1 -- sendUdpHello() ci-dessus est fire-and-forget,
+      // "reussit" meme sans personne pour l'entendre. Ne poste plus
+      // directement ici : pose g_pendingConnectedScreenOnPong, consomme
+      // au 1er vrai PONG recu ensuite (voir son handler plus haut dans
+      // handleUdpCommand()) -- preuve que RB1 est reellement joignable.
+      g_pendingConnectedScreenOnPong = true;
       s_wifiWasConnected = true;
     }
     else if (!wifiNowConnected)
