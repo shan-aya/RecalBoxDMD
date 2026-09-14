@@ -54,7 +54,7 @@ Es un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), reco
 
 > ### 🚀 Lo esencial: un clic construye toda la tarjeta SD
 >
-> Apunta la **caja de herramientas de PC** a tu carpeta de ROMs y pulsa **Iniciar** (**Modo 1 — AUTO**). Encadena todo por sí sola — detección de la versión de Recalbox, extracción del gamelist, conversión raw565, caché de bigramas, imágenes por defecto, scripts de Recalbox — hasta obtener una tarjeta SD lista para usar, y luego se ofrece a copiarla en tu tarjeta. **Inserta esa tarjeta SD en el DMD, enciéndelo, y ya está.** Sin configuración manual archivo por archivo, nunca.
+> Apunta la **caja de herramientas de PC** a tu carpeta de ROMs y pulsa **Iniciar** (**Modo 1 — AUTO**). Encadena todo por sí sola — configuración Wi-Fi, detección de la versión de Recalbox, extracción del gamelist, conversión raw565, caché de bigramas, imágenes por defecto, scripts de Recalbox — hasta obtener una tarjeta SD lista para usar, y luego se ofrece a copiarla en tu tarjeta. **Inserta esa tarjeta SD en el DMD, enciéndelo, y ya está** — se conecta a tu Wi-Fi de inmediato, sin pasar por el portal cautivo. Sin configuración manual archivo por archivo, nunca.
 
 ---
 
@@ -293,7 +293,7 @@ La pestaña **Avanzado** de la GUI agrupa cada operación en 5 categorías plega
 
 | Modo | Categoría | Nombre | Qué hace |
 |------|-----------|--------|-----------|
-| **1** | *(pestaña Main)* | **AUTO — todo** | Detección de versión Recalbox → extracción de gamelist → conversión raw565 → caché de bigramas → descarga de `_defaults` → instalación de scripts Recalbox → copia a la SD |
+| **1** | *(pestaña Main)* | **AUTO — todo** | Configuración Wi-Fi (elige tu red de 2,4GHz, verifica la contraseña) → detección de versión Recalbox → extracción de gamelist → conversión raw565 → caché de bigramas → descarga de `_defaults` → instalación de scripts Recalbox → copia a la SD |
 | 2 | 📥 GitHub | Descargar `_defaults` | Obtiene las imágenes de respaldo por defecto de cada sistema conocido |
 | 11 | 📥 GitHub | **Pack 600 GIFs** | Descarga en un clic de la colección gratuita de GIFs (Arcade, Consolas, Ordenadores, Pinball, Halloween, Navidad, Logo y más) |
 | 3 | 🗂️ Gamelist | Solo extracción | Lee `gamelist.xml`, copia la marquee/logo correcta según tu perfil de versión de Recalbox |
@@ -416,7 +416,7 @@ esptool.py --chip esp32 --port COM3 write_flash 0x0 RecalBox_DMD.ino.merged.bin
 
 ## Configuración (`config.ini`)
 
-No hace falta escribir ni copiar este archivo a mano: se crea automáticamente — bien por la **caja de herramientas de PC** (el Modo 1 lo escribe al final del proceso), bien por el propio **ESP32**, que ofrece su propia página de configuración WiFi en el primer arranque o cuando no consigue conectarse. A partir de ahí, cada valor de abajo se edita en vivo desde la **página de configuración web** (siguiente sección) — sin tener que tocar la tarjeta SD. Como referencia, esto es lo que contiene:
+No hace falta escribir ni copiar este archivo a mano: se crea automáticamente — bien por la **caja de herramientas de PC** (el Modo 1 ahora también escribe `wifi_ssid`/`wifi_password`, elegidos de una lista escaneada y verificados antes de guardarlos, junto al resto del proceso), bien por el propio **ESP32**, que ofrece su propia página de configuración WiFi en el primer arranque o cuando no consigue conectarse (se salta por completo si el Modo 1 ya dejó configurada una red Wi-Fi funcional). A partir de ahí, cada valor de abajo se edita en vivo desde la **página de configuración web** (siguiente sección) — sin tener que tocar la tarjeta SD. Como referencia, esto es lo que contiene:
 
 ```ini
 # Info

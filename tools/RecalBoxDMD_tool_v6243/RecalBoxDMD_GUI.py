@@ -2,7 +2,54 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v62
+# Version actuelle : v66
+#
+# v66 — 2026-09-14 — safe-modify — Retour utilisateur en testant le nouveau
+#      dialogue WiFi (v65) : aucun moyen de relancer le scan sans fermer/
+#      rouvrir tout le dialogue (reseau qui vient d'apparaitre, PC deplace,
+#      1er scan Windows parfois incomplet juste apres le reveil de la carte
+#      WiFi). Ajoute un bouton "Actualiser" a cote du selecteur de reseau
+#      (_prompt_wifi_dialog()) qui relance scan_wifi_networks_24ghz() --
+#      invalide une verification en cours au passage (la liste change, le
+#      SSID selectionne peut disparaitre/changer).
+#
+# v65 — 2026-09-13 — safe-modify — Demande utilisateur : ajoute au tout
+#      debut du Mode 1 (avant la question IP Recalbox) une etape de
+#      pre-configuration WiFi pour le DMD -- selection du reseau 2,4GHz
+#      dans la liste scannee (toolkit.scan_wifi_networks_24ghz(), via
+#      `netsh wlan`), saisie du mot de passe, verification REELLE par
+#      tentative de connexion Windows (toolkit.verify_wifi_password(),
+#      profil WLAN temporaire cree/detruit) avant d'activer "Continuer" --
+#      empeche de sauvegarder un mot de passe faux sans le savoir. Skip
+#      possible (rien d'obligatoire, comportement identique a avant si
+#      ignore). Sur validation, ecrit wifi_enabled/wifi_ssid/wifi_password
+#      dans config.ini (toolkit.write_dmd_wifi(), patch cle par cle, ne
+#      touche a rien d'autre). Nouveau dialogue _prompt_wifi_dialog() (pres
+#      de _prompt_recalbox_ip_dialog(), meme style/theme), 14 cles i18n
+#      FR/EN/ES ajoutees. Objectif : au 1er boot, si le WiFi est deja
+#      renseigne dans le .ini, le firmware (setupWiFiFromConfig(),
+#      RecalBox_DMD.ino) saute directement le mode AP -- deja vrai avant ce
+#      changement, aucune modification firmware necessaire pour ce
+#      comportement.
+#
+# v64 — 2026-09-13 — safe-modify — Demandes utilisateur, onglet Playlist :
+#      (1) le popup de confirmation apres "Construire" precise desormais
+#      que la playlist a bien ete creee sur la carte SD (nouvelle cle
+#      playlist_build_done_msg_temp -- variante distincte pendant le mode
+#      temporaire Mode 1, ou rien n'est encore sur une vraie carte SD tant
+#      que Mode 1 n'a pas copie le dossier de travail). (2) Le bouton
+#      "Quitter" de cet onglet (_playlist_quit_btn) etait visible en
+#      permanence, y compris en usage normal/standalone de l'onglet ou il
+#      est redondant avec le Quitter de la fenetre principale -- cree
+#      desormais sans .pack() (masque par defaut), affiche uniquement par
+#      _enter_playlist_temp_mode() et masque a nouveau par
+#      _exit_playlist_temp_mode().
+#
+# v63 — 2026-09-13 — safe-modify — _net_use_connect()/_net_use_disconnect()
+#      (mode reseau SMB) ouvraient une fenetre console visible le temps de
+#      la commande "net use" -- meme cause/fix que RecalBoxDMD_tool.py v44
+#      (creationflags=CREATE_NO_WINDOW absent). Ajoute _NO_WINDOW (module-
+#      level) et applique aux deux appels.
 #
 # v62 — 2026-09-06 — safe-modify — Demande utilisateur : la langue par
 #      defaut de l'appli au tout premier lancement doit etre celle du
@@ -1354,7 +1401,8 @@ UI_TRANSLATIONS = {
         ),
         "playlist_name_required_msg": "Indiquez un nom de playlist.",
         "playlist_build_empty_msg": "Cochez au moins un dossier ou un fichier.",
-        "playlist_build_done_msg": "Playlist enregistrée : {n} entrée(s).",
+        "playlist_build_done_msg": "Playlist enregistrée : {n} entrée(s) — bien créée sur la carte SD.",
+        "playlist_build_done_msg_temp": "Playlist enregistrée : {n} entrée(s) — sera créée sur la carte SD une fois le Mode 1 poursuivi.",
         "playlist_delete_confirm_title": "Supprimer la playlist",
         "playlist_delete_confirm_msg": "Supprimer définitivement la playlist « {name} » ?",
         "playlist_regen_done_msg": "Cache régénéré : {nf} dossier(s), {ne} fichier(s).",
@@ -1374,6 +1422,25 @@ UI_TRANSLATIONS = {
             "Utilisez le Mode 9 (onglet Avancé) pour les installer plus "
             "tard, en indiquant la bonne cible."
         ),
+        "mode1_wifi_title": "WiFi du DMD",
+        "mode1_wifi_prompt": (
+            "Choisissez le réseau WiFi 2,4 GHz auquel le DMD doit se "
+            "connecter. Optionnel : sans WiFi configuré ici, le DMD "
+            "proposera son propre point d'accès au premier démarrage."
+        ),
+        "mode1_wifi_ssid_label": "Réseau WiFi (2,4 GHz)",
+        "mode1_wifi_refresh_btn": "🔄 Actualiser",
+        "mode1_wifi_scan_wait": "-- Scan en cours... --",
+        "mode1_wifi_no_networks": "-- Aucun réseau 2,4 GHz trouvé --",
+        "mode1_wifi_password_label": "Mot de passe",
+        "mode1_wifi_verify_btn": "Vérifier",
+        "mode1_wifi_verifying": "Vérification en cours... (le PC se connecte brièvement à ce réseau)",
+        "mode1_wifi_verify_ok": "✅ Mot de passe correct.",
+        "mode1_wifi_verify_fail": "❌ Connexion impossible avec ce mot de passe.",
+        "mode1_wifi_continue_btn": "Continuer",
+        "mode1_wifi_skip_btn": "Ignorer (configurer plus tard)",
+        "mode1_wifi_need_ssid": "Sélectionnez un réseau WiFi.",
+        "mode1_wifi_need_verify": "Vérifiez le mot de passe avant de continuer.",
         "mode1_manual_ip_title": "Adresse Recalbox",
         "mode1_manual_ip_prompt": (
             "Entrez l'adresse IP ou le nom réseau de votre Recalbox :"
@@ -1802,7 +1869,8 @@ UI_TRANSLATIONS = {
         ),
         "playlist_name_required_msg": "Enter a playlist name.",
         "playlist_build_empty_msg": "Check at least one folder or file.",
-        "playlist_build_done_msg": "Playlist saved: {n} entrie(s).",
+        "playlist_build_done_msg": "Playlist saved: {n} entry(ies) — successfully created on the SD card.",
+        "playlist_build_done_msg_temp": "Playlist saved: {n} entry(ies) — will be created on the SD card once you continue Mode 1.",
         "playlist_delete_confirm_title": "Delete playlist",
         "playlist_delete_confirm_msg": "Permanently delete playlist \"{name}\"?",
         "playlist_regen_done_msg": "Cache regenerated: {nf} folder(s), {ne} file(s).",
@@ -1821,6 +1889,25 @@ UI_TRANSLATIONS = {
             "Use Mode 9 (Advanced tab) to install them later, pointing to "
             "the right target."
         ),
+        "mode1_wifi_title": "DMD WiFi",
+        "mode1_wifi_prompt": (
+            "Choose the 2.4 GHz WiFi network the DMD should join. "
+            "Optional: without WiFi set here, the DMD will offer its own "
+            "access point on first boot."
+        ),
+        "mode1_wifi_ssid_label": "WiFi network (2.4 GHz)",
+        "mode1_wifi_refresh_btn": "🔄 Refresh",
+        "mode1_wifi_scan_wait": "-- Scanning... --",
+        "mode1_wifi_no_networks": "-- No 2.4 GHz network found --",
+        "mode1_wifi_password_label": "Password",
+        "mode1_wifi_verify_btn": "Verify",
+        "mode1_wifi_verifying": "Verifying... (this PC will briefly connect to that network)",
+        "mode1_wifi_verify_ok": "✅ Password correct.",
+        "mode1_wifi_verify_fail": "❌ Could not connect with this password.",
+        "mode1_wifi_continue_btn": "Continue",
+        "mode1_wifi_skip_btn": "Skip (configure later)",
+        "mode1_wifi_need_ssid": "Select a WiFi network.",
+        "mode1_wifi_need_verify": "Verify the password before continuing.",
         "mode1_manual_ip_title": "Recalbox address",
         "mode1_manual_ip_prompt": (
             "Enter your Recalbox's IP address or network name:"
@@ -2245,7 +2332,8 @@ UI_TRANSLATIONS = {
         ),
         "playlist_name_required_msg": "Indica un nombre de playlist.",
         "playlist_build_empty_msg": "Marca al menos una carpeta o archivo.",
-        "playlist_build_done_msg": "Playlist guardada: {n} entrada(s).",
+        "playlist_build_done_msg": "Playlist guardada: {n} entrada(s) — creada correctamente en la tarjeta SD.",
+        "playlist_build_done_msg_temp": "Playlist guardada: {n} entrada(s) — se creará en la tarjeta SD al continuar el Modo 1.",
         "playlist_delete_confirm_title": "Eliminar playlist",
         "playlist_delete_confirm_msg": "¿Eliminar permanentemente la playlist «{name}»?",
         "playlist_regen_done_msg": "Caché regenerada: {nf} carpeta(s), {ne} archivo(s).",
@@ -2264,6 +2352,25 @@ UI_TRANSLATIONS = {
             "Usa el Modo 9 (pestaña Avanzado) para instalarlos más tarde, "
             "indicando el destino correcto."
         ),
+        "mode1_wifi_title": "WiFi del DMD",
+        "mode1_wifi_prompt": (
+            "Elige la red WiFi de 2,4 GHz a la que debe conectarse el DMD. "
+            "Opcional: sin WiFi configurado aquí, el DMD ofrecerá su "
+            "propio punto de acceso en el primer arranque."
+        ),
+        "mode1_wifi_ssid_label": "Red WiFi (2,4 GHz)",
+        "mode1_wifi_refresh_btn": "🔄 Actualizar",
+        "mode1_wifi_scan_wait": "-- Escaneando... --",
+        "mode1_wifi_no_networks": "-- No se encontró ninguna red de 2,4 GHz --",
+        "mode1_wifi_password_label": "Contraseña",
+        "mode1_wifi_verify_btn": "Verificar",
+        "mode1_wifi_verifying": "Verificando... (el PC se conectará brevemente a esa red)",
+        "mode1_wifi_verify_ok": "✅ Contraseña correcta.",
+        "mode1_wifi_verify_fail": "❌ No se pudo conectar con esta contraseña.",
+        "mode1_wifi_continue_btn": "Continuar",
+        "mode1_wifi_skip_btn": "Omitir (configurar más tarde)",
+        "mode1_wifi_need_ssid": "Selecciona una red WiFi.",
+        "mode1_wifi_need_verify": "Verifica la contraseña antes de continuar.",
         "mode1_manual_ip_title": "Dirección de la Recalbox",
         "mode1_manual_ip_prompt": (
             "Introduce la IP o el nombre de red de tu Recalbox:"
@@ -2489,14 +2596,17 @@ def _unc_root(unc_path: str) -> str:
     return "\\\\" + parts[2] + "\\" + parts[3]
 
 
+_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+
+
 def _net_use_connect(unc_root: str, username: str, password: str) -> None:
     cmd = ["net", "use", unc_root, f"/user:{username}", password, "/persistent:no"]
-    subprocess.check_call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.check_call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=_NO_WINDOW)
 
 
 def _net_use_disconnect(unc_root: str) -> None:
     cmd = ["net", "use", unc_root, "/delete", "/y"]
-    subprocess.call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=_NO_WINDOW)
 
 
 def _detect_system_language() -> str:
@@ -3193,6 +3303,11 @@ class RetroBoxLEDGui:
         self._playlist_regen_cache_btn.pack(side="left", fill="x", expand=True, padx=(8, 0))
         self._playlist_regen_cache_btn._fixed_theme_colors = ("#FF9800", "#000000")
 
+        # Cree sans .pack() : masque par defaut (usage normal/standalone de
+        # l'onglet), affiche uniquement pendant le mode temporaire Mode 1
+        # (voir _enter_playlist_temp_mode()/_exit_playlist_temp_mode() --
+        # demande utilisateur : redondant avec le Quitter de la fenetre
+        # principale en dehors de Mode 1).
         self._playlist_quit_btn = tk.Button(
             bottom_row,
             text=(self.tkmod.tr("main_opt_quit") if hasattr(self.tkmod, "tr") else "Quit"),
@@ -3200,7 +3315,6 @@ class RetroBoxLEDGui:
             bg="#FF5C5C", fg="black", bd=2, relief="solid", padx=10, pady=4,
             font=("TkDefaultFont", 11, "bold"),
         )
-        self._playlist_quit_btn.pack(side="left", fill="x", expand=True, padx=(8, 0))
         self._playlist_quit_btn._fixed_theme_colors = ("#FF5C5C", "#000000")
 
     def _enter_playlist_temp_mode(self) -> None:
@@ -3216,6 +3330,9 @@ class RetroBoxLEDGui:
         self._playlist_sd_root = self.sd_dir
         self._playlist_sd_frame.pack_forget()
         self._playlist_temp_note_lbl.pack(side="left", fill="y", before=self._playlist_explanation_frame)
+        # Bouton "Quitter" visible uniquement pendant Mode 1 (masque par
+        # defaut hors mode temporaire, voir sa creation plus haut).
+        self._playlist_quit_btn.pack(side="left", fill="x", expand=True, padx=(8, 0))
         self._playlist_checked.clear()
         self._playlist_folder_checked.clear()
         self._playlist_browsed_folder = None
@@ -3266,6 +3383,8 @@ class RetroBoxLEDGui:
             text=ui["playlist_build_btn"], command=self._on_playlist_build_clicked, state="normal",
         )
         self._playlist_regen_cache_btn.configure(text=ui["playlist_regen_cache_btn"].replace("\n", " "))
+        # Masque le bouton "Quitter" (visible uniquement pendant Mode 1).
+        self._playlist_quit_btn.pack_forget()
         self._refresh_playlist_drives()
         self._stop_playlist_regen_cache_blink()
 
@@ -4529,7 +4648,8 @@ class RetroBoxLEDGui:
         if n_entries < 0:
             return
         ui = self._get_ui_t()
-        self._themed_info(ui["playlist_build_btn"], ui["playlist_build_done_msg"].format(n=n_entries))
+        msg_key = "playlist_build_done_msg_temp" if getattr(self, "_playlist_temp_mode", False) else "playlist_build_done_msg"
+        self._themed_info(ui["playlist_build_btn"], ui[msg_key].format(n=n_entries))
 
     def _on_playlist_delete_clicked(self) -> None:
         ui = self._get_ui_t()
@@ -7858,6 +7978,166 @@ class RetroBoxLEDGui:
         self.root.wait_window(dlg)
         return result["value"]
 
+    def _prompt_wifi_dialog(self) -> Optional[tuple[str, str]]:
+        """Popup themee, en tete du Mode 1 (avant la question IP Recalbox,
+        demande utilisateur 2026-09-13) : liste les reseaux WiFi 2,4 GHz
+        visibles depuis ce PC (toolkit.scan_wifi_networks_24ghz()), saisie
+        du mot de passe, verification par une VRAIE tentative de connexion
+        (toolkit.verify_wifi_password() -- bloquant, quelques secondes,
+        cf son docstring pour l'effet de bord assume) avant d'activer
+        "Continuer". Objectif : le DMD rejoint le WiFi des le 1er boot
+        (config.ini pre-rempli), sans jamais passer par le point d'acces
+        de secours -- voir write_dmd_wifi() et setupWiFiFromConfig() cote
+        firmware (saute l'AP si wifi_ssid est deja renseigne).
+        Retourne (ssid, password) si verifie et valide, None si ignore/
+        annule (le pipeline continue alors normalement, sans WiFi
+        pre-configure -- comportement identique a avant cette fonctionnalite)."""
+        ui = self._get_ui_t()
+        c = self._theme_colors()
+        bg = c.get("bg_main", "#F3F3F3")
+        fg = c.get("fg_text", "#000000")
+        bg_action = c.get("bg_button_action", "#FFD400")
+        bg_normal = c.get("bg_button_normal", "#FFFFFF")
+        result: dict = {"value": None}
+
+        dlg = tk.Toplevel(self.root)
+        dlg.title(ui["mode1_wifi_title"])
+        dlg.configure(bg=bg)
+        dlg.transient(self.root)
+        dlg.resizable(False, False)
+        body = tk.Frame(dlg, bg=bg, padx=16, pady=16)
+        body.pack(fill="both", expand=True)
+
+        tk.Label(
+            body, text=ui["mode1_wifi_prompt"], bg=bg, fg=fg,
+            font=("TkDefaultFont", 9), wraplength=380, justify="left",
+        ).pack(anchor="w", pady=(0, 10))
+
+        tk.Label(body, text=ui["mode1_wifi_ssid_label"], bg=bg, fg=fg, font=("TkDefaultFont", 9, "bold")).pack(anchor="w")
+        ssid_row = tk.Frame(body, bg=bg)
+        ssid_row.pack(fill="x", pady=(2, 10))
+        ssid_var = tk.StringVar(value=ui["mode1_wifi_scan_wait"])
+        ssid_combo = ttk.Combobox(ssid_row, textvariable=ssid_var, state="readonly", font=("TkDefaultFont", 10))
+        ssid_combo.pack(side="left", fill="x", expand=True)
+        # Demande utilisateur (2026-09-13, en testant ce dialogue) : possibilite
+        # de relancer le scan (reseau qui vient d'apparaitre, PC deplace,
+        # 1er scan Windows parfois incomplet juste apres le reveil de la
+        # carte WiFi) -- sans ce bouton, seule reouverture du dialogue le
+        # permettait.
+        refresh_btn = tk.Button(
+            ssid_row, text=ui["mode1_wifi_refresh_btn"], command=lambda: _populate_networks(manual=True),
+            bg=bg_normal, fg=fg, bd=2, relief="solid", padx=8, font=("TkDefaultFont", 10),
+        )
+        refresh_btn.pack(side="left", padx=(6, 0))
+
+        tk.Label(body, text=ui["mode1_wifi_password_label"], bg=bg, fg=fg, font=("TkDefaultFont", 9, "bold")).pack(anchor="w")
+        pwd_row = tk.Frame(body, bg=bg)
+        pwd_row.pack(fill="x", pady=(2, 4))
+        pwd_var = tk.StringVar(value="")
+        pwd_entry = tk.Entry(pwd_row, textvariable=pwd_var, show="•", font=("TkDefaultFont", 10))
+        pwd_entry.pack(side="left", fill="x", expand=True)
+        show_var = tk.BooleanVar(value=False)
+
+        def _toggle_show():
+            pwd_entry.config(show="" if show_var.get() else "•")
+
+        tk.Checkbutton(
+            pwd_row, text="👁", variable=show_var, command=_toggle_show,
+            bg=bg, fg=fg, selectcolor=bg, bd=0, highlightthickness=0,
+        ).pack(side="left", padx=(4, 0))
+
+        status_lbl = tk.Label(body, text="", bg=bg, fg=fg, font=("TkDefaultFont", 9), wraplength=380, justify="left")
+        status_lbl.pack(anchor="w", pady=(4, 10))
+
+        verified = {"ok": False, "ssid": None}
+
+        def _populate_networks(manual: bool = False):
+            if manual:
+                # Invalide une verification en cours -- la liste va changer,
+                # le SSID actuellement selectionne (et donc verifie) peut
+                # disparaitre ou etre remplace.
+                verified["ok"] = False
+                continue_btn.config(state="disabled")
+                status_lbl.config(text="")
+                refresh_btn.config(state="disabled")
+                ssid_var.set(ui["mode1_wifi_scan_wait"])
+                dlg.update()
+            networks = self.tkmod.scan_wifi_networks_24ghz()
+            if networks:
+                ssid_combo["values"] = networks
+                ssid_var.set(networks[0])
+            else:
+                ssid_combo["values"] = [ui["mode1_wifi_no_networks"]]
+                ssid_var.set(ui["mode1_wifi_no_networks"])
+            if manual:
+                refresh_btn.config(state="normal")
+
+        def _on_verify():
+            ssid = ssid_var.get().strip()
+            if not ssid or ssid in (ui["mode1_wifi_scan_wait"], ui["mode1_wifi_no_networks"]):
+                status_lbl.config(text=ui["mode1_wifi_need_ssid"], fg="#CC0000")
+                return
+            verified["ok"] = False
+            continue_btn.config(state="disabled")
+            status_lbl.config(text=ui["mode1_wifi_verifying"], fg=fg)
+            verify_btn.config(state="disabled")
+            dlg.update()
+            ok = self.tkmod.verify_wifi_password(ssid, pwd_var.get())
+            verify_btn.config(state="normal")
+            if ok:
+                verified["ok"] = True
+                verified["ssid"] = ssid
+                status_lbl.config(text=ui["mode1_wifi_verify_ok"], fg="#00A000")
+                continue_btn.config(state="normal")
+            else:
+                status_lbl.config(text=ui["mode1_wifi_verify_fail"], fg="#CC0000")
+
+        def _on_continue():
+            if not verified["ok"] or ssid_var.get().strip() != verified["ssid"]:
+                status_lbl.config(text=ui["mode1_wifi_need_verify"], fg="#CC0000")
+                return
+            result["value"] = (verified["ssid"], pwd_var.get())
+            dlg.destroy()
+
+        def _on_skip():
+            result["value"] = None
+            dlg.destroy()
+
+        # Toute nouvelle selection/edition invalide une verification
+        # precedente (evite de sauvegarder un mot de passe verifie pour un
+        # AUTRE SSID/mot de passe que celui finalement soumis).
+        def _invalidate(*_args):
+            verified["ok"] = False
+            continue_btn.config(state="disabled")
+
+        ssid_combo.bind("<<ComboboxSelected>>", _invalidate)
+        pwd_var.trace_add("write", _invalidate)
+
+        btns = tk.Frame(body, bg=bg)
+        btns.pack(fill="x")
+        verify_btn = tk.Button(
+            btns, text=ui["mode1_wifi_verify_btn"], command=_on_verify,
+            bg=bg_normal, fg=fg, bd=2, relief="solid", padx=10, pady=6, font=("TkDefaultFont", 10, "bold"),
+        )
+        verify_btn.pack(side="left", expand=True, fill="x", padx=(0, 4))
+        continue_btn = tk.Button(
+            btns, text=ui["mode1_wifi_continue_btn"], command=_on_continue, state="disabled",
+            bg=bg_action, fg="#000000", bd=2, relief="solid", padx=10, pady=6, font=("TkDefaultFont", 10, "bold"),
+        )
+        continue_btn.pack(side="left", expand=True, fill="x", padx=4)
+        tk.Button(
+            btns, text=ui["mode1_wifi_skip_btn"], command=_on_skip,
+            bg=bg_normal, fg=fg, bd=2, relief="solid", padx=10, pady=6, font=("TkDefaultFont", 9),
+        ).pack(side="right", expand=True, fill="x", padx=(4, 0))
+
+        dlg.protocol("WM_DELETE_WINDOW", _on_skip)
+        dlg.update_idletasks()
+        self._center_toplevel(dlg)
+        dlg.grab_set()
+        dlg.after(50, _populate_networks)
+        self.root.wait_window(dlg)
+        return result["value"]
+
     def _prompt_recalbox_ip_dialog(self, default: str = "") -> Optional[str]:
         """Popup themee avec un champ de saisie pour l'IP/nom reseau de la
         Recalbox (remplace un simpledialog.askstring natif, non theme et
@@ -8202,6 +8482,26 @@ class RetroBoxLEDGui:
                 return
 
         if mode == "1":
+            # Demande utilisateur (2026-09-13) : "rajouter au debut du mode 1
+            # avant la question sur l'ip recalbox, une question pour choisir
+            # son wifi 2.4ghz ... + mot de passe avec verification auto".
+            # Volontairement TOUT EN HAUT du bloc Mode 1 -- avant meme la
+            # detection Recalbox/IP ci-dessous -- puisque le WiFi est un
+            # prealable au reste (sans WiFi ecrit dans le .ini, le DMD reste
+            # en AP au 1er boot). Skip/Annuler = le pipeline continue
+            # normalement SANS WiFi pre-configure (comportement identique a
+            # avant cette fonctionnalite -- rien d'obligatoire ici). Cote
+            # firmware, setupWiFiFromConfig() (RecalBox_DMD.ino) saute deja
+            # l'AP des que wifi_ssid est non vide dans config.ini -- aucun
+            # changement firmware necessaire pour ce comportement, deja
+            # correct avant cette fonctionnalite.
+            wifi_result = self._prompt_wifi_dialog()
+            if wifi_result:
+                wifi_ssid, wifi_password = wifi_result
+                try:
+                    self.tkmod.write_dmd_wifi(self.sd_dir, wifi_ssid, wifi_password)
+                except Exception:
+                    pass
             # Deplace ICI (thread principal, apres validation du dossier
             # ROMs ET du choix des systemes a traiter -- bug remonte : ces
             # prompts s'affichaient avant l'alerte "aucun systeme

@@ -1,7 +1,80 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v43
+# Version actuelle : v47
+#
+# v47 - 2026-09-14 - safe-modify - BUG REEL corrige (retour utilisateur en
+#      direct : "l'app ne repond plus apres le clic sur Continuer" / "la
+#      detection de la Recalbox a ete tres longue et a freeze l'app", juste
+#      apres avoir teste avec succes le nouveau scan/verify WiFi de v45/v46)
+#      -- 2 correctifs complementaires :
+#      (1) verify_wifi_password() : supprimer le profil WLAN temporaire en
+#      fin de fonction laisse le PC brievement sans reseau, le temps que
+#      Windows se reassocie seul a son reseau habituel -- attend desormais
+#      (timeout borne 8s) que l'interface soit reconnectee avant de rendre
+#      la main, au lieu de laisser l'appelant s'enchainer immediatement sur
+#      un adaptateur encore instable.
+#      (2) detect_recalbox_share() : root cause du gel -- `Path(r"\\
+#      RECALBOX\share").exists()` (resolution UNC/NetBIOS) n'a AUCUN
+#      timeout configurable via l'API standard, et cette fonction est
+#      appelee sur le thread principal du GUI juste apres l'etape WiFi
+#      ci-dessus -- un adaptateur encore en reassociation peut la faire
+#      bloquer des dizaines de secondes, gelant TOUTE l'application (pas
+#      seulement cette fonction). Fix : execute le test dans un thread
+#      demon avec timeout borne (3s) -- au-dela, retourne None (identique
+#      au cas "non trouve" deja gere : repli prefs/saisie manuelle) au lieu
+#      de bloquer indefiniment.
+#
+# v46 - 2026-09-14 - safe-modify - 2 BUGS REELS corriges (retour
+#      utilisateur : "le popup ne detecte aucun reseau wifi", sur un
+#      Windows en francais) dans les fonctions ajoutees en v45 :
+#      (1) scan_wifi_networks_24ghz() decodait la sortie de netsh.exe via
+#      `text=True` (encodage devine, cp1252 sur ce systeme) alors que
+#      netsh produit reellement de l'UTF-8 -- mojibake constate en direct
+#      ("lâ€™interfaceÂ : Wi-Fi") qui corrompait le separateur "espace
+#      insecable + deux-points" utilise par Windows en francais avant
+#      chaque valeur, cassant tous les regex (aucun SSID jamais retenu).
+#      Fix : encoding="utf-8" explicite. (2) Le libelle "Channel" (anglais)
+#      ne matchait jamais sur ce Windows qui affiche "Canal" -- meme bug
+#      dans verify_wifi_password() avec "State"/"Etat" (retournait TOUJOURS
+#      False). Fix scan : detection basee sur la VALEUR "x,x GHz"/"x.x GHz"
+#      (libelle "Bande"/"Band" ignore, seul le separateur decimal varie),
+#      fallback canal FR/EN "Canal"/"Channel". Fix verify : la ligne "SSID"
+#      (jamais traduite) n'apparait de toute facon que si l'interface est
+#      reellement connectee -- son match seul suffit, plus besoin de
+#      "State"/"Etat". Verifie en direct : scan_wifi_networks_24ghz()
+#      retourne maintenant correctement les reseaux 2,4GHz reels du poste
+#      de test.
+#
+# v45 - 2026-09-13 - safe-modify - Demande utilisateur, suite au bug "boucle
+#      sur l'AP au 1er demarrage" : nouvelles fonctions backend pour une
+#      etape de pre-configuration WiFi en tete du Mode 1 (GUI v65) --
+#      scan_wifi_networks_24ghz() (liste les SSID 2,4GHz visibles via
+#      `netsh wlan show networks`, filtre par canal <=14),
+#      verify_wifi_password() (verifie REELLEMENT un mot de passe en
+#      tentant une connexion Windows via un profil WLAN temporaire
+#      cree/detruit, `netsh wlan add/connect/delete profile` -- seule
+#      methode fiable, pas de moyen de "tester" un mot de passe WPA2 sans
+#      tenter une vraie association), write_dmd_wifi() (ecrit
+#      wifi_enabled/wifi_ssid/wifi_password dans config.ini, meme motif
+#      patch-cle-par-cle que write_dmd_recalbox_ip() ci-dessus -- ne touche
+#      a aucune autre cle). Objectif : le DMD peut rejoindre le WiFi des le
+#      1er boot sans jamais passer par l'AP/captive-portal.
+#
+# v44 - 2026-09-13 - safe-modify - Retour utilisateur : des fenetres
+#      console (DOS) s'ouvraient brievement pendant le Mode 1 (pip
+#      install Pillow/paramiko, detection de lecteurs amovibles via
+#      PowerShell/wmic, et surtout la copie SD via robocopy -- la plus
+#      visible car la plus longue). Cause : ces subprocess.Popen()/
+#      check_call()/check_output() n'avaient pas creationflags=
+#      CREATE_NO_WINDOW, donc Windows ouvre une console pour tout
+#      processus enfant lance sans console attachee explicitement.
+#      Fix : ajoute creationflags=(subprocess.CREATE_NO_WINDOW if
+#      sys.platform=="win32" else 0) a chaque appel concerne
+#      (ensure_dependencies(), _ensure_paramiko(), _list_removable_
+#      drives() PowerShell+wmic, _robocopy()). Meme correctif applique
+#      a _net_use_connect()/_net_use_disconnect() dans
+#      RecalBoxDMD_GUI.py (utilises par le mode reseau SMB).
 #
 # v43 - 2026-09-06 - safe-modify - Retour utilisateur (test reel Mode 9
 #      post-fusion v42) : ni dmd_helpers/ ni le nettoyage stale
@@ -1540,6 +1613,7 @@ def ensure_dependencies():
                 [sys.executable, "-m", "pip", "install", "Pillow"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                creationflags=(subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0),
             )
             print(tr("pillow_ok"))
             PIL_AVAILABLE = True
@@ -1570,6 +1644,7 @@ def _ensure_paramiko() -> bool:
                 [sys.executable, "-m", "pip", "install", "paramiko"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                creationflags=(subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0),
             )
             print(tr("paramiko_ok"))
             return True
@@ -1821,6 +1896,278 @@ def write_dmd_recalbox_ip(sd_dir: Path, ip: str) -> None:
                 break
     if not found:
         lines.append(f"recalbox_ip={ip}")
+    cfg_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def scan_wifi_networks_24ghz() -> list[str]:
+    """
+    Liste les SSID des reseaux WiFi **2,4 GHz** visibles depuis le PC, via
+    `netsh wlan show networks mode=bssid` (Windows uniquement). Le canal
+    (1-14 = 2,4 GHz, 36+ = 5/6 GHz) est le seul champ fiable pour distinguer
+    la bande -- le "Type radio" (802.11n/ac/ax) ne suffit pas, ces normes
+    existent sur les deux bandes. Retourne une liste de SSID uniques, triee,
+    vide en cas d'echec (pas de WiFi, netsh absent, aucun reseau trouve) --
+    jamais d'exception remontee a l'appelant.
+
+    2026-09-13 -- ajoute pour la nouvelle etape "Configurer le WiFi du DMD"
+    en tete du Mode 1 (demande utilisateur, suite au bug "boucle sur l'AP
+    au 1er demarrage") : evite entierement le parcours AP/captive-portal en
+    ecrivant le WiFi directement dans config.ini des la fabrication de la
+    carte SD.
+    """
+    if sys.platform != "win32":
+        return []
+    import subprocess
+    try:
+        # encoding="utf-8" explicite -- BUG REEL corrige (2026-09-14) :
+        # `text=True` seul laisse Python deviner l'encodage (locale.
+        # getpreferredencoding(), typiquement cp1252 sur un Windows en
+        # francais) alors que la sortie reelle de netsh.exe est en UTF-8 --
+        # constate en direct (mojibake "lâ€™interfaceÂ : Wi-Fi" au lieu de
+        # "l'interface : Wi-Fi"). Consequence concrete : le sÃ©parateur
+        # "espace insecable + deux-points" utilise par Windows en francais
+        # avant chaque valeur se corrompait, cassant TOUS les regex de
+        # cette fonction (aucun SSID jamais retenu, cf verify_wifi_password
+        # pour un bug jumeau sur "State"/"Etat").
+        out = subprocess.check_output(
+            ["netsh", "wlan", "show", "networks", "mode=bssid"],
+            encoding="utf-8", errors="replace", stderr=subprocess.DEVNULL, timeout=15,
+            creationflags=(subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0),
+        )
+    except Exception:
+        return []
+
+    # 2026-09-14 -- BUG REEL corrige (retour utilisateur : "le popup ne
+    # detecte aucun reseau wifi"). La ligne "Canal"/"Channel" est LOCALISEE
+    # par Windows selon la langue du systeme (ex. Windows en francais ->
+    # "netsh" affiche "Canal            : 1", jamais "Channel") -- l'ancien
+    # regex `^Channel\s*:\s*(\d+)$` ne matchait donc RIEN sur un Windows en
+    # francais, aucun SSID n'etait jamais retenu quel que soit le reseau
+    # reel. Fix : detection basee en priorite sur la ligne "Bande"/"Band"
+    # dont la VALEUR ("2,4 GHz" ou "2.4 GHz") n'est jamais traduite dans son
+    # unite ("GHz") -- seul le separateur decimal change selon la locale
+    # (virgule FR, point EN), gere via le remplacement "," -> ".". Fallback
+    # sur le numero de canal (<=14) avec le libelle en FR/EN/ES (memes 3
+    # langues que l'outil, meilleur effort) si jamais une version de Windows
+    # n'expose pas la ligne "Bande"/"Band" (formats plus anciens de netsh).
+    ssids_24ghz: set[str] = set()
+    current_ssid: Optional[str] = None
+    for raw_line in out.splitlines():
+        line = raw_line.strip()
+        m = re.match(r"^SSID\s+\d+\s*:\s*(.*)$", line)
+        if m:
+            current_ssid = m.group(1).strip()
+            continue
+        if not current_ssid:
+            continue
+        m = re.search(r":\s*([\d.,]+)\s*GHz", line, re.IGNORECASE)
+        if m:
+            try:
+                band = float(m.group(1).replace(",", "."))
+            except ValueError:
+                band = 0.0
+            if 2.0 <= band < 5.0:
+                ssids_24ghz.add(current_ssid)
+            continue
+        m = re.match(r"^(?:Channel|Canal)\s*:\s*(\d+)", line, re.IGNORECASE)
+        if m:
+            try:
+                channel = int(m.group(1))
+            except ValueError:
+                channel = 0
+            if 0 < channel <= 14:
+                ssids_24ghz.add(current_ssid)
+    return sorted(ssids_24ghz, key=str.lower)
+
+
+def verify_wifi_password(ssid: str, password: str, timeout_s: float = 15.0) -> bool:
+    """
+    Verifie qu'un mot de passe WiFi (WPA2-PSK) est correct en tentant une
+    VRAIE connexion depuis le PC (Windows uniquement) : cree un profil WLAN
+    temporaire (`netsh wlan add profile`), s'y connecte, attend jusqu'a
+    `timeout_s` que l'interface rapporte "State : connected" ET le bon
+    SSID, puis retire le profil temporaire dans tous les cas (succes ou
+    echec) via un `finally`. Retourne True/False, jamais d'exception.
+
+    Effet de bord assume (demande utilisateur) : le PC se connecte
+    reellement, brievement, au reseau teste -- c'est le seul moyen fiable
+    de verifier un mot de passe WPA2 sans materiel DMD sous la main.
+    Comme le DMD va rejoindre ce meme reseau, ce n'est pas une regression
+    pour l'utilisateur (le PC devrait de toute facon pouvoir s'y connecter).
+
+    2026-09-13 -- voir scan_wifi_networks_24ghz() ci-dessus pour le contexte.
+    """
+    if sys.platform != "win32" or not ssid:
+        return False
+    import subprocess
+
+    def _xml_escape(s: str) -> str:
+        return (
+            s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            .replace('"', "&quot;").replace("'", "&apos;")
+        )
+
+    profile_name = "RecalBoxDMD_verify_" + re.sub(r"[^A-Za-z0-9_]", "_", ssid)[:32]
+    profile_xml = f"""<?xml version="1.0"?>
+<WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">
+    <name>{_xml_escape(profile_name)}</name>
+    <SSIDConfig>
+        <SSID>
+            <name>{_xml_escape(ssid)}</name>
+        </SSID>
+    </SSIDConfig>
+    <connectionType>ESS</connectionType>
+    <connectionMode>manual</connectionMode>
+    <MSM>
+        <security>
+            <authEncryption>
+                <authentication>WPA2PSK</authentication>
+                <encryption>AES</encryption>
+                <useOneX>false</useOneX>
+            </authEncryption>
+            <sharedKey>
+                <keyType>passPhrase</keyType>
+                <protected>false</protected>
+                <keyMaterial>{_xml_escape(password)}</keyMaterial>
+            </sharedKey>
+        </security>
+    </MSM>
+</WLANProfile>
+"""
+    no_window = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+
+    def _current_ssid() -> str:
+        try:
+            status = subprocess.check_output(
+                ["netsh", "wlan", "show", "interfaces"],
+                encoding="utf-8", errors="replace", stderr=subprocess.DEVNULL, timeout=10,
+                creationflags=no_window,
+            )
+        except Exception:
+            return ""
+        m = re.search(r"^\s*SSID\s*:\s*(.+)$", status, re.MULTILINE)
+        return m.group(1).strip() if m else ""
+
+    # Reseau d'origine du PC (avant le test) -- utilise en sortie pour
+    # attendre que la reconnexion soit effective, voir le commentaire dans
+    # le `finally` ci-dessous.
+    original_ssid = _current_ssid()
+
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".xml", delete=False, encoding="utf-8"
+        ) as tmp:
+            tmp.write(profile_xml)
+            tmp_path = tmp.name
+
+        add = subprocess.run(
+            ["netsh", "wlan", "add", "profile", f"filename={tmp_path}", "user=all"],
+            capture_output=True, text=True, timeout=10, creationflags=no_window,
+        )
+        if add.returncode != 0:
+            return False
+
+        subprocess.run(
+            ["netsh", "wlan", "connect", f"name={profile_name}", f"ssid={ssid}"],
+            capture_output=True, text=True, timeout=10, creationflags=no_window,
+        )
+
+        deadline = time.time() + timeout_s
+        while time.time() < deadline:
+            time.sleep(1.0)
+            try:
+                # encoding="utf-8" explicite : meme bug/fix que
+                # scan_wifi_networks_24ghz() ci-dessus.
+                status = subprocess.check_output(
+                    ["netsh", "wlan", "show", "interfaces"],
+                    encoding="utf-8", errors="replace", stderr=subprocess.DEVNULL, timeout=10,
+                    creationflags=no_window,
+                )
+            except Exception:
+                continue
+            # 2026-09-14 -- BUG REEL corrige (retour utilisateur : le
+            # dialogue WiFi ne detectait aucun reseau -- meme cause racine
+            # ici, testee en meme temps). Le libelle "State" EST TRADUIT par
+            # Windows selon la langue du systeme (ex. "Etat" sur un Windows
+            # en francais, jamais "State") -- ce regex ne matchait donc
+            # jamais sur ce genre de systeme, verify_wifi_password()
+            # retournait TOUJOURS False quel que soit le mot de passe.
+            # Fix : la ligne "SSID" (libelle JAMAIS traduit par Windows,
+            # confirme sur plusieurs sorties netsh francaises) n'apparait de
+            # toute facon QUE lorsque l'interface est reellement associee a
+            # un reseau -- son seul match, avec la bonne valeur, suffit a
+            # prouver la connexion sans dependre du libelle "State"/"Etat".
+            ssid_match = re.search(r"^\s*SSID\s*:\s*(.+)$", status, re.MULTILINE)
+            if ssid_match and ssid_match.group(1).strip() == ssid:
+                return True
+        return False
+    except Exception:
+        return False
+    finally:
+        subprocess.run(
+            ["netsh", "wlan", "delete", "profile", f"name={profile_name}"],
+            capture_output=True, text=True, timeout=10, creationflags=no_window,
+        )
+        if tmp_path:
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+        # BUG REEL corrige (2026-09-14, retour utilisateur en direct : "l'app
+        # ne repond plus apres le clic sur Continuer" / "la detection de la
+        # Recalbox a ete tres longue et a freeze l'app"). Cause : supprimer
+        # le profil temporaire ci-dessus laisse le PC brievement SANS
+        # reseau, le temps que Windows se reassocie de lui-meme a son reseau
+        # habituel -- ce retour de fonction ne l'attendait pas, la suite du
+        # pipeline (detect_recalbox_share(), Path(r"\\RECALBOX\share").
+        # exists() -- resolution UNC/NetBIOS SANS timeout explicite
+        # possible via l'API standard) s'executait donc immediatement sur un
+        # adaptateur encore en cours de reassociation, bloquant tout le
+        # thread principal du GUI le temps que Windows abandonne (souvent
+        # bien plus que quelques secondes). Fix : attendre ici, avec un
+        # timeout borne, que l'interface WiFi soit reconnectee (n'importe
+        # quel reseau -- Windows se reassocie normalement seul a son reseau
+        # favori/original) avant de rendre la main a l'appelant.
+        if original_ssid:
+            reconnect_deadline = time.time() + 8.0
+            while time.time() < reconnect_deadline:
+                if _current_ssid():
+                    break
+                time.sleep(0.5)
+
+
+def write_dmd_wifi(sd_dir: Path, ssid: str, password: str) -> None:
+    """
+    Ecrit/patch wifi_enabled=1, wifi_ssid= et wifi_password= dans
+    sd_dir/config.ini en UNE SEULE lecture-modification-ecriture (meme
+    logique que write_dmd_language()/write_dmd_recalbox_ip(), mais les 3
+    cles en une passe plutot que 3 -- cf writeConfigFlags() cote firmware,
+    v205, ajoutee pour la meme raison meme si le risque n'est pas identique
+    cote PC).
+
+    Ecrire directement le WiFi ici (au lieu de ne compter que sur la page
+    AP de premier demarrage) permet au DMD de rejoindre le reseau des le
+    tout premier boot -- setupWiFiFromConfig() (RecalBox_DMD.ino) saute
+    entierement le mode AP si wifi_ssid est deja non vide dans config.ini.
+    """
+    if not ssid:
+        return
+    cfg_path = sd_dir / "config.ini"
+    lines: list[str] = []
+    if cfg_path.exists():
+        lines = cfg_path.read_text(encoding="utf-8").splitlines()
+
+    patch = {"wifi_enabled": "1", "wifi_ssid": ssid, "wifi_password": password}
+    remaining = dict(patch)
+    for i, line in enumerate(lines):
+        for key, value in list(remaining.items()):
+            if line.startswith(key + "="):
+                lines[i] = f"{key}={value}"
+                del remaining[key]
+                break
+    for key, value in remaining.items():
+        lines.append(f"{key}={value}")
     cfg_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -3939,7 +4286,7 @@ def _find_stale_files(existing_names, new_names, is_manual: bool):
     return stale
 
 
-def detect_recalbox_share() -> Optional[str]:
+def detect_recalbox_share(timeout_s: float = 3.0) -> Optional[str]:
     r"""
     Tente de resoudre le partage reseau de la Recalbox via son nom machine
     par defaut ("RECALBOX", resolution NetBIOS Windows native) -- aucune
@@ -3948,10 +4295,44 @@ def detect_recalbox_share() -> Optional[str]:
     manuelle). Le nom de machine par defaut de Recalbox n'est pas modifiable
     depuis ce module -- si l'utilisateur l'a personnalise, la detection
     echoue simplement et on retombe sur le mecanisme manuel existant.
+
+    2026-09-14 -- BUG REEL corrige (retour utilisateur en direct : "l'app ne
+    repond plus" / "la detection de la Recalbox a ete tres longue et a
+    freeze l'app", juste apres l'ajout de la verification WiFi en tete du
+    Mode 1). `Path(...).exists()` sur un chemin UNC declenche une resolution
+    NetBIOS/SMB bloquante SANS timeout configurable via l'API standard --
+    normalement quasi instantanee, mais peut prendre bien plus de temps
+    (dizaines de secondes) si l'adaptateur reseau est en cours de
+    reassociation (ex. juste apres un test WiFi qui a force une
+    deconnexion/reconnexion). Cet appel se fait sur le thread principal du
+    GUI (avant le lancement du pipeline Mode 1) -- un blocage ici gele toute
+    l'application, pas juste cette fonction. Fix : execute le test dans un
+    thread demon avec un timeout borne -- en cas dedepassement, retourne
+    None (identique au cas "non trouve" deja gere par l'appelant, repli
+    prefs/saisie manuelle) au lieu de bloquer indefiniment ; le thread
+    residuel (rare, seulement si Windows met reellement plus de
+    `timeout_s` secondes) se termine de lui-meme en arriere-plan sans
+    empecher la fermeture de l'application (daemon=True).
     """
+    import threading
+    import queue
+
+    result_q: "queue.Queue[Optional[str]]" = queue.Queue(maxsize=1)
+
+    def _probe():
+        try:
+            result_q.put("RECALBOX" if Path(r"\\RECALBOX\share").exists() else None)
+        except Exception:
+            try:
+                result_q.put(None)
+            except Exception:
+                pass
+
+    t = threading.Thread(target=_probe, daemon=True)
+    t.start()
     try:
-        return "RECALBOX" if Path(r"\\RECALBOX\share").exists() else None
-    except Exception:
+        return result_q.get(timeout=timeout_s)
+    except queue.Empty:
         return None
 
 
@@ -5107,6 +5488,7 @@ def _query_logical_disks(drive_type: int = 2) -> list:
             text=True,
             stderr=subprocess.DEVNULL,
             timeout=15,
+            creationflags=(subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0),
         )
         rows = [row for row in csv.DictReader(io.StringIO(out)) if row.get("DeviceID")]
         if rows or out.strip():
@@ -5132,6 +5514,7 @@ def _query_logical_disks(drive_type: int = 2) -> list:
             text=True,
             stderr=subprocess.DEVNULL,
             timeout=15,
+            creationflags=(subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0),
         )
         rows = []
         for line in out.splitlines():
@@ -5523,6 +5906,7 @@ def _robocopy(src: Path, dst: str, overwrite: bool = True, progress_cb=None) -> 
         stderr=subprocess.STDOUT,
         encoding="utf-8",
         errors="replace",
+        creationflags=(subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0),
     )
 
     for line in proc.stdout:

@@ -54,7 +54,7 @@ It is a fork of [Jamyz's RetroBoxLED](https://github.com/Jamyz/RetroBoxLED), reb
 
 > ### 🚀 The whole point: one click builds the entire SD card
 >
-> Point the **PC Toolkit** at your ROMs folder and hit **Start** (**Mode 1 — AUTO**). It chains everything on its own — Recalbox-version detection, gamelist extraction, raw565 conversion, bigram cache, default images, Recalbox scripts — into a ready-to-use SD card, then offers to copy it to your card for you. **Insert that SD card into the DMD, power it on, and you're done.** No manual file-by-file setup, ever.
+> Point the **PC Toolkit** at your ROMs folder and hit **Start** (**Mode 1 — AUTO**). It chains everything on its own — Wi-Fi setup, Recalbox-version detection, gamelist extraction, raw565 conversion, bigram cache, default images, Recalbox scripts — into a ready-to-use SD card, then offers to copy it to your card for you. **Insert that SD card into the DMD, power it on, and you're done** — it joins your Wi-Fi straight away, no captive-portal step needed. No manual file-by-file setup, ever.
 
 ---
 
@@ -293,7 +293,7 @@ The GUI's **Advanced** tab groups every operation into 5 collapsible categories;
 
 | Mode | Category | Name | What it does |
 |------|----------|------|---------------|
-| **1** | *(Main tab)* | **AUTO — everything** | Recalbox-version detection → gamelist extraction → raw565 conversion → bigram cache → `_defaults` download → Recalbox scripts install → SD copy |
+| **1** | *(Main tab)* | **AUTO — everything** | Wi-Fi setup (pick your 2.4GHz network, verify the password) → Recalbox-version detection → gamelist extraction → raw565 conversion → bigram cache → `_defaults` download → Recalbox scripts install → SD copy |
 | 2 | 📥 GitHub | Download `_defaults` | Fetches the default fallback images for every known system |
 | 11 | 📥 GitHub | **600-GIF pack** | One-click download of the free curated GIF collection (Arcade, Consoles, Computers, Pinball, Halloween, Xmas, Logo, and more) |
 | 3 | 🗂️ Gamelist | Extraction only | Reads `gamelist.xml`, copies the right marquee/logo per your Recalbox version profile |
@@ -416,7 +416,7 @@ esptool.py --chip esp32 --port COM3 write_flash 0x0 RecalBox_DMD.ino.merged.bin
 
 ## Configuration (`config.ini`)
 
-You never need to hand-write or copy this file: it's created automatically — either by the **PC Toolkit** (Mode 1 writes it at the end of the pipeline) or by the **ESP32 itself**, which offers its own Wi-Fi setup page on first boot / whenever it can't connect. From then on, every value below is edited live from the **web configuration page** (next section) — no SD card swap needed. For reference, here's what it contains:
+You never need to hand-write or copy this file: it's created automatically — either by the **PC Toolkit** (Mode 1 now writes `wifi_ssid`/`wifi_password` too, picked from a scanned list and password-checked before saving, alongside the rest of the pipeline) or by the **ESP32 itself**, which offers its own Wi-Fi setup page on first boot / whenever it can't connect (skipped entirely if Mode 1 already filled in a working Wi-Fi network). From then on, every value below is edited live from the **web configuration page** (next section) — no SD card swap needed. For reference, here's what it contains:
 
 ```ini
 # Info
