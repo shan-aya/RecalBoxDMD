@@ -2,7 +2,16 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v65
+# Version actuelle : v66
+#
+# v66 — 2026-09-14 — safe-modify — Retour utilisateur en testant le nouveau
+#      dialogue WiFi (v65) : aucun moyen de relancer le scan sans fermer/
+#      rouvrir tout le dialogue (reseau qui vient d'apparaitre, PC deplace,
+#      1er scan Windows parfois incomplet juste apres le reveil de la carte
+#      WiFi). Ajoute un bouton "Actualiser" a cote du selecteur de reseau
+#      (_prompt_wifi_dialog()) qui relance scan_wifi_networks_24ghz() --
+#      invalide une verification en cours au passage (la liste change, le
+#      SSID selectionne peut disparaitre/changer).
 #
 # v65 — 2026-09-13 — safe-modify — Demande utilisateur : ajoute au tout
 #      debut du Mode 1 (avant la question IP Recalbox) une etape de
@@ -1420,6 +1429,7 @@ UI_TRANSLATIONS = {
             "proposera son propre point d'accès au premier démarrage."
         ),
         "mode1_wifi_ssid_label": "Réseau WiFi (2,4 GHz)",
+        "mode1_wifi_refresh_btn": "🔄 Actualiser",
         "mode1_wifi_scan_wait": "-- Scan en cours... --",
         "mode1_wifi_no_networks": "-- Aucun réseau 2,4 GHz trouvé --",
         "mode1_wifi_password_label": "Mot de passe",
@@ -1886,6 +1896,7 @@ UI_TRANSLATIONS = {
             "access point on first boot."
         ),
         "mode1_wifi_ssid_label": "WiFi network (2.4 GHz)",
+        "mode1_wifi_refresh_btn": "🔄 Refresh",
         "mode1_wifi_scan_wait": "-- Scanning... --",
         "mode1_wifi_no_networks": "-- No 2.4 GHz network found --",
         "mode1_wifi_password_label": "Password",
@@ -2348,6 +2359,7 @@ UI_TRANSLATIONS = {
             "propio punto de acceso en el primer arranque."
         ),
         "mode1_wifi_ssid_label": "Red WiFi (2,4 GHz)",
+        "mode1_wifi_refresh_btn": "🔄 Actualizar",
         "mode1_wifi_scan_wait": "-- Escaneando... --",
         "mode1_wifi_no_networks": "-- No se encontró ninguna red de 2,4 GHz --",
         "mode1_wifi_password_label": "Contraseña",
@@ -8002,9 +8014,21 @@ class RetroBoxLEDGui:
         ).pack(anchor="w", pady=(0, 10))
 
         tk.Label(body, text=ui["mode1_wifi_ssid_label"], bg=bg, fg=fg, font=("TkDefaultFont", 9, "bold")).pack(anchor="w")
+        ssid_row = tk.Frame(body, bg=bg)
+        ssid_row.pack(fill="x", pady=(2, 10))
         ssid_var = tk.StringVar(value=ui["mode1_wifi_scan_wait"])
-        ssid_combo = ttk.Combobox(body, textvariable=ssid_var, state="readonly", font=("TkDefaultFont", 10))
-        ssid_combo.pack(fill="x", pady=(2, 10))
+        ssid_combo = ttk.Combobox(ssid_row, textvariable=ssid_var, state="readonly", font=("TkDefaultFont", 10))
+        ssid_combo.pack(side="left", fill="x", expand=True)
+        # Demande utilisateur (2026-09-13, en testant ce dialogue) : possibilite
+        # de relancer le scan (reseau qui vient d'apparaitre, PC deplace,
+        # 1er scan Windows parfois incomplet juste apres le reveil de la
+        # carte WiFi) -- sans ce bouton, seule reouverture du dialogue le
+        # permettait.
+        refresh_btn = tk.Button(
+            ssid_row, text=ui["mode1_wifi_refresh_btn"], command=lambda: _populate_networks(manual=True),
+            bg=bg_normal, fg=fg, bd=2, relief="solid", padx=8, font=("TkDefaultFont", 10),
+        )
+        refresh_btn.pack(side="left", padx=(6, 0))
 
         tk.Label(body, text=ui["mode1_wifi_password_label"], bg=bg, fg=fg, font=("TkDefaultFont", 9, "bold")).pack(anchor="w")
         pwd_row = tk.Frame(body, bg=bg)
@@ -8027,7 +8051,17 @@ class RetroBoxLEDGui:
 
         verified = {"ok": False, "ssid": None}
 
-        def _populate_networks():
+        def _populate_networks(manual: bool = False):
+            if manual:
+                # Invalide une verification en cours -- la liste va changer,
+                # le SSID actuellement selectionne (et donc verifie) peut
+                # disparaitre ou etre remplace.
+                verified["ok"] = False
+                continue_btn.config(state="disabled")
+                status_lbl.config(text="")
+                refresh_btn.config(state="disabled")
+                ssid_var.set(ui["mode1_wifi_scan_wait"])
+                dlg.update()
             networks = self.tkmod.scan_wifi_networks_24ghz()
             if networks:
                 ssid_combo["values"] = networks
@@ -8035,6 +8069,8 @@ class RetroBoxLEDGui:
             else:
                 ssid_combo["values"] = [ui["mode1_wifi_no_networks"]]
                 ssid_var.set(ui["mode1_wifi_no_networks"])
+            if manual:
+                refresh_btn.config(state="normal")
 
         def _on_verify():
             ssid = ssid_var.get().strip()
