@@ -592,6 +592,8 @@ docs/                          ← GitHub Pages: instalador web (shan-aya.github
 
 ## Solución de problemas
 
+Para congelamientos, corrupción de pantalla, bucles en la configuración WiFi, o un DMD que parece desincronizado de Recalbox, consulta primero la página dedicada **[FAQ y solución de problemas](FAQ.es.md)** — cubre las causas más comunes (alimentación USB, calidad de la tarjeta microSD, revisión del chip ESP32) con más detalle del que cabe aquí.
+
 | Problema | Solución |
 |---|---|
 | «Pillow no está instalado» | Se instala automáticamente en el primer arranque; si falla: `pip install Pillow` |
