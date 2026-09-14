@@ -1,0 +1,182 @@
+# ============================================
+# build_release.ps1 -- Regenere le dossier _release local en une seule
+# commande (firmware + PC Toolkit + scripts Recalbox)
+# ============================================
+# A executer depuis la RACINE du checkout "master" (celui qui a _release/,
+# scripts/manual/, tools/dist*) -- PAS depuis un worktree de dev.
+#
+# Cree/regenere en une seule commande tout ce qui, avant ce script, se
+# faisait a la main (session du 13-14/09/2026) :
+#   1. Compile le firmware (compile.ps1)
+#   2. Copie/renomme les binaires firmware dans DMD_firmware/, zip
+#   3. Copie les scripts Recalbox (userscripts/ + dmd_helpers/ +
+#      scripts/manual/) dans recalbox_scripts/, zip
+#   4. Build le portable .exe (PyInstaller)
+#   5. Build l'installeur .exe (Inno Setup)
+#   6. Build le .msi (cx_Freeze) -- NON BLOQUANT si echec (probleme connu
+#      cx_Freeze 8.7.0/Python 3.14, voir DECISIONS.md du 2026-09-14 :
+#      bdist_msi ne produit rien sans lever d'erreur). L'ancien .msi de la
+#      release est alors conserve tel quel, avec un avertissement clair.
+#   7. Reconstruit le zip source (perimetre identique a
+#      tools/RecalBoxDMD_tool_v6243/ publie sur GitHub)
+#   8. Copie tout dans _release/RecalBoxDMD_<FirmwareLabel>_t<ToolkitBuild>/
+#
+# Ne touche PAS a GitHub (pas de commit/push) -- volontaire : la procedure
+# de publication reste un geste separe et deliberement manuel (voir la
+# section "Procedure de mise a jour du depot GitHub public" dans
+# DECISIONS.md), ce script se limite a preparer les artefacts locaux.
+#
+# Usage :
+#   .\build_release.ps1                        # versions par defaut (v2.0 / 6243)
+#   .\build_release.ps1 -ToolkitBuild 6300      # nouveau numero de build toolkit
+#   .\build_release.ps1 -SkipMsi                # saute carrement l'etape .msi (plus rapide)
+
+param(
+    [string]$FirmwareLabel = "v2.0",
+    [string]$ToolkitBuild  = "6243",
+    [switch]$SkipMsi
+)
+
+$ErrorActionPreference = "Stop"
+$root        = $PSScriptRoot
+$tools       = Join-Path $root "tools"
+$releaseDir  = Join-Path $root "_release\RecalBoxDMD_${FirmwareLabel}_t${ToolkitBuild}"
+
+function Step($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
+function Warn($msg) { Write-Host "AVERTISSEMENT: $msg" -ForegroundColor Yellow }
+
+if (-not (Test-Path (Join-Path $root "compile.ps1"))) {
+    throw "compile.ps1 introuvable a la racine ($root) -- ce script doit tourner depuis le checkout master, pas un worktree de dev."
+}
+New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+
+# --- 1) Firmware ---
+Step "1/8 Compilation firmware"
+& (Join-Path $root "compile.ps1")
+if ($LASTEXITCODE -ne 0) { throw "Echec compilation firmware (voir sortie ci-dessus)." }
+
+Step "2/8 Copie des binaires firmware"
+$fwSrc = Join-Path $root "compiled"
+$fwDst = Join-Path $releaseDir "DMD_firmware"
+# Repart de zero -- evite qu'un ancien nom de fichier (ex. changement de
+# FirmwareLabel entre 2 executions) reste indefiniment a cote du nouveau.
+if (Test-Path $fwDst) { Remove-Item $fwDst -Recurse -Force }
+New-Item -ItemType Directory -Path $fwDst -Force | Out-Null
+Copy-Item (Join-Path $fwSrc "RecalBox_DMD.ino.bin")            (Join-Path $fwDst "RecalBoxDMD_${FirmwareLabel}_app.bin")    -Force
+Copy-Item (Join-Path $fwSrc "RecalBox_DMD.ino.merged.bin")     (Join-Path $fwDst "RecalBoxDMD_${FirmwareLabel}_merged.bin") -Force
+Copy-Item (Join-Path $fwSrc "RecalBox_DMD.ino.bootloader.bin") (Join-Path $fwDst "bootloader.bin")  -Force
+Copy-Item (Join-Path $fwSrc "RecalBox_DMD.ino.partitions.bin") (Join-Path $fwDst "partitions.bin")  -Force
+$bootApp0Dst = Join-Path $fwDst "boot_app0.bin"
+if (-not (Test-Path $bootApp0Dst)) {
+    $bootApp0Src = Get-ChildItem "$env:LOCALAPPDATA\Arduino15\packages\esp32" -Recurse -Filter "boot_app0.bin" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($bootApp0Src) { Copy-Item $bootApp0Src.FullName $bootApp0Dst -Force }
+    else { Warn "boot_app0.bin introuvable (ni dans la release existante, ni dans le core ESP32 installe) -- a ajouter manuellement." }
+}
+
+Step "Zip DMD_firmware.zip"
+$fwZip = Join-Path $releaseDir "DMD_firmware.zip"
+if (Test-Path $fwZip) { Remove-Item $fwZip -Force }
+Compress-Archive -Path (Join-Path $fwDst "*") -DestinationPath $fwZip
+
+# --- 2) Scripts Recalbox ---
+Step "3/8 Copie des scripts Recalbox"
+$scriptsDst = Join-Path $releaseDir "recalbox_scripts"
+$helpersDst = Join-Path $scriptsDst "dmd_helpers"
+$manualDst  = Join-Path $scriptsDst "manual"
+# Repart de zero a chaque fois (au lieu de copier PAR-DESSUS) -- sinon
+# d'anciennes versions de scripts (noms perimes d'un rename anterieur,
+# fichiers "_disabled_stale_..." etc.) restent indefiniment dans la
+# release, exactement le genre de residu deja rencontre plusieurs fois
+# cette session (v5438 vs v6243, anciens noms de scripts manuels...).
+if (Test-Path $scriptsDst) { Remove-Item $scriptsDst -Recurse -Force }
+New-Item -ItemType Directory -Path $scriptsDst, $helpersDst, $manualDst -Force | Out-Null
+Get-ChildItem (Join-Path $tools "userscripts") -Filter "*.sh" -File | Copy-Item -Destination $scriptsDst -Force
+Get-ChildItem (Join-Path $tools "userscripts\dmd_helpers") -File | Copy-Item -Destination $helpersDst -Force
+Get-ChildItem (Join-Path $root "scripts\manual") -File | Copy-Item -Destination $manualDst -Force
+
+Step "Zip RB_scripts.zip"
+$rbZip = Join-Path $releaseDir "RB_scripts.zip"
+if (Test-Path $rbZip) { Remove-Item $rbZip -Force }
+Compress-Archive -Path (Join-Path $scriptsDst "*") -DestinationPath $rbZip
+
+# --- 3) PC Toolkit : portable exe (PyInstaller) ---
+Step "4/8 Build du portable .exe (PyInstaller)"
+Push-Location $tools
+try {
+    python -m PyInstaller --clean --noconfirm RecalBoxDMD_GUI.spec
+    if ($LASTEXITCODE -ne 0) { throw "Echec PyInstaller (code $LASTEXITCODE)." }
+} finally { Pop-Location }
+
+# --- 4) Installeur .exe (Inno Setup) ---
+Step "5/8 Build de l'installeur .exe (Inno Setup)"
+$iscc = Get-ChildItem "C:\Program Files (x86)\Inno Setup 6\ISCC.exe", "C:\Program Files\Inno Setup 6\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $iscc) { throw "ISCC.exe introuvable -- Inno Setup 6 doit etre installe (https://jrsoftware.org/isinfo.php)." }
+Push-Location $tools
+try {
+    & $iscc.FullName "RecalBoxDMD_Setup.iss"
+    if ($LASTEXITCODE -ne 0) { throw "Echec Inno Setup (code $LASTEXITCODE)." }
+} finally { Pop-Location }
+
+# --- 5) .msi (cx_Freeze) -- non bloquant ---
+$msiOk = $false
+if (-not $SkipMsi) {
+    Step "6/8 Build du .msi (cx_Freeze) -- non bloquant si echec"
+    Push-Location $tools
+    try {
+        python setup_msi.py bdist_msi
+        $msiPath = Join-Path $tools "dist_msi\RecalBoxDMD Toolkit-1.0.0-win64.msi"
+        if ($LASTEXITCODE -eq 0 -and (Test-Path $msiPath) -and ((Get-Item $msiPath).LastWriteTime -gt (Get-Date).AddMinutes(-10))) {
+            $msiOk = $true
+        } else {
+            Warn "Le build .msi n'a rien produit de recent (probleme connu cx_Freeze 8.7.0/Python 3.14, voir DECISIONS.md 2026-09-14). L'ancien .msi de la release, s'il existe, est conserve tel quel."
+        }
+    } finally { Pop-Location }
+} else {
+    Step "6/8 .msi saute (-SkipMsi)"
+}
+
+# --- 6) Zip source (meme perimetre que tools/RecalBoxDMD_tool_v6243/ publie sur GitHub) ---
+Step "7/8 Construction du zip source"
+$stageDir = Join-Path $env:TEMP "rbdmd_source_stage_$([guid]::NewGuid().ToString('N'))"
+New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+try {
+    foreach ($f in @("README.md","README.fr.md","README.es.md","RecalBoxDMD_GUI.py","RecalBoxDMD_md_renderer.py","RecalBoxDMD_prefs.py","RecalBoxDMD_themes.py","RecalBoxDMD_tool.py","install_and_run.bat","run_gui.py")) {
+        $src = Join-Path $tools $f
+        if (Test-Path $src) { Copy-Item $src (Join-Path $stageDir $f) -Force }
+        else { Warn "$f absent de tools/, ignore dans le zip source." }
+    }
+    Copy-Item (Join-Path $tools "assets") (Join-Path $stageDir "assets") -Recurse -Force
+    Copy-Item (Join-Path $tools "themes") (Join-Path $stageDir "themes") -Recurse -Force
+    Get-ChildItem $stageDir -Recurse -Filter "__pycache__" -Directory | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    $sourceZip = Join-Path $env:TEMP "RecalBoxDMD-${ToolkitBuild}-source.zip"
+    if (Test-Path $sourceZip) { Remove-Item $sourceZip -Force }
+    Compress-Archive -Path (Join-Path $stageDir "*") -DestinationPath $sourceZip
+} finally {
+    Remove-Item $stageDir -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+# --- 7) Assemblage final dans Windows_Tools/ ---
+Step "8/8 Copie des outils Windows dans la release"
+$wtDst = Join-Path $releaseDir "Windows_Tools"
+New-Item -ItemType Directory -Path $wtDst -Force | Out-Null
+# Retire les artefacts VERSIONNES d'un run precedent avec un autre
+# -ToolkitBuild (ex. RecalBoxDMD-6243-portable.exe qui trainerait a cote
+# d'un nouveau RecalBoxDMD-6300-portable.exe) -- ne touche pas aux fichiers
+# non versionnes de ce dossier (ex. RecalBoxDMD_prefs.json), qui ne sont
+# pas regeneres par ce script et doivent survivre au nettoyage.
+Get-ChildItem (Join-Path $wtDst "*") -File -Include "RecalBoxDMD-*-portable.exe", "RecalBoxDMD_Toolkit_*_Setup.exe", "RecalBoxDMD-*-source.zip", "RecalBoxDMD Toolkit-*-win64.msi" | Remove-Item -Force
+Copy-Item (Join-Path $tools "dist\RecalBoxDMD_GUI.exe")                        (Join-Path $wtDst "RecalBoxDMD-${ToolkitBuild}-portable.exe")      -Force
+Copy-Item (Join-Path $tools "dist_installer\RecalBoxDMD_Toolkit_Setup.exe")    (Join-Path $wtDst "RecalBoxDMD_Toolkit_${ToolkitBuild}_Setup.exe") -Force
+Copy-Item $sourceZip                                                          (Join-Path $wtDst "RecalBoxDMD-${ToolkitBuild}-source.zip")        -Force
+Remove-Item $sourceZip -Force -ErrorAction SilentlyContinue
+if ($msiOk) {
+    Copy-Item (Join-Path $tools "dist_msi\RecalBoxDMD Toolkit-1.0.0-win64.msi") (Join-Path $wtDst "RecalBoxDMD Toolkit-${ToolkitBuild}-win64.msi") -Force
+}
+
+Step "Termine"
+Write-Host "Release regeneree dans : $releaseDir" -ForegroundColor Green
+Get-ChildItem $releaseDir -Recurse -File | Select-Object @{n='Fichier';e={$_.FullName.Substring($releaseDir.Length+1)}}, @{n='Taille';e={"{0:N1} MB" -f ($_.Length/1MB)}}, LastWriteTime | Format-Table -AutoSize
+if (-not $msiOk -and -not $SkipMsi) {
+    Write-Host "Rappel : le .msi n'a PAS ete regenere ce coup-ci (voir avertissement plus haut) -- celui deja present dans la release, s'il existe, date d'avant." -ForegroundColor Yellow
+}
+Write-Host "`nProchaine etape (manuelle, volontairement) : mettre a jour le depot GitHub public si besoin -- voir la procedure dans DECISIONS.md." -ForegroundColor Cyan
