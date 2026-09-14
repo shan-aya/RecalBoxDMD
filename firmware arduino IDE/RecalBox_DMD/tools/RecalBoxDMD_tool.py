@@ -1,7 +1,29 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v46
+# Version actuelle : v47
+#
+# v47 - 2026-09-14 - safe-modify - BUG REEL corrige (retour utilisateur en
+#      direct : "l'app ne repond plus apres le clic sur Continuer" / "la
+#      detection de la Recalbox a ete tres longue et a freeze l'app", juste
+#      apres avoir teste avec succes le nouveau scan/verify WiFi de v45/v46)
+#      -- 2 correctifs complementaires :
+#      (1) verify_wifi_password() : supprimer le profil WLAN temporaire en
+#      fin de fonction laisse le PC brievement sans reseau, le temps que
+#      Windows se reassocie seul a son reseau habituel -- attend desormais
+#      (timeout borne 8s) que l'interface soit reconnectee avant de rendre
+#      la main, au lieu de laisser l'appelant s'enchainer immediatement sur
+#      un adaptateur encore instable.
+#      (2) detect_recalbox_share() : root cause du gel -- `Path(r"\\
+#      RECALBOX\share").exists()` (resolution UNC/NetBIOS) n'a AUCUN
+#      timeout configurable via l'API standard, et cette fonction est
+#      appelee sur le thread principal du GUI juste apres l'etape WiFi
+#      ci-dessus -- un adaptateur encore en reassociation peut la faire
+#      bloquer des dizaines de secondes, gelant TOUTE l'application (pas
+#      seulement cette fonction). Fix : execute le test dans un thread
+#      demon avec timeout borne (3s) -- au-dela, retourne None (identique
+#      au cas "non trouve" deja gere : repli prefs/saisie manuelle) au lieu
+#      de bloquer indefiniment.
 #
 # v46 - 2026-09-14 - safe-modify - 2 BUGS REELS corriges (retour
 #      utilisateur : "le popup ne detecte aucun reseau wifi", sur un
@@ -2013,6 +2035,24 @@ def verify_wifi_password(ssid: str, password: str, timeout_s: float = 15.0) -> b
 </WLANProfile>
 """
     no_window = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+
+    def _current_ssid() -> str:
+        try:
+            status = subprocess.check_output(
+                ["netsh", "wlan", "show", "interfaces"],
+                encoding="utf-8", errors="replace", stderr=subprocess.DEVNULL, timeout=10,
+                creationflags=no_window,
+            )
+        except Exception:
+            return ""
+        m = re.search(r"^\s*SSID\s*:\s*(.+)$", status, re.MULTILINE)
+        return m.group(1).strip() if m else ""
+
+    # Reseau d'origine du PC (avant le test) -- utilise en sortie pour
+    # attendre que la reconnexion soit effective, voir le commentaire dans
+    # le `finally` ci-dessous.
+    original_ssid = _current_ssid()
+
     tmp_path = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -2074,6 +2114,27 @@ def verify_wifi_password(ssid: str, password: str, timeout_s: float = 15.0) -> b
                 os.remove(tmp_path)
             except OSError:
                 pass
+        # BUG REEL corrige (2026-09-14, retour utilisateur en direct : "l'app
+        # ne repond plus apres le clic sur Continuer" / "la detection de la
+        # Recalbox a ete tres longue et a freeze l'app"). Cause : supprimer
+        # le profil temporaire ci-dessus laisse le PC brievement SANS
+        # reseau, le temps que Windows se reassocie de lui-meme a son reseau
+        # habituel -- ce retour de fonction ne l'attendait pas, la suite du
+        # pipeline (detect_recalbox_share(), Path(r"\\RECALBOX\share").
+        # exists() -- resolution UNC/NetBIOS SANS timeout explicite
+        # possible via l'API standard) s'executait donc immediatement sur un
+        # adaptateur encore en cours de reassociation, bloquant tout le
+        # thread principal du GUI le temps que Windows abandonne (souvent
+        # bien plus que quelques secondes). Fix : attendre ici, avec un
+        # timeout borne, que l'interface WiFi soit reconnectee (n'importe
+        # quel reseau -- Windows se reassocie normalement seul a son reseau
+        # favori/original) avant de rendre la main a l'appelant.
+        if original_ssid:
+            reconnect_deadline = time.time() + 8.0
+            while time.time() < reconnect_deadline:
+                if _current_ssid():
+                    break
+                time.sleep(0.5)
 
 
 def write_dmd_wifi(sd_dir: Path, ssid: str, password: str) -> None:
@@ -4225,7 +4286,7 @@ def _find_stale_files(existing_names, new_names, is_manual: bool):
     return stale
 
 
-def detect_recalbox_share() -> Optional[str]:
+def detect_recalbox_share(timeout_s: float = 3.0) -> Optional[str]:
     r"""
     Tente de resoudre le partage reseau de la Recalbox via son nom machine
     par defaut ("RECALBOX", resolution NetBIOS Windows native) -- aucune
@@ -4234,10 +4295,44 @@ def detect_recalbox_share() -> Optional[str]:
     manuelle). Le nom de machine par defaut de Recalbox n'est pas modifiable
     depuis ce module -- si l'utilisateur l'a personnalise, la detection
     echoue simplement et on retombe sur le mecanisme manuel existant.
+
+    2026-09-14 -- BUG REEL corrige (retour utilisateur en direct : "l'app ne
+    repond plus" / "la detection de la Recalbox a ete tres longue et a
+    freeze l'app", juste apres l'ajout de la verification WiFi en tete du
+    Mode 1). `Path(...).exists()` sur un chemin UNC declenche une resolution
+    NetBIOS/SMB bloquante SANS timeout configurable via l'API standard --
+    normalement quasi instantanee, mais peut prendre bien plus de temps
+    (dizaines de secondes) si l'adaptateur reseau est en cours de
+    reassociation (ex. juste apres un test WiFi qui a force une
+    deconnexion/reconnexion). Cet appel se fait sur le thread principal du
+    GUI (avant le lancement du pipeline Mode 1) -- un blocage ici gele toute
+    l'application, pas juste cette fonction. Fix : execute le test dans un
+    thread demon avec un timeout borne -- en cas dedepassement, retourne
+    None (identique au cas "non trouve" deja gere par l'appelant, repli
+    prefs/saisie manuelle) au lieu de bloquer indefiniment ; le thread
+    residuel (rare, seulement si Windows met reellement plus de
+    `timeout_s` secondes) se termine de lui-meme en arriere-plan sans
+    empecher la fermeture de l'application (daemon=True).
     """
+    import threading
+    import queue
+
+    result_q: "queue.Queue[Optional[str]]" = queue.Queue(maxsize=1)
+
+    def _probe():
+        try:
+            result_q.put("RECALBOX" if Path(r"\\RECALBOX\share").exists() else None)
+        except Exception:
+            try:
+                result_q.put(None)
+            except Exception:
+                pass
+
+    t = threading.Thread(target=_probe, daemon=True)
+    t.start()
     try:
-        return "RECALBOX" if Path(r"\\RECALBOX\share").exists() else None
-    except Exception:
+        return result_q.get(timeout=timeout_s)
+    except queue.Empty:
         return None
 
 
