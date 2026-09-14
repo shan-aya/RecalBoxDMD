@@ -21,12 +21,61 @@
 # contre ~5% pour la methode UDP historique. Detail complet dans
 # DECISIONS.md "Campagne niveau1 autopilote mame0278 sur les 195
 # candidats".
+#
+# v3 - 2026-09-14 - safe-modify - INCIDENT REEL sur materiel (retour
+# utilisateur : "le steamdeck tente d'ouvrir le clavier virtuel en
+# boucle") : un `pkill -f mame_autopilot_rb2.py` en cours de campagne
+# (interruption manuelle) tue le controleur Python mais PAS le
+# retroarch/emulatorlauncher.pyc qu'il venait de lancer (processus
+# enfant independant, jamais nettoye par le signal). Le clone uinput
+# du pad, lui, disparait immediatement (fd ferme => device detruit par
+# le noyau) -- retroarch se retrouve donc avec un joueur 1 qui se
+# deconnecte brutalement EN PLEIN MILIEU d'une partie, et semble
+# reagir en essayant d'ouvrir une invite de reconfiguration/clavier a
+# repetition. Reproduit et confirme en direct (brkthru), resolu par
+# kill manuel du retroarch/emulatorlauncher orphelins + verification
+# qu'aucun clone "Steam Deck (virtual)" ne subsiste dans
+# /proc/bus/input/devices.
+# Fix : gestionnaires SIGTERM/SIGINT qui, AVANT de laisser le process
+# mourir, tuent immediatement le retroarch en cours (`_current_pid`) et
+# detruisent le clone uinput (`_current_pad`) -- un `pkill`/Ctrl+C ne
+# doit plus jamais laisser une session de jeu orpheline sans manette.
 import argparse
 import os
+import signal
 import subprocess
 import socket
 import sys
 import time
+
+_current_pid = None
+_current_pad = None
+
+
+def _cleanup_and_exit(signum, frame):
+    # v3 -- voir changelog v3 en tete de fichier. Nettoyage best-effort
+    # (le process peut mourir a n'importe quel instant de harvest_one(),
+    # ces variables peuvent donc etre None ou deja obsoletes -- jamais
+    # bloquant, toujours des try/except silencieux).
+    try:
+        log("!! signal {} recu -- nettoyage avant sortie".format(signum))
+    except Exception:
+        pass
+    if _current_pid:
+        try:
+            os.kill(_current_pid, 9)
+        except OSError:
+            pass
+    if _current_pad:
+        try:
+            _current_pad.destroy()
+        except Exception:
+            pass
+    os._exit(1)  # pas sys.exit() -- pas de nettoyage Python supplementaire attendu
+
+
+signal.signal(signal.SIGTERM, _cleanup_and_exit)
+signal.signal(signal.SIGINT, _cleanup_and_exit)
 
 os.environ.setdefault("DISPLAY", ":0")
 os.environ.setdefault("XDG_RUNTIME_DIR", "/run/user/0")
@@ -133,6 +182,7 @@ def launch(rom, devicepath):
 
 
 def harvest_one(rom, attempted, play_seconds):
+    global _current_pid, _current_pad
     save_path = SAVE_GLOB.format(rom=rom)
     if os.path.exists(save_path):
         log("(skip) {} -- .hi deja present".format(rom))
@@ -146,10 +196,12 @@ def harvest_one(rom, attempted, play_seconds):
         return
 
     pad = VirtualGamepad().create()
+    _current_pad = pad
     vpath = pad.event_path()
     if not vpath:
         log("!! {} : event_path() introuvable pour le clone uinput -- abandon".format(rom))
         pad.destroy()
+        _current_pad = None
         mark_attempted(rom)
         return
 
@@ -170,10 +222,12 @@ def harvest_one(rom, attempted, play_seconds):
         except Exception:
             pass
         pad.destroy()
+        _current_pad = None
         time.sleep(2)
         mark_attempted(rom)
         return
 
+    _current_pid = pid
     category, play_fn = profile_for_rom(rom)
     log(">>> {} lance (pid={}), profil={}".format(rom, pid, category))
 
@@ -202,6 +256,8 @@ def harvest_one(rom, attempted, play_seconds):
         time.sleep(2)
 
     pad.destroy()
+    _current_pad = None
+    _current_pid = None
     try:
         proc.wait(timeout=5)
     except Exception:

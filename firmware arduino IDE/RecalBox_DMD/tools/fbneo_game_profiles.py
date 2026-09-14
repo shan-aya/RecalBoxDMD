@@ -126,7 +126,20 @@ GAMELIST_PATHS = (
 #   osman    : "Plateforme,Plateforme / Fighter Scrolling"
 
 
-def game_metadata(rom):
+# v4 - 2026-09-14 - safe-modify - meme fix que mame_game_profiles.py v2
+# (BUG REEL confirme sur ce dernier, meme fonction dupliquee ici sans le
+# cache par-rom qu'avait mame_game_profiles.py -- donc encore PIRE ici,
+# reparsing systematique du gamelist.xml entier a CHAQUE appel) :
+# /recalbox/share/roms est un montage CIFS reseau, une lecture repetee
+# de ce fichier (souvent volumineux) sur chaque rom expose a un blocage
+# process en etat D (non-interruptible) au moindre hoquet reseau. Index
+# construit UNE SEULE FOIS par process au lieu d'un reparsing par rom.
+_INDEX = None
+
+
+def _build_index():
+    global _INDEX
+    index = {}
     for path in GAMELIST_PATHS:
         if not os.path.exists(path):
             continue
@@ -137,11 +150,17 @@ def game_metadata(rom):
         for game in root.findall(".//game"):
             raw_path = (game.findtext("path") or "").replace("\\", "/")
             name = os.path.splitext(os.path.basename(raw_path))[0]
-            if name != rom:
-                continue
-            return {"name": game.findtext("name") or rom,
-                    "genre": game.findtext("genre") or ""}
-    return {"name": rom, "genre": ""}
+            genre = game.findtext("genre") or ""
+            existing = index.get(name)
+            if existing is None or (not existing["genre"] and genre):
+                index[name] = {"name": game.findtext("name") or name, "genre": genre}
+    _INDEX = index
+
+
+def game_metadata(rom):
+    if _INDEX is None:
+        _build_index()
+    return _INDEX.get(rom, {"name": rom, "genre": ""})
 
 
 def classify(genre_text):

@@ -53,13 +53,28 @@ GAMELIST_PATHS = (
     "/recalbox/share/roms/mame/mame0278/gamelist.xml",
 )
 
-_CACHE = {}
+# v2 - 2026-09-14 - safe-modify - BUG REEL trouve en direct sur materiel
+# (retour utilisateur : "le steamdeck tente d'ouvrir le clavier virtuel
+# en boucle") : `game_metadata(rom)` reparsait l'INTEGRALITE de
+# gamelist.xml (31 Mo) a CHAQUE rom (cache uniquement sur le resultat
+# final par rom, jamais sur l'arbre XML lui-meme). `/recalbox/share`
+# s'est revele etre un montage CIFS reseau (`mount` confirme
+# "//192.168.0.50/RECALBOX/ROMS ... type cifs"), donc CHAQUE lecture de
+# ce fichier repasse par le reseau -- une micro-coupure pendant l'une de
+# ces 1900+ lectures repetees a fait passer le process Python entier en
+# etat D (disk sleep, non-interruptible meme par SIGKILL, confirme via
+# /proc/<pid>/stack : filemap_update_page/netfs_buffered_read_iter),
+# bloquant tout (y compris nos propres gestionnaires de signal, qui ne
+# s'executent qu'une fois le noyau libre de le faire) et laissant
+# RetroArch orphelin -- cause tres probable de l'incident clavier.
+# Fix : index CONSTRUIT UNE SEULE FOIS par process (1 lecture reseau
+# pour toute la campagne au lieu d'une par rom), plus de re-parsing.
+_INDEX = None  # None = pas encore construit
 
 
-def game_metadata(rom):
-    if rom in _CACHE:
-        return _CACHE[rom]
-    result = {"name": rom, "genre": ""}
+def _build_index():
+    global _INDEX
+    index = {}
     for path in GAMELIST_PATHS:
         if not os.path.exists(path):
             continue
@@ -70,15 +85,17 @@ def game_metadata(rom):
         for game in root.findall(".//game"):
             raw_path = (game.findtext("path") or "").replace("\\", "/")
             name = os.path.splitext(os.path.basename(raw_path))[0]
-            if name != rom:
-                continue
-            result = {"name": game.findtext("name") or rom,
-                      "genre": game.findtext("genre") or ""}
-            break
-        if result["genre"]:
-            break
-    _CACHE[rom] = result
-    return result
+            genre = game.findtext("genre") or ""
+            existing = index.get(name)
+            if existing is None or (not existing["genre"] and genre):
+                index[name] = {"name": game.findtext("name") or name, "genre": genre}
+    _INDEX = index
+
+
+def game_metadata(rom):
+    if _INDEX is None:
+        _build_index()
+    return _INDEX.get(rom, {"name": rom, "genre": ""})
 
 
 def classify(genre_text):
