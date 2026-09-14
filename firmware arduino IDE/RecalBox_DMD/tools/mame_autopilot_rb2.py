@@ -36,9 +36,17 @@ from rb2_input_device import detect_steam_deck_device  # noqa: E402
 from rb2_uinput_gamepad import VirtualGamepad, BTN_SELECT, BTN_START  # noqa: E402
 from mame_game_profiles import profile_for_rom  # noqa: E402
 
-ROM_LIST_FILE = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("--") else "/tmp/priority_mame0278.txt"
-LOG = "/tmp/mame_autopilot_log.txt"
-ATTEMPTED_FILE = "/tmp/mame_autopilot_attempted.txt"
+# v2 - 2026-09-14 - safe-modify - LOG/ATTEMPTED_FILE deplaces de /tmp
+# (tmpfs, vide a CHAQUE redemarrage RB2) vers /recalbox/share/system/
+# (stockage persistant reel) -- necessaire pour une campagne longue
+# (2275 roms, ~3-4 jours estimes) qui doit survivre a un redemarrage
+# RB2 eventuel sans perdre la progression. ROM_LIST_FILE reste
+# parametrable (peut aussi pointer vers /tmp pour un test ponctuel).
+PERSIST_DIR = "/recalbox/share/system/mame_autopilot"
+os.makedirs(PERSIST_DIR, exist_ok=True)
+ROM_LIST_FILE = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("--") else os.path.join(PERSIST_DIR, "target_list.txt")
+LOG = os.path.join(PERSIST_DIR, "mame_autopilot_log.txt")
+ATTEMPTED_FILE = os.path.join(PERSIST_DIR, "mame_autopilot_attempted.txt")
 ROM_TEMPLATE = "/recalbox/share/roms/mame/mame0278/{rom}.zip"
 SAVE_GLOB = "/recalbox/share/saves/mame/mame0278/hiscore/{rom}.hi"
 UDP_ADDR = ("127.0.0.1", 55355)
