@@ -4531,12 +4531,34 @@ def resolve_recalbox_ip(host: str) -> str:
 
 
 def is_recalbox_reachable(host: str, timeout: float = 1.5) -> bool:
-    """
+    r"""
     Teste reellement la joignabilite de `host` (connexion TCP au port SMB
     445), contrairement a un simple "il y a une IP en cache dans les prefs"
     qui ne prouve pas que la Recalbox est actuellement allumee/sur le
     reseau. Timeout court : appele sur le thread principal du GUI avant de
     lancer le pipeline Mode 1.
+
+    2026-09-14 -- BUG REEL corrige (retour utilisateur, via une video d'un
+    testeur tiers : "malgre l'IP saisie, l'outil indique ne pas avoir pu
+    copier les scripts sur la Recalbox", alors que l'utilisateur confirme
+    un acces normal au partage via l'Explorateur Windows,
+    \\<ip>\share). Une connexion TCP BRUTE au port 445 peut echouer pour
+    des raisons qui n'empechent PAS l'Explorateur d'acceder au meme
+    partage -- le port 445 est une cible historique de regles pare-feu/
+    antivirus visant specifiquement les connexions SMB brutes emises par
+    un processus tiers non reconnu (heritage des vers exploitant SMB,
+    type WannaCry), alors que le client SMB natif de Windows (utilise par
+    l'Explorateur) passe outre ces regles. Un simple delai reseau
+    transitoire plus long que le timeout court d'origine peut aussi en
+    etre la cause.
+    Fix : si la connexion socket brute echoue, tente en repli un VRAI
+    acces au partage via son chemin UNC (\\<host>\share) -- exactement le
+    mecanisme que Windows Explorer utilise lui-meme, donc un test
+    beaucoup plus proche de ce que l'utilisateur constate reellement.
+    Execute dans un thread borne (meme motif que detect_recalbox_share(),
+    v47) pour eviter tout risque de blocage si le reseau est dans un etat
+    inhabituel -- `Path(...).exists()` sur un chemin UNC n'a aucun timeout
+    configurable via l'API standard.
     """
     if not host:
         return False
@@ -4545,6 +4567,27 @@ def is_recalbox_reachable(host: str, timeout: float = 1.5) -> bool:
         with socket.create_connection((host, 445), timeout=timeout):
             return True
     except OSError:
+        pass
+
+    import threading
+    import queue
+
+    result_q: "queue.Queue[bool]" = queue.Queue(maxsize=1)
+
+    def _probe_unc():
+        try:
+            result_q.put(Path(rf"\\{host}\share").exists())
+        except Exception:
+            try:
+                result_q.put(False)
+            except Exception:
+                pass
+
+    t = threading.Thread(target=_probe_unc, daemon=True)
+    t.start()
+    try:
+        return result_q.get(timeout=max(timeout, 2.5))
+    except queue.Empty:
         return False
 
 
