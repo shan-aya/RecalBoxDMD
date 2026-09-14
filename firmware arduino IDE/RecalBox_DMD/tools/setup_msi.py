@@ -24,9 +24,9 @@ build_exe_options = {
     "include_files": [
         ("themes", "themes"),
         ("assets", "assets"),
-        ("README.md", "README.md"),
-        ("README.fr.md", "README.fr.md"),
-        ("README.es.md", "README.es.md"),
+        ("HELP.md", "HELP.md"),
+        ("HELP.fr.md", "HELP.fr.md"),
+        ("HELP.es.md", "HELP.es.md"),
     ],
     "excludes": ["unittest", "test", "distutils"],
     "build_exe": "build_msi_exe",

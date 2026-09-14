@@ -172,7 +172,7 @@ Step "7/9 Construction du zip source"
 $stageDir = Join-Path $env:TEMP "rbdmd_source_stage_$([guid]::NewGuid().ToString('N'))"
 New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 try {
-    foreach ($f in @("README.md","README.fr.md","README.es.md","RecalBoxDMD_GUI.py","RecalBoxDMD_md_renderer.py","RecalBoxDMD_prefs.py","RecalBoxDMD_themes.py","RecalBoxDMD_tool.py","install_and_run.bat","run_gui.py")) {
+    foreach ($f in @("HELP.md","HELP.fr.md","HELP.es.md","RecalBoxDMD_GUI.py","RecalBoxDMD_md_renderer.py","RecalBoxDMD_prefs.py","RecalBoxDMD_themes.py","RecalBoxDMD_tool.py","install_and_run.bat","run_gui.py")) {
         $src = Join-Path $tools $f
         if (Test-Path $src) { Copy-Item $src (Join-Path $stageDir $f) -Force }
         else { Warn "$f absent de tools/, ignore dans le zip source." }

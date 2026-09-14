@@ -21,7 +21,7 @@ import zipfile
 # conscience DPI du process via GetProcessDpiAwareness() (shcore) : 0
 # (Unaware) sans ce fix, 2 (PerMonitorAware) avec.
 # Porte depuis master dans ce worktree (dev-core-reassignment) le 2026-09-03
-# -- ce worktree avait divergé avant l'ajout icone/DPI-manifest sur master ;
+# -- ce worktree avait divergÃ© avant l'ajout icone/DPI-manifest sur master ;
 # amelioration d'outillage pure, pas un changement de contenu, applique ici
 # pour que ce build suive le meme format que les precedents.
 with open("dpi_aware.manifest", "r", encoding="utf-8") as _f:
@@ -103,7 +103,7 @@ a = Analysis(
     ['run_gui.py'],
     pathex=[],
     binaries=[],
-    datas=[('themes', 'themes'), ('assets', 'assets'), ('README.md', '.'), ('README.fr.md', '.'), ('README.es.md', '.')] + _extra_tcltk_datas,
+    datas=[('themes', 'themes'), ('assets', 'assets'), ('HELP.md', '.'), ('HELP.fr.md', '.'), ('HELP.es.md', '.')] + _extra_tcltk_datas,
     hiddenimports=['RecalBoxDMD_prefs', 'RecalBoxDMD_themes', 'RecalBoxDMD_md_renderer', 'RecalBoxDMD_tool'],
     hookspath=[],
     hooksconfig={},

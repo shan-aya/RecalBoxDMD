@@ -5156,7 +5156,20 @@ class RetroBoxLEDGui:
         self._refresh_help_tab_content()
 
     def _refresh_help_tab_content(self) -> None:
-        """Affiche le README.md avec rendu markdown via la bibliothèque standard."""
+        """Affiche HELP.md avec rendu markdown via la bibliotheque standard.
+
+        2026-09-14 -- BUG REEL corrige (retour utilisateur en direct) : ce
+        fichier s'appelait auparavant README.md/.fr.md/.es.md, exactement
+        comme le README GitHub racine du depot (fichier totalement
+        different, page vitrine/marketing) -- une session anterieure
+        (commit 98c990a, 2026-09-06) a fini par confondre les deux et a
+        ecrase le contenu de CE fichier (manuel d'utilisation du Toolkit)
+        par une copie du README GitHub, sans que personne ne le remarque
+        pendant des semaines. Renomme en HELP.md pour rendre cette
+        confusion impossible a l'avenir -- ce fichier est UNIQUEMENT le
+        contenu de l'onglet Aide, jamais a synchroniser avec le README
+        GitHub.
+        """
         if not getattr(self, "help_text", None):
             return
 
@@ -5166,11 +5179,11 @@ class RetroBoxLEDGui:
             else "fr"
         )
         if lang == "en":
-            readme_name = "README.md"
+            readme_name = "HELP.md"
         elif lang == "es":
-            readme_name = "README.es.md"
+            readme_name = "HELP.es.md"
         else:
-            readme_name = "README.fr.md"
+            readme_name = "HELP.fr.md"
 
         if getattr(self, "help_title_lbl", None):
             self.help_title_lbl.config(text=f"{self._get_ui_t()['tab_help']} ({readme_name})")
@@ -5267,14 +5280,14 @@ class RetroBoxLEDGui:
             pass
 
     def _open_help_in_browser(self) -> None:
-        """Ouvre le README.md correspondant à la langue dans le navigateur."""
+        """Ouvre le HELP.md correspondant a la langue dans le navigateur."""
         lang = self.lang_var.get()
         if lang == "en":
-            readme_name = "README.md"
+            readme_name = "HELP.md"
         elif lang == "es":
-            readme_name = "README.es.md"
+            readme_name = "HELP.es.md"
         else:
-            readme_name = "README.fr.md"
+            readme_name = "HELP.fr.md"
         base_dir = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
         readme_path = base_dir / readme_name
         try:
