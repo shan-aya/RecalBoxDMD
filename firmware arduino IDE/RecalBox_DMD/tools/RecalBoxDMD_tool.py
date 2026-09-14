@@ -1,7 +1,22 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v44
+# Version actuelle : v45
+#
+# v45 - 2026-09-13 - safe-modify - Demande utilisateur, suite au bug "boucle
+#      sur l'AP au 1er demarrage" : nouvelles fonctions backend pour une
+#      etape de pre-configuration WiFi en tete du Mode 1 (GUI v65) --
+#      scan_wifi_networks_24ghz() (liste les SSID 2,4GHz visibles via
+#      `netsh wlan show networks`, filtre par canal <=14),
+#      verify_wifi_password() (verifie REELLEMENT un mot de passe en
+#      tentant une connexion Windows via un profil WLAN temporaire
+#      cree/detruit, `netsh wlan add/connect/delete profile` -- seule
+#      methode fiable, pas de moyen de "tester" un mot de passe WPA2 sans
+#      tenter une vraie association), write_dmd_wifi() (ecrit
+#      wifi_enabled/wifi_ssid/wifi_password dans config.ini, meme motif
+#      patch-cle-par-cle que write_dmd_recalbox_ip() ci-dessus -- ne touche
+#      a aucune autre cle). Objectif : le DMD peut rejoindre le WiFi des le
+#      1er boot sans jamais passer par l'AP/captive-portal.
 #
 # v44 - 2026-09-13 - safe-modify - Retour utilisateur : des fenetres
 #      console (DOS) s'ouvraient brievement pendant le Mode 1 (pip
@@ -1838,6 +1853,192 @@ def write_dmd_recalbox_ip(sd_dir: Path, ip: str) -> None:
                 break
     if not found:
         lines.append(f"recalbox_ip={ip}")
+    cfg_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def scan_wifi_networks_24ghz() -> list[str]:
+    """
+    Liste les SSID des reseaux WiFi **2,4 GHz** visibles depuis le PC, via
+    `netsh wlan show networks mode=bssid` (Windows uniquement). Le canal
+    (1-14 = 2,4 GHz, 36+ = 5/6 GHz) est le seul champ fiable pour distinguer
+    la bande -- le "Type radio" (802.11n/ac/ax) ne suffit pas, ces normes
+    existent sur les deux bandes. Retourne une liste de SSID uniques, triee,
+    vide en cas d'echec (pas de WiFi, netsh absent, aucun reseau trouve) --
+    jamais d'exception remontee a l'appelant.
+
+    2026-09-13 -- ajoute pour la nouvelle etape "Configurer le WiFi du DMD"
+    en tete du Mode 1 (demande utilisateur, suite au bug "boucle sur l'AP
+    au 1er demarrage") : evite entierement le parcours AP/captive-portal en
+    ecrivant le WiFi directement dans config.ini des la fabrication de la
+    carte SD.
+    """
+    if sys.platform != "win32":
+        return []
+    import subprocess
+    try:
+        out = subprocess.check_output(
+            ["netsh", "wlan", "show", "networks", "mode=bssid"],
+            text=True, stderr=subprocess.DEVNULL, timeout=15,
+            creationflags=(subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0),
+        )
+    except Exception:
+        return []
+
+    ssids_24ghz: set[str] = set()
+    current_ssid: Optional[str] = None
+    for raw_line in out.splitlines():
+        line = raw_line.strip()
+        m = re.match(r"^SSID\s+\d+\s*:\s*(.*)$", line)
+        if m:
+            current_ssid = m.group(1).strip()
+            continue
+        m = re.match(r"^Channel\s*:\s*(\d+)$", line, re.IGNORECASE)
+        if m and current_ssid:
+            try:
+                channel = int(m.group(1))
+            except ValueError:
+                channel = 0
+            if 0 < channel <= 14:
+                ssids_24ghz.add(current_ssid)
+    return sorted(ssids_24ghz, key=str.lower)
+
+
+def verify_wifi_password(ssid: str, password: str, timeout_s: float = 15.0) -> bool:
+    """
+    Verifie qu'un mot de passe WiFi (WPA2-PSK) est correct en tentant une
+    VRAIE connexion depuis le PC (Windows uniquement) : cree un profil WLAN
+    temporaire (`netsh wlan add profile`), s'y connecte, attend jusqu'a
+    `timeout_s` que l'interface rapporte "State : connected" ET le bon
+    SSID, puis retire le profil temporaire dans tous les cas (succes ou
+    echec) via un `finally`. Retourne True/False, jamais d'exception.
+
+    Effet de bord assume (demande utilisateur) : le PC se connecte
+    reellement, brievement, au reseau teste -- c'est le seul moyen fiable
+    de verifier un mot de passe WPA2 sans materiel DMD sous la main.
+    Comme le DMD va rejoindre ce meme reseau, ce n'est pas une regression
+    pour l'utilisateur (le PC devrait de toute facon pouvoir s'y connecter).
+
+    2026-09-13 -- voir scan_wifi_networks_24ghz() ci-dessus pour le contexte.
+    """
+    if sys.platform != "win32" or not ssid:
+        return False
+    import subprocess
+
+    def _xml_escape(s: str) -> str:
+        return (
+            s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            .replace('"', "&quot;").replace("'", "&apos;")
+        )
+
+    profile_name = "RecalBoxDMD_verify_" + re.sub(r"[^A-Za-z0-9_]", "_", ssid)[:32]
+    profile_xml = f"""<?xml version="1.0"?>
+<WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">
+    <name>{_xml_escape(profile_name)}</name>
+    <SSIDConfig>
+        <SSID>
+            <name>{_xml_escape(ssid)}</name>
+        </SSID>
+    </SSIDConfig>
+    <connectionType>ESS</connectionType>
+    <connectionMode>manual</connectionMode>
+    <MSM>
+        <security>
+            <authEncryption>
+                <authentication>WPA2PSK</authentication>
+                <encryption>AES</encryption>
+                <useOneX>false</useOneX>
+            </authEncryption>
+            <sharedKey>
+                <keyType>passPhrase</keyType>
+                <protected>false</protected>
+                <keyMaterial>{_xml_escape(password)}</keyMaterial>
+            </sharedKey>
+        </security>
+    </MSM>
+</WLANProfile>
+"""
+    no_window = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".xml", delete=False, encoding="utf-8"
+        ) as tmp:
+            tmp.write(profile_xml)
+            tmp_path = tmp.name
+
+        add = subprocess.run(
+            ["netsh", "wlan", "add", "profile", f"filename={tmp_path}", "user=all"],
+            capture_output=True, text=True, timeout=10, creationflags=no_window,
+        )
+        if add.returncode != 0:
+            return False
+
+        subprocess.run(
+            ["netsh", "wlan", "connect", f"name={profile_name}", f"ssid={ssid}"],
+            capture_output=True, text=True, timeout=10, creationflags=no_window,
+        )
+
+        deadline = time.time() + timeout_s
+        while time.time() < deadline:
+            time.sleep(1.0)
+            try:
+                status = subprocess.check_output(
+                    ["netsh", "wlan", "show", "interfaces"],
+                    text=True, stderr=subprocess.DEVNULL, timeout=10,
+                    creationflags=no_window,
+                )
+            except Exception:
+                continue
+            connected = re.search(r"^\s*State\s*:\s*connected\s*$", status, re.MULTILINE)
+            ssid_match = re.search(r"^\s*SSID\s*:\s*(.+)$", status, re.MULTILINE)
+            if connected and ssid_match and ssid_match.group(1).strip() == ssid:
+                return True
+        return False
+    except Exception:
+        return False
+    finally:
+        subprocess.run(
+            ["netsh", "wlan", "delete", "profile", f"name={profile_name}"],
+            capture_output=True, text=True, timeout=10, creationflags=no_window,
+        )
+        if tmp_path:
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+
+
+def write_dmd_wifi(sd_dir: Path, ssid: str, password: str) -> None:
+    """
+    Ecrit/patch wifi_enabled=1, wifi_ssid= et wifi_password= dans
+    sd_dir/config.ini en UNE SEULE lecture-modification-ecriture (meme
+    logique que write_dmd_language()/write_dmd_recalbox_ip(), mais les 3
+    cles en une passe plutot que 3 -- cf writeConfigFlags() cote firmware,
+    v205, ajoutee pour la meme raison meme si le risque n'est pas identique
+    cote PC).
+
+    Ecrire directement le WiFi ici (au lieu de ne compter que sur la page
+    AP de premier demarrage) permet au DMD de rejoindre le reseau des le
+    tout premier boot -- setupWiFiFromConfig() (RecalBox_DMD.ino) saute
+    entierement le mode AP si wifi_ssid est deja non vide dans config.ini.
+    """
+    if not ssid:
+        return
+    cfg_path = sd_dir / "config.ini"
+    lines: list[str] = []
+    if cfg_path.exists():
+        lines = cfg_path.read_text(encoding="utf-8").splitlines()
+
+    patch = {"wifi_enabled": "1", "wifi_ssid": ssid, "wifi_password": password}
+    remaining = dict(patch)
+    for i, line in enumerate(lines):
+        for key, value in list(remaining.items()):
+            if line.startswith(key + "="):
+                lines[i] = f"{key}={value}"
+                del remaining[key]
+                break
+    for key, value in remaining.items():
+        lines.append(f"{key}={value}")
     cfg_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
