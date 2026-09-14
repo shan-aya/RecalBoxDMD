@@ -2324,4 +2324,34 @@ Poussé en fast-forward propre : `11878ca` → `bbd82f8` (vérifié via `git fet
 1. **Contacter Adrien Beudin / commenter la MR** pour demander si un choix de transport (WiFi/ZeDMD, déjà supporté par libdmdutil lui-même) est envisagé dans une contribution future — la seule façon de savoir si ça vaut la peine d'investir du temps chez nous.
 2. **Étudier le protocole Pixelcade** (USB série, IOIO ou RP2040 selon la version) comme cible alternative — matériel et protocole totalement différents de ZeDMD (pas HUB75/WiFi-ESP32), effort de recherche à reprendre de zéro, pas commencé.
 
+## Suite ZeDMD — Adrien Beudin propose d'ajouter le support ZeDMD à Recalbox si on aide à tester — nouveau worktree dédié `dev/zedmd-recalbox-compat` (2026-09-14 soir)
+
+**Contexte** : suite directe des 2 sections précédentes. Adrien Beudin (auteur de la MR !3685) a proposé d'ajouter le support ZeDMD à Recalbox **si on l'aide à tester**. Décision : donner un vrai périphérique ZeDMD fonctionnel à tester est plus utile immédiatement que d'implémenter quoi que ce soit chez nous — DMD2 (COM4) choisi comme cobaye (dev/test, pas de production, reflashable).
+
+**⚠️ Ce chantier vit désormais dans son PROPRE worktree/branche, séparé de `dev/dmd-udp-transport`** (demande explicite utilisateur — sujet sans rapport avec le transport UDP RecalBoxDMD) :
+- Branche : **`dev/zedmd-recalbox-compat`**
+- Worktree : **`F:\RETROBOXLED.worktrees\dev-zedmd-recalbox-compat`**
+- Créée depuis `master` (`3d64b38`) le 2026-09-14.
+
+**Progression technique de la soirée** :
+1. Firmware ZeDMD officiel pré-compilé (v5.1.8, asset `ZeDMD-128x32.zip` — correspond exactement à notre matériel, ESP32 classique + 2×64×32) flashé sur DMD2 via `esptool write-flash 0x0`. Hash vérifié, flash OK.
+2. **Symptôme réel observé** : lignes horizontales au lieu d'une image correcte.
+3. **Protocole USB vérifié fonctionnel en direct** avant de creuser l'affichage — piège rencontré : le protocole USB de ZeDMD a une couche de trame supplémentaire (`"FRAME"`, 5 octets, `N_FRAME_CHARS`) **avant** la synchro `"ZeDMD"` documentée dans `HandleData()` (5 octets, **`N_CTRL_CHARS=5`, PAS 6** — le 6ᵉ caractère `'A'` de `CtrlChars[6]` sert uniquement à l'ACK, `N_ACK_CHARS=6`, jamais à la synchro elle-même). Un premier test sans le préfixe `"FRAME"` n'obtenait aucune réponse ; une fois corrigé (trame de 32 octets = `"FRAME"`+`"ZeDMD"`+commande 12 (handshake)+padding, port série 921600 bauds confirmé dans le code pour l'ESP32 classique — S3 utilise USB CDC à 115200), le handshake a répondu correctement (64 octets, terminés par `...RZeDMDA`). **Conclusion : le firmware et la communication USB fonctionnent parfaitement, le problème est isolé à l'affichage.**
+4. **Cause racine des lignes horizontales identifiée avec certitude (pas une hypothèse)** : comparaison directe entre `src/displays/Esp32LedMatrix.h` de ZeDMD (pins par défaut pour ESP32 classique) et `RecalBox_DMD.ino`/`README.md` (même bibliothèque `ESP32-HUB75-MatrixPanel-I2S-DMA`, même carte physique DMDos Board V3, déjà validée en usage réel) :
+   - R1/G1/B1/R2/G2/B2/LAT/OE/CLK : **identiques** (25/26/27/14/12/13/4/15/16) — données pixel correctement transmises, cohérent avec le symptôme (lignes = data OK, adressage de rangée faux).
+   - A/B/C : ZeDMD par défaut = **23/19/5** — sur notre carte, ce sont exactement les broches **SPI du lecteur SD** (MOSI/MISO/CS), pas les lignes d'adresse du panneau. Nos vraies valeurs (confirmées dans `RecalBox_DMD.ino`/README) : **A=33, B=32, C=22**, D=17 (identique), E=-1 (panneau 1/16 scan, pas de broche E).
+5. **Correctif appliqué** : `src/displays/Esp32LedMatrix.h` modifié (A_PIN 23→33, B_PIN 19→32, C_PIN 5→22, E_PIN 22→-1), commentaire explicatif ajouté. PlatformIO installé (`pip install platformio`, absent jusqu'ici) pour recompiler depuis les sources — environnement `128x32` (`pio run -e 128x32`), build réussi (Flash 51.2%, RAM 15.5%). Reflashé sur DMD2.
+6. **Résultat après correctif (partiel, PAS encore résolu)** : plus de lignes horizontales, mais **écran quasi vide avec seulement 1 pixel central + 1 pixel tournant autour à 180°, confiné au coin inférieur droit**. Deux causes probables, ni l'une ni l'autre encore investiguée :
+   - **Système de fichiers LittleFS jamais flashé** — `firmware.factory.bin` (bootloader+partitions+app) a été flashé seul, mais le dossier `data/` (contenant `128x32_logo.raw`, l'image du logo affiché au démarrage) est un filesystem LittleFS **séparé** (`board_build.filesystem = littlefs` dans `platformio.ini`), construit via `pio run -e 128x32 -t buildfs` (fait, `.pio/build/128x32/littlefs.bin` généré) mais **PAS ENCORE flashé** — pas de logo à afficher expliquerait un écran vide, mais pas forcément le motif précis observé (pixel central + pixel orbitant, qui ressemble à une animation de chargement/attente plutôt qu'à un logo statique manquant).
+   - **Configuration de chaînage/dimensions du panneau** potentiellement différente de nos réglages (2×64×32 chaînés horizontalement pour former 128×32) — le motif "confiné au coin inférieur droit" est un symptôme classique d'un mauvais réglage de largeur de chaîne/nombre de modules, pas simplement un problème d'adressage de rangée (déjà corrigé à l'étape précédente).
+
+**État exact des fichiers pour reprendre** :
+- Clone Git complet de ZeDMD (avec le correctif de pinout déjà appliqué et le build déjà fait) : **`zedmd_src/`** à la racine de ce worktree (`F:\RETROBOXLED.worktrees\dev-zedmd-recalbox-compat\zedmd_src\`) — volontairement **hors du suivi git de ce dépôt** (`.gitignore` ajouté) pour ne pas créer de sous-module mal configuré ; a son propre historique git, `git diff` fonctionne dedans normalement.
+- Patch texte du correctif de pinout, pour référence/relecture rapide sans ouvrir le clone : **`zedmd_pinout_fix_dmdos_v3.patch`** à la racine de ce worktree.
+- Binaires déjà compilés (prêts à reflasher) : `zedmd_src/.pio/build/128x32/firmware.factory.bin` (app+bootloader+partitions) et `zedmd_src/.pio/build/128x32/littlefs.bin` (**pas encore flashé, prochaine étape**).
+- PlatformIO installé sur cette machine (`pip install platformio`, v6.2.0) — pas besoin de le réinstaller.
+- DMD2 sur **COM4**, actuellement flashé avec le ZeDMD corrigé (pinout OK, littlefs pas encore appliqué) — **PAS le firmware RecalBoxDMD habituel** ; à reflasher avec notre propre firmware (`compiled/RecalBox_DMD.ino.merged.bin` sur `dev/dmd-udp-transport`) une fois les tests ZeDMD terminés.
+
+**Prochaine étape immédiate** : flasher `littlefs.bin` (offset à déterminer dans `zedmd_src/.pio/build/128x32/partitions.bin` ou via `pio run -e 128x32 -t uploadfs`) et réévaluer l'affichage avant de creuser la config de chaînage si le problème persiste.
+
 Rien de plus à faire tant que l'un de ces deux points n'a pas avancé.

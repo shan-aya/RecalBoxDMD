@@ -4,3 +4,10 @@ firmware arduino IDE/RecalBox_DMD/tools/diagnostic/udp_freeze_isolation/compiled
 
 # Genere automatiquement par compile.ps1 depuis les WEB_CONFIG_*.html sources
 firmware arduino IDE/RecalBox_DMD/web_config_html_gz.h
+
+# zedmd_src/ est un clone complet de https://github.com/PPUC/ZeDMD (avec
+# son propre .git, patche localement pour notre carte DMDos Board V3 --
+# voir DECISIONS.md, section ZeDMD). Volontairement PAS suivi par le git de
+# ce depot (evite un sous-module/gitlink mal configure) -- seul un patch
+# texte du fichier modifie est committe separement si besoin.
+zedmd_src/

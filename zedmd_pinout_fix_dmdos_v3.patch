@@ -1,0 +1,42 @@
+﻿diff --git a/src/displays/Esp32LedMatrix.h b/src/displays/Esp32LedMatrix.h
+index e8d2b46..8ceb147 100644
+--- a/src/displays/Esp32LedMatrix.h
++++ b/src/displays/Esp32LedMatrix.h
+@@ -17,20 +17,31 @@
+ #define OE_PIN 2
+ #define CLK_PIN 41
+ #else
+-// Pinout derived from ESP32-HUB75-MatrixPanel-I2S-DMA.h
++// Pinout derived from ESP32-HUB75-MatrixPanel-I2S-DMA.h -- REMPLACE par le
++// pinout reel de notre carte DMDos Board V3 (2026-09-14, session de test
++// RecalBoxDMD/ZeDMD pour Adrien Beudin/Recalbox MR !3685). Les valeurs
++// d'origine A_PIN=23/B_PIN=19/C_PIN=5 correspondent en realite, sur CETTE
++// carte, aux broches SPI du lecteur SD (MOSI/MISO/CS) -- pas aux lignes
++// d'adresse de rangee du panneau -- ce qui produisait des lignes
++// horizontales a l'ecran (rangees jamais correctement adressees) au lieu
++// d'une image correcte, alors que R1/G1/B1/R2/G2/B2/LAT/OE/CLK
++// correspondaient deja exactement (donnees pixel correctement transmises).
++// Pinout de reference : RecalBox_DMD.ino (meme bibliotheque
++// ESP32-HUB75-MatrixPanel-I2S-DMA, meme carte physique, deja valide en
++// usage reel) + README.md du depot RecalBoxDMD (tableau Pinout).
+ #define R1_PIN 25
+ #define G1_PIN 26
+ #define B1_PIN 27
+ #define R2_PIN 14
+ #define G2_PIN 12
+ #define B2_PIN 13
+-#define A_PIN 23
+-#define B_PIN 19
+-#define C_PIN 5
++#define A_PIN 33
++#define B_PIN 32
++#define C_PIN 22
+ #define D_PIN 17
+ #define E_PIN \
+-  22  // required for 1/32 scan panels, like 64x64. Any available pin would do,
+-      // i.e. IO32. If 1/16 scan panels, no connection to this pin needed
++  -1  // panneaux 1/16 scan (64x32 P4 DMDos) -- pas de broche E necessaire,
++      // meme valeur que RecalBox_DMD.ino.
+ #define LAT_PIN 4
+ #define OE_PIN 15
+ #define CLK_PIN 16
