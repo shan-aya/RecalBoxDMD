@@ -2,7 +2,49 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v67
+# Version actuelle : v68
+#
+# v68 — 2026-09-14 — safe-modify — BUG REEL corrige : retour utilisateur,
+#      testeur tiers en 4K/125% signalant "tout le bas de l'interface est
+#      absent (la partie Progression)". Cause : le process declare
+#      "DPI aware" (SetProcessDpiAwareness, voir __init__ plus bas) MAIS
+#      toutes les polices de cette appli utilisent des tailles en points
+#      POSITIFS (ex. font=("TkDefaultFont", 9)) -- Tk les met alors a
+#      l'echelle automatiquement selon le DPI systeme reel (verifie
+#      empiriquement : deja 1.3333 par defaut sur une machine a 100%/96
+#      DPI -- convention Tk de toujours, 96/72 -- puis x1.25 supplementaire
+#      a 125%, x1.5 a 150%...), alors que la taille de fenetre elle-meme
+#      (geometry("1100x750"), fixe, non redimensionnable) reste un compte
+#      de pixels LITTERAL, jamais mis a l'echelle. A 125%, le contenu
+#      (police + hauteur des widgets qui en derivent) a besoin d'environ
+#      25% de hauteur en plus que ce que la fenetre fixe fournit -- la
+#      section la plus basse (Progression) est celle qui deborde et
+#      disparait purement et simplement, des l'ouverture (mismatch
+#      structurel, pas un evenement runtime). Fix : verrouille l'echelle
+#      interne de Tk a la valeur standard 96 DPI (root.tk.call("tk",
+#      "scaling", 96/72), PAS 1.0 -- piege evite de justesse en testant
+#      AVANT de livrer : forcer 1.0 aurait retreci l'interface sur TOUTES
+#      les machines, y compris a 100%, une regression bien plus large que
+#      le bug corrige) juste apres la creation de root, AVANT toute
+#      creation de widget -- fige le rendu EXACTEMENT sur ce qui a
+#      toujours ete teste/valide a 100%, quel que soit le DPI systeme
+#      reel. No-op reel sur une machine a 100% (1.3333 avant ET apres,
+#      verifie), verrou effectif seulement au-dela. Teste (aucun ecran
+#      4K/125% reel disponible sur la machine de dev) en forcant
+#      artificiellement "tk scaling" via un bloc temporaire gate par
+#      variable d'environnement (retire avant ce commit) : a x1.25 (125%
+#      simule), rien de visiblement casse sur cette machine (ecran assez
+#      haut, marge suffisante) -- mais a x2 (200% simule), TOUT le bas de
+#      l'interface (Progression, DEMARRER/QUITTER, Pause/Reprise/Passe/
+#      Stop) disparait purement et simplement, confirmant le mecanisme.
+#      Avec le fix actif, meme a x2 simule, l'interface entiere redevient
+#      identique au rendu normal (100%). Le mecanisme est donc CONFIRME
+#      reel et corrige, mais pas prouve declencheur unique/suffisant a
+#      125% pile sur TOUTE configuration (police systeme, traductions
+#      plus longues FR/ES, contenu reel des listes -- autant de variables
+#      non reproduites ici) -- fix applique par prudence (no-op a 100%,
+#      corrige le mecanisme verifie) en attendant confirmation du
+#      testeur tiers reel.
 #
 # v67 — 2026-09-14 — safe-modify — Suite a un cas utilisateur reel : un
 #      utilisateur avait deja une IP fixe attribuee AUTOMATIQUEMENT par son
@@ -2770,6 +2812,34 @@ class RetroBoxLEDGui:
                     pass
 
         self.root = tk.Tk()
+
+        # v68, safe-modify : verrouille l'echelle interne de Tk a la valeur
+        # STANDARD 96 DPI (1.333... px/point), PAS a 1.0 -- verifie
+        # empiriquement avant ce fix : sur une machine a 100% (96 DPI), Tk
+        # calcule DEJA "tk scaling"=1.3333 par defaut (convention Tk de
+        # toujours : 1 point = 1/72 pouce, 96/72=1.3333), PAS 1.0 comme
+        # suppose initialement -- verrouiller a 1.0 aurait donc RETRECI
+        # l'interface sur TOUTES les machines, y compris celles a 100%,
+        # une regression bien plus large que le bug corrige. DOIT
+        # s'executer avant toute creation de widget (fontes/tailles deja
+        # calculees a la premiere utilisation sinon). Sans ce fix, Tk met
+        # a l'echelle les tailles de police exprimees en points positifs
+        # (toutes ici, ex. ("TkDefaultFont", 9)) selon le DPI systeme reel
+        # -- a 125% par exemple, "tk scaling" passe de 1.3333 a 1.6667
+        # (x1.25) -- alors que la fenetre elle-meme est fixe et non
+        # redimensionnable (geometry("1100x750") plus bas, en pixels
+        # litteraux, jamais mise a l'echelle). Ce dephasage fait deborder
+        # le contenu hors de la fenetre -- la section la plus basse
+        # (Progression) disparait purement et simplement. Verrouiller a
+        # 96/72 fige le rendu EXACTEMENT sur ce qui a toujours ete
+        # teste/valide (100%), quel que soit le DPI systeme reel -- no-op
+        # reel sur une machine a 100% (verifie : 1.3333 avant ET apres),
+        # verrou effectif seulement au-dela.
+        try:
+            self.root.tk.call("tk", "scaling", 96 / 72)
+        except Exception:
+            pass
+
         self.root.title("RecalBoxDMD Toolkit - GUI")
         self.root.configure(bg="#F3F3F3")
 
@@ -5156,7 +5226,20 @@ class RetroBoxLEDGui:
         self._refresh_help_tab_content()
 
     def _refresh_help_tab_content(self) -> None:
-        """Affiche le README.md avec rendu markdown via la bibliothèque standard."""
+        """Affiche HELP.md avec rendu markdown via la bibliotheque standard.
+
+        2026-09-14 -- BUG REEL corrige (retour utilisateur en direct) : ce
+        fichier s'appelait auparavant README.md/.fr.md/.es.md, exactement
+        comme le README GitHub racine du depot (fichier totalement
+        different, page vitrine/marketing) -- une session anterieure
+        (commit 98c990a, 2026-09-06) a fini par confondre les deux et a
+        ecrase le contenu de CE fichier (manuel d'utilisation du Toolkit)
+        par une copie du README GitHub, sans que personne ne le remarque
+        pendant des semaines. Renomme en HELP.md pour rendre cette
+        confusion impossible a l'avenir -- ce fichier est UNIQUEMENT le
+        contenu de l'onglet Aide, jamais a synchroniser avec le README
+        GitHub.
+        """
         if not getattr(self, "help_text", None):
             return
 
@@ -5166,11 +5249,11 @@ class RetroBoxLEDGui:
             else "fr"
         )
         if lang == "en":
-            readme_name = "README.md"
+            readme_name = "HELP.md"
         elif lang == "es":
-            readme_name = "README.es.md"
+            readme_name = "HELP.es.md"
         else:
-            readme_name = "README.fr.md"
+            readme_name = "HELP.fr.md"
 
         if getattr(self, "help_title_lbl", None):
             self.help_title_lbl.config(text=f"{self._get_ui_t()['tab_help']} ({readme_name})")
@@ -5267,14 +5350,14 @@ class RetroBoxLEDGui:
             pass
 
     def _open_help_in_browser(self) -> None:
-        """Ouvre le README.md correspondant à la langue dans le navigateur."""
+        """Ouvre le HELP.md correspondant a la langue dans le navigateur."""
         lang = self.lang_var.get()
         if lang == "en":
-            readme_name = "README.md"
+            readme_name = "HELP.md"
         elif lang == "es":
-            readme_name = "README.es.md"
+            readme_name = "HELP.es.md"
         else:
-            readme_name = "README.fr.md"
+            readme_name = "HELP.fr.md"
         base_dir = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
         readme_path = base_dir / readme_name
         try:
