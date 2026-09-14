@@ -3,6 +3,12 @@ Build a Windows .msi installer for RecalBoxDMD Toolkit using cx_Freeze.
 Usage (Python 3.12 recommended -- see build notes in RecalBoxDMD_GUI.spec):
     python setup_msi.py bdist_msi
 Produces dist_msi\\RecalBoxDMD Toolkit-1.0.0-win64.msi
+
+2026-09-14 -- base="Win32GUI" (ancienne convention de nommage cx_Freeze)
+remplace par base="gui" : cx_Freeze 8.7.0 (installe pour ce build,
+compatible Python 3.14) a renomme ses bases -- "Win32GUI" leve desormais
+DistutilsOptionError ("no base named 'legacy/win32gui' -- Did you mean
+'gui'?"). Compatible avec toutes les futures versions 8.x de cx_Freeze.
 """
 from cx_Freeze import setup, Executable
 import sys
@@ -32,11 +38,11 @@ bdist_msi_options = {
     "initial_target_dir": r"[ProgramFilesFolder]\RecalBoxDMD Toolkit",
     "summary_data": {
         "author": "Shan_ayA",
-        "comments": "RecalBoxDMD Toolkit - RawEdition PC Toolkit",
+        "comments": "RecalBoxDMD Toolkit - Raw565 Edition PC Toolkit",
     },
 }
 
-base = "Win32GUI" if sys.platform == "win32" else None
+base = "gui" if sys.platform == "win32" else None
 
 executables = [
     Executable(
@@ -57,7 +63,7 @@ executables = [
 setup(
     name="RecalBoxDMD Toolkit",
     version="1.0.0",
-    description="RecalBoxDMD Toolkit - RawEdition PC Toolkit",
+    description="RecalBoxDMD Toolkit - Raw565 Edition PC Toolkit",
     options={"build_exe": build_exe_options, "bdist_msi": bdist_msi_options},
     executables=executables,
 )
