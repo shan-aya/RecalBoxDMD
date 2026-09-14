@@ -1938,3 +1938,24 @@ Sur demande explicite de l'utilisateur, reprise des éditions trivia laissées d
 **Nettoyage suggéré, pas fait automatiquement** : le dossier NAS `_pending_niveau2_captures_rb2/` (303 Mo, matériau brut désormais lu et sans plus-value propre selon le README du dépôt) peut être purgé à la demande — laissé en place pour l'instant, suppression NAS non déclenchée sans confirmation explicite.
 
 **Bilan chiffré final** : `verified_default_scores.json` inchangé en substance (2277 mame0278, 1664 fbneo après ajout du doublon `fbneo_aliens` — contenu strictement identique à l'entrée mame0278 déjà présente, ajout sans risque). Chantier "196 candidats hiscore.dat sans image corpus" officiellement clos, résultat négatif documenté pour éviter de le retenter à l'identique.
+
+## Campagne niveau1 autopilote mame0278 sur les 195 candidats — BUG RÉEL trouvé (PLAYER1_X toujours no-op côté MAME) + succès (2026-09-13/14)
+
+**Contexte** : décision utilisateur explicite de reprendre le niveau1 (`.hi` réels) une fois le niveau2 saturé. Cible naturelle : les 195 candidats de la section précédente (support `hiscore.dat` confirmé, 0% de couverture niveau1 ET niveau2 avant cette campagne).
+
+**Découverte critique avant tout lancement** : `direct_harvest_mame0278_rb2.py` (le script utilisé pour TOUTE la campagne phase1, 5732 roms) simule crédit+start via `PLAYER1_SELECT`/`PLAYER1_START` en UDP:55355 — exactement le mécanisme déjà prouvé être un no-op silencieux côté fbneo le 2026-09-03 (voir "PLAYER1_X n'a JAMAIS été une vraie commande RetroArch"), jamais revérifié côté MAME. Conclusion : **le crédit+start de toute la campagne phase1 n'a probablement jamais fonctionné** — les 296/5732 `.hi` obtenus à l'époque viennent d'autre chose (dwell passif tombant sur le bon instant d'attract-mode, ou jeux qui écrivent un score par défaut sans credit).
+
+**Fix appliqué** : nouveau script `mame_autopilot_rb2.py`, reprenant l'infrastructure déjà validée en réel côté fbneo (`rb2_uinput_gamepad.py` — clone noyau uinput du controleur Steam Deck, lié via `-p1devicepath` AU LANCEMENT) :
+- Crédit (2×`BTN_SELECT`) + start (`BTN_START`) via le clone uinput RÉEL, pas UDP.
+- Jeu ACTIF pendant 120s (pas de dwell passif) via `mame_game_profiles.py` (adaptation de `fbneo_game_profiles.py`, mêmes règles apprises à la dure : jamais le D-pad — raccourcis RecalBox système —, jamais `BTN_SOUTH` en usage soutenu — collision avec `input_menu_toggle_btn`). Nouvelle catégorie `fixed_shooter` ajoutée (tir quasi-continu + balayage latéral), dominante sur ce corpus 1976-1983 (Galaxian/Space Invaders-like).
+- Classification par genre via le `gamelist.xml` officiel Recalbox (31 Mo, déjà présent sur RB2) — fonctionne malgré des chemins de romset différents de la structure réelle (`game_metadata()` ne matche que sur le nom de base du fichier).
+
+**Validation avant lancement complet** : test sur 3 roms (`galaxian`/fixed_shooter, `sbrkout`/breakout, `005`/maze_action, 45s) — `galaxian` a produit un `.hi` réellement peuplé, et LES 3 screenshots de fin confirment une vraie partie en cours (pas un écran titre) : preuve directe que le mécanisme crédit fonctionne enfin pour MAME.
+
+**Campagne complète lancée** (195 roms, 120s/rom, tâche détachée `nohup`+`disown`, ~14:13→21:07 le 13/09, RB2 injoignable un moment en cours de route sans incidence — `/tmp` n'a pas été perdu, pas de redémarrage réel) : **51/195 roms ont produit un `.hi`, dont 49 avec un score réellement non-nul** (`kingball`/`r2dtank` : fichier créé mais entièrement à zéro, non exploitable) — **taux de réussite ~25%**, contre ~5% pour la méthode UDP historique. 13 roms de la liste avaient en réalité déjà un `.hi` réel avant cette campagne (skip immédiat) — léger écart avec le comptage NAS antérieur (0/195 annoncé), dû à un décalage RB2↔NAS non critique.
+
+**Synchronisation** : 51 nouveaux `.hi` copiés sur NAS (`HISCORE_DATA/mame/mame0278/hiscore/`, 362→413) et RB1 (`/recalbox/share/saves/mame/mame0278/hiscore/`), sans écraser aucun fichier existant (règle du dépôt respectée, script dédié `push_rb1_hi.sh`).
+
+**Bilan chiffré global niveau1+niveau2 (dédupliqué par nom de rom, mame+fbneo confondus)** : niveau1 union 2695→**2721** (+26 jeux réellement nouveaux, le reste des 49 chevauchant déjà une couverture niveau2 existante) ; **total n1∪n2 : 4087 → 4113**.
+
+**Leçon méthodologique actée** : ne plus jamais faire confiance à un mécanisme d'input basé sur `PLAYER1_X`/UDP:55355 sans le revalider explicitement sur CHAQUE core différent (fbneo ≠ mame0278, même si l'API RetroArch réseau est partagée) — un no-op silencieux ne produit aucune erreur visible, seul un test croisé avec capture d'écran le révèle. `rb2_uinput_gamepad.py` + `*_game_profiles.py` (genre-based) sont maintenant l'infrastructure de référence pour TOUTE automatisation d'input future sur RB2, quel que soit le core.
