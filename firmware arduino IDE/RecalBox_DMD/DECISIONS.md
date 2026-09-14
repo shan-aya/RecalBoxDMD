@@ -2355,3 +2355,20 @@ Poussé en fast-forward propre : `11878ca` → `bbd82f8` (vérifié via `git fet
 **Prochaine étape immédiate** : flasher `littlefs.bin` (offset à déterminer dans `zedmd_src/.pio/build/128x32/partitions.bin` ou via `pio run -e 128x32 -t uploadfs`) et réévaluer l'affichage avant de creuser la config de chaînage si le problème persiste.
 
 Rien de plus à faire tant que l'un de ces deux points n'a pas avancé.
+
+## `is_recalbox_reachable()` faux négatif malgré un partage accessible via l'Explorateur Windows (2026-09-14)
+
+**Retour utilisateur (via vidéo d'un testeur tiers)** : malgré une IP Recalbox saisie correctement, l'outil affiche qu'il n'a pas pu copier les scripts sur la Recalbox ("ne pas copier les scripts sur RB"). Le testeur confirme un accès normal au même partage `\\<ip>\share` via l'Explorateur Windows au même moment -- contradiction directe entre l'observation utilisateur et le verdict de l'outil, présumée fondée d'entrée (voir [[feedback_precision_user_reports_as_data]]).
+
+**Cause tracée dans le code** : `is_recalbox_reachable(host, timeout=1.5)` (`RecalBoxDMD_tool.py`) ne fait qu'une connexion TCP **brute** au port 445, utilisée aussi bien pour l'IP auto-détectée que pour toute IP saisie manuellement (confirmation pré-vol du Mode 1, `RecalBoxDMD_GUI.py` ~L8773-8814). Hypothèse retenue : le port 445 est une cible historique de règles pare-feu/antivirus visant spécifiquement les connexions SMB brutes émises par un processus tiers non reconnu (héritage des vers exploitant SMB type WannaCry), alors que le client SMB natif de Windows (utilisé par l'Explorateur) passe outre ces règles -- un simple délai réseau transitoire plus long que le timeout court d'origine (1.5s) peut aussi en être la cause. RB1 était injoignable au moment du diagnostic (`Test-NetConnection 192.168.0.35:445` → `False`), donc pas de test en conditions réelles contre le poste du testeur -- le fix ci-dessous a été validé en isolation (hôte injoignable local, hôte joignable local, hôte vide).
+
+**Fix appliqué** : si la connexion socket brute échoue, tente en repli un VRAI accès au partage via son chemin UNC (`\\<host>\share`) -- exactement le mécanisme que l'Explorateur Windows utilise lui-même, donc un test bien plus proche de ce que l'utilisateur constate réellement. Exécuté dans un thread démon borné par une `queue.Queue` (même motif que `detect_recalbox_share()`, v47, déjà fixé plus tôt cette session pour la même raison : `Path(...).exists()` sur un chemin UNC n'a aucun timeout configurable via l'API standard).
+
+**Validé en isolation** (RB1 injoignable, tests directs sur la fonction) :
+- Hôte injoignable (`192.168.0.35`, `Test-NetConnection` confirme `False`) → retourne `False` en ~4s (1.5s socket + 2.5s repli UNC), aucun blocage/exception.
+- Hôte vide (`""`) → retourne `False` immédiatement (chemin déjà existant, inchangé).
+- Hôte réellement joignable en 445 (`127.0.0.1`, SMB local Windows) → retourne `True` en ~0.01s, chemin rapide intact, aucune régression de latence sur le cas courant.
+
+**Pas encore testé** : contre le poste du testeur tiers lui-même (le seul cas qui reproduit réellement le bug signalé), ni contre RB1 une fois en ligne. À confirmer avec le retour du testeur avant de considérer le correctif comme définitivement validé.
+
+**Packaging** : ce fix est dans `RecalBoxDMD_tool.py`, utilisé par le Toolkit packagé (exe portable + installeur) -- suit le même protocole que les 2 fixes précédents de cette session (Tcl/Tk, onglet Aide) : commit ici (`dev/dmd-udp-transport`), cherry-pick sur `master`, rebuild + republication des assets sur la Release GitHub `RecalBoxDMD_tool_v6300` (`gh release upload --clobber`) une fois la confirmation utilisateur obtenue -- pas encore fait à ce stade, en attente de validation avant republication (éviter un 3e cycle de publication si le fix s'avère insuffisant).
