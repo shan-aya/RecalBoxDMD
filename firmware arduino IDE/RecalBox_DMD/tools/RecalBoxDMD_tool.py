@@ -1,7 +1,31 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v47
+# Version actuelle : v48
+#
+# v48 - 2026-09-14 - safe-modify - Suite a un cas utilisateur reel : un
+#      utilisateur avait deja une IP fixe attribuee AUTOMATIQUEMENT par son
+#      routeur, puis a AUSSI configure une IP statique cote DMD -- cette
+#      "double validation" (reservation DHCP routeur + IP statique DMD) a
+#      cause un probleme de connexion important. Aucune API generique/
+#      independante du fabricant n'existe pour detecter une reservation
+#      DHCP deja en place cote routeur (verifie : chaque marque -- Freebox,
+#      Livebox, etc. -- expose au mieux sa propre API proprietaire), donc
+#      pas de detection automatique fiable possible. A la place : 2
+#      nouvelles fonctions pour une etape IP fixe EXPLICITE et OPTIONNELLE
+#      (case a cocher, decochee par defaut) ajoutee a la suite du dialogue
+#      WiFi du Mode 1 (GUI) : get_local_network_hint() (best-effort,
+#      Get-NetIPConfiguration -- proprietes structurees non traduites,
+#      meme piege de libelles localises deja corrige sur netsh en v46 evite
+#      d'emblee) pre-remplit passerelle/masque/DNS a partir de la config
+#      reseau ACTUELLE de ce PC pour reduire le risque de faute de frappe
+#      (cause probable du cas remonte), et write_dmd_static_ip() ecrit
+#      wifi_static_enabled/wifi_static_ip/wifi_gateway/wifi_subnet/
+#      wifi_dns1/wifi_dns2 dans config.ini (meme motif lecture-
+#      modification-ecriture en une passe que write_dmd_wifi()) -- n'ecrit
+#      rien si la case reste decochee (ip vide), comportement par defaut
+#      inchange. Le dialogue GUI avertit explicitement l'utilisateur de ne
+#      configurer qu'UNE seule des deux methodes (meme message que FAQ.md).
 #
 # v47 - 2026-09-14 - safe-modify - BUG REEL corrige (retour utilisateur en
 #      direct : "l'app ne repond plus apres le clic sur Continuer" / "la
@@ -2159,6 +2183,159 @@ def write_dmd_wifi(sd_dir: Path, ssid: str, password: str) -> None:
         lines = cfg_path.read_text(encoding="utf-8").splitlines()
 
     patch = {"wifi_enabled": "1", "wifi_ssid": ssid, "wifi_password": password}
+    remaining = dict(patch)
+    for i, line in enumerate(lines):
+        for key, value in list(remaining.items()):
+            if line.startswith(key + "="):
+                lines[i] = f"{key}={value}"
+                del remaining[key]
+                break
+    for key, value in remaining.items():
+        lines.append(f"{key}={value}")
+    cfg_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _prefix_to_subnet_mask(prefix: int) -> str:
+    """Convertit un prefixe CIDR (0-32, tel que rendu par
+    Get-NetIPConfiguration) en masque decimal pointe ("24" -> "255.255.
+    255.0"). Retourne "" si hors plage (ne devrait pas arriver avec des
+    donnees Windows valides, mais get_local_network_hint() ne doit jamais
+    lever d'exception)."""
+    if not (0 <= prefix <= 32):
+        return ""
+    mask = (0xFFFFFFFF << (32 - prefix)) & 0xFFFFFFFF if prefix else 0
+    return ".".join(str((mask >> shift) & 0xFF) for shift in (24, 16, 8, 0))
+
+
+def _looks_like_ipv4(s: str) -> bool:
+    parts = s.split(".")
+    if len(parts) != 4:
+        return False
+    try:
+        return all(0 <= int(p) <= 255 for p in parts)
+    except ValueError:
+        return False
+
+
+def get_local_network_hint() -> Optional[dict]:
+    """
+    Best-effort (Windows uniquement) : lit la configuration IPv4 ACTUELLE
+    de ce PC (passerelle, masque, DNS) via PowerShell
+    `Get-NetIPConfiguration`, pour PRE-REMPLIR les champs optionnels d'IP
+    fixe du DMD dans _prompt_wifi_dialog() (GUI) avec des valeurs
+    plausibles au lieu de champs vides -- reduit le risque de faute de
+    frappe/valeur fausse dans une passerelle ou un masque saisis a la
+    main (cause reelle d'un probleme de connexion rapporte par un
+    utilisateur ayant configure une IP fixe cote DMD alors que son
+    routeur en attribuait deja une automatiquement, voir DECISIONS.md).
+
+    NE DETECTE PAS et NE PEUT PAS detecter si le routeur a deja une
+    reservation DHCP pour ce DMD -- aucune API generique/independante du
+    fabricant n'existe pour ca (chaque marque de routeur/box -- Freebox,
+    Livebox, etc. -- expose au mieux sa propre API proprietaire, pas de
+    standard). C'est pourquoi l'IP fixe reste une case a cocher EXPLICITE
+    avec un avertissement dans le dialogue, jamais une decision
+    automatique -- cf DECISIONS.md pour le detail de cette investigation.
+
+    Utilise Get-NetIPConfiguration (proprietes structurees .NET, noms non
+    traduits quelle que soit la langue du systeme) plutot que `ipconfig`
+    (sortie texte localisee -- meme piege deja rencontre et corrige sur
+    netsh.exe, v46 : libelles "Channel"/"Canal", "State"/"Etat").
+
+    Retourne un dict {"gateway", "subnet", "dns1", "dns2"} (chaines,
+    "dns2" peut etre vide) construit a partir de l'interface qui a une
+    passerelle par defaut (= l'interface reellement utilisee pour sortir
+    sur Internet, evite de tomber sur une interface secondaire/VPN/
+    virtuelle), ou None en cas d'echec (pas de reseau, PowerShell absent,
+    sortie inattendue) -- jamais d'exception remontee a l'appelant.
+    """
+    if sys.platform != "win32":
+        return None
+    import subprocess
+
+    ps_cmd = (
+        "Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway } "
+        "| Select-Object -First 1 -Property "
+        "@{N='gateway';E={$_.IPv4DefaultGateway.NextHop}}, "
+        "@{N='prefix';E={$_.IPv4Address.PrefixLength}}, "
+        "@{N='dns';E={$_.DNSServer.ServerAddresses}} "
+        "| ConvertTo-Json -Compress"
+    )
+    try:
+        out = subprocess.check_output(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+            encoding="utf-8", errors="replace", stderr=subprocess.DEVNULL, timeout=10,
+            creationflags=(subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0),
+        )
+        data = json.loads(out.strip() or "{}")
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+
+    gateway = str(data.get("gateway") or "").strip()
+    if not gateway or not _looks_like_ipv4(gateway):
+        return None
+    prefix = data.get("prefix")
+    subnet = _prefix_to_subnet_mask(prefix) if isinstance(prefix, int) else ""
+
+    dns = data.get("dns") or []
+    if isinstance(dns, str):
+        dns = [dns]
+    dns_list = [d for d in dns if isinstance(d, str) and _looks_like_ipv4(d)]
+
+    return {
+        "gateway": gateway,
+        "subnet": subnet,
+        "dns1": dns_list[0] if dns_list else gateway,
+        "dns2": dns_list[1] if len(dns_list) > 1 else "",
+    }
+
+
+def write_dmd_static_ip(
+    sd_dir: Path, ip: str, gateway: str, subnet: str, dns1: str, dns2: str = ""
+) -> None:
+    """
+    Ecrit/patch wifi_static_enabled=1 + wifi_static_ip/wifi_gateway/
+    wifi_subnet/wifi_dns1/wifi_dns2 dans sd_dir/config.ini (meme motif
+    lecture-modification-ecriture EN UNE SEULE PASSE que write_dmd_wifi()
+    ci-dessus) -- cles lues par loadConfig() cote firmware
+    (RecalBox_DMD.ino) et appliquees par applyStaticIP() (WiFi.config())
+    avant WiFi.begin().
+
+    N'ecrit RIEN si `ip` est vide (case "IP fixe" decochee dans
+    _prompt_wifi_dialog(), cas normal/par defaut) -- le DMD reste alors
+    en DHCP classique, comportement inchange. Cette fonction n'ecrit
+    jamais wifi_static_enabled=0 explicitement : une carte SD reutilisee
+    qui avait deja une IP fixe configuree manuellement (web config du
+    DMD, hors Mode 1) la conserve si l'utilisateur ne coche pas cette
+    option ici -- seul un appel explicite avec `ip` non vide modifie ces
+    cles.
+
+    2026-09-14 -- ajoutee suite a un retour utilisateur (cas reel :
+    utilisateur ayant deja une IP fixe attribuee automatiquement cote
+    routeur, PUIS configure une IP statique cote DMD -- "double
+    validation" -- qui a cause un probleme de connexion). Voir
+    get_local_network_hint() ci-dessus (pre-remplissage best-effort des
+    champs gateway/subnet/dns) et le dialogue GUI correspondant, qui
+    avertit explicitement de ne configurer qu'UNE seule des deux methodes
+    (meme message que FAQ.md, section IP fixe).
+    """
+    if not ip:
+        return
+    cfg_path = sd_dir / "config.ini"
+    lines: list[str] = []
+    if cfg_path.exists():
+        lines = cfg_path.read_text(encoding="utf-8").splitlines()
+
+    patch = {
+        "wifi_static_enabled": "1",
+        "wifi_static_ip": ip,
+        "wifi_gateway": gateway,
+        "wifi_subnet": subnet,
+        "wifi_dns1": dns1,
+        "wifi_dns2": dns2,
+    }
     remaining = dict(patch)
     for i, line in enumerate(lines):
         for key, value in list(remaining.items()):

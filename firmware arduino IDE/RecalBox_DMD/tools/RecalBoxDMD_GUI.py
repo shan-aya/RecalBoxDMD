@@ -2,7 +2,28 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v66
+# Version actuelle : v67
+#
+# v67 — 2026-09-14 — safe-modify — Suite a un cas utilisateur reel : un
+#      utilisateur avait deja une IP fixe attribuee AUTOMATIQUEMENT par son
+#      routeur, puis a AUSSI configure une IP statique cote DMD -- cette
+#      "double validation" a cause un probleme de connexion important.
+#      Aucune detection fiable de reservation DHCP existante n'etant
+#      possible (pas d'API generique independante du fabricant du routeur,
+#      voir toolkit.get_local_network_hint(), v48), ajoute a la suite de
+#      _prompt_wifi_dialog() (v65/v66) une section IP fixe EXPLICITE et
+#      OPTIONNELLE (case a cocher, decochee par defaut) : avertissement
+#      visible ("une seule des deux methodes, jamais les deux", meme
+#      message que FAQ.md) + 5 champs (IP/passerelle/masque/DNS1/DNS2)
+#      pre-remplis en best-effort a partir de la config reseau de CE PC
+#      (toolkit.get_local_network_hint()) pour reduire le risque de faute
+#      de frappe si l'utilisateur choisit quand meme cette option, avec
+#      validation de format avant "Continuer". Ecrit via la nouvelle
+#      toolkit.write_dmd_static_ip() (n'ecrit rien si la case reste
+#      decochee, comportement par defaut inchange). _prompt_wifi_dialog()
+#      retourne desormais un dict {"ssid","password","static"} au lieu
+#      d'un tuple (ssid, password) -- appelant (_on_start_clicked(), Mode
+#      1) mis a jour en consequence. 10 nouvelles cles i18n FR/EN/ES.
 #
 # v66 — 2026-09-14 — safe-modify — Retour utilisateur en testant le nouveau
 #      dialogue WiFi (v65) : aucun moyen de relancer le scan sans fermer/
@@ -1441,6 +1462,30 @@ UI_TRANSLATIONS = {
         "mode1_wifi_skip_btn": "Ignorer (configurer plus tard)",
         "mode1_wifi_need_ssid": "Sélectionnez un réseau WiFi.",
         "mode1_wifi_need_verify": "Vérifiez le mot de passe avant de continuer.",
+        "mode1_wifi_static_checkbox": "Configurer aussi une IP fixe pour le DMD (avancé)",
+        "mode1_wifi_static_warning": (
+            "⚠️ N'utilisez ceci QUE si votre routeur/box n'attribue pas déjà "
+            "une adresse fixe à cet appareil. Une réservation DHCP sur le "
+            "routeur est généralement plus simple : configurez UNE seule des "
+            "deux méthodes, jamais les deux en même temps (voir la FAQ)."
+        ),
+        "mode1_wifi_static_loading": "Détection du réseau local...",
+        "mode1_wifi_static_ip_label": "Adresse IP du DMD",
+        "mode1_wifi_static_gateway_label": "Passerelle",
+        "mode1_wifi_static_subnet_label": "Masque de sous-réseau",
+        "mode1_wifi_static_dns1_label": "DNS 1",
+        "mode1_wifi_static_dns2_label": "DNS 2 (optionnel)",
+        "mode1_wifi_static_hint": (
+            "Valeurs pré-remplies à partir de la config réseau de ce PC, à "
+            "titre indicatif seulement -- vérifiez qu'elles conviennent "
+            "(et que l'IP choisie n'est pas déjà utilisée) avant de continuer."
+        ),
+        "mode1_wifi_static_no_hint": (
+            "Détection automatique impossible -- renseignez ces champs "
+            "vous-même (consultez la configuration de votre routeur)."
+        ),
+        "mode1_wifi_static_need_fields": "Renseignez au moins l'IP, la passerelle et le masque, ou décochez l'IP fixe.",
+        "mode1_wifi_static_bad_value": lambda value: f"Adresse invalide : {value}",
         "mode1_manual_ip_title": "Adresse Recalbox",
         "mode1_manual_ip_prompt": (
             "Entrez l'adresse IP ou le nom réseau de votre Recalbox :"
@@ -1908,6 +1953,30 @@ UI_TRANSLATIONS = {
         "mode1_wifi_skip_btn": "Skip (configure later)",
         "mode1_wifi_need_ssid": "Select a WiFi network.",
         "mode1_wifi_need_verify": "Verify the password before continuing.",
+        "mode1_wifi_static_checkbox": "Also set a fixed IP for the DMD (advanced)",
+        "mode1_wifi_static_warning": (
+            "⚠️ Only use this if your router/box does NOT already assign a "
+            "fixed address to this device. A DHCP reservation on the router "
+            "is usually simpler: set up ONE of the two methods, never both "
+            "at once (see the FAQ)."
+        ),
+        "mode1_wifi_static_loading": "Detecting local network...",
+        "mode1_wifi_static_ip_label": "DMD IP address",
+        "mode1_wifi_static_gateway_label": "Gateway",
+        "mode1_wifi_static_subnet_label": "Subnet mask",
+        "mode1_wifi_static_dns1_label": "DNS 1",
+        "mode1_wifi_static_dns2_label": "DNS 2 (optional)",
+        "mode1_wifi_static_hint": (
+            "Values pre-filled from this PC's network config, for reference "
+            "only -- check they fit your network (and that the chosen IP "
+            "isn't already in use) before continuing."
+        ),
+        "mode1_wifi_static_no_hint": (
+            "Couldn't auto-detect your network -- fill these in yourself "
+            "(check your router's configuration)."
+        ),
+        "mode1_wifi_static_need_fields": "Fill in at least the IP, gateway and subnet mask, or uncheck the fixed IP option.",
+        "mode1_wifi_static_bad_value": lambda value: f"Invalid address: {value}",
         "mode1_manual_ip_title": "Recalbox address",
         "mode1_manual_ip_prompt": (
             "Enter your Recalbox's IP address or network name:"
@@ -2371,6 +2440,30 @@ UI_TRANSLATIONS = {
         "mode1_wifi_skip_btn": "Omitir (configurar más tarde)",
         "mode1_wifi_need_ssid": "Selecciona una red WiFi.",
         "mode1_wifi_need_verify": "Verifica la contraseña antes de continuar.",
+        "mode1_wifi_static_checkbox": "Configurar también una IP fija para el DMD (avanzado)",
+        "mode1_wifi_static_warning": (
+            "⚠️ Usa esto SOLO si tu router/box no asigna ya una dirección "
+            "fija a este dispositivo. Una reserva DHCP en el router suele "
+            "ser más simple: configura UNO solo de los dos métodos, nunca "
+            "ambos a la vez (consulta la FAQ)."
+        ),
+        "mode1_wifi_static_loading": "Detectando la red local...",
+        "mode1_wifi_static_ip_label": "Dirección IP del DMD",
+        "mode1_wifi_static_gateway_label": "Puerta de enlace",
+        "mode1_wifi_static_subnet_label": "Máscara de subred",
+        "mode1_wifi_static_dns1_label": "DNS 1",
+        "mode1_wifi_static_dns2_label": "DNS 2 (opcional)",
+        "mode1_wifi_static_hint": (
+            "Valores prerellenados a partir de la config de red de este PC, "
+            "solo a título orientativo -- comprueba que sean correctos (y "
+            "que la IP elegida no esté ya en uso) antes de continuar."
+        ),
+        "mode1_wifi_static_no_hint": (
+            "No se pudo detectar la red automáticamente -- rellena estos "
+            "campos tú mismo (consulta la configuración de tu router)."
+        ),
+        "mode1_wifi_static_need_fields": "Rellena al menos la IP, la puerta de enlace y la máscara, o desmarca la IP fija.",
+        "mode1_wifi_static_bad_value": lambda value: f"Dirección no válida: {value}",
         "mode1_manual_ip_title": "Dirección de la Recalbox",
         "mode1_manual_ip_prompt": (
             "Introduce la IP o el nombre de red de tu Recalbox:"
@@ -7978,7 +8071,7 @@ class RetroBoxLEDGui:
         self.root.wait_window(dlg)
         return result["value"]
 
-    def _prompt_wifi_dialog(self) -> Optional[tuple[str, str]]:
+    def _prompt_wifi_dialog(self) -> Optional[dict]:
         """Popup themee, en tete du Mode 1 (avant la question IP Recalbox,
         demande utilisateur 2026-09-13) : liste les reseaux WiFi 2,4 GHz
         visibles depuis ce PC (toolkit.scan_wifi_networks_24ghz()), saisie
@@ -7989,7 +8082,21 @@ class RetroBoxLEDGui:
         (config.ini pre-rempli), sans jamais passer par le point d'acces
         de secours -- voir write_dmd_wifi() et setupWiFiFromConfig() cote
         firmware (saute l'AP si wifi_ssid est deja renseigne).
-        Retourne (ssid, password) si verifie et valide, None si ignore/
+
+        2026-09-14 -- section IP fixe optionnelle ajoutee (case a cocher,
+        decochee par defaut) suite a un cas utilisateur reel : une "double
+        validation" IP fixe cote routeur (reservation DHCP automatique) ET
+        cote DMD (IP statique) a cause un probleme de connexion important.
+        Aucune detection fiable de reservation DHCP existante n'est
+        possible (pas d'API generique independante du fabricant du
+        routeur, voir toolkit.get_local_network_hint()) -- a la place, un
+        avertissement explicite + des champs pre-remplis (best-effort, a
+        partir de la config reseau de CE PC) pour reduire le risque de
+        faute de frappe si l'utilisateur choisit quand meme cette option.
+
+        Retourne un dict {"ssid", "password", "static"} si verifie et
+        valide ("static" = None, ou un dict {"ip","gateway","subnet",
+        "dns1","dns2"} si la case IP fixe est cochee), None si ignore/
         annule (le pipeline continue alors normalement, sans WiFi
         pre-configure -- comportement identique a avant cette fonctionnalite)."""
         ui = self._get_ui_t()
@@ -8049,6 +8156,79 @@ class RetroBoxLEDGui:
         status_lbl = tk.Label(body, text="", bg=bg, fg=fg, font=("TkDefaultFont", 9), wraplength=380, justify="left")
         status_lbl.pack(anchor="w", pady=(4, 10))
 
+        # --- IP fixe optionnelle (2026-09-14, voir docstring ci-dessus) ---
+        static_var = tk.BooleanVar(value=False)
+        static_frame = tk.Frame(body, bg=bg)
+        static_hint_lbl = tk.Label(
+            static_frame, text="", bg=bg, fg="#806000", font=("TkDefaultFont", 8),
+            wraplength=380, justify="left",
+        )
+        # Ni static_hint_lbl ni static_fields_frame ne sont packes ici --
+        # les deux restent masques tant que la case n'est pas cochee (voir
+        # _on_static_toggle() ci-dessous, seul endroit qui les affiche).
+        static_fields_frame = tk.Frame(static_frame, bg=bg)
+        static_vars: dict[str, tk.StringVar] = {
+            "ip": tk.StringVar(value=""), "gateway": tk.StringVar(value=""),
+            "subnet": tk.StringVar(value=""), "dns1": tk.StringVar(value=""),
+            "dns2": tk.StringVar(value=""),
+        }
+        static_labels = (
+            ("ip", "mode1_wifi_static_ip_label"), ("gateway", "mode1_wifi_static_gateway_label"),
+            ("subnet", "mode1_wifi_static_subnet_label"), ("dns1", "mode1_wifi_static_dns1_label"),
+            ("dns2", "mode1_wifi_static_dns2_label"),
+        )
+        for key, label_key in static_labels:
+            row = tk.Frame(static_fields_frame, bg=bg)
+            row.pack(fill="x", pady=1)
+            tk.Label(row, text=ui[label_key], bg=bg, fg=fg, font=("TkDefaultFont", 9), width=18, anchor="w").pack(side="left")
+            tk.Entry(row, textvariable=static_vars[key], font=("TkDefaultFont", 10)).pack(side="left", fill="x", expand=True)
+        static_loaded = {"done": False}
+
+        def _is_valid_ipv4(s: str) -> bool:
+            parts = s.strip().split(".")
+            if len(parts) != 4:
+                return False
+            try:
+                return all(0 <= int(p) <= 255 for p in parts)
+            except ValueError:
+                return False
+
+        def _on_static_toggle():
+            if not static_var.get():
+                static_fields_frame.pack_forget()
+                static_hint_lbl.pack_forget()
+                return
+            static_hint_lbl.pack(anchor="w", pady=(2, 6))
+            static_fields_frame.pack(fill="x")
+            if static_loaded["done"]:
+                return
+            static_loaded["done"] = True
+            static_hint_lbl.config(text=ui["mode1_wifi_static_loading"])
+            dlg.update()
+            hint = self.tkmod.get_local_network_hint()
+            if hint:
+                static_vars["gateway"].set(hint.get("gateway", ""))
+                static_vars["subnet"].set(hint.get("subnet", ""))
+                static_vars["dns1"].set(hint.get("dns1", ""))
+                static_vars["dns2"].set(hint.get("dns2", ""))
+                gw = hint.get("gateway", "")
+                if gw and gw.count(".") == 3:
+                    static_vars["ip"].set(gw.rsplit(".", 1)[0] + ".200")
+                static_hint_lbl.config(text=ui["mode1_wifi_static_hint"])
+            else:
+                static_hint_lbl.config(text=ui["mode1_wifi_static_no_hint"])
+
+        tk.Checkbutton(
+            body, text=ui["mode1_wifi_static_checkbox"], variable=static_var,
+            command=_on_static_toggle, bg=bg, fg=fg, selectcolor=bg,
+            font=("TkDefaultFont", 9), anchor="w",
+        ).pack(anchor="w", pady=(0, 0))
+        tk.Label(
+            body, text=ui["mode1_wifi_static_warning"], bg=bg, fg="#CC6600",
+            font=("TkDefaultFont", 8), wraplength=380, justify="left",
+        ).pack(anchor="w", pady=(2, 4))
+        static_frame.pack(fill="x", pady=(0, 6))
+
         verified = {"ok": False, "ssid": None}
 
         def _populate_networks(manual: bool = False):
@@ -8096,7 +8276,31 @@ class RetroBoxLEDGui:
             if not verified["ok"] or ssid_var.get().strip() != verified["ssid"]:
                 status_lbl.config(text=ui["mode1_wifi_need_verify"], fg="#CC0000")
                 return
-            result["value"] = (verified["ssid"], pwd_var.get())
+            static_result = None
+            if static_var.get():
+                ip = static_vars["ip"].get().strip()
+                gateway = static_vars["gateway"].get().strip()
+                subnet = static_vars["subnet"].get().strip()
+                dns1 = static_vars["dns1"].get().strip()
+                dns2 = static_vars["dns2"].get().strip()
+                if not ip or not gateway or not subnet:
+                    status_lbl.config(text=ui["mode1_wifi_static_need_fields"], fg="#CC0000")
+                    return
+                for label, value in (("IP", ip), ("Gateway", gateway), ("Subnet", subnet)):
+                    if not _is_valid_ipv4(value):
+                        status_lbl.config(text=ui["mode1_wifi_static_bad_value"](value), fg="#CC0000")
+                        return
+                for value in (dns1, dns2):
+                    if value and not _is_valid_ipv4(value):
+                        status_lbl.config(text=ui["mode1_wifi_static_bad_value"](value), fg="#CC0000")
+                        return
+                static_result = {
+                    "ip": ip, "gateway": gateway, "subnet": subnet,
+                    "dns1": dns1, "dns2": dns2,
+                }
+            result["value"] = {
+                "ssid": verified["ssid"], "password": pwd_var.get(), "static": static_result,
+            }
             dlg.destroy()
 
         def _on_skip():
@@ -8497,9 +8701,20 @@ class RetroBoxLEDGui:
             # correct avant cette fonctionnalite.
             wifi_result = self._prompt_wifi_dialog()
             if wifi_result:
-                wifi_ssid, wifi_password = wifi_result
                 try:
-                    self.tkmod.write_dmd_wifi(self.sd_dir, wifi_ssid, wifi_password)
+                    self.tkmod.write_dmd_wifi(
+                        self.sd_dir, wifi_result["ssid"], wifi_result["password"]
+                    )
+                    # IP fixe optionnelle (2026-09-14) -- "static" est None
+                    # si la case correspondante etait decochee dans le
+                    # dialogue (cas normal/par defaut) : write_dmd_static_ip()
+                    # n'ecrit alors rien (voir son docstring).
+                    static = wifi_result.get("static")
+                    if static:
+                        self.tkmod.write_dmd_static_ip(
+                            self.sd_dir, static["ip"], static["gateway"],
+                            static["subnet"], static["dns1"], static["dns2"],
+                        )
                 except Exception:
                     pass
             # Deplace ICI (thread principal, apres validation du dossier
