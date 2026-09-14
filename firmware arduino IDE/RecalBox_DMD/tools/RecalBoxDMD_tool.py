@@ -1,7 +1,28 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v45
+# Version actuelle : v46
+#
+# v46 - 2026-09-14 - safe-modify - 2 BUGS REELS corriges (retour
+#      utilisateur : "le popup ne detecte aucun reseau wifi", sur un
+#      Windows en francais) dans les fonctions ajoutees en v45 :
+#      (1) scan_wifi_networks_24ghz() decodait la sortie de netsh.exe via
+#      `text=True` (encodage devine, cp1252 sur ce systeme) alors que
+#      netsh produit reellement de l'UTF-8 -- mojibake constate en direct
+#      ("lâ€™interfaceÂ : Wi-Fi") qui corrompait le separateur "espace
+#      insecable + deux-points" utilise par Windows en francais avant
+#      chaque valeur, cassant tous les regex (aucun SSID jamais retenu).
+#      Fix : encoding="utf-8" explicite. (2) Le libelle "Channel" (anglais)
+#      ne matchait jamais sur ce Windows qui affiche "Canal" -- meme bug
+#      dans verify_wifi_password() avec "State"/"Etat" (retournait TOUJOURS
+#      False). Fix scan : detection basee sur la VALEUR "x,x GHz"/"x.x GHz"
+#      (libelle "Bande"/"Band" ignore, seul le separateur decimal varie),
+#      fallback canal FR/EN "Canal"/"Channel". Fix verify : la ligne "SSID"
+#      (jamais traduite) n'apparait de toute facon que si l'interface est
+#      reellement connectee -- son match seul suffit, plus besoin de
+#      "State"/"Etat". Verifie en direct : scan_wifi_networks_24ghz()
+#      retourne maintenant correctement les reseaux 2,4GHz reels du poste
+#      de test.
 #
 # v45 - 2026-09-13 - safe-modify - Demande utilisateur, suite au bug "boucle
 #      sur l'AP au 1er demarrage" : nouvelles fonctions backend pour une
@@ -1876,14 +1897,37 @@ def scan_wifi_networks_24ghz() -> list[str]:
         return []
     import subprocess
     try:
+        # encoding="utf-8" explicite -- BUG REEL corrige (2026-09-14) :
+        # `text=True` seul laisse Python deviner l'encodage (locale.
+        # getpreferredencoding(), typiquement cp1252 sur un Windows en
+        # francais) alors que la sortie reelle de netsh.exe est en UTF-8 --
+        # constate en direct (mojibake "lâ€™interfaceÂ : Wi-Fi" au lieu de
+        # "l'interface : Wi-Fi"). Consequence concrete : le sÃ©parateur
+        # "espace insecable + deux-points" utilise par Windows en francais
+        # avant chaque valeur se corrompait, cassant TOUS les regex de
+        # cette fonction (aucun SSID jamais retenu, cf verify_wifi_password
+        # pour un bug jumeau sur "State"/"Etat").
         out = subprocess.check_output(
             ["netsh", "wlan", "show", "networks", "mode=bssid"],
-            text=True, stderr=subprocess.DEVNULL, timeout=15,
+            encoding="utf-8", errors="replace", stderr=subprocess.DEVNULL, timeout=15,
             creationflags=(subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0),
         )
     except Exception:
         return []
 
+    # 2026-09-14 -- BUG REEL corrige (retour utilisateur : "le popup ne
+    # detecte aucun reseau wifi"). La ligne "Canal"/"Channel" est LOCALISEE
+    # par Windows selon la langue du systeme (ex. Windows en francais ->
+    # "netsh" affiche "Canal            : 1", jamais "Channel") -- l'ancien
+    # regex `^Channel\s*:\s*(\d+)$` ne matchait donc RIEN sur un Windows en
+    # francais, aucun SSID n'etait jamais retenu quel que soit le reseau
+    # reel. Fix : detection basee en priorite sur la ligne "Bande"/"Band"
+    # dont la VALEUR ("2,4 GHz" ou "2.4 GHz") n'est jamais traduite dans son
+    # unite ("GHz") -- seul le separateur decimal change selon la locale
+    # (virgule FR, point EN), gere via le remplacement "," -> ".". Fallback
+    # sur le numero de canal (<=14) avec le libelle en FR/EN/ES (memes 3
+    # langues que l'outil, meilleur effort) si jamais une version de Windows
+    # n'expose pas la ligne "Bande"/"Band" (formats plus anciens de netsh).
     ssids_24ghz: set[str] = set()
     current_ssid: Optional[str] = None
     for raw_line in out.splitlines():
@@ -1892,8 +1936,19 @@ def scan_wifi_networks_24ghz() -> list[str]:
         if m:
             current_ssid = m.group(1).strip()
             continue
-        m = re.match(r"^Channel\s*:\s*(\d+)$", line, re.IGNORECASE)
-        if m and current_ssid:
+        if not current_ssid:
+            continue
+        m = re.search(r":\s*([\d.,]+)\s*GHz", line, re.IGNORECASE)
+        if m:
+            try:
+                band = float(m.group(1).replace(",", "."))
+            except ValueError:
+                band = 0.0
+            if 2.0 <= band < 5.0:
+                ssids_24ghz.add(current_ssid)
+            continue
+        m = re.match(r"^(?:Channel|Canal)\s*:\s*(\d+)", line, re.IGNORECASE)
+        if m:
             try:
                 channel = int(m.group(1))
             except ValueError:
@@ -1982,16 +2037,29 @@ def verify_wifi_password(ssid: str, password: str, timeout_s: float = 15.0) -> b
         while time.time() < deadline:
             time.sleep(1.0)
             try:
+                # encoding="utf-8" explicite : meme bug/fix que
+                # scan_wifi_networks_24ghz() ci-dessus.
                 status = subprocess.check_output(
                     ["netsh", "wlan", "show", "interfaces"],
-                    text=True, stderr=subprocess.DEVNULL, timeout=10,
+                    encoding="utf-8", errors="replace", stderr=subprocess.DEVNULL, timeout=10,
                     creationflags=no_window,
                 )
             except Exception:
                 continue
-            connected = re.search(r"^\s*State\s*:\s*connected\s*$", status, re.MULTILINE)
+            # 2026-09-14 -- BUG REEL corrige (retour utilisateur : le
+            # dialogue WiFi ne detectait aucun reseau -- meme cause racine
+            # ici, testee en meme temps). Le libelle "State" EST TRADUIT par
+            # Windows selon la langue du systeme (ex. "Etat" sur un Windows
+            # en francais, jamais "State") -- ce regex ne matchait donc
+            # jamais sur ce genre de systeme, verify_wifi_password()
+            # retournait TOUJOURS False quel que soit le mot de passe.
+            # Fix : la ligne "SSID" (libelle JAMAIS traduit par Windows,
+            # confirme sur plusieurs sorties netsh francaises) n'apparait de
+            # toute facon QUE lorsque l'interface est reellement associee a
+            # un reseau -- son seul match, avec la bonne valeur, suffit a
+            # prouver la connexion sans dependre du libelle "State"/"Etat".
             ssid_match = re.search(r"^\s*SSID\s*:\s*(.+)$", status, re.MULTILINE)
-            if connected and ssid_match and ssid_match.group(1).strip() == ssid:
+            if ssid_match and ssid_match.group(1).strip() == ssid:
                 return True
         return False
     except Exception:
