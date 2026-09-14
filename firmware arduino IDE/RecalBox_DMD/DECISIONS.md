@@ -1328,6 +1328,37 @@ Point notable : la doc du 2026-09-01 indiquait que l'usage humain normal via nav
 
 **Ce qui reste en place après cet épisode** : firmware v208 (v205 batching + retry, v206 instrumentation `[CFGWRITE]`, v208 garde-fou anti-perte de données, v65 dédup liste WiFi scannée dans `web_config.h`) ; `f_setlabel()` (renommage étiquette) **désactivé** (diagnostic v207, jamais réactivé — cosmétique, sans urgence à restaurer).
 
+## TODO ouvert — Session dédiée nécessaire : DMD2 gèle/joue en boucle sur un seul GIF (2026-09-14)
+
+**Contexte** : DMD2 = unité de test utilisée toute la soirée (COM4, USB) pour le diagnostic de la boucle AP ci-dessus — physiquement le même ESP32 que DMD1 (le DMD réel du cabinet, WiFi), mais **révision de silicium différente** (DMD2 confirmé `ESP32-D0WD-V3 revision v3.1` via esptool ; révision exacte de DMD1 non communiquée, juste confirmée différente). DMD1 tourne en permanence avec `FlashFreq` abaissé à 40MHz par l'utilisateur — **piste écartée avec certitude** : `compile.ps1` fixe déjà `FlashFreq=40` dans le FQBN pour TOUS les flashs de ce dépôt, DMD1 et DMD2 étaient donc déjà sur la même fréquence flash toute la soirée.
+
+**Symptômes observés en direct, dans l'ordre** (tous après le nettoyage MQTT v209/v210 ci-dessus, mais le tout premier épisode — gel total 2min+, section "boucle sur l'AP" ci-dessus — a eu lieu AVANT ce nettoyage, donc pas causé par lui) :
+
+1. **Gel total confirmé une fois** (~2min+ de silence série complet, `[LOOPDIAG]` disparu, aucun reboot/watchdog) pendant le diagnostic SD — probablement lié à la carte SD HS de l'épisode ci-dessus (contamination possible), pas isolé du reste à l'époque.
+
+2. **Après le flash v210 (propre, carte SD saine)** : reproduit **au moins 4 fois en ~15 minutes**, dont une fois **sur le tout premier GIF après un boot frais** (moins d'une minute d'uptime) — donc PAS uniquement une histoire de fragmentation heap accumulée sur la durée, contrairement à l'hypothèse initiale. Signature précise, différente du gel total du point 1 :
+   - `[LOOPDIAG]` continue de s'imprimer normalement toutes les ~2,5s, à l'identique.
+   - `free`/`maxalloc`/`minFreeHeap` restent stables (pas de fuite ni de chute au moment du blocage).
+   - `wifiStatus=3` (connecté), RSSI sain, `gifOpened=1` reste à 1.
+   - **`nextGifPathLen` reste figé à la même valeur pendant 45+ secondes** (observé : `t=19525` → `t=66404`, soit 47s, `nextGifPathLen=37` inchangé) alors que la rotation normale de playlist tourne bien plus vite habituellement.
+   - Aucun crash, aucun reboot, aucune ligne d'erreur.
+   - Utilisateur confirme en direct : "corruption d'affichage" en plus du gel visuel (nature exacte de la corruption non détaillée — à observer/photographier lors de la prochaine session).
+
+**Conclusion du diagnostic de ce soir** : ce n'est PAS un blocage de `loop()` (contrairement au gel total du point 1) — c'est spécifiquement le **mécanisme d'avancement de la playlist/GIF suivant** qui cesse de se déclencher, pendant que le reste du firmware (WiFi, heap, boucle principale, logs) continue de tourner normalement. La cause exacte n'a pas été identifiée ce soir.
+
+**Fausses pistes déjà écartées cette même soirée** :
+- MQTT/`mqttTask()` — tracé de bout en bout, prouvé mort en pratique (voir section ci-dessus), supprimé entièrement en v209. Le gel a été reproduit APRÈS cette suppression, donc MQTT n'en est definitivement pas la cause.
+- `FlashFreq` — déjà à 40MHz pour les deux unités (voir ci-dessus).
+- Carte SD — testée saine sur ce boot précis (celle qui a résolu la boucle AP), le gel s'est quand même reproduit.
+
+**Pistes à explorer en priorité lors de la session dédiée** (aucune investiguée ce soir, toutes ouvertes) :
+1. **Révision de silicium ESP32 différente entre DMD1 et DMD2** — recherche web effectuée ce soir : plusieurs rapports indépendants (forums esp32.com, issues GitHub Tasmota/BlueRetro/esptool) de problèmes de stabilité/flash/ADC spécifiques à la révision v3.1, absents en v3.0 — piste plausible mais non confirmée sur CE firmware précis. Vérifier la révision exacte de DMD1 avant d'aller plus loin.
+2. **Mécanisme d'avancement playlist/GIF** (`openNextGif()`/`getNextGif*()`/`resumePlaylist()` et leur déclenchement dans `loop()`) — chercher un chemin où la condition de passage au GIF suivant peut rester vraie sans jamais se re-déclencher, ou un état interne (ex. un flag jamais remis à zéro) qui bloque silencieusement la suite.
+3. **Corruption d'affichage rapportée** — nature exacte à caractériser (photo/description précise à obtenir de l'utilisateur) : artefacts visuels, image figée sur une frame partielle, autre ? Vérifier le driver HUB75/DMA (bibliothèque `ESP32_HUB75_LED_MATRIX_PANEL_DMA_Display`) pour une piste de corruption mémoire tampon d'affichage, indépendante de `loop()`.
+4. **Reproductibilité rapide confirmée** (4 fois en 15 minutes, dont une fois en moins d'1 minute après boot) — bon signe pour une investigation dédiée : contrairement au gel de réception UDP (rare, documenté ailleurs dans ce fichier), celui-ci devrait être largement plus facile à capturer avec une instrumentation ciblée dès le prochain essai.
+
+**Autre bug réel trouvé et corrigé au passage ce soir (sans lien avec le gel ci-dessus)** : écran "RecalBox connectée" affiché à tort alors que RB1 est éteinte — corrigé en v210 (voir son changelog complet dans `RecalBox_DMD.ino`), pas encore confirmé visuellement par l'utilisateur.
+
 **Porté et testé avec succès** : `rb2_fbneo_autopilot.py` v4 — `launch()` accepte un `devicepath` explicite, `main()` crée le clone `VirtualGamepad` AVANT `launch()`, passe son `event_path()` en `-p1devicepath`, remplace `send("PLAYER1_START")` par `pad.tap(BTN_START)`. Test end-to-end (`mtwins`, `--play-seconds 30`) : pipeline complet (Free Play → clone → lancement → sonde RAM → START → capture) sans erreur, `obs02` montre **"ROUND 1 / The earth-CALLIA"** (bannière de début de niveau réelle), un seul joueur actif (CAP), aucun `FREE PLAY` — confirme que le pipeline de référence fonctionne désormais réellement de bout en bout. `play_fn()` (patterns mouvement/attaque par genre, `fbneo_game_profiles.py`) reste volontairement sur `send()`/UDP pour l'instant (donc probablement no-op lui aussi) — PAS encore porté, par prudence (saut de core inexpliqué du tout premier test combiné). Committé.
 
 ### Suite immédiate (même nuit) — CAUSE RÉELLE du saut de core élucidée : le D-pad, pas SOUTH ni RetroArch — mouvement/attaque portés et validés en conditions réelles (score 1240)
