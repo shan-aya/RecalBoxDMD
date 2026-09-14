@@ -2,7 +2,26 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v4
+# Version actuelle : v5
+#
+# v5 - 2026-09-14 - safe-modify - BUG REEL trouve en verifiant a la main le
+#   decodage de plusieurs .hi frais issus de la campagne niveau1 mame0278
+#   (galaxian/waterski) : `find_hi_file(rom)` ignorait TOTALEMENT
+#   l'argument `system` (assigne dans main() mais jamais reutilise) et
+#   parcourait HI_SEARCH_PATHS dans un ordre FIXE ou fbneo passe toujours
+#   en premier -- des qu'un rom du meme nom existe cote fbneo ET cote mame
+#   (confirme 183/413 sur l'etat actuel de la campagne niveau1 mame, ex.
+#   galaxian/waterski/avspirit/cavelon/bongo...), le score fbneo (souvent
+#   vide/zero) etait TOUJOURS affiche a la place du vrai score mame, quel
+#   que soit le core reellement en train de tourner. Le commentaire de
+#   build_score_payload() v27 (dmd_score.sh) affirmait a tort que ce
+#   mecanisme "sait retrouver le bon .hi quel que soit le core" -- vrai
+#   uniquement quand aucune collision de nom n'existe entre les 2 cores.
+#   Fix : `find_hi_file(rom, system)` ne cherche plus que dans les chemins
+#   du core demande (fbneo seul, ou la famille mame -- toutes generations,
+#   `system` commence par "mame") ; si `system` est absent/inconnu, repli
+#   sur l'ANCIEN comportement (parcours complet) plutot que de retourner
+#   rien, pour ne rien casser d'un appelant qui ne passerait pas ce champ.
 #
 # v4 - 2026-09-01 - safe-modify - BUG REEL confirme sur materiel (retour
 #   utilisateur : navigation turbo -> CPU sature 100% sur tous les coeurs,
@@ -108,8 +127,10 @@ MANIFEST_PATH = os.path.join(os.path.dirname(__file__), "hiscore_manifest.json")
 # 2015/2000 memes generation que 2003-plus, motif identique par
 # extrapolation, pas individuellement reverifies). fbneo reste confirme et
 # inchange.
-HI_SEARCH_PATHS = [
+FBNEO_HI_SEARCH_PATHS = [
     "/recalbox/share/saves/fbneo/fbneo/{rom}.hi",
+]
+MAME_HI_SEARCH_PATHS = [
     "/recalbox/share/saves/mame/mame0278/hiscore/{rom}.hi",
     "/recalbox/share/saves/mame/mame0274/hiscore/{rom}.hi",
     "/recalbox/share/saves/mame/mame0258/hiscore/{rom}.hi",
@@ -119,12 +140,28 @@ HI_SEARCH_PATHS = [
     "/recalbox/share/saves/mame/mame2003/hi/{rom}.hi",
     "/recalbox/share/saves/mame/mame2000/hi/{rom}.hi",
 ]
+# v5 -- ancienne liste conservee telle quelle comme repli si `system` est
+# absent/inconnu (comportement historique, jamais retirer sans casser un
+# appelant qui ne passerait pas ce champ).
+HI_SEARCH_PATHS = FBNEO_HI_SEARCH_PATHS + MAME_HI_SEARCH_PATHS
 
 MAX_ENTRIES = 9  # aligne avec dmd_challenge.py (3 pages x 3 lignes)
 
 
-def find_hi_file(rom):
-    for pattern in HI_SEARCH_PATHS:
+def find_hi_file(rom, system=None):
+    # v5 -- BUG REEL corrige : ne plus parcourir TOUS les cores sans
+    # distinction (fbneo toujours prioritaire dans l'ancien ordre fixe,
+    # masquait silencieusement un vrai score mame des qu'un rom du meme
+    # nom existe aussi cote fbneo -- confirme 183 collisions reelles sur
+    # la campagne niveau1 mame0278 du 13-14/09). Restreint la recherche
+    # au(x) chemin(s) du core REELLEMENT demande.
+    if system == "fbneo":
+        paths = FBNEO_HI_SEARCH_PATHS
+    elif system and system.startswith("mame"):
+        paths = MAME_HI_SEARCH_PATHS
+    else:
+        paths = HI_SEARCH_PATHS  # system absent/inconnu -- repli prudent
+    for pattern in paths:
         path = pattern.format(rom=rom)
         if os.path.isfile(path):
             return path
@@ -277,7 +314,7 @@ def main():
     if entry is None:
         return
 
-    hi_path = find_hi_file(rom)
+    hi_path = find_hi_file(rom, system)
     if hi_path is None:
         return
     try:
