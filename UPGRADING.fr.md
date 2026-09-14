@@ -16,9 +16,9 @@ Comme d'habitude — le [Web Installer en un clic](https://shan-aya.github.io/Re
 
 La liaison temps réel entre Recalbox et le DMD passe en coulisses de **MQTT à UDP** (voir le [Changelog](CHANGELOG.md) pour le pourquoi). Les scripts côté Recalbox (`marquee[...].sh`, `dmd_score[...].sh`, et le reste de `dmd_helpers/`) ont été mis à jour pour parler UDP au lieu de publier sur un broker MQTT — **lance le Mode 9** une fois (ou un Mode 1 complet) depuis la boîte à outils PC pour les réinstaller ; il nettoie aussi automatiquement les anciennes versions de scripts de l'ère MQTT. Rien à configurer : pas de broker, pas de port, pas d'identifiants à saisir — le DMD écoute sur le même `recalbox_ip` qu'il utilisait déjà.
 
-## 4. Tu as encore besoin de MQTT pour autre chose ? Tu peux le garder
+## 4. Tu avais branché quelque chose sur les anciens topics MQTT ?
 
-Le support MQTT n'a pas été retiré du firmware, seulement désactivé par défaut. Si tu avais branché quelque chose d'externe sur les anciens topics MQTT du DMD, ce chemin de code existe toujours dans les sources mais nécessite une recompilation manuelle du firmware (`MQTT_ENABLED=true`) pour être réactivé — l'UDP est désormais le chemin activement maintenu et testé, considère donc ceci comme un repli, pas une configuration recommandée.
+Le support MQTT a été entièrement retiré du firmware depuis la v209 (2026-09-14) — pas seulement désactivé par un indicateur comme le disait une version antérieure de cette page. `MQTT_ENABLED=true` n'a plus aucun effet : le code de connexion/tâche lui-même a disparu des sources, pas juste désactivé. Si tu avais branché quelque chose d'externe sur les anciens topics MQTT du DMD, il faudrait récupérer ce code depuis l'historique git antérieur à la v209 et recompiler à partir de là. L'UDP est désormais le seul chemin temps réel pris en charge.
 
 ## Ce que tu *n'as pas* besoin de faire
 

@@ -16,9 +16,9 @@ Same as always — the [one-click Web Installer](https://shan-aya.github.io/Reca
 
 The real-time link between Recalbox and the DMD switched from **MQTT to UDP** under the hood (see the [Changelog](CHANGELOG.md) for why). The Recalbox-side scripts (`marquee[...].sh`, `dmd_score[...].sh`, and the rest of `dmd_helpers/`) were updated to speak UDP instead of publishing to an MQTT broker — **run Mode 9** once (or a fresh Mode 1) from the PC Toolkit to reinstall them; it also cleans up the old MQTT-era script versions automatically. Nothing to configure: no broker, no port, no credentials to enter — the DMD listens on the same `recalbox_ip` it already used.
 
-## 4. Still need MQTT for something else? You can keep it
+## 4. Had something wired into the old MQTT topics?
 
-MQTT support hasn't been removed from the firmware, only turned off by default. If you had something external wired into the DMD's old MQTT topics, that code path still exists in the source but needs a manual firmware rebuild (`MQTT_ENABLED=true`) to reactivate — UDP is the actively maintained and tested path going forward, so treat this as a fallback, not a recommended setup.
+MQTT support has been fully removed from the firmware as of v209 (2026-09-14) — not just turned off by a flag as earlier versions of this page said. `MQTT_ENABLED=true` no longer does anything: the connection/task code itself is gone from the source, not just disabled. If you had something external publishing to or subscribing from the DMD's old MQTT topics, you'd need to pull that code back from the git history predating v209 and rebuild from there. UDP is the only supported real-time path going forward.
 
 ## What you *don't* need to do
 

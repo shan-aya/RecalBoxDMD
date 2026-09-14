@@ -592,6 +592,8 @@ docs/                          ← GitHub Pages : installateur Web (shan-aya.git
 
 ## Dépannage
 
+Pour les gels, la corruption d'affichage, les boucles de configuration WiFi, ou un DMD qui semble désynchronisé de Recalbox, consulte d'abord la page dédiée **[FAQ & Dépannage](FAQ.fr.md)** — elle couvre les causes les plus courantes (alimentation USB, qualité de la carte microSD, révision du chip ESP32) plus en détail que ce qui tient ici.
+
 | Problème | Solution |
 |---|---|
 | « Pillow n'est pas installé » | Installé automatiquement au premier lancement ; si ça échoue : `pip install Pillow` |

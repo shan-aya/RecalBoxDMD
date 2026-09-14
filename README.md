@@ -591,6 +591,8 @@ docs/                          ← GitHub Pages: browser-based Web Installer (sh
 
 ## Troubleshooting
 
+For freezes, display corruption, WiFi setup loops, or a DMD that seems to lose sync with Recalbox, see the dedicated **[FAQ & Troubleshooting](FAQ.md)** page first — it covers the most common causes (USB power, microSD card quality, ESP32 chip revision) in more detail than fits here.
+
 | Problem | Fix |
 |---|---|
 | "Pillow is not installed" | Auto-installed on first run; if it fails: `pip install Pillow` |
