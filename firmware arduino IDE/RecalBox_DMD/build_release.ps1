@@ -1,4 +1,4 @@
-# ============================================
+﻿# ============================================
 # build_release.ps1 -- Regenere le dossier _release local en une seule
 # commande (firmware + PC Toolkit + scripts Recalbox)
 # ============================================
@@ -19,7 +19,10 @@
 #      release est alors conserve tel quel, avec un avertissement clair.
 #   7. Reconstruit le zip source (perimetre identique a
 #      tools/RecalBoxDMD_tool_v6243/ publie sur GitHub)
-#   8. Copie tout dans _release/RecalBoxDMD_<FirmwareLabel>_t<ToolkitBuild>/
+#   8. Genere CHANGELOG_this_release.md (derniere entree "safe-modify" de
+#      RecalBox_DMD.ino/RecalBoxDMD_GUI.py/RecalBoxDMD_tool.py -- journal
+#      technique interne, distinct du CHANGELOG.md public/traduit)
+#   9. Copie tout dans _release/RecalBoxDMD_<FirmwareLabel>_t<ToolkitBuild>/
 #
 # Ne touche PAS a GitHub (pas de commit/push) -- volontaire : la procedure
 # de publication reste un geste separe et deliberement manuel (voir la
@@ -45,17 +48,46 @@ $releaseDir  = Join-Path $root "_release\RecalBoxDMD_${FirmwareLabel}_t${Toolkit
 function Step($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
 function Warn($msg) { Write-Host "AVERTISSEMENT: $msg" -ForegroundColor Yellow }
 
+# Extrait l'entree de changelog LA PLUS RECENTE de l'en-tete "safe-modify"
+# d'un fichier source (convention deja en place dans RecalBox_DMD.ino/
+# RecalBoxDMD_GUI.py/RecalBoxDMD_tool.py -- voir la skill safe-modify).
+# Format de chaque entree : "// v<N> - <date> - safe-modify - ..." ou
+# "# v<N> - <date> - safe-modify - ..." -- le separateur est parfois un
+# tiret simple, parfois un tiret cadratin ("—") selon le fichier, d'ou le
+# [-—] dans le motif. Chaque entree s'etend jusqu'au debut de la
+# suivante (les entrees sont toujours triees de la plus recente a la plus
+# ancienne) -- ne depend d'aucun tag/historique git, fonctionne meme entre
+# 2 branches sans ancetre commun.
+function Get-LatestChangelogEntry {
+    param([string]$FilePath, [string]$Label)
+    if (-not (Test-Path $FilePath)) { return $null }
+    $content = Get-Content $FilePath -Raw -Encoding UTF8
+    $pattern = '(?m)^(?://|#)\s*v(\d+)\s*[-—]\s*(\d{4}-\d{2}-\d{2})\s*[-—]\s*safe-modify\s*[-—].*$'
+    $ms = [regex]::Matches($content, $pattern)
+    if ($ms.Count -eq 0) { return $null }
+    $first = $ms[0]
+    $endIdx = if ($ms.Count -gt 1) { $ms[1].Index } else { $content.Length }
+    $entryText = $content.Substring($first.Index, $endIdx - $first.Index).TrimEnd()
+    $lines = ($entryText -split "`r?`n") | ForEach-Object { $_ -replace '^\s*(//|#)\s?', '' }
+    [PSCustomObject]@{
+        Label   = $Label
+        Version = "v$($first.Groups[1].Value)"
+        Date    = $first.Groups[2].Value
+        Text    = ($lines -join "`n").TrimEnd()
+    }
+}
+
 if (-not (Test-Path (Join-Path $root "compile.ps1"))) {
     throw "compile.ps1 introuvable a la racine ($root) -- ce script doit tourner depuis le checkout master, pas un worktree de dev."
 }
 New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
 
 # --- 1) Firmware ---
-Step "1/8 Compilation firmware"
+Step "1/9 Compilation firmware"
 & (Join-Path $root "compile.ps1")
 if ($LASTEXITCODE -ne 0) { throw "Echec compilation firmware (voir sortie ci-dessus)." }
 
-Step "2/8 Copie des binaires firmware"
+Step "2/9 Copie des binaires firmware"
 $fwSrc = Join-Path $root "compiled"
 $fwDst = Join-Path $releaseDir "DMD_firmware"
 # Repart de zero -- evite qu'un ancien nom de fichier (ex. changement de
@@ -79,7 +111,7 @@ if (Test-Path $fwZip) { Remove-Item $fwZip -Force }
 Compress-Archive -Path (Join-Path $fwDst "*") -DestinationPath $fwZip
 
 # --- 2) Scripts Recalbox ---
-Step "3/8 Copie des scripts Recalbox"
+Step "3/9 Copie des scripts Recalbox"
 $scriptsDst = Join-Path $releaseDir "recalbox_scripts"
 $helpersDst = Join-Path $scriptsDst "dmd_helpers"
 $manualDst  = Join-Path $scriptsDst "manual"
@@ -100,7 +132,7 @@ if (Test-Path $rbZip) { Remove-Item $rbZip -Force }
 Compress-Archive -Path (Join-Path $scriptsDst "*") -DestinationPath $rbZip
 
 # --- 3) PC Toolkit : portable exe (PyInstaller) ---
-Step "4/8 Build du portable .exe (PyInstaller)"
+Step "4/9 Build du portable .exe (PyInstaller)"
 Push-Location $tools
 try {
     python -m PyInstaller --clean --noconfirm RecalBoxDMD_GUI.spec
@@ -108,7 +140,7 @@ try {
 } finally { Pop-Location }
 
 # --- 4) Installeur .exe (Inno Setup) ---
-Step "5/8 Build de l'installeur .exe (Inno Setup)"
+Step "5/9 Build de l'installeur .exe (Inno Setup)"
 $iscc = Get-ChildItem "C:\Program Files (x86)\Inno Setup 6\ISCC.exe", "C:\Program Files\Inno Setup 6\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $iscc) { throw "ISCC.exe introuvable -- Inno Setup 6 doit etre installe (https://jrsoftware.org/isinfo.php)." }
 Push-Location $tools
@@ -120,7 +152,7 @@ try {
 # --- 5) .msi (cx_Freeze) -- non bloquant ---
 $msiOk = $false
 if (-not $SkipMsi) {
-    Step "6/8 Build du .msi (cx_Freeze) -- non bloquant si echec"
+    Step "6/9 Build du .msi (cx_Freeze) -- non bloquant si echec"
     Push-Location $tools
     try {
         python setup_msi.py bdist_msi
@@ -132,11 +164,11 @@ if (-not $SkipMsi) {
         }
     } finally { Pop-Location }
 } else {
-    Step "6/8 .msi saute (-SkipMsi)"
+    Step "6/9 .msi saute (-SkipMsi)"
 }
 
 # --- 6) Zip source (meme perimetre que tools/RecalBoxDMD_tool_v6243/ publie sur GitHub) ---
-Step "7/8 Construction du zip source"
+Step "7/9 Construction du zip source"
 $stageDir = Join-Path $env:TEMP "rbdmd_source_stage_$([guid]::NewGuid().ToString('N'))"
 New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 try {
@@ -155,8 +187,34 @@ try {
     Remove-Item $stageDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-# --- 7) Assemblage final dans Windows_Tools/ ---
-Step "8/8 Copie des outils Windows dans la release"
+# --- 7) Changelog de cette release ---
+Step "8/9 Generation du changelog"
+$entries = @(
+    Get-LatestChangelogEntry (Join-Path $root "RecalBox_DMD.ino")         "Firmware (RecalBox_DMD.ino)"
+    Get-LatestChangelogEntry (Join-Path $tools "RecalBoxDMD_GUI.py")      "PC Toolkit - interface (RecalBoxDMD_GUI.py)"
+    Get-LatestChangelogEntry (Join-Path $tools "RecalBoxDMD_tool.py")     "PC Toolkit - coeur (RecalBoxDMD_tool.py)"
+) | Where-Object { $_ }
+$changelogPath = Join-Path $releaseDir "CHANGELOG_this_release.md"
+$lines = New-Object System.Collections.Generic.List[string]
+$lines.Add("# Changelog -- RecalBoxDMD ${FirmwareLabel} / toolkit build ${ToolkitBuild}")
+$lines.Add("")
+$lines.Add("Genere automatiquement le $(Get-Date -Format 'yyyy-MM-dd HH:mm') par build_release.ps1 -- extrait de la derniere entree de l'en-tete `"safe-modify`" de chaque fichier source. Journal technique interne (pas le CHANGELOG.md public/traduit) -- destine a savoir rapidement ce qui a change dans CE build precis.")
+$lines.Add("")
+if ($entries.Count -eq 0) {
+    $lines.Add("(Aucune entree de changelog trouvee -- verifier que RecalBox_DMD.ino/RecalBoxDMD_GUI.py/RecalBoxDMD_tool.py suivent toujours la convention safe-modify.)")
+} else {
+    foreach ($e in $entries) {
+        $lines.Add("## $($e.Label) -- $($e.Version) ($($e.Date))")
+        $lines.Add("")
+        $lines.Add($e.Text)
+        $lines.Add("")
+    }
+}
+[System.IO.File]::WriteAllLines($changelogPath, $lines.ToArray(), (New-Object System.Text.UTF8Encoding($false)))
+Write-Host "Changelog ecrit : $changelogPath"
+
+# --- 8) Assemblage final dans Windows_Tools/ ---
+Step "9/9 Copie des outils Windows dans la release"
 $wtDst = Join-Path $releaseDir "Windows_Tools"
 New-Item -ItemType Directory -Path $wtDst -Force | Out-Null
 # Retire les artefacts VERSIONNES d'un run precedent avec un autre
