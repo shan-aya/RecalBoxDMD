@@ -4891,6 +4891,11 @@ bool featRaBrowse          = false;
 // defaut. N'affecte RIEN d'autre tant qu'il n'est pas active explicitement
 // dans config.ini.
 bool featVpinballDmd       = false;
+
+// Phase 2 (canal de donnees UDP + decodeur binaire + rendu des zones) --
+// inclus ICI (apres display/featVpinballDmd/VPINBALL_DMD_TOTAL_WIDTH etc.,
+// tous requis par vpinball_dmd.h). Voir DECISIONS.md.
+#include "vpinball_dmd.h"
 // v111 -- espacement de repetition du slideshow hi-score/infos EN JEU,
 // exprime en NOMBRE DE CYCLES (pas en secondes) -- demande utilisateur
 // explicite (2026-08-20) : "exprime le slider en cycle d'affichage marquee
@@ -10026,6 +10031,7 @@ void setupWiFiFromConfig()
     // la declaration de dmdUdp).
     dmdUdp.begin(UDP_CMD_PORT);
     Serial.println("[UDP] listening on port " + String(UDP_CMD_PORT));
+    setupVpinballDmd(); // Phase 2 vpinball/libdmdutil -- no-op si featVpinballDmd desactive
     delay(1200);
     autoDetectRecalboxIP();
     // v182 -- hello + broadcastFeatureStatus() du tout premier boot RETIRES
@@ -11404,6 +11410,7 @@ void loop()
   // juste au-dessus (consommer/poser pendingCmd tot dans l'iteration, avant
   // tout risque de blocage plus bas type handleWebConfig()).
   handleUdpCommand();
+  pollVpinballUdp(); // Phase 2 vpinball/libdmdutil -- no-op si featVpinballDmd desactive
   // v4 -- resync UDP (voir sendUdpHello()) : detecte la transition
   // deconnecte->connecte (couvre AUSSI le tout 1er boot, s_wifiWasConnected
   // demarre a false -- voir changelog v182, le hello dedie de
