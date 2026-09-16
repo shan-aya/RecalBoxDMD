@@ -41,7 +41,7 @@
 
 ## 🎬 Novedades de RawEdition v2.0
 
-- 👉 **[Resumen visual (página interactiva)](https://shan-aya.github.io/RecalBoxDMD/promo/rawedition_infographic_es.html)**
+- 👉 **[Resumen visual (página interactiva)](https://shan-aya.github.io/RecalBoxDMD/)**
 
 ---
 
@@ -99,7 +99,7 @@ Es un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), reco
 - 📦 **~600 GIFs retro gratuitos incluidos** — descarga opcional en un clic (Arcade, Consolas, Ordenadores, Pinball, Halloween, Navidad y más) para tus playlists en modo de espera.
 - 🖥️ **Caja de herramientas de PC para Windows en un clic** (GUI, FR/EN/ES) — desde ROMs en bruto + `gamelist.xml` hasta una tarjeta SD lista para usar: extracción consciente del scraping, conversión, caché y copia a la SD reanudable, todo en un clic de «Iniciar».
 - 🌐 **Página de configuración web en vivo** servida por el ESP32 — WiFi, transporte UDP, brillo, playlist, temas de reloj (con vista previa instantánea en el panel) — sin necesidad de recompilar para ajustar nada.
-- ⚡ **Flashea el firmware desde el navegador** — un [instalador web en un clic](https://shan-aya.github.io/RecalBoxDMD/) (Chrome/Edge) flashea el ESP32 por USB, sin Arduino IDE.
+- ⚡ **Flashea el firmware desde el navegador** — un [instalador web en un clic](https://shan-aya.github.io/RecalBoxDMD/install/) (Chrome/Edge) flashea el ESP32 por USB, sin Arduino IDE.
 - 📡 **Enlace UDP en tiempo real** con Recalbox para mostrar juegos/sistemas/eventos al instante, además de una consola **Telnet** para depuración en el dispositivo.
 - 🏆 **Superposiciones en juego — Hi-Score, Info del juego, RetroAchievements y Challenge RB** — mientras juegas de verdad, el panel alterna automáticamente el marquee con las mejores puntuaciones reales de MAME/FBNeo (manifiesto comunitario, 4087 juegos), la descripción/género/año del juego, los logros de RetroAchievements desbloqueados y la clasificación del Challenge comunitario mensual oficial de Recalbox. Cero configuración: instala los scripts una vez (Modo 9) y todo funciona solo — ver [detalles más abajo](#superposiciones-en-juego--hi-score-info-del-juego-logros-y-challenge-rb).
 - 🎬 **Pestaña Playlist — crea tus propias rotaciones en modo atracción** — combina el pack de 600 GIFs y tus propios GIFs (arrastra una carpeta del PC), dale un nombre y queda lista para seleccionar como playlist activa; funciona directamente desde una tarjeta SD insertada o, en pleno Modo 1, desde la carpeta de trabajo antes incluso de copiarla.
@@ -379,7 +379,7 @@ Cualquier GIF funciona igual sea cual sea su origen — pero añade siempre los 
 
 ### 🌐 Opción A — Flashear desde el navegador (lo más sencillo, sin instalar nada)
 
-> [👉 **Abrir el instalador web de RecalBoxDMD**](https://shan-aya.github.io/RecalBoxDMD/)
+> [👉 **Abrir el instalador web de RecalBoxDMD**](https://shan-aya.github.io/RecalBoxDMD/install/)
 
 Con **Chrome o Edge**, conecta el ESP32 por USB, haz clic en **Instalar**, elige el puerto COM, y listo en un minuto aproximadamente — nada que instalar en tu PC, sin Arduino IDE. Flashea el último firmware precompilado directamente desde [`binaries/`](binaries/) usando [ESP Web Tools](https://esphome.github.io/esp-web-tools/). Marca **«Erase device»** en una primera instalación (o al venir de otro firmware, p. ej. DMDos) para borrar por completo la memoria flash antes.
 
@@ -585,7 +585,7 @@ binaries/                     ← imágenes de firmware precompiladas (bootloade
 tools/                        ← caja de herramientas de PC (GUI Python, FR/EN/ES) + build de Windows
 carte SD/                     ← contenido de la tarjeta SD listo para copiar (gifs, defaults del sistema, scripts)
 medias/                       ← capturas de pantalla, GIFs de demostración de los temas de reloj, kit de prensa
-docs/                          ← GitHub Pages: instalador web (shan-aya.github.io/RecalBoxDMD)
+docs/                          ← GitHub Pages: página de presentación (shan-aya.github.io/RecalBoxDMD) + instalador web (…/install/)
 ```
 
 ---
