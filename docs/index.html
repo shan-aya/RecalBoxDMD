@@ -169,6 +169,14 @@
   .cta:hover{ transform:translateY(-1px); box-shadow:0 0 0 1px rgba(74,140,255,.4), 0 0 34px -4px rgba(74,140,255,.7); }
   .cta:focus-visible{ outline:2px solid var(--led-white); outline-offset:3px; }
 
+  .fw-date{
+    font-family:"JetBrains Mono",monospace;
+    font-size:11px;
+    letter-spacing:0.03em;
+    color:var(--muted-dim);
+    margin:10px 0 0;
+  }
+
   .shot{
     margin-top:20px;
     border-radius:8px;
@@ -342,6 +350,7 @@
     <h1><span class="raw">Recal</span><span class="v">BoxDMD</span></h1>
     <p class="tag" data-i18n="tag">Un cadre lumineux qui anime votre intérieur — des centaines de GIFs rétro en rotation, une horloge qui change d'habillage. Branché à une borne Recalbox, il devient aussi son marquee numérique.</p>
     <a class="cta" href="install/" data-i18n="install.label">⚡ Installer le firmware</a>
+    <p class="fw-date" id="fwDate" hidden></p>
     <figure class="shot glow-w" style="margin-top:24px;">
       <video src="media/hero-dmd.mp4" autoplay loop muted playsinline></video>
     </figure>
@@ -462,6 +471,7 @@
     fr: {
       "gh.label": "Voir le code source",
       "install.label": "⚡ Installer le firmware",
+      "fw.updated": "Dernier firmware :",
       "brand": "Panneau LED · Pixel Art",
       "tag": "Un cadre lumineux qui anime votre intérieur — des centaines de GIFs rétro en rotation, une horloge qui change d'habillage. Branché à une borne Recalbox, il devient aussi son marquee numérique.",
       "divider1": "Ce qu'il fait chez vous, au quotidien",
@@ -507,6 +517,7 @@
     en: {
       "gh.label": "View source code",
       "install.label": "⚡ Install the firmware",
+      "fw.updated": "Latest firmware:",
       "brand": "LED Panel · Pixel Art",
       "tag": "A glowing frame that brings your room to life — hundreds of retro GIFs on rotation, a clock that changes its look. Wire it to a Recalbox cabinet and it doubles as a digital marquee.",
       "divider1": "What it does at home, every day",
@@ -552,6 +563,7 @@
     es: {
       "gh.label": "Ver el código fuente",
       "install.label": "⚡ Instalar el firmware",
+      "fw.updated": "Último firmware:",
       "brand": "Panel LED · Pixel Art",
       "tag": "Un marco luminoso que anima tu casa — cientos de GIFs retro en rotación, un reloj que cambia de decorado. Conectado a un mueble Recalbox, se convierte también en su marquee digital.",
       "divider1": "Lo que hace en casa, cada día",
@@ -596,8 +608,22 @@
     }
   };
 
+  var currentLang = "fr";
+  var fwDate = null;
+
+  function renderFwDate(){
+    var el = document.getElementById("fwDate");
+    if (!el || !fwDate) return;
+    var localeMap = { fr: "fr-FR", en: "en-GB", es: "es-ES" };
+    var fmt = new Intl.DateTimeFormat(localeMap[currentLang] || "fr-FR", { dateStyle: "long" });
+    var label = (translations[currentLang] && translations[currentLang]["fw.updated"]) || translations.fr["fw.updated"];
+    el.textContent = label + " " + fmt.format(fwDate);
+    el.hidden = false;
+  }
+
   function apply(lang){
     if (!translations[lang]) lang = "fr";
+    currentLang = lang;
     document.documentElement.lang = lang;
     document.querySelectorAll("[data-i18n]").forEach(function(el){
       var key = el.getAttribute("data-i18n");
@@ -613,6 +639,7 @@
       b.setAttribute("aria-pressed", b.getAttribute("data-lang") === lang ? "true" : "false");
     });
     try { localStorage.setItem("recalboxdmd_lang", lang); } catch(e) {}
+    renderFwDate();
   }
 
   document.querySelectorAll(".langswitch button").forEach(function(b){
@@ -626,6 +653,16 @@
     saved = translations[nav] ? nav : "fr";
   }
   apply(saved);
+
+  fetch("https://api.github.com/repos/shan-aya/RecalBoxDMD/commits?path=binaries/RecalBoxDMD_v2.0_merged.bin&per_page=1")
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(data){
+      if (data && data.length && data[0].commit && data[0].commit.committer) {
+        fwDate = new Date(data[0].commit.committer.date);
+        renderFwDate();
+      }
+    })
+    .catch(function(){});
 })();
 </script>
 
