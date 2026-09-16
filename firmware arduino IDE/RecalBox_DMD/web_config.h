@@ -845,6 +845,7 @@ extern bool   featDescriptionIngame;
 extern bool   featDescriptionBrowse;
 extern bool   featRaIngame;
 extern bool   featRaBrowse;
+extern bool   featVpinballDmd; // v211, RecalBox_DMD.ino -- integration vpinball/libdmdutil
 extern int    featRepeatCycles;
 extern int    featRepeatBrowseCycles; // v111, RecalBox_DMD.ino
 extern int    featDwellSeconds;       // v111, RecalBox_DMD.ino
@@ -5179,6 +5180,59 @@ static void handleWebConfigMediaPage()
   sendGzipHtml(WEB_CONFIG_MEDIA_HTML_GZ, WEB_CONFIG_MEDIA_HTML_GZ_LEN);
 }
 
+// v1 - 2026-09-16 - safe-modify - Phase 1 integration vpinball/libdmdutil
+// (voir DECISIONS.md "Nouveau chantier -- integration vpinball", worktree
+// dev/vpinball-integration). Repond au protocole de decouverte HTTP
+// ZeDMD-WiFi (GET /handshake, chaine texte a separateurs "|") -- format et
+// ordre des 20 premiers champs verifies directement dans 2 sources reelles :
+// generateur cote ZeDMD (wifi_transport.cpp::startServer(), PPUC/ZeDMD) ET
+// parseur cote client (ZeDMDWiFi.cpp::DoConnect(), PPUC/libzedmd, utilise
+// par libdmdutil donc par Visual Pinball Standalone). Le parseur client ne
+// lit QUE les positions 0 a 19 (boucle "pos <= 19") -- les champs au-dela
+// (type de carte, decodeur de lignes) ne sont jamais lus, omis ici sans
+// risque. Le parseur tolere aussi un nombre de champs INFERIEUR a 20 (un
+// getline() qui echoue laisse simplement la valeur par defaut du client
+// inchangee) -- ne bloque donc pas si un champ est approximatif, mais les
+// positions 0/1 (largeur/hauteur) sont VALIDEES STRICTEMENT cote client
+// (doit valoir exactement 128x32 ou 256x64) : notre panneau (PANEL_RES_X*
+// PANEL_CHAIN=128, PANEL_RES_Y=32) correspond exactement au premier cas.
+// N'est enregistre/actif QUE si featVpinballDmd est active (config.ini,
+// desactive par defaut) -- voir declaration de featVpinballDmd.
+static void handleVpinballHandshake()
+{
+  if (!featVpinballDmd) { webServer->send(404, "text/plain", "disabled"); return; }
+
+  // VPINBALL_DMD_TOTAL_WIDTH/_HEIGHT (pas PANEL_RES_X/PANEL_CHAIN, definis
+  // plus bas dans RecalBox_DMD.ino, apres ce point d'inclusion) -- voir leur
+  // definition juste avant #include "web_config.h".
+  const int totalWidth  = VPINBALL_DMD_TOTAL_WIDTH;
+  const int totalHeight = VPINBALL_DMD_TOTAL_HEIGHT;
+
+  // Champs 0-19, ordre exact du protocole ZeDMD-WiFi (voir commentaire
+  // ci-dessus). Ports/valeurs 6-15 et 17-19 sont des reglages materiels
+  // specifiques a ZeDMD sans equivalent direct chez nous -- valeurs neutres
+  // (le client ne les valide pas, contrairement a 0/1).
+  String hs;
+  hs.reserve(160);
+  hs += totalWidth;               hs += "|"; // 0 largeur
+  hs += totalHeight;              hs += "|"; // 1 hauteur
+  hs += "1.0.0|";                            // 2 version (la notre, pas celle de ZeDMD)
+  hs += "0|";                                // 3 S3 (non, ESP32 classique)
+  hs += "UDP|";                              // 4 protocole
+  hs += VPINBALL_DMD_UDP_PORT;    hs += "|"; // 5 port du canal de donnees
+  hs += "0|";                                // 6 udpDelay (aucun delai artificiel)
+  hs += "0|";                                // 7 usbPackageSize (sans objet en WiFi)
+  hs += "15|";                               // 8 brightness (echelle 0-15 ZeDMD, valeur neutre)
+  hs += "0|";                                // 9 rgbOrder (RGB standard)
+  hs += "0|0|0|0|0|0|";                      // 10-15 reglages panneau ZeDMD sans equivalent
+  hs += wifiSSID;                 hs += "|"; // 16 ssid
+  hs += "0|";                                // 17 hdHalf (non applicable)
+  hs += "0|";                                // 18 shortId (pas de multi-appareil ici)
+  hs += "0";                                 // 19 wifiPower (non suivi)
+
+  webServer->send(200, "text/plain", hs);
+}
+
 void setupWebConfig()
 {
   if (webServer) delete webServer;
@@ -5219,6 +5273,7 @@ void setupWebConfig()
   webServer->on("/clock-preview", HTTP_POST, handleWebConfigClockPreview);
   webServer->on("/save", HTTP_POST, handleWebConfigSave);
   webServer->on("/reboot", handleWebConfigReboot);
+  webServer->on("/handshake", handleVpinballHandshake); // Phase 1 vpinball/libdmdutil, voir plus haut
   webServer->begin();
   Serial.println("[WEB] Interface config sur http://" + WiFi.localIP().toString());
   // DIAGNOSTIC TEMPORAIRE (2026-08-02) -- verifie que la redefinition de

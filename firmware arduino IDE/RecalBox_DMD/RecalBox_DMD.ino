@@ -3829,6 +3829,22 @@ struct PlaylistGenStatus
 };
 PlaylistGenStatus g_plGenStatus;
 
+// Phase 1 integration vpinball/libdmdutil (voir DECISIONS.md "Nouveau
+// chantier -- integration vpinball", worktree dev/vpinball-integration).
+// Definis ICI (avant #include "web_config.h", pas pres de PANEL_RES_X/
+// PANEL_CHAIN plus bas dans ce fichier) car le handler /handshake vit dans
+// web_config.h, inclus AVANT ce point -- meme contrainte deja documentee
+// pour featVpinballDmd/wifiSSID (voir bloc extern en tete de web_config.h).
+// 128x32 = valeur reelle de PANEL_RES_X(64)*PANEL_CHAIN(2) / PANEL_RES_Y(32)
+// sur notre materiel (a garder synchronise si la config panneau change un
+// jour). 3333 = port de repli par defaut de libzedmd lui-meme
+// (ZeDMDWiFi.cpp) -- coherent avec l'ecosysteme existant, mais la valeur
+// exacte importe peu : le port REELLEMENT utilise par le client est celui
+// annonce dans la reponse /handshake (champ 5), pas une convention fixe.
+#define VPINBALL_DMD_TOTAL_WIDTH  128
+#define VPINBALL_DMD_TOTAL_HEIGHT 32
+#define VPINBALL_DMD_UDP_PORT     3333
+
 #include "web_config.h"
 
 // --------------------------------------------------
@@ -4670,6 +4686,10 @@ char findInGamesCache(const String &sysName, const String &gameName)
 // pendant une session recoit l'etat a jour des sa reconnexion, sans
 // attendre le prochain evenement de navigation reel.
 #define UDP_HELLO_PORT    5006
+// VPINBALL_DMD_UDP_PORT/VPINBALL_DMD_TOTAL_WIDTH/_HEIGHT : voir leur
+// definition plus haut, juste avant #include "web_config.h" (obligatoire
+// pour que le handler /handshake de web_config.h les voie -- l'include a
+// lieu bien avant ce point du fichier).
 // v3 -- bascule FULL UDP (demande utilisateur explicite, 2026-09-08) :
 // MQTT teste depuis des mois, fragilite reseau cote DMD deja bien
 // documentee (mur de plateforme -- connect()/subscribe() bloquants, voir
@@ -4862,6 +4882,15 @@ bool featDescriptionIngame = false;
 bool featDescriptionBrowse = true;
 bool featRaIngame          = true;
 bool featRaBrowse          = false;
+// v211 - 2026-09-16 - safe-modify - Phase 1 integration vpinball/libdmdutil
+// (voir DECISIONS.md "Nouveau chantier -- integration vpinball") : mode
+// optionnel qui expose un endpoint HTTP /handshake compatible avec le
+// protocole ZeDMD-WiFi (utilise par libdmdutil/dmdserver, donc par Visual
+// Pinball Standalone) -- desactive par defaut, comme tous les feat_* de ce
+// firmware, pour ne jamais changer le comportement normal Recalbox par
+// defaut. N'affecte RIEN d'autre tant qu'il n'est pas active explicitement
+// dans config.ini.
+bool featVpinballDmd       = false;
 // v111 -- espacement de repetition du slideshow hi-score/infos EN JEU,
 // exprime en NOMBRE DE CYCLES (pas en secondes) -- demande utilisateur
 // explicite (2026-08-20) : "exprime le slider en cycle d'affichage marquee
@@ -10169,6 +10198,7 @@ void loadConfig()
     else if(key=="feat_description_browse")              featDescriptionBrowse=(value!="0");
     else if(key=="feat_ra_ingame")                       featRaIngame         =(value!="0");
     else if(key=="feat_ra_browse")                       featRaBrowse         =(value!="0");
+    else if(key=="feat_vpinball_dmd")                    featVpinballDmd      =(value!="0");
     else if(key=="feat_repeat_cycles")                   featRepeatCycles     =constrain(value.toInt(),0,20);
     // v111 -- voir declaration (featRepeatBrowseCycles/featDwellSeconds).
     // Plancher de securite 3s IMPOSE ICI (pas seulement cote script) pour
