@@ -853,6 +853,7 @@ extern void   broadcastFeatureStatus(); // v110, RecalBox_DMD.ino
 extern String playlistName;
 extern bool   playlistRandom;
 extern String recalboxIP;
+extern String mqttEventTopic;
 extern bool   clockEnabled;
 extern int    clockTheme;
 // v104 -- extern scoreEnabled/scoreIntervalSec/scoreDuration/gameInfoEnabled/
@@ -4491,7 +4492,17 @@ static void handleWebConfigSave()
   f.println(); f.println("wifi_static_enabled=" + String(wifiStaticEnabled ? "1" : "0")); f.println("wifi_static_ip=" + wifiStaticIP);
   f.println("wifi_gateway=" + wifiGateway); f.println("wifi_subnet=" + wifiSubnet);
   f.println("wifi_dns1=" + wifiDNS1); f.println("wifi_dns2=" + wifiDNS2);
+  // v2 - 2026-09-17 - safe-modify - meme classe de bug que feat_vpinball_dmd
+  // ci-dessus (cle lue au boot -- RecalBox_DMD.ino, "key==mqtt_event_topic"
+  // -- mais jamais reecrite ici) : trouvee en auditant systematiquement
+  // toutes les cles lues vs toutes les cles reecrites par ce handler, suite
+  // au bug reel first_boot/wifi_ssid/playlist/recalbox_ip vides constate en
+  // Phase 3 (voir DECISIONS.md). Portee plus faible (mqtt_event_topic n'a
+  // aucun champ de formulaire web, seulement modifiable en editant
+  // config.ini a la main) mais meme risque de perte silencieuse au 1er
+  // /save venu.
   f.println(); f.println("# MQTT"); f.println("recalbox_ip=" + recalboxIP);
+  f.println("mqtt_event_topic=" + mqttEventTopic);
   f.println(); f.println("# Clock (horloge retro themes)");
   f.println("[CLOCK]"); f.println("CLOCK_ENABLED=" + String(clockEnabled ? "1" : "0"));
   f.println("CLOCK_THEME=" + String(clockTheme)); f.println("CLOCK_INTERVAL=" + String(clockIntervalGifs));

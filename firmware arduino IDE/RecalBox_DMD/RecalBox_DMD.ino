@@ -5484,8 +5484,12 @@ void showLoadingHourglass(int count)
 // --------------------------------------------------
 void setupBluetoothFromConfig()
 {
-  if (showInfo) showBluetoothStatusScreen(bluetoothEnabled);
-  delay(1200);
+  // v1 - 2026-09-17 - safe-modify - ecran + delai (ci-dessous) SAUTES sur le
+  // boot cible mode vpinball : personne ne regarde cet ecran intermediaire
+  // pendant une reconnexion automatique en cours de partie, voir le message
+  // "VPINBALL - Connexion..." affiche a la place (RecalBox_DMD.ino, setup()).
+  if (showInfo && !g_bootForVpinball) showBluetoothStatusScreen(bluetoothEnabled);
+  if (!g_bootForVpinball) delay(1200);
   if (!bluetoothEnabled) { btStop(); esp_bt_mem_release(ESP_BT_MODE_BTDM); return; }
   SerialBT.begin(bluetoothName);
 }
@@ -10039,7 +10043,9 @@ void setupWiFiFromConfig()
   if(WiFi.status()==WL_CONNECTED)
   {
     String ip=WiFi.localIP().toString();
-    if(showInfo) showWifiStatusScreen("WIFI OK",fitLabel(ip,14),display->color565(0,255,0));
+    // v1 -- ecran de statut saute sur le boot cible mode vpinball, meme
+    // raisonnement que setupBluetoothFromConfig() plus haut.
+    if(showInfo && !g_bootForVpinball) showWifiStatusScreen("WIFI OK",fitLabel(ip,14),display->color565(0,255,0));
     Serial.println("[WIFI] connected: "+ip);
     // v1 -- piste UDP (voir TRANSPORT_PLAN_UDP.md) : ne depend PAS de
     // recalboxIP (contrairement au bloc mqttClient juste apres) -- le DMD se
@@ -10050,7 +10056,7 @@ void setupWiFiFromConfig()
     dmdUdp.begin(UDP_CMD_PORT);
     Serial.println("[UDP] listening on port " + String(UDP_CMD_PORT));
     setupVpinballDmd(); // Phase 2 vpinball/libdmdutil -- no-op si featVpinballDmd desactive
-    delay(1200);
+    if (!g_bootForVpinball) delay(1200);
     autoDetectRecalboxIP();
     // v182 -- hello + broadcastFeatureStatus() du tout premier boot RETIRES
     // d'ici (voir changelog v182) : CRASH REEL confirme sur materiel --
@@ -10527,7 +10533,9 @@ static void initNTP()
 
   clockNtpSynced = ok;
 
-  if (showInfo)
+  // v1 -- meme suppression que les ecrans de statut precedents sur le boot
+  // cible mode vpinball (bluetooth/WIFI OK ci-dessus).
+  if (showInfo && !g_bootForVpinball)
   {
     display->clearScreen();
     if (ok)
@@ -10981,7 +10989,31 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
     }
   }
 
+  // v8 - 2026-09-17 - safe-modify - BUG REEL trouve suite a un test materiel
+  // (retour utilisateur, DMD reste bloque en mode AP) : la consommation de
+  // force_vpinball_boot vivait plus bas, dans le bloc g_skipPlaylistForConfig
+  // (comme force_config_boot, dont elle copiait le pattern) -- MAIS
+  // needWebConfigMode (plus bas, vrai si g_firstBoot OU playlist vide OU
+  // recalboxIP vide) fait un `goto start_mqtt_task` AVANT ce bloc, le
+  // court-circuitant ENTIEREMENT. Si g_firstBoot est vrai (raison
+  // independante, non liee a vpinball) au moment ou un vrai paquet vpinball
+  // declenche triggerVpinballBootReboot(), le flag ne serait ALORS JAMAIS
+  // consomme -- restant a "1" indefiniment, chaque reboot suivant reprenant
+  // le meme chemin needWebConfigMode sans jamais l'effacer : boucle
+  // apparente "coince en mode AP" (needWebConfigMode affiche deja l'ecran
+  // AP/config, independamment de vpinball). Fix : consommer ICI, tout de
+  // suite apres lecture, avant TOUTE branche ulterieure (needWebConfigMode/
+  // g_forceApRecovery/g_skipPlaylistForConfig) -- garantit qu'il ne reste
+  // jamais bloque, quel que soit le chemin de boot emprunte ensuite.
+  if (g_bootForVpinball) writeConfigFlag("force_vpinball_boot", "0");
+
   showSplashScreen();  // Toujours affichÃ©, indÃ©pendamment de info=
+  // v1 - 2026-09-17 - safe-modify - retour utilisateur : aucun affichage
+  // pendant le reboot cible mode vpinball, remplace ici les ecrans de statut
+  // habituels (bluetooth/WIFI OK/NTP, tous supprimes plus bas pour ce boot
+  // precis, voir leurs sites d'appel) par UN SEUL message persistant, visible
+  // pendant toute la duree de la connexion (~10-12s).
+  if (g_bootForVpinball) showMessage("VPINBALL", "Connexion...", display->color565(255, 165, 0));
   
 
   // Charge le cache systÃ¨mes (systems_cache.dat). Si absent, on ne rescanner
@@ -11111,10 +11143,11 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
     // ("Redemarrer") reparte bien en boot playlist standard, pas en boucle
     // sur ce chemin.
     writeConfigFlag("force_config_boot", "0");
-    // v7 - 2026-09-17 - safe-modify - meme consommation immediate que
-    // force_config_boot juste au-dessus, voir vpinball_dmd.h pour le detail
-    // du mecanisme "reboot cible" mode vpinball.
-    if (g_bootForVpinball) writeConfigFlag("force_vpinball_boot", "0");
+    // v8 -- force_vpinball_boot n'est PLUS consomme ici : deplace bien plus
+    // tot (juste apres lecture de config.ini, avant needWebConfigMode) --
+    // voir le commentaire v8 la-bas pour le bug reel que ce deplacement
+    // corrige (flag pouvant rester bloque a "1" si needWebConfigMode
+    // court-circuite ce bloc-ci en premier).
     // Charge quand meme l'index playlist (gifCount), SANS jamais ouvrir de
     // GIF ni dessiner l'ecran playlist (showPlaylistInfoScreen()) -- lecture
     // seule d'un fichier .idx deja existant, cout heap negligeable (~7ms
@@ -11148,9 +11181,29 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
     // decompresseur zlib pendant que le heap est encore proche de son
     // maximum post-boot -- voir DECISIONS.md pour l'historique complet
     // (tentative precedente de liberer des buffers EN DIRECT, insuffisante).
-    if (g_bootForVpinball)
+    // v8 -- garde AJOUTEE : n'entre reellement en mode vpinball que si le
+    // WiFi est vraiment connecte (sinon setupVpinballDmd()/vpinballUdp
+    // n'ont jamais demarre -- voir leur site d'appel, a l'interieur du
+    // if(WiFi.status()==WL_CONNECTED) de setupWiFiFromConfig()). Sans cette
+    // garde, un boot vpinball avec WiFi en echec appelait quand meme
+    // enterVpinballModeFromBoot(), qui pouvait activer vpinballModeActive
+    // (donc suspendre le switch(currentMode) dans loop(), voir sa garde) --
+    // masquant l'ecran de secours WiFi/config que ce firmware doit montrer
+    // dans ce cas.
+    if (g_bootForVpinball && WiFi.status() == WL_CONNECTED)
     {
       enterVpinballModeFromBoot();
+    }
+    else if (g_bootForVpinball)
+    {
+      Serial.println("[BOOT] boot cible vpinball demande mais WiFi non connecte -- abandon, mode config normal");
+      String ip = WiFi.localIP().toString();
+      g_sdOpMsg = trConfigPageMsg();
+      g_sdOpSubMsg = trOpenUrl(ip);
+      g_sdOpSubMsgColor = 0x07E0;
+      g_sdOpInProgress = true;
+      currentMode = MODE_CONFIG;
+      g_configDmdDirty = true;
     }
     else
     {

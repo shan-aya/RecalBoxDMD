@@ -141,6 +141,11 @@ static void triggerVpinballBootReboot()
 {
   Serial.println("[VPINBALL] 1er paquet detecte en mode normal -- reboot cible vers le mode vpinball (heap max)");
   writeConfigFlag("force_vpinball_boot", "1");
+  // v1 - 2026-09-17 - safe-modify - retour utilisateur : message avant le
+  // redemarrage, meme si bref ici (interrompt un GIF en cours) -- le message
+  // principal ("Connexion...", visible ~10-12s) est celui affiche au debut
+  // du boot cible (setup(), RecalBox_DMD.ino).
+  if (display) showMessage("VPINBALL", "Detecte...", display->color565(255, 165, 0));
   delay(100);
   ESP.restart();
 }
@@ -184,7 +189,15 @@ static void exitVpinballMode()
   if (!vpinballModeActive) return;
   Serial.println("[VPINBALL] timeout -- reboot vers le mode normal (playlist/GIF/caches)");
   if (vpinballTinflState) { free(vpinballTinflState); vpinballTinflState = nullptr; }
-  delay(100);
+  // v1 - 2026-09-17 - safe-modify - retour utilisateur : message visible
+  // avant le redemarrage (symetrique du "VPINBALL - Connexion..." affiche a
+  // l'entree, voir setup() dans RecalBox_DMD.ino). 600ms au lieu des 100ms
+  // d'origine -- juste assez pour etre lisible, negligeable face aux ~2,4s
+  // deja recuperes sur ce boot en sautant les ecrans de statut bluetooth/
+  // WIFI OK/NTP (showMessage() deja disponible, aucune dependance
+  // supplementaire).
+  if (display) showMessage("VPINBALL", "Retour normal...", display->color565(255, 165, 0));
+  delay(600);
   ESP.restart();
 }
 
