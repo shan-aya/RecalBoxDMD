@@ -32,19 +32,161 @@
 // copie complete de miniz.c, deja compilee et liee dans le binaire final.
 // Une 2e copie provoque un conflit d'edition de liens ("multiple
 // definition of mz_adler32/tinfl_decompress/...", constate en compilant).
-// Fix : ne PAS recompiler miniz, juste declarer le PROTOTYPE de la
-// fonction bas niveau deja presente dans le binaire (tinfl_decompress_mem_to_mem,
-// signature copiee telle quelle depuis pngle/src/miniz.c) et l'appeler
-// directement -- aucune redefinition, juste un appel a un symbole existant.
-// TINFL_FLAG_PARSE_ZLIB_HEADER=1 (meme fichier) : nos payloads sont
-// compresses au format zlib standard (2 octets d'en-tete + adler32 en
-// fin de flux, PAS du deflate brut comme le PNG) -- flag necessaire pour
-// que le decodeur saute l'en-tete zlib avant le flux deflate lui-meme.
-extern "C" size_t tinfl_decompress_mem_to_mem(void *pOut_buf, size_t out_buf_len,
-                                              const void *pSrc_buf, size_t src_buf_len,
-                                              int flags);
+// Fix : ne PAS recompiler miniz, juste declarer le PROTOTYPE des symboles
+// bas niveau deja presents dans le binaire et les appeler directement --
+// aucune redefinition, juste un appel a des symboles existants.
+//
+// v3 - 2026-09-17 - safe-modify - API BAS NIVEAU au lieu du wrapper
+// tinfl_decompress_mem_to_mem() : ce wrapper declare son `tinfl_decompressor
+// decomp;` en variable LOCALE (donc sur la pile de loopTask), cause d'un
+// vrai crash reproduit en test materiel ("Stack canary watchpoint
+// triggered (loopTask)", voir DECISIONS.md) des le premier paquet
+// COMPRESSE recu depuis un vrai client vpinball/libdmdutil -- decouvert
+// crucial en Phase 3 (test reel avec la table Batman sur RB2) : le vrai
+// client envoie ses zones EXCLUSIVEMENT compressees (compressed=1 sur 100%
+// des trames cmd=4/5 observees), contrairement a notre script de test
+// Phase 2 qui envoyait du non-compresse -- la compression n'est donc PAS
+// un cas marginal a ignorer, elle est indispensable pour tout affichage
+// reel. Correction de la documentation d'alors : la structure
+// tinfl_decompressor ne fait PAS 32 Ko comme documente au moment du crash
+// (confusion avec `inflate_state::m_dict[TINFL_LZ_DICT_SIZE]`, une AUTRE
+// structure, propre a l'API haut niveau mz_inflate*() jamais utilisee ici)
+// -- lecture directe de pngle/src/miniz.c (struct tinfl_decompressor_tag,
+// ~ligne 769) donne une taille reelle d'environ 11 Ko (3 tables de Huffman
+// de ~3,4 Ko chacune + une poignee de champs scalaires), toujours bien
+// trop pour une variable locale a cette profondeur d'appel mais permettant
+// un fix simple : la meme structure declaree en variable GLOBALE/statique
+// (donc en BSS, jamais sur la pile) suffit. tinfl_decompress() (la
+// fonction coeur, deja liee via pngle, appelee EN INTERNE par le wrapper)
+// est utilisable directement de la meme facon que tinfl_decompress_mem_to_mem
+// le fait lui-meme (memes 2 flags, meme pOut_buf_start==pOut_buf_next) --
+// tinfl_init() n'est qu'une macro amont (`r->m_state = 0`), reproduite ici
+// a l'identique (pas de symbole a lier, juste une ecriture de champ).
+// Definitions (struct/enums) copiees verbatim depuis pngle/src/miniz.c
+// (lignes ~688-776) -- types mz_uintNN remplaces par les uintNN_t
+// standard strictement equivalents (memes tailles), layout memoire
+// identique donc compatible avec le tinfl_decompress() deja compile.
+enum {
+  VPINBALL_TINFL_MAX_HUFF_TABLES   = 3,
+  VPINBALL_TINFL_MAX_HUFF_SYMBOLS0 = 288,
+  VPINBALL_TINFL_MAX_HUFF_SYMBOLS1 = 32,
+  VPINBALL_TINFL_FAST_LOOKUP_BITS  = 10,
+  VPINBALL_TINFL_FAST_LOOKUP_SIZE  = 1 << VPINBALL_TINFL_FAST_LOOKUP_BITS,
+};
+typedef struct {
+  uint8_t m_code_size[VPINBALL_TINFL_MAX_HUFF_SYMBOLS0];
+  int16_t m_look_up[VPINBALL_TINFL_FAST_LOOKUP_SIZE];
+  int16_t m_tree[VPINBALL_TINFL_MAX_HUFF_SYMBOLS0 * 2];
+} vpinball_tinfl_huff_table;
+struct vpinball_tinfl_decompressor {
+  uint32_t m_state, m_num_bits, m_zhdr0, m_zhdr1, m_z_adler32, m_final, m_type,
+           m_check_adler32, m_dist, m_counter, m_num_extra,
+           m_table_sizes[VPINBALL_TINFL_MAX_HUFF_TABLES];
+  uint64_t m_bit_buf;
+  size_t m_dist_from_out_buf_start;
+  vpinball_tinfl_huff_table m_tables[VPINBALL_TINFL_MAX_HUFF_TABLES];
+  uint8_t m_raw_header[4];
+  uint8_t m_len_codes[VPINBALL_TINFL_MAX_HUFF_SYMBOLS0 + VPINBALL_TINFL_MAX_HUFF_SYMBOLS1 + 137];
+};
+typedef enum {
+  VPINBALL_TINFL_STATUS_FAILED = -1,
+  VPINBALL_TINFL_STATUS_DONE   = 0,
+} vpinball_tinfl_status;
+extern "C" int tinfl_decompress(struct vpinball_tinfl_decompressor *r,
+                                 const uint8_t *pIn_buf_next, size_t *pIn_buf_size,
+                                 uint8_t *pOut_buf_start, uint8_t *pOut_buf_next,
+                                 size_t *pOut_buf_size, uint32_t decomp_flags);
 #define VPINBALL_TINFL_FLAG_PARSE_ZLIB_HEADER 1
-#define VPINBALL_TINFL_DECOMPRESS_FAILED ((size_t)(-1))
+#define VPINBALL_TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF 4
+// v7 - 2026-09-17 - safe-modify - HISTORIQUE : v5 tentait de liberer
+// gifRawFrameBuf/gifRawDelayCache/raw565FullBuf EN DIRECT (systeme deja
+// demarre) pour faire de la place au decompresseur (~11 Ko) -- BUG REEL
+// confirme en test materiel (Phase 3, vraie table Batman/RB2) : ces buffers
+// n'existent que pour le chemin "raw565pack" -- un GIF standard (le
+// decodeur pngle classique) ne les alloue jamais, donc les liberer ne
+// recupere RIEN dans ce cas, et le malloc echoue quand meme (confirme :
+// dizaines d'echecs consecutifs en usage reel, maxalloc jamais au-dessus de
+// ~15 Ko une fois GIF+WebServer actifs). Idee de l'utilisateur, bien plus
+// robuste : un REBOOT DEDIE au mode vpinball plutot que d'essayer de
+// grappiller de la RAM sur un systeme deja charge. Reprend un mecanisme
+// DEJA EXISTANT et deja eprouve en production dans ce firmware :
+// g_skipPlaylistForConfig/force_config_boot (RecalBox_DMD.ino, setup()) --
+// un "reboot cible" qui saute le chargement des caches jeux/systemes ET
+// l'ouverture de tout GIF, pour repartir en mode config avec un maximum de
+// heap disponible (mesure reelle juste apres ce chargement de caches, tout
+// autre boot : heap libre=51840 maxalloc=42996 -- tres largement suffisant
+// pour nos 11 Ko). Meme principe ici via force_vpinball_boot (config.ini,
+// voir le bloc g_bootForVpinball dans setup()) : le PREMIER paquet vpinball
+// recu EN MODE NORMAL declenche desormais un reboot cible (voir
+// triggerVpinballBootReboot() plus bas), pas un malloc en direct.
+static struct vpinball_tinfl_decompressor *vpinballTinflState = nullptr;
+
+// v7 -- etat du mode vpinball. Mis a true UNIQUEMENT depuis setup()
+// (RecalBox_DMD.ino, bloc g_bootForVpinball) sur un boot cible reussi --
+// jamais depuis loop()/vpinballProcessPacket() desormais. Timeout de
+// silence -> reboot vers le mode normal (voir exitVpinballMode()) --
+// heuristique inchangee, le protocole ZeDMD n'a toujours aucun signal
+// explicite de fin de partie/deconnexion.
+bool vpinballModeActive = false;
+static unsigned long vpinballLastPacketMs = 0;
+#define VPINBALL_MODE_TIMEOUT_MS 5000
+
+// v7 -- declenche depuis vpinballProcessPacket() des qu'un paquet vpinball
+// arrive alors qu'on est en mode NORMAL (pas encore en mode vpinball) :
+// pose le flag config.ini (persiste a travers le reboot, meme mecanisme que
+// force_config_boot) puis redemarre. Le paquet qui a declenche ce reboot
+// est perdu (vpinball en envoie en continu, le prochain sera capte des le
+// retour en ligne, ~10-17s plus tard le temps du boot+reconnexion WiFi).
+static void triggerVpinballBootReboot()
+{
+  Serial.println("[VPINBALL] 1er paquet detecte en mode normal -- reboot cible vers le mode vpinball (heap max)");
+  writeConfigFlag("force_vpinball_boot", "1");
+  delay(100);
+  ESP.restart();
+}
+
+// v7 -- appelee UNIQUEMENT depuis setup() (RecalBox_DMD.ino), sur le boot
+// cible g_bootForVpinball -- heap encore proche de son maximum post-boot
+// (caches jeux/systemes et GIF/playlist jamais charges sur ce boot precis,
+// meme garde que force_config_boot). Alloue le decompresseur et active le
+// mode -- si le malloc echoue MEME ICI (heap anormalement bas des le boot,
+// jamais observe en test mais reste possible), le mode reste inactif et
+// loop() continue normalement (pipeline GIF/playlist standard, mais SANS
+// caches jeux/systemes puisqu'on est sur ce boot cible -- limite mineure
+// acceptee, cas degrade improbable).
+static void enterVpinballModeFromBoot()
+{
+  // setupVpinballDmd() n'est PAS rappelee ici : deja invoquee juste avant,
+  // depuis setupWiFiFromConfig() (RecalBox_DMD.ino), des que le WiFi se
+  // connecte -- ce chemin s'execute forcement APRES (vient de goto
+  // start_mqtt_task, atteint apres le retour de setupWiFiFromConfig()).
+  vpinballTinflState = (struct vpinball_tinfl_decompressor*)malloc(sizeof(struct vpinball_tinfl_decompressor));
+  if (!vpinballTinflState)
+  {
+    Serial.println("[VPINBALL] echec malloc decompresseur MEME sur boot cible (heap anormalement bas) -- mode vpinball non active");
+    return;
+  }
+  vpinballModeActive = true;
+  vpinballLastPacketMs = millis();
+  Serial.println("[VPINBALL] mode actif (boot cible, heap max) -- decompresseur alloue, pret a recevoir");
+}
+
+// v7 -- quitte le mode vpinball par TIMEOUT (silence prolonge) : reboot
+// vers le mode normal plutot qu'une simple reprise en place -- ce boot
+// cible n'a jamais charge les caches jeux/systemes ni le pipeline GIF/
+// playlist (meme garde que force_config_boot), un reboot complet est
+// necessaire pour les reinitialiser proprement. Le flag config.ini
+// force_vpinball_boot a deja ete consomme (remis a "0") a l'entree de ce
+// boot cible (RecalBox_DMD.ino) -- ce redemarrage repart donc bien en boot
+// normal standard, pas en boucle sur le mode vpinball.
+static void exitVpinballMode()
+{
+  if (!vpinballModeActive) return;
+  Serial.println("[VPINBALL] timeout -- reboot vers le mode normal (playlist/GIF/caches)");
+  if (vpinballTinflState) { free(vpinballTinflState); vpinballTinflState = nullptr; }
+  delay(100);
+  ESP.restart();
+}
 
 // Geometrie des zones -- formule identique a ZeDMD (panel.h), verifiee sur
 // notre panneau 128x32 : 16 zones/ligne x 8 lignes = 128 zones de 8x4 px.
@@ -173,33 +315,39 @@ static void vpinballHandleCommand(uint8_t command, const uint8_t *payload, uint1
     case 5:   // RGB565 Zones Stream
     {
       const bool isRgb565 = (command == 5);
+      const uint8_t *zoneData = payload;
+      size_t zoneDataLen = payloadSize;
       if (compressed)
       {
-        // v3 - 2026-09-16 - safe-modify - BUG REEL trouve en test materiel :
-        // tinfl_decompress_mem_to_mem() alloue son tinfl_decompressor (donc
-        // son dictionnaire LZ77 TINFL_LZ_DICT_SIZE=32768 octets) en variable
-        // LOCALE -- sur la PILE de loopTask, PAS sur le tas. Reproduit en
-        // reel : "Guru Meditation Error... Stack canary watchpoint triggered
-        // (loopTask)" des le premier paquet compresse envoye, backtrace
-        // confirme dans tinfl_decompress <- tinfl_decompress_mem_to_mem <-
-        // pollVpinballUdp() <- loop(). Aucune pile de ce firmware (loopTask
-        // standard Arduino-ESP32) ne peut absorber 32 Ko d'un coup.
-        // Fix retenu POUR CETTE PHASE : ignorer proprement les trames
-        // compressees plutot que de risquer ce crash -- les trames NON
-        // compressees (validees en reel, 4 zones colorees correctement
-        // decodees et affichees) restent pleinement fonctionnelles. Lever
-        // cette limite necessiterait soit (a) une tache FreeRTOS DEDIEE
-        // avec sa propre pile >=40 Ko rien que pour la decompression, soit
-        // (b) heap-allouer tinfl_decompressor (mais 32 Ko d'un coup sur un
-        // heap deja tendu -- voir crash operator new/WebServer::on() plus
-        // haut dans ce fichier -- reintroduirait probablement ce risque) :
-        // aucune des deux tentee ici, a evaluer si un besoin reel de
-        // compression se confirme (libdmdutil peut tres bien fonctionner
-        // en non-compresse pour un affichage aussi simple qu'un DMD 128x32).
-        Serial.println("[VPINBALL] trame compressee ignoree (decompression non supportee sur ce firmware, voir DECISIONS.md)");
-        return;
+        // v4 - 2026-09-17 - safe-modify - decompression REELLEMENT
+        // necessaire : test Phase 3 sur RB2 (vraie table Batman) montre que
+        // le client reel (plugin DMDUtil de VPX) envoie 100% de ses zones
+        // COMPRESSEES -- voir explication complete pres de la declaration
+        // de vpinballTinflState plus haut (API bas niveau tinfl_decompress()
+        // + etat global, evite le crash pile de l'ancien wrapper).
+        if (!vpinballTinflState)
+        {
+          // malloc a echoue a l'entree en mode vpinball (heap trop bas a cet
+          // instant precis) -- trame ignoree proprement, pas de crash.
+          return;
+        }
+        size_t inLen = payloadSize;
+        size_t outLen = sizeof(vpinballDecompBuf);
+        vpinballTinflState->m_state = 0; // tinfl_init(), macro amont reproduite ici
+        const int status = tinfl_decompress(
+            vpinballTinflState,
+            payload, &inLen,
+            vpinballDecompBuf, vpinballDecompBuf, &outLen,
+            VPINBALL_TINFL_FLAG_PARSE_ZLIB_HEADER | VPINBALL_TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF);
+        if (status != VPINBALL_TINFL_STATUS_DONE)
+        {
+          Serial.println("[VPINBALL] erreur decompression (status=" + String(status) + ")");
+          return;
+        }
+        zoneData = vpinballDecompBuf;
+        zoneDataLen = outLen;
       }
-      vpinballDecodeZones(payload, payloadSize, isRgb565);
+      vpinballDecodeZones(zoneData, zoneDataLen, isRgb565);
       break;
     }
     case 6:   // Render -- rien a faire, chaque zone est deja dessinee
@@ -237,6 +385,12 @@ static void vpinballHandleCommand(uint8_t command, const uint8_t *payload, uint1
 // recherche directe de la sequence sur le reste du buffer.
 static void vpinballProcessPacket(const uint8_t *buf, int len)
 {
+  // v7 -- 1er paquet ZeDMD-WiFi recu EN MODE NORMAL = reboot cible vers le
+  // mode vpinball (voir triggerVpinballBootReboot()) -- ne redemarre PAS si
+  // deja en mode vpinball (boot cible reussi), chaque paquet repousse alors
+  // simplement le timeout d'inactivite verifie dans pollVpinballUdp().
+  if (!vpinballModeActive) { triggerVpinballBootReboot(); return; }
+  vpinballLastPacketMs = millis();
   int pos = 0;
   while (pos + 5 <= len)
   {
@@ -259,6 +413,13 @@ static void vpinballProcessPacket(const uint8_t *buf, int len)
 void pollVpinballUdp()
 {
   if (!vpinballUdpStarted) return;
+  // v5 -- sortie du mode vpinball apres un silence prolonge (voir
+  // enterVpinballMode()/exitVpinballMode() -- protocole ZeDMD sans signal
+  // explicite de fin de partie, timeout = seule heuristique disponible).
+  if (vpinballModeActive && (millis() - vpinballLastPacketMs > VPINBALL_MODE_TIMEOUT_MS))
+  {
+    exitVpinballMode();
+  }
   int packetSize;
   const int MAX_DRAIN_PER_CALL = 10;
   int drained = 0;

@@ -4402,6 +4402,17 @@ static void handleWebConfigSave()
   if (webServer->hasArg("feat_description_browse")) featDescriptionBrowse = webServer->arg("feat_description_browse") == "1";
   if (webServer->hasArg("feat_ra_ingame"))          featRaIngame          = webServer->arg("feat_ra_ingame") == "1";
   if (webServer->hasArg("feat_ra_browse"))          featRaBrowse          = webServer->arg("feat_ra_browse") == "1";
+  // v1 - 2026-09-17 - safe-modify - BUG REEL trouve en test materiel (Phase 3,
+  // RB2) : featVpinballDmd n'avait AUCUN moyen de persistance via le web
+  // config -- seule sa lecture au boot depuis config.ini existait
+  // (RecalBox_DMD.ino, parsing feat_vpinball_dmd), jamais son ecriture ici.
+  // Le flag est retombe silencieusement a false entre 2 sessions de test
+  // (cause exacte non confirmee -- probablement un config.ini regenere sans
+  // cette cle, absente du formulaire web jusqu'a ce jour) : diagnostique en
+  // observant `GET /handshake` repasser de la reponse normale a `404
+  // disabled`, sans aucune action delibérée de reactivation possible cote
+  // web. Fix : meme convention que les feat_* existants juste au-dessus.
+  if (webServer->hasArg("feat_vpinball_dmd"))       featVpinballDmd       = webServer->arg("feat_vpinball_dmd") == "1";
   if (webServer->hasArg("feat_repeat_cycles"))      featRepeatCycles      = constrain(webServer->arg("feat_repeat_cycles").toInt(), 0, 20);
   // v111 -- voir declaration (featRepeatBrowseCycles/featDwellSeconds,
   // RecalBox_DMD.ino). Plancher de securite 3s impose ICI aussi (pas
@@ -4465,6 +4476,14 @@ static void handleWebConfigSave()
   f.println("feat_repeat_cycles=" + String(featRepeatCycles));
   f.println("feat_repeat_browse_cycles=" + String(featRepeatBrowseCycles));
   f.println("feat_dwell_seconds=" + String(featDwellSeconds));
+  // v1 - 2026-09-17 - safe-modify - meme bug que le commentaire pres du
+  // handler /save juste au-dessus (webServer->arg) : cette liste EXPLICITE
+  // est TOUT ce qui survit a une sauvegarde depuis BASIC/NETWORK/CLOCK/MEDIA
+  // -- feat_vpinball_dmd, absent d'ici jusqu'a ce jour, etait silencieusement
+  // remis a false (defaut compile) au boot suivant TOUTE sauvegarde web,
+  // meme totalement sans rapport avec vpinball. Cause racine du flag
+  // "reinitialise tout seul" observe en Phase 3 (RB2/DMD2).
+  f.println("feat_vpinball_dmd=" + String(featVpinballDmd ? "1" : "0"));
   f.println(); f.println("# Playlist"); f.println("playlist=" + playlistName); f.println("random=" + String(playlistRandom ? "1" : "0"));
   f.println(); f.println("# Wi-Fi & Bluetooth");
   f.println("wifi_enabled=" + String(wifiEnabled ? "1" : "0")); f.println("wifi_ssid=" + wifiSSID); f.println("wifi_password=" + wifiPassword);

@@ -4803,6 +4803,13 @@ bool     g_forceApRecovery = false; // force_ap_recovery: demande via marquee/cm
 bool     g_skipPlaylistForConfig = false; // force_config_boot (config.ini) : ce boot doit sauter
   // directement en mode config sans jamais lancer la playlist/ouvrir de GIF --
   // consomme (remis a "0" dans config.ini) des lecture dans loadConfig().
+// v7 - 2026-09-17 - safe-modify - force_vpinball_boot (config.ini) : meme
+// mecanisme de "reboot cible" que g_skipPlaylistForConfig juste au-dessus
+// (les 2 flags sont poses ENSEMBLE au parsing, voir setup()) -- mais ce
+// boot entre en mode vpinball (enterVpinballModeFromBoot(), vpinball_dmd.h)
+// au lieu du mode config. Voir vpinball_dmd.h pour le detail complet
+// (triggerVpinballBootReboot() declenche ce boot depuis le mode normal).
+bool     g_bootForVpinball = false;
 bool     g_playlistStartedThisBoot = false; // true des que la playlist/le 1er GIF a reellement
   // demarre ce boot -- sert a triggerWebConfigMode() (web_config.h) pour savoir si un reboot
   // "propre" (sans playlist) apporterait un vrai gain de heap avant d'entrer en mode config.
@@ -4892,10 +4899,13 @@ bool featRaBrowse          = false;
 // dans config.ini.
 bool featVpinballDmd       = false;
 
-// Phase 2 (canal de donnees UDP + decodeur binaire + rendu des zones) --
-// inclus ICI (apres display/featVpinballDmd/VPINBALL_DMD_TOTAL_WIDTH etc.,
-// tous requis par vpinball_dmd.h). Voir DECISIONS.md.
-#include "vpinball_dmd.h"
+// v1 - 2026-09-17 - safe-modify - #include "vpinball_dmd.h" DEPLACE plus
+// loin dans ce fichier (voir pres de gifRawFrameBuf/gifRawDelayCache/
+// raw565FullBuf) : la Phase 3 (liberation memoire pour la decompression
+// zlib reelle, voir DECISIONS.md) a besoin de referencer directement ces
+// 3 buffers depuis vpinball_dmd.h, qui ne sont pas encore declares a CE
+// point du fichier (variables `static`, meme fichier/unite de compilation
+// donc visibles sans extern -- mais seulement APRES leur declaration).
 // v111 -- espacement de repetition du slideshow hi-score/infos EN JEU,
 // exprime en NOMBRE DE CYCLES (pas en secondes) -- demande utilisateur
 // explicite (2026-08-20) : "exprime le slider en cycle d'affichage marquee
@@ -6213,6 +6223,14 @@ static uint16_t gifRawReadDelayMs(uint32_t frameIndex)
 // Buffer reusable pour la lecture bulk d'une frame raw565pack (8192 bytes)
 // PartagÃ© avec drawRaw565() via raw565FullBuf
 static uint16_t *gifRawFrameBuf = nullptr;
+
+// Phase 2/3 (canal de donnees UDP + decodeur binaire + rendu des zones,
+// mode vpinball avec liberation memoire) -- inclus ICI (apres display/
+// featVpinballDmd/VPINBALL_DMD_TOTAL_WIDTH ET gifRawFrameBuf/
+// gifRawDelayCache/raw565FullBuf, tous requis par vpinball_dmd.h -- voir
+// commentaire pres de featVpinballDmd expliquant ce deplacement). Voir
+// DECISIONS.md.
+#include "vpinball_dmd.h"
 
 static void drawGifRaw565Frame(uint32_t frameIndex)
 {
@@ -10952,6 +10970,12 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
         // bas) relit aussi cette cle -- lecture redondante mais harmless,
         // aucune ecriture entre les deux.
         else if(line.startsWith("force_config_boot="))g_skipPlaylistForConfig=(line.substring(line.indexOf('=')+1).toInt()!=0);
+        // v7 - 2026-09-17 - safe-modify - meme lecture EARLY que force_config_boot
+        // juste au-dessus (AVANT loadConfig()) -- ce flag pose AUSSI
+        // g_skipPlaylistForConfig (meme saut caches jeux/systemes + GIF/playlist,
+        // voir vpinball_dmd.h) puisque le mode vpinball a besoin EXACTEMENT du
+        // meme heap maximal, juste pour un usage different apres.
+        else if(line.startsWith("force_vpinball_boot=")){g_bootForVpinball=(line.substring(line.indexOf('=')+1).toInt()!=0);if(g_bootForVpinball)g_skipPlaylistForConfig=true;}
       }
       cfg.close();
     }
@@ -11087,6 +11111,10 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
     // ("Redemarrer") reparte bien en boot playlist standard, pas en boucle
     // sur ce chemin.
     writeConfigFlag("force_config_boot", "0");
+    // v7 - 2026-09-17 - safe-modify - meme consommation immediate que
+    // force_config_boot juste au-dessus, voir vpinball_dmd.h pour le detail
+    // du mecanisme "reboot cible" mode vpinball.
+    if (g_bootForVpinball) writeConfigFlag("force_vpinball_boot", "0");
     // Charge quand meme l'index playlist (gifCount), SANS jamais ouvrir de
     // GIF ni dessiner l'ecran playlist (showPlaylistInfoScreen()) -- lecture
     // seule d'un fichier .idx deja existant, cout heap negligeable (~7ms
@@ -11113,6 +11141,18 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
         }
       }
     }
+    // v7 - 2026-09-17 - safe-modify - branche mode vpinball (heap max, voir
+    // vpinball_dmd.h) au lieu du mode config habituel, quand ce reboot cible
+    // a ete demande par triggerVpinballBootReboot() plutot que par
+    // triggerWebConfigMode(). enterVpinballModeFromBoot() alloue le
+    // decompresseur zlib pendant que le heap est encore proche de son
+    // maximum post-boot -- voir DECISIONS.md pour l'historique complet
+    // (tentative precedente de liberer des buffers EN DIRECT, insuffisante).
+    if (g_bootForVpinball)
+    {
+      enterVpinballModeFromBoot();
+    }
+    else
     {
       String ip = WiFi.localIP().toString();
       g_sdOpMsg = trConfigPageMsg();
@@ -11828,8 +11868,25 @@ void loop()
   }
   // v104 -- bloc declencheur d'alternance score/game_info (TRIGDIAG inclus)
   // retire entierement (hi-score port supprime, test empirique rc=-4).
-  if(requestNextGif&&!g_sdOpInProgress){requestNextGif=false;openNextGif();}
   if(requestReboot) {delay(100);ESP.restart();}
+
+  // v1 - 2026-09-17 - safe-modify - Mode vpinball actif (voir vpinball_dmd.h,
+  // enterVpinballMode()/exitVpinballMode()) : le pipeline GIF/playlist normal
+  // est entierement SUSPENDU pendant qu'une table vpinball envoie des
+  // trames reelles -- ni openNextGif() ni le switch(currentMode) (rendu
+  // GIF/PNG/score/playlist) ne s'executent, exactement comme si loop()
+  // s'arretait ici pour cette iteration. Tout ce qui precede ce point
+  // (WebServer, WiFi/MQTT, handleUdpCommand(), pollVpinballUdp()) continue
+  // de tourner normalement -- seul le rendu GIF/playlist, qui detient les
+  // gros buffers (gifRawFrameBuf/gifRawDelayCache/raw565FullBuf) liberes
+  // par enterVpinballMode() pour faire de la place au decompresseur zlib
+  // vpinball (~11 Ko), est mis en pause. Choisi ICI (juste avant le switch,
+  // qui est la toute derniere chose de loop() -- rien apres a sauter par
+  // erreur) plutot que dans le switch lui-meme, pour ne toucher a aucun des
+  // ~700 lignes de logique par-mode deja fragiles/documentees ailleurs.
+  if (vpinballModeActive) { return; }
+
+  if(requestNextGif&&!g_sdOpInProgress){requestNextGif=false;openNextGif();}
 
   switch(currentMode)
   {
