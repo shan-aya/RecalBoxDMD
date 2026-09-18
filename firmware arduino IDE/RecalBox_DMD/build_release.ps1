@@ -84,7 +84,24 @@ New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
 
 # --- 1) Firmware ---
 Step "1/9 Compilation firmware"
+# v1 - 2026-09-18 - safe-modify - BUG REEL trouve en test materiel (cycle de
+# republication build 6301) : arduino-cli emet une note informative
+# ("#pragma message: Compiling for original ESP32...") sur stderr -- sans
+# rapport avec un echec de compilation (compile.ps1 seul, sans le
+# $ErrorActionPreference="Stop" global de CE script, l'a toujours ignoree
+# sans souci sur des dizaines de compilations cette session). Mais SOUS ce
+# $ErrorActionPreference="Stop" (tete de ce script), PowerShell remonte
+# cette simple note comme une exception terminale (NativeCommandError),
+# stoppant le cycle de release AVANT que la compilation elle-meme n'ait
+# fini -- confirme : le .bin de sortie datait encore du cycle precedent
+# apres cet echec silencieux. Fix : ErrorActionPreference assoupli
+# localement le temps de cet appel precis (compile.ps1 ecrit deja son
+# propre message d'echec + $LASTEXITCODE fiable en cas de vraie erreur,
+# verifie juste apres comme avant).
+$prevEAP = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 & (Join-Path $root "compile.ps1")
+$ErrorActionPreference = $prevEAP
 if ($LASTEXITCODE -ne 0) { throw "Echec compilation firmware (voir sortie ci-dessus)." }
 
 Step "2/9 Copie des binaires firmware"
@@ -133,9 +150,16 @@ Compress-Archive -Path (Join-Path $scriptsDst "*") -DestinationPath $rbZip
 
 # --- 3) PC Toolkit : portable exe (PyInstaller) ---
 Step "4/9 Build du portable .exe (PyInstaller)"
+# v1 -- meme fix qu'a l'etape 1/9 (voir son commentaire) : PyInstaller ecrit
+# ses logs INFO normaux sur stderr, remontes en exception terminale sous
+# $ErrorActionPreference="Stop" -- $LASTEXITCODE reste la seule source de
+# verite fiable pour un vrai echec, verifie juste apres comme avant.
 Push-Location $tools
 try {
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     python -m PyInstaller --clean --noconfirm RecalBoxDMD_GUI.spec
+    $ErrorActionPreference = $prevEAP
     if ($LASTEXITCODE -ne 0) { throw "Echec PyInstaller (code $LASTEXITCODE)." }
 } finally { Pop-Location }
 
@@ -145,7 +169,10 @@ $iscc = Get-ChildItem "C:\Program Files (x86)\Inno Setup 6\ISCC.exe", "C:\Progra
 if (-not $iscc) { throw "ISCC.exe introuvable -- Inno Setup 6 doit etre installe (https://jrsoftware.org/isinfo.php)." }
 Push-Location $tools
 try {
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     & $iscc.FullName "RecalBoxDMD_Setup.iss"
+    $ErrorActionPreference = $prevEAP
     if ($LASTEXITCODE -ne 0) { throw "Echec Inno Setup (code $LASTEXITCODE)." }
 } finally { Pop-Location }
 
