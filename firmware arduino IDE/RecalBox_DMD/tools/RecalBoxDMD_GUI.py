@@ -2,7 +2,20 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v71
+# Version actuelle : v72
+#
+# v72 — 2026-09-19 — safe-modify — Convention de numerotation du build
+#      toolkit (TOOLKIT_RELEASE_VERSION, v70) clarifiee par l'utilisateur :
+#      concatenation du numero de version interne "v<N>" de ce fichier
+#      suivi de celui de RecalBoxDMD_tool.py -- build_release.ps1 le deduit
+#      desormais automatiquement des 2 fichiers (voir son commentaire pres
+#      du calcul de $ToolkitBuild) au lieu d'un parametre tape a la main.
+#      Constante mise a "7248" ICI (pas "7148") : au moment ou l'utilisateur
+#      a donne "7148", ce fichier etait a v71 (71+48) -- mais CET ENTRETIEN
+#      MEME bascule ce fichier a v72, donc la valeur vraiment a jour au
+#      moment ou ce commit existe est 72+48="7248". Le principe (toujours
+#      prendre les 2 DERNIERES versions internes au moment du build) prime
+#      sur le nombre litteral donne pendant la conversation.
 #
 # v71 — 2026-09-19 — safe-modify — BUG REEL corrige (v68 etait un FAUX SENS,
 #      identifie par retour terrain + diagnostic precis de l'utilisateur) :
@@ -1271,11 +1284,16 @@ from tkinter import ttk, messagebox, filedialog, font as tkfont
 # vNNNN/, executables RecalBoxDMD-NNNN-*.exe/.msi/.zip), AFFICHE dans le
 # bandeau de la fenetre (voir self.root.title() plus bas) -- demande suite a
 # un cas de support reel ou un testeur tiers ne savait pas confirmer s'il
-# executait bien la derniere version publiee. A synchroniser A LA MAIN avec
-# le parametre -ToolkitBuild passe a build_release.ps1 a chaque nouvelle
-# release (meme discipline manuelle que le numero de version interne v<N> en
-# tete de ce fichier) -- build_release.ps1 avertit si les deux divergent.
-TOOLKIT_RELEASE_VERSION = "6300"
+# executait bien la derniere version publiee.
+# v72, safe-modify -- convention de numerotation clarifiee par l'utilisateur :
+# ce numero est la concatenation du numero de version interne "v<N>" de CE
+# fichier suivi de celui de RecalBoxDMD_tool.py (ex. GUI v71 + tool v48 =
+# "7148") -- build_release.ps1 le deduit desormais AUTOMATIQUEMENT de ces 2
+# fichiers (voir son propre commentaire pres du calcul de $ToolkitBuild),
+# mais CETTE constante reste a mettre a jour a la main ici (pas d'ecriture
+# automatique dans le .py au moment du build, pour garder le pipeline
+# simple) -- build_release.ps1 avertit si elle diverge du calcul.
+TOOLKIT_RELEASE_VERSION = "7248"
 
 # v71, safe-modify -- voir le remplacement du verrou v68 dans __init__ pour
 # le contexte complet. _DPI_SCALE est le ratio DPI reel/96 (1.0 a 100%,

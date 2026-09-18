@@ -30,20 +30,19 @@
 # DECISIONS.md), ce script se limite a preparer les artefacts locaux.
 #
 # Usage :
-#   .\build_release.ps1                        # versions par defaut (v2.0 / 6243)
-#   .\build_release.ps1 -ToolkitBuild 6300      # nouveau numero de build toolkit
+#   .\build_release.ps1                        # versions par defaut (v2.0 / build toolkit auto)
+#   .\build_release.ps1 -ToolkitBuild 7148      # force un numero de build toolkit (sinon auto)
 #   .\build_release.ps1 -SkipMsi                # saute carrement l'etape .msi (plus rapide)
 
 param(
     [string]$FirmwareLabel = "v2.0",
-    [string]$ToolkitBuild  = "6243",
+    [string]$ToolkitBuild  = "",
     [switch]$SkipMsi
 )
 
 $ErrorActionPreference = "Stop"
 $root        = $PSScriptRoot
 $tools       = Join-Path $root "tools"
-$releaseDir  = Join-Path $root "_release\RecalBoxDMD_${FirmwareLabel}_t${ToolkitBuild}"
 
 function Step($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
 function Warn($msg) { Write-Host "AVERTISSEMENT: $msg" -ForegroundColor Yellow }
@@ -76,6 +75,26 @@ function Get-LatestChangelogEntry {
         Text    = ($lines -join "`n").TrimEnd()
     }
 }
+
+# v2 -- safe-modify -- numero de build toolkit AUTO-DERIVE (convention
+# confirmee par l'utilisateur le 2026-09-19 : concatenation du numero de
+# version interne "v<N>" de RecalBoxDMD_GUI.py suivi de celui de
+# RecalBoxDMD_tool.py, ex. GUI v71 + tool v48 = "7148") au lieu d'un
+# -ToolkitBuild tape a la main a chaque release (source d'oubli -- c'est
+# exactement ce qui avait cause le decalage corrige en v70/v71 de
+# RecalBoxDMD_GUI.py, TOOLKIT_RELEASE_VERSION). -ToolkitBuild reste
+# disponible pour forcer une valeur explicite si besoin (ex. rebuild d'un
+# numero deja publie), sinon deduit ici des 2 fichiers sources.
+if ([string]::IsNullOrWhiteSpace($ToolkitBuild)) {
+    $guiVer  = Get-LatestChangelogEntry (Join-Path $tools "RecalBoxDMD_GUI.py")  "GUI"
+    $toolVer = Get-LatestChangelogEntry (Join-Path $tools "RecalBoxDMD_tool.py") "Tool"
+    if (-not $guiVer -or -not $toolVer) {
+        throw "Impossible de deduire -ToolkitBuild automatiquement (version 'safe-modify' introuvable dans RecalBoxDMD_GUI.py et/ou RecalBoxDMD_tool.py) -- passe -ToolkitBuild explicitement."
+    }
+    $ToolkitBuild = "$($guiVer.Version.TrimStart('v'))$($toolVer.Version.TrimStart('v'))"
+    Write-Host "ToolkitBuild auto-derive : $ToolkitBuild (GUI $($guiVer.Version) + Tool $($toolVer.Version))" -ForegroundColor Cyan
+}
+$releaseDir = Join-Path $root "_release\RecalBoxDMD_${FirmwareLabel}_t${ToolkitBuild}"
 
 if (-not (Test-Path (Join-Path $root "compile.ps1"))) {
     throw "compile.ps1 introuvable a la racine ($root) -- ce script doit tourner depuis le checkout master, pas un worktree de dev."
@@ -149,13 +168,13 @@ if (Test-Path $rbZip) { Remove-Item $rbZip -Force }
 Compress-Archive -Path (Join-Path $scriptsDst "*") -DestinationPath $rbZip
 
 # --- 3) PC Toolkit : portable exe (PyInstaller) ---
-# v1 -- verifie que TOOLKIT_RELEASE_VERSION (constante affichee dans le
+# v2 -- verifie que TOOLKIT_RELEASE_VERSION (constante affichee dans le
 # bandeau de la fenetre, voir son commentaire dans RecalBoxDMD_GUI.py) est
-# bien synchronisee a la main avec -ToolkitBuild avant de packager -- sans
-# ca, le bandeau afficherait un numero perime des la prochaine release
-# (aucune injection automatique, cf. justification dans le commentaire de
-# la constante). Avertissement seul, non bloquant (peut etre volontaire en
-# cours de test local avec -ToolkitBuild par defaut).
+# bien a jour avec le -ToolkitBuild auto-derive ci-dessus (GUI+tool
+# concatenes) avant de packager -- sans ca, le bandeau afficherait un
+# numero perime des la prochaine release (aucune injection automatique de
+# CETTE constante specifiquement, cf. justification dans son commentaire).
+# Avertissement seul, non bloquant.
 $guiPy = Join-Path $tools "RecalBoxDMD_GUI.py"
 $verMatch = Select-String -Path $guiPy -Pattern 'TOOLKIT_RELEASE_VERSION\s*=\s*"([^"]+)"' | Select-Object -First 1
 if ($verMatch -and $verMatch.Matches[0].Groups[1].Value -ne $ToolkitBuild) {
