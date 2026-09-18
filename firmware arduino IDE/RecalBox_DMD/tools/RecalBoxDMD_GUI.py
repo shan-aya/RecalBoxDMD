@@ -2,7 +2,36 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v70
+# Version actuelle : v71
+#
+# v71 — 2026-09-19 — safe-modify — BUG REEL corrige (v68 etait un FAUX SENS,
+#      identifie par retour terrain + diagnostic precis de l'utilisateur) :
+#      cadre Progression toujours absent a 125% APRES v68, PLUS un nouveau
+#      symptome absent avant v68 -- texte tronque dans des cadres a largeur
+#      fixe ("Detection des systemes...", "Version Recalbox..."). Cause
+#      reelle : sur Windows, le rendu des polices (GDI, process DPI-aware)
+#      suit le DPI SYSTEME REEL, independamment de "tk scaling" (qui ne
+#      controle que les conversions point->pixel internes a Tk, pas le
+#      moteur de police natif). v68 verrouillait "tk scaling" a 96/72,
+#      faisant DIVERGER les deux : Tk allouait de l'espace pour du texte
+#      "100%" pendant que GDI dessinait le texte reel a 125% -- d'ou les
+#      troncatures. Fix (sens inverse de v68, voir son commentaire dans
+#      __init__ pour le detail) : NE PLUS toucher "tk scaling" (laisser Tk
+#      suivre le DPI reel, coherent avec GDI) et agrandir PROPORTIONNELLEMENT
+#      tout ce qui etait exprime en pixels litteraux du meme ratio DPI reel/
+#      96 -- nouveaux _DPI_SCALE/_dpi_px() (module-level, juste apres les
+#      imports) : fenetre principale (geometry/minsize, 1100x750 de base) et
+#      tous les wraplength= de texte long (~25 sites). Fonds de theme
+#      verifies sans risque (RecalBoxDMD_themes.py: deja etires
+#      dynamiquement a la taille REELLE de la fenetre via winfo_width/
+#      height(), sans plafond -- largeur et hauteur scalees du meme ratio,
+#      aspect ratio preserve, pas de deformation). PAS VALIDE sur un vrai
+#      poste 4K/125% (aucun disponible cote dev, meme limite que v68 -- une
+#      bascule d'echelle Windows a chaud sur cette machine ne suffit meme
+#      pas a tester : process System-DPI-aware, le DPI effectif ne change
+#      qu'a la reconnexion de session, verifie en direct le 2026-09-19) --
+#      correction basee sur le mecanisme reel diagnostique en concertation
+#      avec l'utilisateur, a confirmer par le testeur tiers.
 #
 # v70 — 2026-09-19 — safe-modify — Ajout TOOLKIT_RELEASE_VERSION (constante,
 #      juste apres les imports) affichee dans le bandeau de la fenetre
@@ -1247,6 +1276,20 @@ from tkinter import ttk, messagebox, filedialog, font as tkfont
 # release (meme discipline manuelle que le numero de version interne v<N> en
 # tete de ce fichier) -- build_release.ps1 avertit si les deux divergent.
 TOOLKIT_RELEASE_VERSION = "6300"
+
+# v71, safe-modify -- voir le remplacement du verrou v68 dans __init__ pour
+# le contexte complet. _DPI_SCALE est le ratio DPI reel/96 (1.0 a 100%,
+# 1.25 a 125%...), calcule UNE FOIS au demarrage via GetDpiForSystem() --
+# module-level (pas sur self) pour que _dpi_px() reste appelable partout
+# sans changer la signature des dizaines de sites d'appel existants
+# (wraplength=, geometry(), minsize()...). _dpi_px(px) convertit une
+# constante pixel PENSEE/TESTEE a 100% vers l'equivalent proportionnel au
+# DPI reel de la machine.
+_DPI_SCALE = 1.0
+
+
+def _dpi_px(px: int) -> int:
+    return round(px * _DPI_SCALE)
 
 
 @dataclass(frozen=True)
@@ -2853,34 +2896,43 @@ class RetroBoxLEDGui:
                 except Exception:
                     pass
 
-        self.root = tk.Tk()
-
-        # v68, safe-modify : verrouille l'echelle interne de Tk a la valeur
-        # STANDARD 96 DPI (1.333... px/point), PAS a 1.0 -- verifie
-        # empiriquement avant ce fix : sur une machine a 100% (96 DPI), Tk
-        # calcule DEJA "tk scaling"=1.3333 par defaut (convention Tk de
-        # toujours : 1 point = 1/72 pouce, 96/72=1.3333), PAS 1.0 comme
-        # suppose initialement -- verrouiller a 1.0 aurait donc RETRECI
-        # l'interface sur TOUTES les machines, y compris celles a 100%,
-        # une regression bien plus large que le bug corrige. DOIT
-        # s'executer avant toute creation de widget (fontes/tailles deja
-        # calculees a la premiere utilisation sinon). Sans ce fix, Tk met
-        # a l'echelle les tailles de police exprimees en points positifs
-        # (toutes ici, ex. ("TkDefaultFont", 9)) selon le DPI systeme reel
-        # -- a 125% par exemple, "tk scaling" passe de 1.3333 a 1.6667
-        # (x1.25) -- alors que la fenetre elle-meme est fixe et non
-        # redimensionnable (geometry("1100x750") plus bas, en pixels
-        # litteraux, jamais mise a l'echelle). Ce dephasage fait deborder
-        # le contenu hors de la fenetre -- la section la plus basse
-        # (Progression) disparait purement et simplement. Verrouiller a
-        # 96/72 fige le rendu EXACTEMENT sur ce qui a toujours ete
-        # teste/valide (100%), quel que soit le DPI systeme reel -- no-op
-        # reel sur une machine a 100% (verifie : 1.3333 avant ET apres),
-        # verrou effectif seulement au-dela.
+        # v71, safe-modify -- REMPLACE le verrou v68 (tk.call("tk","scaling",
+        # 96/72)), confirme FAUX SENS par retour terrain reel (testeur tiers
+        # 4K/125%, bug persistant + nouveau symptome : texte tronque dans
+        # les cadres a largeur fixe, absent avant v68). Analyse de la vraie
+        # cause (l'utilisateur a mis le doigt dessus) : sur Windows, le
+        # rendu REEL des polices (GDI, pour un process DPI-aware) suit le
+        # DPI SYSTEME REEL independamment de "tk scaling" -- ce dernier ne
+        # controle QUE les conversions internes point->pixel de Tk (tailles
+        # de widgets/paddings exprimees en points), pas le moteur de police
+        # natif. Verrouiller "tk scaling" a 96/72 (comme le faisait v68)
+        # fait donc DIVERGER les deux : Tk alloue de l'espace pour du texte
+        # "100%" (petit) alors que GDI dessine le texte reel a 125% (gros)
+        # -- d'ou les nouveaux textes tronques. La fenetre elle-meme restait
+        # fixe (1100x750, litteral) dans les deux cas, d'ou le cadre
+        # Progression toujours pousse hors champ.
+        # Fix correct (sens inverse de v68) : NE PLUS toucher "tk scaling"
+        # (laisser Tk suivre le DPI reel, coherent avec GDI) et a la place
+        # agrandir PROPORTIONNELLEMENT tout ce qui est exprime en pixels
+        # litteraux (fenetre, wraplength des textes longs) du meme ratio
+        # DPI reel/96 que les polices -- _DPI_SCALE/_dpi_px() ci-dessus.
+        # GetDpiForSystem (Windows 10 1607+, deja le minimum supporte par ce
+        # projet) renvoie le DPI EFFECTIF du process courant (defini a la
+        # connexion de session pour un process System-DPI-aware comme
+        # celui-ci -- voir DECISIONS.md, test live 2026-09-19 : un
+        # changement d'echelle a chaud ne suffit pas, sign-out requis).
+        # PAS VALIDE sur un vrai poste 4K/125% (aucun disponible cote dev,
+        # meme limite que v68) -- correction basee sur le mecanisme reel
+        # rapporte, a confirmer par le testeur tiers.
+        global _DPI_SCALE
         try:
-            self.root.tk.call("tk", "scaling", 96 / 72)
+            real_dpi = ctypes.windll.user32.GetDpiForSystem()
+            if real_dpi:
+                _DPI_SCALE = real_dpi / 96.0
         except Exception:
             pass
+
+        self.root = tk.Tk()
 
         self.root.title(f"RecalBoxDMD Toolkit - GUI  (build {TOOLKIT_RELEASE_VERSION})")
         self.root.configure(bg="#F3F3F3")
@@ -3155,14 +3207,15 @@ class RetroBoxLEDGui:
 
         # Bug 2 : taille minimale fixe pour que le changement de langue
         # ne redimensionne pas la fenêtre.
-        # Reste a 750 (pas d'agrandissement) : les images de fond par theme
-        # (tools/themes/<nom>/bg.png) sont etirees dynamiquement a la taille
-        # de la fenetre (themes.apply()), donc agrandir la fenetre les
-        # deformerait visuellement (aspect ratio non preserve) pour TOUS
-        # les themes -- il faudrait regenerer chaque bg.png. Le contenu de
-        # l'onglet Main est plutot resserre pour tenir dans 750px (voir
-        # _build_mode6_panel : listbox lecteurs reduite, paddings reduits).
-        self.root.minsize(1100, 750)
+        # v71, safe-modify -- 1100/750 passes par _dpi_px() (voir son
+        # commentaire dans __init__ pour le contexte complet du fix DPI).
+        # Le risque de deformation des images de fond par theme
+        # (tools/themes/<nom>/bg.png, etirees dynamiquement par
+        # themes.apply()) qui avait fait garder 750 fixe jusqu'ici ne
+        # s'applique PAS ici : largeur ET hauteur sont mises a l'echelle du
+        # MEME ratio (_DPI_SCALE), le rapport d'aspect 1100:750 est donc
+        # preserve -- juste un agrandissement uniforme, pas une deformation.
+        self.root.minsize(_dpi_px(1100), _dpi_px(750))
         # v53 (master), safe-modify : fenetre principale explicitement
         # CENTREE sur l'ecran primaire au lancement -- root n'avait
         # jusqu'ici JAMAIS de position explicite (geometry() ne donnait que
@@ -3183,9 +3236,11 @@ class RetroBoxLEDGui:
         self.root.update_idletasks()
         _screen_w = self.root.winfo_screenwidth()
         _screen_h = self.root.winfo_screenheight()
-        _x = max(0, (_screen_w - 1100) // 2)
-        _y = max(0, (_screen_h - 750) // 2)
-        self.root.geometry(f"1100x750+{_x}+{_y}")
+        _win_w = _dpi_px(1100)
+        _win_h = _dpi_px(750)
+        _x = max(0, (_screen_w - _win_w) // 2)
+        _y = max(0, (_screen_h - _win_h) // 2)
+        self.root.geometry(f"{_win_w}x{_win_h}+{_x}+{_y}")
         # Interdire le redimensionnement en plein écran / maximisé.
         self.root.resizable(False, False)
         self.root.grid_propagate(True)
@@ -3278,7 +3333,7 @@ class RetroBoxLEDGui:
         # _enter_playlist_temp_mode()) pour eviter un 2e bouton redondant.
         self._playlist_temp_note_lbl = tk.Label(
             top_row, text="", bg="#FFF3CD", fg="black", bd=2, relief="solid",
-            font=("TkDefaultFont", 8), justify="left", anchor="nw", wraplength=260,
+            font=("TkDefaultFont", 8), justify="left", anchor="nw", wraplength=_dpi_px(260),
             padx=6, pady=4,
         )
 
@@ -3290,7 +3345,7 @@ class RetroBoxLEDGui:
         self._playlist_explanation_lbl = tk.Label(
             self._playlist_explanation_frame, text="", bg="#F3F3F3",
             fg="black", font=("TkDefaultFont", 8), justify="left", anchor="nw",
-            wraplength=560,
+            wraplength=_dpi_px(560),
         )
         self._playlist_explanation_lbl.pack(fill="both", expand=True, padx=6, pady=4)
         self._playlist_refresh_explanation_text()
@@ -4330,7 +4385,7 @@ class RetroBoxLEDGui:
         body.pack(fill="both", expand=True)
         tk.Label(
             body, text=ui["playlist_subfolder_checklist_prompt"].format(root=str(root_path)),
-            bg=bg, fg=fg, font=("TkDefaultFont", 9), wraplength=440, justify="left",
+            bg=bg, fg=fg, font=("TkDefaultFont", 9), wraplength=_dpi_px(440), justify="left",
         ).pack(anchor="w", pady=(0, 8))
 
         select_row = tk.Frame(body, bg=bg)
@@ -4449,7 +4504,7 @@ class RetroBoxLEDGui:
         body.pack(fill="both", expand=True)
         tk.Label(
             body, text=ui["playlist_import_dialog_prompt"], bg=bg, fg=fg,
-            font=("TkDefaultFont", 9), wraplength=380, justify="left",
+            font=("TkDefaultFont", 9), wraplength=_dpi_px(380), justify="left",
         ).pack(anchor="w", pady=(0, 10))
         entry_var = tk.StringVar(value=default)
         entry = tk.Entry(body, textvariable=entry_var, font=("TkDefaultFont", 10), cursor="xterm")
@@ -5207,7 +5262,7 @@ class RetroBoxLEDGui:
             bg="#F3F3F3",
             fg="#555555",
             font=("TkDefaultFont", 8),
-            wraplength=260,
+            wraplength=_dpi_px(260),
             justify="left",
         )
         self._params_slow_threshold_hint_lbl.grid(row=len(langs) + 7, column=0, sticky="w", pady=(2, 4))
@@ -5504,7 +5559,7 @@ class RetroBoxLEDGui:
                 fg="black",
                 activebackground="#E7E7E7",
                 font=("TkDefaultFont", 10, "bold"),
-                wraplength=350,
+                wraplength=_dpi_px(350),
                 justify="left",
                 highlightthickness=0,
                 takefocus=0,
@@ -5565,7 +5620,7 @@ class RetroBoxLEDGui:
             bg="#F3F3F3",
             fg="black",
             font=("TkDefaultFont", 9),
-            wraplength=350,
+            wraplength=_dpi_px(350),
             justify="left",
         ).pack(anchor="w", pady=(8, 0))
 
@@ -5747,7 +5802,7 @@ class RetroBoxLEDGui:
             bg="#F3F3F3",
             fg="#666666",
             font=("TkDefaultFont", 9),
-            wraplength=320,
+            wraplength=_dpi_px(320),
             justify="left",
         )
         # Ne pas pack par défaut - packé par _on_mode_changed
@@ -5845,7 +5900,7 @@ class RetroBoxLEDGui:
                     fg="black",
                     activebackground="#E7E7E7",
                     font=("TkDefaultFont", 12, "bold"),
-                    wraplength=280,
+                    wraplength=_dpi_px(280),
                     justify="left",
                     anchor="w",
                     highlightthickness=0,
@@ -5884,7 +5939,7 @@ class RetroBoxLEDGui:
             bg="#F3F3F3",
             fg="black",
             font=("TkDefaultFont", 9),
-            wraplength=350,
+            wraplength=_dpi_px(350),
             justify="left",
         ).pack(anchor="w", pady=(8, 0))
         self.btn_start_adv = tk.Button(
@@ -6177,7 +6232,7 @@ class RetroBoxLEDGui:
             bg="#F3F3F3",
             fg="black",
             font=("TkDefaultFont", 9),
-            wraplength=280,
+            wraplength=_dpi_px(280),
             justify="left",
         )
         self._mode9_result_lbl.pack(anchor="w", pady=(6, 0))
@@ -7926,7 +7981,7 @@ class RetroBoxLEDGui:
         body.pack(fill="both", expand=True)
         tk.Label(
             body, text=message, bg=bg, fg=fg,
-            font=("TkDefaultFont", 9), wraplength=420, justify="left",
+            font=("TkDefaultFont", 9), wraplength=_dpi_px(420), justify="left",
         ).pack(anchor="w", pady=(0, 12))
         tk.Button(
             body, text=ui["btn_close"], command=dlg.destroy,
@@ -7966,7 +8021,7 @@ class RetroBoxLEDGui:
         else:
             tk.Label(
                 body, text=message, bg=bg, fg=fg,
-                font=("TkDefaultFont", 9), wraplength=420, justify="left",
+                font=("TkDefaultFont", 9), wraplength=_dpi_px(420), justify="left",
             ).pack(anchor="w", pady=(0, 12))
         btns = tk.Frame(body, bg=bg)
         btns.pack(fill="x")
@@ -8097,7 +8152,7 @@ class RetroBoxLEDGui:
         body.pack(fill="both", expand=True)
         tk.Label(
             body, text=message, bg=bg, fg=fg,
-            font=("TkDefaultFont", 9), wraplength=420, justify="left",
+            font=("TkDefaultFont", 9), wraplength=_dpi_px(420), justify="left",
         ).pack(anchor="w", pady=(0, 12))
         btns = tk.Frame(body, bg=bg)
         btns.pack(fill="x")
@@ -8153,7 +8208,7 @@ class RetroBoxLEDGui:
         body.pack(fill="both", expand=True)
         tk.Label(
             body, text=ui["lang_images_msg"], bg=bg, fg=fg,
-            font=("TkDefaultFont", 9), wraplength=460, justify="left",
+            font=("TkDefaultFont", 9), wraplength=_dpi_px(460), justify="left",
         ).pack(anchor="w", pady=(0, 10))
 
         img_path = Path(__file__).resolve().parent / "assets" / "lang_preview" / "compare_systems_lang.png"
@@ -8242,7 +8297,7 @@ class RetroBoxLEDGui:
 
         tk.Label(
             body, text=ui["mode1_wifi_prompt"], bg=bg, fg=fg,
-            font=("TkDefaultFont", 9), wraplength=380, justify="left",
+            font=("TkDefaultFont", 9), wraplength=_dpi_px(380), justify="left",
         ).pack(anchor="w", pady=(0, 10))
 
         tk.Label(body, text=ui["mode1_wifi_ssid_label"], bg=bg, fg=fg, font=("TkDefaultFont", 9, "bold")).pack(anchor="w")
@@ -8278,7 +8333,7 @@ class RetroBoxLEDGui:
             bg=bg, fg=fg, selectcolor=bg, bd=0, highlightthickness=0,
         ).pack(side="left", padx=(4, 0))
 
-        status_lbl = tk.Label(body, text="", bg=bg, fg=fg, font=("TkDefaultFont", 9), wraplength=380, justify="left")
+        status_lbl = tk.Label(body, text="", bg=bg, fg=fg, font=("TkDefaultFont", 9), wraplength=_dpi_px(380), justify="left")
         status_lbl.pack(anchor="w", pady=(4, 10))
 
         # --- IP fixe optionnelle (2026-09-14, voir docstring ci-dessus) ---
@@ -8286,7 +8341,7 @@ class RetroBoxLEDGui:
         static_frame = tk.Frame(body, bg=bg)
         static_hint_lbl = tk.Label(
             static_frame, text="", bg=bg, fg="#806000", font=("TkDefaultFont", 8),
-            wraplength=380, justify="left",
+            wraplength=_dpi_px(380), justify="left",
         )
         # Ni static_hint_lbl ni static_fields_frame ne sont packes ici --
         # les deux restent masques tant que la case n'est pas cochee (voir
@@ -8350,7 +8405,7 @@ class RetroBoxLEDGui:
         ).pack(anchor="w", pady=(0, 0))
         tk.Label(
             body, text=ui["mode1_wifi_static_warning"], bg=bg, fg="#CC6600",
-            font=("TkDefaultFont", 8), wraplength=380, justify="left",
+            font=("TkDefaultFont", 8), wraplength=_dpi_px(380), justify="left",
         ).pack(anchor="w", pady=(2, 4))
         static_frame.pack(fill="x", pady=(0, 6))
 
@@ -8488,7 +8543,7 @@ class RetroBoxLEDGui:
         body.pack(fill="both", expand=True)
         tk.Label(
             body, text=ui["mode1_manual_ip_prompt"], bg=bg, fg=fg,
-            font=("TkDefaultFont", 9), wraplength=380, justify="left",
+            font=("TkDefaultFont", 9), wraplength=_dpi_px(380), justify="left",
         ).pack(anchor="w", pady=(0, 10))
         entry_var = tk.StringVar(value=default)
         entry = tk.Entry(body, textvariable=entry_var, font=("TkDefaultFont", 10))
@@ -8549,7 +8604,7 @@ class RetroBoxLEDGui:
         body.pack(fill="both", expand=True)
         tk.Label(
             body, text=ui["sdcard_dialog_prompt"](min_gb), bg=bg, fg=fg,
-            font=("TkDefaultFont", 9), wraplength=420, justify="left",
+            font=("TkDefaultFont", 9), wraplength=_dpi_px(420), justify="left",
         ).pack(anchor="w", pady=(0, 10))
 
         list_frame = tk.Frame(body, bg=bg)
@@ -8562,7 +8617,7 @@ class RetroBoxLEDGui:
 
         error_lbl = tk.Label(
             body, text="", bg=bg, fg="#D32F2F",
-            font=("TkDefaultFont", 9), wraplength=420, justify="left",
+            font=("TkDefaultFont", 9), wraplength=_dpi_px(420), justify="left",
         )
         error_lbl.pack(anchor="w", pady=(0, 8))
 
@@ -10416,7 +10471,7 @@ class RetroBoxLEDGui:
             bg=bg,
             fg=fg,
             font=("TkDefaultFont", 10),
-            wraplength=480,
+            wraplength=_dpi_px(480),
             justify="left",
         ).pack(anchor="w", pady=(0, 12))
 
@@ -10526,7 +10581,7 @@ class RetroBoxLEDGui:
             bg=bg,
             fg=fg,
             font=("TkDefaultFont", 9),
-            wraplength=480,
+            wraplength=_dpi_px(480),
             justify="left",
         ).pack(anchor="w", pady=(0, 12))
 
@@ -11360,7 +11415,7 @@ class RetroBoxLEDGui:
 
         msg = f"❌ La copie vers la carte SD a échoué.\n\n{error_msg}"
         tk.Label(
-            dlg, text=msg, bg=bg, fg=fg, justify="left", padx=14, pady=12, wraplength=380
+            dlg, text=msg, bg=bg, fg=fg, justify="left", padx=14, pady=12, wraplength=_dpi_px(380)
         ).pack(fill="both", expand=True)
 
         btn_frame = tk.Frame(dlg, bg=bg)
