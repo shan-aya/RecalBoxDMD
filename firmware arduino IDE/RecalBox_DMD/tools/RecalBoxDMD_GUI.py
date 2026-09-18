@@ -2,7 +2,19 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v69
+# Version actuelle : v70
+#
+# v70 — 2026-09-19 — safe-modify — Ajout TOOLKIT_RELEASE_VERSION (constante,
+#      juste apres les imports) affichee dans le bandeau de la fenetre
+#      ("RecalBoxDMD Toolkit - GUI (build NNNN)") -- demande suite au
+#      diagnostic du bug DPI/125% en cours (v68/v69) : impossible de
+#      confirmer a distance qu'un testeur tiers execute bien la derniere
+#      version publiee sans lui demander une capture d'ecran du code ou du
+#      nom de dossier. A resynchroniser A LA MAIN avec -ToolkitBuild a
+#      chaque release (voir le commentaire de la constante) -- pas
+#      d'injection automatique au build pour l'instant (garde le pipeline
+#      de build_release.ps1 simple), juste une verification de coherence
+#      ajoutee au script (avertissement si divergence).
 #
 # v69 — 2026-09-18 — safe-modify — Retour terrain distinct (Mode 9, pas le
 #      DPI/125% de v68) : un testeur tiers rapporte apres installation
@@ -1225,6 +1237,16 @@ from typing import Callable, Optional, Sequence, cast
 
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog, font as tkfont
+
+# v70, safe-modify -- numero de build publie (dossier tools/RecalBoxDMD_tool_
+# vNNNN/, executables RecalBoxDMD-NNNN-*.exe/.msi/.zip), AFFICHE dans le
+# bandeau de la fenetre (voir self.root.title() plus bas) -- demande suite a
+# un cas de support reel ou un testeur tiers ne savait pas confirmer s'il
+# executait bien la derniere version publiee. A synchroniser A LA MAIN avec
+# le parametre -ToolkitBuild passe a build_release.ps1 a chaque nouvelle
+# release (meme discipline manuelle que le numero de version interne v<N> en
+# tete de ce fichier) -- build_release.ps1 avertit si les deux divergent.
+TOOLKIT_RELEASE_VERSION = "6300"
 
 
 @dataclass(frozen=True)
@@ -2860,7 +2882,7 @@ class RetroBoxLEDGui:
         except Exception:
             pass
 
-        self.root.title("RecalBoxDMD Toolkit - GUI")
+        self.root.title(f"RecalBoxDMD Toolkit - GUI  (build {TOOLKIT_RELEASE_VERSION})")
         self.root.configure(bg="#F3F3F3")
 
         self.style = ttk.Style(self.root)

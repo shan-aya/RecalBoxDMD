@@ -149,6 +149,21 @@ if (Test-Path $rbZip) { Remove-Item $rbZip -Force }
 Compress-Archive -Path (Join-Path $scriptsDst "*") -DestinationPath $rbZip
 
 # --- 3) PC Toolkit : portable exe (PyInstaller) ---
+# v1 -- verifie que TOOLKIT_RELEASE_VERSION (constante affichee dans le
+# bandeau de la fenetre, voir son commentaire dans RecalBoxDMD_GUI.py) est
+# bien synchronisee a la main avec -ToolkitBuild avant de packager -- sans
+# ca, le bandeau afficherait un numero perime des la prochaine release
+# (aucune injection automatique, cf. justification dans le commentaire de
+# la constante). Avertissement seul, non bloquant (peut etre volontaire en
+# cours de test local avec -ToolkitBuild par defaut).
+$guiPy = Join-Path $tools "RecalBoxDMD_GUI.py"
+$verMatch = Select-String -Path $guiPy -Pattern 'TOOLKIT_RELEASE_VERSION\s*=\s*"([^"]+)"' | Select-Object -First 1
+if ($verMatch -and $verMatch.Matches[0].Groups[1].Value -ne $ToolkitBuild) {
+    Warn "TOOLKIT_RELEASE_VERSION dans RecalBoxDMD_GUI.py ($($verMatch.Matches[0].Groups[1].Value)) ne correspond pas a -ToolkitBuild ($ToolkitBuild) -- le bandeau de la fenetre affichera un numero perime. Mets a jour la constante avant de publier."
+} elseif (-not $verMatch) {
+    Warn "TOOLKIT_RELEASE_VERSION introuvable dans RecalBoxDMD_GUI.py -- verification de coherence sautee."
+}
+
 Step "4/9 Build du portable .exe (PyInstaller)"
 # v1 -- meme fix qu'a l'etape 1/9 (voir son commentaire) : PyInstaller ecrit
 # ses logs INFO normaux sur stderr, remontes en exception terminale sous
