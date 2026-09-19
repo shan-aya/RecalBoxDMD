@@ -1,7 +1,17 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v215
+// Version actuelle : v218
+//
+// v218 - 2026-09-19 - safe-modify - Mode Pinball (sans reboot, voir
+//   vpinball_dmd.h v4) : retour utilisateur en test reel avec Batman -- le
+//   logo "RecalBox connectee" s'affichait en alternance avec la table
+//   (CMD_WAITING_MQTT / alertes "non connectee" postees pendant la partie,
+//   la Recalbox chargee par VPX repondant tard aux PING). Toute commande en
+//   attente non administrative est desormais abandonnee tant que le mode est
+//   actif, et showRecalboxDisconnectedAlert()/showNoWifiRecalboxAlert() ne
+//   dessinent plus. (v216 : sonde memoire + tableaux 300->160, v217 :
+//   inflateur minimal + mode Pinball en place, voir leurs commits.)
 //
 // v215 - 2026-09-19 - safe-modify - Option "Mode Pinball (VPX)" ajoutee a la
 //   page web "Affichage" (web_config.h) : case a cocher feat_vpinball_dmd
@@ -7326,6 +7336,8 @@ void drawNoWifiNoRecalboxOverlay(bool visible)
 // hors thread principal, meme regle que le reste de ce fichier).
 void showNoWifiRecalboxAlert()
 {
+  // v218 -- meme garde que showRecalboxDisconnectedAlert() (table Pinball en cours).
+  if (vpinballModeActive) { g_noWifiRecalboxPending = false; return; }
   gif.close(); gifOpened=false; currentPngPath=String(DEFAULT_RAW565_PATH); pngDrawn=true;
   display->clearScreen();
   bool okDraw = drawDefaultRaw565Cached();
@@ -7354,6 +7366,9 @@ void drawRecalboxDisconnectedOverlay(bool visible)
 // et duree d'affichage dedies.
 void showRecalboxDisconnectedAlert()
 {
+  // v218 -- pas d'alerte par-dessus une table Pinball en cours (la Recalbox,
+  // chargee par VPX, repond parfois tard aux PING).
+  if (vpinballModeActive) { g_recalboxDisconnectedPending = false; return; }
   gif.close(); gifOpened=false; currentPngPath=String(DEFAULT_RAW565_PATH); pngDrawn=true;
   display->clearScreen();
   bool okDraw = drawDefaultRaw565Cached();
@@ -7748,6 +7763,17 @@ void processPendingMqttCommand()
   else                       { cmd=pendingCmd; pendingCmd=MqttCommand(MqttCommand::CMD_NONE,""); }
   xSemaphoreGive(mqttCmdMutex);
   if(cmd.type==MqttCommand::CMD_NONE) return;
+
+  // v218 -- mode Pinball actif : l'ecran appartient au flux ZeDMD. Une commande
+  // deja en attente (ex. CMD_WAITING_MQTT "RecalBox connectee", posee par la
+  // reponse a un PING pendant la partie -- constate en test reel : le logo
+  // s'affichait en alternance avec la table) est abandonnee. Seules les
+  // commandes d'administration passent.
+  if (vpinballModeActive &&
+      cmd.type != MqttCommand::CMD_REBOOT && cmd.type != MqttCommand::CMD_WIFI_RECOVERY &&
+      cmd.type != MqttCommand::CMD_SHOW_CONFIG && cmd.type != MqttCommand::CMD_MEM_PROBE &&
+      cmd.type != MqttCommand::CMD_INFLATE_TEST)
+    return;
 
   // v111 -- INSTRUMENTATION DIAGNOSTIC TEMPORAIRE (a retirer une fois la
   // cause confirmee) : utilisateur rapporte un affichage MODE_SCORE
