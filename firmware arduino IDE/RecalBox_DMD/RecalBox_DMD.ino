@@ -1,7 +1,15 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v221
+// Version actuelle : v222
+//
+// v222 - 2026-09-20 - safe-modify - web_config.h : bulle "?" et commentaire de
+//   l'option "Mode Pinball (VPX)" (FR/EN/ES) mis a jour -- ils annoncaient
+//   encore 2 redemarrages du DMD (lancement de table + retour), faux depuis le
+//   mode en place (v217) : plus aucun reboot au lancement d'une table, sortie
+//   a la fin de partie ou apres 5 s sans image. Seule l'activation de
+//   l'option demande un redemarrage (setupVpinballDmd() ne tourne qu'au boot).
+//   Texte uniquement, aucun changement de comportement.
 //
 // v221 - 2026-09-20 - safe-modify - Fusion master -> dev/vpinball-integration (aucun changement de comportement : reprend v211 de master
 //   -- renommage d'etiquette SD, deja reactive ici depuis v215 -- et l'IP dynamique des scripts). Les v212 a v220 de cette branche (memoire,
