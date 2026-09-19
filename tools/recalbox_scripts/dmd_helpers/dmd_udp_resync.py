@@ -2,7 +2,23 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v4
+# Version actuelle : v5
+#
+# v5 - 2026-09-19 - safe-modify - BUG REEL corrige (retour utilisateur
+#   externe, testeur tiers : "le DMD reste en playlist" alors que les
+#   scripts sont bien installes/actives) : marquee.sh/dmd_score.sh/
+#   dmd_achievement.sh visaient tous les 3 DMD_UDP_IP="192.168.0.51",
+#   l'IP FIXE du DMD de developpement -- ne fonctionnait que par coincidence
+#   si le DMD de l'installateur obtenait cette meme adresse. Ce script
+#   recoit deja TOUS les paquets du DMD (hello au boot/reconnexion WiFi,
+#   PING toutes les 15s, FEATURES a chaque sauvegarde web) et connait donc
+#   deja son IP source reelle (addr[0]) a chaque appel -- ecrit desormais
+#   cette IP dans DMD_IP_CACHE_PATH a CHAQUE paquet recu (avant tout
+#   traitement specifique), lu par les 3 scripts shell au lieu de leur
+#   ancienne IP codee en dur (repli conserve si ce fichier n'existe pas
+#   encore, ex. tout debut avant le 1er hello). Auto-decouverte, se
+#   corrige aussi tout seul si l'IP du DMD change (nouveau bail DHCP) des
+#   le prochain PING (<=15s).
 #
 # v4 - 2026-09-12 - safe-modify - BUG REEL trouve en direct (retour
 #   utilisateur : "j'ai un sacre melange... playlist melange avec hiscore
@@ -87,7 +103,6 @@ import sys
 import time
 
 UDP_HELLO_PORT = 5006  # doit rester identique a UDP_HELLO_PORT, RecalBox_DMD.ino
-DMD_UDP_IP = "192.168.0.51"  # EN DUR pour l'instant, voir marquee.sh DMD_UDP_IP (meme limite)
 DMD_UDP_PORT = 5005  # doit rester identique a UDP_CMD_PORT, RecalBox_DMD.ino
 ES_STATE_PATH = "/tmp/es_state.inf"
 LOG_PATH = "/recalbox/share/system/logs/dmd_udp_resync.log"
@@ -96,6 +111,10 @@ LOG_PATH = "/recalbox/share/system/logs/dmd_udp_resync.log"
 # ET dmd_achievement.sh sans aucun changement de leur cote.
 FEATURES_CACHE_PATH = "/tmp/dmd_features_cache"
 FEATURES_PREFIX = "FEATURES:"
+# v5 -- IP source reelle du DMD, apprise de chaque paquet recu sur ce port
+# (hello/PING/FEATURES, peu importe le type) -- lue par marquee.sh/
+# dmd_score.sh/dmd_achievement.sh au lieu de leur ancienne IP codee en dur.
+DMD_IP_CACHE_PATH = "/tmp/dmd_udp_ip"
 
 
 def log(msg):
@@ -156,9 +175,18 @@ def compute_current_state():
     return [("default", "1")]
 
 
-def send_udp(sock, cmd, arg):
+def update_dmd_ip_cache(ip):
+    # v5 -- best-effort, appele a CHAQUE paquet recu -- voir DMD_IP_CACHE_PATH.
+    try:
+        with open(DMD_IP_CACHE_PATH, "w") as f:
+            f.write(ip)
+    except Exception as e:
+        log(f"ERREUR ecriture {DMD_IP_CACHE_PATH}: {e}")
+
+
+def send_udp(sock, dmd_ip, cmd, arg):
     payload = f"CMD={cmd} ARG={arg}".encode("utf-8", "replace")
-    sock.sendto(payload, (DMD_UDP_IP, DMD_UDP_PORT))
+    sock.sendto(payload, (dmd_ip, DMD_UDP_PORT))
 
 
 def main():
@@ -166,7 +194,7 @@ def main():
     listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     listen_sock.bind(("0.0.0.0", UDP_HELLO_PORT))
     send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    log(f"demarre, ecoute UDP {UDP_HELLO_PORT}, resync vers {DMD_UDP_IP}:{DMD_UDP_PORT}")
+    log(f"demarre, ecoute UDP {UDP_HELLO_PORT}, repond a l'IP source de chaque paquet recu")
 
     while True:
         try:
@@ -175,6 +203,10 @@ def main():
             log(f"ERREUR recvfrom: {e}")
             time.sleep(1)
             continue
+
+        # v5 -- apprend l'IP reelle du DMD de CHAQUE paquet recu, peu importe
+        # son type -- voir DMD_IP_CACHE_PATH.
+        update_dmd_ip_cache(addr[0])
 
         # v2 -- distingue desormais 2 types de message sur ce port (avant,
         # v1 traitait TOUT paquet comme un "hello") :
@@ -186,7 +218,7 @@ def main():
         # v3 -- ping/pong dedie, voir changelog v3 -- reponse immediate,
         # brute (pas via send_udp(), qui formate en "CMD=.../ARG=...").
         if text == "PING":
-            send_sock.sendto(b"PONG", (DMD_UDP_IP, DMD_UDP_PORT))
+            send_sock.sendto(b"PONG", (addr[0], DMD_UDP_PORT))
             continue
         if text.startswith(FEATURES_PREFIX):
             payload = text[len(FEATURES_PREFIX):]
@@ -201,7 +233,7 @@ def main():
         cmds = compute_current_state()
         log(f"hello de {addr[0]} -> resync {cmds}")
         for cmd, arg in cmds:
-            send_udp(send_sock, cmd, arg)
+            send_udp(send_sock, addr[0], cmd, arg)
 
 
 if __name__ == "__main__":

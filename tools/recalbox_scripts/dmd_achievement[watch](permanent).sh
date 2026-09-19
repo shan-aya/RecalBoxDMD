@@ -100,9 +100,17 @@ FEATURES_FILE="/tmp/dmd_features_cache"
 # RetroAchievements ne partaient plus QUE via mosquitto_pub, mort depuis
 # RecalBox_DMD.ino v161 (MQTT_ENABLED=false). Meme send_udp() que les 2
 # autres scripts (duplique, pas factorise -- meme motif qu'eux).
-DMD_UDP_IP="192.168.0.51"
+# v7 - 2026-09-19 - safe-modify - BUG REEL corrige, meme fix que
+# marquee.sh v52/dmd_score.sh v52 (voir marquee.sh pour le detail complet) :
+# DMD_UDP_IP restait l'IP fixe du DMD de developpement, cassant tout envoi
+# vers un DMD reel sur un autre reseau. Decouverte dynamique via
+# dmd_udp_resync.py (v5) desormais, meme fichier cache que les 2 autres.
+DMD_UDP_IP_FALLBACK="192.168.0.51"
+DMD_UDP_IP_CACHE="/tmp/dmd_udp_ip"
 DMD_UDP_PORT=5005
 send_udp() {
+    DMD_UDP_IP=$(cat "$DMD_UDP_IP_CACHE" 2>/dev/null)
+    [ -n "$DMD_UDP_IP" ] || DMD_UDP_IP="$DMD_UDP_IP_FALLBACK"
     python3 -c "import socket,sys; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(sys.argv[1].encode('utf-8','replace'), (sys.argv[2], int(sys.argv[3])))" "$1" "$DMD_UDP_IP" "$DMD_UDP_PORT" 2>/dev/null
 }
 
