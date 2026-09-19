@@ -135,7 +135,7 @@ void vpinballExitFromRecalbox()
   if (!vpinballModeActive) return;
   vpinballModeActive = false;
   vpinballNoEnterUntilMs = millis() + 3000;
-  if (display) display->clearScreen();
+  if (display) { display->clearScreen(); display->setBrightness8(screenBrightness); } // le flux ZeDMD peut avoir change la luminosite (cmd 22)
   Serial.println("[VPINBALL] fin de partie (Recalbox) -- retour immediat a l'affichage normal");
 }
 
@@ -146,7 +146,7 @@ static void exitVpinballMode()
   if (!vpinballModeActive) return;
   Serial.println("[VPINBALL] timeout -- retour a l'affichage normal (sans reboot)");
   vpinballModeActive = false;
-  if (display) display->clearScreen();
+  if (display) { display->clearScreen(); display->setBrightness8(screenBrightness); } // voir vpinballExitFromRecalbox()
   webDmdResume();
 }
 
