@@ -123,6 +123,22 @@ static void enterVpinballModeInPlace()
   Serial.println("[VPINBALL] mode actif (en place, sans reboot) -- pipeline GIF/playlist suspendu");
 }
 
+// v5 -- sortie IMMEDIATE demandee par la Recalbox (marquee.sh envoie
+// "CMD=vpinball_end" a l'evenement ES endgame d'une table vpinball) : le mode
+// est desactive sans webDmdResume() -- les commandes que marquee.sh envoie
+// juste apres (ingame 0, system vpinball) restaurent l'affichage normal.
+// Fenetre de 3 s pendant laquelle un paquet ZeDMD retardataire (le client
+// peut envoyer un dernier "clear" en quittant) ne re-declenche pas le mode.
+static unsigned long vpinballNoEnterUntilMs = 0;
+void vpinballExitFromRecalbox()
+{
+  if (!vpinballModeActive) return;
+  vpinballModeActive = false;
+  vpinballNoEnterUntilMs = millis() + 3000;
+  if (display) display->clearScreen();
+  Serial.println("[VPINBALL] fin de partie (Recalbox) -- retour immediat a l'affichage normal");
+}
+
 // Sortie par TIMEOUT (silence prolonge, le protocole ZeDMD n'a pas de signal
 // explicite de fin de partie) : reprend l'affichage normal SANS reboot.
 static void exitVpinballMode()
@@ -329,7 +345,11 @@ static void vpinballProcessPacket(const uint8_t *buf, int len)
   // mode vpinball (voir triggerVpinballBootReboot()) -- ne redemarre PAS si
   // deja en mode vpinball (boot cible reussi), chaque paquet repousse alors
   // simplement le timeout d'inactivite verifie dans pollVpinballUdp().
-  if (!vpinballModeActive) enterVpinballModeInPlace();
+  if (!vpinballModeActive)
+  {
+    if ((long)(millis() - vpinballNoEnterUntilMs) < 0) return; // paquet retardataire apres vpinball_end
+    enterVpinballModeInPlace();
+  }
   vpinballLastPacketMs = millis();
   int pos = 0;
   while (pos + 5 <= len)

@@ -1815,6 +1815,17 @@ while true; do
 
             echo "$(date '+%H:%M:%S') ENDGAME sys=$system last=$LAST_SYSTEM" >> "$LOG"
 
+            # v54 - 2026-09-19 - safe-modify - Mode Pinball du DMD (sans
+            # reboot, voir RecalBox_DMD.ino v219) : a la fin d'une table
+            # vpinball, sortie IMMEDIATE du mode (sinon il attend 5 s de
+            # silence du flux ZeDMD). Envoye AVANT ingame/system : le DMD
+            # ignore toute autre commande d'affichage tant que le mode est
+            # actif. Sans effet (commande inconnue ignoree) sur un firmware
+            # plus ancien.
+            if [ "$LAST_SYSTEM" = "vpinball" ] || [ "$system" = "vpinball" ]; then
+                send_mqtt_retain "vpinball_end" "1"
+            fi
+
             send_mqtt_retain "ingame" "0"
             if [ -n "$system" ]; then
                 LAST_SYSTEM="$system"

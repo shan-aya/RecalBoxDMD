@@ -9244,6 +9244,12 @@ void handleUdpCommand()
   int argIdx = msg.indexOf("ARG=");
   String arg = (argIdx >= 0) ? msg.substring(argIdx + 4) : "";
 
+  // v219 -- fin de partie vpinball annoncee par la Recalbox (endgame, voir
+  // marquee.sh v54) : sortie immediate du mode Pinball, sans attendre le
+  // silence de 5 s. Traitee AVANT le filtre ci-dessous (qui ignore tout le
+  // reste pendant une table).
+  if (cmd == "vpinball_end") { vpinballExitFromRecalbox(); return; }
+
   // v217 -- mode Pinball actif (sans reboot) : le pipeline GIF/playlist est
   // suspendu et l'ecran appartient au flux ZeDMD. Toute commande d'AFFICHAGE
   // de la Recalbox (game/system/default/score/...) est ignoree -- elle
