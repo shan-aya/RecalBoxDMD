@@ -784,9 +784,15 @@
 # commentaire complet la-bas). Ne pas le reintroduire ici.
 
 LOG="/recalbox/share/system/logs/dmd_score.log"
-# v47 -- piste UDP (voir TRANSPORT_PLAN_UDP.md, marquee.sh v44 meme motif) :
-# IP/port EN DUR pour l'instant, pas de decouverte dynamique.
-DMD_UDP_IP="192.168.0.51"
+# v52 - 2026-09-19 - safe-modify - BUG REEL corrige, meme fix que
+# marquee.sh v52 (voir son commentaire complet pour le detail) :
+# DMD_UDP_IP restait l'IP fixe du DMD de developpement (192.168.0.51),
+# cassant tout envoi vers un DMD reel sur un autre reseau -- "le DMD
+# reste en playlist" (retour utilisateur externe) alors que les scripts
+# etaient bien installes/actives. Decouverte dynamique via
+# dmd_udp_resync.py (v5) desormais, meme mecanisme/meme fichier cache.
+DMD_UDP_IP_FALLBACK="192.168.0.51"
+DMD_UDP_IP_CACHE="/tmp/dmd_udp_ip"
 DMD_UDP_PORT=5005
 send_udp() {
     # v47 -- voir commentaire complet pres de send_udp() dans marquee.sh
@@ -794,6 +800,8 @@ send_udp() {
     # est appelee bien moins souvent que le survol de liste de marquee.sh,
     # donc moins expose au meme risque, mais pas nul pour autant pendant
     # une pagination hi-score rapide, voir send_paginated()).
+    DMD_UDP_IP=$(cat "$DMD_UDP_IP_CACHE" 2>/dev/null)
+    [ -n "$DMD_UDP_IP" ] || DMD_UDP_IP="$DMD_UDP_IP_FALLBACK"
     python3 -c "import socket,sys; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(sys.argv[1].encode('utf-8','replace'), (sys.argv[2], int(sys.argv[3])))" "$1" "$DMD_UDP_IP" "$DMD_UDP_PORT" 2>/dev/null
 }
 SCRIPT_DIR=$(dirname "$0")

@@ -17,11 +17,25 @@
 . /recalbox/share/userscripts/dmd_helpers/singleton_lock.sh marquee 2>/dev/null || exit 1
 echo "$(date '+%H:%M:%S.%N') TRACE proceeding pid=$$ ppid=$PPID arg0=$0" >> /tmp/marquee_trace.log
 LOG="/recalbox/share/system/logs/marquee_mqtt.log"
-# v44 -- piste UDP (voir TRANSPORT_PLAN_UDP.md, worktree dev/dmd-udp-
-# transport) : IP/port EN DUR pour l'instant, pas de decouverte dynamique
-# cote script (le DMD, lui, decouvre RB1 via mDNS -- rien d'equivalent en
-# sens inverse aujourd'hui). A adapter si le DMD change d'adresse.
-DMD_UDP_IP="192.168.0.51"
+# v52 - 2026-09-19 - safe-modify - BUG REEL corrige (retour utilisateur
+# externe, testeur tiers : "le DMD reste en playlist" -- scripts bien
+# installes et actives, verifie) : DMD_UDP_IP restait l'IP FIXE du DMD de
+# developpement (192.168.0.51, reseau de labo) depuis sa creation (v44) --
+# fonctionnait UNIQUEMENT si le DMD de l'installateur obtenait par hasard
+# cette meme adresse. Sur tout autre reseau (ex. testeur externe en
+# 192.168.20.x), send_udp() visait une IP qui n'etait pas celle du DMD --
+# tous les evenements (rungame/endgame/etc.) partaient dans le vide,
+# DMD bloque en playlist en permanence, aucune erreur visible nulle part.
+# Fix : decouverte dynamique via dmd_udp_resync.py (voir sa version v5) --
+# ce script tourne deja en permanence et recoit un "hello" UDP du DMD des
+# son (re)demarrage WiFi + un "PING" toutes les 15s ; il ecrit desormais
+# l'IP source reelle de CHAQUE paquet recu dans DMD_UDP_IP_CACHE. send_udp()
+# lit ce fichier a CHAQUE appel (cout negligeable : un cat, face au fork
+# python3 deja en place juste apres) -- repli sur l'ancienne IP fixe
+# uniquement si le fichier n'existe pas encore (tout debut, avant le tout
+# premier hello -- fenetre de quelques secondes au demarrage de Recalbox).
+DMD_UDP_IP_FALLBACK="192.168.0.51"
+DMD_UDP_IP_CACHE="/tmp/dmd_udp_ip"
 DMD_UDP_PORT=5005
 # v35 -- BUG REEL confirme sur materiel (retour utilisateur, meme session,
 # apres v34 : le sondage direct de es_state.inf elimine bien toute
@@ -982,6 +996,8 @@ send_udp() {
     # navigation (jusqu'a 5-8/s mesure, voir BURST_THRESHOLD). A RETESTER EN
     # CHARGE REELLE (navigation rapide soutenue) avant de considerer ce
     # chemin fiable -- pas encore fait au moment de ce commit.
+    DMD_UDP_IP=$(cat "$DMD_UDP_IP_CACHE" 2>/dev/null)
+    [ -n "$DMD_UDP_IP" ] || DMD_UDP_IP="$DMD_UDP_IP_FALLBACK"
     python3 -c "import socket,sys; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(sys.argv[1].encode('utf-8','replace'), (sys.argv[2], int(sys.argv[3])))" "$1" "$DMD_UDP_IP" "$DMD_UDP_PORT" 2>/dev/null
 }
 
