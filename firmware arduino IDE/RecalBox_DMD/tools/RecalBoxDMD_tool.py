@@ -1,7 +1,13 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v48
+# Version actuelle : v49
+#
+# v49 - 2026-09-20 - safe-modify - download_defaults() n'installait jamais
+#      _shuffle.raw565pack ni _shuffle.meta (filtre limite a .png/.gif/.raw565) :
+#      sur une SD creee par le toolkit, le mode shuffle affichait un ecran vide
+#      au lieu de l'image de brouillage CRT (firmware : _defaults en raw-only
+#      strict). Extensions .raw565pack et .meta ajoutees au filtre.
 #
 # v48 - 2026-09-14 - safe-modify - Suite a un cas utilisateur reel : un
 #      utilisateur avait deja une IP fixe attribuee AUTOMATIQUEMENT par son
@@ -4071,12 +4077,14 @@ def download_defaults(
             print(f"   {detail}")
         return
 
-    # Filtre uniquement les fichiers image/resources (png, gif, raw565)
+    # Filtre uniquement les fichiers image/resources (png, gif, raw565) +
+    # .raw565pack/.meta : image de brouillage CRT du mode shuffle
+    # (_shuffle.raw565pack + _shuffle.meta, seuls fichiers de ce type dans _defaults)
     media_files = [
         f
         for f in files
         if f.get("type") == "file"
-        and Path(f["name"]).suffix.lower() in (".png", ".gif", ".raw565")
+        and Path(f["name"]).suffix.lower() in (".png", ".gif", ".raw565", ".raw565pack", ".meta")
     ]
 
     total = len(media_files)

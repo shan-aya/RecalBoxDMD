@@ -2,7 +2,11 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v72
+# Version actuelle : v73
+#
+# v73 — 2026-09-20 — safe-modify — Build toolkit 7349 (GUI v73 + tool v49) :
+#      la creation de SD installe desormais _shuffle.raw565pack/_shuffle.meta
+#      (image de brouillage CRT du mode shuffle), cf. RecalBoxDMD_tool.py v49.
 #
 # v72 — 2026-09-19 — safe-modify — Convention de numerotation du build
 #      toolkit (TOOLKIT_RELEASE_VERSION, v70) clarifiee par l'utilisateur :
@@ -1293,7 +1297,7 @@ from tkinter import ttk, messagebox, filedialog, font as tkfont
 # mais CETTE constante reste a mettre a jour a la main ici (pas d'ecriture
 # automatique dans le .py au moment du build, pour garder le pipeline
 # simple) -- build_release.ps1 avertit si elle diverge du calcul.
-TOOLKIT_RELEASE_VERSION = "7248"
+TOOLKIT_RELEASE_VERSION = "7349"
 
 # v71, safe-modify -- voir le remplacement du verrou v68 dans __init__ pour
 # le contexte complet. _DPI_SCALE est le ratio DPI reel/96 (1.0 a 100%,
