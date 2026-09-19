@@ -121,6 +121,21 @@ extern "C" int tinfl_decompress(struct vpinball_tinfl_decompressor *r,
 // triggerVpinballBootReboot() plus bas), pas un malloc en direct.
 static struct vpinball_tinfl_decompressor *vpinballTinflState = nullptr;
 
+// v3 - 2026-09-19 - safe-modify - BUG REEL (test DMD2, mode Pinball actif en
+// fonctionnement normal) : les 2 buffers ci-dessous etaient des tableaux
+// STATIQUES (BSS, 3,5 Ko reserves EN PERMANENCE, meme avec feat_vpinball_dmd
+// desactive), pris directement sur le heap du firmware -- avec l'ecoute UDP,
+// le heap tombait a ~7,6 Ko libres (maxalloc 4,6 Ko) des l'ouverture du 1er
+// GIF et le serveur web cessait de repondre (joignable ~20 s apres le boot
+// seulement). Ils ne servent qu'en mode vpinball (boot cible, heap ~50 Ko) :
+// alloues dans enterVpinballModeFromBoot(), liberes a la sortie -- en mode
+// normal, l'ecoute UDP ne lit plus qu'un en-tete de 5 octets sur la pile
+// (voir pollVpinballUdp()). Tailles : voir leur historique plus bas.
+#define VPINBALL_DMD_RECV_BUF_SIZE 1500
+#define VPINBALL_DMD_DECOMP_BUF_SIZE 2048
+static uint8_t *vpinballRecvBuf = nullptr;
+static uint8_t *vpinballDecompBuf = nullptr;
+
 // v7 -- etat du mode vpinball. Mis a true UNIQUEMENT depuis setup()
 // (RecalBox_DMD.ino, bloc g_bootForVpinball) sur un boot cible reussi --
 // jamais depuis loop()/vpinballProcessPacket() desormais. Timeout de
@@ -166,9 +181,14 @@ static void enterVpinballModeFromBoot()
   // connecte -- ce chemin s'execute forcement APRES (vient de goto
   // start_mqtt_task, atteint apres le retour de setupWiFiFromConfig()).
   vpinballTinflState = (struct vpinball_tinfl_decompressor*)malloc(sizeof(struct vpinball_tinfl_decompressor));
-  if (!vpinballTinflState)
+  vpinballRecvBuf = (uint8_t*)malloc(VPINBALL_DMD_RECV_BUF_SIZE);
+  vpinballDecompBuf = (uint8_t*)malloc(VPINBALL_DMD_DECOMP_BUF_SIZE);
+  if (!vpinballTinflState || !vpinballRecvBuf || !vpinballDecompBuf)
   {
-    Serial.println("[VPINBALL] echec malloc decompresseur MEME sur boot cible (heap anormalement bas) -- mode vpinball non active");
+    Serial.println("[VPINBALL] echec malloc decompresseur/buffers MEME sur boot cible (heap anormalement bas) -- mode vpinball non active");
+    if (vpinballTinflState) { free(vpinballTinflState); vpinballTinflState = nullptr; }
+    if (vpinballRecvBuf) { free(vpinballRecvBuf); vpinballRecvBuf = nullptr; }
+    if (vpinballDecompBuf) { free(vpinballDecompBuf); vpinballDecompBuf = nullptr; }
     return;
   }
   vpinballModeActive = true;
@@ -189,6 +209,8 @@ static void exitVpinballMode()
   if (!vpinballModeActive) return;
   Serial.println("[VPINBALL] timeout -- reboot vers le mode normal (playlist/GIF/caches)");
   if (vpinballTinflState) { free(vpinballTinflState); vpinballTinflState = nullptr; }
+  if (vpinballRecvBuf) { free(vpinballRecvBuf); vpinballRecvBuf = nullptr; }
+  if (vpinballDecompBuf) { free(vpinballDecompBuf); vpinballDecompBuf = nullptr; }
   // v1 - 2026-09-17 - safe-modify - retour utilisateur : message visible
   // avant le redemarrage (symetrique du "VPINBALL - Connexion..." affiche a
   // l'entree, voir setup() dans RecalBox_DMD.ino). 600ms au lieu des 100ms
@@ -211,7 +233,7 @@ static void exitVpinballMode()
 #define VPINBALL_DMD_ZONE_SIZE_565 (VPINBALL_DMD_ZONE_WIDTH * VPINBALL_DMD_ZONE_HEIGHT * 2)
 
 // Taille max d'un paquet UDP recu (marge sous la MTU Ethernet/WiFi usuelle).
-#define VPINBALL_DMD_RECV_BUF_SIZE 1500
+// (VPINBALL_DMD_RECV_BUF_SIZE = 1500, defini plus haut.)
 // v2 - 2026-09-16 - safe-modify - BUG REEL trouve en test materiel : un
 // buffer initialement dimensionne au pire cas THEORIQUE (128 zones x 97
 // octets = 12416, arrondi 12800) reduisait le heap dispo au bilan STATIQUE
@@ -227,12 +249,10 @@ static void exitVpinballMode()
 // legitimement plus grosse arrive, mz/tinfl echoue proprement (retour
 // FAILED, log, frame ignoree) plutot que de crasher -- meme compromis que
 // la reference elle-meme.
-#define VPINBALL_DMD_DECOMP_BUF_SIZE 2048
+// (VPINBALL_DMD_DECOMP_BUF_SIZE = 2048, defini plus haut.)
 
 WiFiUDP vpinballUdp;
 bool    vpinballUdpStarted = false;
-uint8_t vpinballRecvBuf[VPINBALL_DMD_RECV_BUF_SIZE];
-uint8_t vpinballDecompBuf[VPINBALL_DMD_DECOMP_BUF_SIZE];
 
 static const uint8_t VPINBALL_SYNC[5] = {'Z', 'e', 'D', 'M', 'D'};
 
@@ -338,14 +358,14 @@ static void vpinballHandleCommand(uint8_t command, const uint8_t *payload, uint1
         // COMPRESSEES -- voir explication complete pres de la declaration
         // de vpinballTinflState plus haut (API bas niveau tinfl_decompress()
         // + etat global, evite le crash pile de l'ancien wrapper).
-        if (!vpinballTinflState)
+        if (!vpinballTinflState || !vpinballDecompBuf)
         {
           // malloc a echoue a l'entree en mode vpinball (heap trop bas a cet
           // instant precis) -- trame ignoree proprement, pas de crash.
           return;
         }
         size_t inLen = payloadSize;
-        size_t outLen = sizeof(vpinballDecompBuf);
+        size_t outLen = VPINBALL_DMD_DECOMP_BUF_SIZE;
         vpinballTinflState->m_state = 0; // tinfl_init(), macro amont reproduite ici
         const int status = tinfl_decompress(
             vpinballTinflState,
@@ -439,7 +459,21 @@ void pollVpinballUdp()
   while ((packetSize = vpinballUdp.parsePacket()) > 0 && drained < MAX_DRAIN_PER_CALL)
   {
     drained++;
-    const int len = vpinballUdp.read(vpinballRecvBuf, sizeof(vpinballRecvBuf));
+    if (!vpinballModeActive || !vpinballRecvBuf)
+    {
+      // v3 -- mode NORMAL : aucun buffer de reception (voir sa declaration).
+      // On lit seulement l'en-tete de 5 octets ("ZeDMD") sur la pile : un
+      // vrai paquet ZeDMD-WiFi declenche le reboot cible, tout autre paquet
+      // parasite sur ce port est ignore (avant : n'importe quel paquet
+      // declenchait le reboot).
+      uint8_t hdr[5];
+      const int n = vpinballUdp.read(hdr, sizeof(hdr));
+      vpinballUdp.flush();
+      if (n == (int)sizeof(hdr) && memcmp(hdr, VPINBALL_SYNC, sizeof(hdr)) == 0 && !vpinballModeActive)
+        triggerVpinballBootReboot();
+      continue;
+    }
+    const int len = vpinballUdp.read(vpinballRecvBuf, VPINBALL_DMD_RECV_BUF_SIZE);
     if (len <= 0) continue;
     vpinballProcessPacket(vpinballRecvBuf, len);
   }
