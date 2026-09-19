@@ -3816,7 +3816,6 @@ typedef uint8_t BitOrder; // Workaround: Adafruit_BusIO attend BitOrder (AVR) ma
 #include "nvs_flash.h"
 #include "ff.h" // Partie C (plan cache_master_gifs) -- f_getlabel()/f_setlabel(), renommage etiquette volume SD au boot
 #include "mini_inflate.h"         // v217 -- inflateur zlib minimal (mode Pinball sans reboot)
-#include "mini_inflate_vectors.h" // v217 -- vecteurs de test (CMD_INFLATE_TEST)
 #include "clock_themes.h"
 #include <lwip/sockets.h> // v139 -- select()/send() bas niveau pour mqttSubscribeFast()
 #include <errno.h> // v139 -- EAGAIN/EWOULDBLOCK
@@ -5218,7 +5217,7 @@ bool g_pendingConnectedScreenOnPong = false;
 struct MqttCommand
 {
   enum Type { CMD_NONE, CMD_STOP, CMD_DEFAULT, CMD_SYSTEM, CMD_GAME,
-              CMD_STARTCLIP, CMD_RESUMESYS, CMD_SHOW_CONFIG, CMD_WIFI_RECOVERY, CMD_MEM_PROBE, CMD_INFLATE_TEST,
+              CMD_STARTCLIP, CMD_RESUMESYS, CMD_SHOW_CONFIG, CMD_WIFI_RECOVERY, CMD_MEM_PROBE,
               CMD_REBOOT, CMD_WAITING_MQTT, CMD_BRIGHTNESS, CMD_CLOCK_PREVIEW,
               CMD_BRIGHTNESS_UP, CMD_BRIGHTNESS_DOWN,
               CMD_SCORE /* v110 -- reintroduit, voir entete changelog */ };
@@ -6518,6 +6517,9 @@ bool openGifImpl(const String &path, bool clearBefore, bool skipProbe, bool skip
     gifRawPackMode = false;
     gif.close();
     gifOpened = false;
+    // v220 -- log ajoute (echec jusqu'ici SILENCIEUX : un _shuffle.raw565pack
+    // absent de la SD donnait un ecran vide sans aucune trace serie).
+    Serial.println("[GIF] open FAIL (mask _defaults raw-only) req=" + path + " -- raw565pack/meta introuvable sur la SD");
     return false;
   }
 
@@ -7771,8 +7773,7 @@ void processPendingMqttCommand()
   // commandes d'administration passent.
   if (vpinballModeActive &&
       cmd.type != MqttCommand::CMD_REBOOT && cmd.type != MqttCommand::CMD_WIFI_RECOVERY &&
-      cmd.type != MqttCommand::CMD_SHOW_CONFIG && cmd.type != MqttCommand::CMD_MEM_PROBE &&
-      cmd.type != MqttCommand::CMD_INFLATE_TEST)
+      cmd.type != MqttCommand::CMD_SHOW_CONFIG && cmd.type != MqttCommand::CMD_MEM_PROBE)
     return;
 
   // v111 -- INSTRUMENTATION DIAGNOSTIC TEMPORAIRE (a retirer une fois la
@@ -8456,36 +8457,6 @@ void processPendingMqttCommand()
     freeBigramAll();
     currentMode=openBestMedia("/systems/"+cmd.arg+"/_default");
     displayedMaskSysName=cmd.arg;
-    break;
-
-  case MqttCommand::CMD_INFLATE_TEST:
-    // v217 -- auto-test de mini_inflate.h : decompresse les vecteurs zlib
-    // generes par Python (voir mini_inflate_vectors.h) et compare longueur +
-    // CRC32. UDP "CMD=inflate_test ARG=1" sur le port 5005 -- ne redemarre pas.
-    {
-      uint8_t *testOut = (uint8_t*)malloc(2048);
-      if (!testOut) { Serial.println("[INFLATE] malloc 2048 echoue"); break; }
-      int okCount = 0;
-      uint32_t t0 = micros();
-      for (int i = 0; i < MINF_VECTOR_COUNT; i++)
-      {
-        const MinfVector &v = MINF_VECTORS[i];
-        size_t outLen = 2048;
-        const int rc = minf_zlib_inflate(testOut, &outLen, v.comp, v.compLen);
-        uint32_t crc = 0xffffffffu;
-        for (size_t j = 0; j < outLen; j++)
-        {
-          crc ^= testOut[j];
-          for (int k = 0; k < 8; k++) crc = (crc >> 1) ^ (0xedb88320u & (0u - (crc & 1u)));
-        }
-        crc = ~crc;
-        const bool ok = (rc == 0 && outLen == v.rawLen && crc == v.crc);
-        if (ok) okCount++;
-        else Serial.printf("[INFLATE] ECHEC %s niveau %d : rc=%d len=%u/%u crc=%08x/%08x\n", v.name, v.level, rc, (unsigned)outLen, (unsigned)v.rawLen, (unsigned)crc, (unsigned)v.crc);
-      }
-      Serial.printf("[INFLATE] %d/%d vecteurs OK (%u us au total)\n", okCount, MINF_VECTOR_COUNT, (unsigned)(micros() - t0));
-      free(testOut);
-    }
     break;
 
   case MqttCommand::CMD_MEM_PROBE:
@@ -9256,7 +9227,7 @@ void handleUdpCommand()
   // dessinerait par-dessus la table. Seules les commandes d'administration
   // restent actives. La resynchronisation se fait a la sortie du mode.
   if (vpinballModeActive && cmd != "reboot" && cmd != "wifi_recovery" &&
-      cmd != "show_config" && cmd != "mem_probe" && cmd != "inflate_test")
+      cmd != "show_config" && cmd != "mem_probe")
     return;
 
   if (mqttCmdMutex == nullptr) return;
@@ -9278,7 +9249,6 @@ void handleUdpCommand()
   else if (cmd=="show_config")     pendingCmd=MqttCommand(MqttCommand::CMD_SHOW_CONFIG,"");
   else if (cmd=="wifi_recovery")   pendingCmd=MqttCommand(MqttCommand::CMD_WIFI_RECOVERY,"");
   else if (cmd=="mem_probe")       pendingCmd=MqttCommand(MqttCommand::CMD_MEM_PROBE,"");
-  else if (cmd=="inflate_test")    pendingCmd=MqttCommand(MqttCommand::CMD_INFLATE_TEST,"");
   else if (cmd=="reboot")          pendingCmd=MqttCommand(MqttCommand::CMD_REBOOT,"");
   else if (cmd=="brightness")      pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS,arg);
   else if (cmd=="brightness_up")   pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_UP,"");

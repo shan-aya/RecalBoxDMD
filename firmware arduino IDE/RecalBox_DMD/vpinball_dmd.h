@@ -398,10 +398,12 @@ void pollVpinballUdp()
       continue;
     }
     const int len = vpinballUdp.read(vpinballRecvBuf, VPINBALL_DMD_RECV_BUF_SIZE);
-    // v4 -- DIAGNOSTIC : compte/loggue les paquets recus (le mode Pinball reste
-    // muet sur un vrai client -- voir quels paquets arrivent reellement).
+    // v4 -- log hexadecimal des 3 PREMIERS paquets depuis le boot (1 ligne, cout
+    // nul ensuite) : a permis de trouver le prefixe "FRAME" du client reel ; si
+    // une mise a jour de libzedmd change encore le format, c'est ce qui montre
+    // pourquoi le mode reste muet, sans reflasher.
     vpinballPktTotal++;
-    if (vpinballPktTotal <= 3 || (vpinballPktTotal % 500) == 0)
+    if (vpinballPktTotal <= 3)
     {
       char hex[3 * 24 + 1];
       int hn = 0;
