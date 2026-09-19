@@ -1,7 +1,20 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v210
+// Version actuelle : v211
+//
+// v211 - 2026-09-19 - safe-modify - Retour utilisateur : le renommage de
+//   l'etiquette de volume SD ("RecalBoxDMD") n'avait jamais ete reactive
+//   apres le diagnostic v205-v208 (13/09) sur la boucle AP. A l'epoque,
+//   f_setlabel() echouait (FR_DISK_ERR) sur l'unite testee et avait ete
+//   desactive par prudence, le temps de confirmer si cet echec invalidait
+//   le montage FatFs et causait la boucle AP -- root cause reelle trouvee
+//   depuis (v208, bug distinct dans writeConfigFlags()), mais le
+//   renommage d'etiquette n'avait jamais ete remis en service. Confirme
+//   par l'utilisateur : le FR_DISK_ERR de l'epoque venait d'une carte SD
+//   defectueuse, pas du firmware -- reactive (voir son commentaire dans
+//   setup(), juste apres SD.begin()). Fonctionnalite cosmetique
+//   (etiquette de volume), non bloquante en cas d'echec.
 //
 // v210 - 2026-09-14 - safe-modify - BUG REEL corrige (retour utilisateur en
 //   direct : "RecalBox connecte" affiche alors que RB1 est eteinte).
@@ -10855,21 +10868,31 @@ void setup()
   // sans underscore entre "Box" et "DMD"). Non bloquant : une erreur
   // quelconque (carte protegee en ecriture, etc.) est juste loguee, ne doit
   // jamais retarder/interrompre le boot.
-  // v3 (2026-09-13) -- DESACTIVE TEMPORAIREMENT pour diagnostic. f_setlabel()
-  // echoue ICI a CHAQUE boot (code FatFs 1 = FR_DISK_ERR, echec disque dur,
-  // pas juste "carte protegee") sur l'unite en cause -- 100% reproductible
-  // sur 3 cycles d'alimentation propres consecutifs (carte SD jamais
-  // retiree). Hypothese en cours de verification : cet echec d'ECRITURE bas
-  // niveau juste apres SD.begin() laisse le montage FatFs dans un etat
-  // invalide pour le reste de la session -- correlerait exactement avec le
-  // bug rapporte (SD.open() en lecture ET ecriture echouant instantanement,
-  // quelques ms, depuis handleWebConfigSaveAP(), alors que le meme SD.open()
-  // fonctionne juste en dessous ICI au boot). Desactive pour isoler la
-  // variable : si le bug AP disparait sans ce bloc, root cause confirmee.
-  // Remettre en service (avec un vrai fix, pas juste desactive) une fois
-  // confirme -- fonctionnalite cosmetique (etiquette de volume), pas
-  // critique.
-  Serial.println("[SD] Renommage etiquette desactive (diagnostic v3)");
+  // v3 (2026-09-13) -- desactive temporairement pendant le diagnostic de la
+  // boucle AP (v205-v208) : f_setlabel() echouait (FR_DISK_ERR) sur l'unite
+  // de l'epoque, hypothese que cet echec invalidait le montage FatFs pour le
+  // reste de la session. Root cause reelle CONFIRMEE DEPUIS (v208) : bug
+  // distinct dans writeConfigFlags() (ecrivait meme apres un echec de
+  // lecture), sans rapport avec f_setlabel(). Le FR_DISK_ERR de l'epoque
+  // etait du a une carte SD defectueuse (confirme par l'utilisateur), pas au
+  // firmware -- reactive.
+  {
+    char label[34];
+    FRESULT flr = f_getlabel("0:", label, NULL);
+    String current = (flr == FR_OK) ? String(label) : String("");
+    current.trim();
+    current.toUpperCase();
+    if (current != "RECALBOXDMD") {
+      FRESULT fsr = f_setlabel("0:RecalBoxDMD");
+      if (fsr == FR_OK) {
+        Serial.println("[SD] Etiquette renommee: " + current + " -> RecalBoxDMD");
+      } else {
+        Serial.println("[SD] Echec renommage etiquette (code FatFs " + String((int)fsr) + "), etiquette actuelle: " + current);
+      }
+    } else {
+      Serial.println("[SD] Etiquette deja correcte (RecalBoxDMD)");
+    }
+  }
 
   gif.begin(LITTLE_ENDIAN_PIXELS);
 
