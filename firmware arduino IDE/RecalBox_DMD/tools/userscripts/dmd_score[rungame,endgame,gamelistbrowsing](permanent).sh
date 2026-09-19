@@ -784,9 +784,15 @@
 # commentaire complet la-bas). Ne pas le reintroduire ici.
 
 LOG="/recalbox/share/system/logs/dmd_score.log"
-# v47 -- piste UDP (voir TRANSPORT_PLAN_UDP.md, marquee.sh v44 meme motif) :
-# IP/port EN DUR pour l'instant, pas de decouverte dynamique.
-DMD_UDP_IP="192.168.0.51"
+# v52 - 2026-09-19 - safe-modify - BUG REEL corrige, meme fix que
+# marquee.sh v52 (voir son commentaire complet pour le detail) :
+# DMD_UDP_IP restait l'IP fixe du DMD de developpement (192.168.0.51),
+# cassant tout envoi vers un DMD reel sur un autre reseau -- "le DMD
+# reste en playlist" (retour utilisateur externe) alors que les scripts
+# etaient bien installes/actives. Decouverte dynamique via
+# dmd_udp_resync.py (v5) desormais, meme mecanisme/meme fichier cache.
+DMD_UDP_IP_FALLBACK="192.168.0.51"
+DMD_UDP_IP_CACHE="/tmp/dmd_udp_ip"
 DMD_UDP_PORT=5005
 send_udp() {
     # v47 -- voir commentaire complet pres de send_udp() dans marquee.sh
@@ -794,6 +800,8 @@ send_udp() {
     # est appelee bien moins souvent que le survol de liste de marquee.sh,
     # donc moins expose au meme risque, mais pas nul pour autant pendant
     # une pagination hi-score rapide, voir send_paginated()).
+    DMD_UDP_IP=$(cat "$DMD_UDP_IP_CACHE" 2>/dev/null)
+    [ -n "$DMD_UDP_IP" ] || DMD_UDP_IP="$DMD_UDP_IP_FALLBACK"
     python3 -c "import socket,sys; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(sys.argv[1].encode('utf-8','replace'), (sys.argv[2], int(sys.argv[3])))" "$1" "$DMD_UDP_IP" "$DMD_UDP_PORT" 2>/dev/null
 }
 SCRIPT_DIR=$(dirname "$0")
@@ -916,6 +924,16 @@ feat_enabled() {
     [ -f "$FEATURES_FILE" ] || return 1
     val=$(sed -n "s/.*${1}=\([01]\).*/\1/p" "$FEATURES_FILE" | head -n1)
     [ "$val" = "1" ]
+}
+
+# v53 -- variante "suivi" : VRAIE sauf si la cle vaut explicitement 0 (cache
+# absent/cle inconnue = comportement historique, suivre le jeu). Contraire
+# du repli prudent de feat_enabled() -- ici l'absence de reglage ne doit PAS
+# couper une fonction deja en service.
+feat_follow() {
+    [ -f "$FEATURES_FILE" ] || return 0
+    _ff=$(sed -n "s/.*${1}=\([01]\).*/\1/p" "$FEATURES_FILE" | head -n1)
+    [ "$_ff" != "0" ]
 }
 
 # v4 -- variante numerique de feat_enabled() (repeat_cycles/
@@ -1804,6 +1822,21 @@ LAST_SYSTEMBROWSING_ID=""
 mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 -t "Recalbox/EmulationStation/Event" 2>/dev/null | \
 while IFS= read -r event; do
     event=$(printf '%s' "$event" | tr -d '\r')
+
+    # v53 - 2026-09-19 - safe-modify - Reglage "Veille Recalbox > Demo de
+    # jeux" (page web du DMD, cle demo_follow du cache FEATURES) : si le
+    # suivi est desactive, rundemo n'affiche AUCUN overlay (hi-score/infos/
+    # description du jeu de la demo) -- le DMD reste en playlist simple
+    # (voir marquee.sh v53). Nettoie comme "stop" (round-robin en vol tue,
+    # sessions effacees). clip_follow : sans objet ici (startgameclip est
+    # deja un no-op cote dmd_score.sh).
+    if [ "$event" = "rundemo" ] && ! feat_follow "demo_follow"; then
+        : > "$GAME_SESSION_FILE"
+        : > "$BROWSE_STATE_FILE"
+        kill_previous_round_robin "$ROUNDROBIN_PID_FILE_INGAME"
+        kill_previous_round_robin "$ROUNDROBIN_PID_FILE_BROWSE"
+        continue
+    fi
 
     case "$event" in
         systembrowsing)

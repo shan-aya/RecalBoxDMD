@@ -1,7 +1,29 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v210
+// Version actuelle : v215
+//
+// v215 - 2026-09-19 - safe-modify - Option "Mode Pinball (VPX)" ajoutee a la
+//   page web "Affichage" (web_config.h) : case a cocher feat_vpinball_dmd
+//   (jusqu'ici modifiable seulement en editant config.ini a la main), avec
+//   sa bulle "?" FR/EN/ES qui precise que ce mode IMPLIQUE 2 REDEMARRAGES
+//   RAPIDES du DMD -- un au lancement d'une table (bascule en mode vpinball,
+//   reboot cible pour liberer assez de heap pour le decompresseur zlib) et
+//   un 2e au retour au fonctionnement normal (5 s sans image). GET /load
+//   expose desormais aussi feat_vpinball_dmd (jusqu'ici absent : la sauvegarde
+//   l'ecrivait mais la page ne pouvait pas relire la valeur). Effet au
+//   prochain redemarrage (setupVpinballDmd() ne s'execute qu'au boot).
+//   Nouvelle section "Veille Recalbox" (meme page) : 2 reglages
+//   feat_demo_follow / feat_clip_follow (defaut 1 = comportement historique :
+//   le DMD suit le logo du jeu affiche pendant la veille "demo de jeux" /
+//   "clips video de jeux" ; 0 = playlist simple comme pendant les autres
+//   veilles, bouncing etc.). Persistes dans config.ini, exposes par GET /load,
+//   diffuses aux scripts Recalbox dans le message FEATURES (demo_follow=/
+//   clip_follow=, ajoutes APRES dwell_seconds) ; la decision est prise cote
+//   scripts (marquee.sh v53, dmd_score.sh v53).
+//   Ajoute aussi la reactivation du renommage d'etiquette SD (voir master
+//   v211, meme correctif -- carte SD defectueuse a l'origine du diagnostic
+//   v207, pas le firmware).
 //
 // v210 - 2026-09-14 - safe-modify - BUG REEL corrige (retour utilisateur en
 //   direct : "RecalBox connecte" affiche alors que RB1 est eteinte).
@@ -4936,6 +4958,15 @@ int featRepeatBrowseCycles = 3;
 // pendant une navigation normale" -- meme plancher reapplique cote script
 // (defense en profondeur, DWELL_MIN_SECONDS).
 int featDwellSeconds = 5;
+// v215 -- suivi des modes de veille "jeu" cote Recalbox (demande utilisateur) :
+// true (defaut, comportement historique) = pendant la veille "demo de jeux"
+// (rundemo) / "clips video de jeux" (startgameclip), le DMD affiche le
+// logo/marquee du jeu concerne ; false = playlist simple, comme pendant les
+// autres veilles (bouncing, etc.). Decision prise cote scripts Recalbox
+// (marquee.sh/dmd_score.sh, cle demo_follow/clip_follow du message FEATURES),
+// le firmware ne fait que stocker/diffuser le reglage.
+bool featDemoFollow = true;
+bool featClipFollow = true;
 
 // --------------------------------------------------
 // Horloge (Clock) - variables
@@ -10235,6 +10266,8 @@ void loadConfig()
     // featDwellSeconds -- demande utilisateur explicite.
     else if(key=="feat_repeat_browse_cycles")            featRepeatBrowseCycles=constrain(value.toInt(),0,20);
     else if(key=="feat_dwell_seconds")                   featDwellSeconds     =constrain(value.toInt(),3,30);
+    else if(key=="feat_demo_follow")                     featDemoFollow       =(value!="0");
+    else if(key=="feat_clip_follow")                     featClipFollow       =(value!="0");
     else if(key=="brightness")                            screenBrightness =map(constrain(value.toInt(),0,100),0,100,0,255);
     else if(key=="mqtt_event_topic"   &&value.length())  mqttEventTopic   =value;
     else if(key=="first_boot")                           g_firstBoot      =(value!="0");
@@ -10306,12 +10339,14 @@ void broadcastFeatureStatus()
   int n = snprintf(buf, sizeof(buf),
     "hiscore_ingame=%d;hiscore_browse=%d;info_ingame=%d;info_browse=%d;"
     "description_ingame=%d;description_browse=%d;ra_ingame=%d;ra_browse=%d;"
-    "repeat_cycles=%d;repeat_browse_cycles=%d;dwell_seconds=%d",
+    "repeat_cycles=%d;repeat_browse_cycles=%d;dwell_seconds=%d;"
+    "demo_follow=%d;clip_follow=%d",
     featHiscoreIngame ? 1 : 0, featHiscoreBrowse ? 1 : 0,
     featInfoIngame ? 1 : 0, featInfoBrowse ? 1 : 0,
     featDescriptionIngame ? 1 : 0, featDescriptionBrowse ? 1 : 0,
     featRaIngame ? 1 : 0, featRaBrowse ? 1 : 0,
-    featRepeatCycles, featRepeatBrowseCycles, featDwellSeconds);
+    featRepeatCycles, featRepeatBrowseCycles, featDwellSeconds,
+    featDemoFollow ? 1 : 0, featClipFollow ? 1 : 0);
   // v126 -- garde de sanite CONSERVEE en filet de securite complementaire
   // (defense en profondeur, cout negligeable) : n<0 = erreur snprintf,
   // n>=sizeof(buf) = aurait ete tronque par la taille du buffer (jamais
@@ -10917,21 +10952,31 @@ void setup()
   // sans underscore entre "Box" et "DMD"). Non bloquant : une erreur
   // quelconque (carte protegee en ecriture, etc.) est juste loguee, ne doit
   // jamais retarder/interrompre le boot.
-  // v3 (2026-09-13) -- DESACTIVE TEMPORAIREMENT pour diagnostic. f_setlabel()
-  // echoue ICI a CHAQUE boot (code FatFs 1 = FR_DISK_ERR, echec disque dur,
-  // pas juste "carte protegee") sur l'unite en cause -- 100% reproductible
-  // sur 3 cycles d'alimentation propres consecutifs (carte SD jamais
-  // retiree). Hypothese en cours de verification : cet echec d'ECRITURE bas
-  // niveau juste apres SD.begin() laisse le montage FatFs dans un etat
-  // invalide pour le reste de la session -- correlerait exactement avec le
-  // bug rapporte (SD.open() en lecture ET ecriture echouant instantanement,
-  // quelques ms, depuis handleWebConfigSaveAP(), alors que le meme SD.open()
-  // fonctionne juste en dessous ICI au boot). Desactive pour isoler la
-  // variable : si le bug AP disparait sans ce bloc, root cause confirmee.
-  // Remettre en service (avec un vrai fix, pas juste desactive) une fois
-  // confirme -- fonctionnalite cosmetique (etiquette de volume), pas
-  // critique.
-  Serial.println("[SD] Renommage etiquette desactive (diagnostic v3)");
+  // v3 (2026-09-13) -- desactive temporairement pendant le diagnostic de la
+  // boucle AP (v205-v208) : f_setlabel() echouait (FR_DISK_ERR) sur l'unite
+  // de l'epoque, hypothese que cet echec invalidait le montage FatFs pour le
+  // reste de la session. Root cause reelle CONFIRMEE DEPUIS (v208) : bug
+  // distinct dans writeConfigFlags() (ecrivait meme apres un echec de
+  // lecture), sans rapport avec f_setlabel(). Le FR_DISK_ERR de l'epoque
+  // etait du a une carte SD defectueuse (confirme par l'utilisateur), pas au
+  // firmware -- reactive.
+  {
+    char label[34];
+    FRESULT flr = f_getlabel("0:", label, NULL);
+    String current = (flr == FR_OK) ? String(label) : String("");
+    current.trim();
+    current.toUpperCase();
+    if (current != "RECALBOXDMD") {
+      FRESULT fsr = f_setlabel("0:RecalBoxDMD");
+      if (fsr == FR_OK) {
+        Serial.println("[SD] Etiquette renommee: " + current + " -> RecalBoxDMD");
+      } else {
+        Serial.println("[SD] Echec renommage etiquette (code FatFs " + String((int)fsr) + "), etiquette actuelle: " + current);
+      }
+    } else {
+      Serial.println("[SD] Etiquette deja correcte (RecalBoxDMD)");
+    }
+  }
 
   gif.begin(LITTLE_ENDIAN_PIXELS);
 
