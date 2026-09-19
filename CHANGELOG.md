@@ -8,6 +8,14 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-09-20 — DMD IP discovered automatically, PC Toolkit scales with Windows DPI, shuffle image installed, SD label rename restored
+
+- **Recalbox scripts**: fixed the DMD staying stuck on its idle playlist while a game was running — the scripts had the DMD's IP address hard-coded (`192.168.0.51`), so they talked to nothing on any network where the DMD got a different address. They now use the address the DMD actually announces itself from (falls back to the old default if none has been seen yet). Follows a real report from a tester.
+- **Firmware**: SD-card label renaming is active again — it had been left disabled after a diagnostic session.
+- **PC Toolkit**: the whole interface now scales with the Windows display scaling (125%, 150%...) instead of only the fonts — at 125% on a 4K screen the bottom of the window (the Progress section) used to be cut off. Applied after the next sign-out if the scaling was just changed.
+- **PC Toolkit**: the build number is now shown in the window title bar (currently `7349`), so it is easy to tell which version someone is running.
+- **PC Toolkit**: Mode 9 now reminds you to restart EmulationStation after installing the user scripts — the *User scripts* menu stays greyed out until EmulationStation rescans its scripts at startup.
+- **PC Toolkit**: SD card creation now also installs the shuffle-mode CRT static image (`_shuffle.raw565pack` + `_shuffle.meta`); before, these two files were skipped and the DMD showed an empty screen in shuffle mode. If your SD was created with an earlier build, copy those two files from `carte SD/systems/_defaults/` into `systems/_defaults/` on the card.
 ## 2026-09-14 — MQTT fully removed, watchdog crash fixed, optional static IP, FAQ page
 
 - **Firmware**: the MQTT subsystem (connection/task code, ~800 lines) is now fully removed from the source — not just disabled by default as of the day before. If you had something wired into the DMD's old MQTT topics, see [UPGRADING.md](UPGRADING.md) for what that means.

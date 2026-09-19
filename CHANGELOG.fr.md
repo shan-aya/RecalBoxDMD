@@ -8,6 +8,14 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-09-20 — IP du DMD découverte automatiquement, Toolkit PC adapté au DPI Windows, image shuffle installée, renommage d'étiquette SD rétabli
+
+- **Scripts Recalbox** : corrige le DMD qui restait bloqué sur sa playlist de veille pendant une partie — les scripts avaient l'adresse IP du DMD codée en dur (`192.168.0.51`) et parlaient donc dans le vide sur tout réseau où le DMD avait une autre adresse. Ils utilisent désormais l'adresse depuis laquelle le DMD s'annonce réellement (repli sur l'ancienne valeur tant qu'aucune n'a été vue). Fait suite à un retour réel d'un testeur.
+- **Firmware** : le renommage d'étiquette de la carte SD est de nouveau actif — il était resté désactivé depuis une session de diagnostic.
+- **Toolkit PC** : toute l'interface suit maintenant la mise à l'échelle d'affichage de Windows (125 %, 150 %...) et pas seulement les polices — à 125 % sur un écran 4K, le bas de la fenêtre (la section Progression) était coupé. Pris en compte à la prochaine ouverture de session si l'échelle vient d'être changée.
+- **Toolkit PC** : le numéro de build est maintenant affiché dans le bandeau de la fenêtre (actuellement `7349`), pour savoir facilement quelle version quelqu'un utilise.
+- **Toolkit PC** : le Mode 9 rappelle désormais de redémarrer EmulationStation après l'installation des scripts utilisateur — le menu *Scripts utilisateur* reste grisé tant qu'EmulationStation n'a pas relu ses scripts au démarrage.
+- **Toolkit PC** : la création de carte SD installe aussi l'image de brouillage CRT du mode shuffle (`_shuffle.raw565pack` + `_shuffle.meta`) ; auparavant ces deux fichiers étaient ignorés et le DMD affichait un écran vide en mode shuffle. Si ta SD a été créée avec un build antérieur, copie ces deux fichiers depuis `carte SD/systems/_defaults/` vers `systems/_defaults/` sur la carte.
 ## 2026-09-14 — MQTT entièrement retiré, crash watchdog corrigé, IP fixe optionnelle, page FAQ
 
 - **Firmware** : le sous-système MQTT (code de connexion/tâche, ~800 lignes) est désormais entièrement retiré des sources — pas seulement désactivé par défaut comme la veille. Si tu avais branché quelque chose sur les anciens topics MQTT du DMD, voir [UPGRADING.md](UPGRADING.fr.md) pour ce que ça implique.

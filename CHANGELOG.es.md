@@ -8,6 +8,14 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-09-20 — IP del DMD descubierta automáticamente, Toolkit PC adaptado al DPI de Windows, imagen shuffle instalada, renombrado de etiqueta SD restablecido
+
+- **Scripts de Recalbox**: corregido el DMD que se quedaba atascado en su playlist de reposo durante una partida — los scripts tenían la dirección IP del DMD escrita a fuego (`192.168.0.51`) y hablaban al vacío en cualquier red donde el DMD tuviera otra dirección. Ahora usan la dirección desde la que el DMD se anuncia realmente (recurren al valor antiguo mientras no se haya visto ninguna). Nace de un informe real de un probador.
+- **Firmware**: el renombrado de la etiqueta de la tarjeta SD vuelve a estar activo — se había quedado desactivado tras una sesión de diagnóstico.
+- **Toolkit PC**: toda la interfaz sigue ahora la escala de pantalla de Windows (125 %, 150 %...) y no solo las fuentes — al 125 % en una pantalla 4K la parte inferior de la ventana (la sección Progreso) quedaba cortada. Se aplica al volver a iniciar sesión si la escala se acaba de cambiar.
+- **Toolkit PC**: el número de build se muestra ahora en la barra de título de la ventana (actualmente `7349`), para saber fácilmente qué versión usa alguien.
+- **Toolkit PC**: el Modo 9 recuerda ahora reiniciar EmulationStation tras instalar los scripts de usuario — el menú *Scripts de usuario* sigue en gris hasta que EmulationStation vuelve a leer sus scripts al arrancar.
+- **Toolkit PC**: la creación de la tarjeta SD instala también la imagen de interferencia CRT del modo shuffle (`_shuffle.raw565pack` + `_shuffle.meta`); antes estos dos archivos se omitían y el DMD mostraba una pantalla vacía en modo shuffle. Si tu SD se creó con un build anterior, copia esos dos archivos desde `carte SD/systems/_defaults/` a `systems/_defaults/` en la tarjeta.
 ## 2026-09-14 — MQTT eliminado por completo, crash del watchdog corregido, IP fija opcional, página de FAQ
 
 - **Firmware**: el subsistema MQTT (código de conexión/tarea, ~800 líneas) ahora se ha eliminado por completo del código fuente — no solo desactivado por defecto como el día anterior. Si tenías algo conectado a los antiguos topics MQTT del DMD, consulta [UPGRADING.md](UPGRADING.es.md) para saber qué implica.
