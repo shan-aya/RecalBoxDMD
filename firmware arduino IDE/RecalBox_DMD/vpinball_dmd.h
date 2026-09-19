@@ -86,6 +86,7 @@ static uint8_t *vpinballDecompBuf = nullptr;
 
 bool vpinballModeActive = false;
 static unsigned long vpinballLastPacketMs = 0;
+static uint32_t vpinballPktTotal = 0; // diagnostic
 #define VPINBALL_MODE_TIMEOUT_MS 5000
 
 // Repli : 1er paquet en mode NORMAL sans buffers alloues -> reboot cible vers
@@ -165,6 +166,7 @@ WiFiUDP vpinballUdp;
 bool    vpinballUdpStarted = false;
 
 static const uint8_t VPINBALL_SYNC[5] = {'Z', 'e', 'D', 'M', 'D'};
+static const uint8_t VPINBALL_FRAME[5] = {'F', 'R', 'A', 'M', 'E'}; // prefixe de datagramme (libzedmd recent)
 
 // v1 -- demarre l'ecoute UDP. Appelee depuis setup() UNIQUEMENT si
 // featVpinballDmd est actif (voir RecalBox_DMD.ino) -- ne consomme aucune
@@ -371,12 +373,27 @@ void pollVpinballUdp()
       uint8_t hdr[5];
       const int n = vpinballUdp.read(hdr, sizeof(hdr));
       vpinballUdp.flush();
-      if (n == (int)sizeof(hdr) && memcmp(hdr, VPINBALL_SYNC, sizeof(hdr)) == 0 && !vpinballModeActive)
+      if (n == (int)sizeof(hdr) && (memcmp(hdr, VPINBALL_SYNC, sizeof(hdr)) == 0 || memcmp(hdr, VPINBALL_FRAME, sizeof(hdr)) == 0) && !vpinballModeActive)
         triggerVpinballBootReboot();
       continue;
     }
     const int len = vpinballUdp.read(vpinballRecvBuf, VPINBALL_DMD_RECV_BUF_SIZE);
-    if (len < 5 || memcmp(vpinballRecvBuf, VPINBALL_SYNC, 5) != 0) continue; // bruit sur ce port
+    // v4 -- DIAGNOSTIC : compte/loggue les paquets recus (le mode Pinball reste
+    // muet sur un vrai client -- voir quels paquets arrivent reellement).
+    vpinballPktTotal++;
+    if (vpinballPktTotal <= 3 || (vpinballPktTotal % 500) == 0)
+    {
+      char hex[3 * 24 + 1];
+      int hn = 0;
+      for (int i = 0; i < len && i < 24; i++) hn += snprintf(hex + hn, sizeof(hex) - hn, "%02x ", vpinballRecvBuf[i]);
+      Serial.printf("[VPINBALL] pkt #%u len=%d actif=%d hex=%s\n", (unsigned)vpinballPktTotal, len, vpinballModeActive ? 1 : 0, hex);
+    }
+    // BUG REEL v4 : le client reel (libzedmd recent) prefixe CHAQUE datagramme
+    // de 5 octets "FRAME" avant les messages "ZeDMD..." (constate en test
+    // reel, DMD2 + VPX/RB2) -- le filtre "commence par ZeDMD" rejetait donc
+    // 100% des vrais paquets. vpinballProcessPacket() cherche deja la synchro
+    // n'importe ou dans le buffer, le prefixe y est saute tout seul.
+    if (len < 5 || (memcmp(vpinballRecvBuf, VPINBALL_SYNC, 5) != 0 && memcmp(vpinballRecvBuf, VPINBALL_FRAME, 5) != 0)) continue; // bruit
     vpinballProcessPacket(vpinballRecvBuf, len);
   }
 }
