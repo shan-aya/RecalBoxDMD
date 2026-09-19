@@ -3872,7 +3872,11 @@ PlaylistGenStatus g_plGenStatus;
 // --------------------------------------------------
 // Cache des _defaults par systeme
 // --------------------------------------------------
-#define SYS_CACHE_MAX 300
+// v216 -- 300 -> 160 : mesure reelle (sonde CMD_MEM_PROBE, DMD2) -- 68
+// systemes seulement, ce tableau + ses 2 voisins + gamesIdx reservaient ~24 Ko
+// de heap en permanence. 160 reste > 2x la collection la plus fournie
+// observee ; les lecteurs bornent deja sur SYS_CACHE_MAX (troncature).
+#define SYS_CACHE_MAX 160
 static char (*sysCacheKeys)[32] = nullptr; // SYS_CACHE_MAX x 32 (heap)
 static char *sysCacheVals = nullptr;       // SYS_CACHE_MAX (heap)
 static char *sysCacheSlowVals = nullptr;   // SYS_CACHE_MAX (heap)
@@ -4198,7 +4202,10 @@ void buildSysDefaultCache()
 // bigramTable est alloue dynamiquement en heap
 // et libere avant drawPng pour liberer la RAM a pngle
 // --------------------------------------------------
-#define GAMES_IDX_MAX 300
+// v216 -- 300 -> 160, meme raison que SYS_CACHE_MAX (36 o/entree : ~5 Ko
+// liberes en fonctionnement normal). Un games_cache.bin au-dela est rejete
+// en bloc par loadGamesIndex() (repli sur le chemin sans index, deja gere).
+#define GAMES_IDX_MAX 160
 #define NB_IDX        703   // 1 + 26*27
 
 struct GamesSysIdx { char sysName[32]; uint32_t offset; };
@@ -4263,7 +4270,12 @@ bool loadGamesIndex()
   if (!f) return false;
   uint32_t nb = 0;
   f.read((uint8_t*)&nb, 4);
-  if (nb == 0 || nb > (uint32_t)GAMES_IDX_MAX) { f.close(); return false; }
+  if (nb == 0 || nb > (uint32_t)GAMES_IDX_MAX)
+  {
+    Serial.println("[GCACHE] index jeux rejete : " + String(nb) + " systemes (max " + String(GAMES_IDX_MAX) + ")");
+    f.close();
+    return false;
+  }
   gamesIdxCount = 0;
   for (uint32_t i = 0; i < nb && gamesIdxCount < GAMES_IDX_MAX; i++)
   {
@@ -5194,7 +5206,7 @@ bool g_pendingConnectedScreenOnPong = false;
 struct MqttCommand
 {
   enum Type { CMD_NONE, CMD_STOP, CMD_DEFAULT, CMD_SYSTEM, CMD_GAME,
-              CMD_STARTCLIP, CMD_RESUMESYS, CMD_SHOW_CONFIG, CMD_WIFI_RECOVERY,
+              CMD_STARTCLIP, CMD_RESUMESYS, CMD_SHOW_CONFIG, CMD_WIFI_RECOVERY, CMD_MEM_PROBE,
               CMD_REBOOT, CMD_WAITING_MQTT, CMD_BRIGHTNESS, CMD_CLOCK_PREVIEW,
               CMD_BRIGHTNESS_UP, CMD_BRIGHTNESS_DOWN,
               CMD_SCORE /* v110 -- reintroduit, voir entete changelog */ };
@@ -8418,6 +8430,49 @@ void processPendingMqttCommand()
     displayedMaskSysName=cmd.arg;
     break;
 
+  case MqttCommand::CMD_MEM_PROBE:
+    // v215 -- DIAGNOSTIC (recherche RAM pour un mode Pinball SANS reboot,
+    // conserver l'affichage marquee en navigation) : decharge par etapes
+    // GIF -> bigram -> image de secours -> serveur web -> caches systemes/
+    // jeux, logue heap libre + plus gros bloc contigu (maxalloc) a chaque
+    // etape, teste un malloc de 11 Ko (taille du decompresseur tinfl) puis
+    // REDEMARRE (le firmware n'est plus utilisable apres cette commande).
+    // Declenchement : UDP "CMD=mem_probe ARG=1" sur le port 5005.
+    {
+      auto logMem = [](const char *tag) {
+        Serial.printf("[MEMPROBE] %-30s free=%u maxalloc=%u\n", tag, (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMaxAllocHeap());
+      };
+      logMem("baseline");
+      gif.close(); gifOpened = false; pngDrawn = false; currentPngPath = "";
+      currentMode = MODE_BLACK;
+      if (nextGifFile) { nextGifFile.close(); nextGifFile = File(); nextGifPath = ""; }
+      closeGifRawPackIfAny();
+      logMem("apres GIF ferme");
+      freeBigramAll();
+      logMem("apres freeBigramAll");
+      if (defaultRaw565Buf) { free(defaultRaw565Buf); defaultRaw565Buf = nullptr; }
+      logMem("apres image de secours");
+      if (webServer) { webServer->stop(); delete webServer; webServer = nullptr; }
+      logMem("apres serveur web arrete");
+      if (sysCacheKeys) { free(sysCacheKeys); sysCacheKeys = nullptr; }
+      if (sysCacheVals) { free(sysCacheVals); sysCacheVals = nullptr; }
+      if (sysCacheSlowVals) { free(sysCacheSlowVals); sysCacheSlowVals = nullptr; }
+      if (sysCachePerLetterVals) { free(sysCachePerLetterVals); sysCachePerLetterVals = nullptr; }
+      logMem("apres caches systemes");
+      if (gamesIdx) { free(gamesIdx); gamesIdx = nullptr; }
+      logMem("apres index jeux");
+      void *t1 = malloc(11264);
+      Serial.printf("[MEMPROBE] malloc 11264 (tinfl): %s\n", t1 ? "OK" : "ECHEC");
+      void *t2 = malloc(1500 + 2048);
+      Serial.printf("[MEMPROBE] malloc 3548 (buffers): %s\n", t2 ? "OK" : "ECHEC");
+      if (t1) free(t1);
+      if (t2) free(t2);
+      Serial.println("[MEMPROBE] fin -- redemarrage");
+      delay(500);
+      ESP.restart();
+    }
+    break;
+
   case MqttCommand::CMD_SHOW_CONFIG:
     // Declenche depuis Recalbox (script "Config Web DMD") pour retrouver/
     // afficher l'IP du DMD sans toucher au WiFi -- reutilise exactement
@@ -9149,6 +9204,7 @@ void handleUdpCommand()
   else if (cmd=="game")    { g_pendingGameArg=arg; g_pendingGame=true; g_pendingGameRecvMs=millis(); }
   else if (cmd=="show_config")     pendingCmd=MqttCommand(MqttCommand::CMD_SHOW_CONFIG,"");
   else if (cmd=="wifi_recovery")   pendingCmd=MqttCommand(MqttCommand::CMD_WIFI_RECOVERY,"");
+  else if (cmd=="mem_probe")       pendingCmd=MqttCommand(MqttCommand::CMD_MEM_PROBE,"");
   else if (cmd=="reboot")          pendingCmd=MqttCommand(MqttCommand::CMD_REBOOT,"");
   else if (cmd=="brightness")      pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS,arg);
   else if (cmd=="brightness_up")   pendingCmd=MqttCommand(MqttCommand::CMD_BRIGHTNESS_UP,"");
