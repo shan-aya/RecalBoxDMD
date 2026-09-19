@@ -926,6 +926,16 @@ feat_enabled() {
     [ "$val" = "1" ]
 }
 
+# v53 -- variante "suivi" : VRAIE sauf si la cle vaut explicitement 0 (cache
+# absent/cle inconnue = comportement historique, suivre le jeu). Contraire
+# du repli prudent de feat_enabled() -- ici l'absence de reglage ne doit PAS
+# couper une fonction deja en service.
+feat_follow() {
+    [ -f "$FEATURES_FILE" ] || return 0
+    _ff=$(sed -n "s/.*${1}=\([01]\).*/\1/p" "$FEATURES_FILE" | head -n1)
+    [ "$_ff" != "0" ]
+}
+
 # v4 -- variante numerique de feat_enabled() (repeat_cycles/
 # repeat_browse_cycles/dwell_seconds) -- renvoie 0 si le cache n'existe pas
 # encore ou si la cle est absente (comportement prudent).
@@ -1812,6 +1822,21 @@ LAST_SYSTEMBROWSING_ID=""
 mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 -t "Recalbox/EmulationStation/Event" 2>/dev/null | \
 while IFS= read -r event; do
     event=$(printf '%s' "$event" | tr -d '\r')
+
+    # v53 - 2026-09-19 - safe-modify - Reglage "Veille Recalbox > Demo de
+    # jeux" (page web du DMD, cle demo_follow du cache FEATURES) : si le
+    # suivi est desactive, rundemo n'affiche AUCUN overlay (hi-score/infos/
+    # description du jeu de la demo) -- le DMD reste en playlist simple
+    # (voir marquee.sh v53). Nettoie comme "stop" (round-robin en vol tue,
+    # sessions effacees). clip_follow : sans objet ici (startgameclip est
+    # deja un no-op cote dmd_score.sh).
+    if [ "$event" = "rundemo" ] && ! feat_follow "demo_follow"; then
+        : > "$GAME_SESSION_FILE"
+        : > "$BROWSE_STATE_FILE"
+        kill_previous_round_robin "$ROUNDROBIN_PID_FILE_INGAME"
+        kill_previous_round_robin "$ROUNDROBIN_PID_FILE_BROWSE"
+        continue
+    fi
 
     case "$event" in
         systembrowsing)

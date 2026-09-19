@@ -37,6 +37,17 @@ LOG="/recalbox/share/system/logs/marquee_mqtt.log"
 DMD_UDP_IP_FALLBACK="192.168.0.51"
 DMD_UDP_IP_CACHE="/tmp/dmd_udp_ip"
 DMD_UDP_PORT=5005
+# v53 - 2026-09-19 - safe-modify - Reglages "Veille Recalbox" de la page web
+# du DMD (demande utilisateur) : demo_follow / clip_follow dans le cache
+# FEATURES ecrit par dmd_udp_resync.py (meme fichier/format que dmd_score.sh).
+# feat_follow() : VRAI sauf si la cle vaut explicitement 0 -- cache absent ou
+# cle inconnue (firmware ancien) = comportement historique (suivre le jeu).
+FEATURES_FILE="/tmp/dmd_features_cache"
+feat_follow() {
+    [ -f "$FEATURES_FILE" ] || return 0
+    _ff=$(sed -n "s/.*${1}=\([01]\).*/\1/p" "$FEATURES_FILE" | head -n1)
+    [ "$_ff" != "0" ]
+}
 # v35 -- BUG REEL confirme sur materiel (retour utilisateur, meme session,
 # apres v34 : le sondage direct de es_state.inf elimine bien toute
 # contention MQTT -- log verifie : une seule publication propre et rapide
@@ -1804,6 +1815,17 @@ while true; do
 
             echo "$(date '+%H:%M:%S') ENDGAME sys=$system last=$LAST_SYSTEM" >> "$LOG"
 
+            # v54 - 2026-09-19 - safe-modify - Mode Pinball du DMD (sans
+            # reboot, voir RecalBox_DMD.ino v219) : a la fin d'une table
+            # vpinball, sortie IMMEDIATE du mode (sinon il attend 5 s de
+            # silence du flux ZeDMD). Envoye AVANT ingame/system : le DMD
+            # ignore toute autre commande d'affichage tant que le mode est
+            # actif. Sans effet (commande inconnue ignoree) sur un firmware
+            # plus ancien.
+            if [ "$LAST_SYSTEM" = "vpinball" ] || [ "$system" = "vpinball" ]; then
+                send_mqtt_retain "vpinball_end" "1"
+            fi
+
             send_mqtt_retain "ingame" "0"
             if [ -n "$system" ]; then
                 LAST_SYSTEM="$system"
@@ -1897,6 +1919,24 @@ while true; do
             # v41) devient inutile pour les 2 evenements desormais, laissee
             # en place (plus jamais mise a 1) au cas ou un futur retour en
             # arriere serait souhaite.
+            # v53 -- reglage "Veille Recalbox" (page web du DMD) : si le suivi
+            # est desactive pour CE type de veille (demo_follow pour
+            # rundemo, clip_follow pour startgameclip), on n'affiche pas le
+            # jeu -- playlist simple UNE fois a l'entree en veille (meme
+            # garde demo_veille_playlist_sent que l'ancien comportement v41,
+            # rearmee par wakeup), comme pendant les autres veilles.
+            _follow_key=demo_follow
+            [ "$event" = "startgameclip" ] && _follow_key=clip_follow
+            if ! feat_follow "$_follow_key"; then
+                if [ "$demo_veille_playlist_sent" -eq 0 ]; then
+                    demo_veille_playlist_sent=1
+                    echo "$(date '+%H:%M:%S') VEILLE ${event} : suivi desactive (${_follow_key}=0) -> playlist" >> "$LOG"
+                    send_mqtt_retain "default" "1"
+                fi
+                DEMO_SYSTEM=""
+                DEMO_ROM=""
+                demo_throttled=0
+            else
             now=$(date +%s)
             # v34 -- horodatage du dernier evenement vu ICI (pas seulement
             # au moment d'une publication effective) -- voir changelog v34
@@ -1923,6 +1963,7 @@ while true; do
                         demo_throttled=1
                     fi
                 fi
+            fi
             fi
             ;;
 
