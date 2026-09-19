@@ -1,7 +1,11 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v218
+// Version actuelle : v221
+//
+// v221 - 2026-09-20 - safe-modify - Fusion master -> dev/vpinball-integration (aucun changement de comportement : reprend v211 de master
+//   -- renommage d'etiquette SD, deja reactive ici depuis v215 -- et l'IP dynamique des scripts). Les v212 a v220 de cette branche (memoire,
+//   mode Pinball en place, inflateur minimal, sortie immediate, log d'echec des masks _defaults) sont inchangees.
 //
 // v218 - 2026-09-19 - safe-modify - Mode Pinball (sans reboot, voir
 //   vpinball_dmd.h v4) : retour utilisateur en test reel avec Batman -- le
@@ -34,6 +38,18 @@
 //   Ajoute aussi la reactivation du renommage d'etiquette SD (voir master
 //   v211, meme correctif -- carte SD defectueuse a l'origine du diagnostic
 //   v207, pas le firmware).
+// v211 - 2026-09-19 - safe-modify - Retour utilisateur : le renommage de
+//   l'etiquette de volume SD ("RecalBoxDMD") n'avait jamais ete reactive
+//   apres le diagnostic v205-v208 (13/09) sur la boucle AP. A l'epoque,
+//   f_setlabel() echouait (FR_DISK_ERR) sur l'unite testee et avait ete
+//   desactive par prudence, le temps de confirmer si cet echec invalidait
+//   le montage FatFs et causait la boucle AP -- root cause reelle trouvee
+//   depuis (v208, bug distinct dans writeConfigFlags()), mais le
+//   renommage d'etiquette n'avait jamais ete remis en service. Confirme
+//   par l'utilisateur : le FR_DISK_ERR de l'epoque venait d'une carte SD
+//   defectueuse, pas du firmware -- reactive (voir son commentaire dans
+//   setup(), juste apres SD.begin()). Fonctionnalite cosmetique
+//   (etiquette de volume), non bloquante en cas d'echec.
 //
 // v210 - 2026-09-14 - safe-modify - BUG REEL corrige (retour utilisateur en
 //   direct : "RecalBox connecte" affiche alors que RB1 est eteinte).

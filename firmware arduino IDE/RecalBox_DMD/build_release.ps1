@@ -30,20 +30,19 @@
 # DECISIONS.md), ce script se limite a preparer les artefacts locaux.
 #
 # Usage :
-#   .\build_release.ps1                        # versions par defaut (v2.0 / 6243)
-#   .\build_release.ps1 -ToolkitBuild 6300      # nouveau numero de build toolkit
+#   .\build_release.ps1                        # versions par defaut (v2.0 / build toolkit auto)
+#   .\build_release.ps1 -ToolkitBuild 7148      # force un numero de build toolkit (sinon auto)
 #   .\build_release.ps1 -SkipMsi                # saute carrement l'etape .msi (plus rapide)
 
 param(
     [string]$FirmwareLabel = "v2.0",
-    [string]$ToolkitBuild  = "6243",
+    [string]$ToolkitBuild  = "",
     [switch]$SkipMsi
 )
 
 $ErrorActionPreference = "Stop"
 $root        = $PSScriptRoot
 $tools       = Join-Path $root "tools"
-$releaseDir  = Join-Path $root "_release\RecalBoxDMD_${FirmwareLabel}_t${ToolkitBuild}"
 
 function Step($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
 function Warn($msg) { Write-Host "AVERTISSEMENT: $msg" -ForegroundColor Yellow }
@@ -77,6 +76,26 @@ function Get-LatestChangelogEntry {
     }
 }
 
+# v2 -- safe-modify -- numero de build toolkit AUTO-DERIVE (convention
+# confirmee par l'utilisateur le 2026-09-19 : concatenation du numero de
+# version interne "v<N>" de RecalBoxDMD_GUI.py suivi de celui de
+# RecalBoxDMD_tool.py, ex. GUI v71 + tool v48 = "7148") au lieu d'un
+# -ToolkitBuild tape a la main a chaque release (source d'oubli -- c'est
+# exactement ce qui avait cause le decalage corrige en v70/v71 de
+# RecalBoxDMD_GUI.py, TOOLKIT_RELEASE_VERSION). -ToolkitBuild reste
+# disponible pour forcer une valeur explicite si besoin (ex. rebuild d'un
+# numero deja publie), sinon deduit ici des 2 fichiers sources.
+if ([string]::IsNullOrWhiteSpace($ToolkitBuild)) {
+    $guiVer  = Get-LatestChangelogEntry (Join-Path $tools "RecalBoxDMD_GUI.py")  "GUI"
+    $toolVer = Get-LatestChangelogEntry (Join-Path $tools "RecalBoxDMD_tool.py") "Tool"
+    if (-not $guiVer -or -not $toolVer) {
+        throw "Impossible de deduire -ToolkitBuild automatiquement (version 'safe-modify' introuvable dans RecalBoxDMD_GUI.py et/ou RecalBoxDMD_tool.py) -- passe -ToolkitBuild explicitement."
+    }
+    $ToolkitBuild = "$($guiVer.Version.TrimStart('v'))$($toolVer.Version.TrimStart('v'))"
+    Write-Host "ToolkitBuild auto-derive : $ToolkitBuild (GUI $($guiVer.Version) + Tool $($toolVer.Version))" -ForegroundColor Cyan
+}
+$releaseDir = Join-Path $root "_release\RecalBoxDMD_${FirmwareLabel}_t${ToolkitBuild}"
+
 if (-not (Test-Path (Join-Path $root "compile.ps1"))) {
     throw "compile.ps1 introuvable a la racine ($root) -- ce script doit tourner depuis le checkout master, pas un worktree de dev."
 }
@@ -84,7 +103,24 @@ New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
 
 # --- 1) Firmware ---
 Step "1/9 Compilation firmware"
+# v1 - 2026-09-18 - safe-modify - BUG REEL trouve en test materiel (cycle de
+# republication build 6301) : arduino-cli emet une note informative
+# ("#pragma message: Compiling for original ESP32...") sur stderr -- sans
+# rapport avec un echec de compilation (compile.ps1 seul, sans le
+# $ErrorActionPreference="Stop" global de CE script, l'a toujours ignoree
+# sans souci sur des dizaines de compilations cette session). Mais SOUS ce
+# $ErrorActionPreference="Stop" (tete de ce script), PowerShell remonte
+# cette simple note comme une exception terminale (NativeCommandError),
+# stoppant le cycle de release AVANT que la compilation elle-meme n'ait
+# fini -- confirme : le .bin de sortie datait encore du cycle precedent
+# apres cet echec silencieux. Fix : ErrorActionPreference assoupli
+# localement le temps de cet appel precis (compile.ps1 ecrit deja son
+# propre message d'echec + $LASTEXITCODE fiable en cas de vraie erreur,
+# verifie juste apres comme avant).
+$prevEAP = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 & (Join-Path $root "compile.ps1")
+$ErrorActionPreference = $prevEAP
 if ($LASTEXITCODE -ne 0) { throw "Echec compilation firmware (voir sortie ci-dessus)." }
 
 Step "2/9 Copie des binaires firmware"
@@ -132,10 +168,32 @@ if (Test-Path $rbZip) { Remove-Item $rbZip -Force }
 Compress-Archive -Path (Join-Path $scriptsDst "*") -DestinationPath $rbZip
 
 # --- 3) PC Toolkit : portable exe (PyInstaller) ---
+# v2 -- verifie que TOOLKIT_RELEASE_VERSION (constante affichee dans le
+# bandeau de la fenetre, voir son commentaire dans RecalBoxDMD_GUI.py) est
+# bien a jour avec le -ToolkitBuild auto-derive ci-dessus (GUI+tool
+# concatenes) avant de packager -- sans ca, le bandeau afficherait un
+# numero perime des la prochaine release (aucune injection automatique de
+# CETTE constante specifiquement, cf. justification dans son commentaire).
+# Avertissement seul, non bloquant.
+$guiPy = Join-Path $tools "RecalBoxDMD_GUI.py"
+$verMatch = Select-String -Path $guiPy -Pattern 'TOOLKIT_RELEASE_VERSION\s*=\s*"([^"]+)"' | Select-Object -First 1
+if ($verMatch -and $verMatch.Matches[0].Groups[1].Value -ne $ToolkitBuild) {
+    Warn "TOOLKIT_RELEASE_VERSION dans RecalBoxDMD_GUI.py ($($verMatch.Matches[0].Groups[1].Value)) ne correspond pas a -ToolkitBuild ($ToolkitBuild) -- le bandeau de la fenetre affichera un numero perime. Mets a jour la constante avant de publier."
+} elseif (-not $verMatch) {
+    Warn "TOOLKIT_RELEASE_VERSION introuvable dans RecalBoxDMD_GUI.py -- verification de coherence sautee."
+}
+
 Step "4/9 Build du portable .exe (PyInstaller)"
+# v1 -- meme fix qu'a l'etape 1/9 (voir son commentaire) : PyInstaller ecrit
+# ses logs INFO normaux sur stderr, remontes en exception terminale sous
+# $ErrorActionPreference="Stop" -- $LASTEXITCODE reste la seule source de
+# verite fiable pour un vrai echec, verifie juste apres comme avant.
 Push-Location $tools
 try {
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     python -m PyInstaller --clean --noconfirm RecalBoxDMD_GUI.spec
+    $ErrorActionPreference = $prevEAP
     if ($LASTEXITCODE -ne 0) { throw "Echec PyInstaller (code $LASTEXITCODE)." }
 } finally { Pop-Location }
 
@@ -145,7 +203,10 @@ $iscc = Get-ChildItem "C:\Program Files (x86)\Inno Setup 6\ISCC.exe", "C:\Progra
 if (-not $iscc) { throw "ISCC.exe introuvable -- Inno Setup 6 doit etre installe (https://jrsoftware.org/isinfo.php)." }
 Push-Location $tools
 try {
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     & $iscc.FullName "RecalBoxDMD_Setup.iss"
+    $ErrorActionPreference = $prevEAP
     if ($LASTEXITCODE -ne 0) { throw "Echec Inno Setup (code $LASTEXITCODE)." }
 } finally { Pop-Location }
 

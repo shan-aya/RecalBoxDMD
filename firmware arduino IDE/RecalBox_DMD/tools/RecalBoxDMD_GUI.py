@@ -2,7 +2,82 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v68
+# Version actuelle : v73
+#
+# v73 — 2026-09-20 — safe-modify — Build toolkit 7349 (GUI v73 + tool v49) :
+#      la creation de SD installe desormais _shuffle.raw565pack/_shuffle.meta
+#      (image de brouillage CRT du mode shuffle), cf. RecalBoxDMD_tool.py v49.
+#
+# v72 — 2026-09-19 — safe-modify — Convention de numerotation du build
+#      toolkit (TOOLKIT_RELEASE_VERSION, v70) clarifiee par l'utilisateur :
+#      concatenation du numero de version interne "v<N>" de ce fichier
+#      suivi de celui de RecalBoxDMD_tool.py -- build_release.ps1 le deduit
+#      desormais automatiquement des 2 fichiers (voir son commentaire pres
+#      du calcul de $ToolkitBuild) au lieu d'un parametre tape a la main.
+#      Constante mise a "7248" ICI (pas "7148") : au moment ou l'utilisateur
+#      a donne "7148", ce fichier etait a v71 (71+48) -- mais CET ENTRETIEN
+#      MEME bascule ce fichier a v72, donc la valeur vraiment a jour au
+#      moment ou ce commit existe est 72+48="7248". Le principe (toujours
+#      prendre les 2 DERNIERES versions internes au moment du build) prime
+#      sur le nombre litteral donne pendant la conversation.
+#
+# v71 — 2026-09-19 — safe-modify — BUG REEL corrige (v68 etait un FAUX SENS,
+#      identifie par retour terrain + diagnostic precis de l'utilisateur) :
+#      cadre Progression toujours absent a 125% APRES v68, PLUS un nouveau
+#      symptome absent avant v68 -- texte tronque dans des cadres a largeur
+#      fixe ("Detection des systemes...", "Version Recalbox..."). Cause
+#      reelle : sur Windows, le rendu des polices (GDI, process DPI-aware)
+#      suit le DPI SYSTEME REEL, independamment de "tk scaling" (qui ne
+#      controle que les conversions point->pixel internes a Tk, pas le
+#      moteur de police natif). v68 verrouillait "tk scaling" a 96/72,
+#      faisant DIVERGER les deux : Tk allouait de l'espace pour du texte
+#      "100%" pendant que GDI dessinait le texte reel a 125% -- d'ou les
+#      troncatures. Fix (sens inverse de v68, voir son commentaire dans
+#      __init__ pour le detail) : NE PLUS toucher "tk scaling" (laisser Tk
+#      suivre le DPI reel, coherent avec GDI) et agrandir PROPORTIONNELLEMENT
+#      tout ce qui etait exprime en pixels litteraux du meme ratio DPI reel/
+#      96 -- nouveaux _DPI_SCALE/_dpi_px() (module-level, juste apres les
+#      imports) : fenetre principale (geometry/minsize, 1100x750 de base) et
+#      tous les wraplength= de texte long (~25 sites). Fonds de theme
+#      verifies sans risque (RecalBoxDMD_themes.py: deja etires
+#      dynamiquement a la taille REELLE de la fenetre via winfo_width/
+#      height(), sans plafond -- largeur et hauteur scalees du meme ratio,
+#      aspect ratio preserve, pas de deformation). PAS VALIDE sur un vrai
+#      poste 4K/125% (aucun disponible cote dev, meme limite que v68 -- une
+#      bascule d'echelle Windows a chaud sur cette machine ne suffit meme
+#      pas a tester : process System-DPI-aware, le DPI effectif ne change
+#      qu'a la reconnexion de session, verifie en direct le 2026-09-19) --
+#      correction basee sur le mecanisme reel diagnostique en concertation
+#      avec l'utilisateur, a confirmer par le testeur tiers.
+#
+# v70 — 2026-09-19 — safe-modify — Ajout TOOLKIT_RELEASE_VERSION (constante,
+#      juste apres les imports) affichee dans le bandeau de la fenetre
+#      ("RecalBoxDMD Toolkit - GUI (build NNNN)") -- demande suite au
+#      diagnostic du bug DPI/125% en cours (v68/v69) : impossible de
+#      confirmer a distance qu'un testeur tiers execute bien la derniere
+#      version publiee sans lui demander une capture d'ecran du code ou du
+#      nom de dossier. A resynchroniser A LA MAIN avec -ToolkitBuild a
+#      chaque release (voir le commentaire de la constante) -- pas
+#      d'injection automatique au build pour l'instant (garde le pipeline
+#      de build_release.ps1 simple), juste une verification de coherence
+#      ajoutee au script (avertissement si divergence).
+#
+# v69 — 2026-09-18 — safe-modify — Retour terrain distinct (Mode 9, pas le
+#      DPI/125% de v68) : un testeur tiers rapporte apres installation
+#      reussie (log "X/X installes, via SMB") que l'option SCRIPTS
+#      UTILISATEUR reste grisee dans le menu Recalbox. Cause identifiee :
+#      EmulationStation scanne le dossier /recalbox/share/userscripts au
+#      DEMARRAGE (verifie : nos propres scripts sur RB2, installes et
+#      fonctionnels depuis des semaines, sont bien en 644/non-executables
+#      -- create mask=0644 dans smb.conf -- donc ce n'est PAS un probleme
+#      de permission d'execution, ES ne verifie pas ce bit) -- il ne
+#      rescanne pas ce dossier a chaud pendant que l'interface tourne.
+#      Un testeur qui installe via Mode 9 puis va DIRECTEMENT verifier le
+#      menu (ES deja demarre avant la copie) voit forcement l'etat perime.
+#      Fix : ajoute un rappel explicite "redemarrez EmulationStation (ou
+#      la Recalbox)" au message de succes du Mode 9 (mode9_summary) et une
+#      etape 3 dediee dans l'aide (etape "Sur la Recalbox" renumerotee 4),
+#      3 langues. Aucun changement de comportement d'installation.
 #
 # v68 — 2026-09-14 — safe-modify — BUG REEL corrige : retour utilisateur,
 #      testeur tiers en 4K/125% signalant "tout le bas de l'interface est
@@ -1209,6 +1284,35 @@ from typing import Callable, Optional, Sequence, cast
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog, font as tkfont
 
+# v70, safe-modify -- numero de build publie (dossier tools/RecalBoxDMD_tool_
+# vNNNN/, executables RecalBoxDMD-NNNN-*.exe/.msi/.zip), AFFICHE dans le
+# bandeau de la fenetre (voir self.root.title() plus bas) -- demande suite a
+# un cas de support reel ou un testeur tiers ne savait pas confirmer s'il
+# executait bien la derniere version publiee.
+# v72, safe-modify -- convention de numerotation clarifiee par l'utilisateur :
+# ce numero est la concatenation du numero de version interne "v<N>" de CE
+# fichier suivi de celui de RecalBoxDMD_tool.py (ex. GUI v71 + tool v48 =
+# "7148") -- build_release.ps1 le deduit desormais AUTOMATIQUEMENT de ces 2
+# fichiers (voir son propre commentaire pres du calcul de $ToolkitBuild),
+# mais CETTE constante reste a mettre a jour a la main ici (pas d'ecriture
+# automatique dans le .py au moment du build, pour garder le pipeline
+# simple) -- build_release.ps1 avertit si elle diverge du calcul.
+TOOLKIT_RELEASE_VERSION = "7349"
+
+# v71, safe-modify -- voir le remplacement du verrou v68 dans __init__ pour
+# le contexte complet. _DPI_SCALE est le ratio DPI reel/96 (1.0 a 100%,
+# 1.25 a 125%...), calcule UNE FOIS au demarrage via GetDpiForSystem() --
+# module-level (pas sur self) pour que _dpi_px() reste appelable partout
+# sans changer la signature des dizaines de sites d'appel existants
+# (wraplength=, geometry(), minsize()...). _dpi_px(px) convertit une
+# constante pixel PENSEE/TESTEE a 100% vers l'equivalent proportionnel au
+# DPI reel de la machine.
+_DPI_SCALE = 1.0
+
+
+def _dpi_px(px: int) -> int:
+    return round(px * _DPI_SCALE)
+
 
 @dataclass(frozen=True)
 class GuiConfig:
@@ -1298,7 +1402,8 @@ UI_TRANSLATIONS = {
         "mode9_btn_install": "Installer / Mettre à jour",
         "mode9_btn_running": "Installation en cours...",
         "mode9_summary": lambda ok, total: (
-            f"✅ {ok}/{total} fichier(s) installé(s)"
+            f"✅ {ok}/{total} fichier(s) installé(s) — redémarrez EmulationStation "
+            f"(ou la Recalbox) pour que le menu SCRIPTS UTILISATEUR les détecte"
             if ok == total
             else f"⚠️ {ok}/{total} fichier(s) installé(s)"
         ),
@@ -1795,7 +1900,8 @@ UI_TRANSLATIONS = {
         "mode9_btn_install": "Install / Update",
         "mode9_btn_running": "Installing...",
         "mode9_summary": lambda ok, total: (
-            f"✅ {ok}/{total} file(s) installed"
+            f"✅ {ok}/{total} file(s) installed — restart EmulationStation "
+            f"(or reboot the Recalbox) so the USER SCRIPTS menu detects them"
             if ok == total
             else f"⚠️ {ok}/{total} file(s) installed"
         ),
@@ -2272,7 +2378,8 @@ UI_TRANSLATIONS = {
         "mode9_btn_install": "Instalar / Actualizar",
         "mode9_btn_running": "Instalando...",
         "mode9_summary": lambda ok, total: (
-            f"✅ {ok}/{total} archivo(s) instalado(s)"
+            f"✅ {ok}/{total} archivo(s) instalado(s) — reinicie EmulationStation "
+            f"(o la Recalbox) para que el menú SCRIPTS DE USUARIO los detecte"
             if ok == total
             else f"⚠️ {ok}/{total} archivo(s) instalado(s)"
         ),
@@ -2811,36 +2918,45 @@ class RetroBoxLEDGui:
                 except Exception:
                     pass
 
-        self.root = tk.Tk()
-
-        # v68, safe-modify : verrouille l'echelle interne de Tk a la valeur
-        # STANDARD 96 DPI (1.333... px/point), PAS a 1.0 -- verifie
-        # empiriquement avant ce fix : sur une machine a 100% (96 DPI), Tk
-        # calcule DEJA "tk scaling"=1.3333 par defaut (convention Tk de
-        # toujours : 1 point = 1/72 pouce, 96/72=1.3333), PAS 1.0 comme
-        # suppose initialement -- verrouiller a 1.0 aurait donc RETRECI
-        # l'interface sur TOUTES les machines, y compris celles a 100%,
-        # une regression bien plus large que le bug corrige. DOIT
-        # s'executer avant toute creation de widget (fontes/tailles deja
-        # calculees a la premiere utilisation sinon). Sans ce fix, Tk met
-        # a l'echelle les tailles de police exprimees en points positifs
-        # (toutes ici, ex. ("TkDefaultFont", 9)) selon le DPI systeme reel
-        # -- a 125% par exemple, "tk scaling" passe de 1.3333 a 1.6667
-        # (x1.25) -- alors que la fenetre elle-meme est fixe et non
-        # redimensionnable (geometry("1100x750") plus bas, en pixels
-        # litteraux, jamais mise a l'echelle). Ce dephasage fait deborder
-        # le contenu hors de la fenetre -- la section la plus basse
-        # (Progression) disparait purement et simplement. Verrouiller a
-        # 96/72 fige le rendu EXACTEMENT sur ce qui a toujours ete
-        # teste/valide (100%), quel que soit le DPI systeme reel -- no-op
-        # reel sur une machine a 100% (verifie : 1.3333 avant ET apres),
-        # verrou effectif seulement au-dela.
+        # v71, safe-modify -- REMPLACE le verrou v68 (tk.call("tk","scaling",
+        # 96/72)), confirme FAUX SENS par retour terrain reel (testeur tiers
+        # 4K/125%, bug persistant + nouveau symptome : texte tronque dans
+        # les cadres a largeur fixe, absent avant v68). Analyse de la vraie
+        # cause (l'utilisateur a mis le doigt dessus) : sur Windows, le
+        # rendu REEL des polices (GDI, pour un process DPI-aware) suit le
+        # DPI SYSTEME REEL independamment de "tk scaling" -- ce dernier ne
+        # controle QUE les conversions internes point->pixel de Tk (tailles
+        # de widgets/paddings exprimees en points), pas le moteur de police
+        # natif. Verrouiller "tk scaling" a 96/72 (comme le faisait v68)
+        # fait donc DIVERGER les deux : Tk alloue de l'espace pour du texte
+        # "100%" (petit) alors que GDI dessine le texte reel a 125% (gros)
+        # -- d'ou les nouveaux textes tronques. La fenetre elle-meme restait
+        # fixe (1100x750, litteral) dans les deux cas, d'ou le cadre
+        # Progression toujours pousse hors champ.
+        # Fix correct (sens inverse de v68) : NE PLUS toucher "tk scaling"
+        # (laisser Tk suivre le DPI reel, coherent avec GDI) et a la place
+        # agrandir PROPORTIONNELLEMENT tout ce qui est exprime en pixels
+        # litteraux (fenetre, wraplength des textes longs) du meme ratio
+        # DPI reel/96 que les polices -- _DPI_SCALE/_dpi_px() ci-dessus.
+        # GetDpiForSystem (Windows 10 1607+, deja le minimum supporte par ce
+        # projet) renvoie le DPI EFFECTIF du process courant (defini a la
+        # connexion de session pour un process System-DPI-aware comme
+        # celui-ci -- voir DECISIONS.md, test live 2026-09-19 : un
+        # changement d'echelle a chaud ne suffit pas, sign-out requis).
+        # PAS VALIDE sur un vrai poste 4K/125% (aucun disponible cote dev,
+        # meme limite que v68) -- correction basee sur le mecanisme reel
+        # rapporte, a confirmer par le testeur tiers.
+        global _DPI_SCALE
         try:
-            self.root.tk.call("tk", "scaling", 96 / 72)
+            real_dpi = ctypes.windll.user32.GetDpiForSystem()
+            if real_dpi:
+                _DPI_SCALE = real_dpi / 96.0
         except Exception:
             pass
 
-        self.root.title("RecalBoxDMD Toolkit - GUI")
+        self.root = tk.Tk()
+
+        self.root.title(f"RecalBoxDMD Toolkit - GUI  (build {TOOLKIT_RELEASE_VERSION})")
         self.root.configure(bg="#F3F3F3")
 
         self.style = ttk.Style(self.root)
@@ -3113,14 +3229,15 @@ class RetroBoxLEDGui:
 
         # Bug 2 : taille minimale fixe pour que le changement de langue
         # ne redimensionne pas la fenêtre.
-        # Reste a 750 (pas d'agrandissement) : les images de fond par theme
-        # (tools/themes/<nom>/bg.png) sont etirees dynamiquement a la taille
-        # de la fenetre (themes.apply()), donc agrandir la fenetre les
-        # deformerait visuellement (aspect ratio non preserve) pour TOUS
-        # les themes -- il faudrait regenerer chaque bg.png. Le contenu de
-        # l'onglet Main est plutot resserre pour tenir dans 750px (voir
-        # _build_mode6_panel : listbox lecteurs reduite, paddings reduits).
-        self.root.minsize(1100, 750)
+        # v71, safe-modify -- 1100/750 passes par _dpi_px() (voir son
+        # commentaire dans __init__ pour le contexte complet du fix DPI).
+        # Le risque de deformation des images de fond par theme
+        # (tools/themes/<nom>/bg.png, etirees dynamiquement par
+        # themes.apply()) qui avait fait garder 750 fixe jusqu'ici ne
+        # s'applique PAS ici : largeur ET hauteur sont mises a l'echelle du
+        # MEME ratio (_DPI_SCALE), le rapport d'aspect 1100:750 est donc
+        # preserve -- juste un agrandissement uniforme, pas une deformation.
+        self.root.minsize(_dpi_px(1100), _dpi_px(750))
         # v53 (master), safe-modify : fenetre principale explicitement
         # CENTREE sur l'ecran primaire au lancement -- root n'avait
         # jusqu'ici JAMAIS de position explicite (geometry() ne donnait que
@@ -3141,9 +3258,11 @@ class RetroBoxLEDGui:
         self.root.update_idletasks()
         _screen_w = self.root.winfo_screenwidth()
         _screen_h = self.root.winfo_screenheight()
-        _x = max(0, (_screen_w - 1100) // 2)
-        _y = max(0, (_screen_h - 750) // 2)
-        self.root.geometry(f"1100x750+{_x}+{_y}")
+        _win_w = _dpi_px(1100)
+        _win_h = _dpi_px(750)
+        _x = max(0, (_screen_w - _win_w) // 2)
+        _y = max(0, (_screen_h - _win_h) // 2)
+        self.root.geometry(f"{_win_w}x{_win_h}+{_x}+{_y}")
         # Interdire le redimensionnement en plein écran / maximisé.
         self.root.resizable(False, False)
         self.root.grid_propagate(True)
@@ -3236,7 +3355,7 @@ class RetroBoxLEDGui:
         # _enter_playlist_temp_mode()) pour eviter un 2e bouton redondant.
         self._playlist_temp_note_lbl = tk.Label(
             top_row, text="", bg="#FFF3CD", fg="black", bd=2, relief="solid",
-            font=("TkDefaultFont", 8), justify="left", anchor="nw", wraplength=260,
+            font=("TkDefaultFont", 8), justify="left", anchor="nw", wraplength=_dpi_px(260),
             padx=6, pady=4,
         )
 
@@ -3248,7 +3367,7 @@ class RetroBoxLEDGui:
         self._playlist_explanation_lbl = tk.Label(
             self._playlist_explanation_frame, text="", bg="#F3F3F3",
             fg="black", font=("TkDefaultFont", 8), justify="left", anchor="nw",
-            wraplength=560,
+            wraplength=_dpi_px(560),
         )
         self._playlist_explanation_lbl.pack(fill="both", expand=True, padx=6, pady=4)
         self._playlist_refresh_explanation_text()
@@ -4288,7 +4407,7 @@ class RetroBoxLEDGui:
         body.pack(fill="both", expand=True)
         tk.Label(
             body, text=ui["playlist_subfolder_checklist_prompt"].format(root=str(root_path)),
-            bg=bg, fg=fg, font=("TkDefaultFont", 9), wraplength=440, justify="left",
+            bg=bg, fg=fg, font=("TkDefaultFont", 9), wraplength=_dpi_px(440), justify="left",
         ).pack(anchor="w", pady=(0, 8))
 
         select_row = tk.Frame(body, bg=bg)
@@ -4407,7 +4526,7 @@ class RetroBoxLEDGui:
         body.pack(fill="both", expand=True)
         tk.Label(
             body, text=ui["playlist_import_dialog_prompt"], bg=bg, fg=fg,
-            font=("TkDefaultFont", 9), wraplength=380, justify="left",
+            font=("TkDefaultFont", 9), wraplength=_dpi_px(380), justify="left",
         ).pack(anchor="w", pady=(0, 10))
         entry_var = tk.StringVar(value=default)
         entry = tk.Entry(body, textvariable=entry_var, font=("TkDefaultFont", 10), cursor="xterm")
@@ -5165,7 +5284,7 @@ class RetroBoxLEDGui:
             bg="#F3F3F3",
             fg="#555555",
             font=("TkDefaultFont", 8),
-            wraplength=260,
+            wraplength=_dpi_px(260),
             justify="left",
         )
         self._params_slow_threshold_hint_lbl.grid(row=len(langs) + 7, column=0, sticky="w", pady=(2, 4))
@@ -5415,7 +5534,7 @@ class RetroBoxLEDGui:
                 "6": "Le mode 6 génère uniquement le fichier games_cache.bin, qui correspond au cache des jeux.\n\nMarche à suivre :\nExécutez d'abord le Mode 3 (extraction gamelist.xml), OU choisissez directement le dossier « systems » d'une carte SD déjà préparée, puis cliquez sur « Démarrer ».",
                 "7": "Le mode 7 génère uniquement le fichier systems_cache.dat, qui représente l’index des systèmes.\n\nMarche à suivre :\nExécutez d'abord le Mode 2 (téléchargement _defaults), OU choisissez directement le dossier « systems » d'une carte SD déjà préparée, puis cliquez sur « Démarrer ».",
                 "8": "Le mode 8 vérifie les images manquantes en parcourant les gamelist.xml du dossier ROMs. Le rapport liste les images absentes avec le chemin attendu selon le profil Recalbox sélectionné.\n\nMarche à suivre :\n1. « Choisir dossier ROMs »\n2. Choisissez la « Version Recalbox »\n3. « Lancer la vérification »\n4. « Ouvrir le rapport »\nOptionnel : « Comparer avec le support final » puis « Ouvrir le rapport final ».",
-                "9": "Installe/met à jour les scripts utilisateur Recalbox (WiFi Recovery, Config Web, Reboot, Luminosité +10%/-10%, pont marquee) directement sur le partage réseau de la Recalbox (\\\\<ip>\\share), sans passer par le DMD.\n\nMarche à suivre :\n1. Vérifiez/saisissez l'adresse IP ou le nom réseau de la Recalbox (pré-rempli si détecté automatiquement ou déjà utilisé).\n2. « Installer / Mettre à jour »\n3. Sur la Recalbox : START > PARAMÈTRES AVANCÉS > SCRIPTS UTILISATEUR.",
+                "9": "Installe/met à jour les scripts utilisateur Recalbox (WiFi Recovery, Config Web, Reboot, Luminosité +10%/-10%, pont marquee) directement sur le partage réseau de la Recalbox (\\\\<ip>\\share), sans passer par le DMD.\n\nMarche à suivre :\n1. Vérifiez/saisissez l'adresse IP ou le nom réseau de la Recalbox (pré-rempli si détecté automatiquement ou déjà utilisé).\n2. « Installer / Mettre à jour »\n3. Redémarrez EmulationStation (ou la Recalbox) : le menu ne détecte les scripts qu'au démarrage.\n4. Sur la Recalbox : START > PARAMÈTRES AVANCÉS > SCRIPTS UTILISATEUR.",
                 "10": "Choisissez l'image de secours (default.raw565) affichée quand aucune image spécifique n'est disponible pour un jeu ou un système. Action autonome et immédiate, sans dossier ROMs ni pipeline.\n\nMarche à suivre :\n1. « Choisir son image de secours »\n2. Sélectionnez une image de la galerie ou importez la vôtre.\nLe choix s'applique immédiatement au dossier de travail.",
                 "11": "Le mode 11 télécharge uniquement le pack gratuit de 600 GIFs (thèmes variés) depuis GitHub dans /gifs/. Indépendant du Mode 2 (qui télécharge « _defaults »). Il ne réalise aucune extraction ni conversion d’images.\n\nPour un pack bien plus complet (pack ultimate, ~11000 animations pixel-perfect pour DMD), voir https://rpiteam.carrd.co/ et le forum Arcadia : https://www.neo-arcadia.com/forum/viewtopic.php?t=67065\n\nMarche à suivre :\n1. Cliquez directement sur « Démarrer ».\nAucun dossier ROMs ni sélection de systèmes n'est nécessaire (bouton désactivé).",
             },
@@ -5428,7 +5547,7 @@ class RetroBoxLEDGui:
                 "6": "Mode 6: generates only games_cache.bin (games cache).\n\nSteps:\nRun Mode 3 first (gamelist extraction), OR pick the \"systems\" folder of an already-prepared SD card directly, then click « Start ».",
                 "7": "Mode 7: generates only systems_cache.dat (systems index).\n\nSteps:\nRun Mode 2 first (_defaults download), OR pick the \"systems\" folder of an already-prepared SD card directly, then click « Start ».",
                 "8": "Mode 8: checks missing images by scanning gamelist.xml in the ROMs folder. The report lists missing images with the expected path according to the selected Recalbox profile.\n\nSteps:\n1. « Choose ROMs folder »\n2. Pick the « Recalbox version »\n3. « Start check »\n4. « Open report »\nOptional: « Compare with final media » then « Open final report ».",
-                "9": "Installs/updates the Recalbox user scripts (WiFi Recovery, Web Config, Reboot, Brightness +10%/-10%, marquee bridge) directly on the Recalbox network share (\\\\<ip>\\share), without going through the DMD.\n\nSteps:\n1. Check/enter the Recalbox IP address or network name (pre-filled if auto-detected or already used).\n2. « Install / Update »\n3. On the Recalbox: START > ADVANCED SETTINGS > USER SCRIPTS.",
+                "9": "Installs/updates the Recalbox user scripts (WiFi Recovery, Web Config, Reboot, Brightness +10%/-10%, marquee bridge) directly on the Recalbox network share (\\\\<ip>\\share), without going through the DMD.\n\nSteps:\n1. Check/enter the Recalbox IP address or network name (pre-filled if auto-detected or already used).\n2. « Install / Update »\n3. Restart EmulationStation (or reboot the Recalbox): the menu only detects scripts at startup.\n4. On the Recalbox: START > ADVANCED SETTINGS > USER SCRIPTS.",
                 "10": "Choose the fallback image (default.raw565) shown when no specific image is available for a game or system. Standalone, immediate action, no ROMs folder or pipeline involved.\n\nSteps:\n1. « Choose your fallback image »\n2. Pick an image from the gallery or import your own.\nThe choice is applied immediately to the working folder.",
                 "11": "Mode 11 downloads only the free pack of 600 GIFs (assorted themes) from GitHub into /gifs/. Independent from Mode 2 (which downloads \"_defaults\"). No extraction or conversion.\n\nFor a much larger pack (ultimate pack, ~11,000 pixel-perfect DMD animations), see https://rpiteam.carrd.co/ and the Arcadia forum: https://www.neo-arcadia.com/forum/viewtopic.php?t=67065\n\nSteps:\n1. Click « Start » directly.\nNo ROMs folder or system selection needed (button disabled).",
             },
@@ -5441,7 +5560,7 @@ class RetroBoxLEDGui:
                 "6": "Modo 6: genera solo games_cache.bin (caché de juegos).\n\nPasos:\nEjecute primero el Modo 3 (extracción gamelist), O elija directamente la carpeta \"systems\" de una tarjeta SD ya preparada, luego haga clic en « Iniciar ».",
                 "7": "Modo 7: genera solo systems_cache.dat (índice de sistemas).\n\nPasos:\nEjecute primero el Modo 2 (descarga _defaults), O elija directamente la carpeta \"systems\" de una tarjeta SD ya preparada, luego haga clic en « Iniciar ».",
                 "8": "Modo 8: verifica las imagenes faltantes escaneando los gamelist.xml en la carpeta ROMs. El informe enumera las imagenes faltantes con la ruta esperada segun el perfil de Recalbox seleccionado.\n\nPasos:\n1. « Elegir carpeta ROMs »\n2. Elija la « Versión de Recalbox »\n3. « Iniciar verificación »\n4. « Abrir informe »\nOpcional: « Comparar con el soporte final » luego « Abrir informe final ».",
-                "9": "Instala/actualiza los scripts de usuario de Recalbox (WiFi Recovery, Config Web, Reboot, Brillo +10%/-10%, puente marquee) directamente en el recurso compartido de red de la Recalbox (\\\\<ip>\\share), sin pasar por el DMD.\n\nPasos:\n1. Compruebe/introduzca la IP o el nombre de red de la Recalbox (rellenado automáticamente si se detecta o ya se usó).\n2. « Instalar / Actualizar »\n3. En la Recalbox: START > CONFIGURACIÓN AVANZADA > SCRIPTS DE USUARIO.",
+                "9": "Instala/actualiza los scripts de usuario de Recalbox (WiFi Recovery, Config Web, Reboot, Brillo +10%/-10%, puente marquee) directamente en el recurso compartido de red de la Recalbox (\\\\<ip>\\share), sin pasar por el DMD.\n\nPasos:\n1. Compruebe/introduzca la IP o el nombre de red de la Recalbox (rellenado automáticamente si se detecta o ya se usó).\n2. « Instalar / Actualizar »\n3. Reinicie EmulationStation (o la Recalbox): el menú solo detecta los scripts al arrancar.\n4. En la Recalbox: START > CONFIGURACIÓN AVANZADA > SCRIPTS DE USUARIO.",
                 "10": "Elija la imagen de respaldo (default.raw565) que se muestra cuando no hay una imagen especifica disponible para un juego o sistema. Accion autonoma e inmediata, sin carpeta ROMs ni proceso.\n\nPasos:\n1. « Elegir su imagen de respaldo »\n2. Seleccione una imagen de la galeria o importe la suya.\nLa eleccion se aplica de inmediato a la carpeta de trabajo.",
                 "11": "El modo 11 descarga solo el pack gratuito de 600 GIFs (temas variados) desde GitHub en /gifs/. Independiente del Modo 2 (que descarga «_defaults»). Sin extracción ni conversión.\n\nPara un pack mucho más completo (pack ultimate, ~11000 animaciones pixel-perfect para DMD), consulte https://rpiteam.carrd.co/ y el foro Arcadia: https://www.neo-arcadia.com/forum/viewtopic.php?t=67065\n\nPasos:\n1. Haga clic directamente en « Iniciar ».\nNo se necesita carpeta ROMs ni selección de sistemas (botón desactivado).",
             },
@@ -5462,7 +5581,7 @@ class RetroBoxLEDGui:
                 fg="black",
                 activebackground="#E7E7E7",
                 font=("TkDefaultFont", 10, "bold"),
-                wraplength=350,
+                wraplength=_dpi_px(350),
                 justify="left",
                 highlightthickness=0,
                 takefocus=0,
@@ -5523,7 +5642,7 @@ class RetroBoxLEDGui:
             bg="#F3F3F3",
             fg="black",
             font=("TkDefaultFont", 9),
-            wraplength=350,
+            wraplength=_dpi_px(350),
             justify="left",
         ).pack(anchor="w", pady=(8, 0))
 
@@ -5705,7 +5824,7 @@ class RetroBoxLEDGui:
             bg="#F3F3F3",
             fg="#666666",
             font=("TkDefaultFont", 9),
-            wraplength=320,
+            wraplength=_dpi_px(320),
             justify="left",
         )
         # Ne pas pack par défaut - packé par _on_mode_changed
@@ -5803,7 +5922,7 @@ class RetroBoxLEDGui:
                     fg="black",
                     activebackground="#E7E7E7",
                     font=("TkDefaultFont", 12, "bold"),
-                    wraplength=280,
+                    wraplength=_dpi_px(280),
                     justify="left",
                     anchor="w",
                     highlightthickness=0,
@@ -5842,7 +5961,7 @@ class RetroBoxLEDGui:
             bg="#F3F3F3",
             fg="black",
             font=("TkDefaultFont", 9),
-            wraplength=350,
+            wraplength=_dpi_px(350),
             justify="left",
         ).pack(anchor="w", pady=(8, 0))
         self.btn_start_adv = tk.Button(
@@ -6135,7 +6254,7 @@ class RetroBoxLEDGui:
             bg="#F3F3F3",
             fg="black",
             font=("TkDefaultFont", 9),
-            wraplength=280,
+            wraplength=_dpi_px(280),
             justify="left",
         )
         self._mode9_result_lbl.pack(anchor="w", pady=(6, 0))
@@ -7884,7 +8003,7 @@ class RetroBoxLEDGui:
         body.pack(fill="both", expand=True)
         tk.Label(
             body, text=message, bg=bg, fg=fg,
-            font=("TkDefaultFont", 9), wraplength=420, justify="left",
+            font=("TkDefaultFont", 9), wraplength=_dpi_px(420), justify="left",
         ).pack(anchor="w", pady=(0, 12))
         tk.Button(
             body, text=ui["btn_close"], command=dlg.destroy,
@@ -7924,7 +8043,7 @@ class RetroBoxLEDGui:
         else:
             tk.Label(
                 body, text=message, bg=bg, fg=fg,
-                font=("TkDefaultFont", 9), wraplength=420, justify="left",
+                font=("TkDefaultFont", 9), wraplength=_dpi_px(420), justify="left",
             ).pack(anchor="w", pady=(0, 12))
         btns = tk.Frame(body, bg=bg)
         btns.pack(fill="x")
@@ -8055,7 +8174,7 @@ class RetroBoxLEDGui:
         body.pack(fill="both", expand=True)
         tk.Label(
             body, text=message, bg=bg, fg=fg,
-            font=("TkDefaultFont", 9), wraplength=420, justify="left",
+            font=("TkDefaultFont", 9), wraplength=_dpi_px(420), justify="left",
         ).pack(anchor="w", pady=(0, 12))
         btns = tk.Frame(body, bg=bg)
         btns.pack(fill="x")
@@ -8111,7 +8230,7 @@ class RetroBoxLEDGui:
         body.pack(fill="both", expand=True)
         tk.Label(
             body, text=ui["lang_images_msg"], bg=bg, fg=fg,
-            font=("TkDefaultFont", 9), wraplength=460, justify="left",
+            font=("TkDefaultFont", 9), wraplength=_dpi_px(460), justify="left",
         ).pack(anchor="w", pady=(0, 10))
 
         img_path = Path(__file__).resolve().parent / "assets" / "lang_preview" / "compare_systems_lang.png"
@@ -8200,7 +8319,7 @@ class RetroBoxLEDGui:
 
         tk.Label(
             body, text=ui["mode1_wifi_prompt"], bg=bg, fg=fg,
-            font=("TkDefaultFont", 9), wraplength=380, justify="left",
+            font=("TkDefaultFont", 9), wraplength=_dpi_px(380), justify="left",
         ).pack(anchor="w", pady=(0, 10))
 
         tk.Label(body, text=ui["mode1_wifi_ssid_label"], bg=bg, fg=fg, font=("TkDefaultFont", 9, "bold")).pack(anchor="w")
@@ -8236,7 +8355,7 @@ class RetroBoxLEDGui:
             bg=bg, fg=fg, selectcolor=bg, bd=0, highlightthickness=0,
         ).pack(side="left", padx=(4, 0))
 
-        status_lbl = tk.Label(body, text="", bg=bg, fg=fg, font=("TkDefaultFont", 9), wraplength=380, justify="left")
+        status_lbl = tk.Label(body, text="", bg=bg, fg=fg, font=("TkDefaultFont", 9), wraplength=_dpi_px(380), justify="left")
         status_lbl.pack(anchor="w", pady=(4, 10))
 
         # --- IP fixe optionnelle (2026-09-14, voir docstring ci-dessus) ---
@@ -8244,7 +8363,7 @@ class RetroBoxLEDGui:
         static_frame = tk.Frame(body, bg=bg)
         static_hint_lbl = tk.Label(
             static_frame, text="", bg=bg, fg="#806000", font=("TkDefaultFont", 8),
-            wraplength=380, justify="left",
+            wraplength=_dpi_px(380), justify="left",
         )
         # Ni static_hint_lbl ni static_fields_frame ne sont packes ici --
         # les deux restent masques tant que la case n'est pas cochee (voir
@@ -8308,7 +8427,7 @@ class RetroBoxLEDGui:
         ).pack(anchor="w", pady=(0, 0))
         tk.Label(
             body, text=ui["mode1_wifi_static_warning"], bg=bg, fg="#CC6600",
-            font=("TkDefaultFont", 8), wraplength=380, justify="left",
+            font=("TkDefaultFont", 8), wraplength=_dpi_px(380), justify="left",
         ).pack(anchor="w", pady=(2, 4))
         static_frame.pack(fill="x", pady=(0, 6))
 
@@ -8446,7 +8565,7 @@ class RetroBoxLEDGui:
         body.pack(fill="both", expand=True)
         tk.Label(
             body, text=ui["mode1_manual_ip_prompt"], bg=bg, fg=fg,
-            font=("TkDefaultFont", 9), wraplength=380, justify="left",
+            font=("TkDefaultFont", 9), wraplength=_dpi_px(380), justify="left",
         ).pack(anchor="w", pady=(0, 10))
         entry_var = tk.StringVar(value=default)
         entry = tk.Entry(body, textvariable=entry_var, font=("TkDefaultFont", 10))
@@ -8507,7 +8626,7 @@ class RetroBoxLEDGui:
         body.pack(fill="both", expand=True)
         tk.Label(
             body, text=ui["sdcard_dialog_prompt"](min_gb), bg=bg, fg=fg,
-            font=("TkDefaultFont", 9), wraplength=420, justify="left",
+            font=("TkDefaultFont", 9), wraplength=_dpi_px(420), justify="left",
         ).pack(anchor="w", pady=(0, 10))
 
         list_frame = tk.Frame(body, bg=bg)
@@ -8520,7 +8639,7 @@ class RetroBoxLEDGui:
 
         error_lbl = tk.Label(
             body, text="", bg=bg, fg="#D32F2F",
-            font=("TkDefaultFont", 9), wraplength=420, justify="left",
+            font=("TkDefaultFont", 9), wraplength=_dpi_px(420), justify="left",
         )
         error_lbl.pack(anchor="w", pady=(0, 8))
 
@@ -10374,7 +10493,7 @@ class RetroBoxLEDGui:
             bg=bg,
             fg=fg,
             font=("TkDefaultFont", 10),
-            wraplength=480,
+            wraplength=_dpi_px(480),
             justify="left",
         ).pack(anchor="w", pady=(0, 12))
 
@@ -10484,7 +10603,7 @@ class RetroBoxLEDGui:
             bg=bg,
             fg=fg,
             font=("TkDefaultFont", 9),
-            wraplength=480,
+            wraplength=_dpi_px(480),
             justify="left",
         ).pack(anchor="w", pady=(0, 12))
 
@@ -11318,7 +11437,7 @@ class RetroBoxLEDGui:
 
         msg = f"❌ La copie vers la carte SD a échoué.\n\n{error_msg}"
         tk.Label(
-            dlg, text=msg, bg=bg, fg=fg, justify="left", padx=14, pady=12, wraplength=380
+            dlg, text=msg, bg=bg, fg=fg, justify="left", padx=14, pady=12, wraplength=_dpi_px(380)
         ).pack(fill="both", expand=True)
 
         btn_frame = tk.Frame(dlg, bg=bg)

@@ -2519,3 +2519,12 @@ Logs de debug par-zone/par-commande (ajoutés pendant la mise au point) retirés
 - **Piège opérationnel** : avec `feat_vpinball_dmd=1` sur l'ANCIEN firmware, la page web n'était joignable que ~20 s après le boot → pour décocher l'option, POSTer `/save` dans cette fenêtre.
 
 **Reste à faire** : retirer les vecteurs de test (`mini_inflate_vectors.h`, `CMD_INFLATE_TEST`, ~20 Ko) ; décider du compteur de paquets `[VPINBALL] pkt` ; porter sur master les correctifs de RAM (tableaux à 160, sonde) ; tables 256×64 non testées ; vérifier en réel la restauration de luminosité.
+
+
+## Publication GitHub build 7349 (2026-09-20) — image shuffle installee par le toolkit
+
+**Bug reel** : `download_defaults()` (`RecalBoxDMD_tool.py`) ne telechargeait que `.png/.gif/.raw565` ; `_shuffle.raw565pack` + `_shuffle.meta` (presents sur GitHub) n'etaient jamais copies sur la SD creee par le toolkit -> ecran vide en mode shuffle (firmware : `_defaults` en raw-only strict, echec silencieux avant v220 de la branche vpinball, qui ajoute un log). Filtre elargi (tool v49, GUI v73, build 7349, commit `78cc084`). Decision utilisateur : PAS de repli firmware (l'ecran reste vide si les fichiers manquent).
+
+**Publie** selon la procedure du 2026-09-13 : `main` `fb22ec3` -> `d57b508` (fast-forward) — `tools/RecalBoxDMD_tool_v7349` (v6300 -> `history/`), `binaries/` = firmware v211 (ancien -> `history/binaries_v2.0_2026-09-14_pre-v211-sdlabel`, `docs/install/manifest.json` inchange), scripts Recalbox (marquee v54, dmd_score v53, dmd_achievement v7, dmd_udp_resync v5 ; verifie par hash LF-normalise, le reste est identique), CHANGELOG x3 + badge README. Release `RecalBoxDMD_tool_v7349` (Setup/portable/source, sans .msi). Le DPI a ete publie SANS la capture de confirmation de Jamyz (demande explicite de l'utilisateur).
+
+**Attention** : les SD creees avec un build anterieur n'ont pas les 2 fichiers shuffle — signale dans CHANGELOG et notes de release.
