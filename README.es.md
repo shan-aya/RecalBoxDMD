@@ -102,6 +102,7 @@ Es un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), reco
 - ⚡ **Flashea el firmware desde el navegador** — un [instalador web en un clic](https://shan-aya.github.io/RecalBoxDMD/install/) (Chrome/Edge) flashea el ESP32 por USB, sin Arduino IDE.
 - 📡 **Enlace UDP en tiempo real** con Recalbox para mostrar juegos/sistemas/eventos al instante, además de una consola **Telnet** para depuración en el dispositivo.
 - 🏆 **Superposiciones en juego — Hi-Score, Info del juego, RetroAchievements y Challenge RB** — mientras juegas de verdad, el panel alterna automáticamente el marquee con las mejores puntuaciones reales de MAME/FBNeo (manifiesto comunitario, 4087 juegos), la descripción/género/año del juego, los logros de RetroAchievements desbloqueados y la clasificación del Challenge comunitario mensual oficial de Recalbox. Cero configuración: instala los scripts una vez (Modo 9) y todo funciona solo — ver [detalles más abajo](#superposiciones-en-juego--hi-score-info-del-juego-logros-y-challenge-rb).
+- 🎯 **Mesas de Visual Pinball (VPX) en el DMD** — lanza una mesa VPX desde Recalbox y el DMD muestra en directo la imagen DMD de la mesa, como un ZeDMD-WiFi, **sin reiniciar el DMD**; vuelve solo al marquee normal al terminar la partida. Desactivado por defecto — un solo interruptor en la página de inicio de la configuración web, ver [detalles abajo](#-mesas-de-visual-pinball-vpx-en-el-dmd).
 - 🎬 **Pestaña Playlist — crea tus propias rotaciones en modo atracción** — combina el pack de 600 GIFs y tus propios GIFs (arrastra una carpeta del PC), dale un nombre y queda lista para seleccionar como playlist activa; funciona directamente desde una tarjeta SD insertada o, en pleno Modo 1, desde la carpeta de trabajo antes incluso de copiarla.
 - 🌍 **Totalmente trilingüe** — tanto la interfaz web del firmware como la caja de herramientas de PC están disponibles en **francés, inglés y español**.
 - 🗣️ **Imágenes de sistema/género multilingües** — el pack de respaldo `_defaults` (insignias de género, Favoritos, Últimos Jugados...) está disponible en francés y español, seleccionable desde la caja de herramientas de PC con una vista previa comparativa en vivo; los géneros aún no traducidos simplemente quedan en inglés.
@@ -449,6 +450,11 @@ wifi_subnet=255.255.255.0
 # Enlace con Recalbox (UDP)
 recalbox_ip=192.168.1.104     # IP fija de tu Recalbox
 
+# Pinball (VPX) y reposo de Recalbox
+feat_vpinball_dmd=0           # 1 = mostrar las mesas de Visual Pinball (VPX) en directo (se aplica al próximo reinicio del DMD)
+feat_demo_follow=1            # 1 = seguir el logo del juego durante el reposo «demos de juegos», 0 = playlist simple
+feat_clip_follow=1            # ídem para el reposo «clips de vídeo de juegos»
+
 # Reloj (temas de reloj retro)
 [CLOCK]
 CLOCK_ENABLED=1
@@ -464,7 +470,9 @@ TZ=CET-1CEST,M3.5.0,M10.5.0/3
 
 Escribe la IP del ESP32 (mostrada al arrancar, o visible en el propio panel) en el navegador de un móvil o PC: obtienes un sitio de configuración completo, dividido en 4 páginas de carga rápida, trilingüe (FR/EN/ES), con ayuda integrada — sin apps, sin recompilar.
 
-**💡 Pantalla y listas** — brillo del panel con una **vista previa en vivo enviada directamente al panel físico** mientras mueves el control deslizante, arranque silencioso o normal, playlist por defecto + reproducción aleatoria, y gestión de playlists (crear una nueva playlist directamente desde las carpetas de GIFs ya presentes en la SD, editar o borrar las existentes — para carpetas con muchos archivos, usa mejor la caja de herramientas de PC, pensada para eso).
+**🏠 Página de inicio** — el menú principal se abre con el marco **Pantalla**: brillo del panel con una **vista previa en vivo enviada directamente al panel físico** mientras mueves el control deslizante, arranque silencioso o normal, y el interruptor **Modo Pinball (VPX)**. Su botón Guardar confirma en la línea 2 del DMD.
+
+**💡 Pantalla y listas** — opciones de las superposiciones en juego, **reposo de Recalbox** (durante los salvapantallas «demos de juegos» / «clips de vídeo de juegos», o bien seguir el logo del juego como antes, o bien mantener la playlist simple como en los demás reposos), playlist por defecto + reproducción aleatoria, y gestión de playlists (crear una nueva playlist directamente desde las carpetas de GIFs ya presentes en la SD, editar o borrar las existentes — para carpetas con muchos archivos, usa mejor la caja de herramientas de PC, pensada para eso).
 
 <p align="center"><img src="medias/screenshots/webconfig_display_playlists.png" alt="Configuración web — página Pantalla y listas" width="420"></p>
 
@@ -534,6 +542,16 @@ Mientras un juego está realmente en marcha (nunca en modo de espera/playlist), 
 - 📅 **Challenge RB** — lee la clasificación oficial del Challenge comunitario mensual de Recalbox (un juego elegido por Recalbox cada mes, un solo crédito, sin continuar) directamente desde el recurso compartido de Recalbox — mismo panel, mismo estilo, sin configuración aparte.
 
 **Cero configuración en el lado del DMD.** Instala los scripts de Recalbox una vez — **Modo 9** de la caja de herramientas de PC (o la instalación automática integrada en el **Modo 1**) — y cada una de estas superposiciones empieza a funcionar sola para cualquier juego/sistema que tenga datos que mostrar; el DMD sigue siendo una pantalla «tonta» de principio a fin, toda la lógica (qué enviar, cuándo, durante cuánto tiempo) vive en los scripts del lado de Recalbox, nunca en el propio firmware.
+
+### 🎯 Mesas de Visual Pinball (VPX) en el DMD
+
+Cuando lanzas una mesa de **Visual Pinball (VPX)** desde Recalbox, el DMD puede mostrar en directo la imagen DMD propia de la mesa, como haría un ZeDMD-WiFi.
+
+- **Activarlo**: marca **Modo Pinball (VPX)** en el marco *Pantalla* de la página de inicio de la configuración web y pulsa **Guardar y reiniciar** (la opción solo se lee al arrancar). Desactivado por defecto: sin ella, nada cambia.
+- **Lado Recalbox**: en los ajustes DMD de VPX, usa el plugin **DMDUtil** con `ZeDMDWiFiAddr` = **IP de este DMD**.
+- **Sin reinicio al lanzar una mesa**: la imagen aparece directamente. Mientras corre la mesa, la playlist y las pantallas de Recalbox («RecalBox conectada»…) quedan suspendidas para no dibujar nada encima.
+- **Vuelta a la normalidad**: en cuanto termina la partida (los scripts de Recalbox avisan al DMD — reinstálalos con el Modo 9 para tenerlo), o unos 5 segundos después de que la mesa deje de enviar imagen. Se restaura el brillo configurado.
+- **Probado** con mesas 128×32. Las mesas de solo puntuación y las 256×64 aún no están validadas.
 
 ---
 

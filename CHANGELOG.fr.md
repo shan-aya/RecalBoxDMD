@@ -8,6 +8,15 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-09-20 (2) — Mode Visual Pinball (VPX) sans redémarrage, nouvelle page d'accueil web config, options de veille Recalbox
+
+- **Firmware** : nouveau **Mode Pinball (VPX)** — une table Visual Pinball lancée depuis Recalbox s'affiche en direct sur le DMD (protocole ZeDMD-WiFi, plugin DMDUtil côté Recalbox). **Aucun redémarrage du DMD** : il bascule sur place au lancement de la table et revient à la normale à la fin de la partie (ou environ 5 s après la dernière image). Pendant la table, la playlist et les écrans Recalbox (« RecalBox connectée »…) sont suspendus pour ne rien dessiner par-dessus. Désactivé par défaut ; la luminosité est restaurée à la sortie. Testé pour l'instant uniquement sur des tables 128×32.
+- **Firmware** : pour lui faire de la place, le budget mémoire a été retravaillé — un décompresseur zlib minimal intégré (uniquement en pile) remplace le précédent, plus lourd, les tampons ne sont alloués que si le mode est activé, et l'index système/jeux en mémoire est redimensionné (300 → 160 entrées ; une ligne de log le signale si une très grosse collection atteint la limite). La mémoire libre gagne environ 12 Ko.
+- **Config web** : le menu principal (page d'accueil) s'ouvre désormais sur le cadre **Affichage** — luminosité, démarrage silencieux et interrupteur **Mode Pinball (VPX)**. Son bouton Enregistrer affiche une confirmation sur la ligne 2 du DMD. La page Affichage conserve les options des écrans superposés en jeu.
+- **Config web** : nouvelle section **Veille Recalbox** — pendant les économiseurs d'écran « démos de jeux » / « clips vidéo de jeux », choisissez entre suivre le logo du jeu (comme avant, par défaut) ou la playlist simple, comme les autres veilles.
+- **Scripts Recalbox** (`marquee` v54, `dmd_score` v53) : les options de veille ci-dessus, et une sortie immédiate du Mode Pinball à la fin d'une partie. Réinstallez les scripts avec le Mode 9 pour en bénéficier.
+- **Docs** : le README (3 langues) documente le Mode Pinball, la page d'accueil et les nouvelles clés `config.ini` (`feat_vpinball_dmd`, `feat_demo_follow`, `feat_clip_follow`).
+
 ## 2026-09-20 — IP du DMD découverte automatiquement, Toolkit PC adapté au DPI Windows, image shuffle installée, renommage d'étiquette SD rétabli
 
 - **Scripts Recalbox** : corrige le DMD qui restait bloqué sur sa playlist de veille pendant une partie — les scripts avaient l'adresse IP du DMD codée en dur (`192.168.0.51`) et parlaient donc dans le vide sur tout réseau où le DMD avait une autre adresse. Ils utilisent désormais l'adresse depuis laquelle le DMD s'annonce réellement (repli sur l'ancienne valeur tant qu'aucune n'a été vue). Fait suite à un retour réel d'un testeur.

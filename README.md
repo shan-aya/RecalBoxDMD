@@ -102,6 +102,7 @@ It is a fork of [Jamyz's RetroBoxLED](https://github.com/Jamyz/RetroBoxLED), reb
 - ⚡ **Flash the firmware from your browser** — a [one-click Web Installer](https://shan-aya.github.io/RecalBoxDMD/install/) (Chrome/Edge) flashes the ESP32 over USB, no Arduino IDE required.
 - 📡 **Real-time UDP link** with Recalbox for instant game/system/event display, plus a **Telnet** console for on-device debugging.
 - 🏆 **In-game overlays — Hi-Score, Game Info, RetroAchievements & RB Challenge** — while you're actually playing, the panel automatically alternates the marquee with the real MAME/FBNeo top scores (community manifest, 4,087 games), the game's description/genre/year, unlocked RetroAchievements, and Recalbox's own monthly community Challenge leaderboard. Zero configuration: install the scripts once (Mode 9) and it just works — see [details below](#in-game-overlays--hi-score-game-info-achievements--rb-challenge).
+- 🎯 **Visual Pinball (VPX) tables on the DMD** — launch a VPX table from Recalbox and the DMD shows the table's live DMD image, like a ZeDMD-WiFi, **with no DMD reboot**; it goes back to the normal marquee by itself when the game ends. Off by default — one switch on the web config home page, see [details below](#-visual-pinball-vpx-tables-on-the-dmd).
 - 🎬 **Playlist tab — build your own attract-mode rotations** — pick any mix of the bundled 600-GIF pack and your own GIFs (drag a PC folder in), name it, and it's ready to select as the active playlist; works straight off an inserted SD card or, mid-`Mode 1`, off the working folder before it's even copied.
 - 🌍 **Fully trilingual** — both the firmware's web UI and the PC toolkit are available in **French, English and Spanish**.
 - 🗣️ **Multi-language system/genre images** — the `_defaults` fallback pack (genre badges, Favorites, Last Played...) is available in French and Spanish, selectable from the PC Toolkit with a live comparison preview; untranslated genres simply stay in English.
@@ -449,6 +450,11 @@ wifi_subnet=255.255.255.0
 # Recalbox link (UDP)
 recalbox_ip=192.168.1.104     # fixed IP of your Recalbox
 
+# Pinball (VPX) & Recalbox standby
+feat_vpinball_dmd=0           # 1 = show Visual Pinball (VPX) tables live (applied at next DMD reboot)
+feat_demo_follow=1            # 1 = follow the game logo during the "game demos" standby, 0 = plain playlist
+feat_clip_follow=1            # same for the "game video clips" standby
+
 # Clock (retro clock themes)
 [CLOCK]
 CLOCK_ENABLED=1
@@ -464,7 +470,9 @@ TZ=CET-1CEST,M3.5.0,M10.5.0/3
 
 Type the ESP32's IP (shown at boot, or on the panel itself) into any phone/PC browser and you get a full settings site, split into 4 fast-loading pages, trilingual (FR/EN/ES), with a built-in help panel — no app, no recompiling.
 
-**💡 Display & Playlists** — panel brightness with a **live preview pushed straight to the physical panel** as you drag the slider, silent vs. normal boot, default playlist + random playback, and playlist management (create a new playlist straight from the GIF folders already on the SD card, edit or delete existing ones — for folders with a lot of files, use the PC Toolkit instead, it's built for scale).
+**🏠 Home page** — the main menu opens with the **Display** frame: panel brightness with a **live preview pushed straight to the physical panel** as you drag the slider, silent vs. normal boot, and the **Pinball (VPX) mode** switch. Its Save button confirms on line 2 of the DMD.
+
+**💡 Display & Playlists** — the in-game overlay options, **Recalbox standby** (during the "game demos" / "game video clips" screensavers, either follow the game logo as before, or just keep the simple playlist like the other screensavers), default playlist + random playback, and playlist management (create a new playlist straight from the GIF folders already on the SD card, edit or delete existing ones — for folders with a lot of files, use the PC Toolkit instead, it's built for scale).
 
 <p align="center"><img src="medias/screenshots/webconfig_display_playlists.png" alt="Web config — Display & Playlists page" width="420"></p>
 
@@ -534,6 +542,16 @@ While a game is actually running (never during idle/playlist mode), the panel ca
 - 📅 **RB Challenge** — reads Recalbox's own official monthly community Challenge leaderboard (one game picked by Recalbox each month, single credit, no continue) straight from the Recalbox share — same panel, same style, no separate setup.
 
 **Zero configuration on the DMD side.** Install the Recalbox scripts once — **Mode 9** of the PC Toolkit (or the auto-install baked into **Mode 1**) — and every one of these starts working on its own for any game/system that has data to show; the DMD stays a "dumb" display end to end, all the logic (what to send, when, how long) lives in the Recalbox-side scripts, never in the firmware itself.
+
+### 🎯 Visual Pinball (VPX) tables on the DMD
+
+When you launch a **Visual Pinball (VPX)** table from Recalbox, the DMD can show the table's own DMD image live, the same way a ZeDMD-WiFi would.
+
+- **Enable it**: tick **Pinball mode (VPX)** in the *Display* frame of the web config home page, then **Save & Reboot** (the switch is only read at boot). Off by default: with it off, nothing changes.
+- **Recalbox side**: in the VPX DMD settings, use the **DMDUtil** plugin with `ZeDMDWiFiAddr` set to the **IP of this DMD**.
+- **No reboot when a table starts**: the picture shows up directly. While a table runs, the playlist and the Recalbox screens ("Recalbox connected"…) are suspended so nothing is drawn over the table.
+- **Back to normal**: the moment the game ends (the Recalbox scripts tell the DMD — re-install them with Mode 9 to get this), or about 5 seconds after the table stops sending frames. The brightness you set is restored.
+- **Tested** on 128×32 tables. Score-only tables and 256×64 tables are not validated yet.
 
 ---
 

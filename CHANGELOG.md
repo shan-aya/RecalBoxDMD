@@ -8,6 +8,15 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-09-20 (2) — Visual Pinball (VPX) mode without reboot, new web config home page, Recalbox standby options
+
+- **Firmware**: new **Pinball mode (VPX)** — a Visual Pinball table launched from Recalbox is shown live on the DMD (ZeDMD-WiFi protocol, DMDUtil plugin on the Recalbox side). **No DMD reboot**: the DMD switches in place when the table starts and back to normal when the game ends (or about 5 s after the last frame). While a table runs, the playlist and the Recalbox screens ("Recalbox connected"…) are suspended so nothing is drawn over it. Off by default; the brightness is restored on exit. Only tested on 128×32 tables so far.
+- **Firmware**: to make room for it, the memory budget was reworked — a minimal built-in zlib decompressor (stack-only) replaces the heavier one, buffers are allocated only when the mode is enabled, and the in-memory system/game index is right-sized (300 → 160 entries; a log line reports it if a very large collection hits the limit). Free memory is about 12 KB higher.
+- **Web config**: the main menu (home page) now opens with the **Display** frame — brightness, silent boot and the **Pinball mode (VPX)** switch. Its Save button shows a confirmation on line 2 of the DMD. The Display page keeps the in-game overlay options.
+- **Web config**: new **Recalbox standby** section — during the "game demos" / "game video clips" screensavers, choose between following the game logo (as before, default) or the plain playlist, like the other screensavers.
+- **Recalbox scripts** (`marquee` v54, `dmd_score` v53): the standby options above, and an immediate exit from Pinball mode at the end of a game. Re-install the scripts with Mode 9 to get them.
+- **Docs**: README (3 languages) documents Pinball mode, the home page and the new `config.ini` keys (`feat_vpinball_dmd`, `feat_demo_follow`, `feat_clip_follow`).
+
 ## 2026-09-20 — DMD IP discovered automatically, PC Toolkit scales with Windows DPI, shuffle image installed, SD label rename restored
 
 - **Recalbox scripts**: fixed the DMD staying stuck on its idle playlist while a game was running — the scripts had the DMD's IP address hard-coded (`192.168.0.51`), so they talked to nothing on any network where the DMD got a different address. They now use the address the DMD actually announces itself from (falls back to the old default if none has been seen yet). Follows a real report from a tester.
