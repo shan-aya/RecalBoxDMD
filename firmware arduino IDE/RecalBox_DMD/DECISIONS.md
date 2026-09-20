@@ -2557,3 +2557,15 @@ Demande utilisateur ("oui") apres la fusion de `dev/vpinball-integration` dans m
 **Backtrace decode (addr2line)** : `resumePlaylist()` (loop, sortie de l'alerte) -> `openNextGif()` -> `getNextGif()` -> `getNextGifRandom()` (`SD.open(playlistIdxPath)`) -> `VFSFileImpl` -> `fopen` -> `__sfp` -> `lock_init_generic` -> `abort()`. **Meme mecanisme exact que les crashs du 23/08 et 25/08 (voir plus haut)** : alloc qui echoue dans SD.open() -> abort direct, non rattrapable. Meme signature heap (`free~5200-5500 / maxalloc 4596` fige). Le garde-fou `OPEN_NEXT_GIF_MIN_HEAP=4000` (sur maxalloc) laisse passer 4596 : non discriminant, deja note en v180.
 
 **Ecart mesure** : DMD2 en v223 (mode Pinball active, GIF ouvert) = `free=16196 / maxalloc=6644 / minFree=10708`. Jamyz (v210, ecran d'alerte) = 5556. Les tableaux 300->160 (v216) recuperent ~12 Ko : c'est le levier deja publie. **Aucun correctif nouveau ecrit** (pas de preuve que le heap ait deja atteint le seuil critique avant l'ouverture ; un garde sur free-heap bloquerait la reprise playlist si le heap reste fige a 5,5 Ko). A faire : Jamyz met a jour en v223 (GitHub) puis renvoie ses lignes `[LOOPDIAG]` (free/maxalloc) ; si le crash revient avec free > 15 Ko, reouvrir.
+
+## Tables "score seul" (2026-09-20) — cause cote Recalbox : plugin AlphaDMD desactive, aucune modif firmware necessaire
+
+**Symptome** : Black Pyramid (Bally 1984) lancee, le DMD reste sur le marquee de la table (mode Pinball jamais entre). **Capture serie DMD2 (v225, 12 min)** : zero paquet ZeDMD, zero commande inconnue -- rien n'arrive.
+
+**Cause** (lue dans `/recalbox/share/system/configs/vpinball/vpinball.log` de RB2) : `Plugin AlphaDMD was found but is disabled` (`[Plugin.AlphaDMD] Enable =` vide dans `VPinballX-configgen.ini`). Black Pyramid = PinMAME `blakpyra`, afficheur a segments : c'est AlphaDMD qui convertit les segments en source DMD que DMDUtil envoie ensuite au ZeDMD. Batman (vrai DMD) logue `DMD Source Changed 128x32` ; Black Pyramid, rien.
+
+**Essai** : `[Plugin.AlphaDMD] Enable = 1` dans le `.ini` de la table -> `AlphaDMD: Matched layout 4x7+2x2 (6 displays)`, `DMD Source Changed: format=1, width=128, height=32`, `ZeDMD WiFi enabled, connected to 192.168.0.142` -> **affichage OK** (confirme par l'utilisateur). Le protocole cote firmware est donc le meme que pour Batman (cmds 4/5/6...), rien a coder.
+
+**Applique** : sur RB2, reglage GLOBAL dans `VPinballX-configgen.ini` (`Enable = 1`, sauvegarde `.bak-avant-alphadmd` a cote) et retrait de l'override par table. Le generateur Recalbox (`vpinballGenerator.py`) relit ce fichier a chaque lancement et ne reecrit que ses propres cles (ZeDMDWiFiAddr saisi a la main y persiste deja) : **a reverifier au prochain lancement** que `Enable = 1` survit. Une mise a jour de Recalbox peut le remettre a vide.
+
+**Documente** dans README x3 (commit local sur main, non pousse). **Idee non faite** : faire poser `ZeDMDWiFiAddr` + `AlphaDMD Enable` par le Mode 9 du toolkit. **Non teste** : tables purement electromecaniques (aucune source DMD/segments : probablement rien a afficher sans le plugin ScoreView) et tables 256x64.
