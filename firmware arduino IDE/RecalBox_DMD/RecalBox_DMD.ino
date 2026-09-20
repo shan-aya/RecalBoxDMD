@@ -1,7 +1,15 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v225
+// Version actuelle : v226
+//
+// v226 - 2026-09-20 - safe-modify - BUG REEL (retour utilisateur) : DMD allume
+//   avant la Recalbox -> hi-score/description/RA jamais affiches ; un reboot du
+//   DMD corrige. Les reglages FEATURES n'etaient envoyes qu'au boot/WiFi/
+//   sauvegarde web ; perdus si la Recalbox n'ecoutait pas encore, alors que
+//   /tmp/dmd_features_cache y disparait a chaque boot. Desormais renvoyes au
+//   1er PONG apres le boot et apres tout cycle de ping rate (voir
+//   g_resendFeaturesOnNextPong).
 //
 // v225 - 2026-09-20 - safe-modify - vpinball_dmd.h v8 : log (une fois par valeur) des commandes ZeDMD non gerees -- exploration tables score seul.
 //   Aucun changement de comportement.
@@ -5242,6 +5250,17 @@ unsigned long g_lastPongSeenMs = 0;    // millis() du dernier PONG recu
 // vivante et a repondu) -- voir les 2 points d'usage plus bas.
 bool g_pendingConnectedScreenOnPong = false;
 
+// v226 -- reglages hi-score/infos/description/RA (broadcastFeatureStatus()) a
+// (re)envoyer a la Recalbox au prochain PONG. Retour utilisateur : DMD allume
+// AVANT la Recalbox -> plus aucun hi-score/description en jeu, corrige par un
+// reboot du DMD. Cause : ces reglages ne partaient qu'au boot/reconnexion
+// WiFi/sauvegarde web ; si la Recalbox n'ecoutait pas encore, le message etait
+// perdu, et /tmp/dmd_features_cache (tmpfs, vide a chaque demarrage de la
+// Recalbox) restait absent -> feat_enabled() de dmd_score.sh renvoie "faux"
+// pour tout. Vrai des le boot (la 1re Recalbox joignable les recoit), puis
+// remis a vrai a chaque cycle de ping rate (Recalbox eteinte/redemarree).
+bool g_resendFeaturesOnNextPong = true;
+
 // v4 (2026-09-14) -- SUPPRIME (mqttSubscribeFast()/socketWritableQuick()/
 // g_fastSubMsgId, ~110 lignes). Code MORT verifie : exclusivement appele
 // depuis mqttTask() (voir plus bas), lui-meme jamais cree en pratique
@@ -9193,6 +9212,12 @@ void handleUdpCommand()
       // joignable depuis la (re)connexion WiFi -- affiche desormais l'ecran
       // "RecalBox connectee" ICI (jamais avant), plutot qu'au simple envoi
       // (fire-and-forget, sans garantie) du hello.
+      if (g_resendFeaturesOnNextPong)
+      {
+        g_resendFeaturesOnNextPong = false;
+        broadcastFeatureStatus();
+        Serial.println("[UDPCHK] pong apres coupure/boot -> reglages (FEATURES) renvoyes a la Recalbox");
+      }
       if (g_pendingConnectedScreenOnPong)
       {
         g_pendingConnectedScreenOnPong = false;
@@ -11949,6 +11974,7 @@ void loop()
       else
       {
         s_consecutivePingMissed++;
+        g_resendFeaturesOnNextPong = true; // v226 -- voir sa declaration
         // v190 -- l'ancien log "ping rate -- deconnexion... en cours
         // depuis ~Xms" ici (v186) mesurait UN SEUL ping dedie manque,
         // indiscernable d'un simple paquet isole perdu -- remplace par le
