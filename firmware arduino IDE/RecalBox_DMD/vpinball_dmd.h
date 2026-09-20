@@ -3,8 +3,14 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v8 (l'en-tete listait encore v1 ; les v2-v7 sont decrites
+// Version actuelle : v9 (l'en-tete listait encore v1 ; les v2-v7 sont decrites
 // a leurs emplacements dans le fichier et dans DECISIONS.md)
+//
+// v9 - 2026-09-20 - safe-modify - Mesures du mode Pinball : ligne [VPINBALL] stats toutes
+// les 5 s (paquets, zones, octets, erreurs inflate, datagrammes tronques, temps
+// de traitement max, intervalle max entre 2 passages de boucle, RSSI, heap) --
+// diagnostic d'un affichage glitche/lent/surimprime constate sur la table Diner.
+// Aucun changement de comportement d'affichage.
 //
 // v8 - 2026-09-20 - safe-modify - Exploration tables "score seul" : une
 // commande ZeDMD non geree (default de vpinballHandleCommand) est desormais
@@ -187,6 +193,16 @@ static void exitVpinballMode()
 WiFiUDP vpinballUdp;
 bool    vpinballUdpStarted = false;
 
+// v9 -- mesures du mode Pinball (log toutes les 5 s tant que le mode est actif) :
+// retour utilisateur sur une table (Diner) : ecran 'glitche', plus lent que la
+// table, textes en surimpression -- sans mesure impossible de dire si c'est le
+// WiFi (paquets perdus -> zones restees perimees), le decodage (trop lent) ou
+// une boucle trop peu frequente. Compteurs simples, aucune allocation.
+static uint32_t vpinballStatPkts = 0, vpinballStatZones = 0, vpinballStatBytes = 0;
+static uint32_t vpinballStatInflateErr = 0, vpinballStatTruncated = 0;
+static uint32_t vpinballStatMaxHandleMs = 0, vpinballStatMaxGapMs = 0;
+static unsigned long vpinballStatLastLogMs = 0, vpinballStatLastPollMs = 0;
+
 static const uint8_t VPINBALL_SYNC[5] = {'Z', 'e', 'D', 'M', 'D'};
 static const uint8_t VPINBALL_FRAME[5] = {'F', 'R', 'A', 'M', 'E'}; // prefixe de datagramme (libzedmd recent)
 
@@ -219,6 +235,7 @@ void setupVpinballDmd()
 static void vpinballRenderZone(uint8_t zoneIdx, bool isRgb565, const uint8_t *pix)
 {
   if (!display) return;
+  vpinballStatZones++;
   const int xOffset = (zoneIdx % VPINBALL_DMD_ZONES_PER_ROW) * VPINBALL_DMD_ZONE_WIDTH;
   const int yOffset = (zoneIdx / VPINBALL_DMD_ZONES_PER_ROW) * VPINBALL_DMD_ZONE_HEIGHT;
 
@@ -304,6 +321,7 @@ static void vpinballHandleCommand(uint8_t command, const uint8_t *payload, uint1
         if (status != 0)
         {
           Serial.println("[VPINBALL] erreur decompression (status=" + String(status) + ")");
+          vpinballStatInflateErr++;
           return;
         }
         zoneData = vpinballDecompBuf;
@@ -390,6 +408,26 @@ static void vpinballProcessPacket(const uint8_t *buf, int len)
 void pollVpinballUdp()
 {
   if (!vpinballUdpStarted) return;
+  if (vpinballModeActive)
+  {
+    const unsigned long nowStat = millis();
+    if (vpinballStatLastPollMs != 0)
+    {
+      const uint32_t gap = (uint32_t)(nowStat - vpinballStatLastPollMs);
+      if (gap > vpinballStatMaxGapMs) vpinballStatMaxGapMs = gap;
+    }
+    vpinballStatLastPollMs = nowStat;
+    if (nowStat - vpinballStatLastLogMs >= 5000)
+    {
+      vpinballStatLastLogMs = nowStat;
+      Serial.printf("[VPINBALL] stats 5s: pkts=%u zones=%u octets=%u errInflate=%u tronques=%u maxTraitement=%ums maxIntervalleLoop=%ums rssi=%d heap=%u\n",
+        (unsigned)vpinballStatPkts, (unsigned)vpinballStatZones, (unsigned)vpinballStatBytes, (unsigned)vpinballStatInflateErr,
+        (unsigned)vpinballStatTruncated, (unsigned)vpinballStatMaxHandleMs, (unsigned)vpinballStatMaxGapMs, (int)WiFi.RSSI(), (unsigned)ESP.getFreeHeap());
+      vpinballStatPkts = vpinballStatZones = vpinballStatBytes = vpinballStatInflateErr = vpinballStatTruncated = 0;
+      vpinballStatMaxHandleMs = vpinballStatMaxGapMs = 0;
+    }
+  }
+  else vpinballStatLastPollMs = 0;
   // v5 -- sortie du mode vpinball apres un silence prolonge (voir
   // enterVpinballMode()/exitVpinballMode() -- protocole ZeDMD sans signal
   // explicite de fin de partie, timeout = seule heuristique disponible).
@@ -415,6 +453,9 @@ void pollVpinballUdp()
       continue;
     }
     const int len = vpinballUdp.read(vpinballRecvBuf, VPINBALL_DMD_RECV_BUF_SIZE);
+    vpinballStatPkts++;
+    if (len > 0) vpinballStatBytes += (uint32_t)len;
+    if (packetSize > VPINBALL_DMD_RECV_BUF_SIZE) vpinballStatTruncated++;
     // v4 -- log hexadecimal des 3 PREMIERS paquets depuis le boot (1 ligne, cout
     // nul ensuite) : a permis de trouver le prefixe "FRAME" du client reel ; si
     // une mise a jour de libzedmd change encore le format, c'est ce qui montre
@@ -433,6 +474,9 @@ void pollVpinballUdp()
     // 100% des vrais paquets. vpinballProcessPacket() cherche deja la synchro
     // n'importe ou dans le buffer, le prefixe y est saute tout seul.
     if (len < 5 || (memcmp(vpinballRecvBuf, VPINBALL_SYNC, 5) != 0 && memcmp(vpinballRecvBuf, VPINBALL_FRAME, 5) != 0)) continue; // bruit
+    const unsigned long tHandle = millis();
     vpinballProcessPacket(vpinballRecvBuf, len);
+    const uint32_t dtHandle = (uint32_t)(millis() - tHandle);
+    if (dtHandle > vpinballStatMaxHandleMs) vpinballStatMaxHandleMs = dtHandle;
   }
 }

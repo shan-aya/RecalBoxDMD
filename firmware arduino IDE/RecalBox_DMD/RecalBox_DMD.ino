@@ -1,7 +1,9 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v226
+// Version actuelle : v227
+//
+// v227 - 2026-09-20 - safe-modify - vpinball_dmd.h v9 : ligne [VPINBALL] stats toutes les 5 s en mode Pinball (diagnostic d'un affichage glitche/lent/surimprime, table Diner). Aucun changement de comportement.
 //
 // v226 - 2026-09-20 - safe-modify - BUG REEL (retour utilisateur) : DMD allume
 //   avant la Recalbox -> hi-score/description/RA jamais affiches ; un reboot du
