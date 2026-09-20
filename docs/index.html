@@ -169,6 +169,25 @@
   .cta:hover{ transform:translateY(-1px); box-shadow:0 0 0 1px rgba(74,140,255,.4), 0 0 34px -4px rgba(74,140,255,.7); }
   .cta:focus-visible{ outline:2px solid var(--led-white); outline-offset:3px; }
 
+  .utilitybar{ justify-content:flex-end; }
+  .ctarow{ display:flex; flex-wrap:wrap; justify-content:center; align-items:stretch; gap:12px; margin-top:20px; }
+  .ctarow .cta{ margin-top:0; }
+  .cta-secondary{
+    background:transparent;
+    color:var(--ink);
+    font-weight:700;
+    box-shadow:0 0 0 1px rgba(238,241,245,.32);
+  }
+  .cta-secondary:hover{ box-shadow:0 0 0 1px rgba(238,241,245,.7); }
+  .cta-secondary svg{ width:16px; height:16px; fill:currentColor; }
+  .cta-stack{ flex-direction:column; gap:3px; }
+  .cta-date{
+    font-family:"JetBrains Mono",monospace;
+    font-size:11px;
+    font-weight:400;
+    letter-spacing:0.03em;
+    opacity:.85;
+  }
   .fw-date{
     font-family:"JetBrains Mono",monospace;
     font-size:11px;
@@ -346,10 +365,6 @@
 <div class="page">
 
   <div class="utilitybar">
-    <a class="gh" href="https://github.com/shan-aya/RecalBoxDMD" target="_blank" rel="noopener">
-      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
-      <span data-i18n="gh.label">Toutes les infos ici</span>
-    </a>
     <div class="langswitch" role="group" aria-label="Langue">
       <button type="button" data-lang="fr" aria-pressed="true">FR</button>
       <button type="button" data-lang="en" aria-pressed="false">EN</button>
@@ -361,8 +376,10 @@
     <div class="brand" data-i18n="brand">Panneau LED · Pixel Art</div>
     <h1><span class="raw">Recal</span><span class="v">BoxDMD</span></h1>
     <p class="tag" data-i18n="tag">Un cadre lumineux autonome qui anime votre intérieur, sans aucun réseau — des centaines de GIFs rétro en rotation, une horloge qui change d'habillage. Connectez-le en WiFi à n'importe quelle Recalbox et il devient aussi son marquee numérique.</p>
-    <a class="cta" href="install/" data-i18n="install.label">⚡ Installer le firmware</a>
-    <p class="fw-date" id="fwDate" hidden></p>
+    <div class="ctarow">
+      <a class="cta cta-stack" href="install/"><span data-i18n="install.label">⚡ Installer le firmware</span><small class="cta-date" data-fwdate hidden></small></a>
+      <a class="cta cta-secondary" href="https://github.com/shan-aya/RecalBoxDMD" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg><span data-i18n="gh.label">Toutes les infos ici</span></a>
+    </div>
     <figure class="shot glow-w" style="margin-top:24px;">
       <video src="media/hero-dmd.mp4" autoplay loop muted playsinline></video>
     </figure>
@@ -467,12 +484,9 @@
     <div class="word">Recal<span>BoxDMD</span></div>
     <p data-i18n="footer.p1">Interface disponible en français, anglais et espagnol.</p>
     <p data-i18n="footer.p2">Un objet qui anime une pièce — et n'importe quelle Recalbox, si vous le souhaitez.</p>
-    <a class="cta" href="install/" data-i18n="install.label" style="margin-top:20px;">⚡ Installer le firmware</a>
-    <div>
-      <a class="gh" href="https://github.com/shan-aya/RecalBoxDMD" target="_blank" rel="noopener" style="margin-top:18px;">
-        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
-        <span data-i18n="gh.label">Toutes les infos ici</span>
-      </a>
+    <div class="ctarow" style="margin-top:20px;">
+      <a class="cta cta-stack" href="install/"><span data-i18n="install.label">⚡ Installer le firmware</span><small class="cta-date" data-fwdate hidden></small></a>
+      <a class="cta cta-secondary" href="https://github.com/shan-aya/RecalBoxDMD" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg><span data-i18n="gh.label">Toutes les infos ici</span></a>
     </div>
   </footer>
 
@@ -628,13 +642,15 @@
   var fwDate = null;
 
   function renderFwDate(){
-    var el = document.getElementById("fwDate");
-    if (!el || !fwDate) return;
+    var els = document.querySelectorAll("[data-fwdate]");
+    if (!els.length || !fwDate) return;
     var localeMap = { fr: "fr-FR", en: "en-GB", es: "es-ES" };
     var fmt = new Intl.DateTimeFormat(localeMap[currentLang] || "fr-FR", { dateStyle: "long" });
     var label = (translations[currentLang] && translations[currentLang]["fw.updated"]) || translations.fr["fw.updated"];
-    el.textContent = label + " " + fmt.format(fwDate);
-    el.hidden = false;
+    els.forEach(function(el){
+      el.textContent = label + " " + fmt.format(fwDate);
+      el.hidden = false;
+    });
   }
 
   function apply(lang){
