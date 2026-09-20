@@ -1,7 +1,14 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v222
+// Version actuelle : v223
+//
+// v223 - 2026-09-20 - safe-modify - web_config.h : bouton "Accueil" (premier
+//   element du bandeau .topnav) sur les 5 pages de configuration (Affichage,
+//   Playlist, Wi-Fi & BT, Horloge, Medias) -- retour a la page d'accueil "/"
+//   sans repasser par le bouton retour du navigateur. Nouvelle cle i18n
+//   nav_home (FR/EN/ES) dans le dictionnaire de chaque page. La page AP
+//   (portail de premiere configuration WiFi) n'a pas de bandeau : inchangee.
 //
 // v222 - 2026-09-20 - safe-modify - web_config.h : bulle "?" et commentaire de
 //   l'option "Mode Pinball (VPX)" (FR/EN/ES) mis a jour -- ils annoncaient
