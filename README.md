@@ -1,4 +1,4 @@
-# RecalBoxDMD — RawEdition v2.0 <img alt="Firmware: RawEdition v2.0" src="https://img.shields.io/badge/firmware-RawEdition%20v2.0-blueviolet.svg"> <img alt="PC Toolkit: v7349" src="https://img.shields.io/badge/PC%20Toolkit-v7349-blueviolet.svg">
+# RecalBoxDMD — RawEdition <img alt="Firmware: v2.31" src="https://img.shields.io/badge/firmware-v2.31-blueviolet.svg"> <img alt="PC Toolkit: v7349" src="https://img.shields.io/badge/PC%20Toolkit-v7349-blueviolet.svg">
 
 **A real LED marquee for your Recalbox arcade cabinet — instant display, even with a 30,000-game MAME fullset.**
 
@@ -51,7 +51,7 @@
 
 It is a fork of [Jamyz's RetroBoxLED](https://github.com/Jamyz/RetroBoxLED), rebuilt around a custom **raw565** pixel format and a Windows **GUI toolkit** to solve one specific problem: on big collections (MAME fullset, FBNeo...) the original PNG/GIF-based firmware would freeze or show a black screen for seconds between games. This edition doesn't.
 
-|                          | Original PNG/GIF | **RecalBoxDMD RawEdition v2.0** |
+|                          | Original PNG/GIF | **RecalBoxDMD RawEdition** |
 |--------------------------|-------------------|----------------------------------|
 | Display time per game    | 500 ms – 3 s+     | **5 – 15 ms**                    |
 | RAM needed on the ESP32  | 50–100 KB         | **8 KB**                         |
@@ -678,4 +678,4 @@ Licensed under the [MIT License](LICENSE).
 
 ☕ If this project helps you: [donate via PayPal](https://www.paypal.com/paypalme/felysaya)
 
-<p align="center"><i>RecalBoxDMD RawEdition v2.0 — Recalbox + a real LED marquee, instant even with 30,000 MAME games.</i> 🎮⚡</p>
+<p align="center"><i>RecalBoxDMD RawEdition — Recalbox + a real LED marquee, instant even with 30,000 MAME games.</i> 🎮⚡</p>

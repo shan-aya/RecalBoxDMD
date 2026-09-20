@@ -1,4 +1,4 @@
-# RecalBoxDMD — RawEdition v2.0 <img alt="Firmware : RawEdition v2.0" src="https://img.shields.io/badge/firmware-RawEdition%20v2.0-blueviolet.svg"> <img alt="Outil PC : v7349" src="https://img.shields.io/badge/outil%20PC-v7349-blueviolet.svg">
+# RecalBoxDMD — RawEdition <img alt="Firmware : v2.31" src="https://img.shields.io/badge/firmware-v2.31-blueviolet.svg"> <img alt="Outil PC : v7349" src="https://img.shields.io/badge/outil%20PC-v7349-blueviolet.svg">
 
 **Un vrai panneau marquee lumineux pour votre borne d'arcade Recalbox — affichage instantané, même avec un fullset MAME de 30 000 jeux.**
 
@@ -51,7 +51,7 @@
 
 C'est un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), reconstruit autour d'un format pixel maison, le **raw565**, et d'une **boîte à outils PC (GUI Windows)** pour résoudre un problème précis : sur les grosses collections (fullset MAME, FBNeo...), le firmware original en PNG/GIF finissait par geler ou afficher un écran noir plusieurs secondes entre deux jeux. Cette édition, non.
 
-|                          | PNG/GIF d'origine | **RecalBoxDMD RawEdition v2.0** |
+|                          | PNG/GIF d'origine | **RecalBoxDMD RawEdition** |
 |--------------------------|--------------------|----------------------------------|
 | Temps d'affichage par jeu | 500 ms – 3 s+     | **5 – 15 ms**                    |
 | RAM nécessaire sur l'ESP32 | 50-100 Ko         | **8 Ko**                         |
@@ -679,4 +679,4 @@ Sous licence [MIT](LICENSE).
 
 ☕ Si ce projet vous est utile : [faire un don via PayPal](https://www.paypal.com/paypalme/felysaya)
 
-<p align="center"><i>RecalBoxDMD RawEdition v2.0 — Recalbox + un vrai panneau LED marquee, instantané même avec 30 000 jeux MAME.</i> 🎮⚡</p>
+<p align="center"><i>RecalBoxDMD RawEdition — Recalbox + un vrai panneau LED marquee, instantané même avec 30 000 jeux MAME.</i> 🎮⚡</p>

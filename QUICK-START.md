@@ -1,4 +1,4 @@
-# Quick Start — RecalBoxDMD RawEdition v2.0
+# Quick Start — RecalBoxDMD RawEdition
 
 🇬🇧 **English** · [🇫🇷 Français](QUICK-START.fr.md) · [🇪🇸 Español](QUICK-START.es.md)
 
