@@ -2547,3 +2547,13 @@ Demande utilisateur ("oui") apres la fusion de `dev/vpinball-integration` dans m
 **Verifie avant publication** : v222 flashe sur DMD2 (COM4, esptool 115200) ; page d'accueil web servie OK, bulle Pinball a jour, `/load` expose les 3 cles. Flux ZeDMD de test envoye (ecran non observe par moi -- a confirmer visuellement par l'utilisateur). Pas de nouvelle Release GitHub : le toolkit reste au build 7349 (rien change cote GUI/tool).
 
 **Non fait** : HELP.md du toolkit (onglet Aide, encore en retard : cite MQTT), a traiter avec un futur build du toolkit.
+
+## Crash rapporte par Jamyz en navigation rapide (2026-09-20) — meme crash connu, firmware v210 identifie
+
+**Log recu** : `abort()` au retour de l'alerte "RecalBox non connectee" (`delai ecoule, reprise playlist`), heap fige a `free=5556 / maxalloc=4596 / minFree=5228` en mode=2 pendant >10 s avant le crash ; `udpSeen=29 udpKept=18`, dernier paquet UDP il y a 40 s (Recalbox chargee par la navigation rapide -> pings sans reponse -> alerte). Le log affiche `[SD] Renommage etiquette desactive (diagnostic v3)` = firmware anterieur a v211.
+
+**Version identifiee** : SHA ELF du log (`50e67a30b`) = octets 0xB0..0xCF du `app.bin` -> correspond au binaire publie avant le 2026-09-20 (`history/binaries_v2.0_2026-09-14_pre-v211-sdlabel`, firmware **v210**). Le SHA n'est pas reproductible bit a bit en recompilant (71 octets differents : SHA + date/heure, meme taille) mais les adresses le sont -> l'ELF recompile depuis `e7b5b10` (dans `F:\RETROBOXLED`, meme chemin) decode le backtrace.
+
+**Backtrace decode (addr2line)** : `resumePlaylist()` (loop, sortie de l'alerte) -> `openNextGif()` -> `getNextGif()` -> `getNextGifRandom()` (`SD.open(playlistIdxPath)`) -> `VFSFileImpl` -> `fopen` -> `__sfp` -> `lock_init_generic` -> `abort()`. **Meme mecanisme exact que les crashs du 23/08 et 25/08 (voir plus haut)** : alloc qui echoue dans SD.open() -> abort direct, non rattrapable. Meme signature heap (`free~5200-5500 / maxalloc 4596` fige). Le garde-fou `OPEN_NEXT_GIF_MIN_HEAP=4000` (sur maxalloc) laisse passer 4596 : non discriminant, deja note en v180.
+
+**Ecart mesure** : DMD2 en v223 (mode Pinball active, GIF ouvert) = `free=16196 / maxalloc=6644 / minFree=10708`. Jamyz (v210, ecran d'alerte) = 5556. Les tableaux 300->160 (v216) recuperent ~12 Ko : c'est le levier deja publie. **Aucun correctif nouveau ecrit** (pas de preuve que le heap ait deja atteint le seuil critique avant l'ouverture ; un garde sur free-heap bloquerait la reprise playlist si le heap reste fige a 5,5 Ko). A faire : Jamyz met a jour en v223 (GitHub) puis renvoie ses lignes `[LOOPDIAG]` (free/maxalloc) ; si le crash revient avec free > 15 Ko, reouvrir.
