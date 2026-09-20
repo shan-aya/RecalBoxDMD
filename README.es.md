@@ -80,11 +80,12 @@ Es un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), reco
 12. [Configuración web — en vivo, en el navegador](#configuración-web--en-vivo-en-el-navegador)
 13. [UDP y Telnet](#udp-y-telnet)
 14. [Superposiciones en juego — Hi-Score, Info del juego, Logros y Challenge RB](#superposiciones-en-juego--hi-score-info-del-juego-logros-y-challenge-rb)
-15. [El formato raw565 en detalle](#el-formato-raw565-en-detalle)
-16. [Estructura de la tarjeta SD](#estructura-de-la-tarjeta-sd)
-17. [Estructura del repositorio](#estructura-del-repositorio)
-18. [Solución de problemas](#solución-de-problemas)
-19. [Créditos y licencia](#créditos-y-licencia)
+15. [Mesas de Visual Pinball (VPX) en el DMD](#-mesas-de-visual-pinball-vpx-en-el-dmd)
+16. [El formato raw565 en detalle](#el-formato-raw565-en-detalle)
+17. [Estructura de la tarjeta SD](#estructura-de-la-tarjeta-sd)
+18. [Estructura del repositorio](#estructura-del-repositorio)
+19. [Solución de problemas](#solución-de-problemas)
+20. [Créditos y licencia](#créditos-y-licencia)
 
 ---
 
@@ -543,17 +544,48 @@ Mientras un juego está realmente en marcha (nunca en modo de espera/playlist), 
 
 **Cero configuración en el lado del DMD.** Instala los scripts de Recalbox una vez — **Modo 9** de la caja de herramientas de PC (o la instalación automática integrada en el **Modo 1**) — y cada una de estas superposiciones empieza a funcionar sola para cualquier juego/sistema que tenga datos que mostrar; el DMD sigue siendo una pantalla «tonta» de principio a fin, toda la lógica (qué enviar, cuándo, durante cuánto tiempo) vive en los scripts del lado de Recalbox, nunca en el propio firmware.
 
-### 🎯 Mesas de Visual Pinball (VPX) en el DMD
+---
 
-Cuando lanzas una mesa de **Visual Pinball (VPX)** desde Recalbox, el DMD puede mostrar en directo la imagen DMD propia de la mesa, como haría un ZeDMD-WiFi.
+## 🎯 Mesas de Visual Pinball (VPX) en el DMD
 
-- **Activarlo**: marca **Modo Pinball (VPX)** en el marco *Pantalla* de la página de inicio de la configuración web y pulsa **Guardar y reiniciar** (la opción solo se lee al arrancar). Desactivado por defecto: sin ella, nada cambia.
-- **Lado Recalbox**: en los ajustes DMD de VPX, usa el plugin **DMDUtil** con `ZeDMDWiFiAddr` = **IP de este DMD**.
-- **Sin reinicio al lanzar una mesa**: la imagen aparece directamente. Mientras corre la mesa, la playlist y las pantallas de Recalbox («RecalBox conectada»…) quedan suspendidas para no dibujar nada encima.
-- **Vuelta a la normalidad**: en cuanto termina la partida (los scripts de Recalbox avisan al DMD — reinstálalos con el Modo 9 para tenerlo), o unos 5 segundos después de que la mesa deje de enviar imagen. Se restaura el brillo configurado.
-- **Mesas antiguas con display alfanumérico (segmentos)** — mesas PinMAME de la época Bally/Williams que solo muestran puntuaciones: activa también el plugin **AlphaDMD** en el lado de Recalbox (`[Plugin.AlphaDMD]` → `Enable = 1` en `/recalbox/share/system/configs/vpinball/VPinballX-configgen.ini`, a editar cuando no hay ninguna mesa en marcha — VPX reescribe ese archivo al cerrarse). Sin él, VPX no envía nada al DMD para estas mesas y el marquee simplemente se queda en pantalla.
-- **Mesas coloreadas (Serum)** — una mesa que trae una carpeta `altcolor/<rom>/<rom>.cRZ` solo muestra colores (e imágenes de fondo) si al plugin **Serum** de VPX se le indica dónde buscar: añade `[Plugin.Serum]` / `SerumPath = <carpeta de la mesa>/altcolor` en el archivo `.ini` de la mesa (junto al `.vpx`). Sin eso, el log dice `Serum: No colorization file found for <rom>` y la mesa se queda en monocromo. Verificado con Diner (Williams 1990); el DMD muestra los colores como cualquier otra imagen RGB.
-- **Probado** con mesas DMD 128×32 (Batman), Big Bang Bar (DMD 192×64, reducido por el cliente), 6 de 8 mesas alfanuméricas (Black Hole y Farfalla usan disposiciones de display que el plugin AlphaDMD no soporta) y una mesa coloreada (Diner). Las mesas puramente electromecánicas y las que dibujan su DMD con PinUP Player (p. ej. Batman 66) no envían nada al DMD.
+El DMD puede comportarse como un display **ZeDMD-WiFi**: habla el mismo protocolo de red que el ZeDMD (un pequeño saludo HTTP y después las imágenes en flujo **UDP por el puerto 3333**), el que usa el plugin **DMDUtil** de Visual Pinball para manejar un ZeDMD por WiFi. Lanza una mesa VPX desde Recalbox y el DMD muestra en directo la imagen DMD propia de la mesa. **Desactivado por defecto**: con la opción sin marcar, nada cambia.
+
+### Qué obtienes
+
+- **Sin reinicio** al lanzar una mesa: la imagen aparece directamente.
+- Mientras corre la mesa, la **playlist y las pantallas de Recalbox** («RecalBox conectada»…) quedan suspendidas para no dibujar nada encima.
+- **Vuelta a la normalidad** en cuanto termina la partida (los scripts de Recalbox avisan al DMD), o unos 5 segundos después de que la mesa deje de enviar imagen. Se restaura el brillo configurado.
+- Los DMD grandes (p. ej. 192×64) los reduce VPX al panel de 128×32; las mesas coloreadas se ven en color.
+
+### Puesta en marcha — una sola vez
+
+1. **En el DMD**: marca **Modo Pinball (VPX)** en el marco *Pantalla* de la página de inicio de la configuración web y pulsa **Guardar y reiniciar** (la opción solo se lee al arrancar).
+2. **En la Recalbox (obligatorio)**: hay que indicar a VPX que envíe su DMD a este panel por WiFi. En `/recalbox/share/system/configs/vpinball/VPinballX-configgen.ini`, sección `[Plugin.DMDUtil]`:
+
+   ```ini
+   [Plugin.DMDUtil]
+   Enable = 1
+   ZeDMDWiFiEnabled = 1
+   ZeDMDWiFiAddr = 192.168.1.240
+   ```
+
+   Sustituye `192.168.1.240` por la **IP de este DMD** (sin comentarios al final de línea: un archivo `.ini` los leería como parte del valor).
+
+   Comprobación: tras lanzar una mesa, `vpinball.log` (misma carpeta) debe contener `ZeDMD WiFi enabled, connected to <IP del DMD>`. Si no, revisa la IP, que el DMD esté en la misma red y que el Modo Pinball se activó *y el DMD se reinició* después.
+3. **Scripts de Recalbox**: instálalos con el **Modo 9** del PC Toolkit (necesario de todos modos para el resto del proyecto) — permiten al DMD salir del modo Pinball al instante al terminar una partida.
+
+> ⚠️ Edita `VPinballX-configgen.ini` **solo cuando no hay ninguna mesa en marcha**: VPX reescribe ese archivo al cerrarse y borraría tu cambio. Una actualización de Recalbox también puede reiniciarlo.
+
+### Ajustes opcionales, según el tipo de mesa
+
+- **Mesas antiguas con display alfanumérico (segmentos)** — mesas PinMAME de la época Bally/Williams que solo muestran puntuaciones: activa el plugin **AlphaDMD** (`[Plugin.AlphaDMD]` → `Enable = 1`, mismo archivo). Sin él, VPX no envía nada al DMD para estas mesas y el marquee simplemente se queda en pantalla.
+- **Mesas coloreadas (Serum)** — una mesa que trae una carpeta `altcolor/<rom>/<rom>.cRZ` solo muestra colores (e imágenes de fondo) si al plugin **Serum** de VPX se le indica dónde buscar: añade `[Plugin.Serum]` / `SerumPath = <carpeta de la mesa>/altcolor` en el archivo `.ini` de la mesa (junto al `.vpx`). Sin eso, el log dice `Serum: No colorization file found for <rom>` y la mesa se queda en monocromo.
+
+### Compatibilidad
+
+- **Probado** con mesas DMD 128×32 (Batman), Big Bang Bar (DMD 192×64), 6 de 8 mesas alfanuméricas (Black Hole y Farfalla usan disposiciones de display que el plugin AlphaDMD no soporta) y una mesa coloreada (Diner).
+- **Nada que mostrar**: las mesas puramente electromecánicas y las que dibujan su DMD con PinUP Player (p. ej. Batman 66) no envían nada al DMD.
+- **Probado solo con Recalbox.** El DMD solo depende del protocolo ZeDMD-WiFi: un Visual Pinball Standalone que use DMDUtil con los mismos ajustes `ZeDMDWiFi*` debería poder manejarlo también — sin probar. Específico de Recalbox: las rutas de archivos anteriores y la salida instantánea al terminar la partida (sin los scripts, el DMD vuelve al marquee unos 5 segundos después de la última imagen).
 
 ---
 
