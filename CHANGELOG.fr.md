@@ -23,6 +23,7 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 - **Config web** : nouvelle section **Veille Recalbox** — pendant les économiseurs d'écran « démos de jeux » / « clips vidéo de jeux », choisissez entre suivre le logo du jeu (comme avant, par défaut) ou la playlist simple, comme les autres veilles.
 - **Scripts Recalbox** (`marquee` v54, `dmd_score` v53) : les options de veille ci-dessus, et une sortie immédiate du Mode Pinball à la fin d'une partie. Réinstallez les scripts avec le Mode 9 pour en bénéficier.
 - **Docs** : le README (3 langues) documente le Mode Pinball, la page d'accueil et les nouvelles clés `config.ini` (`feat_vpinball_dmd`, `feat_demo_follow`, `feat_clip_follow`).
+- **Toolkit PC** (build `7449`) : l'onglet Aide est maintenant un vrai manuel d'utilisation (premier lancement, Mode 1 pas a pas, chaque mode de l'onglet Avance, onglet Playlist, scripts Recalbox dont `dmd_vpx_config`, depannage) au lieu d'une copie du README ; plus de mentions de MQTT.
 
 ## 2026-09-20 — IP du DMD découverte automatiquement, Toolkit PC adapté au DPI Windows, image shuffle installée, renommage d'étiquette SD rétabli
 

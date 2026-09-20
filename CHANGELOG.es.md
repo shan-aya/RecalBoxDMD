@@ -23,6 +23,7 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 - **Configuración web**: nueva sección **Reposo de Recalbox** — durante los salvapantallas «demos de juegos» / «clips de vídeo de juegos», elige entre seguir el logo del juego (como antes, por defecto) o la playlist simple, como los demás reposos.
 - **Scripts de Recalbox** (`marquee` v54, `dmd_score` v53): las opciones de reposo anteriores y una salida inmediata del Modo Pinball al terminar una partida. Reinstala los scripts con el Modo 9 para tenerlos.
 - **Docs**: el README (3 idiomas) documenta el Modo Pinball, la página de inicio y las nuevas claves de `config.ini` (`feat_vpinball_dmd`, `feat_demo_follow`, `feat_clip_follow`).
+- **Toolkit PC** (build `7449`): la pestana Ayuda es ahora un manual de uso real (primer arranque, Modo 1 paso a paso, cada modo de la pestana Avanzado, pestana Playlist, scripts de Recalbox incluido `dmd_vpx_config`, resolucion de problemas) en lugar de una copia del README; sin menciones a MQTT.
 
 ## 2026-09-20 — IP del DMD descubierta automáticamente, Toolkit PC adaptado al DPI de Windows, imagen shuffle instalada, renombrado de etiqueta SD restablecido
 

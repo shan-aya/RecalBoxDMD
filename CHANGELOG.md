@@ -23,6 +23,7 @@ This is a curated summary of the project's internal version history (185+ firmwa
 - **Web config**: new **Recalbox standby** section — during the "game demos" / "game video clips" screensavers, choose between following the game logo (as before, default) or the plain playlist, like the other screensavers.
 - **Recalbox scripts** (`marquee` v54, `dmd_score` v53): the standby options above, and an immediate exit from Pinball mode at the end of a game. Re-install the scripts with Mode 9 to get them.
 - **Docs**: README (3 languages) documents Pinball mode, the home page and the new `config.ini` keys (`feat_vpinball_dmd`, `feat_demo_follow`, `feat_clip_follow`).
+- **PC Toolkit** (build `7449`): the Help tab is now a real user manual (first run, Mode 1 step by step, every Advanced-tab mode, Playlist tab, Recalbox scripts incl. `dmd_vpx_config`, troubleshooting) instead of a copy of the README; no more MQTT mentions.
 
 ## 2026-09-20 — DMD IP discovered automatically, PC Toolkit scales with Windows DPI, shuffle image installed, SD label rename restored
 
