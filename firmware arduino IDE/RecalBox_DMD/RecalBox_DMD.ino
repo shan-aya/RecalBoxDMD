@@ -1,7 +1,10 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v224
+// Version actuelle : v225
+//
+// v225 - 2026-09-20 - safe-modify - vpinball_dmd.h v8 : log (une fois par valeur) des commandes ZeDMD non gerees -- exploration tables score seul.
+//   Aucun changement de comportement.
 //
 // v224 - 2026-09-20 - safe-modify - BUG REEL : l'ecran "RecalBox connectee"
 //   s'affichait encore alors que la Recalbox etait eteinte (puis remplace par

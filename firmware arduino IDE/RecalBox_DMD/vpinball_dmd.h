@@ -3,7 +3,13 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v1
+// Version actuelle : v8 (l'en-tete listait encore v1 ; les v2-v7 sont decrites
+// a leurs emplacements dans le fichier et dans DECISIONS.md)
+//
+// v8 - 2026-09-20 - safe-modify - Exploration tables "score seul" : une
+// commande ZeDMD non geree (default de vpinballHandleCommand) est desormais
+// loggee une fois par valeur (cmd/size/compressee) au lieu d'etre ignoree
+// silencieusement. Aucun changement de comportement d'affichage.
 //
 // v1 - 2026-09-16 - safe-modify - Canal de donnees ZeDMD-WiFi (voir
 // DECISIONS.md "Nouveau chantier -- integration vpinball", worktree
@@ -328,9 +334,20 @@ static void vpinballHandleCommand(uint8_t command, const uint8_t *payload, uint1
       }
       break;
     default:
+    {
       // Commandes USB/menu de reglages ZeDMD (12, 23, 26-99...) : sans
-      // objet sur notre canal WiFi minimal, ignorees silencieusement.
+      // objet sur notre canal WiFi minimal, ignorees. v8 : chaque valeur
+      // inconnue est LOGGUEE UNE FOIS (exploration tables score seul / 256x64 :
+      // savoir quelles commandes le client envoie reellement et qu'on ne gere
+      // pas encore) -- un bitmap de 256 bits, aucun cout d'allocation.
+      static uint8_t s_seenUnknownCmd[32] = {0};
+      if (!(s_seenUnknownCmd[command >> 3] & (1 << (command & 7))))
+      {
+        s_seenUnknownCmd[command >> 3] |= (1 << (command & 7));
+        Serial.println("[VPINBALL] commande ZeDMD non geree cmd=" + String(command) + " size=" + String(payloadSize) + " compressee=" + String(compressed ? 1 : 0));
+      }
       break;
+    }
   }
 }
 
