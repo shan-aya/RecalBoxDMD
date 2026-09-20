@@ -1,7 +1,14 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v223
+// Version actuelle : v224
+//
+// v224 - 2026-09-20 - safe-modify - BUG REEL : l'ecran "RecalBox connectee"
+//   s'affichait encore alors que la Recalbox etait eteinte (puis remplace par
+//   "hors ligne") -- le fix v210 (ecran seulement sur un vrai PONG) ne couvrait
+//   que la reconnexion WiFi ; webDmdResume() (Reprendre DMD, Enregistrer de la
+//   page d'accueil web, sortie du mode Pinball) postait toujours l'ecran sans
+//   preuve. Voir le commentaire dans webDmdResume().
 //
 // v223 - 2026-09-20 - safe-modify - web_config.h : bouton "Accueil" (premier
 //   element du bandeau .topnav) sur les 5 pages de configuration (Affichage,
@@ -7084,10 +7091,30 @@ void webDmdResume()
   if (WiFi.status() == WL_CONNECTED)
   {
     sendUdpHello(); broadcastFeatureStatus();
-    if (mqttCmdMutex != nullptr && xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(100)) == pdTRUE)
+    // v224 -- BUG REEL (retour utilisateur : "RecalBox connectee" affiche alors
+    // que RB2 est eteinte, puis remplace par "RB hors ligne") : le fix v210
+    // (ecran "connectee" seulement sur un vrai PONG) n'avait couvert QUE le
+    // chemin de reconnexion WiFi de loop(). CE chemin -- toute reprise du DMD
+    // (bouton "Reprendre DMD", Enregistrer de la page d'accueil web, sortie du
+    // mode Pinball) -- postait toujours CMD_WAITING_MQTT sans aucune preuve que
+    // la Recalbox soit joignable (sendUdpHello() est fire-and-forget). Desormais :
+    // ecran d'attente seulement si un paquet de la Recalbox a ete recu
+    // recemment (2 intervalles de ping) ; sinon playlist tout de suite et
+    // g_pendingConnectedScreenOnPong -- l'ecran "connectee" n'apparait alors
+    // qu'au premier vrai PONG, comme apres une reconnexion WiFi.
+    bool rbHeardRecently = (g_lastUdpSeenMs != 0) && ((millis() - g_lastUdpSeenMs) < (2UL * UDP_PING_INTERVAL_MS));
+    if (rbHeardRecently)
     {
-      pendingCmd = MqttCommand(MqttCommand::CMD_WAITING_MQTT, "");
-      xSemaphoreGive(mqttCmdMutex);
+      if (mqttCmdMutex != nullptr && xSemaphoreTake(mqttCmdMutex, pdMS_TO_TICKS(100)) == pdTRUE)
+      {
+        pendingCmd = MqttCommand(MqttCommand::CMD_WAITING_MQTT, "");
+        xSemaphoreGive(mqttCmdMutex);
+      }
+    }
+    else
+    {
+      g_pendingConnectedScreenOnPong = true;
+      resumePlaylist();
     }
   }
   else
