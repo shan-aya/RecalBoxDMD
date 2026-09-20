@@ -4,7 +4,14 @@
 # au DMD dans VPinballX-configgen.ini, au demarrage d'EmulationStation et
 # apres chaque fin de partie.
 # ============================================
-# Version actuelle : v1
+# Version actuelle : v2
+#
+# v2 - 2026-09-20 - safe-modify - Le script n'est ACTIF que si l'option "Mode
+#   Pinball (VPX)" est cochee sur le DMD (demande utilisateur : cocher l'option
+#   = accepter que Recalbox soit modifiee, sinon aucune ecriture). Le firmware
+#   (v230) ajoute vpinball_dmd=0|1 au message FEATURES, ecrit par
+#   dmd_udp_resync.py dans /tmp/dmd_features_cache. Cle absente (firmware plus
+#   ancien) ou a 0 -> script inerte ; fichier pas encore recu -> attente (3 min).
 #
 # v1 - 2026-09-20 - safe-modify - Creation (demande utilisateur : "un script pour
 #   verifier que ces reglages sont presents et les reecrire au demarrage de RB
@@ -28,10 +35,12 @@
 
 INI="${VPX_INI:-/recalbox/share/system/configs/vpinball/VPinballX-configgen.ini}"
 IPFILE="${VPX_IPFILE:-/tmp/dmd_udp_ip}"
+FEATURES="${VPX_FEATURES:-/tmp/dmd_features_cache}"
 DISABLE="/recalbox/share/userscripts/dmd_helpers/vpx_autoconfig.disabled"
 LOG="${VPX_LOG:-/recalbox/share/system/logs/dmd_vpx_config.log}"
 LOCK="/tmp/dmd_vpx_config.lock"
-EVENT="${1:-manual}"
+# ES appelle les scripts avec "-action <evenement> ..." (constate sur RB2) ; appel manuel : $1 = evenement
+if [ "$1" = "-action" ]; then EVENT="${2:-?}"; else EVENT="${1:-manual}"; fi
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') [$EVENT] $*" >> "$LOG" 2>/dev/null; }
 
@@ -76,8 +85,22 @@ ensure() {
     return 0
 }
 
+# etat de l'option "Mode Pinball (VPX)" du DMD, relaye par le firmware (v230+) dans
+# FEATURES -> /tmp/dmd_features_cache (cle vpinball_dmd=0|1). 1 = active, 0 = inactive
+# (ou firmware plus ancien sans cette cle), 2 = pas encore recu.
+feat_state() {
+    [ -f "$FEATURES" ] || return 2
+    v=$(sed -n 's/.*vpinball_dmd=\([01]\).*/\1/p' "$FEATURES" 2>/dev/null | head -n1)
+    [ "$v" = "1" ] && return 1
+    return 0
+}
+
 run_check() {
     [ -f "$DISABLE" ] && return 0
+    # SCRIPT INACTIF tant que l'option du DMD n'est pas cochee : aucune ecriture dans les fichiers de Recalbox
+    feat_state; fs=$?
+    [ $fs -eq 2 ] && return 3            # reglages du DMD pas encore recus : on attend
+    [ $fs -eq 0 ] && return 0
     [ -f "$INI" ] || return 0            # cree par Recalbox au 1er lancement de VPX
 
     # ne jamais ecrire pendant qu'une table tourne (VPX reecrirait le fichier a sa fermeture)
@@ -111,7 +134,7 @@ run_check() {
 
 # --- point d'entree : tout le travail en arriere-plan, ES n'est jamais bloque ---
 if [ "$DMD_VPX_CONFIG_CHILD" != "1" ]; then
-    DMD_VPX_CONFIG_CHILD=1 setsid "$0" "$EVENT" >/dev/null 2>&1 &
+    DMD_VPX_CONFIG_CHILD=1 setsid sh "$0" "$@" >/dev/null 2>&1 &
     exit 0
 fi
 
@@ -122,10 +145,17 @@ tries=0
 while true; do
     run_check
     rc=$?
-    [ $rc -ne 2 ] && break
+    [ $rc -ne 2 ] && [ $rc -ne 3 ] && break
     tries=$((tries + 1))
-    if [ $tries -eq 1 ]; then log "IP du DMD inconnue (ni dans le .ini ni dans $IPFILE) : j'attends que le DMD se manifeste"; fi
-    [ $tries -ge 36 ] && { log "IP du DMD toujours inconnue apres 3 min : ZeDMDWiFiAddr non ecrit"; break; }
+    if [ $tries -eq 1 ]; then
+        [ $rc -eq 3 ] && log "reglages du DMD pas encore recus ($FEATURES) : j'attends" \
+                      || log "IP du DMD inconnue (ni dans le .ini ni dans $IPFILE) : j'attends que le DMD se manifeste"
+    fi
+    if [ $tries -ge 36 ]; then
+        [ $rc -eq 3 ] && log "reglages du DMD toujours absents apres 3 min : rien ecrit" \
+                      || log "IP du DMD toujours inconnue apres 3 min : ZeDMDWiFiAddr non ecrit"
+        break
+    fi
     sleep 5
 done
 exit 0

@@ -1,7 +1,12 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v229
+// Version actuelle : v230
+//
+// v230 - 2026-09-20 - safe-modify - Message FEATURES : + vpinball_dmd=0|1 (option Mode Pinball du DMD, ajoutee EN FIN de
+//   message : les scripts Recalbox exigent seulement les 11 cles historiques). Sert de commutateur au script Recalbox
+//   dmd_vpx_config[start,endgame].sh, qui n'ecrit dans les fichiers de config de VPX QUE si cette option est cochee.
+//   Textes de l'option (web_config.h) : avertissement que l'activer fait modifier ces fichiers.
 //
 // v229 - 2026-09-20 - safe-modify - BUG REEL (mode Pinball, tables colorisees) : les messages ZeDMD coupes entre 2 datagrammes UDP (1400 o) etaient jetes (message tronque + suite ignoree) -> fonds en surimpression, textes absents. vpinball_dmd.h v11 : reassemblage. Trouve par capture des paquets cote Recalbox + decodage sur PC (28 messages perdus sur 1850 en 148 s, tous retrouves apres reassemblage).
 //
@@ -10532,13 +10537,13 @@ void broadcastFeatureStatus()
     "hiscore_ingame=%d;hiscore_browse=%d;info_ingame=%d;info_browse=%d;"
     "description_ingame=%d;description_browse=%d;ra_ingame=%d;ra_browse=%d;"
     "repeat_cycles=%d;repeat_browse_cycles=%d;dwell_seconds=%d;"
-    "demo_follow=%d;clip_follow=%d",
+    "demo_follow=%d;clip_follow=%d;vpinball_dmd=%d",
     featHiscoreIngame ? 1 : 0, featHiscoreBrowse ? 1 : 0,
     featInfoIngame ? 1 : 0, featInfoBrowse ? 1 : 0,
     featDescriptionIngame ? 1 : 0, featDescriptionBrowse ? 1 : 0,
     featRaIngame ? 1 : 0, featRaBrowse ? 1 : 0,
     featRepeatCycles, featRepeatBrowseCycles, featDwellSeconds,
-    featDemoFollow ? 1 : 0, featClipFollow ? 1 : 0);
+    featDemoFollow ? 1 : 0, featClipFollow ? 1 : 0, featVpinballDmd ? 1 : 0);
   // v126 -- garde de sanite CONSERVEE en filet de securite complementaire
   // (defense en profondeur, cout negligeable) : n<0 = erreur snprintf,
   // n>=sizeof(buf) = aurait ete tronque par la taille du buffer (jamais
