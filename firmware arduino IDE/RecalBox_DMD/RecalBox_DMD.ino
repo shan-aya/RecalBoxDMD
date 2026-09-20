@@ -1,7 +1,9 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v227
+// Version actuelle : v228
+//
+// v228 - 2026-09-20 - safe-modify - vpinball_dmd.h v10 : stats etendues (rendus/effacements/zones videes/format RGB) -- diagnostic fonds colorises. Aucun changement de comportement.
 //
 // v227 - 2026-09-20 - safe-modify - vpinball_dmd.h v9 : ligne [VPINBALL] stats toutes les 5 s en mode Pinball (diagnostic d'un affichage glitche/lent/surimprime, table Diner). Aucun changement de comportement.
 //

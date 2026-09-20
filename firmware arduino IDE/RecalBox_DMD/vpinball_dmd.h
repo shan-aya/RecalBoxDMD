@@ -3,8 +3,11 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v9 (l'en-tete listait encore v1 ; les v2-v7 sont decrites
+// Version actuelle : v10 (l'en-tete listait encore v1 ; les v2-v7 sont decrites
 // a leurs emplacements dans le fichier et dans DECISIONS.md)
+//
+// v10 - 2026-09-20 - safe-modify - Stats : + commandes Render (6), Clear (10), zones videes (idx>=128), flux RGB565/RGB888 recus -- pour comprendre
+// pourquoi des fonds colorises (Serum) ne se rafraichiraient pas correctement (le firmware dessine chaque zone tout de suite, sans double tampon).
 //
 // v9 - 2026-09-20 - safe-modify - Mesures du mode Pinball : ligne [VPINBALL] stats toutes
 // les 5 s (paquets, zones, octets, erreurs inflate, datagrammes tronques, temps
@@ -200,6 +203,7 @@ bool    vpinballUdpStarted = false;
 // une boucle trop peu frequente. Compteurs simples, aucune allocation.
 static uint32_t vpinballStatPkts = 0, vpinballStatZones = 0, vpinballStatBytes = 0;
 static uint32_t vpinballStatInflateErr = 0, vpinballStatTruncated = 0;
+static uint32_t vpinballStatRenders = 0, vpinballStatClears = 0, vpinballStatZoneClears = 0, vpinballStatRgb565 = 0, vpinballStatRgb888 = 0;
 static uint32_t vpinballStatMaxHandleMs = 0, vpinballStatMaxGapMs = 0;
 static unsigned long vpinballStatLastLogMs = 0, vpinballStatLastPollMs = 0;
 
@@ -285,6 +289,7 @@ static void vpinballDecodeZones(const uint8_t *buf, size_t len, bool isRgb565)
     if (raw >= 128)
     {
       const uint8_t zoneIdx = raw - 128;
+      vpinballStatZoneClears++;
       if (zoneIdx < VPINBALL_DMD_NUM_ZONES) vpinballRenderZone(zoneIdx, isRgb565, nullptr);
       continue;
     }
@@ -305,6 +310,7 @@ static void vpinballHandleCommand(uint8_t command, const uint8_t *payload, uint1
     case 5:   // RGB565 Zones Stream
     {
       const bool isRgb565 = (command == 5);
+      if (isRgb565) vpinballStatRgb565++; else vpinballStatRgb888++;
       const uint8_t *zoneData = payload;
       size_t zoneDataLen = payloadSize;
       if (compressed)
@@ -331,11 +337,13 @@ static void vpinballHandleCommand(uint8_t command, const uint8_t *payload, uint1
       break;
     }
     case 6:   // Render -- rien a faire, chaque zone est deja dessinee
+      vpinballStatRenders++;
               // directement (pas de double-buffering cote firmware ici,
               // contrairement a ZeDMD -- a revisiter si un scintillement
               // est observe en test reel).
       break;
     case 10:  // Clear screen
+      vpinballStatClears++;
       if (display) display->clearScreen();
       break;
     case 11:  // KeepAlive -- rien a faire pour l'instant, pas de timeout
@@ -420,11 +428,13 @@ void pollVpinballUdp()
     if (nowStat - vpinballStatLastLogMs >= 5000)
     {
       vpinballStatLastLogMs = nowStat;
-      Serial.printf("[VPINBALL] stats 5s: pkts=%u zones=%u octets=%u errInflate=%u tronques=%u maxTraitement=%ums maxIntervalleLoop=%ums rssi=%d heap=%u\n",
+      Serial.printf("[VPINBALL] stats 5s: pkts=%u zones=%u octets=%u errInflate=%u tronques=%u maxTraitement=%ums maxIntervalleLoop=%ums rssi=%d heap=%u rendus=%u effacements=%u zonesVidees=%u rgb565=%u rgb888=%u\n",
         (unsigned)vpinballStatPkts, (unsigned)vpinballStatZones, (unsigned)vpinballStatBytes, (unsigned)vpinballStatInflateErr,
-        (unsigned)vpinballStatTruncated, (unsigned)vpinballStatMaxHandleMs, (unsigned)vpinballStatMaxGapMs, (int)WiFi.RSSI(), (unsigned)ESP.getFreeHeap());
+        (unsigned)vpinballStatTruncated, (unsigned)vpinballStatMaxHandleMs, (unsigned)vpinballStatMaxGapMs, (int)WiFi.RSSI(), (unsigned)ESP.getFreeHeap(),
+        (unsigned)vpinballStatRenders, (unsigned)vpinballStatClears, (unsigned)vpinballStatZoneClears, (unsigned)vpinballStatRgb565, (unsigned)vpinballStatRgb888);
       vpinballStatPkts = vpinballStatZones = vpinballStatBytes = vpinballStatInflateErr = vpinballStatTruncated = 0;
       vpinballStatMaxHandleMs = vpinballStatMaxGapMs = 0;
+      vpinballStatRenders = vpinballStatClears = vpinballStatZoneClears = vpinballStatRgb565 = vpinballStatRgb888 = 0;
     }
   }
   else vpinballStatLastPollMs = 0;
