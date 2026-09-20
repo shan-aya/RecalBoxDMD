@@ -397,7 +397,6 @@ Avec **Chrome ou Edge**, branchez l'ESP32 en USB, cliquez sur **Installer**, cho
 | [pngle](https://github.com/kikuchan/pngle) | Décodage PNG (chemin de repli, inclus dans le sketch) |
 | [WiFiManager](https://github.com/tzapu/WiFiManager) | Configuration WiFi |
 | [Adafruit GFX Library](https://github.com/adafruit/Adafruit-GFX-Library) | Rendu texte/formes |
-| [PubSubClient](https://github.com/knolleary/pubsubclient) | MQTT (conserve en dormant depuis v2.0 -- l'UDP est desormais le transport par defaut) |
 | [ArduinoJson](https://github.com/bblanchon/ArduinoJson) | (Dé)sérialisation config & page web |
 
 3. Outils → Type de carte : **ESP32 Dev Module**, Taille flash **4 Mo**, Schéma de partition **Huge APP**.
