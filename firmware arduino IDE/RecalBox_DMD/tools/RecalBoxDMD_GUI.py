@@ -2,7 +2,11 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v73
+# Version actuelle : v74
+#
+# v74 — 2026-09-20 — safe-modify — Build toolkit 7449 (GUI v74 + tool v49) : l'onglet Aide charge desormais un VRAI manuel
+#      d'utilisation du toolkit (HELP.md/.fr.md/.es.md reecrits : onglets, Mode 1 pas a pas, modes 2 a 11, Playlist,
+#      scripts Recalbox, depannage) au lieu d'une copie du README GitHub (plus de mention de MQTT). Aucun changement de code.
 #
 # v73 — 2026-09-20 — safe-modify — Build toolkit 7349 (GUI v73 + tool v49) :
 #      la creation de SD installe desormais _shuffle.raw565pack/_shuffle.meta
@@ -1297,7 +1301,7 @@ from tkinter import ttk, messagebox, filedialog, font as tkfont
 # mais CETTE constante reste a mettre a jour a la main ici (pas d'ecriture
 # automatique dans le .py au moment du build, pour garder le pipeline
 # simple) -- build_release.ps1 avertit si elle diverge du calcul.
-TOOLKIT_RELEASE_VERSION = "7349"
+TOOLKIT_RELEASE_VERSION = "7449"
 
 # v71, safe-modify -- voir le remplacement du verrou v68 dans __init__ pour
 # le contexte complet. _DPI_SCALE est le ratio DPI reel/96 (1.0 a 100%,
