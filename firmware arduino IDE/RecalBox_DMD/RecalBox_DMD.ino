@@ -1,7 +1,9 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v228
+// Version actuelle : v229
+//
+// v229 - 2026-09-20 - safe-modify - BUG REEL (mode Pinball, tables colorisees) : les messages ZeDMD coupes entre 2 datagrammes UDP (1400 o) etaient jetes (message tronque + suite ignoree) -> fonds en surimpression, textes absents. vpinball_dmd.h v11 : reassemblage. Trouve par capture des paquets cote Recalbox + decodage sur PC (28 messages perdus sur 1850 en 148 s, tous retrouves apres reassemblage).
 //
 // v228 - 2026-09-20 - safe-modify - vpinball_dmd.h v10 : stats etendues (rendus/effacements/zones videes/format RGB) -- diagnostic fonds colorises. Aucun changement de comportement.
 //

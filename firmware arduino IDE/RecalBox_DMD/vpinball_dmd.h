@@ -3,8 +3,11 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v10 (l'en-tete listait encore v1 ; les v2-v7 sont decrites
+// Version actuelle : v11 (l'en-tete listait encore v1 ; les v2-v7 sont decrites
 // a leurs emplacements dans le fichier et dans DECISIONS.md)
+//
+// v11 - 2026-09-20 - safe-modify - BUG REEL CORRIGE : REASSEMBLAGE des messages ZeDMD coupes entre 2 datagrammes (voir vpinballCarryBuf). Cause des fonds
+// colores en surimpression / textes absents sur les tables colorisees (Serum). Stats : recolles / perdus.
 //
 // v10 - 2026-09-20 - safe-modify - Stats : + commandes Render (6), Clear (10), zones videes (idx>=128), flux RGB565/RGB888 recus -- pour comprendre
 // pourquoi des fonds colorises (Serum) ne se rafraichiraient pas correctement (le firmware dessine chaque zone tout de suite, sans double tampon).
@@ -206,7 +209,26 @@ static uint32_t vpinballStatInflateErr = 0, vpinballStatTruncated = 0;
 static uint32_t vpinballStatRenders = 0, vpinballStatClears = 0, vpinballStatZoneClears = 0, vpinballStatRgb565 = 0, vpinballStatRgb888 = 0;
 static uint32_t vpinballStatMaxHandleMs = 0, vpinballStatMaxGapMs = 0;
 static unsigned long vpinballStatLastLogMs = 0, vpinballStatLastPollMs = 0;
+static uint32_t vpinballStatSplitDone = 0, vpinballStatSplitLost = 0;
 
+// v11 -- REASSEMBLAGE des messages coupes entre 2 datagrammes. BUG REEL trouve
+// par capture cote Recalbox (paquets envoyes decodes sur PC, table Diner
+// coloree) : le client (libzedmd) remplit chaque datagramme jusqu'a 1400 octets
+// et COUPE un message au milieu ; la suite arrive dans le datagramme suivant,
+// SANS prefixe "FRAME" ni "ZeDMD" (28 coupures sur 1207 datagrammes en 148 s).
+// L'ancien code traitait chaque datagramme isolement : message tronque jete +
+// suite ignoree comme "bruit" -> toutes les zones de ce message (les gros fonds
+// colores !) jamais dessinees -> fond en surimpression / textes absents
+// ("WINNER", score avant "REPLAY"), alors que les petits ecrans (CREDIT 0
+// INSERT COIN) s'affichaient parfaitement. Un message en cours est accumule
+// ici puis traite des qu'il est complet.
+#define VPINBALL_DMD_CARRY_BUF_SIZE 2400
+static uint8_t *vpinballCarryBuf = nullptr;
+static bool     vpinballCarryActive = false;
+static uint16_t vpinballCarryHave = 0, vpinballCarrySize = 0;
+static uint8_t  vpinballCarryCmd = 0;
+static bool     vpinballCarryComp = false;
+static unsigned long vpinballCarryMs = 0;
 static const uint8_t VPINBALL_SYNC[5] = {'Z', 'e', 'D', 'M', 'D'};
 static const uint8_t VPINBALL_FRAME[5] = {'F', 'R', 'A', 'M', 'E'}; // prefixe de datagramme (libzedmd recent)
 
@@ -221,6 +243,7 @@ void setupVpinballDmd()
   // commentaire "MODE PINBALL SANS REBOOT" plus haut. Echec -> repli reboot.
   if (!vpinballRecvBuf) vpinballRecvBuf = (uint8_t*)malloc(VPINBALL_DMD_RECV_BUF_SIZE);
   if (!vpinballDecompBuf) vpinballDecompBuf = (uint8_t*)malloc(VPINBALL_DMD_DECOMP_BUF_SIZE);
+  if (!vpinballCarryBuf) vpinballCarryBuf = (uint8_t*)malloc(VPINBALL_DMD_CARRY_BUF_SIZE); // v11 -- absent = pas de reassemblage (ancien comportement)
   if (!vpinballRecvBuf || !vpinballDecompBuf)
     Serial.println("[VPINBALL] echec malloc buffers -- repli reboot cible");
   if (vpinballUdp.begin(VPINBALL_DMD_UDP_PORT))
@@ -395,17 +418,55 @@ static void vpinballProcessPacket(const uint8_t *buf, int len)
   }
   vpinballLastPacketMs = millis();
   int pos = 0;
+  // v11 -- suite d'un message coupe par le datagramme precedent (voir plus haut).
+  if (vpinballCarryActive)
+  {
+    if ((len >= 5 && memcmp(buf, VPINBALL_FRAME, 5) == 0) || (millis() - vpinballCarryMs) > 300)
+    {
+      vpinballCarryActive = false; // le datagramme attendu s'est perdu : on abandonne ce message
+      vpinballStatSplitLost++;
+    }
+    else
+    {
+      int take = (int)(vpinballCarrySize - vpinballCarryHave);
+      if (take > len) take = len;
+      memcpy(vpinballCarryBuf + vpinballCarryHave, buf, take);
+      vpinballCarryHave += take;
+      pos = take;
+      if (vpinballCarryHave >= vpinballCarrySize)
+      {
+        vpinballCarryActive = false;
+        vpinballStatSplitDone++;
+        vpinballHandleCommand(vpinballCarryCmd, vpinballCarryBuf, vpinballCarrySize, vpinballCarryComp);
+      }
+    }
+  }
   while (pos + 5 <= len)
   {
     if (memcmp(&buf[pos], VPINBALL_SYNC, 5) != 0) { pos++; continue; }
     pos += 5;
-    if (pos + 4 > len) break; // header incomplet, message tronque -- abandon
+    if (pos + 4 > len) { vpinballStatSplitLost++; break; } // en-tete lui-meme coupe -- non gere
     const uint8_t command = buf[pos++];
     const uint16_t payloadSize = ((uint16_t)buf[pos] << 8) | buf[pos + 1];
     pos += 2;
     const bool compressed = buf[pos++] != 0;
-    if (pos + payloadSize > len) break; // payload tronque -- abandon
-    vpinballHandleCommand(command, &buf[pos], payloadSize, compressed);
+    if (pos + payloadSize > len)
+    {
+      // payload coupe en fin de datagramme : on garde le debut, la suite est attendue
+      if (vpinballCarryBuf && payloadSize <= VPINBALL_DMD_CARRY_BUF_SIZE)
+      {
+        const int have = len - pos;
+        memcpy(vpinballCarryBuf, &buf[pos], have);
+        vpinballCarryHave = (uint16_t)have;
+        vpinballCarrySize = payloadSize;
+        vpinballCarryCmd = command;
+        vpinballCarryComp = compressed;
+        vpinballCarryMs = millis();
+        vpinballCarryActive = true;
+      }
+      else vpinballStatSplitLost++;
+      break;
+    }    vpinballHandleCommand(command, &buf[pos], payloadSize, compressed);
     pos += payloadSize;
   }
 }
@@ -428,13 +489,14 @@ void pollVpinballUdp()
     if (nowStat - vpinballStatLastLogMs >= 5000)
     {
       vpinballStatLastLogMs = nowStat;
-      Serial.printf("[VPINBALL] stats 5s: pkts=%u zones=%u octets=%u errInflate=%u tronques=%u maxTraitement=%ums maxIntervalleLoop=%ums rssi=%d heap=%u rendus=%u effacements=%u zonesVidees=%u rgb565=%u rgb888=%u\n",
+      Serial.printf("[VPINBALL] stats 5s: pkts=%u zones=%u octets=%u errInflate=%u tronques=%u maxTraitement=%ums maxIntervalleLoop=%ums rssi=%d heap=%u rendus=%u effacements=%u zonesVidees=%u rgb565=%u rgb888=%u recolles=%u perdus=%u\n",
         (unsigned)vpinballStatPkts, (unsigned)vpinballStatZones, (unsigned)vpinballStatBytes, (unsigned)vpinballStatInflateErr,
         (unsigned)vpinballStatTruncated, (unsigned)vpinballStatMaxHandleMs, (unsigned)vpinballStatMaxGapMs, (int)WiFi.RSSI(), (unsigned)ESP.getFreeHeap(),
-        (unsigned)vpinballStatRenders, (unsigned)vpinballStatClears, (unsigned)vpinballStatZoneClears, (unsigned)vpinballStatRgb565, (unsigned)vpinballStatRgb888);
+        (unsigned)vpinballStatRenders, (unsigned)vpinballStatClears, (unsigned)vpinballStatZoneClears, (unsigned)vpinballStatRgb565, (unsigned)vpinballStatRgb888, (unsigned)vpinballStatSplitDone, (unsigned)vpinballStatSplitLost);
       vpinballStatPkts = vpinballStatZones = vpinballStatBytes = vpinballStatInflateErr = vpinballStatTruncated = 0;
       vpinballStatMaxHandleMs = vpinballStatMaxGapMs = 0;
       vpinballStatRenders = vpinballStatClears = vpinballStatZoneClears = vpinballStatRgb565 = vpinballStatRgb888 = 0;
+      vpinballStatSplitDone = vpinballStatSplitLost = 0;
     }
   }
   else vpinballStatLastPollMs = 0;
@@ -483,7 +545,7 @@ void pollVpinballUdp()
     // reel, DMD2 + VPX/RB2) -- le filtre "commence par ZeDMD" rejetait donc
     // 100% des vrais paquets. vpinballProcessPacket() cherche deja la synchro
     // n'importe ou dans le buffer, le prefixe y est saute tout seul.
-    if (len < 5 || (memcmp(vpinballRecvBuf, VPINBALL_SYNC, 5) != 0 && memcmp(vpinballRecvBuf, VPINBALL_FRAME, 5) != 0)) continue; // bruit
+    if (!vpinballCarryActive && (len < 5 || (memcmp(vpinballRecvBuf, VPINBALL_SYNC, 5) != 0 && memcmp(vpinballRecvBuf, VPINBALL_FRAME, 5) != 0))) continue; // bruit (sauf suite d'un message coupe, v11)
     const unsigned long tHandle = millis();
     vpinballProcessPacket(vpinballRecvBuf, len);
     const uint32_t dtHandle = (uint32_t)(millis() - tHandle);
