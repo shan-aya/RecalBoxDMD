@@ -2626,3 +2626,13 @@ Demande utilisateur ("oui") apres la fusion de `dev/vpinball-integration` dans m
 **A SIGNALER** : l'entree du 2026-09-14 (ci-dessus, "onglet Aide ... restaure, reecrit") annonce un manuel d'utilisation dedie a l'application, distinct du README. Le fichier `HELP.md` effectivement present dans le depot (commit `e0b0c9a` et suivants) est en realite une COPIE du README GitHub (memes sections : What is this / Key features / Firmware compiling / ...), pas le manuel "Toolkit Full Help" (onglets, Modes 1-11, workflow). L'aide etait donc deja un README bundle ; cette mise a jour la garde dans cette forme. Un vrai manuel du toolkit reste a ecrire si l'utilisateur le veut (ancien manuel v3.5 : `git show 98c990a^:"firmware arduino IDE/RecalBox_DMD/tools/README.md"`).
 
 **Non publie** : un nouveau build du toolkit est necessaire pour embarquer cette aide dans l'exe (build 7449 : GUI v74 + tool v49).
+
+## Vrai manuel du toolkit + build 7449 + flash des 2 DMD (2026-09-20)
+
+**Demande utilisateur** : "un vrai fichier d'aide de l'outil, pas une recopie du README" ; compiler la nouvelle version du toolkit et, en meme temps, flasher les 2 DMD avec le dernier firmware.
+
+**Aide (HELP.md / .fr.md / .es.md)** : ecrite de zero (204 lignes chacune) — corrige la situation decrite au 2026-09-14 (l'aide etait en realite une copie du README). Contenu verifie dans le code : 6 onglets (Main/Playlist/Avance/Logs/Parametres/Aide), Mode 1 avec les questions dans l'ordre reel de `_on_start_clicked()` (WiFi -> Recalbox -> image de secours -> langue des images -> carte SD -> pack GIFs -> GIFs perso) puis le pipeline de `_pipeline_mode_1()`, modes 2 a 11 par categorie (accordeon), onglet Playlist, Parametres (langue/theme/profil Recalbox/seuil lent), Logs (filtre de niveau), Mode 9 (scripts, `dmd_vpx_config`, redemarrer ES), premier demarrage du DMD, depannage. Libelles des boutons alignes sur `UI_TRANSLATIONS` fr/en/es (ex. FR "DEMARRER", "Passe", "Reprise").
+
+**Build 7449** (GUI v74 + tool v49) : `build_release.ps1 -SkipMsi` OK (avertissement Tcl/Tk connu, contournement actif) ; `RecalBoxDMD-7449-portable.exe` lance, titre "RecalBoxDMD Toolkit - GUI (build 7449)". **Non publie** (dossier `tools/RecalBoxDMD_tool_v7449`, README badge, Release GitHub a faire).
+
+**Flash** : DMD1 (COM5) et DMD2 (COM4) flashes avec le `.merged.bin` publie (v231, SHA 9C23BBB82D36) ; les deux repondent sur le web et rapportent `RawEdition v2.31 (build interne v231)` sur le port serie.
