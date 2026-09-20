@@ -1,7 +1,11 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v230
+// Version actuelle : v231
+//
+// v231 - 2026-09-20 - safe-modify - Le titre du DMD (splash) affiche la VRAIE version du firmware, derivee de FW_VERSION_NUM
+//   (231 -> "RawEdition v2.31") au lieu de la marque figee "RawEdition v2.0" ; ligne [BOOT] firmware ... sur le port serie.
+//   FW_VERSION_NUM est a mettre a jour a chaque version, avec l'en-tete (voir sa declaration).
 //
 // v230 - 2026-09-20 - safe-modify - Message FEATURES : + vpinball_dmd=0|1 (option Mode Pinball du DMD, ajoutee EN FIN de
 //   message : les scripts Recalbox exigent seulement les 11 cles historiques). Sert de commutateur au script Recalbox
@@ -10640,7 +10644,11 @@ int buildOffsetIndex()
 // --------------------------------------------------
 // Splash screen â€” version au dÃ©marrage (info=1 uniquement)
 // --------------------------------------------------
-#define RETRO_VERSION "RawEdition v2.0"
+// v231 -- version AFFICHEE derivee du compteur de l'en-tete ("Version actuelle : vNNN") :
+// 231 -> "v2.31" (centaines = majeur, deux derniers chiffres = mineur). A METTRE A JOUR
+// A CHAQUE VERSION en meme temps que l'en-tete (le README, le manifeste du Web Installer
+// et le splash du DMD affichent tous cette version).
+#define FW_VERSION_NUM 231
 
 void showSplashScreen()
 {
@@ -10664,10 +10672,13 @@ void showSplashScreen()
   display->setTextColor(blue);  display->print("Box");
   display->setTextColor(green); display->print("DMD");
 
-  // Ligne 2 : version centrée ("RawEdition v2.0" = 15 x 6 = 90px -> x = (128-90)/2 = 19)
-  display->setCursor(19, 21);
+  // Ligne 2 : "RawEdition vM.NN", centree (6 px par caractere)
+  char verLine[24];
+  snprintf(verLine, sizeof(verLine), "RawEdition v%d.%02d", FW_VERSION_NUM / 100, FW_VERSION_NUM % 100);
+  Serial.printf("[BOOT] firmware %s (build interne v%d)\n", verLine, FW_VERSION_NUM);
+  display->setCursor((128 - (int)strlen(verLine) * 6) / 2, 21);
   display->setTextColor(white);
-  display->print(RETRO_VERSION);
+  display->print(verLine);
 
   delay(2500);
   // En boot silencieux (info=0) le titre reste affiche, le sablier se dessine

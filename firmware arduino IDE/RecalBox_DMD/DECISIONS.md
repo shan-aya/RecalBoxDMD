@@ -2608,3 +2608,13 @@ Demande utilisateur ("oui") apres la fusion de `dev/vpinball-integration` dans m
 **Implementation** : `tools/userscripts/dmd_vpx_config[start,endgame].sh` v2 — ES l'appelle avec `-action <evenement>` (constate) ; travail en arriere-plan (setsid sh), une instance a la fois (verrou), n'ecrit JAMAIS tant qu'un processus VPinballX tourne (VPX reecrit l'ini a sa fermeture), IP du DMD jamais ecrasee si deja saisie sinon lue dans `/tmp/dmd_udp_ip`, copie `.bak-dmd-autoconfig` une fois, desactivable par `dmd_helpers/vpx_autoconfig.disabled`, journal `logs/dmd_vpx_config.log`. **Commutateur** : le firmware v230 ajoute `vpinball_dmd=0|1` EN FIN du message FEATURES (les scripts n'exigent que les 11 cles historiques) -> `/tmp/dmd_features_cache` ; cle absente (ancien firmware) ou a 0 = script inerte ; fichier pas encore recu = attente 3 min.
 
 **Teste sur RB2 (BusyBox)** : 9 cas (tout vide, section absente, IP manuelle preservee, idempotence, valeur a 0, option decochee, ancien firmware, reglages tardifs) ; **de bout en bout** : ini reel volontairement degrade (AlphaDMD Enable et ZeDMDWiFiEnabled vides) + redemarrage d'ES -> les 2 cles restaurees en ~1 min, fichier final identique a l'original. Le script est installe sur RB2 (`/recalbox/share/userscripts/`). **Non publie** (binaires v230 + script + README/CHANGELOG a pousser).
+
+## Version reelle du firmware affichee (splash DMD, README, Web Installer) — v231 (2026-09-20)
+
+**Demande utilisateur** : montrer la vraie version du firmware au lieu de la marque figee "RawEdition v2.0" — README ET titre du DMD (splash de demarrage). Convention retenue : compteur interne `vNNN` -> affichage `vM.NN` (231 -> **v2.31**).
+
+**Implementation** : `#define FW_VERSION_NUM 231` (RecalBox_DMD.ino, pres de `showSplashScreen()`) ; le splash construit `"RawEdition v%d.%02d"` et le centre (6 px/caractere) ; ligne serie `[BOOT] firmware RawEdition v2.31 (build interne v231)`. README x3 : titre `RecalBoxDMD — RawEdition` + badge `firmware-v2.31` ; QUICK-START x3 sans numero ; `docs/install/manifest.json` : name sans numero, `version` = `2.31`. Les noms de fichiers `RecalBoxDMD_v2.0_*.bin` (chemin du Web Installer) ne changent PAS.
+
+**CHECKLIST DE VERSION (a faire a CHAQUE publication firmware)** : (1) `Version actuelle` dans l'en-tete du .ino, (2) `FW_VERSION_NUM`, (3) badge firmware des 3 README (`firmware-vM.NN`), (4) `version` de `docs/install/manifest.json`. Non automatise.
+
+**Non publie** : le badge annonce v2.31, a pousser avec les binaires v231.
