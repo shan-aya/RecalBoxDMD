@@ -2539,3 +2539,11 @@ Decision utilisateur : "vpinball est fonctionnel" apres validation reelle sur Ba
 **PAS publie sur GitHub** : `main` (build 7349) contient le firmware v211 et les scripts au niveau v52. Publier ce contenu = nouveau cycle (binaires v221, scripts, CHANGELOG, README, `feat_vpinball_dmd` documente) a faire explicitement.
 
 **Prochaine etape** (demande utilisateur) : explorer les autres types de tables — anciennes (score seul) et recentes avec afficheur 256x64.
+
+## Publication GitHub — firmware v222 + mode Pinball VPX (2026-09-20, 2e cycle)
+
+Demande utilisateur ("oui") apres la fusion de `dev/vpinball-integration` dans master. `main` `d57b508` -> `f04ab65` (fast-forward, 3 commits) : (1) docs README + CHANGELOG x3 langues (mode Pinball sans reboot, page d'accueil web config, Veille Recalbox, cles `feat_vpinball_dmd`/`feat_demo_follow`/`feat_clip_follow`), (2) `binaries/` = firmware **v222** (ancien archive dans `history/binaries_v2.0_2026-09-20_pre-v222`, `manifest.json` inchange), (3) scripts `marquee` v54 + `dmd_score` v53 (les seuls differents en hash LF-normalise). SHA256 du `.merged.bin` sur raw.githubusercontent = celui compile localement.
+
+**Verifie avant publication** : v222 flashe sur DMD2 (COM4, esptool 115200) ; page d'accueil web servie OK, bulle Pinball a jour, `/load` expose les 3 cles. Flux ZeDMD de test envoye (ecran non observe par moi -- a confirmer visuellement par l'utilisateur). Pas de nouvelle Release GitHub : le toolkit reste au build 7349 (rien change cote GUI/tool).
+
+**Non fait** : HELP.md du toolkit (onglet Aide, encore en retard : cite MQTT), a traiter avec un futur build du toolkit.
