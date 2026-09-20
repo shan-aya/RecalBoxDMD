@@ -551,7 +551,7 @@ When you launch a **Visual Pinball (VPX)** table from Recalbox, the DMD can show
 - **Recalbox side**: in the VPX DMD settings, use the **DMDUtil** plugin with `ZeDMDWiFiAddr` set to the **IP of this DMD**.
 - **No reboot when a table starts**: the picture shows up directly. While a table runs, the playlist and the Recalbox screens ("Recalbox connected"…) are suspended so nothing is drawn over the table.
 - **Back to normal**: the moment the game ends (the Recalbox scripts tell the DMD — re-install them with Mode 9 to get this), or about 5 seconds after the table stops sending frames. The brightness you set is restored.
-- **Tested** on 128×32 tables. Score-only tables and 256×64 tables are not validated yet.
+- **Older tables with alphanumeric (segment) displays** — Bally/Williams-era PinMAME tables that only show scores: also enable the **AlphaDMD** plugin on the Recalbox side (`[Plugin.AlphaDMD]` → `Enable = 1` in `/recalbox/share/system/configs/vpinball/VPinballX-configgen.ini`). Without it VPX sends nothing to the DMD for these tables and the marquee simply stays on screen.
 
 ---
 

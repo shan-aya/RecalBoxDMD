@@ -551,7 +551,7 @@ Cuando lanzas una mesa de **Visual Pinball (VPX)** desde Recalbox, el DMD puede 
 - **Lado Recalbox**: en los ajustes DMD de VPX, usa el plugin **DMDUtil** con `ZeDMDWiFiAddr` = **IP de este DMD**.
 - **Sin reinicio al lanzar una mesa**: la imagen aparece directamente. Mientras corre la mesa, la playlist y las pantallas de Recalbox («RecalBox conectada»…) quedan suspendidas para no dibujar nada encima.
 - **Vuelta a la normalidad**: en cuanto termina la partida (los scripts de Recalbox avisan al DMD — reinstálalos con el Modo 9 para tenerlo), o unos 5 segundos después de que la mesa deje de enviar imagen. Se restaura el brillo configurado.
-- **Probado** con mesas 128×32. Las mesas de solo puntuación y las 256×64 aún no están validadas.
+- **Mesas antiguas con display alfanumérico (segmentos)** — mesas PinMAME de la época Bally/Williams que solo muestran puntuaciones: activa también el plugin **AlphaDMD** en el lado de Recalbox (`[Plugin.AlphaDMD]` → `Enable = 1` en `/recalbox/share/system/configs/vpinball/VPinballX-configgen.ini`). Sin él, VPX no envía nada al DMD para estas mesas y el marquee simplemente se queda en pantalla.
 
 ---
 
