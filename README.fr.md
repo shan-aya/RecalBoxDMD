@@ -572,6 +572,9 @@ Le DMD peut se comporter comme un afficheur **ZeDMD-WiFi** : il parle le même p
    Remplacez `192.168.1.240` par l'**IP de ce DMD** (pas de commentaire en fin de ligne : un fichier `.ini` le lirait comme faisant partie de la valeur).
 
    Vérification : après avoir lancé une table, `vpinball.log` (même dossier) doit contenir `ZeDMD WiFi enabled, connected to <IP du DMD>`. Sinon, vérifiez l'IP, que le DMD est sur le même réseau, et que le Mode Pinball a bien été activé *puis le DMD redémarré*.
+
+   **Alternative automatique (firmware du DMD v230+, scripts installés avec le Mode 9)** : quand **Mode Pinball (VPX)** est coché sur le DMD, le script Recalbox `dmd_vpx_config` vérifie ces réglages (et celui d'AlphaDMD plus bas) à chaque démarrage de la Recalbox et après chaque partie, et écrit ce qui manque — jamais pendant qu'une table tourne, et sans jamais écraser une IP que vous avez saisie (sinon il utilise celle que le DMD annonce). **Cocher l'option est donc ce qui autorise la modification du fichier de configuration de la Recalbox** : décochée, le script ne fait rien. Pour le désactiver définitivement, créez le fichier `/recalbox/share/userscripts/dmd_helpers/vpx_autoconfig.disabled`. Son journal : `/recalbox/share/system/logs/dmd_vpx_config.log`.
+
 3. **Scripts Recalbox** : installez-les avec le **Mode 9** du PC Toolkit (nécessaire de toute façon pour le reste du projet) — ils permettent au DMD de quitter le mode Pinball instantanément à la fin d'une partie.
 
 > ⚠️ Modifiez `VPinballX-configgen.ini` **uniquement quand aucune table ne tourne** : VPX réécrit ce fichier à sa fermeture, ce qui effacerait votre modification. Une mise à jour de Recalbox peut aussi le réinitialiser.
