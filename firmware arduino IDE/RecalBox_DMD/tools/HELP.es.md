@@ -1,4 +1,4 @@
-# RecalBoxDMD — RawEdition v2.0 <img alt="Firmware: RawEdition v2.0" src="https://img.shields.io/badge/firmware-RawEdition%20v2.0-blueviolet.svg"> <img alt="Herramienta PC: v6243" src="https://img.shields.io/badge/herramienta%20PC-v6243-blueviolet.svg">
+# RecalBoxDMD — RawEdition <img alt="Firmware: v2.31" src="https://img.shields.io/badge/firmware-v2.31-blueviolet.svg"> <img alt="Herramienta PC: v7349" src="https://img.shields.io/badge/herramienta%20PC-v7349-blueviolet.svg">
 
 **Un verdadero marquee LED para tu mueble arcade Recalbox — visualización instantánea, incluso con un fullset MAME de 30 000 juegos.**
 
@@ -39,13 +39,19 @@
 
 ---
 
+## 🎬 Novedades de RawEdition v2.0
+
+- 👉 **[Resumen visual (página interactiva)](https://shan-aya.github.io/RecalBoxDMD/)**
+
+---
+
 ## ¿Qué es esto?
 
 **RecalBoxDMD** convierte un pequeño **panel LED 128×32** (2 módulos HUB75 64×32 encadenados) en un verdadero marquee de arcade para tu mueble **Recalbox**: lanzas un juego y su logo/marquee se enciende en el panel en pocos milisegundos — además de un conjunto de 10 **temas de reloj** en pixel-art (Mario, Pac-Man, Tetris, Space Invaders, Pong...) y un pack incluido de unos **600 GIFs retro** para el modo de espera/atracción.
 
 Es un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), reconstruido alrededor de un formato de píxeles propio, **raw565**, y una **caja de herramientas de PC (GUI de Windows)** para resolver un problema concreto: en colecciones grandes (fullset MAME, FBNeo...), el firmware original en PNG/GIF terminaba congelándose o mostrando pantalla negra varios segundos entre cada juego. Esta edición, no.
 
-|                          | PNG/GIF original | **RecalBoxDMD RawEdition v2.0** |
+|                          | PNG/GIF original | **RecalBoxDMD RawEdition** |
 |--------------------------|--------------------|----------------------------------|
 | Tiempo de visualización por juego | 500 ms – 3 s+     | **5 – 15 ms**                    |
 | RAM necesaria en el ESP32 | 50-100 KB         | **8 KB**                         |
@@ -72,13 +78,14 @@ Es un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), reco
 10. [Firmware — compilar y flashear](#firmware--compilar-y-flashear)
 11. [Configuración (`config.ini`)](#configuración-configini)
 12. [Configuración web — en vivo, en el navegador](#configuración-web--en-vivo-en-el-navegador)
-13. [MQTT y Telnet](#mqtt-y-telnet)
+13. [UDP y Telnet](#udp-y-telnet)
 14. [Superposiciones en juego — Hi-Score, Info del juego, Logros y Challenge RB](#superposiciones-en-juego--hi-score-info-del-juego-logros-y-challenge-rb)
-15. [El formato raw565 en detalle](#el-formato-raw565-en-detalle)
-16. [Estructura de la tarjeta SD](#estructura-de-la-tarjeta-sd)
-17. [Estructura del repositorio](#estructura-del-repositorio)
-18. [Solución de problemas](#solución-de-problemas)
-19. [Créditos y licencia](#créditos-y-licencia)
+15. [Mesas de Visual Pinball (VPX) en el DMD](#-mesas-de-visual-pinball-vpx-en-el-dmd)
+16. [El formato raw565 en detalle](#el-formato-raw565-en-detalle)
+17. [Estructura de la tarjeta SD](#estructura-de-la-tarjeta-sd)
+18. [Estructura del repositorio](#estructura-del-repositorio)
+19. [Solución de problemas](#solución-de-problemas)
+20. [Créditos y licencia](#créditos-y-licencia)
 
 ---
 
@@ -92,10 +99,11 @@ Es un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), reco
 - 🕹️ **10 temas de reloj pixel-art integrados** — Super Mario, Tetris, Pac-Man, Space Invaders, Pong, Neon, Matrix, Fire, Rainbow y un nivel 1-1 con scroll — se muestran periódicamente entre juegos (o a tiempo completo), tema seleccionable desde la web con **vista previa en vivo en el panel físico**.
 - 📦 **~600 GIFs retro gratuitos incluidos** — descarga opcional en un clic (Arcade, Consolas, Ordenadores, Pinball, Halloween, Navidad y más) para tus playlists en modo de espera.
 - 🖥️ **Caja de herramientas de PC para Windows en un clic** (GUI, FR/EN/ES) — desde ROMs en bruto + `gamelist.xml` hasta una tarjeta SD lista para usar: extracción consciente del scraping, conversión, caché y copia a la SD reanudable, todo en un clic de «Iniciar».
-- 🌐 **Página de configuración web en vivo** servida por el ESP32 — WiFi, MQTT, brillo, playlist, temas de reloj (con vista previa instantánea en el panel) — sin necesidad de recompilar para ajustar nada.
-- ⚡ **Flashea el firmware desde el navegador** — un [instalador web en un clic](https://shan-aya.github.io/RecalBoxDMD/) (Chrome/Edge) flashea el ESP32 por USB, sin Arduino IDE.
-- 📡 **Integración MQTT** con Recalbox para mostrar juegos/sistemas/eventos en tiempo real, además de una consola **Telnet** para depuración en el dispositivo.
+- 🌐 **Página de configuración web en vivo** servida por el ESP32 — WiFi, transporte UDP, brillo, playlist, temas de reloj (con vista previa instantánea en el panel) — sin necesidad de recompilar para ajustar nada.
+- ⚡ **Flashea el firmware desde el navegador** — un [instalador web en un clic](https://shan-aya.github.io/RecalBoxDMD/install/) (Chrome/Edge) flashea el ESP32 por USB, sin Arduino IDE.
+- 📡 **Enlace UDP en tiempo real** con Recalbox para mostrar juegos/sistemas/eventos al instante, además de una consola **Telnet** para depuración en el dispositivo.
 - 🏆 **Superposiciones en juego — Hi-Score, Info del juego, RetroAchievements y Challenge RB** — mientras juegas de verdad, el panel alterna automáticamente el marquee con las mejores puntuaciones reales de MAME/FBNeo (manifiesto comunitario, 4087 juegos), la descripción/género/año del juego, los logros de RetroAchievements desbloqueados y la clasificación del Challenge comunitario mensual oficial de Recalbox. Cero configuración: instala los scripts una vez (Modo 9) y todo funciona solo — ver [detalles más abajo](#superposiciones-en-juego--hi-score-info-del-juego-logros-y-challenge-rb).
+- 🎯 **Mesas de Visual Pinball (VPX) en el DMD** — lanza una mesa VPX desde Recalbox y el DMD muestra en directo la imagen DMD de la mesa, como un ZeDMD-WiFi, **sin reiniciar el DMD**; vuelve solo al marquee normal al terminar la partida. Desactivado por defecto — un solo interruptor en la página de inicio de la configuración web, ver [detalles abajo](#-mesas-de-visual-pinball-vpx-en-el-dmd).
 - 🎬 **Pestaña Playlist — crea tus propias rotaciones en modo atracción** — combina el pack de 600 GIFs y tus propios GIFs (arrastra una carpeta del PC), dale un nombre y queda lista para seleccionar como playlist activa; funciona directamente desde una tarjeta SD insertada o, en pleno Modo 1, desde la carpeta de trabajo antes incluso de copiarla.
 - 🌍 **Totalmente trilingüe** — tanto la interfaz web del firmware como la caja de herramientas de PC están disponibles en **francés, inglés y español**.
 - 🗣️ **Imágenes de sistema/género multilingües** — el pack de respaldo `_defaults` (insignias de género, Favoritos, Últimos Jugados...) está disponible en francés y español, seleccionable desde la caja de herramientas de PC con una vista previa comparativa en vivo; los géneros aún no traducidos simplemente quedan en inglés.
@@ -109,7 +117,7 @@ Es un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), reco
 ┌─────────────────────────────────────────────────────────────┐
 │                          RECALBOX                             │
 │   Lanza un juego → marquee[...].sh envía "mame/kof98"          │
-│                         vía MQTT                                │
+│                           vía UDP                           │
 └──────────────────────────────┬────────────────────────────────┘
                                 │
                                 ▼
@@ -157,6 +165,8 @@ La herramienta incluye 9 temas visuales (SNES, Mega Drive, Dreamcast, PlayStatio
 ---
 
 ## Inicio rápido
+
+*(También disponible como página independiente: [QUICK-START.md](QUICK-START.es.md))*
 
 <p align="center"><b>🚀 De cero a un marquee funcionando en 4 pasos 🚀</b></p>
 
@@ -371,7 +381,7 @@ Cualquier GIF funciona igual sea cual sea su origen — pero añade siempre los 
 
 ### 🌐 Opción A — Flashear desde el navegador (lo más sencillo, sin instalar nada)
 
-> [👉 **Abrir el instalador web de RecalBoxDMD**](https://shan-aya.github.io/RecalBoxDMD/)
+> [👉 **Abrir el instalador web de RecalBoxDMD**](https://shan-aya.github.io/RecalBoxDMD/install/)
 
 Con **Chrome o Edge**, conecta el ESP32 por USB, haz clic en **Instalar**, elige el puerto COM, y listo en un minuto aproximadamente — nada que instalar en tu PC, sin Arduino IDE. Flashea el último firmware precompilado directamente desde [`binaries/`](binaries/) usando [ESP Web Tools](https://esphome.github.io/esp-web-tools/). Marca **«Erase device»** en una primera instalación (o al venir de otro firmware, p. ej. DMDos) para borrar por completo la memoria flash antes.
 
@@ -387,7 +397,6 @@ Con **Chrome o Edge**, conecta el ESP32 por USB, haz clic en **Instalar**, elige
 | [pngle](https://github.com/kikuchan/pngle) | Decodificación de PNG (ruta de respaldo, incluida en el sketch) |
 | [WiFiManager](https://github.com/tzapu/WiFiManager) | Configuración WiFi |
 | [Adafruit GFX Library](https://github.com/adafruit/Adafruit-GFX-Library) | Renderizado de texto/formas |
-| [PubSubClient](https://github.com/knolleary/pubsubclient) | MQTT |
 | [ArduinoJson](https://github.com/bblanchon/ArduinoJson) | (De)serialización de la configuración y la web |
 
 3. Herramientas → Placa: **ESP32 Dev Module**, Tamaño de flash **4 MB**, Esquema de particiones **Huge APP**.
@@ -438,8 +447,13 @@ wifi_static_ip=192.168.1.240
 wifi_gateway=192.168.1.1
 wifi_subnet=255.255.255.0
 
-# MQTT
+# Enlace con Recalbox (UDP)
 recalbox_ip=192.168.1.104     # IP fija de tu Recalbox
+
+# Pinball (VPX) y reposo de Recalbox
+feat_vpinball_dmd=0           # 1 = mostrar las mesas de Visual Pinball (VPX) en directo (se aplica al próximo reinicio del DMD)
+feat_demo_follow=1            # 1 = seguir el logo del juego durante el reposo «demos de juegos», 0 = playlist simple
+feat_clip_follow=1            # ídem para el reposo «clips de vídeo de juegos»
 
 # Reloj (temas de reloj retro)
 [CLOCK]
@@ -456,11 +470,13 @@ TZ=CET-1CEST,M3.5.0,M10.5.0/3
 
 Escribe la IP del ESP32 (mostrada al arrancar, o visible en el propio panel) en el navegador de un móvil o PC: obtienes un sitio de configuración completo, dividido en 4 páginas de carga rápida, trilingüe (FR/EN/ES), con ayuda integrada — sin apps, sin recompilar.
 
-**💡 Pantalla y listas** — brillo del panel con una **vista previa en vivo enviada directamente al panel físico** mientras mueves el control deslizante, arranque silencioso o normal, playlist por defecto + reproducción aleatoria, y gestión de playlists (crear una nueva playlist directamente desde las carpetas de GIFs ya presentes en la SD, editar o borrar las existentes — para carpetas con muchos archivos, usa mejor la caja de herramientas de PC, pensada para eso).
+**🏠 Página de inicio** — el menú principal se abre con el marco **Pantalla**: brillo del panel con una **vista previa en vivo enviada directamente al panel físico** mientras mueves el control deslizante, arranque silencioso o normal, y el interruptor **Modo Pinball (VPX)**. Su botón Guardar confirma en la línea 2 del DMD.
+
+**💡 Pantalla y listas** — opciones de las superposiciones en juego, **reposo de Recalbox** (durante los salvapantallas «demos de juegos» / «clips de vídeo de juegos», o bien seguir el logo del juego como antes, o bien mantener la playlist simple como en los demás reposos), playlist por defecto + reproducción aleatoria, y gestión de playlists (crear una nueva playlist directamente desde las carpetas de GIFs ya presentes en la SD, editar o borrar las existentes — para carpetas con muchos archivos, usa mejor la caja de herramientas de PC, pensada para eso).
 
 <p align="center"><img src="medias/screenshots/webconfig_display_playlists.png" alt="Configuración web — página Pantalla y listas" width="420"></p>
 
-**📶 Wi-Fi y Bluetooth** — escaneo y selección de red, contraseña, IP estática (puerta de enlace/máscara/DNS), interruptor de Bluetooth (útil si entra en conflicto con un mando como el 8BitDo Pro 3), y la IP de Recalbox usada para la conexión MQTT.
+**📶 Wi-Fi y Bluetooth** — escaneo y selección de red, contraseña, IP estática (puerta de enlace/máscara/DNS), interruptor de Bluetooth (útil si entra en conflicto con un mando como el 8BitDo Pro 3), y la IP de Recalbox usada para el enlace UDP.
 
 <p align="center"><img src="medias/screenshots/webconfig_wifi_bluetooth.png" alt="Configuración web — página Wi-Fi y Bluetooth" width="420"></p>
 
@@ -474,10 +490,10 @@ Escribe la IP del ESP32 (mostrada al arrancar, o visible en el propio panel) en 
 
 ---
 
-## MQTT y Telnet
+## UDP y Telnet
 
 ```
-Recalbox → marquee[rungame,endgame,...].sh → MQTT → ESP32 → Panel LED
+Recalbox → marquee[rungame,endgame,...].sh → UDP → ESP32 → Panel LED
 
 1. Lanzas "King of Fighters '98"
 2. El script bash de usuario detecta el evento → publica "mame/kof98"
@@ -502,7 +518,7 @@ El **Modo 9** también instala scripts que puedes lanzar a mano desde Recalbox (
 | **Reboot DMD** | Reinicia el DMD de forma remota. |
 | **Luminosité DMD +10% / -10%** | Ajusta el brillo de la pantalla en pasos de 10 puntos porcentuales (limitado 0-100%), aplicado al instante y guardado en `config.ini`. |
 
-Todos usan el mismo canal MQTT que el puente marquee, sin interrumpir nunca lo que se muestra en pantalla.
+Todos usan el mismo canal UDP que el puente marquee, sin interrumpir nunca lo que se muestra en pantalla.
 
 Incluye una consola **Telnet** para depuración en el dispositivo:
 ```
@@ -526,6 +542,52 @@ Mientras un juego está realmente en marcha (nunca en modo de espera/playlist), 
 - 📅 **Challenge RB** — lee la clasificación oficial del Challenge comunitario mensual de Recalbox (un juego elegido por Recalbox cada mes, un solo crédito, sin continuar) directamente desde el recurso compartido de Recalbox — mismo panel, mismo estilo, sin configuración aparte.
 
 **Cero configuración en el lado del DMD.** Instala los scripts de Recalbox una vez — **Modo 9** de la caja de herramientas de PC (o la instalación automática integrada en el **Modo 1**) — y cada una de estas superposiciones empieza a funcionar sola para cualquier juego/sistema que tenga datos que mostrar; el DMD sigue siendo una pantalla «tonta» de principio a fin, toda la lógica (qué enviar, cuándo, durante cuánto tiempo) vive en los scripts del lado de Recalbox, nunca en el propio firmware.
+
+---
+
+## 🎯 Mesas de Visual Pinball (VPX) en el DMD
+
+El DMD puede comportarse como un display **ZeDMD-WiFi**: habla el mismo protocolo de red que el ZeDMD (un pequeño saludo HTTP y después las imágenes en flujo **UDP por el puerto 3333**), el que usa el plugin **DMDUtil** de Visual Pinball para manejar un ZeDMD por WiFi. Lanza una mesa VPX desde Recalbox y el DMD muestra en directo la imagen DMD propia de la mesa. **Desactivado por defecto**: con la opción sin marcar, nada cambia.
+
+### Qué obtienes
+
+- **Sin reinicio** al lanzar una mesa: la imagen aparece directamente.
+- Mientras corre la mesa, la **playlist y las pantallas de Recalbox** («RecalBox conectada»…) quedan suspendidas para no dibujar nada encima.
+- **Vuelta a la normalidad** en cuanto termina la partida (los scripts de Recalbox avisan al DMD), o unos 5 segundos después de que la mesa deje de enviar imagen. Se restaura el brillo configurado.
+- Los DMD grandes (p. ej. 192×64) los reduce VPX al panel de 128×32; las mesas coloreadas se ven en color.
+
+### Puesta en marcha — una sola vez
+
+1. **En el DMD**: marca **Modo Pinball (VPX)** en el marco *Pantalla* de la página de inicio de la configuración web y pulsa **Guardar y reiniciar** (la opción solo se lee al arrancar).
+2. **En la Recalbox (obligatorio)**: hay que indicar a VPX que envíe su DMD a este panel por WiFi. En `/recalbox/share/system/configs/vpinball/VPinballX-configgen.ini`, sección `[Plugin.DMDUtil]`:
+
+   ```ini
+   [Plugin.DMDUtil]
+   Enable = 1
+   ZeDMDWiFiEnabled = 1
+   ZeDMDWiFiAddr = 192.168.1.240
+   ```
+
+   Sustituye `192.168.1.240` por la **IP de este DMD** (sin comentarios al final de línea: un archivo `.ini` los leería como parte del valor).
+
+   Comprobación: tras lanzar una mesa, `vpinball.log` (misma carpeta) debe contener `ZeDMD WiFi enabled, connected to <IP del DMD>`. Si no, revisa la IP, que el DMD esté en la misma red y que el Modo Pinball se activó *y el DMD se reinició* después.
+
+   **Alternativa automática (firmware del DMD v230+, scripts instalados con el Modo 9)**: con **Modo Pinball (VPX)** marcado en el DMD, el script de Recalbox `dmd_vpx_config` comprueba estos ajustes (y el de AlphaDMD más abajo) en cada arranque de la Recalbox y después de cada partida, y escribe lo que falte — nunca mientras corre una mesa, y sin sobrescribir nunca una IP que hayas escrito tú (si no, usa la que anuncia el DMD). **Marcar la opción es, por tanto, lo que autoriza la modificación del archivo de configuración de la Recalbox**: sin marcar, el script no hace nada. Para desactivarlo definitivamente, crea el archivo `/recalbox/share/userscripts/dmd_helpers/vpx_autoconfig.disabled`. Su registro: `/recalbox/share/system/logs/dmd_vpx_config.log`.
+
+3. **Scripts de Recalbox**: instálalos con el **Modo 9** del PC Toolkit (necesario de todos modos para el resto del proyecto) — permiten al DMD salir del modo Pinball al instante al terminar una partida.
+
+> ⚠️ Edita `VPinballX-configgen.ini` **solo cuando no hay ninguna mesa en marcha**: VPX reescribe ese archivo al cerrarse y borraría tu cambio. Una actualización de Recalbox también puede reiniciarlo.
+
+### Ajustes opcionales, según el tipo de mesa
+
+- **Mesas antiguas con display alfanumérico (segmentos)** — mesas PinMAME de la época Bally/Williams que solo muestran puntuaciones: activa el plugin **AlphaDMD** (`[Plugin.AlphaDMD]` → `Enable = 1`, mismo archivo). Sin él, VPX no envía nada al DMD para estas mesas y el marquee simplemente se queda en pantalla.
+- **Mesas coloreadas (Serum)** — una mesa que trae una carpeta `altcolor/<rom>/<rom>.cRZ` solo muestra colores (e imágenes de fondo) si al plugin **Serum** de VPX se le indica dónde buscar: añade `[Plugin.Serum]` / `SerumPath = <carpeta de la mesa>/altcolor` en el archivo `.ini` de la mesa (junto al `.vpx`). Sin eso, el log dice `Serum: No colorization file found for <rom>` y la mesa se queda en monocromo.
+
+### Compatibilidad
+
+- **Probado** con mesas DMD 128×32 (Batman), Big Bang Bar (DMD 192×64), 6 de 8 mesas alfanuméricas (Black Hole y Farfalla usan disposiciones de display que el plugin AlphaDMD no soporta) y una mesa coloreada (Diner).
+- **Nada que mostrar**: las mesas puramente electromecánicas y las que dibujan su DMD con PinUP Player (p. ej. Batman 66) no envían nada al DMD.
+- **Probado solo con Recalbox.** El DMD solo depende del protocolo ZeDMD-WiFi: un Visual Pinball Standalone que use DMDUtil con los mismos ajustes `ZeDMDWiFi*` debería poder manejarlo también — sin probar. Específico de Recalbox: las rutas de archivos anteriores y la salida instantánea al terminar la partida (sin los scripts, el DMD vuelve al marquee unos 5 segundos después de la última imagen).
 
 ---
 
@@ -577,12 +639,14 @@ binaries/                     ← imágenes de firmware precompiladas (bootloade
 tools/                        ← caja de herramientas de PC (GUI Python, FR/EN/ES) + build de Windows
 carte SD/                     ← contenido de la tarjeta SD listo para copiar (gifs, defaults del sistema, scripts)
 medias/                       ← capturas de pantalla, GIFs de demostración de los temas de reloj, kit de prensa
-docs/                          ← GitHub Pages: instalador web (shan-aya.github.io/RecalBoxDMD)
+docs/                          ← GitHub Pages: página de presentación (shan-aya.github.io/RecalBoxDMD) + instalador web (…/install/)
 ```
 
 ---
 
 ## Solución de problemas
+
+Para congelamientos, corrupción de pantalla, bucles en la configuración WiFi, o un DMD que parece desincronizado de Recalbox, consulta primero la página dedicada **[FAQ y solución de problemas](FAQ.es.md)** — cubre las causas más comunes (alimentación USB, calidad de la tarjeta microSD, revisión del chip ESP32) con más detalle del que cabe aquí.
 
 | Problema | Solución |
 |---|---|
@@ -614,4 +678,4 @@ Bajo licencia [MIT](LICENSE).
 
 ☕ Si este proyecto te resulta útil: [dona vía PayPal](https://www.paypal.com/paypalme/felysaya)
 
-<p align="center"><i>RecalBoxDMD RawEdition v2.0 — Recalbox + un verdadero marquee LED, instantáneo incluso con 30 000 juegos de MAME.</i> 🎮⚡</p>
+<p align="center"><i>RecalBoxDMD RawEdition — Recalbox + un verdadero marquee LED, instantáneo incluso con 30 000 juegos de MAME.</i> 🎮⚡</p>

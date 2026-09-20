@@ -2618,3 +2618,11 @@ Demande utilisateur ("oui") apres la fusion de `dev/vpinball-integration` dans m
 **CHECKLIST DE VERSION (a faire a CHAQUE publication firmware)** : (1) `Version actuelle` dans l'en-tete du .ino, (2) `FW_VERSION_NUM`, (3) badge firmware des 3 README (`firmware-vM.NN`), (4) `version` de `docs/install/manifest.json`. Non automatise.
 
 **Non publie** : le badge annonce v2.31, a pousser avec les binaires v231.
+
+## Aide du toolkit (HELP.md x3) mise a jour — MQTT retire, UDP, mode Pinball (2026-09-20)
+
+**Demande utilisateur** : mettre a jour l'aide du tools (enlever MQTT, etc.). **Fait** : `tools/HELP.md`/`.fr.md`/`.es.md` regeneres a partir du README a jour (transport UDP, plus aucune mention de MQTT ni de PubSubClient, section Visual Pinball, script `dmd_vpx_config`, version firmware). Rendu verifie avec `markdown` (extra/smarty/sane_lists/toc, comme `RecalBoxDMD_md_renderer`). Ligne `PubSubClient` retiree aussi des 3 README (bibliotheque retiree du firmware en v209).
+
+**A SIGNALER** : l'entree du 2026-09-14 (ci-dessus, "onglet Aide ... restaure, reecrit") annonce un manuel d'utilisation dedie a l'application, distinct du README. Le fichier `HELP.md` effectivement present dans le depot (commit `e0b0c9a` et suivants) est en realite une COPIE du README GitHub (memes sections : What is this / Key features / Firmware compiling / ...), pas le manuel "Toolkit Full Help" (onglets, Modes 1-11, workflow). L'aide etait donc deja un README bundle ; cette mise a jour la garde dans cette forme. Un vrai manuel du toolkit reste a ecrire si l'utilisateur le veut (ancien manuel v3.5 : `git show 98c990a^:"firmware arduino IDE/RecalBox_DMD/tools/README.md"`).
+
+**Non publie** : un nouveau build du toolkit est necessaire pour embarquer cette aide dans l'exe (build 7449 : GUI v74 + tool v49).
