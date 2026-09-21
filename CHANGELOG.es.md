@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-09-22 — La caja de herramientas copia los archivos de récords, nueva carpeta de datos
+
+- **Toolkit PC** (build `7550`): **el Modo 1 y el Modo 9 ahora también copian los archivos de récords (`.hi`)** — unos 3000 archivos de FBNeo y MAME 0.278 — en `/recalbox/share/saves` de la Recalbox, para que el DMD tenga puntuaciones que mostrar de juegos nunca jugados. **Un `.hi` ya presente en la Recalbox nunca se sobrescribe**; solo se añaden los que faltan. Por el recurso compartido de red, con SSH como alternativa. Las tablas de récords (JSON) ya se instalaban con los scripts.
+- **Toolkit PC**: la pestaña Ayuda menciona ahora la copia de los `.hi` (3 idiomas).
+- **Docs / datos**: nueva carpeta [`tools/hiscore_recalbox/`](tools/hiscore_recalbox/) — 3161 archivos `.hi` (FBNeo 2491, MAME 0.278 670), los dos archivos JSON de récords, un manifiesto de sumas de comprobación y un README, listos para entregar al equipo de Recalbox. La tabla `verified_default_scores.json` se actualiza (3941 entradas: 2277 mame0278 + 1664 fbneo); reinstala los scripts con el Modo 9 para obtenerla.
+
 ## 2026-09-20 (2) — Modo Visual Pinball (VPX) sin reinicio, nueva página de inicio de la configuración web, opciones de reposo de Recalbox
 
 - **Firmware**: nuevo **Modo Pinball (VPX)** — una mesa de Visual Pinball lanzada desde Recalbox se muestra en directo en el DMD (protocolo ZeDMD-WiFi, plugin DMDUtil en el lado de Recalbox). **Sin reinicio del DMD**: cambia sobre la marcha al lanzar la mesa y vuelve a la normalidad al terminar la partida (o unos 5 s después del último fotograma). Mientras corre la mesa, la playlist y las pantallas de Recalbox («RecalBox conectada»…) quedan suspendidas para no dibujar nada encima. Desactivado por defecto; el brillo se restaura al salir. Por ahora solo probado con mesas 128×32.

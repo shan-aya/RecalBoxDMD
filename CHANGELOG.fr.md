@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-09-22 — Le Toolkit PC copie les fichiers de hi-score, nouveau dossier de données hi-score
+
+- **Toolkit PC** (build `7550`) : **le Mode 1 et le Mode 9 copient maintenant aussi les fichiers de hi-score (`.hi`)** — environ 3000 fichiers pour FBNeo et MAME 0.278 — dans `/recalbox/share/saves` sur la Recalbox, pour que le DMD ait des scores à afficher pour des jeux jamais joués. **Un `.hi` déjà présent sur la Recalbox n'est jamais écrasé** ; seuls les manquants sont ajoutés. Par le partage réseau, avec SSH en repli. Les tables de hi-score (JSON) étaient déjà installées avec les scripts.
+- **Toolkit PC** : l'onglet Aide mentionne maintenant la copie des `.hi` (3 langues).
+- **Docs / données** : nouveau dossier [`tools/hiscore_recalbox/`](tools/hiscore_recalbox/) — 3161 fichiers `.hi` (FBNeo 2491, MAME 0.278 670), les deux fichiers JSON de hi-score, un manifeste de sommes de contrôle et un README, prêts à être transmis à l'équipe Recalbox. La table de hi-score `verified_default_scores.json` est mise à jour (3941 entrées : 2277 mame0278 + 1664 fbneo) ; réinstallez les scripts avec le Mode 9 pour l'obtenir.
+
 ## 2026-09-20 (2) — Mode Visual Pinball (VPX) sans redémarrage, nouvelle page d'accueil web config, options de veille Recalbox
 
 - **Firmware** : nouveau **Mode Pinball (VPX)** — une table Visual Pinball lancée depuis Recalbox s'affiche en direct sur le DMD (protocole ZeDMD-WiFi, plugin DMDUtil côté Recalbox). **Aucun redémarrage du DMD** : il bascule sur place au lancement de la table et revient à la normale à la fin de la partie (ou environ 5 s après la dernière image). Pendant la table, la playlist et les écrans Recalbox (« RecalBox connectée »…) sont suspendus pour ne rien dessiner par-dessus. Désactivé par défaut ; la luminosité est restaurée à la sortie. Testé pour l'instant uniquement sur des tables 128×32.
