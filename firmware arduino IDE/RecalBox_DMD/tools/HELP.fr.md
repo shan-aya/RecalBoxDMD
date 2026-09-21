@@ -105,7 +105,7 @@ Dans cet ordre :
 ### Ce que fait ensuite le pipeline automatique
 
 1. **Prépare** le dossier de travail et écrit la langue et l'indicateur de « premier démarrage » dans le `config.ini` du DMD.
-2. **Installe les scripts Recalbox** (voir [Mode 9](#9-scripts-recalbox-mode-9)) — d'abord une copie locale dans `recalbox_userscripts`, puis sur la Recalbox elle-même si elle a été confirmée. L'IP de la Recalbox est écrite dans le `config.ini` pour que la page web du DMD soit pré-remplie.
+2. **Installe les scripts Recalbox** (voir [Mode 9](#9-scripts-recalbox-mode-9)) — d'abord une copie locale dans `recalbox_userscripts`, puis sur la Recalbox elle-même si elle a été confirmée. L'IP de la Recalbox est écrite dans le `config.ini` pour que la page web du DMD soit pré-remplie. Il copie ensuite les fichiers de hi-score (voir [Mode 9](#9-scripts-recalbox-mode-9)).
 3. **Extrait** l'image marquee de chaque jeu depuis les `gamelist.xml` (la liste des images manquantes est enregistrée dans `images_manquantes.txt`).
 4. **Convertit** au format brut 128 × 32, puis supprime les `.png`/`.gif` d'origine qui ont été convertis.
 5. **Construit `games_cache.bin`**, télécharge les images **`_defaults`** (avec votre langue et l'image de secours), le **pack de GIFs** et les **playlists** (une playlist par défaut plus `ALL.txt`), puis construit **`systems_cache.dat`**.
@@ -171,6 +171,7 @@ Le DMD n'affiche que ce que la Recalbox lui dit. Le lien est un ensemble de peti
 
 - **Scripts d'évènements** (se lancent tout seuls) : le pont *marquee*, le script *hi-score / infos jeu / Challenge RB*, le script *RetroAchievements*, et `dmd_vpx_config`, qui règle les paramètres DMD de Visual Pinball **uniquement si** l'option **Mode Pinball (VPX)** est cochée sur la page web du DMD. Leurs fichiers d'aide vont dans `dmd_helpers/`.
 - **Scripts manuels** (dans le menu Recalbox **Scripts utilisateur**) : *DMD Config Web*, *DMD Luminosité +10 % / −10 %*, *DMD Reboot* et *DMD WiFi Recovery*.
+- **Fichiers de hi-score (`.hi`)** : le Mode 1 et le Mode 9 copient aussi environ 3000 fichiers de hi-score (FBNeo et MAME 0.278) dans le dossier `share/saves` de la Recalbox, pour que le DMD ait des scores à afficher pour des jeux auxquels vous n'avez pas encore joué. **Un `.hi` déjà présent sur votre Recalbox n'est jamais écrasé** — seuls les manquants sont ajoutés. Le journal se termine par une ligne du type *N .hi copiés, M déjà présents*. Les tables de hi-score (JSON) voyagent avec les scripts, dans `dmd_helpers/`.
 
 > **Redémarrez EmulationStation** (ou la Recalbox) après l'installation, sinon le menu **Scripts utilisateur** reste grisé : Recalbox ne cherche les scripts qu'à son démarrage.
 

@@ -105,7 +105,7 @@ In this order:
 ### What the automatic pipeline then does
 
 1. **Prepares** the working folder and writes the language and the "first boot" flag into the DMD's `config.ini`.
-2. **Installs the Recalbox scripts** (see [Mode 9](#9-recalbox-scripts-mode-9)) — first a local copy in `recalbox_userscripts`, then onto the Recalbox itself if it was confirmed. The Recalbox IP is written to `config.ini` so the DMD web page is pre-filled.
+2. **Installs the Recalbox scripts** (see [Mode 9](#9-recalbox-scripts-mode-9)) — first a local copy in `recalbox_userscripts`, then onto the Recalbox itself if it was confirmed. The Recalbox IP is written to `config.ini` so the DMD web page is pre-filled. It then copies the hi-score files (see [Mode 9](#9-recalbox-scripts-mode-9)).
 3. **Extracts** each game's marquee picture from the `gamelist.xml` files (a list of missing pictures is saved as `images_manquantes.txt`).
 4. **Converts** to 128 × 32 raw format, then removes the original `.png`/`.gif` that were converted.
 5. **Builds `games_cache.bin`**, downloads the **`_defaults`** pictures (with your language and fallback image), the **GIF pack** and the **playlists** (a default playlist plus `ALL.txt`), then builds **`systems_cache.dat`**.
@@ -171,6 +171,7 @@ The DMD only shows what the Recalbox tells it. The link is a set of small **scri
 
 - **Event scripts** (run by themselves): the *marquee* bridge, the *hi-score / game info / RB Challenge* script, the *RetroAchievements* script, and `dmd_vpx_config`, which sets up Visual Pinball's DMD settings **only if** the **Pinball mode (VPX)** option is ticked on the DMD's web page. Their helper files go in `dmd_helpers/`.
 - **Manual scripts** (in the Recalbox menu **Userscripts**): *DMD Config Web*, *DMD Brightness +10 % / −10 %*, *DMD Reboot* and *DMD WiFi Recovery*.
+- **Hi-score files (`.hi`)**: Mode 1 and Mode 9 also copy about 3000 hi-score files (FBNeo and MAME 0.278) into the Recalbox's `share/saves` folder, so the DMD has scores to show for games you have not played yet. **A `.hi` that already exists on your Recalbox is never overwritten** — only the missing ones are added. The log ends with a line such as *N .hi copied, M already present*. The hi-score tables (JSON) travel with the scripts, in `dmd_helpers/`.
 
 > **Restart EmulationStation** (or reboot the Recalbox) after installing, otherwise the **Userscripts** menu stays greyed out: Recalbox only looks for scripts when it starts.
 

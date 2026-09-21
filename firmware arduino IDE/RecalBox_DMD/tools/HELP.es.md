@@ -105,7 +105,7 @@ En este orden:
 ### Lo que hace después el proceso automático
 
 1. **Prepara** la carpeta de trabajo y escribe el idioma y el indicador de «primer arranque» en el `config.ini` del DMD.
-2. **Instala los scripts de Recalbox** (ver [Modo 9](#9-scripts-de-recalbox-modo-9)) — primero una copia local en `recalbox_userscripts`, luego en la propia Recalbox si se confirmó. La IP de la Recalbox se escribe en el `config.ini` para que la página web del DMD venga rellenada.
+2. **Instala los scripts de Recalbox** (ver [Modo 9](#9-scripts-de-recalbox-modo-9)) — primero una copia local en `recalbox_userscripts`, luego en la propia Recalbox si se confirmó. La IP de la Recalbox se escribe en el `config.ini` para que la página web del DMD venga rellenada. Después copia los archivos de récords (ver [Modo 9](#9-scripts-de-recalbox-modo-9)).
 3. **Extrae** la imagen marquee de cada juego de los `gamelist.xml` (la lista de imágenes que faltan se guarda en `images_manquantes.txt`).
 4. **Convierte** al formato bruto de 128 × 32 y elimina los `.png`/`.gif` originales que se convirtieron.
 5. **Construye `games_cache.bin`**, descarga las imágenes **`_defaults`** (con tu idioma y tu imagen de respaldo), el **pack de GIFs** y las **playlists** (una playlist por defecto más `ALL.txt`), y después construye **`systems_cache.dat`**.
@@ -171,6 +171,7 @@ El DMD solo muestra lo que la Recalbox le dice. El enlace es un conjunto de pequ
 
 - **Scripts de eventos** (se ejecutan solos): el puente *marquee*, el script de *hi-score / info del juego / Challenge RB*, el script de *RetroAchievements* y `dmd_vpx_config`, que ajusta los parámetros de DMD de Visual Pinball **solo si** la opción **Modo Pinball (VPX)** está marcada en la página web del DMD. Sus archivos auxiliares van en `dmd_helpers/`.
 - **Scripts manuales** (en el menú de Recalbox **Scripts de usuario**): *DMD Config Web*, *DMD Brillo +10 % / −10 %*, *DMD Reboot* y *DMD WiFi Recovery*.
+- **Archivos de récords (`.hi`)**: el Modo 1 y el Modo 9 también copian unos 3000 archivos de récords (FBNeo y MAME 0.278) en la carpeta `share/saves` de la Recalbox, para que el DMD tenga puntuaciones que mostrar de juegos que aún no has jugado. **Un `.hi` que ya existe en tu Recalbox nunca se sobrescribe** — solo se añaden los que faltan. El registro termina con una línea del tipo *N .hi copiados, M ya presentes*. Las tablas de récords (JSON) viajan con los scripts, en `dmd_helpers/`.
 
 > **Reinicia EmulationStation** (o la Recalbox) tras instalar, si no el menú **Scripts de usuario** sigue en gris: Recalbox solo busca los scripts al arrancar.
 
