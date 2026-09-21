@@ -49117,5 +49117,19 @@
     ],
     "source": "progetto-SNAPS sfiii.png (Street Fighter III New Generation, RANKING SCORE) -- propage aux clones/revisions",
     "date": "2026-09-06"
+  },
+  "fbneo_aliens": {
+    "lines": [
+      "1 AAA 50000",
+      "2 BBB 48000",
+      "3 CCC 40000",
+      "4 DDD 38000",
+      "5 EEE 30000",
+      "6 FFF 28000",
+      "7 GGG 20000",
+      "8 HHH 18000"
+    ],
+    "source": "campagne attract_multishot_rb2.py (capture attract-mode sans credit sur RB2, 8 tirs espaces de 12s), table RANKING captee a la 7e capture (~74s) -- seul resultat positif sur 196 jeux cibles",
+    "date": "2026-09-08"
   }
 }

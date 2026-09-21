@@ -1,7 +1,18 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v49
+# Version actuelle : v50
+#
+# v50 - 2026-09-22 - safe-modify - Mode 1 ET Mode 9 copient aussi les fichiers .hi
+#      (hi-scores fbneo + mame0278, ~3000 fichiers) vers /recalbox/share/saves/ de la
+#      Recalbox, JAMAIS en ecrasant un .hi deja present (demande utilisateur).
+#      Nouveau : install_hiscore_files() (SMB puis repli SSH, creation exclusive "xb"
+#      cote SMB, listing distant par dossier cote SFTP) alimentee par UN zip GitHub
+#      (tools/hiscore_recalbox/hiscore_hi_pack.zip) ; appelee par les modes console 1
+#      et 9 et par la GUI (v75). Les JSON hi-score (verified_default_scores.json,
+#      hiscore_manifest.json) etaient DEJA installes avec userscripts/dmd_helpers/
+#      (Modes 1 et 9) : aucun code a ajouter, seul le fichier GitHub est mis a jour.
+#      Nouvelles chaines FR/EN/ES : hiscore_phase/fetch_fail/unavailable/result/summary.
 #
 # v49 - 2026-09-20 - safe-modify - download_defaults() n'installait jamais
 #      _shuffle.raw565pack ni _shuffle.meta (filtre limite a .png/.gif/.raw565) :
@@ -924,6 +935,11 @@ TRANSLATIONS = {
         "mode1_scripts_phase": "\n📂  Installation des scripts Recalbox...",
         "mode1_scripts_skip": "\n⏭️  Recalbox non confirmée — scripts non installés automatiquement (copie manuelle possible depuis le dossier temporaire, ou Mode 9 plus tard).",
         "mode1_scripts_installed_via": lambda m: f"   ℹ️  Installés via {'SMB' if m == 'smb' else 'SSH (repli)'}.",
+        "hiscore_phase": "\n🏆  Copie des fichiers hi-score (.hi) vers la Recalbox — les .hi déjà présents ne sont jamais écrasés...",
+        "hiscore_fetch_fail": lambda e: f"❌ Téléchargement des .hi impossible (GitHub) — {e}",
+        "hiscore_unavailable": "❌ Copie des .hi impossible : ni le partage SMB ni SSH n'ont répondu (Recalbox éteinte ou injoignable). Relance le Mode 9 plus tard.",
+        "hiscore_result": lambda c, s, m: f"   ✅ {c} .hi copiés, {s} déjà présents (conservés tels quels) — via {'SMB' if m == 'smb' else 'SSH (repli)'}.",
+        "hiscore_summary": lambda c, s: f".hi : {c} copiés, {s} déjà présents",
         "main_choice": "Votre choix (1-9) : ",
         "main_opt_quit": "QUITTER",
         "main_warn": "⚠️  Tape un chiffre entre 0 et 9.\n",
@@ -1171,6 +1187,11 @@ TRANSLATIONS = {
         "mode1_scripts_phase": "\n📂  Installing Recalbox scripts...",
         "mode1_scripts_skip": "\n⏭️  Recalbox not confirmed — scripts not installed automatically (manual copy possible from the temp folder, or Mode 9 later).",
         "mode1_scripts_installed_via": lambda m: f"   ℹ️  Installed via {'SMB' if m == 'smb' else 'SSH (fallback)'}.",
+        "hiscore_phase": "\n🏆  Copying hi-score files (.hi) to the Recalbox — existing .hi files are never overwritten...",
+        "hiscore_fetch_fail": lambda e: f"❌ Could not download the .hi files (GitHub) — {e}",
+        "hiscore_unavailable": "❌ Could not copy the .hi files: neither the SMB share nor SSH answered (Recalbox off or unreachable). Run Mode 9 again later.",
+        "hiscore_result": lambda c, s, m: f"   ✅ {c} .hi copied, {s} already present (kept as they are) — via {'SMB' if m == 'smb' else 'SSH (fallback)'}.",
+        "hiscore_summary": lambda c, s: f".hi: {c} copied, {s} already present",
         "main_choice": "Your choice (1-9): ",
         "main_opt_quit": "QUIT",
         "main_warn": "⚠️  Enter a number between 0 and 9.\n",
@@ -1419,6 +1440,11 @@ TRANSLATIONS = {
         "mode1_scripts_phase": "\n📂  Instalando scripts de Recalbox...",
         "mode1_scripts_skip": "\n⏭️  Recalbox no confirmada — scripts no instalados automáticamente (copia manual posible desde la carpeta temporal, o Modo 9 más tarde).",
         "mode1_scripts_installed_via": lambda m: f"   ℹ️  Instalados vía {'SMB' if m == 'smb' else 'SSH (repliegue)'}.",
+        "hiscore_phase": "\n🏆  Copiando los archivos de récords (.hi) a la Recalbox — los .hi ya presentes nunca se sobrescriben...",
+        "hiscore_fetch_fail": lambda e: f"❌ No se pudieron descargar los .hi (GitHub) — {e}",
+        "hiscore_unavailable": "❌ No se pudieron copiar los .hi: ni el recurso SMB ni SSH respondieron (Recalbox apagada o inaccesible). Vuelve a ejecutar el Modo 9 más tarde.",
+        "hiscore_result": lambda c, s, m: f"   ✅ {c} .hi copiados, {s} ya presentes (conservados tal cual) — vía {'SMB' if m == 'smb' else 'SSH (repliegue)'}.",
+        "hiscore_summary": lambda c, s: f".hi: {c} copiados, {s} ya presentes",
         "main_choice": "Su eleccion (1-9): ",
         "main_opt_quit": "SALIR",
         "main_warn": "⚠️  Escribe un número entre 0 y 9.\n",
@@ -3594,6 +3620,8 @@ def mode_full(sd_dir: Path):
     if recalbox_target:
         print(tr("mode1_scripts_phase"))
         download_recalbox_scripts(recalbox_target, listen_keyboard=True)
+        # v50 -- .hi hi-score (jamais d'ecrasement), voir install_hiscore_files()
+        install_hiscore_files(recalbox_target)
     else:
         print(tr("mode1_scripts_skip"))
 
@@ -5060,6 +5088,184 @@ def install_recalbox_scripts(staged_dir: Path, recalbox_host: str, progress_cb=N
     return (0, 0, None)
 
 
+# v50 -- fichiers .hi (hi-scores) : Mode 1 ET Mode 9 les copient aussi vers la
+# Recalbox, JAMAIS en ecrasant un .hi deja present (demande utilisateur :
+# un .hi existant vient peut-etre d'une vraie partie du joueur). Source :
+# UN seul zip sur GitHub (tools/hiscore_recalbox/hiscore_hi_pack.zip, ~600 Ko,
+# genere depuis tools/hiscore_recalbox/hi/) plutot que ~3000 telechargements
+# unitaires ; les chemins DANS le zip sont ceux de /recalbox/share/saves/
+# (fbneo/fbneo/<rom>.hi, mame/mame0278/hiscore/<rom>.hi). Les JSON hi-score
+# (verified_default_scores.json, hiscore_manifest.json) ne sont PAS geres ici :
+# ils voyagent deja avec userscripts/dmd_helpers/ (scripts Recalbox), il suffit
+# de tenir tools/recalbox_scripts/dmd_helpers/ a jour sur GitHub.
+GITHUB_HISCORE_PACK_URL = "https://raw.githubusercontent.com/shan-aya/RecalBoxDMD/main/tools/hiscore_recalbox/hiscore_hi_pack.zip"
+RECALBOX_SSH_SAVES_PATH = "/recalbox/share/saves"
+HISCORE_PACK_MAX_FILE_BYTES = 65536  # garde-fou : un .hi fait quelques dizaines/centaines d'octets
+
+
+def _fetch_hiscore_pack():
+    """Telecharge le zip des .hi depuis GitHub et retourne la liste
+    [(chemin_relatif_a_saves, octets), ...], ou None (message deja imprime)
+    si le telechargement/l'ouverture echoue. Ignore toute entree qui n'est
+    pas un .hi, qui sort de l'arborescence (chemin absolu, "..", antislash)
+    ou qui depasse HISCORE_PACK_MAX_FILE_BYTES."""
+    import io
+    import zipfile
+    import urllib.request
+
+    try:
+        req = urllib.request.Request(GITHUB_HISCORE_PACK_URL, headers={"User-Agent": "recalbox-toolkit"})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = resp.read()
+        zf = zipfile.ZipFile(io.BytesIO(data))
+    except Exception as e:
+        print(tr("hiscore_fetch_fail")(e))
+        return None
+
+    files = []
+    for info in zf.infolist():
+        name = info.filename
+        if info.is_dir() or not name.lower().endswith(".hi"):
+            continue
+        if name.startswith("/") or "\\" in name or ".." in name.split("/"):
+            continue
+        if info.file_size > HISCORE_PACK_MAX_FILE_BYTES:
+            continue
+        files.append((name, zf.read(info)))
+    return files
+
+
+def _install_hiscore_via_share(files, recalbox_host: str, progress_cb=None):
+    r"""Copie les .hi vers \\<host>\share\saves\... sans jamais ecraser
+    (creation exclusive "xb" : meme une course avec une partie en cours ne
+    peut pas remplacer un fichier). Retourne (copies, deja_presents, total),
+    ou None si le partage est injoignable (l'appelant tente alors SSH)."""
+    share_root = Path(rf"\\{recalbox_host}\share")
+    try:
+        os.listdir(share_root)
+    except OSError:
+        return None
+
+    saves = share_root / "saves"
+    existing_by_dir = {}
+    copied = skipped = 0
+    total = len(files)
+    for i, (rel, data) in enumerate(files, 1):
+        if progress_cb is not None and (i % 50 == 0 or i == total):
+            progress_cb("install_hiscore", i, total, rel)
+        dst = saves.joinpath(*rel.split("/"))
+        d = dst.parent
+        if d not in existing_by_dir:
+            try:
+                d.mkdir(parents=True, exist_ok=True)
+                existing_by_dir[d] = set(os.listdir(d))
+            except OSError as e:
+                print(tr("mode9_result_fail")(str(d), e))
+                existing_by_dir[d] = None
+        names = existing_by_dir[d]
+        if names is None:
+            continue
+        if dst.name in names:
+            skipped += 1
+            continue
+        try:
+            with open(dst, "xb") as fh:
+                fh.write(data)
+            copied += 1
+        except FileExistsError:
+            skipped += 1
+        except OSError as e:
+            print(tr("mode9_result_fail")(rel, e))
+    return (copied, skipped, total)
+
+
+def _sftp_mkdirs(sftp, remote_dir: str) -> None:
+    """mkdir -p via SFTP (les segments existants sont ignores)."""
+    cur = ""
+    for part in [p for p in remote_dir.split("/") if p]:
+        cur += "/" + part
+        try:
+            sftp.mkdir(cur)
+        except IOError:
+            pass  # existe deja
+
+
+def _install_hiscore_via_ssh(files, recalbox_host: str, progress_cb=None):
+    """Repli SSH/SFTP de _install_hiscore_via_share(), meme regle : un .hi
+    deja present sur la Recalbox n'est jamais remplace (le contenu du
+    dossier distant est liste une fois par dossier). Retourne
+    (copies, deja_presents, total), ou None si SSH est indisponible."""
+    import io
+
+    client = _ssh_connect_recalbox(recalbox_host)
+    if client is None:
+        return None
+    copied = skipped = 0
+    total = len(files)
+    try:
+        sftp = client.open_sftp()
+        try:
+            existing_by_dir = {}
+            for i, (rel, data) in enumerate(files, 1):
+                if progress_cb is not None and (i % 50 == 0 or i == total):
+                    progress_cb("install_hiscore", i, total, rel)
+                remote_dir = f"{RECALBOX_SSH_SAVES_PATH}/{rel.rsplit('/', 1)[0]}"
+                name = rel.rsplit("/", 1)[-1]
+                if remote_dir not in existing_by_dir:
+                    _sftp_mkdirs(sftp, remote_dir)
+                    try:
+                        existing_by_dir[remote_dir] = set(sftp.listdir(remote_dir))
+                    except IOError:
+                        existing_by_dir[remote_dir] = None
+                names = existing_by_dir[remote_dir]
+                if names is None:
+                    continue
+                if name in names:
+                    skipped += 1
+                    continue
+                try:
+                    sftp.putfo(io.BytesIO(data), f"{remote_dir}/{name}")
+                    copied += 1
+                except Exception as e:
+                    print(tr("mode9_result_fail")(rel, e))
+        finally:
+            sftp.close()
+    finally:
+        client.close()
+    return (copied, skipped, total)
+
+
+def install_hiscore_files(recalbox_host: str, progress_cb=None) -> tuple:
+    """Copie les .hi hi-score (fbneo + mame0278) vers /recalbox/share/saves/
+    de la Recalbox, en sautant tout fichier deja present (jamais d'ecrasement).
+    SMB en priorite, repli SSH/SFTP. Utilisee par le Mode 1 et le Mode 9.
+    Imprime elle-meme la phase et le bilan. Retourne
+    (copies, deja_presents, total, methode) avec methode "smb", "ssh" ou None
+    (rien n'a pu etre fait : hote vide, GitHub ou Recalbox injoignable)."""
+    if not recalbox_host:
+        return (0, 0, 0, None)
+    print(tr("hiscore_phase"))
+    files = _fetch_hiscore_pack()
+    if not files:
+        return (0, 0, 0, None)
+
+    result, method = None, None
+    if is_recalbox_reachable(recalbox_host):
+        result = _install_hiscore_via_share(files, recalbox_host, progress_cb=progress_cb)
+        method = "smb"
+    if result is None:
+        print(tr("mode9_smb_fallback_ssh"))
+        result = _install_hiscore_via_ssh(files, recalbox_host, progress_cb=progress_cb)
+        method = "ssh"
+    if result is None:
+        print(tr("hiscore_unavailable"))
+        return (0, 0, 0, None)
+
+    copied, skipped, total = result
+    print(tr("hiscore_result")(copied, skipped, method))
+    return (copied, skipped, total, method)
+
+
 def download_recalbox_scripts(recalbox_host: str, progress_cb=None, listen_keyboard: bool = True):
     r"""
     Installe/met a jour les scripts utilisateur Recalbox (WiFi Recovery DMD,
@@ -5315,6 +5521,8 @@ def mode_install_recalbox_scripts_console():
         prefs.set("recalbox_ip", target)
 
     ok_count, total = download_recalbox_scripts(target, listen_keyboard=True)
+    # v50 -- .hi hi-score (jamais d'ecrasement), voir install_hiscore_files()
+    install_hiscore_files(target)
     sep()
     print(tr("done"))
     if total > 0:

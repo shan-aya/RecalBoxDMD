@@ -2,7 +2,12 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v74
+# Version actuelle : v75
+#
+# v75 — 2026-09-22 — safe-modify — Build toolkit 7550 (GUI v75 + tool v50) : le Mode 1 et le Mode 9 copient
+#      aussi les fichiers .hi (hi-scores) vers la Recalbox via toolkit.install_hiscore_files(), sans jamais
+#      ecraser un .hi deja present ; le Mode 9 affiche le bilan ".hi : N copies, M deja presents" sous le
+#      resume des scripts. Les JSON hi-score voyageaient deja avec dmd_helpers/ (rien a changer).
 #
 # v74 — 2026-09-20 — safe-modify — Build toolkit 7449 (GUI v74 + tool v49) : l'onglet Aide charge desormais un VRAI manuel
 #      d'utilisation du toolkit (HELP.md/.fr.md/.es.md reecrits : onglets, Mode 1 pas a pas, modes 2 a 11, Playlist,
@@ -1301,7 +1306,7 @@ from tkinter import ttk, messagebox, filedialog, font as tkfont
 # mais CETTE constante reste a mettre a jour a la main ici (pas d'ecriture
 # automatique dans le .py au moment du build, pour garder le pipeline
 # simple) -- build_release.ps1 avertit si elle diverge du calcul.
-TOOLKIT_RELEASE_VERSION = "7449"
+TOOLKIT_RELEASE_VERSION = "7550"
 
 # v71, safe-modify -- voir le remplacement du verrou v68 dans __init__ pour
 # le contexte complet. _DPI_SCALE est le ratio DPI reel/96 (1.0 a 100%,
@@ -9294,6 +9299,16 @@ class RetroBoxLEDGui:
         else:
             print(toolkit.tr("mode1_scripts_skip"))
 
+        # v75 -- fichiers .hi (hi-scores) : copies vers la Recalbox confirmee
+        # par l'utilisateur, JAMAIS en ecrasant un .hi deja present. Etape
+        # independante des scripts (un echec ici ne bloque rien) ; install_
+        # hiscore_files() imprime elle-meme la phase et le bilan.
+        if target:
+            try:
+                toolkit.install_hiscore_files(target, progress_cb=self._progress_cb)
+            except Exception as e:
+                print(f"❌ [GUI] Copie des .hi : {e}")
+
         if toolkit.PAUSE.should_stop():
             print("[GUI] Stop demandé.")
             return
@@ -10365,6 +10380,15 @@ class RetroBoxLEDGui:
             ok, total = self.tkmod.download_recalbox_scripts(
                 host, progress_cb=self._progress_cb, listen_keyboard=False
             )
+            # v75 -- .hi hi-score (jamais d'ecrasement) apres les scripts,
+            # seulement si les scripts ont pu etre installes (cible joignable)
+            self._mode9_hi_summary = ""
+            if total > 0:
+                hi_copied, hi_skipped, hi_total, hi_method = self.tkmod.install_hiscore_files(
+                    host, progress_cb=self._progress_cb
+                )
+                if hi_method:
+                    self._mode9_hi_summary = self.tkmod.tr("hiscore_summary")(hi_copied, hi_skipped)
             # Ecriture de recalbox_ip dans self.sd_dir tentee puis retiree
             # (2026-08-05) : le Mode 9 n'a pas besoin (ni ne suppose) que la
             # vraie carte SD soit inseree dans le PC -- un config.ini ecrit
@@ -10404,7 +10428,11 @@ class RetroBoxLEDGui:
             host = self.mode9_host_var.get().strip()
             self.mode9_result_var.set(self.tkmod.tr("mode9_share_unreachable")(host))
         else:
-            self.mode9_result_var.set(ui["mode9_summary"](ok, total))
+            summary = ui["mode9_summary"](ok, total)
+            hi_summary = getattr(self, "_mode9_hi_summary", "")
+            if hi_summary:
+                summary = f"{summary}\n{hi_summary}"
+            self.mode9_result_var.set(summary)
         self._reslice_mode9_frame()
 
     def _reslice_mode9_frame(self) -> None:
