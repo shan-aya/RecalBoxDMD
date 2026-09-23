@@ -47,6 +47,30 @@ $tools       = Join-Path $root "tools"
 function Step($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
 function Warn($msg) { Write-Host "AVERTISSEMENT: $msg" -ForegroundColor Yellow }
 
+# v3 - 2026-09-23 - safe-modify - Remplace Compress-Archive : sous Windows
+# PowerShell 5.1, il ecrit les chemins des sous-dossiers avec des ANTISLASHS
+# ("dmd_helpers\x.py", constate dans RB_scripts.zip du build 7651). Sous
+# Linux (Recalbox), unzip ne recree alors pas les sous-dossiers : il produit
+# des fichiers nommes "dmd_helpers\x.py" a plat. Zippe le CONTENU de
+# $SourceDir (comme Compress-Archive -Path "$SourceDir\*") avec des "/".
+function New-ZipFromFolder {
+    param([string]$SourceDir, [string]$ZipPath)
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    if (Test-Path $ZipPath) { Remove-Item $ZipPath -Force }
+    $base = (Resolve-Path $SourceDir).Path.TrimEnd('\')
+    $fs = [IO.File]::Open($ZipPath, [IO.FileMode]::CreateNew)
+    $za = New-Object IO.Compression.ZipArchive($fs, [IO.Compression.ZipArchiveMode]::Create)
+    try {
+        foreach ($f in Get-ChildItem -LiteralPath $base -Recurse -File | Sort-Object FullName) {
+            $name = $f.FullName.Substring($base.Length + 1).Replace('\', '/')
+            [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($za, $f.FullName, $name, [IO.Compression.CompressionLevel]::Optimal)
+        }
+    } finally {
+        $za.Dispose(); $fs.Dispose()
+    }
+}
+
 # Extrait l'entree de changelog LA PLUS RECENTE de l'en-tete "safe-modify"
 # d'un fichier source (convention deja en place dans RecalBox_DMD.ino/
 # RecalBoxDMD_GUI.py/RecalBoxDMD_tool.py -- voir la skill safe-modify).
@@ -144,7 +168,7 @@ if (-not (Test-Path $bootApp0Dst)) {
 Step "Zip DMD_firmware.zip"
 $fwZip = Join-Path $releaseDir "DMD_firmware.zip"
 if (Test-Path $fwZip) { Remove-Item $fwZip -Force }
-Compress-Archive -Path (Join-Path $fwDst "*") -DestinationPath $fwZip
+New-ZipFromFolder $fwDst $fwZip
 
 # --- 2) Scripts Recalbox ---
 Step "3/9 Copie des scripts Recalbox"
@@ -165,7 +189,7 @@ Get-ChildItem (Join-Path $root "scripts\manual") -File | Copy-Item -Destination 
 Step "Zip RB_scripts.zip"
 $rbZip = Join-Path $releaseDir "RB_scripts.zip"
 if (Test-Path $rbZip) { Remove-Item $rbZip -Force }
-Compress-Archive -Path (Join-Path $scriptsDst "*") -DestinationPath $rbZip
+New-ZipFromFolder $scriptsDst $rbZip
 
 # --- 3) PC Toolkit : portable exe (PyInstaller) ---
 # v2 -- verifie que TOOLKIT_RELEASE_VERSION (constante affichee dans le
@@ -243,7 +267,7 @@ try {
     Get-ChildItem $stageDir -Recurse -Filter "__pycache__" -Directory | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     $sourceZip = Join-Path $env:TEMP "RecalBoxDMD-${ToolkitBuild}-source.zip"
     if (Test-Path $sourceZip) { Remove-Item $sourceZip -Force }
-    Compress-Archive -Path (Join-Path $stageDir "*") -DestinationPath $sourceZip
+    New-ZipFromFolder $stageDir $sourceZip
 } finally {
     Remove-Item $stageDir -Recurse -Force -ErrorAction SilentlyContinue
 }
