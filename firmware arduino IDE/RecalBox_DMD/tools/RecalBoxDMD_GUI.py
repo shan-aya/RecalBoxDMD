@@ -1337,7 +1337,7 @@ from tkinter import ttk, messagebox, filedialog, font as tkfont
 # mais CETTE constante reste a mettre a jour a la main ici (pas d'ecriture
 # automatique dans le .py au moment du build, pour garder le pipeline
 # simple) -- build_release.ps1 avertit si elle diverge du calcul.
-TOOLKIT_RELEASE_VERSION = "8052"
+TOOLKIT_RELEASE_VERSION = "8053"
 
 # v71, safe-modify -- voir le remplacement du verrou v68 dans __init__ pour
 # le contexte complet. _DPI_SCALE est le ratio DPI reel/96 (1.0 a 100%,

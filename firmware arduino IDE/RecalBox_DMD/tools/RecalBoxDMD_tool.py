@@ -1,7 +1,14 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v52
+# Version actuelle : v53
+#
+# v53 - 2026-09-24 - safe-modify - Flag "lent" de systems_cache.dat : les images non encore converties comptent
+#      comme les fichiers qu'elles deviendront sur la SD (.png -> .raw565, .gif -> .raw565pack + .meta), compte par
+#      nom de jeu (un jeu present en .png ET en .raw565 = 1). Retour utilisateur : mame/S = 1326 .png non convertis
+#      donnait N au lieu de L. Verifie : dossier temporaire reel -> mame L (S=L, M=N, P=L) ; cas synthetiques
+#      801 .raw565 -> L et 800 -> N (inchanges), 801 .png -> L, 500 .png + 500 .raw565 de memes noms -> N,
+#      801 .gif -> L, 801 .png a plat -> L.
 #
 # v52 - 2026-09-24 - safe-modify - BUG REEL (retour utilisateur : Mode 7 "0 systemes trouves" sur le dossier
 #      temporaire, alors que _defaults/ contient ses 280 .raw565). build_systems_cache() deduisait le type p/g/B
@@ -5843,29 +5850,38 @@ def build_systems_cache(
             # appliquee par bucket plutot qu'a l'arbre entier.
             system_dir = systems_dir / name
 
-            def count_ext_over_per_bucket(base: Path, ext_lower: str, limit: int) -> dict:
-                counts = {letter: 0 for letter in LETTERS}
+            # v53 -- exts : extensions comptees comme UN MEME fichier final
+            # sur la SD (demande utilisateur, 2026-09-24 : mame/S = 1326 .png
+            # non convertis -> flag N, alors qu'une fois converti il donnerait
+            # 1326 .raw565 -> L). Un .png deviendra un .raw565, un .gif un
+            # .raw565pack + .meta (conversion 1 pour 1, puis suppression des
+            # sources, voir _pipeline_mode_1). Compte par NOM DE JEU (stem) :
+            # un jeu present a la fois en .png et en .raw565 (conversion
+            # partielle) n'est compte qu'une fois. Inchange sur un dossier
+            # deja converti.
+            def count_ext_over_per_bucket(base: Path, exts: tuple, limit: int) -> dict:
+                stems = {letter: set() for letter in LETTERS}
                 for letter in LETTERS:
                     bucket_dir = base / letter
                     if not bucket_dir.is_dir():
                         continue
                     for entry in os.scandir(bucket_dir):
-                        if entry.is_file() and entry.name.lower().endswith(ext_lower):
-                            counts[letter] += 1
+                        if entry.is_file() and entry.name.lower().endswith(exts):
+                            stems[letter].add(Path(entry.name).stem.lower())
                 # Residus non bucketises (a plat directement sous system_dir)
                 for entry in os.scandir(base):
-                    if entry.is_file() and entry.name.lower().endswith(ext_lower):
-                        letter = _bucket_letter_for_stem(Path(entry.name).stem)
-                        counts[letter] += 1
-                return {letter: (c > limit) for letter, c in counts.items()}
+                    if entry.is_file() and entry.name.lower().endswith(exts):
+                        stem = Path(entry.name).stem
+                        stems[_bucket_letter_for_stem(stem)].add(stem.lower())
+                return {letter: (len(s) > limit) for letter, s in stems.items()}
 
             raw565_over_b = {letter: False for letter in LETTERS}
             raw565pack_over_b = {letter: False for letter in LETTERS}
             meta_over_b = {letter: False for letter in LETTERS}
             if system_dir.exists() and system_dir.is_dir():
-                raw565_over_b = count_ext_over_per_bucket(system_dir, ".raw565", slow_threshold)
-                raw565pack_over_b = count_ext_over_per_bucket(system_dir, ".raw565pack", slow_threshold)
-                meta_over_b = count_ext_over_per_bucket(system_dir, ".meta", slow_threshold)
+                raw565_over_b = count_ext_over_per_bucket(system_dir, (".raw565", ".png"), slow_threshold)
+                raw565pack_over_b = count_ext_over_per_bucket(system_dir, (".raw565pack", ".gif"), slow_threshold)
+                meta_over_b = count_ext_over_per_bucket(system_dir, (".meta", ".gif"), slow_threshold)
 
             bucket_flags = "".join(
                 "L" if (raw565_over_b[letter] or raw565pack_over_b[letter] or meta_over_b[letter]) else "N"

@@ -2700,3 +2700,13 @@ Demande utilisateur ("oui") apres la fusion de `dev/vpinball-integration` dans m
 **Builds non publies** : 7751, 7851, 7951 (seul 7651 est en Release). RB_scripts.zip des builds locaux regenere a la main (dmd_score v54 / dmd_achievement v8), build_release.ps1 v3 ecrit desormais les zips avec '/'.
 
 **Publication du build 7951 (2026-09-23, accord utilisateur)** : commit main `75961a2` (dossier `tools/RecalBoxDMD_tool_v7951`, v7651 deplace dans `history/`, badge README x3, entree CHANGELOG 2026-09-23 (2) x3) + Release GitHub `RecalBoxDMD_tool_v7951` (Setup 70152774 o, portable 69347080 o, source 29582359 o), marquee Latest. Builds 7751/7851 jamais publies.
+
+## Toolkit : dossiers par defaut des modes 2/3/6/7/11 + systems_cache.dat corrige (2026-09-24)
+
+**GUI v80** (demande utilisateur) : modes 2/3/11 ouvrent le dossier temporaire a la fin ; modes 6/7 pointent par defaut sur le dossier temporaire systems/ s'il existe (sinon vide), choix explicite prioritaire, dossier ROMs des autres modes restaure.
+
+**Tool v52 -- BUG REEL ancien (depuis le 1er commit)** : build_systems_cache() deduisait le type p/g/B du contenu des dossiers de JEUX (systems/<sys>/, fichiers convertis) alors que le firmware (buildSysDefaultCache, sysDefaultType) le tire de _defaults/<sys>.raw565 / .raw565pack+.meta. Invisible apres un Mode 1 (qui convertit avant de generer le cache) ; revele par le Mode 7 pointe (v80) sur un dossier temporaire issu d'un Mode 3 + Mode 2 sans conversion (54 777 .png de jeux, _defaults deja en raw) -> '0 systemes'. Liste limitee aux dossiers de systems/ (+ default) : le complement 'tout stem de _defaults' aurait donne 281 entrees > SYS_CACHE_MAX=160 (troncature firmware). Verifie : 73 entrees, 0 ecart avec la regle du firmware. Impacte aussi le Mode 1 : le type d'un systeme suit desormais son image _defaults (peut changer sur une carte deja creee).
+
+**Tool v53** : flag 'lent' par bucket -- .png compte comme .raw565, .gif comme .raw565pack+.meta (compte par nom de jeu). mame/S (1326 .png) passe de N a L. Inchange sur un dossier converti (tests synthetiques 800/801).
+
+**Lecon** : j'ai d'abord attribue le '0 systeme' aux PNG en affirmant une cause fausse, puis mal formule l'explication (PNG dans les dossiers de jeux, pas dans _defaults) -- l'utilisateur avait raison de pointer _defaults. Builds 8051/8052/8053 non publies.
