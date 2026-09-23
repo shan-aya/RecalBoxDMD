@@ -1,11 +1,25 @@
 #!/bin/ash
-# Pont MQTT succes RetroAchievements -> DMD (marquee/cmd/score, canal
-# UNIQUE, architecture "DMD bete" v110 -- voir RecalBox_DMD.ino)
+# Pont succes RetroAchievements -> DMD, en UDP (commande "CMD=score
+# ARG=SUCCES|<nom>" sur le port 5005 du DMD, architecture "DMD bete" v110 --
+# voir RecalBox_DMD.ino)
 #
 # ============================================
-# safe-modify â€” Historique des modifications
+# safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v6
+# Version actuelle : v8
+#
+# v8 - 2026-09-23 - safe-modify - Nettoyage MQTT (demande utilisateur) : MQTT
+#   n'existe plus cote DMD depuis RecalBox_DMD.ino v209. Retires :
+#   features_watcher() (mosquitto_sub sur marquee/status/features, plus
+#   jamais publie -- le cache /tmp/dmd_features_cache est tenu par
+#   dmd_udp_resync.py, message FEATURES: du DMD) et le mosquitto_pub vers
+#   marquee/cmd (seul send_udp() atteint le DMD). Journal renomme
+#   dmd_achievement_mqtt.log -> dmd_achievement.log. Fonctionnement inchange :
+#   suivi de retroarch.log, "Awarding achievement", gating ra_ingame.
+#   En-tete "Version actuelle" remis a jour (restait a v6 malgre la v7).
+#
+# v7 - 2026-09-19 - safe-modify - IP du DMD decouverte dynamiquement
+#   (/tmp/dmd_udp_ip, ecrit par dmd_udp_resync.py v5), voir plus bas.
 #
 # v6 - 2026-09-08 - safe-modify - Piste UDP (demande utilisateur explicite,
 #   apres revue : "qu'est-ce qu'on aurait pu oublier de mettre a jour ?").
@@ -67,15 +81,14 @@
 #   log_verbosity = true
 #   cheevos_verbose_enable = true
 # Sans log_to_file=true, retroarch.log n'existe pas et ce script n'a rien a
-# suivre (mosquitto_sub/tail restent silencieux, pas d'erreur bruyante).
+# suivre (tail reste silencieux, pas d'erreur bruyante).
 #
 # tail -F (majuscule) gere nativement la troncature/recreation du fichier a
 # CHAQUE nouveau lancement RetroArch (fichier REECRIT, pas complete, a
 # chaque partie -- pas de risque de croissance indefinie sur la carte SD).
 #
-# Publication NON RETENUE (inchange depuis v1) : un succes debloque est un
-# evenement PONCTUEL "vient de se produire", pas un etat permanent a
-# rejouer a la reconnexion MQTT.
+# Envoi ponctuel, jamais rejoue (inchange depuis v1) : un succes debloque est
+# un evenement "vient de se produire", pas un etat permanent.
 
 # v3 - 2026-08-20 - safe-modify - Verrou anti-relance rendu ATOMIQUE (mkdir
 #   au lieu d'un fichier PID check-then-write) -- BUG REEL reconfirme sur
@@ -90,7 +103,7 @@
 #   l'identique dans les 3 scripts, nettoyage differe puis repris ce jour).
 . /recalbox/share/userscripts/dmd_helpers/singleton_lock.sh dmd_achievement 2>/dev/null || exit 1
 
-LOG="/recalbox/share/system/logs/dmd_achievement_mqtt.log"
+LOG="/recalbox/share/system/logs/dmd_achievement.log"
 RA_LOG="/recalbox/share/system/logs/retroarch.log"
 FEATURES_FILE="/tmp/dmd_features_cache"
 # v6 -- BUG REEL trouve en revue (pas en usage reel -- retour utilisateur
@@ -114,23 +127,17 @@ send_udp() {
     python3 -c "import socket,sys; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(sys.argv[1].encode('utf-8','replace'), (sys.argv[2], int(sys.argv[3])))" "$1" "$DMD_UDP_IP" "$DMD_UDP_PORT" 2>/dev/null
 }
 
-# v2 -- identique a dmd_score[...].sh (voir ce fichier pour le
-# raisonnement complet) : sous-processus dedie qui cache localement le
-# dernier etat connu de marquee/status/features (retenu cote DMD).
+# Fonctions actives du DMD : /tmp/dmd_features_cache, ecrit par
+# dmd_udp_resync.py a chaque message FEATURES: du DMD (v8 -- l'ancien
+# sous-processus mosquitto_sub est retire, MQTT n'existe plus cote DMD).
+# Fichier absent (aucun DMD n'a parle depuis le demarrage) = desactive.
 feat_enabled() {
     [ -f "$FEATURES_FILE" ] || return 1
     val=$(sed -n "s/.*${1}=\([01]\).*/\1/p" "$FEATURES_FILE" | head -n1)
     [ "$val" = "1" ]
 }
-features_watcher() {
-    mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/status/features" 2>/dev/null | \
-    while IFS= read -r line; do
-        printf '%s\n' "$line" > "$FEATURES_FILE"
-    done
-}
-features_watcher &
 
-echo "$(date) - DMD achievement bridge started (v4, topic marquee/cmd/score fusionne dans marquee/cmd (CMD=/ARG=), voir RecalBox_DMD.ino v148 + v3, verrou atomique + architecture DMD bete)" >> "$LOG"
+echo "$(date) - DMD achievement bridge started (v8, UDP seul)" >> "$LOG"
 
 # -n 0 : ne rejoue pas le contenu deja present au demarrage du script. -F
 # suit meme si le fichier est recree entre-temps.
@@ -148,8 +155,7 @@ while IFS= read -r line; do
             [ -z "$name" ] && continue
             if feat_enabled "ra_ingame"; then
                 echo "$(date '+%H:%M:%S') ACHIEVEMENT $name" >> "$LOG"
-                mosquitto_pub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/cmd" -m "CMD=score ARG=SUCCES|${name}" 2>/dev/null
-                send_udp "CMD=score ARG=SUCCES|${name}" # v6 -- piste UDP, voir en tete de fichier
+                send_udp "CMD=score ARG=SUCCES|${name}"
             else
                 echo "$(date '+%H:%M:%S') ACHIEVEMENT $name (ignore, ra_ingame desactive)" >> "$LOG"
             fi
