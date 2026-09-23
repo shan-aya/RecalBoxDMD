@@ -2,7 +2,14 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v78
+# Version actuelle : v79
+#
+# v79 — 2026-09-23 — safe-modify — Build toolkit 7951 (GUI v79 + tool v51) : avec v78 les boutons de Progression
+#      sont visibles, mais le texte de resultat du Mode 9 etait coupe dans son encart (capture utilisateur) --
+#      la colonne de droite manquait de hauteur. Texte "Details du mode" du Mode 9 raccourci (16 -> ~10 lignes,
+#      FR/EN/ES ; mentionne desormais la copie des .hi). Resume "mode9_summary" : "redemarrez la Recalbox" au lieu
+#      de "EmulationStation (ou la Recalbox)" -- constate sur RB1 le 23/09 : un redemarrage d'ES laisse tourner
+#      les anciens scripts permanents (verrou anti-relance), seul un redemarrage de la Recalbox active les nouveaux.
 #
 # v78 — 2026-09-23 — safe-modify — Build toolkit 7851 (GUI v78 + tool v51) : boutons du cadre Progression encore
 #      rognes au passage aux .hi (capture utilisateur, build 7751). Cause reelle : fenetre a hauteur FIXE, cadre
@@ -1322,7 +1329,7 @@ from tkinter import ttk, messagebox, filedialog, font as tkfont
 # mais CETTE constante reste a mettre a jour a la main ici (pas d'ecriture
 # automatique dans le .py au moment du build, pour garder le pipeline
 # simple) -- build_release.ps1 avertit si elle diverge du calcul.
-TOOLKIT_RELEASE_VERSION = "7851"
+TOOLKIT_RELEASE_VERSION = "7951"
 
 # v71, safe-modify -- voir le remplacement du verrou v68 dans __init__ pour
 # le contexte complet. _DPI_SCALE est le ratio DPI reel/96 (1.0 a 100%,
@@ -1427,8 +1434,8 @@ UI_TRANSLATIONS = {
         "mode9_btn_install": "Installer / Mettre à jour",
         "mode9_btn_running": "Installation en cours...",
         "mode9_summary": lambda ok, total: (
-            f"✅ {ok}/{total} fichier(s) installé(s) — redémarrez EmulationStation "
-            f"(ou la Recalbox) pour que le menu SCRIPTS UTILISATEUR les détecte"
+            f"✅ {ok}/{total} fichier(s) installé(s) — redémarrez la Recalbox "
+            f"pour activer les nouveaux scripts"
             if ok == total
             else f"⚠️ {ok}/{total} fichier(s) installé(s)"
         ),
@@ -1925,8 +1932,8 @@ UI_TRANSLATIONS = {
         "mode9_btn_install": "Install / Update",
         "mode9_btn_running": "Installing...",
         "mode9_summary": lambda ok, total: (
-            f"✅ {ok}/{total} file(s) installed — restart EmulationStation "
-            f"(or reboot the Recalbox) so the USER SCRIPTS menu detects them"
+            f"✅ {ok}/{total} file(s) installed — reboot the Recalbox "
+            f"to activate the new scripts"
             if ok == total
             else f"⚠️ {ok}/{total} file(s) installed"
         ),
@@ -2403,8 +2410,8 @@ UI_TRANSLATIONS = {
         "mode9_btn_install": "Instalar / Actualizar",
         "mode9_btn_running": "Instalando...",
         "mode9_summary": lambda ok, total: (
-            f"✅ {ok}/{total} archivo(s) instalado(s) — reinicie EmulationStation "
-            f"(o la Recalbox) para que el menú SCRIPTS DE USUARIO los detecte"
+            f"✅ {ok}/{total} archivo(s) instalado(s) — reinicie la Recalbox "
+            f"para activar los nuevos scripts"
             if ok == total
             else f"⚠️ {ok}/{total} archivo(s) instalado(s)"
         ),
@@ -5559,7 +5566,7 @@ class RetroBoxLEDGui:
                 "6": "Le mode 6 génère uniquement le fichier games_cache.bin, qui correspond au cache des jeux.\n\nMarche à suivre :\nExécutez d'abord le Mode 3 (extraction gamelist.xml), OU choisissez directement le dossier « systems » d'une carte SD déjà préparée, puis cliquez sur « Démarrer ».",
                 "7": "Le mode 7 génère uniquement le fichier systems_cache.dat, qui représente l’index des systèmes.\n\nMarche à suivre :\nExécutez d'abord le Mode 2 (téléchargement _defaults), OU choisissez directement le dossier « systems » d'une carte SD déjà préparée, puis cliquez sur « Démarrer ».",
                 "8": "Le mode 8 vérifie les images manquantes en parcourant les gamelist.xml du dossier ROMs. Le rapport liste les images absentes avec le chemin attendu selon le profil Recalbox sélectionné.\n\nMarche à suivre :\n1. « Choisir dossier ROMs »\n2. Choisissez la « Version Recalbox »\n3. « Lancer la vérification »\n4. « Ouvrir le rapport »\nOptionnel : « Comparer avec le support final » puis « Ouvrir le rapport final ».",
-                "9": "Installe/met à jour les scripts utilisateur Recalbox (WiFi Recovery, Config Web, Reboot, Luminosité +10%/-10%, pont marquee) directement sur le partage réseau de la Recalbox (\\\\<ip>\\share), sans passer par le DMD.\n\nMarche à suivre :\n1. Vérifiez/saisissez l'adresse IP ou le nom réseau de la Recalbox (pré-rempli si détecté automatiquement ou déjà utilisé).\n2. « Installer / Mettre à jour »\n3. Redémarrez EmulationStation (ou la Recalbox) : le menu ne détecte les scripts qu'au démarrage.\n4. Sur la Recalbox : START > PARAMÈTRES AVANCÉS > SCRIPTS UTILISATEUR.",
+                "9": "Installe/met à jour les scripts Recalbox du DMD et copie les hi-scores (.hi) manquants — un .hi déjà présent n'est jamais écrasé. Directement sur la Recalbox (partage réseau, ou SSH), sans passer par le DMD.\n\nMarche à suivre :\n1. Vérifiez l'IP ou le nom de la Recalbox, puis « Installer / Mettre à jour ».\n2. Redémarrez la Recalbox : les scripts ne sont pris en compte qu'au démarrage.",
                 "10": "Choisissez l'image de secours (default.raw565) affichée quand aucune image spécifique n'est disponible pour un jeu ou un système. Action autonome et immédiate, sans dossier ROMs ni pipeline.\n\nMarche à suivre :\n1. « Choisir son image de secours »\n2. Sélectionnez une image de la galerie ou importez la vôtre.\nLe choix s'applique immédiatement au dossier de travail.",
                 "11": "Le mode 11 télécharge uniquement le pack gratuit de 600 GIFs (thèmes variés) depuis GitHub dans /gifs/. Indépendant du Mode 2 (qui télécharge « _defaults »). Il ne réalise aucune extraction ni conversion d’images.\n\nPour un pack bien plus complet (pack ultimate, ~11000 animations pixel-perfect pour DMD), voir https://rpiteam.carrd.co/ et le forum Arcadia : https://www.neo-arcadia.com/forum/viewtopic.php?t=67065\n\nMarche à suivre :\n1. Cliquez directement sur « Démarrer ».\nAucun dossier ROMs ni sélection de systèmes n'est nécessaire (bouton désactivé).",
             },
@@ -5572,7 +5579,7 @@ class RetroBoxLEDGui:
                 "6": "Mode 6: generates only games_cache.bin (games cache).\n\nSteps:\nRun Mode 3 first (gamelist extraction), OR pick the \"systems\" folder of an already-prepared SD card directly, then click « Start ».",
                 "7": "Mode 7: generates only systems_cache.dat (systems index).\n\nSteps:\nRun Mode 2 first (_defaults download), OR pick the \"systems\" folder of an already-prepared SD card directly, then click « Start ».",
                 "8": "Mode 8: checks missing images by scanning gamelist.xml in the ROMs folder. The report lists missing images with the expected path according to the selected Recalbox profile.\n\nSteps:\n1. « Choose ROMs folder »\n2. Pick the « Recalbox version »\n3. « Start check »\n4. « Open report »\nOptional: « Compare with final media » then « Open final report ».",
-                "9": "Installs/updates the Recalbox user scripts (WiFi Recovery, Web Config, Reboot, Brightness +10%/-10%, marquee bridge) directly on the Recalbox network share (\\\\<ip>\\share), without going through the DMD.\n\nSteps:\n1. Check/enter the Recalbox IP address or network name (pre-filled if auto-detected or already used).\n2. « Install / Update »\n3. Restart EmulationStation (or reboot the Recalbox): the menu only detects scripts at startup.\n4. On the Recalbox: START > ADVANCED SETTINGS > USER SCRIPTS.",
+                "9": "Installs/updates the DMD's Recalbox scripts and copies the missing hi-scores (.hi) — a .hi already present is never overwritten. Straight to the Recalbox (network share, or SSH), without going through the DMD.\n\nSteps:\n1. Check the Recalbox IP or name, then « Install / Update ».\n2. Reboot the Recalbox: the scripts are only picked up at startup.",
                 "10": "Choose the fallback image (default.raw565) shown when no specific image is available for a game or system. Standalone, immediate action, no ROMs folder or pipeline involved.\n\nSteps:\n1. « Choose your fallback image »\n2. Pick an image from the gallery or import your own.\nThe choice is applied immediately to the working folder.",
                 "11": "Mode 11 downloads only the free pack of 600 GIFs (assorted themes) from GitHub into /gifs/. Independent from Mode 2 (which downloads \"_defaults\"). No extraction or conversion.\n\nFor a much larger pack (ultimate pack, ~11,000 pixel-perfect DMD animations), see https://rpiteam.carrd.co/ and the Arcadia forum: https://www.neo-arcadia.com/forum/viewtopic.php?t=67065\n\nSteps:\n1. Click « Start » directly.\nNo ROMs folder or system selection needed (button disabled).",
             },
@@ -5585,7 +5592,7 @@ class RetroBoxLEDGui:
                 "6": "Modo 6: genera solo games_cache.bin (caché de juegos).\n\nPasos:\nEjecute primero el Modo 3 (extracción gamelist), O elija directamente la carpeta \"systems\" de una tarjeta SD ya preparada, luego haga clic en « Iniciar ».",
                 "7": "Modo 7: genera solo systems_cache.dat (índice de sistemas).\n\nPasos:\nEjecute primero el Modo 2 (descarga _defaults), O elija directamente la carpeta \"systems\" de una tarjeta SD ya preparada, luego haga clic en « Iniciar ».",
                 "8": "Modo 8: verifica las imagenes faltantes escaneando los gamelist.xml en la carpeta ROMs. El informe enumera las imagenes faltantes con la ruta esperada segun el perfil de Recalbox seleccionado.\n\nPasos:\n1. « Elegir carpeta ROMs »\n2. Elija la « Versión de Recalbox »\n3. « Iniciar verificación »\n4. « Abrir informe »\nOpcional: « Comparar con el soporte final » luego « Abrir informe final ».",
-                "9": "Instala/actualiza los scripts de usuario de Recalbox (WiFi Recovery, Config Web, Reboot, Brillo +10%/-10%, puente marquee) directamente en el recurso compartido de red de la Recalbox (\\\\<ip>\\share), sin pasar por el DMD.\n\nPasos:\n1. Compruebe/introduzca la IP o el nombre de red de la Recalbox (rellenado automáticamente si se detecta o ya se usó).\n2. « Instalar / Actualizar »\n3. Reinicie EmulationStation (o la Recalbox): el menú solo detecta los scripts al arrancar.\n4. En la Recalbox: START > CONFIGURACIÓN AVANZADA > SCRIPTS DE USUARIO.",
+                "9": "Instala/actualiza los scripts de Recalbox del DMD y copia los récords (.hi) que faltan — un .hi ya presente nunca se sobrescribe. Directamente en la Recalbox (recurso de red, o SSH), sin pasar por el DMD.\n\nPasos:\n1. Compruebe la IP o el nombre de la Recalbox y pulse « Instalar / Actualizar ».\n2. Reinicie la Recalbox: los scripts solo se tienen en cuenta al arrancar.",
                 "10": "Elija la imagen de respaldo (default.raw565) que se muestra cuando no hay una imagen especifica disponible para un juego o sistema. Accion autonoma e inmediata, sin carpeta ROMs ni proceso.\n\nPasos:\n1. « Elegir su imagen de respaldo »\n2. Seleccione una imagen de la galeria o importe la suya.\nLa eleccion se aplica de inmediato a la carpeta de trabajo.",
                 "11": "El modo 11 descarga solo el pack gratuito de 600 GIFs (temas variados) desde GitHub en /gifs/. Independiente del Modo 2 (que descarga «_defaults»). Sin extracción ni conversión.\n\nPara un pack mucho más completo (pack ultimate, ~11000 animaciones pixel-perfect para DMD), consulte https://rpiteam.carrd.co/ y el foro Arcadia: https://www.neo-arcadia.com/forum/viewtopic.php?t=67065\n\nPasos:\n1. Haga clic directamente en « Iniciar ».\nNo se necesita carpeta ROMs ni selección de sistemas (botón desactivado).",
             },
