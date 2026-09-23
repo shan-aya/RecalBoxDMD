@@ -2698,3 +2698,5 @@ Demande utilisateur ("oui") apres la fusion de `dev/vpinball-integration` dans m
 **Constat RB1** : DMD1 (192.168.0.52, recalbox_ip=192.168.0.35) ne se connectait plus car les ANCIENS scripts tournaient encore apres le Mode 9 (dmd_udp_resync repondait a l'IP fixe 192.168.0.51). Redemarrage de RB1 et RB2 -> nouveaux scripts actifs, dmd_udp_ip=192.168.0.52, features recues.
 
 **Builds non publies** : 7751, 7851, 7951 (seul 7651 est en Release). RB_scripts.zip des builds locaux regenere a la main (dmd_score v54 / dmd_achievement v8), build_release.ps1 v3 ecrit desormais les zips avec '/'.
+
+**Publication du build 7951 (2026-09-23, accord utilisateur)** : commit main `75961a2` (dossier `tools/RecalBoxDMD_tool_v7951`, v7651 deplace dans `history/`, badge README x3, entree CHANGELOG 2026-09-23 (2) x3) + Release GitHub `RecalBoxDMD_tool_v7951` (Setup 70152774 o, portable 69347080 o, source 29582359 o), marquee Latest. Builds 7751/7851 jamais publies.
