@@ -1,7 +1,18 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v51
+# Version actuelle : v52
+#
+# v52 - 2026-09-24 - safe-modify - BUG REEL (retour utilisateur : Mode 7 "0 systemes trouves" sur le dossier
+#      temporaire, alors que _defaults/ contient ses 280 .raw565). build_systems_cache() deduisait le type p/g/B
+#      du contenu de systems/<sys>/ (images de JEUX converties) -- depuis le 1er commit de l'outil, contrairement
+#      a sa docstring et au firmware (buildSysDefaultCache(), sysDefaultType() : le type sert a choisir l'image
+#      par defaut _defaults/<sys>.raw565 ou .raw565pack). Des jeux encore en PNG (Mode 3) => 0 systeme. Type
+#      desormais deduit de _defaults/<sys>.raw565 / .raw565pack+.meta. Liste des systemes limitee aux dossiers de
+#      systems/ (+ default) : l'ancien complement "tout stem de _defaults" aurait donne 281 entrees (> SYS_CACHE_MAX
+#      = 160 cote firmware, troncature). Messages [DEBUG] de l'ancienne logique retires. Verifie sur le dossier
+#      temporaire reel : 73 entrees (72 systemes + default), 0 ecart avec la regle du firmware. Impacte aussi le
+#      Mode 1 (meme fonction).
 #
 # v51 - 2026-09-23 - safe-modify - Copie des .hi MAME sans version en dur : zip
 #      hiscore_hi_pack_v2.zip avec "mame/hiscore/<rom>.hi", dossier cible choisi sur
@@ -5723,13 +5734,14 @@ def build_systems_cache(
     ):
         add_sys_name("default")
 
-    # 3) complément : tout stem observable dans _defaults (legacy/compat)
-    for f in defaults_dir.iterdir():
-        if not f.is_file():
-            continue
-        suf = f.suffix.lower()
-        if suf in (".gif", ".png", ".raw565", ".raw565pack", ".meta"):
-            add_sys_name(f.stem)
+    # 3) v52 -- PLUS de complement "tout stem de _defaults" : _defaults/
+    # contient ~280 images (tous les systemes Recalbox + variantes comme
+    # 3do-2, _shuffle), alors que le firmware ne garde que SYS_CACHE_MAX=160
+    # systemes en memoire (troncature au-dela). Tant que le type etait deduit
+    # des dossiers systems/<sys>/, ces noms sans dossier etaient ecartes ; avec
+    # le type deduit de _defaults/ (voir plus bas) ils seraient tous retenus.
+    # Liste alignee sur buildSysDefaultCache() du firmware : dossiers de
+    # systems/ uniquement (+ "default", etape 2).
 
     # sysName vient de _defaults (ici: uniquement les raw565 présents)
     # classification b/g/p est faite en regardant systems/<sysName>/ (pas _defaults)
@@ -5768,73 +5780,27 @@ def build_systems_cache(
         f"raw565={raw565_total} raw565pack={raw565pack_total} meta={meta_total}"
     )
 
-    # Debug ciblé (algorithme firmware) : p/g/b déduits UNIQUEMENT via systems/<sys>/ (sans _defaults, sans meta)
-    debug_sys_names = ["3do", "amiga600", "64dd"]
-    for dbg_name in debug_sys_names:
-        system_dir_dbg = systems_dir / dbg_name
-
-        sys_key = dbg_name.lower()
-        has_raw565 = False
-        has_raw565pack = False
-
-        if system_dir_dbg.exists() and system_dir_dbg.is_dir():
-            for entry in system_dir_dbg.iterdir():
-                if not entry.is_file():
-                    continue
-                entry_name = entry.name.lower()
-                if entry_name == f"{sys_key}.raw565":
-                    has_raw565 = True
-                elif entry_name == f"{sys_key}.raw565pack":
-                    has_raw565pack = True
-
-        has_gif_pack = has_raw565pack
-
-        ftype_dbg = "?"
-        if has_gif_pack and has_raw565:
-            ftype_dbg = "b"
-        elif has_gif_pack:
-            ftype_dbg = "g"
-        elif has_raw565:
-            ftype_dbg = "p"
-
-        print(
-            f"[DEBUG] classify {dbg_name}: "
-            f"systems raw565={'Y' if has_raw565 else 'N'} | "
-            f"systems raw565pack={'Y' if has_raw565pack else 'N'} "
-            f"=> ftype={ftype_dbg}"
-        )
-
     for sys_lower in sys_lowers:
         name = sys_case[sys_lower]
 
-        # p/g/b avec b = p + g
-        # - p : systèmes/<_defaults>/<sys>.raw565 (côté _defaults)
-        # - g : systèmes/<sys> contient au moins un *.raw565pack (récursif)
+        # v52 -- type p/g/B deduit de _defaults/<sys>.* (IMAGE PAR DEFAUT du
+        # systeme), meme regle que buildSysDefaultCache() cote firmware et que
+        # l'usage de sysDefaultType() (choix entre _defaults/<sys>.raw565 et
+        # .raw565pack) :
+        #   p : _defaults/<sys>.raw565
+        #   g : _defaults/<sys>.raw565pack + _defaults/<sys>.meta
+        #   B : les deux
+        # BUG REEL corrige (retour utilisateur 2026-09-24, Mode 7 "0 systemes
+        # trouves") : depuis le 1er commit, le type etait deduit du contenu de
+        # systems/<sys>/ (images de jeux converties) -- sur un dossier dont
+        # les jeux ne sont pas encore convertis (PNG issus du Mode 3), plus
+        # aucun systeme n'etait retenu, alors que _defaults/ etait complet.
         base_defaults = defaults_dir / name
-        system_dir = systems_dir / name
-
-        # raw565 (png) doit exister dans systems/<sys>/ (pas uniquement dans _defaults)
-        has_raw565 = False
-        if system_dir.exists() and system_dir.is_dir():
-            for _root, _dirs, files in os.walk(system_dir):
-                for fn in files:
-                    if fn.lower().endswith(".raw565"):
-                        has_raw565 = True
-                        break
-                if has_raw565:
-                    break
-
-        has_raw565pack = False
-        if system_dir.exists() and system_dir.is_dir():
-            for _root, _dirs, files in os.walk(system_dir):
-                for fn in files:
-                    if fn.lower().endswith(".raw565pack"):
-                        has_raw565pack = True
-                        break
-                if has_raw565pack:
-                    break
-
-        has_gif_pack = has_raw565pack
+        has_raw565 = base_defaults.with_suffix(".raw565").exists()
+        has_gif_pack = (
+            base_defaults.with_suffix(".raw565pack").exists()
+            and base_defaults.with_suffix(".meta").exists()
+        )
 
         if has_gif_pack and has_raw565:
             ftype = "B"
@@ -5844,33 +5810,6 @@ def build_systems_cache(
             ftype = "p"
         else:
             continue
-
-        if name.lower() == "64dd":
-            # Debug aligné avec la logique ftype:
-            # - raw565 depuis systems/_defaults/<sys>.raw565
-            # - raw565pack/meta depuis systems/<sys>/
-            defaults_base = defaults_dir / name
-            system_base = systems_dir / name
-
-            dbg_has_raw565 = defaults_base.with_suffix(".raw565").exists()
-            dbg_has_raw565pack = False
-            if system_base.exists() and system_base.is_dir():
-                for _root, _dirs, files in os.walk(system_base):
-                    for fn in files:
-                        if fn.lower().endswith(".raw565pack"):
-                            dbg_has_raw565pack = True
-                            break
-                    if dbg_has_raw565pack:
-                        break
-
-            dbg_has_gif_pack = dbg_has_raw565pack
-
-            print(
-                f"[DEBUG] 64dd: "
-                f"defaults/raw565={ 'Y' if dbg_has_raw565 else 'N' } | "
-                f"systems/raw565pack={ 'Y' if dbg_has_raw565pack else 'N' } | "
-                f"has_gif_pack={ 'Y' if dbg_has_gif_pack else 'N' } => ftype={ftype}"
-            )
 
         entries[sys_lower] = (name, ftype)
 
