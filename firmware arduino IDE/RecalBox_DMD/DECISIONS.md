@@ -2710,3 +2710,5 @@ Demande utilisateur ("oui") apres la fusion de `dev/vpinball-integration` dans m
 **Tool v53** : flag 'lent' par bucket -- .png compte comme .raw565, .gif comme .raw565pack+.meta (compte par nom de jeu). mame/S (1326 .png) passe de N a L. Inchange sur un dossier converti (tests synthetiques 800/801).
 
 **Lecon** : j'ai d'abord attribue le '0 systeme' aux PNG en affirmant une cause fausse, puis mal formule l'explication (PNG dans les dossiers de jeux, pas dans _defaults) -- l'utilisateur avait raison de pointer _defaults. Builds 8051/8052/8053 non publies.
+
+**Publication du build 8053 (2026-09-24, accord utilisateur apres validation)** : commit main `38263e7` (dossier `tools/RecalBoxDMD_tool_v8053`, v7951 deplace dans `history/`, badge README x3, entree CHANGELOG 2026-09-24 x3) + Release GitHub `RecalBoxDMD_tool_v8053` (Setup 70152629 o, portable 69349934 o, source 29583954 o), marquee Latest.
