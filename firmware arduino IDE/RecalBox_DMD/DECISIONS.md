@@ -2674,3 +2674,5 @@ Demande utilisateur ("oui") apres la fusion de `dev/vpinball-integration` dans m
 **Deploye** : helpers v6/v2 + JSON 1 371 317 o installes sur RB1 (192.168.0.35) et RB2 (192.168.0.49), anciennes versions dans `/tmp/bak_*` (+ `/tmp/dmd_hiscore_verified_v1.bak`, `/tmp/dmd_hiscore_generic_v5.bak` sur RB2). Dossier GitHub `tools/hiscore_recalbox/hi/mame/mame0278/hiscore` renomme `hi/mame/hiscore` (MANIFEST.csv mis a jour).
 
 **Reste a savoir** : un `.hi` est une copie brute de la RAM du jeu ; si un futur coeur MAME change la disposition memoire d'un jeu, un `.hi` 0278 peut y donner un score faux (pas constate, risque connu). Controle visuel DMD de la table verifiee (19xx/1941/aliens/gng en navigation ES sur RB2) demande a l'utilisateur, pas encore fait.
+
+**Publication du build 7651 (2026-09-23, accord utilisateur)** : commit main `43c57ad` (dossier `tools/RecalBoxDMD_tool_v7651`, v7550 deplace dans `history/`, badge README x3, entree CHANGELOG 2026-09-23 x3) + Release GitHub `RecalBoxDMD_tool_v7651` (Setup 70155187 o, portable 69349687 o, source 29581665 o), marquee Latest. Helpers v6/v2 + zip v2 deja sur main depuis `b7514ae`.
