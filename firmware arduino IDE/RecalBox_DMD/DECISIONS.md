@@ -2655,3 +2655,22 @@ Demande utilisateur ("oui") apres la fusion de `dev/vpinball-integration` dans m
 
 **Non fait / a savoir** : copie complete jamais lancee sur une vraie Recalbox (867 `.hi` non nuls du NAS absents de RB2 seraient copies) ; les emulateurs relisent un `.hi` present au lancement du jeu -> les scores issus de l'autopilote apparaitront dans le jeu chez l'utilisateur ; build 7550 non publie (Release GitHub + README badge + tools/RecalBoxDMD_tool_v7550 en attente d'accord).
 **Publication du build 7550 (2026-09-22, accord utilisateur)** : commit main `edb46da` (dossier `tools/RecalBoxDMD_tool_v7550` = memes 60 fichiers que v7449, v7449 deplace dans `history/`, badge README x3, entree CHANGELOG 2026-09-22 x3) + Release GitHub `RecalBoxDMD_tool_v7550` (Setup 70150577 o, portable 69345358 o, source 29579769 o), marquee Latest. Le zip de .hi est deja sur main depuis `c9b3d04`.
+
+
+## Hi-score MAME sans version en dur + bug table verifiee MAME (2026-09-23)
+
+**Remarque utilisateur** : "le probleme est le versionning pour mame, a chaque changement de set il faudra refaire une modification du tools et de la sauvegarde".
+
+**Constats (verifies sur materiel)** :
+- Le dossier de sauvegarde suit le COEUR, pas le romset. RB2 : roms `roms/mame/mame0288/`, `recalbox.conf` `mame.core=mame0278`, `.hi` ecrits dans `saves/mame/mame0278/hiscore/`. RB1 (Pi) : AUCUNE ligne `mame.core`, coeur par defaut `systemlist.xml` priorite 1 = mame0258, mais les vrais `.hi` sont dans `mame0278` (670 contre 4) -> ni "plus grand numero" ni "coeur par defaut" ne sont fiables seuls ; le critere retenu en repli est "dossier ou MAME a ecrit un .hi le plus recemment".
+- **BUG REEL** : `dmd_score.sh` appelle `dmd_hiscore_verified.py` avec le systeme ES (`mame`), alors que les cles du JSON sont `mame0278_<rom>` -> les 2277 entrees MAME de la table niveau 2 n'etaient JAMAIS trouvees (RB2 : `mame 1943` vide, `mame0278 1943` OK, 0 ligne VERIFIE-MANUEL dans dmd_score.log). FBNeo non concerne (systeme = cle = `fbneo`).
+- Divergence de branches : `dmd_hiscore_generic.py` v5 (correctif find_hi_file/system du 14/09, `00b8b97`) n'existait que sur dev/core-reassignment et n'avait jamais ete publie ; GitHub avait la v4.
+
+**Correctifs** (valides un par un, sur RB1 ET RB2) :
+1. `dmd_hiscore_verified.py` v2 : si le systeme commence par `mame`, cle exacte puis toute cle `mame<xxx>_<rom>` (sans `_` dans le prefixe), la plus recente d'abord. Test cote a cote v1/v2 : 19xx/1941/aliens/gng/tmnt/1943kai trouves, cas negatifs vides, ~40 ms/appel.
+2. `dmd_hiscore_generic.py` v6 (base v5) : dossiers `saves/mame/mame0NNN/hiscore` decouverts a l'execution (coeur `mame.core` d'abord, puis par date du dossier hiscore, du plus recent au plus ancien). Non-regression : 210 jeux (150 mame + 60 fbneo) sortie identique v5/v6 sur RB1 et RB2 ; simulation d'un dossier mame0288 vide (cree puis supprime) pris en compte sans modification.
+3. Toolkit v51 (GUI v76, build 7651) : zip `hiscore_hi_pack_v2.zip` avec `mame/hiscore/<rom>.hi` (sans version) ; `_pick_mame_core()` (mame.core, sinon dossier au .hi le plus recent, sinon plus grand numero, sinon None -> .hi MAME sautes avec message) + `_map_hiscore_paths()`. Tests reels SMB + SSH sur RB1 et RB2 : 1942.hi existant intact (hash), faux `.hi` MAME arrive dans `mame0278/hiscore`, aucun dossier parasite `saves/mame/hiscore`, faux fichiers supprimes apres test. L'ancien `hiscore_hi_pack.zip` (chemins mame0278) reste sur GitHub pour le build 7550 deja publie.
+
+**Deploye** : helpers v6/v2 + JSON 1 371 317 o installes sur RB1 (192.168.0.35) et RB2 (192.168.0.49), anciennes versions dans `/tmp/bak_*` (+ `/tmp/dmd_hiscore_verified_v1.bak`, `/tmp/dmd_hiscore_generic_v5.bak` sur RB2). Dossier GitHub `tools/hiscore_recalbox/hi/mame/mame0278/hiscore` renomme `hi/mame/hiscore` (MANIFEST.csv mis a jour).
+
+**Reste a savoir** : un `.hi` est une copie brute de la RAM du jeu ; si un futur coeur MAME change la disposition memoire d'un jeu, un `.hi` 0278 peut y donner un score faux (pas constate, risque connu). Controle visuel DMD de la table verifiee (19xx/1941/aliens/gng en navigation ES sur RB2) demande a l'utilisateur, pas encore fait.

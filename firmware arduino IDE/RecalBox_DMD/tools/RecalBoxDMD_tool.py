@@ -1,7 +1,13 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v50
+# Version actuelle : v51
+#
+# v51 - 2026-09-23 - safe-modify - Copie des .hi MAME sans version en dur : zip
+#      hiscore_hi_pack_v2.zip avec "mame/hiscore/<rom>.hi", dossier cible choisi sur
+#      la Recalbox (mame.core de recalbox.conf, sinon plus recent saves/mame/mame0NNN).
+#      Un changement de set/coeur MAME ne demande plus de modifier le toolkit. Voir
+#      _pick_mame_core()/_map_hiscore_paths(). Chaines hiscore_mame_core/no_mame_core.
 #
 # v50 - 2026-09-22 - safe-modify - Mode 1 ET Mode 9 copient aussi les fichiers .hi
 #      (hi-scores fbneo + mame0278, ~3000 fichiers) vers /recalbox/share/saves/ de la
@@ -940,6 +946,8 @@ TRANSLATIONS = {
         "hiscore_unavailable": "❌ Copie des .hi impossible : ni le partage SMB ni SSH n'ont répondu (Recalbox éteinte ou injoignable). Relance le Mode 9 plus tard.",
         "hiscore_result": lambda c, s, m: f"   ✅ {c} .hi copiés, {s} déjà présents (conservés tels quels) — via {'SMB' if m == 'smb' else 'SSH (repli)'}.",
         "hiscore_summary": lambda c, s: f".hi : {c} copiés, {s} déjà présents",
+        "hiscore_mame_core": lambda core: f"   ℹ️  .hi MAME installés pour le cœur {core} (saves/mame/{core}/hiscore).",
+        "hiscore_no_mame_core": lambda n: f"   ⚠️  Cœur MAME introuvable sur la Recalbox (recalbox.conf) — {n} .hi MAME non copiés. Lance un jeu MAME une fois puis relance le Mode 9.",
         "main_choice": "Votre choix (1-9) : ",
         "main_opt_quit": "QUITTER",
         "main_warn": "⚠️  Tape un chiffre entre 0 et 9.\n",
@@ -1192,6 +1200,8 @@ TRANSLATIONS = {
         "hiscore_unavailable": "❌ Could not copy the .hi files: neither the SMB share nor SSH answered (Recalbox off or unreachable). Run Mode 9 again later.",
         "hiscore_result": lambda c, s, m: f"   ✅ {c} .hi copied, {s} already present (kept as they are) — via {'SMB' if m == 'smb' else 'SSH (fallback)'}.",
         "hiscore_summary": lambda c, s: f".hi: {c} copied, {s} already present",
+        "hiscore_mame_core": lambda core: f"   ℹ️  MAME .hi installed for the {core} core (saves/mame/{core}/hiscore).",
+        "hiscore_no_mame_core": lambda n: f"   ⚠️  MAME core not found on the Recalbox (recalbox.conf) — {n} MAME .hi not copied. Start a MAME game once, then run Mode 9 again.",
         "main_choice": "Your choice (1-9): ",
         "main_opt_quit": "QUIT",
         "main_warn": "⚠️  Enter a number between 0 and 9.\n",
@@ -1445,6 +1455,8 @@ TRANSLATIONS = {
         "hiscore_unavailable": "❌ No se pudieron copiar los .hi: ni el recurso SMB ni SSH respondieron (Recalbox apagada o inaccesible). Vuelve a ejecutar el Modo 9 más tarde.",
         "hiscore_result": lambda c, s, m: f"   ✅ {c} .hi copiados, {s} ya presentes (conservados tal cual) — vía {'SMB' if m == 'smb' else 'SSH (repliegue)'}.",
         "hiscore_summary": lambda c, s: f".hi: {c} copiados, {s} ya presentes",
+        "hiscore_mame_core": lambda core: f"   ℹ️  .hi de MAME instalados para el núcleo {core} (saves/mame/{core}/hiscore).",
+        "hiscore_no_mame_core": lambda n: f"   ⚠️  Núcleo MAME no encontrado en la Recalbox (recalbox.conf) — {n} .hi de MAME no copiados. Inicia un juego MAME una vez y vuelve a ejecutar el Modo 9.",
         "main_choice": "Su eleccion (1-9): ",
         "main_opt_quit": "SALIR",
         "main_warn": "⚠️  Escribe un número entre 0 y 9.\n",
@@ -5098,9 +5110,71 @@ def install_recalbox_scripts(staged_dir: Path, recalbox_host: str, progress_cb=N
 # (verified_default_scores.json, hiscore_manifest.json) ne sont PAS geres ici :
 # ils voyagent deja avec userscripts/dmd_helpers/ (scripts Recalbox), il suffit
 # de tenir tools/recalbox_scripts/dmd_helpers/ a jour sur GitHub.
-GITHUB_HISCORE_PACK_URL = "https://raw.githubusercontent.com/shan-aya/RecalBoxDMD/main/tools/hiscore_recalbox/hiscore_hi_pack.zip"
+#
+# v51 -- plus de version MAME en dur (demande utilisateur : "a chaque
+# changement de set il faudra refaire une modification du tools") : le zip v2
+# range les .hi MAME dans "mame/hiscore/<rom>.hi" SANS numero de version, et
+# le toolkit choisit le dossier cible sur la Recalbox elle-meme :
+# saves/mame/<coeur>/hiscore/, <coeur> = mame.core de recalbox.conf (le dossier
+# de sauvegarde suit le COEUR et non le romset -- verifie sur RB2 le 23/09 :
+# roms mame0288, coeur mame0278, .hi dans saves/mame/mame0278/hiscore), a
+# defaut le plus recent dossier saves/mame/mame0NNN present, a defaut rien
+# (les .hi MAME sont alors sautes, message dedie). Nouveau nom de zip
+# (hiscore_hi_pack_v2.zip) : l'ancien hiscore_hi_pack.zip (chemins mame0278)
+# reste en place pour le build 7550 deja publie qui le lit tel quel.
+GITHUB_HISCORE_PACK_URL = "https://raw.githubusercontent.com/shan-aya/RecalBoxDMD/main/tools/hiscore_recalbox/hiscore_hi_pack_v2.zip"
 RECALBOX_SSH_SAVES_PATH = "/recalbox/share/saves"
+RECALBOX_SSH_CONF_PATH = "/recalbox/share/system/recalbox.conf"
 HISCORE_PACK_MAX_FILE_BYTES = 65536  # garde-fou : un .hi fait quelques dizaines/centaines d'octets
+HISCORE_MAME_NEUTRAL_PREFIX = "mame/hiscore/"
+
+
+def _pick_mame_core(conf_text, mame_save_dirs):
+    """Choisit le coeur MAME cible (ex. "mame0278").
+    1. mame.core de recalbox.conf s'il est de la forme mame0NNN ;
+    2. sinon le dossier saves/mame/mame0NNN/hiscore ou MAME a ecrit un .hi le
+       plus RECEMMENT (= coeur reellement utilise). Constate sur RB1 (Pi) le
+       23/09 : pas de mame.core dans recalbox.conf, coeur par defaut
+       systemlist.xml = mame0258, mais les vrais .hi sont dans mame0278 (670
+       fichiers contre 4) -- ni "le plus grand numero" ni "le coeur par defaut"
+       ne sont donc fiables seuls ;
+    3. sinon (aucun .hi nulle part) le plus grand numero de dossier present ;
+    4. sinon None.
+    mame_save_dirs : {nom_dossier: mtime du .hi le plus recent, 0 si aucun}
+    (une simple liste de noms est aussi acceptee, mtimes alors a 0)."""
+    import re
+    modern = re.compile(r"^mame0\d{3}$")
+    for line in (conf_text or "").splitlines():
+        line = line.strip()
+        if line.startswith("mame.core="):
+            core = line.split("=", 1)[1].strip()
+            if modern.match(core):
+                return core
+            break
+    if not isinstance(mame_save_dirs, dict):
+        mame_save_dirs = {d: 0 for d in (mame_save_dirs or [])}
+    cands = {d: m for d, m in mame_save_dirs.items() if modern.match(d)}
+    if not cands:
+        return None
+    return max(cands, key=lambda d: (cands[d], d))
+
+
+def _map_hiscore_paths(files, mame_core):
+    """Remplace le prefixe neutre "mame/hiscore/" par "mame/<coeur>/hiscore/".
+    Sans coeur determinable, les .hi MAME sont retires (message imprime)."""
+    mapped, dropped = [], 0
+    for rel, data in files:
+        if rel.startswith(HISCORE_MAME_NEUTRAL_PREFIX):
+            if not mame_core:
+                dropped += 1
+                continue
+            rel = f"mame/{mame_core}/hiscore/{rel[len(HISCORE_MAME_NEUTRAL_PREFIX):]}"
+        mapped.append((rel, data))
+    if dropped:
+        print(tr("hiscore_no_mame_core")(dropped))
+    elif mame_core:
+        print(tr("hiscore_mame_core")(mame_core))
+    return mapped
 
 
 def _fetch_hiscore_pack():
@@ -5147,6 +5221,27 @@ def _install_hiscore_via_share(files, recalbox_host: str, progress_cb=None):
         return None
 
     saves = share_root / "saves"
+    conf_text = ""
+    try:
+        conf_text = (share_root / "system" / "recalbox.conf").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        pass
+    mame_dirs = {}
+    try:
+        for d in os.listdir(saves / "mame"):
+            latest = 0
+            try:
+                with os.scandir(saves / "mame" / d / "hiscore") as it:
+                    for e in it:
+                        if e.name.endswith(".hi"):
+                            latest = max(latest, e.stat().st_mtime)
+            except OSError:
+                pass
+            mame_dirs[d] = latest
+    except OSError:
+        pass
+    files = _map_hiscore_paths(files, _pick_mame_core(conf_text, mame_dirs))
+
     existing_by_dir = {}
     copied = skipped = 0
     total = len(files)
@@ -5201,10 +5296,31 @@ def _install_hiscore_via_ssh(files, recalbox_host: str, progress_cb=None):
     if client is None:
         return None
     copied = skipped = 0
-    total = len(files)
     try:
         sftp = client.open_sftp()
         try:
+            conf_text = ""
+            try:
+                with sftp.open(RECALBOX_SSH_CONF_PATH, "r") as fh:
+                    conf_text = fh.read().decode("utf-8", "replace")
+            except IOError:
+                pass
+            mame_dirs = {}
+            try:
+                for d in sftp.listdir(f"{RECALBOX_SSH_SAVES_PATH}/mame"):
+                    latest = 0
+                    if d.startswith("mame0"):
+                        try:
+                            for a in sftp.listdir_attr(f"{RECALBOX_SSH_SAVES_PATH}/mame/{d}/hiscore"):
+                                if a.filename.endswith(".hi"):
+                                    latest = max(latest, a.st_mtime or 0)
+                        except IOError:
+                            pass
+                    mame_dirs[d] = latest
+            except IOError:
+                pass
+            files = _map_hiscore_paths(files, _pick_mame_core(conf_text, mame_dirs))
+            total = len(files)
             existing_by_dir = {}
             for i, (rel, data) in enumerate(files, 1):
                 if progress_cb is not None and (i % 50 == 0 or i == total):

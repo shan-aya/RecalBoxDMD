@@ -2,7 +2,11 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v75
+# Version actuelle : v76
+#
+# v76 — 2026-09-23 — safe-modify — Build toolkit 7651 (GUI v76 + tool v51) : les .hi MAME sont copies dans le
+#      dossier du coeur MAME actif de la Recalbox (lu dans recalbox.conf) au lieu d'un mame0278 fige. Aucun
+#      changement de code GUI.
 #
 # v75 — 2026-09-22 — safe-modify — Build toolkit 7550 (GUI v75 + tool v50) : le Mode 1 et le Mode 9 copient
 #      aussi les fichiers .hi (hi-scores) vers la Recalbox via toolkit.install_hiscore_files(), sans jamais
@@ -1306,7 +1310,7 @@ from tkinter import ttk, messagebox, filedialog, font as tkfont
 # mais CETTE constante reste a mettre a jour a la main ici (pas d'ecriture
 # automatique dans le .py au moment du build, pour garder le pipeline
 # simple) -- build_release.ps1 avertit si elle diverge du calcul.
-TOOLKIT_RELEASE_VERSION = "7550"
+TOOLKIT_RELEASE_VERSION = "7651"
 
 # v71, safe-modify -- voir le remplacement du verrou v68 dans __init__ pour
 # le contexte complet. _DPI_SCALE est le ratio DPI reel/96 (1.0 a 100%,

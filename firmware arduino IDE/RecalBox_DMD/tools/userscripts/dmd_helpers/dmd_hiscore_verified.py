@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-"""dmd_hiscore_verified.py v1 -- 2026-09-04
+"""dmd_hiscore_verified.py v2 -- 2026-09-23
+
+v2 -- BUG REEL corrige : dmd_score.sh passe le nom de SYSTEME ES ("mame"),
+alors que les cles MAME du JSON portent la version du set ("mame0278_<rom>")
+-> aucune entree MAME n'etait jamais trouvee (teste sur RB2 : "mame 1943"
+vide, "mame0278 1943" OK ; 0 ligne VERIFIE-MANUEL dans dmd_score.log).
+Correctif independant de la version du set : si le systeme commence par
+"mame", on essaie d'abord la cle exacte puis toute cle "mame*_<rom>", la plus
+recente d'abord (mame0288 avant mame0278). Aucun changement de JSON requis,
+et un futur set MAME ne demande aucune modification de ce script.
+
+v1 -- 2026-09-04
 
 Niveau 2 de la cascade hi-score (voir DECISIONS.md et la fiche memoire
 du chantier) :
@@ -47,6 +58,18 @@ def main():
     except (OSError, json.JSONDecodeError):
         return
     entry = data.get(f"{system}_{rom}")
+    if not entry and system.startswith("mame"):
+        # v2 -- cle versionnee (mame0278_<rom>...) quel que soit le set actif
+        suffix = f"_{rom}"
+        keys = sorted(
+            (k for k in data if k.startswith("mame") and k.endswith(suffix)
+             and "_" not in k[: -len(suffix)]),
+            reverse=True,
+        )
+        for k in keys:
+            entry = data.get(k)
+            if entry:
+                break
     if not entry:
         return
     lines = entry.get("lines")
