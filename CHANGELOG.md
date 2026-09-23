@@ -8,6 +8,13 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-09-23 — Hi-scores independent of the MAME version, verified MAME tables fixed
+
+- **Recalbox scripts** (`dmd_hiscore_verified.py` v2): fixed the hand-verified hi-score tables **never showing for MAME games** — the lookup used the system name (`mame`) while the table keys carry the MAME version (`mame0278_…`). About 2270 MAME games now show their table when no real `.hi` exists. Re-install the scripts with Mode 9.
+- **Recalbox scripts** (`dmd_hiscore_generic.py` v6): the MAME hi-score folder is no longer hard-coded — the script uses the MAME core Recalbox actually runs (`mame.core` in `recalbox.conf`, otherwise the folder MAME wrote to most recently). A future MAME core needs no script update.
+- **PC Toolkit** (build `7651`): the MAME `.hi` files are copied into the folder of the MAME core in use on the Recalbox (same rule), instead of a fixed `mame0278` folder. Still never overwrites an existing `.hi`.
+- **Data**: in [`tools/hiscore_recalbox/`](tools/hiscore_recalbox/), the MAME files move to `hi/mame/hiscore/` (no version) and a new `hiscore_hi_pack_v2.zip` is used by the Toolkit; the old zip stays for build 7550.
+
 ## 2026-09-22 — PC Toolkit copies hi-score files, new hi-score data folder
 
 - **PC Toolkit** (build `7550`): **Mode 1 and Mode 9 now also copy the hi-score files (`.hi`)** — about 3000 files for FBNeo and MAME 0.278 — into `/recalbox/share/saves` on the Recalbox, so the DMD has scores to show for games that were never played. **A `.hi` already present on the Recalbox is never overwritten**; only missing ones are added. Over the network share, with SSH as a fallback. The hi-score tables (JSON) were already installed with the scripts.

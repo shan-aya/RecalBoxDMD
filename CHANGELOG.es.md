@@ -8,6 +8,13 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-09-23 — Récords independientes de la versión de MAME, tablas verificadas de MAME corregidas
+
+- **Scripts de Recalbox** (`dmd_hiscore_verified.py` v2): corregidas las tablas de récords verificadas a mano **que nunca se mostraban en los juegos MAME** — la búsqueda usaba el nombre del sistema (`mame`) mientras que las claves llevan la versión de MAME (`mame0278_…`). Unos 2270 juegos MAME muestran ahora su tabla cuando no existe un `.hi` real. Reinstala los scripts con el Modo 9.
+- **Scripts de Recalbox** (`dmd_hiscore_generic.py` v6): la carpeta de récords de MAME ya no está fija en el código — el script usa el núcleo MAME que Recalbox ejecuta realmente (`mame.core` en `recalbox.conf`, si no la carpeta donde MAME escribió por última vez). Un futuro núcleo MAME no requiere actualizar el script.
+- **Toolkit PC** (build `7651`): los `.hi` de MAME se copian en la carpeta del núcleo MAME en uso en la Recalbox (misma regla), en lugar de una carpeta `mame0278` fija. Un `.hi` existente sigue sin sobrescribirse nunca.
+- **Datos**: en [`tools/hiscore_recalbox/`](tools/hiscore_recalbox/), los archivos MAME pasan a `hi/mame/hiscore/` (sin versión) y el Toolkit usa un nuevo `hiscore_hi_pack_v2.zip`; el zip antiguo se mantiene para el build 7550.
+
 ## 2026-09-22 — La caja de herramientas copia los archivos de récords, nueva carpeta de datos
 
 - **Toolkit PC** (build `7550`): **el Modo 1 y el Modo 9 ahora también copian los archivos de récords (`.hi`)** — unos 3000 archivos de FBNeo y MAME 0.278 — en `/recalbox/share/saves` de la Recalbox, para que el DMD tenga puntuaciones que mostrar de juegos nunca jugados. **Un `.hi` ya presente en la Recalbox nunca se sobrescribe**; solo se añaden los que faltan. Por el recurso compartido de red, con SSH como alternativa. Las tablas de récords (JSON) ya se instalaban con los scripts.
