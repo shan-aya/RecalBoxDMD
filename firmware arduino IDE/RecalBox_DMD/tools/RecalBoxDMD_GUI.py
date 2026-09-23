@@ -2,7 +2,14 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v77
+# Version actuelle : v78
+#
+# v78 — 2026-09-23 — safe-modify — Build toolkit 7851 (GUI v78 + tool v51) : boutons du cadre Progression encore
+#      rognes au passage aux .hi (capture utilisateur, build 7751). Cause reelle : fenetre a hauteur FIXE, cadre
+#      Progression packe APRES le notebook -> il ne recevait que la hauteur restante des qu'un onglet grandissait.
+#      Fix : cadre Progression packe side="bottom", before=nb_top (priorite de place, c'est le notebook qui
+#      s'ajuste) + label de resultat du Mode 9 a hauteur fixe (3 lignes). Verifie par harnais (fenetre 1100x750) :
+#      bas des boutons constant a 724 px sur 5 etats, dont un onglet artificiellement agrandi de 300 px.
 #
 # v77 — 2026-09-23 — safe-modify — Build toolkit 7751 (GUI v77 + tool v51) : le bilan ".hi : N copies, M deja
 #      presents" du Mode 9 s'affiche dans le cadre Progression au lieu d'une 4e ligne sous le resume des scripts
@@ -1315,7 +1322,7 @@ from tkinter import ttk, messagebox, filedialog, font as tkfont
 # mais CETTE constante reste a mettre a jour a la main ici (pas d'ecriture
 # automatique dans le .py au moment du build, pour garder le pipeline
 # simple) -- build_release.ps1 avertit si elle diverge du calcul.
-TOOLKIT_RELEASE_VERSION = "7751"
+TOOLKIT_RELEASE_VERSION = "7851"
 
 # v71, safe-modify -- voir le remplacement du verrou v68 dans __init__ pour
 # le contexte complet. _DPI_SCALE est le ratio DPI reel/96 (1.0 a 100%,
@@ -6274,8 +6281,12 @@ class RetroBoxLEDGui:
             font=("TkDefaultFont", 9),
             wraplength=_dpi_px(280),
             justify="left",
+            # v78 -- hauteur FIXE (3 lignes) : le panneau ne change plus de
+            # taille quand le resultat s'affiche ou s'efface.
+            height=3,
+            anchor="nw",
         )
-        self._mode9_result_lbl.pack(anchor="w", pady=(6, 0))
+        self._mode9_result_lbl.pack(anchor="w", fill="x", pady=(6, 0))
         self._mode9_thread: Optional[threading.Thread] = None
         # Detection auto en arriere-plan : Path(UNC).exists() peut prendre
         # plusieurs secondes si le nom ne resout pas -- jamais appele sur le
@@ -7482,7 +7493,16 @@ class RetroBoxLEDGui:
         ui = UI_TRANSLATIONS.get(self.lang_var.get(), UI_TRANSLATIONS["fr"])
 
         frm = tk.Frame(parent, bg="#F3F3F3", bd=2, relief="solid", padx=10, pady=10)
-        frm.pack(fill="x", padx=10, pady=(0, 10))
+        # v78 -- cale en BAS et place AVANT le notebook dans l'ordre de pack :
+        # la fenetre a une hauteur fixe (non redimensionnable) ; construit
+        # apres nb_top, ce cadre ne recevait que la hauteur restante et etait
+        # rogne (boutons Pause/Reprise/Passe/Stop caches) des qu'un onglet
+        # grandissait -- ex. le resultat du Mode 9 (captures utilisateur,
+        # builds 7651/7751). Desormais c'est le notebook qui s'ajuste.
+        pack_opts = dict(side="bottom", fill="x", padx=10, pady=(0, 10))
+        if getattr(self, "nb_top", None) is not None:
+            pack_opts["before"] = self.nb_top
+        frm.pack(**pack_opts)
         # Fixe la largeur de la colonne texte (évite que les labels longs "poussent" la barre boutons)
         frm.grid_columnconfigure(0, minsize=420, weight=0)
         frm.grid_columnconfigure(1, weight=1)
