@@ -2,7 +2,34 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v4
+# Version actuelle : v6
+#
+# v6 - 2026-09-23 - safe-modify - Plus de numero de version MAME en dur
+#   (demande utilisateur : "a chaque changement de set il faudra refaire une
+#   modification"). Les dossiers saves/mame/mame0NNN/hiscore sont decouverts
+#   a l'execution : coeur actif (mame.core de recalbox.conf) d'abord, puis
+#   tous les mame0NNN presents du plus recent au plus ancien. Constate sur
+#   RB2 : le dossier suit le COEUR (mame0278) et non le romset (mame0288).
+#   Anciens coeurs a format "hi/" (mame2003-plus...) inchanges.
+#
+# v5 - 2026-09-14 - safe-modify - BUG REEL trouve en verifiant a la main le
+#   decodage de plusieurs .hi frais issus de la campagne niveau1 mame0278
+#   (galaxian/waterski) : `find_hi_file(rom)` ignorait TOTALEMENT
+#   l'argument `system` (assigne dans main() mais jamais reutilise) et
+#   parcourait HI_SEARCH_PATHS dans un ordre FIXE ou fbneo passe toujours
+#   en premier -- des qu'un rom du meme nom existe cote fbneo ET cote mame
+#   (confirme 183/413 sur l'etat actuel de la campagne niveau1 mame, ex.
+#   galaxian/waterski/avspirit/cavelon/bongo...), le score fbneo (souvent
+#   vide/zero) etait TOUJOURS affiche a la place du vrai score mame, quel
+#   que soit le core reellement en train de tourner. Le commentaire de
+#   build_score_payload() v27 (dmd_score.sh) affirmait a tort que ce
+#   mecanisme "sait retrouver le bon .hi quel que soit le core" -- vrai
+#   uniquement quand aucune collision de nom n'existe entre les 2 cores.
+#   Fix : `find_hi_file(rom, system)` ne cherche plus que dans les chemins
+#   du core demande (fbneo seul, ou la famille mame -- toutes generations,
+#   `system` commence par "mame") ; si `system` est absent/inconnu, repli
+#   sur l'ANCIEN comportement (parcours complet) plutot que de retourner
+#   rien, pour ne rien casser d'un appelant qui ne passerait pas ce champ.
 #
 # v4 - 2026-09-01 - safe-modify - BUG REEL confirme sur materiel (retour
 #   utilisateur : navigation turbo -> CPU sature 100% sur tous les coeurs,
@@ -108,23 +135,91 @@ MANIFEST_PATH = os.path.join(os.path.dirname(__file__), "hiscore_manifest.json")
 # 2015/2000 memes generation que 2003-plus, motif identique par
 # extrapolation, pas individuellement reverifies). fbneo reste confirme et
 # inchange.
-HI_SEARCH_PATHS = [
+FBNEO_HI_SEARCH_PATHS = [
     "/recalbox/share/saves/fbneo/fbneo/{rom}.hi",
-    "/recalbox/share/saves/mame/mame0278/hiscore/{rom}.hi",
-    "/recalbox/share/saves/mame/mame0274/hiscore/{rom}.hi",
-    "/recalbox/share/saves/mame/mame0258/hiscore/{rom}.hi",
+]
+# v6 -- les dossiers mame0NNN/hiscore ne sont plus listes en dur : voir
+# _mame_modern_hi_patterns() (coeur actif de recalbox.conf d'abord, puis tout
+# dossier mame0NNN/hiscore present, du plus recent au plus ancien). Cette
+# liste ne garde que les anciens coeurs a format "hi/".
+MAME_HI_SEARCH_PATHS = [
     "/recalbox/share/saves/mame/mame2003-plus/hi/{rom}.hi",
     "/recalbox/share/saves/mame/mame2010/hi/{rom}.hi",
     "/recalbox/share/saves/mame/mame2015/hi/{rom}.hi",
     "/recalbox/share/saves/mame/mame2003/hi/{rom}.hi",
     "/recalbox/share/saves/mame/mame2000/hi/{rom}.hi",
 ]
+# v5 -- ancienne liste conservee telle quelle comme repli si `system` est
+# absent/inconnu (comportement historique, jamais retirer sans casser un
+# appelant qui ne passerait pas ce champ).
+HI_SEARCH_PATHS = FBNEO_HI_SEARCH_PATHS + MAME_HI_SEARCH_PATHS
+
+MAME_SAVES_ROOT = "/recalbox/share/saves/mame"
+RECALBOX_CONF = "/recalbox/share/system/recalbox.conf"
+_MAME_MODERN_RE = re.compile(r"^mame0\d{3}$")
+
+
+def _active_mame_core():
+    """Coeur MAME par defaut de Recalbox (cle mame.core de recalbox.conf,
+    ex. "mame0278"), ou None. Le dossier de sauvegarde suit le COEUR, pas le
+    romset (verifie sur RB2 le 23/09 : roms mame0288, coeur mame0278, .hi
+    ecrits dans saves/mame/mame0278/hiscore)."""
+    try:
+        with open(RECALBOX_CONF, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("mame.core="):
+                    core = line.split("=", 1)[1].strip()
+                    return core if _MAME_MODERN_RE.match(core) else None
+    except OSError:
+        pass
+    return None
+
+
+def _mame_modern_hi_patterns():
+    """v6 -- motifs saves/mame/mame0NNN/hiscore/{rom}.hi sans version en dur :
+    coeur actif d'abord, puis tous les autres dossiers mame0NNN presents, du
+    plus recent au plus ancien. Un futur coeur (mame0288...) est pris en
+    compte sans modifier ce script."""
+    try:
+        dirs = [d for d in os.listdir(MAME_SAVES_ROOT) if _MAME_MODERN_RE.match(d)]
+    except OSError:
+        dirs = []
+
+    def _latest_hi(d):
+        # dossier ou MAME a ecrit un .hi le plus recemment = coeur reellement
+        # utilise (RB1 : pas de mame.core, defaut systemlist mame0258, mais
+        # vrais .hi dans mame0278 -- constate le 23/09)
+        try:
+            return os.path.getmtime(f"{MAME_SAVES_ROOT}/{d}/hiscore")
+        except OSError:
+            return 0
+
+    dirs.sort(key=lambda d: (_latest_hi(d), d), reverse=True)
+    active = _active_mame_core()
+    if active:
+        dirs = [active] + [d for d in dirs if d != active]
+    return [f"{MAME_SAVES_ROOT}/{d}/hiscore/{{rom}}.hi" for d in dirs]
+
 
 MAX_ENTRIES = 9  # aligne avec dmd_challenge.py (3 pages x 3 lignes)
 
 
-def find_hi_file(rom):
-    for pattern in HI_SEARCH_PATHS:
+def find_hi_file(rom, system=None):
+    # v5 -- BUG REEL corrige : ne plus parcourir TOUS les cores sans
+    # distinction (fbneo toujours prioritaire dans l'ancien ordre fixe,
+    # masquait silencieusement un vrai score mame des qu'un rom du meme
+    # nom existe aussi cote fbneo -- confirme 183 collisions reelles sur
+    # la campagne niveau1 mame0278 du 13-14/09). Restreint la recherche
+    # au(x) chemin(s) du core REELLEMENT demande.
+    if system == "fbneo":
+        paths = FBNEO_HI_SEARCH_PATHS
+    elif system and system.startswith("mame"):
+        paths = _mame_modern_hi_patterns() + MAME_HI_SEARCH_PATHS
+    else:
+        # system absent/inconnu -- repli prudent (ordre historique : fbneo d'abord)
+        paths = FBNEO_HI_SEARCH_PATHS + _mame_modern_hi_patterns() + MAME_HI_SEARCH_PATHS
+    for pattern in paths:
         path = pattern.format(rom=rom)
         if os.path.isfile(path):
             return path
@@ -277,7 +372,7 @@ def main():
     if entry is None:
         return
 
-    hi_path = find_hi_file(rom)
+    hi_path = find_hi_file(rom, system)
     if hi_path is None:
         return
     try:
