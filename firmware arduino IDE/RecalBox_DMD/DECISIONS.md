@@ -2684,3 +2684,17 @@ Demande utilisateur ("oui") apres la fusion de `dev/vpinball-integration` dans m
 **dmd_achievement.sh v8** : retire features_watcher (mosquitto_sub marquee/status/features, plus jamais publie depuis v209) et mosquitto_pub ; journal renomme dmd_achievement.log ; en-tete remis a jour (restait v6 malgre v7). Teste en bac a sable sur RB2 (chemins /tmp/ratest, faux DMD UDP 127.0.0.1:5999) : succes ignore sans cache features, envoye avec ra_ingame=1 (titre contenant ':' intact), ignore avec ra_ingame=0 ; 0 processus residuel. Publie sur main (tools/recalbox_scripts). **Pas encore installe sur RB1/RB2** : prendra effet au prochain Mode 9 + redemarrage ES.
 
 **Constat au passage** : /tmp/dmd_features_cache et /tmp/dmd_udp_ip absents sur RB1 et RB2 -- normal, /tmp est un tmpfs vide au boot et AUCUN DMD n'a parle a ces machines depuis leur dernier redemarrage (RB2 22/09 10:32, RB1 23/09 18:04). RB1 tourne encore avec d'anciens scripts (dmd_udp_resync.py visant l'IP fixe 192.168.0.51, dmd_achievement sans la v7) -> Mode 9 a faire.
+
+## Interface Mode 9 : boutons de Progression rognes + dmd_score v54 (2026-09-23)
+
+**Symptome (captures utilisateur, builds 7651 puis 7751)** : au passage a l'etape .hi du Mode 9, les boutons Pause/Reprise/Passe/Stop du cadre Progression disparaissaient en bas de la fenetre.
+
+**Cause reelle** : fenetre a hauteur FIXE (1100x750, non redimensionnable) ; le cadre Progression etait packe APRES le notebook et ne recevait que la hauteur restante -> rogne des qu'un onglet grandissait (ex. resultat du Mode 9 passant a 3-4 lignes). Le correctif 7751 (bilan .hi deplace dans Progression) ne traitait qu'un cas.
+
+**Correctifs (GUI v77 -> v79, build 7951, valide par l'utilisateur)** : cadre Progression packe side=bottom, before=nb_top (prioritaire, c'est le notebook qui s'ajuste) ; label de resultat du Mode 9 a hauteur fixe (3 lignes) ; texte 'Details du mode' du Mode 9 raccourci (16 -> ~10 lignes, FR/EN/ES, mentionne la copie des .hi) ; resume 'redemarrez la Recalbox' (un redemarrage d'ES laisse tourner les anciens scripts permanents a cause du verrou anti-relance -- constate sur RB1). Harnais de mesure (scratchpad gui_layout_probe.py) : bas des boutons constant a 724/750 px sur 5 etats dont un onglet agrandi de 300 px.
+
+**dmd_score.sh v54** : features_watcher (mosquitto_sub marquee/status/features) et features_line_complete retires (MQTT mort cote DMD depuis v209) ; mosquitto_sub Recalbox/EmulationStation/Event conserve (MQTT interne Recalbox). Publie sur main (2c209c6), installe et relance a chaud sur RB1 ; RB2 injoignable (a faire au prochain Mode 9).
+
+**Constat RB1** : DMD1 (192.168.0.52, recalbox_ip=192.168.0.35) ne se connectait plus car les ANCIENS scripts tournaient encore apres le Mode 9 (dmd_udp_resync repondait a l'IP fixe 192.168.0.51). Redemarrage de RB1 et RB2 -> nouveaux scripts actifs, dmd_udp_ip=192.168.0.52, features recues.
+
+**Builds non publies** : 7751, 7851, 7951 (seul 7651 est en Release). RB_scripts.zip des builds locaux regenere a la main (dmd_score v54 / dmd_achievement v8), build_release.ps1 v3 ecrit desormais les zips avec '/'.
