@@ -2,7 +2,15 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v79
+# Version actuelle : v80
+#
+# v80 — 2026-09-24 — safe-modify — Build toolkit 8051 (GUI v80 + tool v51), demande utilisateur :
+#      (1) modes 2, 3 et 11 : le dossier temporaire (self.sd_dir) s'ouvre dans l'Explorateur a la fin du
+#      traitement (_on_pipeline_finished, jamais apres un Stop) ; (2) modes 6 et 7 : dossier d'entree par defaut =
+#      dossier temporaire systems/ s'il existe, sinon vide (choix obligatoire) -- _apply_mode67_default_path() ;
+#      un dossier choisi explicitement en mode 6/7 reste prioritaire ; le dossier ROMs/images des modes 1/3/4/5/8
+#      est memorise a l'entree en 6/7 et restaure a la sortie ; le selecteur de dossier s'ouvre sur systems/.
+#      Verifie par harnais (scratchpad gui_paths_probe.py, os.startfile remplace par un enregistreur).
 #
 # v79 — 2026-09-23 — safe-modify — Build toolkit 7951 (GUI v79 + tool v51) : avec v78 les boutons de Progression
 #      sont visibles, mais le texte de resultat du Mode 9 etait coupe dans son encart (capture utilisateur) --
@@ -1329,7 +1337,7 @@ from tkinter import ttk, messagebox, filedialog, font as tkfont
 # mais CETTE constante reste a mettre a jour a la main ici (pas d'ecriture
 # automatique dans le .py au moment du build, pour garder le pipeline
 # simple) -- build_release.ps1 avertit si elle diverge du calcul.
-TOOLKIT_RELEASE_VERSION = "7951"
+TOOLKIT_RELEASE_VERSION = "8051"
 
 # v71, safe-modify -- voir le remplacement du verrou v68 dans __init__ pour
 # le contexte complet. _DPI_SCALE est le ratio DPI reel/96 (1.0 a 100%,
@@ -6894,6 +6902,25 @@ class RetroBoxLEDGui:
                     except Exception:
                         pass
 
+        # v80 -- dossier d'entree des modes 6/7 (demande utilisateur) :
+        # dossier temporaire systems/ par defaut s'il existe, sinon vide
+        # (choix obligatoire) ; un dossier choisi explicitement en mode 6/7
+        # reste prioritaire. Le chemin des autres modes (ex. dossier ROMs du
+        # mode 3) est memorise a l'entree et restaure a la sortie.
+        prev_mode = getattr(self, "_prev_mode_for_path", None)
+        if mode in ("6", "7"):
+            if prev_mode not in ("6", "7") and hasattr(self, "roms_path_var"):
+                self._roms_path_non67 = self.roms_path_var.get()
+            self._apply_mode67_default_path()
+        elif mode in ("1", "3", "4", "5", "8") and getattr(self, "_roms_path_non67", None) is not None:
+            # restaure le dossier ROMs/images d'avant le passage en 6/7
+            # (pas pour 2/9/10/11 : chemin interne, deja fixe plus haut)
+            for var_name in ("roms_path_var", "roms_path_var_adv"):
+                if hasattr(self, var_name):
+                    getattr(self, var_name).set(self._roms_path_non67)
+            self._roms_path_non67 = None
+        self._prev_mode_for_path = mode
+
         # Colonne systèmes visible seulement pour modes qui en ont besoin.
         show_sys_col = mode in ("1", "3", "4", "5", "8")
         if show_sys_col:
@@ -7334,6 +7361,23 @@ class RetroBoxLEDGui:
     # ──────────────────────────────────────────────────────────────────────────
     # inputs
     # ──────────────────────────────────────────────────────────────────────────
+    def _apply_mode67_default_path(self) -> None:
+        """v80 -- chemin d'entree par defaut des modes 6/7 : dossier choisi
+        explicitement en mode 6/7 s'il existe encore, sinon le dossier
+        temporaire systems/ s'il existe, sinon vide (l'utilisateur doit
+        choisir -- _get_roms_root_or_warn() l'avertit au Demarrer)."""
+        picked = getattr(self, "_mode67_picked_path", None)
+        temp = self.sd_dir / "systems"
+        if picked and Path(picked).exists():
+            target = picked
+        elif temp.exists():
+            target = str(temp)
+        else:
+            target = ""
+        for var_name in ("roms_path_var", "roms_path_var_adv"):
+            if hasattr(self, var_name):
+                getattr(self, var_name).set(target)
+
     def _pick_roms_directory(self) -> None:
         mode = self.mode_var.get()
         ui = UI_TRANSLATIONS.get(self.lang_var.get(), UI_TRANSLATIONS["fr"])
@@ -7342,9 +7386,17 @@ class RetroBoxLEDGui:
         if mode in ("4", "5"):
             # title utilise déjà ui["images_pick_btn"]
             pass
-        p = filedialog.askdirectory(title=title)
+        # v80 -- modes 6/7 : le selecteur s'ouvre sur le dossier temporaire
+        # (systems/) s'il existe
+        initial = self.sd_dir / "systems"
+        if mode in ("6", "7") and initial.exists():
+            p = filedialog.askdirectory(title=title, initialdir=str(initial))
+        else:
+            p = filedialog.askdirectory(title=title)
         if not p:
             return
+        if mode in ("6", "7"):
+            self._mode67_picked_path = p  # choix explicite, prioritaire (v80)
         # Bug 6 : mettre à jour les DEUX variables de chemin (main ET avancé)
         self.roms_path_var.set(p)
         if hasattr(self, "roms_path_var_adv"):
@@ -11289,6 +11341,15 @@ class RetroBoxLEDGui:
                 except Exception:
                     pass
             return
+        # v80 -- modes 2/3/11 : ouvrir le dossier temporaire a la fin
+        # (demande utilisateur) -- les fichiers produits y sont (systems/,
+        # gifs/). Pas appele apres un Stop (_worker_main ne planifie
+        # _on_pipeline_finished que sans Stop).
+        if current_mode in ("2", "3", "11"):
+            try:
+                os.startfile(str(self.sd_dir))  # type: ignore[attr-defined]
+            except Exception as e:
+                print(f"⚠️  Ouverture du dossier temporaire impossible : {e}")
         # Ne force plus l'onglet Main : _poll_processing_done() (v25) a deja
         # restaure l'onglet d'origine (Main ou Avance) une fois le
         # traitement termine. Le panneau "copie SD" existe desormais dans
