@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-09-23 (2) — Toolkit PC: diseño del Modo 9 corregido, limpieza de scripts
+
+- **Toolkit PC** (build `7951`): los botones Pausar / Reanudar / Saltar / Parar del marco Progreso ya no desaparecen por debajo de la ventana durante el Modo 9 (se desplazaban al aparecer el texto de resultado). El marco Progreso conserva siempre su sitio, el resultado del Modo 9 tiene una altura fija y la descripción del Modo 9 es más corta (ahora menciona la copia de los `.hi`).
+- **Toolkit PC**: tras instalar los scripts, el mensaje pide **reiniciar la Recalbox** — reiniciar solo EmulationStation deja funcionando los scripts antiguos.
+- **Scripts de Recalbox** (`dmd_score` v54, `dmd_achievement` v8): eliminados restos de código MQTT (el DMD ya no usa MQTT); el registro del puente de RetroAchievements es ahora `dmd_achievement.log`. Sin cambios de comportamiento. Reinstala con el Modo 9 y reinicia la Recalbox.
+
 ## 2026-09-23 — Récords independientes de la versión de MAME, tablas verificadas de MAME corregidas
 
 - **Scripts de Recalbox** (`dmd_hiscore_verified.py` v2): corregidas las tablas de récords verificadas a mano **que nunca se mostraban en los juegos MAME** — la búsqueda usaba el nombre del sistema (`mame`) mientras que las claves llevan la versión de MAME (`mame0278_…`). Unos 2270 juegos MAME muestran ahora su tabla cuando no existe un `.hi` real. Reinstala los scripts con el Modo 9.

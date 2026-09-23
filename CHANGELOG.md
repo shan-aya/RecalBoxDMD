@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-09-23 (2) — PC Toolkit: Mode 9 layout fixed, script clean-up
+
+- **PC Toolkit** (build `7951`): the Pause / Resume / Skip / Stop buttons of the Progress frame no longer disappear at the bottom of the window during Mode 9 (they were pushed out when the result text appeared). The Progress frame now always keeps its place, the Mode 9 result has a fixed height, and the Mode 9 description is shorter (it now mentions the `.hi` copy).
+- **PC Toolkit**: after installing the scripts, the message now asks to **reboot the Recalbox** — restarting only EmulationStation leaves the old scripts running.
+- **Recalbox scripts** (`dmd_score` v54, `dmd_achievement` v8): leftover MQTT code removed (the DMD has not used MQTT for a while); the RetroAchievements bridge log is now `dmd_achievement.log`. No change in behaviour. Re-install with Mode 9, then reboot the Recalbox.
+
 ## 2026-09-23 — Hi-scores independent of the MAME version, verified MAME tables fixed
 
 - **Recalbox scripts** (`dmd_hiscore_verified.py` v2): fixed the hand-verified hi-score tables **never showing for MAME games** — the lookup used the system name (`mame`) while the table keys carry the MAME version (`mame0278_…`). About 2270 MAME games now show their table when no real `.hi` exists. Re-install the scripts with Mode 9.
