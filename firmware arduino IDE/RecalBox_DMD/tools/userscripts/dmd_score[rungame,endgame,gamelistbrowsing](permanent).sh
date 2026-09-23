@@ -15,7 +15,14 @@
 # ============================================
 # safe-modify â€” Historique des modifications
 # ============================================
-# Version actuelle : v51
+# Version actuelle : v54
+#
+# v54 - 2026-09-23 - safe-modify - Nettoyage MQTT (demande utilisateur, meme
+#   nettoyage que dmd_achievement.sh v8) : features_watcher() et
+#   features_line_complete() retires (voir leur ancien emplacement). Le
+#   mosquitto_sub sur Recalbox/EmulationStation/Event est CONSERVE : c'est le
+#   MQTT interne de Recalbox (evenements ES), pas celui du DMD. En-tete
+#   "Version actuelle" remis a jour (restait a v51 malgre v52/v53).
 #
 # v51 - 2026-09-12 - safe-modify - BUG REEL corrige (retour utilisateur en
 #   direct : "hiscore et playlist qui s'affichent en meme temps ce qui est
@@ -1377,52 +1384,10 @@ round_robin() {
     done
 }
 
-# v30 -- BUG REEL RECURRENT (retour utilisateur explicite : "souci
-# rencontre de multiples fois... la methode est a revoir pour le transfert
-# des reglages") : marquee/status/features peut arriver TRONQUE (observe en
-# direct : "2;dwell_seconds=3" au lieu de la chaine complete a 11 champs,
-# aussi bien dans la valeur RETENUE sur le broker que dans ce cache -- donc
-# pas une corruption locale a ce script, la troncature remonte au firmware,
-# voir son changelog RecalBox_DMD.ino). L'ANCIEN code ecrasait
-# INCONDITIONNELLEMENT $FEATURES_FILE avec CE QUI ARRIVE, meme tronque --
-# UN SEUL message corrompu suffisait a casser tous les panneaux d'un coup
-# (feat_enabled()/feat_value() ne trouvent alors plus aucune cle valide,
-# TOUS les jeux perdent leurs panneaux simultanement, pas juste celui en
-# cours). Fix (2e ligne de defense, complement du garde cote firmware) :
-# validation de completude AVANT d'ecraser le cache -- un message qui ne
-# contient pas les 11 cles attendues est REJETE (cache existant conserve
-# tel quel, jamais efface par du contenu douteux) plutot qu'accepte
-# aveuglement. Cause racine exacte de la troncature encore non confirmee
-# avec certitude (suspect : concatenation String cote firmware sous
-# pression heap) -- ce garde protege quelle que soit la cause, cote
-# reception.
-FEATURES_REQUIRED_KEYS="hiscore_ingame hiscore_browse info_ingame info_browse description_ingame description_browse ra_ingame ra_browse repeat_cycles repeat_browse_cycles dwell_seconds"
-
-features_line_complete() {
-    line="$1"
-    for k in $FEATURES_REQUIRED_KEYS; do
-        case "$line" in
-            *"${k}="*) ;;
-            *) return 1 ;;
-        esac
-    done
-    return 0
-}
-
-# v2 -- sous-processus DEDIE (marquee/status/features RETENU cote DMD --
-# 1ere lecture immediate a la souscription, meme si ce script demarre
-# apres le DMD).
-features_watcher() {
-    mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 -t "marquee/status/features" 2>/dev/null | \
-    while IFS= read -r line; do
-        if features_line_complete "$line"; then
-            printf '%s\n' "$line" > "$FEATURES_FILE"
-        else
-            echo "$(date '+%H:%M:%S') FEATURES rejete (message incomplet/corrompu, cache conserve): $line" >> "$LOG"
-        fi
-    done
-}
-features_watcher &
+# v54 -- features_watcher() (mosquitto_sub sur marquee/status/features) et sa
+# validation features_line_complete() (v30) retires : MQTT n'existe plus cote
+# DMD depuis RecalBox_DMD.ino v209, ce topic n'etait plus jamais publie.
+# $FEATURES_FILE est tenu par dmd_udp_resync.py (message FEATURES: du DMD).
 
 # v6 -- prefixe desormais "@<duree_ms>|" (voir RecalBox_DMD.ino v111,
 # CMD_SCORE) -- $2 optionnel, defaut 6000 (comportement identique a avant
@@ -1803,7 +1768,7 @@ publish_one_panel() {
     return 1
 }
 
-echo "$(date) - DMD score bridge started (v40, veille ciblee (round-robin pendant rundemo) desactivee au profit de la playlist simple (priorite stabilite) + v39, topic marquee/cmd/score fusionne dans marquee/cmd (CMD=/ARG=), voir RecalBox_DMD.ino v148 + v38, round_robin() retire hiscore de la rotation si indisponible pour le rom (evite un tour ~14s perdu) + v37, precise_ts()/ref ajoutes a send_score()/BROWSE/DWELL -- diagnostic desync overlay/marquee, voir DECISIONS.md + v36, helpers python (hiscore_generic/game_info/challenge) deplaces hors de userscripts/ (PYHELP_DIR=dmd_helpers/) -- ES ne peut plus les invoquer nativement sans limite, cause reelle de la saturation CPU en navigation turbo + verrou anti-relance deplace tout en haut du fichier (cout minimal par relance dupliquee ES) + fix race condition 1ere page/envoi non gardee (hiscore/desc/info) + fix race condition publish_one_panel() v33 -- revalide l'etat avant python3/envoi, startgameclip = marquee seul mais rundemo garde l'overlay complet + features_watcher valide le message avant d'ecraser le cache + hi-score generique + round-robin infini + dwell/ratios reglables)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v54, UDP seul vers le DMD)" >> "$LOG"
 # Efface une session/etat perime d'un lancement precedent.
 : > "$GAME_SESSION_FILE"
 : > "$BROWSE_STATE_FILE"
