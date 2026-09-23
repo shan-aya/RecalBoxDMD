@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-09-24 — Toolkit PC : cache des systèmes corrigé, dossiers par défaut des Modes 2/3/6/7/11
+
+- **Toolkit PC** (build `8053`) : correction du **Mode 7** qui annonçait « 0 système trouvé » sur un dossier dont les images de jeux ne sont pas encore converties (par exemple juste après un Mode 3). Le type de chaque système (image fixe, animation ou les deux) est maintenant lu dans son image par défaut de `systems/_defaults/`, exactement comme le fait le firmware du DMD — il était jusqu'ici déduit à tort des images de jeux du dossier du système. Vaut aussi pour le Mode 1. Le cache des systèmes ne liste plus que les dossiers de systèmes réellement présents (plus `default`), jamais plus que ce que le DMD peut garder.
+- **Toolkit PC** : le drapeau « lent » du cache des systèmes compte aussi les images pas encore converties (un `.png` compte comme son futur `.raw565`, un `.gif` comme son futur `.raw565pack` + `.meta`) : un gros dossier comme `mame/S` est bien marqué lent même avant la conversion.
+- **Toolkit PC** : les Modes 2, 3 et 11 ouvrent le dossier de travail à la fin ; les Modes 6 et 7 pointent par défaut sur le dossier `systems` du dossier de travail s'il existe (un dossier choisi à la main est conservé).
+
 ## 2026-09-23 (2) — Toolkit PC : affichage du Mode 9 corrigé, nettoyage des scripts
 
 - **Toolkit PC** (build `7951`) : les boutons Pause / Reprise / Passe / Stop du cadre Progression ne disparaissent plus en bas de la fenêtre pendant le Mode 9 (ils étaient repoussés quand le texte de résultat apparaissait). Le cadre Progression garde toujours sa place, le résultat du Mode 9 a une hauteur fixe et la description du Mode 9 est plus courte (elle mentionne maintenant la copie des `.hi`).

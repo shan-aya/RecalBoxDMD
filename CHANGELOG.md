@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-09-24 — PC Toolkit: systems cache fixed, default folders for Modes 2/3/6/7/11
+
+- **PC Toolkit** (build `8053`): fixed **Mode 7** reporting "0 systems found" on a folder whose game images are not converted yet (for example right after Mode 3). The type of each system (still image, animation or both) is now read from its default image in `systems/_defaults/`, exactly like the DMD firmware does — before, it was wrongly deduced from the game images of the system folder. Also applies to Mode 1. The systems cache now lists only the system folders actually present (plus `default`), never more than the DMD can hold.
+- **PC Toolkit**: the "slow" flag of the systems cache now also counts images that are not converted yet (a `.png` counts as its future `.raw565`, a `.gif` as its future `.raw565pack` + `.meta`), so a large folder such as `mame/S` is correctly marked slow even before conversion.
+- **PC Toolkit**: Modes 2, 3 and 11 open the working folder at the end; Modes 6 and 7 point to the working folder's `systems` by default when it exists (a folder you pick yourself is kept).
+
 ## 2026-09-23 (2) — PC Toolkit: Mode 9 layout fixed, script clean-up
 
 - **PC Toolkit** (build `7951`): the Pause / Resume / Skip / Stop buttons of the Progress frame no longer disappear at the bottom of the window during Mode 9 (they were pushed out when the result text appeared). The Progress frame now always keeps its place, the Mode 9 result has a fixed height, and the Mode 9 description is shorter (it now mentions the `.hi` copy).
