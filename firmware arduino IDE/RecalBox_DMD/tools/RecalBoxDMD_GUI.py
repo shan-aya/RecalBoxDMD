@@ -2,7 +2,12 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v76
+# Version actuelle : v77
+#
+# v77 — 2026-09-23 — safe-modify — Build toolkit 7751 (GUI v77 + tool v51) : le bilan ".hi : N copies, M deja
+#      presents" du Mode 9 s'affiche dans le cadre Progression au lieu d'une 4e ligne sous le resume des scripts
+#      (qui poussait l'interface vers le bas et masquait les boutons du cadre Progression, capture utilisateur
+#      sur le build 7651). L'etape de copie des .hi a un libelle lisible ("Hi-scores (.hi) i/n").
 #
 # v76 — 2026-09-23 — safe-modify — Build toolkit 7651 (GUI v76 + tool v51) : les .hi MAME sont copies dans le
 #      dossier du coeur MAME actif de la Recalbox (lu dans recalbox.conf) au lieu d'un mame0278 fige. Aucun
@@ -1310,7 +1315,7 @@ from tkinter import ttk, messagebox, filedialog, font as tkfont
 # mais CETTE constante reste a mettre a jour a la main ici (pas d'ecriture
 # automatique dans le .py au moment du build, pour garder le pipeline
 # simple) -- build_release.ps1 avertit si elle diverge du calcul.
-TOOLKIT_RELEASE_VERSION = "7651"
+TOOLKIT_RELEASE_VERSION = "7751"
 
 # v71, safe-modify -- voir le remplacement du verrou v68 dans __init__ pour
 # le contexte complet. _DPI_SCALE est le ratio DPI reel/96 (1.0 a 100%,
@@ -7683,6 +7688,8 @@ class RetroBoxLEDGui:
             title = f"Comparaison support final — {idx}/{total}"
         elif kind == "clean_scrape_media":
             title = f"Nettoyage avant scrape — {idx}/{total}"
+        elif kind == "install_hiscore":
+            title = f"Hi-scores (.hi) {idx}/{total}"
         else:
             title = f"{kind} {idx}/{total}"
 
@@ -10432,11 +10439,15 @@ class RetroBoxLEDGui:
             host = self.mode9_host_var.get().strip()
             self.mode9_result_var.set(self.tkmod.tr("mode9_share_unreachable")(host))
         else:
-            summary = ui["mode9_summary"](ok, total)
+            self.mode9_result_var.set(ui["mode9_summary"](ok, total))
+            # v77 -- bilan .hi dans le cadre Progression (hauteur fixe) et
+            # plus sous le resume : une 4e ligne dans cet encart poussait
+            # l'interface vers le bas et masquait les boutons du cadre
+            # Progression (capture utilisateur, build 7651).
             hi_summary = getattr(self, "_mode9_hi_summary", "")
             if hi_summary:
-                summary = f"{summary}\n{hi_summary}"
-            self.mode9_result_var.set(summary)
+                self.progress_var.set(hi_summary)
+                self.progress_sub_var.set("")
         self._reslice_mode9_frame()
 
     def _reslice_mode9_frame(self) -> None:
