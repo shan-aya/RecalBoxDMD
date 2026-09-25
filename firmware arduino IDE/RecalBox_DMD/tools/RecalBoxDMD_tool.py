@@ -1,7 +1,16 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v53
+# Version actuelle : v54
+#
+# v54 - 2026-09-25 - safe-modify - BUG REEL (retour utilisateur : "le tools ne convertit pas les GIF du dossier
+#      personnalise en mode 4", dossier calib_quality/test_materiel = 10 .gif poses directement a la racine) :
+#      _find_systems_images() (GUI, modes 4/5) traite un dossier contenant des images a son 1er niveau comme
+#      UN systeme portant son propre nom, mais run_conversion_raw_only() filtrait sur rel.parts[0] = nom du
+#      FICHIER -> 0 PNG / 0 GIF convertis, sans erreur. Meme regle que run_conversion() (Mode 5, system_key) :
+#      un fichier a plat appartient au systeme systems_dir.name ; et sa sortie va dans
+#      output_dir/<systems_dir.name>/ (avant : directement dans output_dir, hors de tout dossier systeme).
+#      Dossiers organises en sous-dossiers systeme : chemins de sortie inchanges.
 #
 # v53 - 2026-09-24 - safe-modify - Flag "lent" de systems_cache.dat : les images non encore converties comptent
 #      comme les fichiers qu'elles deviendront sur la SD (.png -> .raw565, .gif -> .raw565pack + .meta), compte par
@@ -3290,14 +3299,19 @@ def run_conversion_raw_only(
     png_files = list(systems_dir.rglob("*.png"))
     gif_files = list(systems_dir.rglob("*.gif"))
 
+    # v54 : une image posee directement dans systems_dir (dossier choisi = un
+    # seul "systeme", voir _find_systems_images cote GUI) appartient au systeme
+    # systems_dir.name, comme dans run_conversion() (Mode 5).
+    def _out_rel(p: Path) -> Path:
+        rel = p.relative_to(systems_dir)
+        if len(rel.parts) <= 1:
+            return Path(systems_dir.name) / rel
+        return rel
+
     if system_names is not None:
         wanted = set(system_names)
-        png_files = [
-            p for p in png_files if p.relative_to(systems_dir).parts[0] in wanted
-        ]
-        gif_files = [
-            p for p in gif_files if p.relative_to(systems_dir).parts[0] in wanted
-        ]
+        png_files = [p for p in png_files if _out_rel(p).parts[0] in wanted]
+        gif_files = [p for p in gif_files if _out_rel(p).parts[0] in wanted]
     total_png = len(png_files)
     total_gif = len(gif_files)
     total = total_png + total_gif
@@ -3336,8 +3350,7 @@ def run_conversion_raw_only(
             if output_dir is None:
                 convert_png_to_raw565_only(src)
             else:
-                rel = src.relative_to(systems_dir)
-                dst_png = output_dir / rel
+                dst_png = output_dir / _out_rel(src)
                 dst_png.parent.mkdir(parents=True, exist_ok=True)
                 convert_png_to_raw565_only(
                     src, dst_raw565=dst_png.with_suffix(".raw565")
@@ -3368,8 +3381,7 @@ def run_conversion_raw_only(
                 if output_dir is None:
                     convert_gif_to_raw565pack_meta(gif_src)
                 else:
-                    rel = gif_src.relative_to(systems_dir)
-                    dst_png = output_dir / rel
+                    dst_png = output_dir / _out_rel(gif_src)
                     dst_png.parent.mkdir(parents=True, exist_ok=True)
                     convert_gif_to_raw565pack_meta(
                         gif_src,

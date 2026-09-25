@@ -2712,3 +2712,10 @@ Demande utilisateur ("oui") apres la fusion de `dev/vpinball-integration` dans m
 **Lecon** : j'ai d'abord attribue le '0 systeme' aux PNG en affirmant une cause fausse, puis mal formule l'explication (PNG dans les dossiers de jeux, pas dans _defaults) -- l'utilisateur avait raison de pointer _defaults. Builds 8051/8052/8053 non publies.
 
 **Publication du build 8053 (2026-09-24, accord utilisateur apres validation)** : commit main `38263e7` (dossier `tools/RecalBoxDMD_tool_v8053`, v7951 deplace dans `history/`, badge README x3, entree CHANGELOG 2026-09-24 x3) + Release GitHub `RecalBoxDMD_tool_v8053` (Setup 70152629 o, portable 69349934 o, source 29583954 o), marquee Latest.
+
+
+## Toolkit : Mode 4 ne convertissait pas un dossier d'images posees a plat (2026-09-25)
+
+**Tool v54 (build 8054) -- BUG REEL** (retour utilisateur : dossier `calib_quality/test_materiel` = 10 .gif directement a la racine, Mode 4 -> '0 PNG convertis, 0 GIF', sans erreur). `_find_systems_images()` (GUI, modes 4/5) traite un dossier qui contient des images a son 1er niveau comme UN systeme portant son propre nom ; `run_conversion_raw_only()` filtrait ensuite sur `rel.parts[0]` = le nom du FICHIER -> tout ecarte. Le Mode 5 (`run_conversion`) avait deja la bonne regle (`system_key`). Correctif : meme regle dans le Mode 4, et sortie de ces fichiers dans `systems/<nom du dossier>/` (avant : directement dans `systems/`, hors dossier systeme). Verifie : 10/10 GIF -> raw565pack+meta dans `test_materiel/S` et `/T` ; dossier organise par systemes (selection `nes` seule) inchange, `snes` bien ignore.
+
+**Non corrige (signale)** : le Mode 5 range ses fichiers a plat directement dans `systems/` (sans dossier systeme) -- meme defaut de chemin de sortie, a traiter separement si voulu. Build 8054 non publie.
