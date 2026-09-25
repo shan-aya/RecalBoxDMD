@@ -1,7 +1,15 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v53
+# Version actuelle : v54
+#
+# v54 - 2026-09-25 - safe-modify - REGRESSION v52 corrigee (retour utilisateur : raw565pack de jeu jamais lu en
+#      navigation, systems_cache.dat regenere laisse gba en p) : le type p/g/B de systems_cache.dat est de nouveau
+#      deduit des images de JEUX de systems/<sys>/ (sous-dossiers compris), plus jamais de _defaults/ (images
+#      systeme toujours en .raw565 => la v52 mettait tous les systemes en p ; le firmware v229 ne tente alors
+#      plus aucun raw565pack de jeu en navigation rapide, CMD_GAME : raw565pack d'abord seulement si 'B').
+#      Images non converties comptees comme ce qu'elles deviendront (.png fixe, .gif animee) : couvre aussi le
+#      cas de la v52 (jeux encore en PNG => 0 systeme). Nouvelle fonction _game_image_kinds().
 #
 # v53 - 2026-09-24 - safe-modify - Flag "lent" de systems_cache.dat : les images non encore converties comptent
 #      comme les fichiers qu'elles deviendront sur la SD (.png -> .raw565, .gif -> .raw565pack + .meta), compte par
@@ -5668,6 +5676,29 @@ def mode_install_recalbox_scripts_console():
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+_STATIC_GAME_EXTS = (".raw565", ".png")
+_ANIM_GAME_EXTS = (".raw565pack", ".gif")
+
+
+def _game_image_kinds(system_dir: Path) -> tuple[bool, bool]:
+    """(images fixes presentes, images animees presentes) parmi les images de
+    jeux de system_dir, sous-dossiers compris ; s'arrete des que les deux sont
+    trouvees (v54)."""
+    has_static = has_anim = False
+    if not system_dir.is_dir():
+        return False, False
+    for _root, _dirs, files in os.walk(system_dir):
+        for fn in files:
+            low = fn.lower()
+            if low.endswith(_ANIM_GAME_EXTS):
+                has_anim = True
+            elif low.endswith(_STATIC_GAME_EXTS):
+                has_static = True
+            if has_static and has_anim:
+                return True, True
+    return has_static, has_anim
+
+
 def build_systems_cache(
     systems_dir: Path,
     output_path: Path,
@@ -5790,30 +5821,30 @@ def build_systems_cache(
     for sys_lower in sys_lowers:
         name = sys_case[sys_lower]
 
-        # v52 -- type p/g/B deduit de _defaults/<sys>.* (IMAGE PAR DEFAUT du
-        # systeme), meme regle que buildSysDefaultCache() cote firmware et que
-        # l'usage de sysDefaultType() (choix entre _defaults/<sys>.raw565 et
-        # .raw565pack) :
-        #   p : _defaults/<sys>.raw565
-        #   g : _defaults/<sys>.raw565pack + _defaults/<sys>.meta
+        # v54 -- type p/g/B deduit des images de JEUX de systems/<sys>/
+        # (sous-dossiers compris), jamais de _defaults/ : les images systeme
+        # de _defaults/ sont toujours en .raw565, seules les images de jeux
+        # peuvent etre animees (regle utilisateur). Le firmware s'en sert pour
+        # choisir l'ordre d'essai des images de jeux (CMD_GAME : raw565pack
+        # d'abord si 'B') -- la v52 (type lu dans _defaults/) mettait TOUS les
+        # systemes en 'p', et plus aucun raw565pack de jeu n'etait lu en
+        # navigation. Images pas encore converties comptees comme ce qu'elles
+        # deviendront (.png -> fixe, .gif -> animee, meme principe que le flag
+        # lent v53) : corrige aussi le cas de la v52 (jeux encore en PNG issus
+        # du Mode 3 => 0 systeme), sans repli sur _defaults/.
+        #   p : image(s) fixe(s)   (.raw565 / .png)
+        #   g : image(s) animee(s) (.raw565pack / .gif)
         #   B : les deux
-        # BUG REEL corrige (retour utilisateur 2026-09-24, Mode 7 "0 systemes
-        # trouves") : depuis le 1er commit, le type etait deduit du contenu de
-        # systems/<sys>/ (images de jeux converties) -- sur un dossier dont
-        # les jeux ne sont pas encore convertis (PNG issus du Mode 3), plus
-        # aucun systeme n'etait retenu, alors que _defaults/ etait complet.
-        base_defaults = defaults_dir / name
-        has_raw565 = base_defaults.with_suffix(".raw565").exists()
-        has_gif_pack = (
-            base_defaults.with_suffix(".raw565pack").exists()
-            and base_defaults.with_suffix(".meta").exists()
-        )
+        has_static, has_anim = _game_image_kinds(systems_dir / name)
+        if sys_lower == "default":
+            # pseudo-systeme sans jeux (etape 2) : garde son entree 'p' (v52)
+            has_static = has_static or (defaults_dir / "default.raw565").exists()
 
-        if has_gif_pack and has_raw565:
+        if has_anim and has_static:
             ftype = "B"
-        elif has_gif_pack:
+        elif has_anim:
             ftype = "g"
-        elif has_raw565:
+        elif has_static:
             ftype = "p"
         else:
             continue
