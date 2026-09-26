@@ -8,6 +8,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-09-27 — Firmware v2.32: se acabaron los reinicios en bucle al arrancar con una playlist muy larga
+
+- **Firmware** (v2.32): corregido un **reinicio en bucle nada más arrancar** cuando la playlist elegida es muy larga (varias decenas de miles de líneas). La reconstrucción de la caché de la playlist ocupaba el procesador el tiempo suficiente para disparar el watchdog del ESP32, que reiniciaba el DMD antes de guardar la caché — y cada reinicio volvía a empezar. Ahora la reconstrucción deja respirar al sistema con regularidad: probado con una playlist de 23 842 líneas, la caché se construye una vez (unos cincuenta segundos, con el reloj de arena en pantalla) y se reutiliza al instante en los arranques siguientes.
+- **Si su DMD está atascado en este bucle**: flashee la v2.32 con el Web Installer o, mientras tanto, ponga la tarjeta SD en un PC y haga que `playlist=` en `config.ini` apunte a una playlist más corta.
+
 ## 2026-09-26 (2) — Scripts de Recalbox: dos copias del mismo script podían ejecutarse a la vez
 
 - **Scripts de Recalbox** (`dmd_helpers/singleton_lock.sh`, compartido por `marquee`, `dmd_score` y `dmd_achievement`): corregida una carrera poco frecuente en el bloqueo «una sola copia a la vez». Durante una ráfaga de eventos de EmulationStation (los scripts se relanzan en cada evento), una copia nueva podía tomar el bloqueo de una copia que acababa de arrancar, y **ambas seguían ejecutándose** — mensajes duplicados o desordenados en el DMD. Medido en una Recalbox Raspberry Pi muy cargada: 1 ráfaga de 40 antes, 0 después. La comprobación también es más ligera (ya no se lanza ningún proceso en cada relanzamiento de EmulationStation).

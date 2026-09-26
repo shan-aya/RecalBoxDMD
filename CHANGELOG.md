@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-09-27 — Firmware v2.32: no more reboot loop at startup with a very long playlist
+
+- **Firmware** (v2.32): fixed a **reboot loop right at startup** when the selected playlist is very long (tens of thousands of lines). Rebuilding the playlist cache kept the processor busy long enough to trigger the ESP32 watchdog, which restarted the DMD before the cache was saved — and every restart began again. The rebuild now lets the system breathe regularly: tested with a 23,842-line playlist, the cache is built once (about 50 seconds with the hourglass on screen) and reused instantly on the next startups.
+- **If your DMD is stuck in this loop**: flash v2.32 with the Web Installer, or, while waiting, put the SD card in a PC and point `playlist=` in `config.ini` to a shorter playlist.
+
 ## 2026-09-26 (2) — Recalbox scripts: two copies of the same script could run at once
 
 - **Recalbox scripts** (`dmd_helpers/singleton_lock.sh`, shared by `marquee`, `dmd_score` and `dmd_achievement`): fixed a rare race in the "only one copy running" lock. During a burst of EmulationStation events (the scripts are started again on every event), a new copy could take the lock of a copy that had just started, and **both kept running** — duplicated or out-of-order displays on the DMD. Measured on a Raspberry Pi Recalbox under heavy load: 1 burst out of 40 before, 0 after. The check is also lighter (no extra process started each time EmulationStation relaunches a script).
