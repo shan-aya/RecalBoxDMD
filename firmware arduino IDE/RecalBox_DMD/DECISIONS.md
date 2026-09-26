@@ -2725,3 +2725,17 @@ Demande utilisateur ("oui") apres la fusion de `dev/vpinball-integration` dans m
 **Lecon** : avant de construire/publier une version toolkit, verifier `git log origin/main..main` dans le worktree main -- un correctif applique directement dans le dossier publie ne remonte pas tout seul dans la branche de dev.
 
 **Publication du build 8055 (2026-09-26, demande utilisateur "compile et met a jour le github")** : master avance en fast-forward sur `72dfd75`, `build_release.ps1 -SkipMsi` OK, portable teste au lancement (titre 'build 8055'). Commit main `5b5bdc3` (dossier `tools/RecalBoxDMD_tool_v8055`, v8053 deplace dans `history/` avec son correctif `5401df5` pousse au passage, badge README x3, entree CHANGELOG 2026-09-26 x3 qui rectifie l'entree du 24/09 sur l'origine du type) + Release GitHub `RecalBoxDMD_tool_v8055` (Setup 70154838 o, portable 69349855 o, source 29584991 o), marquee Latest. Notes de release : regenerer systems_cache.dat si genere avec le 8053.
+
+## Scripts RB : singleton_lock.sh v4 -- course 'pid pas encore ecrit' fermee (2026-09-26, branche dev/rb-scripts-lock-debounce)
+
+**Origine** : comparaison avec ArcadeMatrix (red77290, verrou d'instance par `bind` socket localhost). Le verrou par socket n'est PAS repris : il imposerait de lancer Python a chaque relance ES (le script est relance a CHAQUE evenement, cout minimise en v27), et `flock` sur un descripteur serait herite par les sous-processus du demon (mosquitto_sub...) qui garderaient le verrou apres sa mort. Le cas zombie etait deja traite (v3, 12/09).
+
+**Vraie course trouvee en relisant le verrou** : entre le `mkdir` reussi d'une instance A et son ecriture du pid, une instance B lit un pid VIDE, prend le verrou pour orphelin, le supprime et le reprend -> 2 demons. **Mesure (WSL, dash, 40 rafales de 30 instances simultanees)** : v3 = 8 rafales avec plusieurs proprietaires (messages "cannot create" sur le fichier pid du verrou = la course en direct), v4 = 0. Banc 6 cas (libre, vivant, mort, pid vide recent, pid vide > 1 min, zombie) : tous OK.
+
+**Fix v4** : pid vide = acquisition en cours -> exit 0 ; repris seulement s'il reste vide > 1 min (filet anti-deadlock, lecon v2). `/proc/<pid>/stat` lu par builtins (`read` + expansion `${..##*") "}`) au lieu de `sed | cut` : plus aucun sous-processus sur le chemin de sortie d'une relance dupliquee.
+
+**Piege trouve au banc** : sous dash, un `read` redirige depuis un fichier absent TERMINE le shell (pas une simple erreur) -> chaque lecture est gardee par `[ -r fichier ]`. A reverifier sous BusyBox ash sur RB1 (injoignable ce soir) AVANT tout deploiement, ainsi que `find -mmin` et le passage d'arguments a `. fichier nom` (dash ne le fait pas, ash oui en production).
+
+**Anti-rebond 150 ms (autre idee ArcadeMatrix) : non repris** -- ArcadeMatrix sonde es_state.inf a 100 ms ; c'est exactement la v34 de marquee.sh, retiree en v37 (~13 % d'un coeur en permanence, sans effet sur le symptome). Notre pilotage par evenements ES a deja detection de rafale et filtrage des doublons valides sur materiel.
+
+**Statut** : commite dans le worktree, NON deploye (ni RB1 ni RB2), NON fusionne dans master.
