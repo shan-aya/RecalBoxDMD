@@ -2754,3 +2754,6 @@ Demande utilisateur ("oui") apres la fusion de `dev/vpinball-integration` dans m
 **Valide sur materiel (DMD de test du projet, carte SD avec playlist `test_wdt.txt` de 23 842 lignes / 977 Ko, chemins reels repetes)** : v231 reproduit exactement la boucle (watchdog 5 s apres `rebuildPlaylistCache start`, SHA 4217fe95a) ; v232 : reconstruction 31 s + index 19 s sans watchdog, signature ecrite ; boot suivant `haveCache=1`, cache reutilise en 17 ms. Observation annexe : heap libre ~7 Ko plus bas en lecture avec cette playlist geante (9,9 Ko contre 16,7 Ko avec une petite playlist ; maxalloc identique ~4,6 Ko) ; le serveur web ne repondait pas pendant la lecture -- a surveiller, sans lien avec le watchdog.
 
 **Contournement pour les utilisateurs restes en v231** : dans config.ini, `playlist=` vers une playlist plus courte (ou vide), puis flasher la v232.
+
+
+**Publication v232 (2026-09-27, accord utilisateur)** : commit main `0ef2f1b` (binaries/ app+merged = binaires EXACTEMENT flashes et testes ci-dessus, v231 archive dans `history/binaries_v2.0_2026-09-27_pre-v232`, badge README x3 v2.32, CHANGELOG x3 2026-09-27 avec contournement). SHA ELF de la v232 publiee : `d01228b81d` (pour identifier un crash log utilisateur). Web Installer : sert la nouvelle app (verifie par telechargement raw).
