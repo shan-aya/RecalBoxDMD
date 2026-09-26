@@ -2738,4 +2738,6 @@ Demande utilisateur ("oui") apres la fusion de `dev/vpinball-integration` dans m
 
 **Anti-rebond 150 ms (autre idee ArcadeMatrix) : non repris** -- ArcadeMatrix sonde es_state.inf a 100 ms ; c'est exactement la v34 de marquee.sh, retiree en v37 (~13 % d'un coeur en permanence, sans effet sur le symptome). Notre pilotage par evenements ES a deja detection de rafale et filtrage des doublons valides sur materiel.
 
+**Verifie sur RB1 (BusyBox v1.36.1, 26/09 20:16-20:21, tests isoles dans /tmp, demons reels non touches)** : banc 6 cas v4 = tous OK, v3 echoue au cas 4 (pid vide). Sous ash, `read` depuis un fichier absent n'arrete PAS le shell (contrairement a dash) -- garde `[ -r ]` conservee par prudence. `find -mmin` OK, `flock` present (/usr/bin/flock). Stress 20x30 : 0 en v3 comme en v4 ; stress 40x60 (load ~6) : **v3 = 1 rafale avec 2 proprietaires, v4 = 0** -- course observable sur le vrai materiel, rare.
+
 **Statut** : commite dans le worktree, NON deploye (ni RB1 ni RB2), NON fusionne dans master.
