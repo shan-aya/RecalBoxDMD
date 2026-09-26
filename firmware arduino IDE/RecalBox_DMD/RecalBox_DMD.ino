@@ -1,7 +1,17 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v231
+// Version actuelle : v232
+//
+// v232 - 2026-09-27 - safe-modify - BUG REEL (crash remonte par un utilisateur, reboot en boucle des le demarrage,
+//   firmware v231 identifie par le SHA ELF 4217fe95a) : "task_wdt: IDLE0 (CPU 0) ... CPU 0: loopTask ... Aborting"
+//   pendant rebuildPlaylistCache() au boot. Avec LoopCore=0 (compile.ps1), loopTask tourne sur le coeur 0 et le
+//   delay(0) des boucles de lecture de playlist (vTaskDelay(0)) ne rend JAMAIS la main a la tache IDLE0 surveillee par
+//   le watchdog : une playlist tres longue (calcul de signature deja 1,2 s chez lui) depasse le delai du watchdog.
+//   La signature n'etant ecrite qu'APRES la reconstruction (et le cache supprime AVANT), chaque boot recommence -> boucle
+//   infinie. Fix : feedIdleDuringBootLoop() -- delay(1) toutes les 100 ms (sinon delay(0) comme avant) dans les 3
+//   boucles SD du demarrage (computeFileHash, rebuildPlaylistCache, buildOffsetIndex). Ici la boucle PROGRESSE : le
+//   watchdog se declenchait a tort (different du cas WebServer de DECISIONS.md ou un delay() masquait un vrai blocage).
 //
 // v231 - 2026-09-20 - safe-modify - Le titre du DMD (splash) affiche la VRAIE version du firmware, derivee de FW_VERSION_NUM
 //   (231 -> "RawEdition v2.31") au lieu de la marque figee "RawEdition v2.0" ; ligne [BOOT] firmware ... sur le port serie.
@@ -10569,6 +10579,14 @@ void broadcastFeatureStatus()
 
 bool isValidPlaylistLine(String line){line.trim();return line.length()&&line[0]!='#'&&line[0]!=';'&&line[0]=='/';}
 
+// v232 -- voir l'en-tete : cede la main a IDLE0 (watchdog du coeur 0, LoopCore=0)
+// au moins toutes les 100 ms dans une longue boucle SD ; delay(0) sinon (comme avant).
+static inline void feedIdleDuringBootLoop(uint32_t &lastYieldMs)
+{
+  if (millis() - lastYieldMs >= 100) { delay(1); lastYieldMs = millis(); }
+  else delay(0);
+}
+
 uint32_t computeFileHash(const String &path)
 {
   File f = SD.open(path, FILE_READ);
@@ -10577,10 +10595,12 @@ uint32_t computeFileHash(const String &path)
   uint32_t h = 2166136261u;
 
   uint8_t buf[512];
+  uint32_t lastYieldMs = millis();
   while (true)
   {
     size_t n = f.read(buf, sizeof(buf));
     if (n == 0) break;
+    feedIdleDuringBootLoop(lastYieldMs);
 
     for (size_t i = 0; i < n; i++)
     {
@@ -10613,10 +10633,11 @@ int rebuildPlaylistCache()
   if(SD.exists(playlistCachePath))SD.remove(playlistCachePath);
   File cache=SD.open(playlistCachePath,FILE_WRITE);if(!cache){src.close();return 0;}
   int n=0;showLoadingHourglass(0);
+  uint32_t lastYieldMs=millis();
   while(src.available()){
     String line=src.readStringUntil('\n');line.trim();
     if(isValidPlaylistLine(line)){cache.println(line);n++;if((n%6)==0)showLoadingHourglass(n);}
-    delay(0);
+    feedIdleDuringBootLoop(lastYieldMs);
   }
   src.close();cache.close();showLoadingHourglass(n);return n;
 }
@@ -10627,11 +10648,12 @@ int buildOffsetIndex()
   if(SD.exists(playlistIdxPath))SD.remove(playlistIdxPath);
   File idx=SD.open(playlistIdxPath,FILE_WRITE);
   int n=0;
+  uint32_t lastYieldMs=millis();
   while(cache.available()){
     uint32_t pos=cache.position();
     String line=cache.readStringUntil('\n');line.trim();
     if(line.length()){if(idx)idx.write((uint8_t*)&pos,4);n++;}
-    delay(0);
+    feedIdleDuringBootLoop(lastYieldMs);
   }
   cache.close();if(idx)idx.close();
   if(idxFileHandle)idxFileHandle.close();
@@ -10648,7 +10670,7 @@ int buildOffsetIndex()
 // 231 -> "v2.31" (centaines = majeur, deux derniers chiffres = mineur). A METTRE A JOUR
 // A CHAQUE VERSION en meme temps que l'en-tete (le README, le manifeste du Web Installer
 // et le splash du DMD affichent tous cette version).
-#define FW_VERSION_NUM 231
+#define FW_VERSION_NUM 232
 
 void showSplashScreen()
 {
