@@ -8,6 +8,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-09-26 — Toolkit PC: imágenes animadas de juegos de vuelta en la navegación rápida, Modo 4 en una carpeta plana
+
+- **Toolkit PC** (build `8055`): **corregida una regresión del build 8053** — la caché de sistemas marcaba todos los sistemas como «imagen fija», así que el DMD ya no probaba nunca la imagen animada (`.raw565pack`) de un juego en la navegación rápida. El tipo de cada sistema (fijo, animado o ambos) vuelve a deducirse de sus **imágenes de juegos**, subcarpetas incluidas; las imágenes aún no convertidas cuentan como lo que serán (`.png` = fija, `.gif` = animada), así que el Modo 7 sigue funcionando justo después de un Modo 3. La entrada del 2026-09-24 más abajo era errónea en este punto: el tipo no viene de `systems/_defaults/`.
+- **Toolkit PC**: el **Modo 4** convierte ahora las imágenes colocadas directamente en la carpeta elegida (sin subcarpeta de sistema) — antes indicaba «0 PNG, 0 GIF» sin ningún error. Se escriben en `systems/<nombre de la carpeta>/`.
+
 ## 2026-09-24 — Toolkit PC: caché de sistemas corregida, carpetas por defecto de los Modos 2/3/6/7/11
 
 - **Toolkit PC** (build `8053`): corregido el **Modo 7**, que indicaba «0 sistemas encontrados» en una carpeta cuyas imágenes de juegos aún no están convertidas (por ejemplo justo después de un Modo 3). El tipo de cada sistema (imagen fija, animación o ambas) se lee ahora de su imagen por defecto en `systems/_defaults/`, exactamente como hace el firmware del DMD — antes se deducía por error de las imágenes de juegos de la carpeta del sistema. También se aplica al Modo 1. La caché de sistemas solo lista las carpetas de sistemas realmente presentes (más `default`), nunca más de lo que el DMD puede guardar.

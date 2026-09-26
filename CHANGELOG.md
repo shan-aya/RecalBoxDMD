@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-09-26 — PC Toolkit: animated game images back in quick navigation, Mode 4 on a flat folder
+
+- **PC Toolkit** (build `8055`): **fixed a regression of build 8053** — the systems cache marked every system as "still image", so the DMD never tried the animated image (`.raw565pack`) of a game during quick navigation. The type of each system (still, animated or both) is again deduced from its **game images**, sub-folders included; images not converted yet count as what they will become (`.png` = still, `.gif` = animated), so Mode 7 still works right after Mode 3. The 2026-09-24 entry below was wrong on this point: the type does not come from `systems/_defaults/`.
+- **PC Toolkit**: **Mode 4** now converts images placed directly in the chosen folder (no system sub-folder) — before, it reported "0 PNG, 0 GIF" without any error. They are written to `systems/<folder name>/`.
+
 ## 2026-09-24 — PC Toolkit: systems cache fixed, default folders for Modes 2/3/6/7/11
 
 - **PC Toolkit** (build `8053`): fixed **Mode 7** reporting "0 systems found" on a folder whose game images are not converted yet (for example right after Mode 3). The type of each system (still image, animation or both) is now read from its default image in `systems/_defaults/`, exactly like the DMD firmware does — before, it was wrongly deduced from the game images of the system folder. Also applies to Mode 1. The systems cache now lists only the system folders actually present (plus `default`), never more than the DMD can hold.
