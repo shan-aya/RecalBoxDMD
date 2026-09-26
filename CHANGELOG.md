@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-09-26 (2) — Recalbox scripts: two copies of the same script could run at once
+
+- **Recalbox scripts** (`dmd_helpers/singleton_lock.sh`, shared by `marquee`, `dmd_score` and `dmd_achievement`): fixed a rare race in the "only one copy running" lock. During a burst of EmulationStation events (the scripts are started again on every event), a new copy could take the lock of a copy that had just started, and **both kept running** — duplicated or out-of-order displays on the DMD. Measured on a Raspberry Pi Recalbox under heavy load: 1 burst out of 40 before, 0 after. The check is also lighter (no extra process started each time EmulationStation relaunches a script).
+- **To update**: run Mode 9 of the PC Toolkit (installs the scripts from GitHub), then restart the Recalbox.
+
 ## 2026-09-26 — PC Toolkit: animated game images back in quick navigation, Mode 4 on a flat folder
 
 - **PC Toolkit** (build `8055`): **fixed a regression of build 8053** — the systems cache marked every system as "still image", so the DMD never tried the animated image (`.raw565pack`) of a game during quick navigation. The type of each system (still, animated or both) is again deduced from its **game images**, sub-folders included; images not converted yet count as what they will become (`.png` = still, `.gif` = animated), so Mode 7 still works right after Mode 3. The 2026-09-24 entry below was wrong on this point: the type does not come from `systems/_defaults/`.

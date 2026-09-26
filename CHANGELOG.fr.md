@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-09-26 (2) — Scripts Recalbox : deux copies du même script pouvaient tourner en même temps
+
+- **Scripts Recalbox** (`dmd_helpers/singleton_lock.sh`, partagé par `marquee`, `dmd_score` et `dmd_achievement`) : correction d'une course rare dans le verrou « une seule copie à la fois ». Pendant une rafale d'événements EmulationStation (les scripts sont relancés à chaque événement), une nouvelle copie pouvait prendre le verrou d'une copie qui venait de démarrer, et **les deux continuaient de tourner** — affichages en double ou dans le désordre sur le DMD. Mesuré sur une Recalbox Raspberry Pi très chargée : 1 rafale sur 40 avant, 0 après. La vérification est aussi plus légère (plus aucun processus lancé à chaque relance par EmulationStation).
+- **Pour mettre à jour** : lancez le Mode 9 du Toolkit PC (installe les scripts depuis GitHub), puis redémarrez la Recalbox.
+
 ## 2026-09-26 — Toolkit PC : images de jeux animées de retour en navigation rapide, Mode 4 sur un dossier à plat
 
 - **Toolkit PC** (build `8055`) : **correction d'une régression du build 8053** — le cache des systèmes marquait tous les systèmes « image fixe », si bien que le DMD n'essayait plus jamais l'image animée (`.raw565pack`) d'un jeu en navigation rapide. Le type de chaque système (fixe, animé ou les deux) est de nouveau déduit de ses **images de jeux**, sous-dossiers compris ; les images pas encore converties comptent comme ce qu'elles deviendront (`.png` = fixe, `.gif` = animée), le Mode 7 fonctionne donc toujours juste après un Mode 3. L'entrée du 2026-09-24 ci-dessous était fausse sur ce point : le type ne vient pas de `systems/_defaults/`.

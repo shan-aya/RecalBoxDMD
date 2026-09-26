@@ -42,6 +42,26 @@
 #   espaces/parentheses) -- un etat "Z" (zombie) n'est plus traite comme un
 #   process actif, meme si kill -0 reussit encore techniquement.
 #
+# v4 - 2026-09-26 - safe-modify - Course reelle trouvee en relisant le code
+#   (piste ouverte par la comparaison avec ArcadeMatrix, verrou par socket) :
+#   entre le `mkdir` reussi d'une instance A et son `echo $$ > pid`, une
+#   instance B concurrente (rafale ES : le script est relance a CHAQUE
+#   evenement) echoue sur mkdir, lit un pid VIDE, prend le verrou pour
+#   orphelin, le supprime (rm -rf) et le reprend -> 2 demons en parallele.
+#   La fenetre est de quelques instructions, mais s'elargit sous charge CPU,
+#   precisement pendant les rafales. Fix : un pid vide = acquisition en
+#   cours par une autre instance -> on sort. Filet anti-deadlock (lecon v2) :
+#   un verrou reste VIDE plus d'1 minute (crash entre mkdir et echo) est
+#   repris. En plus : /proc/$oldpid/stat lu par builtins (read + ${...##})
+#   au lieu de `sed | cut` -- plus aucun sous-processus sur le chemin de
+#   sortie d'une relance dupliquee (objectif deja vise par marquee.sh v27).
+#   Existence de /proc/$oldpid/stat = process vivant (remplace kill -0,
+#   meme resultat, l'etat Z restant exclu comme en v3). Pourquoi pas un
+#   verrou par socket comme ArcadeMatrix : il faudrait lancer Python a chaque
+#   relance (cout bien superieur au mkdir) ; et flock sur un descripteur
+#   serait herite par les sous-processus du demon (mosquitto_sub...), qui
+#   garderaient le verrou apres sa mort.
+#
 # A SOURCER (jamais executer directement), tout en haut du script appelant,
 # AVANT tout le reste -- $1 = nom du verrou (ex. "marquee" -> LOCKDIR
 # derive en /tmp/marquee_singleton.lock, compatible a l'identique avec les
@@ -64,12 +84,29 @@
 # instances est le risque exact que ce verrou existe pour eliminer.
 LOCKDIR="/tmp/${1}_singleton.lock"
 if ! mkdir "$LOCKDIR" 2>/dev/null; then
-    oldpid=$(cat "$LOCKDIR/pid" 2>/dev/null)
-    # v3 -- voir changelog complet ci-dessus : un zombie (etat "Z") repond
-    # toujours OK a kill -0 mais ne fait plus rien -- ne doit plus bloquer.
-    oldstate=$(sed 's/.*) //' "/proc/$oldpid/stat" 2>/dev/null | cut -d' ' -f1)
-    if [ -n "$oldpid" ] && [ "$oldstate" != "Z" ] && kill -0 "$oldpid" 2>/dev/null; then
-        exit 0
+    oldpid=""
+    # Test -r AVANT chaque read : sous dash (et potentiellement ash), une
+    # redirection vers un fichier absent TERMINE le shell au lieu de
+    # renvoyer une erreur (verifie au banc de test v4).
+    [ -r "$LOCKDIR/pid" ] && read -r oldpid < "$LOCKDIR/pid"
+    if [ -z "$oldpid" ]; then
+        # v4 -- pid pas encore ecrit : une autre instance est en train
+        # d'acquerir le verrou, ne pas le lui voler. Repris seulement s'il
+        # est reste vide plus d'1 minute (voir changelog v4).
+        if [ -n "$(find "$LOCKDIR" -maxdepth 0 -mmin -1 2>/dev/null)" ]; then
+            exit 0
+        fi
+    else
+        # v3/v4 -- vivant = /proc/<pid>/stat lisible ET etat different de
+        # "Z" (zombie). Etat = 1er champ apres le dernier ") " du stat (le
+        # nom de commande peut contenir espaces et parentheses).
+        oldstat=""
+        [ -r "/proc/$oldpid/stat" ] && read -r oldstat < "/proc/$oldpid/stat"
+        oldstate=${oldstat##*") "}
+        oldstate=${oldstate%% *}
+        if [ -n "$oldstat" ] && [ "$oldstate" != "Z" ]; then
+            exit 0
+        fi
     fi
     rm -rf "$LOCKDIR" 2>/dev/null
     if ! mkdir "$LOCKDIR" 2>/dev/null; then
