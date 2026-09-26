@@ -2740,4 +2740,4 @@ Demande utilisateur ("oui") apres la fusion de `dev/vpinball-integration` dans m
 
 **Verifie sur RB1 (BusyBox v1.36.1, 26/09 20:16-20:21, tests isoles dans /tmp, demons reels non touches)** : banc 6 cas v4 = tous OK, v3 echoue au cas 4 (pid vide). Sous ash, `read` depuis un fichier absent n'arrete PAS le shell (contrairement a dash) -- garde `[ -r ]` conservee par prudence. `find -mmin` OK, `flock` present (/usr/bin/flock). Stress 20x30 : 0 en v3 comme en v4 ; stress 40x60 (load ~6) : **v3 = 1 rafale avec 2 proprietaires, v4 = 0** -- course observable sur le vrai materiel, rare.
 
-**Statut** : commite dans le worktree, NON deploye (ni RB1 ni RB2), NON fusionne dans master.
+**Statut (26/09)** : fusionne dans master et dev/vpinball-integration (fast-forward) ; publie sur GitHub (main `45969a5`, `tools/recalbox_scripts/dmd_helpers/singleton_lock.sh` en LF + CHANGELOG x3 `2026-09-26 (2)`) -- les Modes 1/9 du toolkit l'installent depuis GitHub. **NON deploye sur RB1/RB2** : copie SSH refusee par le garde-fou de permissions de la session, a faire par l'utilisateur (Mode 9, ou copie manuelle + redemarrage Recalbox).
