@@ -2757,3 +2757,5 @@ Demande utilisateur ("oui") apres la fusion de `dev/vpinball-integration` dans m
 
 
 **Publication v232 (2026-09-27, accord utilisateur)** : commit main `0ef2f1b` (binaries/ app+merged = binaires EXACTEMENT flashes et testes ci-dessus, v231 archive dans `history/binaries_v2.0_2026-09-27_pre-v232`, badge README x3 v2.32, CHANGELOG x3 2026-09-27 avec contournement). SHA ELF de la v232 publiee : `d01228b81d` (pour identifier un crash log utilisateur). Web Installer : sert la nouvelle app (verifie par telechargement raw).
+
+**Oubli corrige (signale par l'utilisateur : 'le web install indique un firmware 2.31')** : `docs/install/manifest.json` porte le numero de version affiche par le Web Installer, en dur -- il n'etait pas dans le commit binaries. Passe a 2.32 (main `0f3c833`, verifie servi par GitHub Pages). **Checklist publication firmware : binaries/ app+merged, history/, badge README x3, CHANGELOG x3 ET docs/install/manifest.json (`version`).**
