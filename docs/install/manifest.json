@@ -1,6 +1,6 @@
 {
   "name": "RecalBoxDMD — RawEdition",
-  "version": "2.31",
+  "version": "2.32",
   "new_install_prompt_erase": true,
   "builds": [
     {
