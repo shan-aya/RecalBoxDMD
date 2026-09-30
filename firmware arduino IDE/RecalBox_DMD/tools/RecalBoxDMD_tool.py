@@ -1,7 +1,20 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v55
+# Version actuelle : v56
+#
+# v56 - 2026-09-30 - safe-modify - BUG UTILISATEUR (toolkit build 8055 : carte SD 16 Go FAT32 reconnue par
+#      Windows (lettre F:, DriveType=2, FAT32) mais pas listee par le toolkit). Cause NON reproduite ; le filtre
+#      DriveType=2 n'est PAS en cause (hypothese DriveType=3 ecartee par l'utilisateur). Fragilites reelles
+#      corrigees dans _query_logical_disks() (toutes silencieuses : except Exception: pass => liste vide) :
+#      (1) decodage : subprocess text=True decodait en cp1252 la sortie PowerShell ecrite en page OEM (cp850/cp437
+#      sur Windows FR/EN) ; un libelle de volume avec p.ex. u trema / E accent aigu (octets 0x81/0x90, indefinis en
+#      cp1252) levait UnicodeDecodeError => liste vide. Sortie desormais forcee en UTF-8 et decodee en UTF-8
+#      (errors=replace). (2) timeout PowerShell 15 -> 30 s (demarrage lent sous antivirus). (3) NOUVEAU repli Win32
+#      natif _query_logical_disks_win32() (ctypes : GetLogicalDrives/GetDriveTypeW/GetVolumeInformationW/
+#      GetDiskFreeSpaceExW, sans PowerShell ni WMI) utilise des que PowerShell echoue ou ne renvoie rien, avant
+#      l'ancien repli wmic (absent de Windows 11 recent). Comportement inchange si PowerShell repond normalement.
+#      Verifie : meme liste G/H/K/L sur la machine de dev qu'avant ; cause exacte chez l'utilisateur a confirmer.
 #
 # v55 - 2026-09-26 - safe-modify - Report dans la branche de dev du correctif publie dans main le 2026-09-25
 #      (commit 5401df5, tools/RecalBoxDMD_tool_v8053 "v54") : REGRESSION v52 corrigee -- le type p/g/B de
@@ -5997,6 +6010,50 @@ def _format_size_gb(size_str) -> str:
         return "? GB"
 
 
+def _query_logical_disks_win32(drive_type: int = 2) -> list:
+    """Lecteurs logiques d'un DriveType donne via l'API Win32 (kernel32 :
+    GetLogicalDrives / GetDriveTypeW / GetVolumeInformationW /
+    GetDiskFreeSpaceExW), meme format de retour que _query_logical_disks().
+    Un lecteur sans media (lecteur de cartes vide) est renvoye avec
+    VolumeName/Size/FileSystem vides, comme via WMI. SetErrorMode evite la
+    boite "inserez un disque" de Windows. Erreur quelconque => []."""
+    if sys.platform != "win32":
+        return []
+    try:
+        import ctypes
+        import string
+
+        k32 = ctypes.windll.kernel32
+        old_mode = k32.SetErrorMode(1)  # SEM_FAILCRITICALERRORS
+        try:
+            mask = k32.GetLogicalDrives()
+            rows = []
+            for i, ch in enumerate(string.ascii_uppercase):
+                if not mask & (1 << i):
+                    continue
+                root = f"{ch}:\\"
+                if k32.GetDriveTypeW(root) != drive_type:
+                    continue
+                label = ctypes.create_unicode_buffer(261)
+                fs = ctypes.create_unicode_buffer(261)
+                ok = k32.GetVolumeInformationW(root, label, 261, None, None, None, fs, 261)
+                total = ctypes.c_ulonglong(0)
+                has_size = k32.GetDiskFreeSpaceExW(root, None, ctypes.byref(total), None)
+                rows.append(
+                    {
+                        "DeviceID": f"{ch}:",
+                        "VolumeName": label.value if ok else "",
+                        "Size": str(total.value) if (has_size and total.value) else "",
+                        "FileSystem": fs.value if ok else "",
+                    }
+                )
+            return rows
+        finally:
+            k32.SetErrorMode(old_mode)
+    except Exception:
+        return []
+
+
 def _query_logical_disks(drive_type: int = 2) -> list:
     """
     Interroge WMI pour lister les lecteurs logiques d'un DriveType donne
@@ -6027,7 +6084,15 @@ def _query_logical_disks(drive_type: int = 2) -> list:
     import io
     import subprocess
 
+    # v56 : sortie PowerShell forcee en UTF-8 et decodee en UTF-8 (errors="replace").
+    # Avant : text=True => decodage cp1252 alors que PowerShell ecrit dans la
+    # page OEM (cp850/cp437 sur un Windows FR/EN standard) quand stdout est un
+    # pipe ; un libelle de volume contenant p.ex. "u" trema / "E" accent aigu
+    # (octets 0x81/0x90 en cp850, indefinis en cp1252) levait UnicodeDecodeError,
+    # avale par l'except => liste vide SILENCIEUSE. Timeout 15 -> 30 s (demarrage
+    # PowerShell lent sous antivirus).
     ps_cmd = (
+        "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; "
         f'Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DriveType={drive_type}" '
         "| Select-Object DeviceID,VolumeName,Size,FileSystem "
         "| ConvertTo-Csv -NoTypeInformation"
@@ -6035,19 +6100,23 @@ def _query_logical_disks(drive_type: int = 2) -> list:
     try:
         out = subprocess.check_output(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
-            text=True,
             stderr=subprocess.DEVNULL,
-            timeout=15,
+            timeout=30,
             creationflags=(subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0),
-        )
+        ).decode("utf-8", errors="replace").lstrip("﻿")
         rows = [row for row in csv.DictReader(io.StringIO(out)) if row.get("DeviceID")]
-        if rows or out.strip():
-            # Sortie CSV exploitee avec succes (meme si 0 lecteur trouve) :
-            # ne PAS tomber sur le repli wmic dans ce cas, sinon un systeme
-            # sans lecteur amovible re-basculerait inutilement dessus.
+        if rows:
             return rows
     except Exception:
         pass
+
+    # v56 : repli Win32 natif (ctypes, sans PowerShell ni WMI) -- couvre
+    # PowerShell bloque/lent/en erreur ET WMI defaillant, et remplace le repli
+    # wmic (absent des Windows 11 recents). Liste vide seulement si aucun
+    # lecteur de ce type n'existe reellement.
+    rows = _query_logical_disks_win32(drive_type)
+    if rows:
+        return rows
 
     # Repli wmic (best effort, machines ou powershell serait indisponible).
     try:
