@@ -8,6 +8,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-09-30 — Herramienta PC: tarjeta SD reconocida por Windows pero ausente de la herramienta
+
+- **Herramienta PC** (build `8056`): corregida la detección de la tarjeta SD (Modos 1, 6 y 8). Algunas tarjetas que Windows ve como una unidad extraíble FAT32 normal **faltaban en la lista sin ningún mensaje**: la herramienta pedía las unidades a PowerShell, y cualquier fallo de lectura (carácter con acento en el nombre del volumen, arranque lento de PowerShell, error de WMI) daba una lista vacía en silencio. Ahora la salida se lee en UTF-8, la espera es mayor y, si PowerShell sigue fallando, la herramienta **consulta directamente a Windows** (llamada Win32 nativa) en lugar de rendirse.
+- **Si tu tarjeta sigue sin aparecer**: pulsa *Actualizar* en la ventana de unidades e indica la letra, el sistema de archivos y el tamaño que muestra Windows.
+
 ## 2026-09-27 — Firmware v2.32: se acabaron los reinicios en bucle al arrancar con una playlist muy larga
 
 - **Firmware** (v2.32): corregido un **reinicio en bucle nada más arrancar** cuando la playlist elegida es muy larga (varias decenas de miles de líneas). La reconstrucción de la caché de la playlist ocupaba el procesador el tiempo suficiente para disparar el watchdog del ESP32, que reiniciaba el DMD antes de guardar la caché — y cada reinicio volvía a empezar. Ahora la reconstrucción deja respirar al sistema con regularidad: probado con una playlist de 23 842 líneas, la caché se construye una vez (unos cincuenta segundos, con el reloj de arena en pantalla) y se reutiliza al instante en los arranques siguientes.

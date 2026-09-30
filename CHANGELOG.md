@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-09-30 — PC Toolkit: SD card recognised by Windows but missing from the toolkit
+
+- **PC Toolkit** (build `8056`): fixed the SD card detection (Modes 1, 6 and 8). Some cards seen by Windows as a normal removable, FAT32 drive were **silently missing** from the drive list: the toolkit asked PowerShell for the drives, and any read failure (accented character in the volume label, slow PowerShell start-up, WMI error) produced an empty list without any message. The output is now read as UTF-8, the wait is longer, and if PowerShell still fails the toolkit **asks Windows directly** (native Win32 call) instead of giving up.
+- **If your card is still missing**: click *Refresh* in the drive dialog, then report the letter, file system and size shown by Windows.
+
 ## 2026-09-27 — Firmware v2.32: no more reboot loop at startup with a very long playlist
 
 - **Firmware** (v2.32): fixed a **reboot loop right at startup** when the selected playlist is very long (tens of thousands of lines). Rebuilding the playlist cache kept the processor busy long enough to trigger the ESP32 watchdog, which restarted the DMD before the cache was saved — and every restart began again. The rebuild now lets the system breathe regularly: tested with a 23,842-line playlist, the cache is built once (about 50 seconds with the hourglass on screen) and reused instantly on the next startups.

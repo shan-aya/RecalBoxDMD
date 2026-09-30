@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-09-30 — Outil PC : carte SD reconnue par Windows mais absente de l'outil
+
+- **Outil PC** (build `8056`) : correction de la détection de la carte SD (Modes 1, 6 et 8). Certaines cartes vues par Windows comme un lecteur amovible FAT32 normal étaient **absentes de la liste sans aucun message** : l'outil demandait la liste des lecteurs à PowerShell, et toute erreur de lecture (caractère accentué dans le nom du volume, démarrage lent de PowerShell, erreur WMI) donnait une liste vide en silence. La sortie est désormais lue en UTF-8, l'attente est plus longue, et si PowerShell échoue quand même l'outil **interroge directement Windows** (appel Win32 natif) au lieu d'abandonner.
+- **Si votre carte manque encore** : cliquez sur *Rafraîchir* dans la fenêtre des lecteurs, puis signalez la lettre, le système de fichiers et la taille affichés par Windows.
+
 ## 2026-09-27 — Firmware v2.32 : plus de redémarrage en boucle au démarrage avec une très longue playlist
 
 - **Firmware** (v2.32) : correction d'un **redémarrage en boucle dès le démarrage** quand la playlist choisie est très longue (plusieurs dizaines de milliers de lignes). La reconstruction du cache de la playlist occupait le processeur assez longtemps pour déclencher le chien de garde de l'ESP32, qui redémarrait le DMD avant que le cache soit enregistré — et chaque redémarrage recommençait. La reconstruction laisse maintenant le système respirer régulièrement : testé avec une playlist de 23 842 lignes, le cache est construit une fois (une cinquantaine de secondes, sablier à l'écran) puis réutilisé instantanément aux démarrages suivants.
