@@ -513,6 +513,7 @@
       "gh.label": "Toutes les infos ici",
       "install.label": "⚡ Installer le firmware",
       "fw.updated": "Dernier firmware :",
+      "fw.version": "Version",
       "brand": "Panneau LED · Pixel Art",
       "tag": "Un cadre lumineux autonome qui anime votre intérieur — des centaines de GIFs rétro en rotation, une horloge qui change d'habillage. Connectez-le en WiFi à n'importe quelle Recalbox et il devient aussi son marquee numérique.",
       "divider1": "Ce qu'il fait chez vous, au quotidien",
@@ -561,6 +562,7 @@
       "gh.label": "All the info here",
       "install.label": "⚡ Install the firmware",
       "fw.updated": "Latest firmware:",
+      "fw.version": "Version",
       "brand": "LED Panel · Pixel Art",
       "tag": "A self-contained glowing frame for your room — hundreds of retro GIFs on rotation, a clock that changes its look. Connect it over WiFi to any Recalbox and it doubles as a digital marquee.",
       "divider1": "What it does at home, every day",
@@ -609,6 +611,7 @@
       "gh.label": "Toda la información aquí",
       "install.label": "⚡ Instalar el firmware",
       "fw.updated": "Último firmware:",
+      "fw.version": "Versión",
       "brand": "Panel LED · Pixel Art",
       "tag": "Un marco luminoso autónomo para tu casa — cientos de GIFs retro en rotación, un reloj que cambia de decorado. Conéctalo por WiFi a cualquier Recalbox y se convierte también en su marquee digital.",
       "divider1": "Lo que hace en casa, cada día",
@@ -657,15 +660,24 @@
 
   var currentLang = "fr";
   var fwDate = null;
+  var fwVersion = null;  // lue dans install/manifest.json (même numéro que le Web Installer)
 
+  // Même format que la page DMD GIF Creator : "Version 2.32 · 27 septembre 2026" ;
+  // sans manifeste lisible : "Dernier firmware : 27 septembre 2026" comme avant
   function renderFwDate(){
     var els = document.querySelectorAll("[data-fwdate]");
-    if (!els.length || !fwDate) return;
+    if (!els.length || (!fwDate && !fwVersion)) return;
+    var tr = translations[currentLang] || translations.fr;
     var localeMap = { fr: "fr-FR", en: "en-GB", es: "es-ES" };
     var fmt = new Intl.DateTimeFormat(localeMap[currentLang] || "fr-FR", { dateStyle: "long" });
-    var label = (translations[currentLang] && translations[currentLang]["fw.updated"]) || translations.fr["fw.updated"];
+    var text;
+    if (fwVersion) {
+      text = tr["fw.version"] + " " + fwVersion + (fwDate ? " · " + fmt.format(fwDate) : "");
+    } else {
+      text = tr["fw.updated"] + " " + fmt.format(fwDate);
+    }
     els.forEach(function(el){
-      el.textContent = label + " " + fmt.format(fwDate);
+      el.textContent = text;
       el.hidden = false;
     });
   }
@@ -708,6 +720,16 @@
     .then(function(data){
       if (data && data.length && data[0].commit && data[0].commit.committer) {
         fwDate = new Date(data[0].commit.committer.date);
+        renderFwDate();
+      }
+    })
+    .catch(function(){});
+
+  fetch("install/manifest.json", { cache: "no-cache" })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(m){
+      if (m && m.version) {
+        fwVersion = String(m.version).replace(/^v/i, "");
         renderFwDate();
       }
     })
