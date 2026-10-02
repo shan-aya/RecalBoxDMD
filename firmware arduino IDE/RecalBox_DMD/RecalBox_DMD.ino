@@ -1,8 +1,9 @@
 // ============================================
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v232
+// Version actuelle : v233
 //
+// v233 - 2026-10-02 - safe-modify - MODE RECALBOX NATIF (option du menu web, config.ini recalbox_native_mode) : le DMD n'execute AUCUNE de ses fonctions propres (playlist, hi-scores, infos, RA, horloge, commandes scripts) et devient un afficheur ZeDMD-WiFi pilote uniquement par la Recalbox (ES + libdmdutil). Reutilise le boot cible vpinball (g_bootForVpinball, saut playlist) rendu PERMANENT : mode Pinball actif des la connexion WiFi, sans sortie sur silence (vpinball_dmd.h v12). Web config + WiFi + mise a jour restent actifs. Redemarrage requis apres changement. Splash : la 2e ligne affiche "ZeDMD compatible" au lieu de "RawEdition vX.YY" (retour utilisateur) ; la version reste dans la ligne serie [BOOT]. Mode natif : initNTP() SAUTE (ecran "SYNC NTP... UTC+x" bloquant jusqu'a 10 s inutile -- l'horloge est desactivee dans ce mode) -> le DMD passe directement a l'ecran du mode natif.
 // v232 - 2026-09-27 - safe-modify - BUG REEL (crash remonte par un utilisateur, reboot en boucle des le demarrage,
 //   firmware v231 identifie par le SHA ELF 4217fe95a) : "task_wdt: IDLE0 (CPU 0) ... CPU 0: loopTask ... Aborting"
 //   pendant rebuildPlaylistCache() au boot. Avec LoopCore=0 (compile.ps1), loopTask tourne sur le coeur 0 et le
@@ -5017,6 +5018,8 @@ bool featRaBrowse          = false;
 // defaut. N'affecte RIEN d'autre tant qu'il n'est pas active explicitement
 // dans config.ini.
 bool featVpinballDmd       = false;
+// v233 -- MODE RECALBOX NATIF (config.ini recalbox_native_mode, menu web). Voir l'en-tete v233.
+bool recalboxNativeMode      = false;
 
 // v1 - 2026-09-17 - safe-modify - #include "vpinball_dmd.h" DEPLACE plus
 // loin dans ce fichier (voir pres de gifRawFrameBuf/gifRawDelayCache/
@@ -10471,6 +10474,7 @@ void loadConfig()
     else if(key=="feat_ra_ingame")                       featRaIngame         =(value!="0");
     else if(key=="feat_ra_browse")                       featRaBrowse         =(value!="0");
     else if(key=="feat_vpinball_dmd")                    featVpinballDmd      =(value!="0");
+    else if(key=="recalbox_native_mode")                recalboxNativeMode   =(value!="0"); // v233
     else if(key=="feat_repeat_cycles")                   featRepeatCycles     =constrain(value.toInt(),0,20);
     // v111 -- voir declaration (featRepeatBrowseCycles/featDwellSeconds).
     // Plancher de securite 3s IMPOSE ICI (pas seulement cote script) pour
@@ -10697,7 +10701,9 @@ void showSplashScreen()
   // Ligne 2 : "RawEdition vM.NN", centree (6 px par caractere)
   char verLine[24];
   snprintf(verLine, sizeof(verLine), "RawEdition v%d.%02d", FW_VERSION_NUM / 100, FW_VERSION_NUM % 100);
-  Serial.printf("[BOOT] firmware %s (build interne v%d)\n", verLine, FW_VERSION_NUM);
+  Serial.printf("[BOOT] firmware %s (build interne v%d)%s\n", verLine, FW_VERSION_NUM, recalboxNativeMode ? " -- MODE RECALBOX NATIF" : "");
+  // v233 -- mode Recalbox natif : autre titre que "RawEdition" pour signaler le mode compatibilite Recalbox.
+  if (recalboxNativeMode) snprintf(verLine, sizeof(verLine), "ZeDMD compatible"); // 16 car. x 6 px = 96 px < 128 (retour utilisateur : "compatible")
   display->setCursor((128 - (int)strlen(verLine) * 6) / 2, 21);
   display->setTextColor(white);
   display->print(verLine);
@@ -10760,6 +10766,12 @@ static String tzFriendlyLabel()
 
 static void initNTP()
 {
+  // v233 -- mode Recalbox natif : l'horloge est desactivee, la synchro NTP (jusqu'a 10 s d'ecran "SYNC NTP... UTC+x") ne sert a rien.
+  if (recalboxNativeMode)
+  {
+    Serial.println("[CLOCK] NTP skip: mode Recalbox natif");
+    return;
+  }
   if (WiFi.status() != WL_CONNECTED)
   {
     Serial.println("[CLOCK] NTP skip: WiFi not connected");
@@ -11259,6 +11271,8 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
         // voir vpinball_dmd.h) puisque le mode vpinball a besoin EXACTEMENT du
         // meme heap maximal, juste pour un usage different apres.
         else if(line.startsWith("force_vpinball_boot=")){g_bootForVpinball=(line.substring(line.indexOf('=')+1).toInt()!=0);if(g_bootForVpinball)g_skipPlaylistForConfig=true;}
+        // v233 -- mode Recalbox natif : meme chemin de boot que le boot cible vpinball (saut caches/playlist, heap maximal), mais PERMANENT (le flag n'est jamais consomme).
+        else if(line.startsWith("recalbox_native_mode=")){recalboxNativeMode=(line.substring(line.indexOf('=')+1).toInt()!=0);if(recalboxNativeMode){g_bootForVpinball=true;g_skipPlaylistForConfig=true;}}
       }
       cfg.close();
     }
@@ -11280,7 +11294,7 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
   // suite apres lecture, avant TOUTE branche ulterieure (needWebConfigMode/
   // g_forceApRecovery/g_skipPlaylistForConfig) -- garantit qu'il ne reste
   // jamais bloque, quel que soit le chemin de boot emprunte ensuite.
-  if (g_bootForVpinball) writeConfigFlag("force_vpinball_boot", "0");
+  if (g_bootForVpinball && !recalboxNativeMode) writeConfigFlag("force_vpinball_boot", "0"); // v233 -- en mode natif, g_bootForVpinball vient de recalbox_native_mode (permanent), rien a consommer
 
   showSplashScreen();  // Toujours affichÃ©, indÃ©pendamment de info=
   // v1 - 2026-09-17 - safe-modify - retour utilisateur : aucun affichage
@@ -11288,7 +11302,7 @@ else if(line.startsWith("CLOCK_THEME=")){int s=line.substring(line.indexOf('=')+
   // habituels (bluetooth/WIFI OK/NTP, tous supprimes plus bas pour ce boot
   // precis, voir leurs sites d'appel) par UN SEUL message persistant, visible
   // pendant toute la duree de la connexion (~10-12s).
-  if (g_bootForVpinball) showMessage("VPINBALL", "Connexion...", display->color565(255, 165, 0));
+  if (g_bootForVpinball) showMessage(recalboxNativeMode ? "RECALBOX" : "VPINBALL", recalboxNativeMode ? "Mode natif" : "Connexion...", display->color565(255, 165, 0)); // v233
   
 
   // Charge le cache systÃ¨mes (systems_cache.dat). Si absent, on ne rescanner

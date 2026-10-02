@@ -3,8 +3,10 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v65
+// Version actuelle : v67
 //
+// v67 — 2026-10-02 — safe-modify — MODE RECALBOX NATIF, suite (retour utilisateur) : tout ce qui ne fonctionne plus dans ce mode est GRISE/inactif (tuiles et liens Affichage-avance/Playlist/Horloge/Medias, controles de ces pages avec bandeau, Demarrage silencieux) et la case Mode Pinball est DECOCHEE+grisee (le mode natif la remplace) -- en direct des qu'on coche la case, sans attendre la sauvegarde. Script commun /native.js (route + PROGMEM NATIVE_JS) inclus dans les 6 pages ; /load renvoie feat_vpinball_dmd=0 en mode natif.
+// v66 — 2026-10-02 — safe-modify — MODE RECALBOX NATIF : case a cocher (page BASIC), chargee/enregistree via /load, /save et config.ini (recalbox_native_mode), /handshake actif aussi dans ce mode, confirmation avant activation (toutes les fonctions du firmware sont desactivees, l'ecran est pilote par la Recalbox seule). Textes fr/en/es.
 // v65 — 2026-09-13 — safe-modify — BUG REEL corrige (signale par
 //   l'utilisateur en plein diagnostic de la boucle AP : "dans le champ
 //   selectionner reseau il affiche 3 fois mon reseau 2.4ghz"). Cause :
@@ -846,6 +848,7 @@ extern bool   featDescriptionBrowse;
 extern bool   featRaIngame;
 extern bool   featRaBrowse;
 extern bool   featVpinballDmd; // v211, RecalBox_DMD.ino -- integration vpinball/libdmdutil
+extern bool   recalboxNativeMode; // v233, RecalBox_DMD.ino -- mode Recalbox natif
 extern int    featRepeatCycles;
 extern int    featRepeatBrowseCycles; // v111, RecalBox_DMD.ino
 extern int    featDwellSeconds;       // v111, RecalBox_DMD.ino
@@ -996,6 +999,8 @@ body{position:relative}
 <div class="row"><label data-i18n="lbl_silent_boot">D&eacute;marrage silencieux</label><span class="featinfo" onmouseenter="showFeatInfo('silent_boot')" onmouseleave="closeFeatInfo()">?</span><input id="silent_boot" type="checkbox"></div>
 <!-- Option Pinball (VPX) : SANS redemarrage du DMD au lancement d'une table (mode en place, depuis firmware v217) ; seul l'activation de l'option demande un redemarrage (setupVpinballDmd() ne s'execute qu'au boot). Sortie : fin de partie (endgame) ou 5 s sans image. v230 : cocher l'option = AUTORISE le script Recalbox dmd_vpx_config a modifier VPinballX-configgen.ini (la bulle "?" l'annonce en FR/EN/ES) ; l'etat est envoye a la Recalbox dans FEATURES (vpinball_dmd=0|1). -->
 <div class="row"><label data-i18n="lbl_vpinball">Mode Pinball (VPX)</label><span class="featinfo" onmouseenter="showFeatInfo('vpinball')" onmouseleave="closeFeatInfo()">?</span><input id="feat_vpinball_dmd" type="checkbox"></div>
+<!-- v66 : Mode Recalbox natif (redemarrage requis). Desactive TOUTES les fonctions du firmware, l'ecran est pilote par la Recalbox seule. -->
+<div class="row"><label data-i18n="lbl_native">Mode Recalbox natif</label><span class="featinfo" onmouseenter="showFeatInfo('native')" onmouseleave="closeFeatInfo()">?</span><input id="recalbox_native_mode" type="checkbox"></div>
 <div class="btn-row">
 <button type="button" class="hbtn btn-save" onclick="saveDisplay(false)" data-i18n="btn_save">&#x1F4BE; Enregistrer</button>
 <button type="button" class="hbtn btn-reboot" onclick="saveDisplay(true)" data-i18n="btn_save_reboot">&#x1F504; Enreg. &amp; Red&eacute;marrer</button>
@@ -1033,9 +1038,9 @@ function showHelpModal(){
 }
 function closeHelpModal(){document.getElementById('helpBackdrop').classList.remove('show');}
 const MENU_I18N={
-fr:{title:'RecalBox DMD',tagline:'Configuration DMD',menu_basic:'&#x1F4A1; Affichage',menu_playlist:'&#x1F4BF; Playlist',menu_network:'&#x1F4F6; Wi-Fi &amp; Bluetooth',menu_clock:'&#x23F0; Horloge',menu_media:'&#x1F4BF; Médias',small_hint:'Page fractionnée pour un chargement rapide et fiable sur ESP32.',sec_display:'&#x1F4A1; Affichage',lbl_brightness:'Luminosité (%)',desc_brightness_live:'&#x1F4A1; Aperçu appliqué en direct sur l\'écran DMD.',lbl_silent_boot:'Démarrage silencieux',lbl_vpinball:'Mode Pinball (VPX)',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',msg_saving:'Enregistrement...',msg_saved:'Enregistré',msg_net_error:'Erreur réseau',msg_rebooting:'Redémarrage...',cont_basic:'&#x1F4A1; Continuer : Affichage',cont_playlist:'&#x1F4BF; Continuer : Playlist',cont_network:'&#x1F4F6; Continuer : Wi-Fi & Bluetooth',cont_clock:'&#x23F0; Continuer : Horloge',cont_media:'&#x1F4BF; Continuer : Médias',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',loading_text:'Chargement en cours...',...HELP_I18N.fr},
-en:{title:'RecalBox DMD',tagline:'DMD Configuration',menu_basic:'&#x1F4A1; Display',menu_playlist:'&#x1F4BF; Playlist',menu_network:'&#x1F4F6; Wi-Fi &amp; Bluetooth',menu_clock:'&#x23F0; Clock',menu_media:'&#x1F4BF; Media',small_hint:'Split page for fast, reliable loading on ESP32.',sec_display:'&#x1F4A1; Display',lbl_brightness:'Brightness (%)',desc_brightness_live:'&#x1F4A1; Live preview applied directly on the DMD screen.',lbl_silent_boot:'Silent boot',lbl_vpinball:'Pinball mode (VPX)',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',msg_saving:'Saving...',msg_saved:'Saved',msg_net_error:'Network error',msg_rebooting:'Rebooting...',cont_basic:'&#x1F4A1; Resume: Display',cont_playlist:'&#x1F4BF; Resume: Playlist',cont_network:'&#x1F4F6; Resume: Wi-Fi & Bluetooth',cont_clock:'&#x23F0; Resume: Clock',cont_media:'&#x1F4BF; Resume: Media',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',loading_text:'Loading...',...HELP_I18N.en},
-es:{title:'RecalBox DMD',tagline:'Configuración DMD',menu_basic:'&#x1F4A1; Pantalla',menu_playlist:'&#x1F4BF; Playlist',menu_network:'&#x1F4F6; Wi-Fi y Bluetooth',menu_clock:'&#x23F0; Reloj',menu_media:'&#x1F4BF; Medios',small_hint:'Página dividida para una carga rápida y fiable en ESP32.',sec_display:'&#x1F4A1; Pantalla',lbl_brightness:'Brillo (%)',desc_brightness_live:'&#x1F4A1; Vista previa aplicada en directo en la pantalla DMD.',lbl_silent_boot:'Arranque silencioso',lbl_vpinball:'Modo Pinball (VPX)',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',msg_saving:'Guardando...',msg_saved:'Guardado',msg_net_error:'Error de red',msg_rebooting:'Reiniciando...',cont_basic:'&#x1F4A1; Continuar: Pantalla',cont_playlist:'&#x1F4BF; Continuar: Playlist',cont_network:'&#x1F4F6; Continuar: Wi-Fi y Bluetooth',cont_clock:'&#x23F0; Continuar: Reloj',cont_media:'&#x1F4BF; Continuar: Medios',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',loading_text:'Cargando...',...HELP_I18N.es}
+fr:{title:'RecalBox DMD',tagline:'Configuration DMD',menu_basic:'&#x1F4A1; Affichage',menu_playlist:'&#x1F4BF; Playlist',menu_network:'&#x1F4F6; Wi-Fi &amp; Bluetooth',menu_clock:'&#x23F0; Horloge',menu_media:'&#x1F4BF; Médias',small_hint:'Page fractionnée pour un chargement rapide et fiable sur ESP32.',sec_display:'&#x1F4A1; Affichage',lbl_brightness:'Luminosité (%)',desc_brightness_live:'&#x1F4A1; Aperçu appliqué en direct sur l\'écran DMD.',lbl_silent_boot:'Démarrage silencieux',lbl_vpinball:'Mode Pinball (VPX)',lbl_native:'Mode Recalbox natif',confirm_native:'Le mode Recalbox natif DESACTIVE toutes les fonctions de ce firmware (playlist, hi-scores, infos, RetroAchievements, horloge, commandes des scripts) : l\'ecran sera pilote uniquement par la Recalbox. Seuls la page web, le WiFi et la mise a jour restent actifs. Redemarrage necessaire pour appliquer. Continuer ?',btn_save:'&#x1F4BE; Enregistrer',btn_save_reboot:'&#x1F504; Enreg. &amp; Redémarrer',msg_saving:'Enregistrement...',msg_saved:'Enregistré',msg_net_error:'Erreur réseau',msg_rebooting:'Redémarrage...',cont_basic:'&#x1F4A1; Continuer : Affichage',cont_playlist:'&#x1F4BF; Continuer : Playlist',cont_network:'&#x1F4F6; Continuer : Wi-Fi & Bluetooth',cont_clock:'&#x23F0; Continuer : Horloge',cont_media:'&#x1F4BF; Continuer : Médias',essential_wifi:'Wi-Fi',essential_playlist:'Playlist par défaut',essential_ip:'IP Recalbox',msg_essential_missing:'Attention : champ(s) essentiel(s) vide(s) : {fields}. Le DMD risque de ne pas fonctionner correctement. Continuer quand même ?',loading_text:'Chargement en cours...',...HELP_I18N.fr},
+en:{title:'RecalBox DMD',tagline:'DMD Configuration',menu_basic:'&#x1F4A1; Display',menu_playlist:'&#x1F4BF; Playlist',menu_network:'&#x1F4F6; Wi-Fi &amp; Bluetooth',menu_clock:'&#x23F0; Clock',menu_media:'&#x1F4BF; Media',small_hint:'Split page for fast, reliable loading on ESP32.',sec_display:'&#x1F4A1; Display',lbl_brightness:'Brightness (%)',desc_brightness_live:'&#x1F4A1; Live preview applied directly on the DMD screen.',lbl_silent_boot:'Silent boot',lbl_vpinball:'Pinball mode (VPX)',lbl_native:'Native Recalbox mode',confirm_native:'Native Recalbox mode DISABLES every feature of this firmware (playlist, high scores, info screens, RetroAchievements, clock, script commands): the screen will be driven by Recalbox only. Only the web page, WiFi and updates stay active. A reboot is needed to apply. Continue?',btn_save:'&#x1F4BE; Save',btn_save_reboot:'&#x1F504; Save &amp; Reboot',msg_saving:'Saving...',msg_saved:'Saved',msg_net_error:'Network error',msg_rebooting:'Rebooting...',cont_basic:'&#x1F4A1; Resume: Display',cont_playlist:'&#x1F4BF; Resume: Playlist',cont_network:'&#x1F4F6; Resume: Wi-Fi & Bluetooth',cont_clock:'&#x23F0; Resume: Clock',cont_media:'&#x1F4BF; Resume: Media',essential_wifi:'Wi-Fi',essential_playlist:'Default playlist',essential_ip:'Recalbox IP',msg_essential_missing:'Warning: missing essential field(s): {fields}. The DMD may not work correctly. Continue anyway?',loading_text:'Loading...',...HELP_I18N.en},
+es:{title:'RecalBox DMD',tagline:'Configuración DMD',menu_basic:'&#x1F4A1; Pantalla',menu_playlist:'&#x1F4BF; Playlist',menu_network:'&#x1F4F6; Wi-Fi y Bluetooth',menu_clock:'&#x23F0; Reloj',menu_media:'&#x1F4BF; Medios',small_hint:'Página dividida para una carga rápida y fiable en ESP32.',sec_display:'&#x1F4A1; Pantalla',lbl_brightness:'Brillo (%)',desc_brightness_live:'&#x1F4A1; Vista previa aplicada en directo en la pantalla DMD.',lbl_silent_boot:'Arranque silencioso',lbl_vpinball:'Modo Pinball (VPX)',lbl_native:'Modo Recalbox nativo',confirm_native:'El modo Recalbox nativo DESACTIVA todas las funciones de este firmware (playlist, puntuaciones, informacion, RetroAchievements, reloj, comandos de scripts): la pantalla sera controlada solo por Recalbox. Solo siguen activos la pagina web, el WiFi y las actualizaciones. Hace falta reiniciar. Continuar?',btn_save:'&#x1F4BE; Guardar',btn_save_reboot:'&#x1F504; Guardar y reiniciar',msg_saving:'Guardando...',msg_saved:'Guardado',msg_net_error:'Error de red',msg_rebooting:'Reiniciando...',cont_basic:'&#x1F4A1; Continuar: Pantalla',cont_playlist:'&#x1F4BF; Continuar: Playlist',cont_network:'&#x1F4F6; Continuar: Wi-Fi y Bluetooth',cont_clock:'&#x23F0; Continuar: Reloj',cont_media:'&#x1F4BF; Continuar: Medios',essential_wifi:'Wi-Fi',essential_playlist:'Playlist por defecto',essential_ip:'IP de Recalbox',msg_essential_missing:'Atención: falta(n) campo(s) esencial(es): {fields}. Es posible que el DMD no funcione correctamente. ¿Continuar de todos modos?',loading_text:'Cargando...',...HELP_I18N.es}
 };
 let currentLang='fr';
 // Overlay "Chargement en cours..." (2026-08-05, demande utilisateur :
@@ -1076,14 +1081,17 @@ function updateContinueLink(){
 const HOME_INFO_I18N={
 fr:{
   silent_boot:{t:'Demarrage silencieux',b:'Active : au demarrage, le DMD affiche uniquement le titre/logo, sans details techniques. Desactive (par defaut) : affiche aussi l\'adresse IP detectee, la synchronisation de l\'heure, etc. -- utile pour diagnostiquer un probleme de connexion au demarrage.'},
+  native:{t:'Mode Recalbox natif',b:'Active : le DMD n\'execute plus AUCUNE de ses fonctions (playlist, hi-scores, infos, RetroAchievements, horloge, scripts) et devient un simple afficheur pilote par la Recalbox elle-meme (EmulationStation / libdmdutil, protocole ZeDMD-WiFi). Seuls la page web, le WiFi et la mise a jour restent actifs. Redemarrage necessaire. Pour revenir au mode normal : decochez puis redemarrez.'},
   vpinball:{t:'Mode Pinball (VPX)',b:'Active : le DMD affiche en direct l\'ecran DMD des tables Visual Pinball (VPX) lancees depuis Recalbox, comme un ZeDMD-WiFi (a declarer cote Recalbox : plugin DMDUtil, ZeDMDWiFiAddr = IP de ce DMD).\n\nAucun redemarrage du DMD au lancement d\'une table : l\'image de la table s\'affiche directement, et le DMD reprend son fonctionnement normal tout seul a la fin de la partie (ou environ 5 s apres l\'arret de l\'image). Pendant la table, la playlist et les ecrans Recalbox sont suspendus. Desactive (par defaut) : aucun changement de comportement. Effet au prochain redemarrage du DMD (bouton Enreg. & Redemarrer).\n\nATTENTION : cocher cette option autorise un script de la Recalbox a MODIFIER automatiquement le fichier de configuration de Visual Pinball (VPinballX-configgen.ini : plugins DMDUtil/ZeDMD WiFi et AlphaDMD), au demarrage de la Recalbox et apres chaque partie. Decochee, le script est inactif et aucun fichier de la Recalbox n\'est touche.'}
 },
 en:{
   silent_boot:{t:'Silent boot',b:'Enabled: on startup, the DMD shows only the title/logo, no technical details. Disabled (default): also shows the detected IP address, time sync, etc. -- useful to diagnose a connection issue at startup.'},
+  native:{t:'Native Recalbox mode',b:'Enabled: the DMD runs NONE of its own features (playlist, high scores, info screens, RetroAchievements, clock, scripts) and becomes a plain display driven by Recalbox itself (EmulationStation / libdmdutil, ZeDMD-WiFi protocol). Only the web page, WiFi and updates stay active. A reboot is needed. To go back to normal mode: untick, then reboot.'},
   vpinball:{t:'Pinball mode (VPX)',b:'Enabled: the DMD shows the live DMD screen of Visual Pinball (VPX) tables launched from Recalbox, like a ZeDMD-WiFi (set up on the Recalbox side: DMDUtil plugin, ZeDMDWiFiAddr = this DMD\'s IP).\n\nNo DMD reboot when a table starts: the table image is shown right away, and the DMD goes back to normal operation by itself when the game ends (or about 5 s after the table stops sending frames). While a table is running, the playlist and Recalbox screens are suspended. Disabled (default): no change in behavior. Takes effect at the next DMD reboot (Save & Reboot button).\n\nWARNING: ticking this option allows a Recalbox script to AUTOMATICALLY MODIFY the Visual Pinball configuration file (VPinballX-configgen.ini: DMDUtil/ZeDMD WiFi and AlphaDMD plugins), at Recalbox startup and after each game. Unticked, the script does nothing and no Recalbox file is touched.'}
 },
 es:{
   silent_boot:{t:'Inicio silencioso',b:'Activado: al arrancar, el DMD muestra solo el titulo/logo, sin detalles tecnicos. Desactivado (por defecto): tambien muestra la IP detectada, la sincronizacion horaria, etc. -- util para diagnosticar un problema de conexion al arrancar.'},
+  native:{t:'Modo Recalbox nativo',b:'Activado: el DMD no ejecuta NINGUNA de sus funciones (playlist, puntuaciones, informacion, RetroAchievements, reloj, scripts) y pasa a ser una simple pantalla controlada por la propia Recalbox (EmulationStation / libdmdutil, protocolo ZeDMD-WiFi). Solo siguen activos la pagina web, el WiFi y las actualizaciones. Hace falta reiniciar. Para volver al modo normal: desmarque y reinicie.'},
   vpinball:{t:'Modo Pinball (VPX)',b:'Activado: el DMD muestra en directo la pantalla DMD de las mesas de Visual Pinball (VPX) lanzadas desde Recalbox, como un ZeDMD-WiFi (a configurar en Recalbox: plugin DMDUtil, ZeDMDWiFiAddr = IP de este DMD).\n\nSin reinicio del DMD al lanzar una mesa: la imagen de la mesa se muestra directamente, y el DMD vuelve solo al funcionamiento normal al terminar la partida (o unos 5 s despues de que la mesa deje de enviar imagen). Mientras corre una mesa, la playlist y las pantallas de Recalbox quedan suspendidas. Desactivado (por defecto): sin cambios de comportamiento. Efecto en el proximo reinicio del DMD (boton Guardar y reiniciar).\n\nATENCION: marcar esta opcion permite que un script de la Recalbox MODIFIQUE automaticamente el archivo de configuracion de Visual Pinball (VPinballX-configgen.ini: plugins DMDUtil/ZeDMD WiFi y AlphaDMD), al arrancar la Recalbox y despues de cada partida. Sin marcar, el script no hace nada y no se toca ningun archivo de la Recalbox.'}
 }
 };
@@ -1120,14 +1128,17 @@ function loadDisplay(){
     document.getElementById('brightness').value=b;
     document.getElementById('bval').textContent=b;
     document.getElementById('silent_boot').checked=(d.info==='0');
-    document.getElementById('feat_vpinball_dmd').checked=(d.feat_vpinball_dmd==='1');
+    document.getElementById('feat_vpinball_dmd').checked=(d.feat_vpinball_dmd==='1');document.getElementById('recalbox_native_mode').checked=(d.recalbox_native_mode==='1');window._nativeInit=(d.recalbox_native_mode==='1');
   }).catch(function(){showMsgLocal(tr('msg_net_error'),false);});
 }
 function saveDisplay(reboot){
+  const nativeEl=document.getElementById('recalbox_native_mode');
+  if(nativeEl.checked&&!window._nativeInit&&!confirm(tr('confirm_native'))){nativeEl.checked=false;return Promise.resolve();}
   showMsg(tr('msg_saving'),true);
-  const body=new URLSearchParams({brightness:document.getElementById('brightness').value,info:document.getElementById('silent_boot').checked?'0':'1',feat_vpinball_dmd:document.getElementById('feat_vpinball_dmd').checked?'1':'0'});
+  const body=new URLSearchParams({brightness:document.getElementById('brightness').value,info:document.getElementById('silent_boot').checked?'0':'1',feat_vpinball_dmd:document.getElementById('feat_vpinball_dmd').checked?'1':'0',recalbox_native_mode:nativeEl.checked?'1':'0'});
   return fetch('/save',{method:'POST',body:body,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(function(r){return r.text();}).then(function(t){
     if(!t.includes('OK')){showMsg(t,false);return;}
+    window._nativeInit=nativeEl.checked;
     if(reboot){showMsg(tr('msg_rebooting'),true);setTimeout(function(){fetch('/reboot').catch(function(){});},400);}
     else{showMsg(tr('msg_saved'),true);setTimeout(function(){fetch('/dmd-resume',{method:'POST'}).catch(function(){});},3000);}
   }).catch(function(){showMsg(tr('msg_net_error'),false);});
@@ -1138,6 +1149,7 @@ fetch('/lang').then(function(r){return r.json();}).then(function(d){applyLang(d.
 // rafraichissement de page (habitude trop ancree pour l'utilisateur, faux
 // positifs trop frequents).
 </script>
+<script src="/native.js"></script>
 </body>
 </html>
 )rawliteral";
@@ -1488,6 +1500,7 @@ localStorage.setItem('dmd_last_section','basic');
 fetchTimeout('/lang',{},15000).then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}return loadConfig();}).catch(()=>{applyLang();return loadConfig();}).finally(hidePageLoadingOverlay);
 document.getElementById('basicForm').addEventListener('input',()=>{_formDirty=true;saveDraft();});
 </script>
+<script src="/native.js"></script>
 </body>
 </html>
 )rawliteral";
@@ -1876,6 +1889,7 @@ localStorage.setItem('dmd_last_section','playlist');
 fetchTimeout('/lang',{},15000).then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}return loadConfig();}).catch(()=>{applyLang();return loadConfig();}).then(loadGenDirs).finally(hidePageLoadingOverlay);
 document.getElementById('playlistForm').addEventListener('input',()=>{_formDirty=true;saveDraft();});
 </script>
+<script src="/native.js"></script>
 </body>
 </html>
 )rawliteral";
@@ -2139,6 +2153,7 @@ localStorage.setItem('dmd_last_section','network');
 fetchTimeout('/lang',{},15000).then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}loadConfig();}).catch(()=>{applyLang();loadConfig();}).finally(hidePageLoadingOverlay);
 document.getElementById('networkForm').addEventListener('input',()=>{_formDirty=true;saveDraft();});
 </script>
+<script src="/native.js"></script>
 </body>
 </html>
 )rawliteral";
@@ -2431,6 +2446,7 @@ localStorage.setItem('dmd_last_section','clock');
 fetchTimeout('/lang',{},15000).then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}loadConfig();}).catch(()=>{applyLang();loadConfig();}).finally(hidePageLoadingOverlay);
 document.getElementById('clockForm').addEventListener('input',()=>{_formDirty=true;saveDraft();});
 </script>
+<script src="/native.js"></script>
 </body>
 </html>
 )rawliteral";
@@ -2906,6 +2922,7 @@ localStorage.setItem('dmd_last_section','media');
 queuedFetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}}).catch(()=>{applyLang();}).finally(hidePageLoadingOverlay);
 loadDirs();loadUploadDirs();
 </script>
+<script src="/native.js"></script>
 </body>
 </html>
 )rawliteral";
@@ -3059,7 +3076,8 @@ static void handleWebConfigLoad()
   json += ",\"info\":\"" + String(showInfo ? '1' : '0') + "\"";
   json += ",\"playlist\":\"" + jsonEscape(playlistName) + "\"";
   json += ",\"random\":\"" + String(playlistRandom ? '1' : '0') + "\"";
-  json += ",\"feat_vpinball_dmd\":\"" + String(featVpinballDmd ? '1' : '0') + "\"";
+  json += ",\"feat_vpinball_dmd\":\"" + String((featVpinballDmd && !recalboxNativeMode) ? '1' : '0') + "\""; // v67 -- mode natif : Pinball affiche decoche
+  json += ",\"recalbox_native_mode\":\"" + String(recalboxNativeMode ? '1' : '0') + "\""; // v66
   json += ",\"feat_hiscore_ingame\":\"" + String(featHiscoreIngame ? '1' : '0') + "\"";
   json += ",\"feat_hiscore_browse\":\"" + String(featHiscoreBrowse ? '1' : '0') + "\"";
   json += ",\"feat_info_ingame\":\"" + String(featInfoIngame ? '1' : '0') + "\"";
@@ -4498,6 +4516,7 @@ static void handleWebConfigSave()
   // disabled`, sans aucune action delibérée de reactivation possible cote
   // web. Fix : meme convention que les feat_* existants juste au-dessus.
   if (webServer->hasArg("feat_vpinball_dmd"))       featVpinballDmd       = webServer->arg("feat_vpinball_dmd") == "1";
+  if (webServer->hasArg("recalbox_native_mode"))    recalboxNativeMode    = webServer->arg("recalbox_native_mode") == "1"; // v66 -- redemarrage requis
   if (webServer->hasArg("feat_repeat_cycles"))      featRepeatCycles      = constrain(webServer->arg("feat_repeat_cycles").toInt(), 0, 20);
   // v111 -- voir declaration (featRepeatBrowseCycles/featDwellSeconds,
   // RecalBox_DMD.ino). Plancher de securite 3s impose ICI aussi (pas
@@ -4573,6 +4592,7 @@ static void handleWebConfigSave()
   // meme totalement sans rapport avec vpinball. Cause racine du flag
   // "reinitialise tout seul" observe en Phase 3 (RB2/DMD2).
   f.println("feat_vpinball_dmd=" + String(featVpinballDmd ? "1" : "0"));
+  f.println("recalbox_native_mode=" + String(recalboxNativeMode ? "1" : "0")); // v66 -- DOIT figurer ici sinon remis a 0 a chaque sauvegarde web (voir commentaire ci-dessus)
   f.println(); f.println("# Playlist"); f.println("playlist=" + playlistName); f.println("random=" + String(playlistRandom ? "1" : "0"));
   f.println(); f.println("# Wi-Fi & Bluetooth");
   f.println("wifi_enabled=" + String(wifiEnabled ? "1" : "0")); f.println("wifi_ssid=" + wifiSSID); f.println("wifi_password=" + wifiPassword);
@@ -5298,6 +5318,60 @@ static void handleWebConfigMediaPage()
   sendGzipHtml(WEB_CONFIG_MEDIA_HTML_GZ, WEB_CONFIG_MEDIA_HTML_GZ_LEN);
 }
 
+// v67 -- script commun inclus dans les pages de config (route /native.js) : grise/desactive
+// ce qui ne fonctionne pas en mode Recalbox natif. Etat lu via /load ; en direct sur la page
+// d'accueil quand on coche/decoche la case. Pas de guillemets doubles echappes necessaires.
+static const char NATIVE_JS[] PROGMEM = R"nativejs(
+(function(){
+var P=location.pathname,L='fr';
+var M={fr:{ban:'Mode Recalbox natif actif : les fonctions de cette page sont desactivees (l\'ecran est pilote par la Recalbox).',tip:'Inactif en mode Recalbox natif'},
+en:{ban:'Native Recalbox mode is on: the features of this page are disabled (the screen is driven by Recalbox).',tip:'Disabled in native Recalbox mode'},
+es:{ban:'Modo Recalbox nativo activo: las funciones de esta pagina estan desactivadas (la pantalla la controla Recalbox).',tip:'Inactivo en modo Recalbox nativo'}};
+function m(){return M[L]||M.fr;}
+function off(el,on){
+ if(!el)return;
+ if(on){ if(!el.hasAttribute('data-nat'))el.setAttribute('data-nat',el.disabled?'d':'e');
+  if('disabled' in el)el.disabled=true; el.style.opacity='.4'; el.style.pointerEvents='none'; el.title=m().tip; }
+ else if(el.hasAttribute('data-nat')){ if(el.getAttribute('data-nat')==='e'&&'disabled' in el)el.disabled=false;
+  el.style.opacity=''; el.style.pointerEvents=''; el.removeAttribute('data-nat'); el.removeAttribute('title'); }
+}
+function row(id){var e=document.getElementById(id);return e?(e.closest('.row')||e):null;}
+function apply(on){
+ var q=document.querySelectorAll('a[href="/config/basic"],a[href="/config/playlist"],a[href="/config/clock"],a[href="/config/media"]');
+ for(var i=0;i<q.length;i++)off(q[i],on);
+ var nat=document.getElementById('recalbox_native_mode');
+ if(nat){ /* page d'accueil (Affichage) */
+  var pb=document.getElementById('feat_vpinball_dmd'); if(pb&&on)pb.checked=false;
+  off(pb,on); off(row('feat_vpinball_dmd'),on);
+  off(document.getElementById('silent_boot'),on); off(row('silent_boot'),on);
+ }
+ if(/^\/config\/(basic|playlist|clock|media)/.test(P)){
+  var b=document.getElementById('nativeBanner');
+  if(on&&!b){b=document.createElement('div');b.id='nativeBanner';b.style.cssText='background:#7c2d12;color:#ffedd5;padding:10px 12px;border-radius:8px;margin:10px 0;font-size:13px;font-weight:600;text-align:center';b.textContent=m().ban;document.body.insertBefore(b,document.body.firstChild);}
+  if(!on&&b)b.parentNode.removeChild(b);
+  var c=document.querySelectorAll('input,select,textarea,button');
+  for(var j=0;j<c.length;j++)off(c[j],on);
+  var s=document.querySelectorAll('.section');
+  for(var k=0;k<s.length;k++){s[k].style.opacity=on?'.45':'';}
+ }
+}
+function init(){
+ var nat=document.getElementById('recalbox_native_mode');
+ if(nat)nat.addEventListener('change',function(){apply(nat.checked);});
+ fetch('/lang').then(function(r){return r.json();}).then(function(d){if(d&&d.language)L=String(d.language).slice(0,2);}).catch(function(){})
+ .then(function(){return fetch('/load');}).then(function(r){return r.json();})
+ .then(function(d){ setTimeout(function(){apply(d.recalbox_native_mode==='1');},300); }).catch(function(){});
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
+)nativejs";
+
+static void handleNativeJs()
+{
+  webServer->sendHeader("Cache-Control", "no-cache");
+  webServer->send_P(200, "application/javascript", NATIVE_JS);
+}
+
 // v1 - 2026-09-16 - safe-modify - Phase 1 integration vpinball/libdmdutil
 // (voir DECISIONS.md "Nouveau chantier -- integration vpinball", worktree
 // dev/vpinball-integration). Repond au protocole de decouverte HTTP
@@ -5318,7 +5392,7 @@ static void handleWebConfigMediaPage()
 // desactive par defaut) -- voir declaration de featVpinballDmd.
 static void handleVpinballHandshake()
 {
-  if (!featVpinballDmd) { webServer->send(404, "text/plain", "disabled"); return; }
+  if (!featVpinballDmd && !recalboxNativeMode) { webServer->send(404, "text/plain", "disabled"); return; } // v66 -- aussi actif en mode Recalbox natif
 
   // VPINBALL_DMD_TOTAL_WIDTH/_HEIGHT (pas PANEL_RES_X/PANEL_CHAIN, definis
   // plus bas dans RecalBox_DMD.ino, apres ce point d'inclusion) -- voir leur
@@ -5391,6 +5465,7 @@ void setupWebConfig()
   webServer->on("/clock-preview", HTTP_POST, handleWebConfigClockPreview);
   webServer->on("/save", HTTP_POST, handleWebConfigSave);
   webServer->on("/reboot", handleWebConfigReboot);
+  webServer->on("/native.js", handleNativeJs); // v67
   webServer->on("/handshake", handleVpinballHandshake); // Phase 1 vpinball/libdmdutil, voir plus haut
   webServer->begin();
   Serial.println("[WEB] Interface config sur http://" + WiFi.localIP().toString());

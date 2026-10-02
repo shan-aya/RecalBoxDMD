@@ -3,9 +3,10 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v11 (l'en-tete listait encore v1 ; les v2-v7 sont decrites
+// Version actuelle : v12 (l'en-tete listait encore v1 ; les v2-v7 sont decrites
 // a leurs emplacements dans le fichier et dans DECISIONS.md)
 //
+// v12 - 2026-10-02 - safe-modify - MODE RECALBOX NATIF (recalboxNativeMode, config.ini recalbox_native_mode, option du menu web) : ecoute UDP ouverte meme sans feat_vpinball_dmd, PAS de sortie du mode sur silence (VPINBALL_MODE_TIMEOUT_MS ignore) et PAS de sortie sur CMD=vpinball_end -- l'ecran appartient en permanence au flux ZeDMD de la Recalbox (ES/libdmdutil).
 // v11 - 2026-09-20 - safe-modify - BUG REEL CORRIGE : REASSEMBLAGE des messages ZeDMD coupes entre 2 datagrammes (voir vpinballCarryBuf). Cause des fonds
 // colores en surimpression / textes absents sur les tables colorisees (Serum). Stats : recolles / perdus.
 //
@@ -150,6 +151,7 @@ static void enterVpinballModeInPlace()
 static unsigned long vpinballNoEnterUntilMs = 0;
 void vpinballExitFromRecalbox()
 {
+  if (recalboxNativeMode) return; // v12 -- mode natif : l'ecran reste au flux Recalbox en permanence
   if (!vpinballModeActive) return;
   vpinballModeActive = false;
   vpinballNoEnterUntilMs = millis() + 3000;
@@ -237,7 +239,7 @@ static const uint8_t VPINBALL_FRAME[5] = {'F', 'R', 'A', 'M', 'E'}; // prefixe d
 // ressource sinon.
 void setupVpinballDmd()
 {
-  if (!featVpinballDmd) return;
+  if (!featVpinballDmd && !recalboxNativeMode) return; // v12 -- le mode natif ouvre aussi l'ecoute UDP
   if (vpinballUdpStarted) return;
   // v4 -- buffers alloues UNE FOIS ici (heap encore sain au boot) : voir le
   // commentaire "MODE PINBALL SANS REBOOT" plus haut. Echec -> repli reboot.
@@ -503,7 +505,7 @@ void pollVpinballUdp()
   // v5 -- sortie du mode vpinball apres un silence prolonge (voir
   // enterVpinballMode()/exitVpinballMode() -- protocole ZeDMD sans signal
   // explicite de fin de partie, timeout = seule heuristique disponible).
-  if (vpinballModeActive && (millis() - vpinballLastPacketMs > VPINBALL_MODE_TIMEOUT_MS))
+  if (vpinballModeActive && !recalboxNativeMode && (millis() - vpinballLastPacketMs > VPINBALL_MODE_TIMEOUT_MS)) // v12 -- jamais de sortie sur silence en mode natif
   {
     exitVpinballMode();
   }
