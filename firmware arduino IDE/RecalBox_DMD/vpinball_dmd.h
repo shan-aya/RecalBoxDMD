@@ -3,9 +3,10 @@
 //
 // safe-modify — Historique des modifications
 // ============================================
-// Version actuelle : v12 (l'en-tete listait encore v1 ; les v2-v7 sont decrites
+// Version actuelle : v13 (l'en-tete listait encore v1 ; les v2-v7 sont decrites
 // a leurs emplacements dans le fichier et dans DECISIONS.md)
 //
+// v13 - 2026-10-02 - safe-modify - CLEAR SCREEN avant de laisser la main au flux ZeDMD (retour utilisateur : des restes de l'affichage de boot restaient en fond du DMD, le flux ZeDMD ne redessinant que les zones modifiees) : (1) enterVpinballModeFromBoot() efface l'ecran ; (2) en mode Recalbox natif, effacement UNIQUE juste avant le 1er paquet ZeDMD valide traite.
 // v12 - 2026-10-02 - safe-modify - MODE RECALBOX NATIF (recalboxNativeMode, config.ini recalbox_native_mode, option du menu web) : ecoute UDP ouverte meme sans feat_vpinball_dmd, PAS de sortie du mode sur silence (VPINBALL_MODE_TIMEOUT_MS ignore) et PAS de sortie sur CMD=vpinball_end -- l'ecran appartient en permanence au flux ZeDMD de la Recalbox (ES/libdmdutil).
 // v11 - 2026-09-20 - safe-modify - BUG REEL CORRIGE : REASSEMBLAGE des messages ZeDMD coupes entre 2 datagrammes (voir vpinballCarryBuf). Cause des fonds
 // colores en surimpression / textes absents sur les tables colorisees (Serum). Stats : recolles / perdus.
@@ -130,6 +131,7 @@ static void enterVpinballModeFromBoot()
   }
   vpinballModeActive = true;
   vpinballLastPacketMs = millis();
+  if (display) display->clearScreen(); // v13 -- plus de restes du boot en fond du flux ZeDMD
   Serial.println("[VPINBALL] mode actif (boot cible)");
 }
 
@@ -548,6 +550,13 @@ void pollVpinballUdp()
     // 100% des vrais paquets. vpinballProcessPacket() cherche deja la synchro
     // n'importe ou dans le buffer, le prefixe y est saute tout seul.
     if (!vpinballCarryActive && (len < 5 || (memcmp(vpinballRecvBuf, VPINBALL_SYNC, 5) != 0 && memcmp(vpinballRecvBuf, VPINBALL_FRAME, 5) != 0))) continue; // bruit (sauf suite d'un message coupe, v11)
+    // v13 -- mode natif : 1 seul clear juste avant le 1er paquet ZeDMD valide (le mode est actif des le boot, donc pas de bascule en place qui efface).
+    static bool vpinballNativeFirstPktCleared = false;
+    if (recalboxNativeMode && !vpinballNativeFirstPktCleared)
+    {
+      vpinballNativeFirstPktCleared = true;
+      if (display) display->clearScreen();
+    }
     const unsigned long tHandle = millis();
     vpinballProcessPacket(vpinballRecvBuf, len);
     const uint32_t dtHandle = (uint32_t)(millis() - tHandle);
