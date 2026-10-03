@@ -1,11 +1,20 @@
 {
  "format": 1,
  "pipeline": 1,
- "generated": "2026-10-03",
+ "generated": "2026-10-03 10:21",
  "themes": {
   "bounitos-midnight": {
    "version": 2.1,
    "packaged_from": "hub",
+   "variants": {
+    "lang": [
+     "fr"
+    ],
+    "region": [
+     "eu",
+     "jp"
+    ]
+   },
    "files": [
     "240ptestsuite.raw565",
     "3do.raw565",
@@ -437,18 +446,42 @@
      "auto-multiplayer.raw565",
      "auto-neverplayed.raw565",
      "custom-collections.raw565",
+     "dreamcast.raw565",
      "favorites.raw565",
+     "gamegear.raw565",
      "lastplayed.raw565",
      "lightgun.raw565",
+     "megadrive.raw565",
      "multiplayer.raw565",
-     "neverplayed.raw565"
+     "neverplayed.raw565",
+     "odyssey2.raw565",
+     "pce-cd.raw565",
+     "pcengine.raw565",
+     "pcenginecd.raw565",
+     "segacd.raw565",
+     "snes.raw565"
+    ],
+    "es": [
+     "dreamcast.raw565",
+     "gamegear.raw565",
+     "megadrive.raw565",
+     "odyssey2.raw565",
+     "pce-cd.raw565",
+     "pcengine.raw565",
+     "pcenginecd.raw565",
+     "segacd.raw565",
+     "snes.raw565"
     ]
    },
-   "bytes": 3538944
+   "bytes": 3686400
   },
   "beudbeud-artbook-crt": {
    "version": 2.7,
    "packaged_from": "hub",
+   "variants": {
+    "lang": [],
+    "region": []
+   },
    "files": [
     "240ptestsuite.raw565",
     "3do.raw565",
@@ -981,6 +1014,12 @@
   "serviettzky-dashboard-X": {
    "version": 1.4,
    "packaged_from": "hub",
+   "variants": {
+    "lang": [
+     "fr"
+    ],
+    "region": []
+   },
    "files": [
     "240ptestsuite.raw565",
     "3do.raw565",
@@ -1411,6 +1450,13 @@
   "bounitos-crt-color-package": {
    "version": 1.7,
    "packaged_from": "hub",
+   "variants": {
+    "lang": [],
+    "region": [
+     "eu",
+     "jp"
+    ]
+   },
    "files": [
     "240ptestsuite.raw565",
     "3do.raw565",
@@ -1797,12 +1843,39 @@
     "zx81.raw565",
     "zxspectrum.raw565"
    ],
-   "overlays": {},
-   "bytes": 3145728
+   "overlays": {
+    "fr": [
+     "dreamcast.raw565",
+     "gamegear.raw565",
+     "megadrive.raw565",
+     "odyssey2.raw565",
+     "pce-cd.raw565",
+     "pcengine.raw565",
+     "pcenginecd.raw565",
+     "segacd.raw565",
+     "snes.raw565"
+    ],
+    "es": [
+     "dreamcast.raw565",
+     "gamegear.raw565",
+     "megadrive.raw565",
+     "odyssey2.raw565",
+     "pce-cd.raw565",
+     "pcengine.raw565",
+     "pcenginecd.raw565",
+     "segacd.raw565",
+     "snes.raw565"
+    ]
+   },
+   "bytes": 3293184
   },
   "beudbeud-crt-vision": {
    "version": 1.2,
    "packaged_from": "hub",
+   "variants": {
+    "lang": [],
+    "region": []
+   },
    "files": [
     "240ptestsuite.raw565",
     "3do.raw565",
@@ -2352,6 +2425,10 @@
   "serviettzky-neoretro": {
    "version": 1.2,
    "packaged_from": "hub",
+   "variants": {
+    "lang": [],
+    "region": []
+   },
    "files": [
     "3do.raw565",
     "3ds.raw565",
@@ -2657,6 +2734,10 @@
   "myst-next-pixel": {
    "version": 3.2,
    "packaged_from": "hub",
+   "variants": {
+    "lang": [],
+    "region": []
+   },
    "files": [
     "3do.raw565",
     "3ds.raw565",
@@ -2681,7 +2762,6 @@
     "channelf.raw565",
     "colecovision.raw565",
     "daphne.raw565",
-    "default.raw565",
     "dice.raw565",
     "dragon.raw565",
     "easyrpg.raw565",
@@ -2758,11 +2838,15 @@
     "zxspectrum.raw565"
    ],
    "overlays": {},
-   "bytes": 802816
+   "bytes": 794624
   },
   "airdream-mukashi": {
    "version": 1.2,
    "packaged_from": "hub",
+   "variants": {
+    "lang": [],
+    "region": []
+   },
    "files": [
     "3do.raw565",
     "3ds.raw565",
