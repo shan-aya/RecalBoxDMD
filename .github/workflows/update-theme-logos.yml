@@ -3,10 +3,10 @@ name: Update theme logos
 # Met a jour le paquet de logos de themes Recalbox (carte SD/systems/_defaults/_themes) a partir du theme-hub officiel
 # (https://gitlab.com/recalbox/themes/theme-hub) et ouvre une Pull Request si quelque chose a change.
 #
-# ETAPE 1 (actuelle) : lancement MANUEL uniquement (Actions > Update theme logos > Run workflow).
+# Lancement : chaque lundi (schedule) ou a la main (Actions > Update theme logos > Run workflow).
 #   - verify = true  : reconstruit tout le paquet et compare les revisions avec celles publiees (reproductibilite). Ne publie rien.
 #   - verify = false : mise a jour incrementale (themes dont la version du hub a change) puis Pull Request.
-# ETAPE 2 (apres validation de l'essai a blanc) : decommenter le bloc "schedule" ci-dessous.
+# Essais valides le 2026-10-03 : reproductibilite (runner Windows), mode incremental, creation de PR avec de vrais changements.
 
 on:
   workflow_dispatch:
@@ -15,8 +15,8 @@ on:
         description: "Verifier seulement la reproductibilite (aucune publication)"
         type: boolean
         default: true
-  # schedule:
-  #   - cron: "17 5 * * 1"    # chaque lundi 05:17 UTC
+  schedule:
+    - cron: "17 5 * * 1"    # chaque lundi 05:17 UTC (PR seulement si un theme a change)
 
 permissions:
   contents: write
