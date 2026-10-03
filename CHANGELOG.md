@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-03 — Firmware v2.33: Recalbox theme logos on the DMD
+
+- **Firmware** (v2.33): the DMD can now show the **system logos of the theme selected in Recalbox** (Midnight, Recalbox Next, Dashboard-X...) instead of the default logos. The Recalbox scripts send the theme name; the firmware looks for `/systems/_defaults/_themes/<theme>/<system>.raw565` on the SD card and, if the logo is not there, falls back to the default logo. A small `_index.bin` file per theme avoids slow lookups on missing logos. No theme folder on the SD card = nothing changes.
+- **Recalbox scripts**: `dmd_udp_resync.py` v6 (in `tools/recalbox_scripts/dmd_helpers/`) sends the theme to the DMD at start-up, on theme change and after each DMD reboot. **Update this script on your Recalbox** for the feature to work.
+- **SD card**: the default logos in `carte SD/systems/_defaults/` were regenerated from Recalbox's own vector (SVG) logos, and a **package of theme logos** (8 themes, English/French/Spanish variants) is available in `carte SD/systems/_defaults/_themes/`: copy the themes you use to the same place on your SD card. The toolkit installation of this package (Mode 1) and the update window will come with the next PC Toolkit build.
+
 ## 2026-09-30 — PC Toolkit: SD card recognised by Windows but missing from the toolkit
 
 - **PC Toolkit** (build `8056`): fixed the SD card detection (Modes 1, 6 and 8). Some cards seen by Windows as a normal removable, FAT32 drive were **silently missing** from the drive list: the toolkit asked PowerShell for the drives, and any read failure (accented character in the volume label, slow PowerShell start-up, WMI error) produced an empty list without any message. The output is now read as UTF-8, the wait is longer, and if PowerShell still fails the toolkit **asks Windows directly** (native Win32 call) instead of giving up.

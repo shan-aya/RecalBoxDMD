@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-03 — Firmware v2.33: logos de los temas de Recalbox en el DMD
+
+- **Firmware** (v2.33): el DMD ahora puede mostrar los **logos de sistema del tema seleccionado en Recalbox** (Midnight, Recalbox Next, Dashboard-X...) en lugar de los logos por defecto. Los scripts de Recalbox envían el nombre del tema; el firmware busca `/systems/_defaults/_themes/<tema>/<sistema>.raw565` en la tarjeta SD y, si el logo no está, vuelve al logo por defecto. Un pequeño archivo `_index.bin` por tema evita búsquedas lentas de logos ausentes. Sin carpeta de tema en la SD = no cambia nada.
+- **Scripts de Recalbox**: `dmd_udp_resync.py` v6 (en `tools/recalbox_scripts/dmd_helpers/`) envía el tema al DMD al arrancar, al cambiar de tema y tras cada reinicio del DMD. **Actualice este script en su Recalbox** para que la función funcione.
+- **Tarjeta SD**: los logos por defecto de `carte SD/systems/_defaults/` se regeneraron a partir de los logos vectoriales (SVG) de Recalbox, y hay un **paquete de logos de temas** (8 temas, variantes inglés/francés/español) en `carte SD/systems/_defaults/_themes/`: copie los temas que use en el mismo lugar de su tarjeta SD. La instalación de este paquete por el toolkit (Modo 1) y la ventana de actualización llegarán con la próxima versión del PC Toolkit.
+
 ## 2026-09-30 — Herramienta PC: tarjeta SD reconocida por Windows pero ausente de la herramienta
 
 - **Herramienta PC** (build `8056`): corregida la detección de la tarjeta SD (Modos 1, 6 y 8). Algunas tarjetas que Windows ve como una unidad extraíble FAT32 normal **faltaban en la lista sin ningún mensaje**: la herramienta pedía las unidades a PowerShell, y cualquier fallo de lectura (carácter con acento en el nombre del volumen, arranque lento de PowerShell, error de WMI) daba una lista vacía en silencio. Ahora la salida se lee en UTF-8, la espera es mayor y, si PowerShell sigue fallando, la herramienta **consulta directamente a Windows** (llamada Win32 nativa) en lugar de rendirse.

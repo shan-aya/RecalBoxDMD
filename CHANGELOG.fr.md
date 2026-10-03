@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-03 — Firmware v2.33 : logos des thèmes Recalbox sur le DMD
+
+- **Firmware** (v2.33) : le DMD peut désormais afficher les **logos système du thème sélectionné dans Recalbox** (Midnight, Recalbox Next, Dashboard-X...) à la place des logos par défaut. Les scripts Recalbox envoient le nom du thème ; le firmware cherche `/systems/_defaults/_themes/<thème>/<système>.raw565` sur la carte SD et, si le logo n'y est pas, retombe sur le logo par défaut. Un petit fichier `_index.bin` par thème évite les recherches lentes sur les logos absents. Pas de dossier de thème sur la SD = rien ne change.
+- **Scripts Recalbox** : `dmd_udp_resync.py` v6 (dans `tools/recalbox_scripts/dmd_helpers/`) envoie le thème au DMD au démarrage, au changement de thème et après chaque redémarrage du DMD. **Mettez ce script à jour sur votre Recalbox** pour que la fonction marche.
+- **Carte SD** : les logos par défaut de `carte SD/systems/_defaults/` ont été régénérés à partir des logos vectoriels (SVG) de Recalbox, et un **paquet de logos de thèmes** (8 thèmes, variantes anglais/français/espagnol) est disponible dans `carte SD/systems/_defaults/_themes/` : copiez les thèmes que vous utilisez au même endroit sur votre carte SD. L'installation de ce paquet par la boîte à outils (Mode 1) et la fenêtre de mise à jour arriveront avec la prochaine version de la boîte à outils PC.
+
 ## 2026-09-30 — Outil PC : carte SD reconnue par Windows mais absente de l'outil
 
 - **Outil PC** (build `8056`) : correction de la détection de la carte SD (Modes 1, 6 et 8). Certaines cartes vues par Windows comme un lecteur amovible FAT32 normal étaient **absentes de la liste sans aucun message** : l'outil demandait la liste des lecteurs à PowerShell, et toute erreur de lecture (caractère accentué dans le nom du volume, démarrage lent de PowerShell, erreur WMI) donnait une liste vide en silence. La sortie est désormais lue en UTF-8, l'attente est plus longue, et si PowerShell échoue quand même l'outil **interroge directement Windows** (appel Win32 natif) au lieu d'abandonner.
