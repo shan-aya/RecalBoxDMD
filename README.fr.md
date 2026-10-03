@@ -35,6 +35,7 @@
   <img alt="Panneau : HUB75 128x32" src="https://img.shields.io/badge/panneau-HUB75%20128x32-blue.svg">
   <img alt="Recalbox : 10.x / 9.x / legacy" src="https://img.shields.io/badge/recalbox-10.x%20%7C%209.x%20%7C%20legacy-orange.svg">
   <img alt="Langues : FR EN ES" src="https://img.shields.io/badge/UI-FR%20%7C%20EN%20%7C%20ES-purple.svg">
+  <a href="https://buymeacoffee.com/shan_aya"><img alt="Soutenir le projet : Buy Me a Coffee" src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-FFDD00?logo=buymeacoffee&logoColor=black"></a>
 </p>
 
 ---
@@ -679,6 +680,6 @@ Pour les gels, la corruption d'affichage, les boucles de configuration WiFi, ou 
 
 Sous licence [MIT](LICENSE).
 
-☕ Si ce projet vous est utile : [faire un don via PayPal](https://www.paypal.com/paypalme/felysaya)
+☕ Si ce projet vous est utile : [offrez-moi un café](https://buymeacoffee.com/shan_aya) ou [faites un don via PayPal](https://www.paypal.com/paypalme/felysaya)
 
 <p align="center"><i>RecalBoxDMD RawEdition — Recalbox + un vrai panneau LED marquee, instantané même avec 30 000 jeux MAME.</i> 🎮⚡</p>

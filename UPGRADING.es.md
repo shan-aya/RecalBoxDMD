@@ -20,6 +20,20 @@ El enlace en tiempo real entre Recalbox y el DMD pasa por debajo de **MQTT a UDP
 
 El soporte de MQTT se ha eliminado por completo del firmware desde la v209 (2026-09-14) — no solo desactivado por un indicador, como decía una versión anterior de esta página. `MQTT_ENABLED=true` ya no tiene ningún efecto: el propio código de conexión/tarea ha desaparecido del código fuente, no solo está desactivado. Si tenías algo externo conectado a los antiguos topics MQTT del DMD, tendrías que recuperar ese código del historial de git anterior a la v209 y recompilar desde ahí. UDP es ahora el único camino en tiempo real compatible.
 
+## 5. Logos del tema de Recalbox (firmware 2.33 y posteriores) — opcional, pero tres pasos si los quieres
+
+Desde el firmware **2.33**, el DMD puede mostrar los logos de tus consolas con el estilo del tema activo en Recalbox (Midnight, CRT Color, Neoretro…). No pasa nada hasta que hagas los tres pasos — flashear solo el firmware **no basta**:
+
+1. **Reinstala los scripts de Recalbox con el Modo 9** (o un Modo 1 completo): el `dmd_udp_resync.py` actualizado (**v6**) es el que le dice al DMD qué tema usa Recalbox. Con el script antiguo, el DMD nunca conoce el tema y mantiene sus logos por defecto.
+2. **Copia los logos del tema a la tarjeta SD con el Modo 12 o el Modo 13** de la caja de herramientas de PC — los logos viven en `systems/_defaults/_themes/<tema>/` en la tarjeta SD y no están ahí tras una simple actualización del firmware:
+   - **El Modo 13** descarga de GitHub el paquete de temas listo para usar (8 temas) y copia a la tarjeta SD los que marques — lo más rápido;
+   - **El Modo 12** («Gestión de temas de Recalbox») lista los temas de tu Recalbox, convierte los que faltan o están desactualizados y mantiene la tarjeta SD al día.
+
+   El Modo 1 también pregunta por los temas (propone los que encuentra en tu Recalbox), así que un Modo 1 completo cubre también este paso. Los temas ya actualizados en la tarjeta SD no se reescriben.
+3. **Comprueba la casilla**: sección *Tema de Recalbox* (página Pantalla) de la página de configuración web del DMD (`feat_theme_follow`, marcada por defecto). Desmárcala para conservar los logos por defecto.
+
+Un tema o un logo ausente de la tarjeta SD es inofensivo: el DMD vuelve al logo por defecto. Pasar del firmware 2.33 al 2.35 no requiere más que volver a flashear.
+
 ## Lo que *no* necesitas hacer
 
 - Volver a escanear tus juegos, reconstruir tu tarjeta SD, regenerar ningún caché, ni tocar tus playlists — nada de eso ha cambiado.

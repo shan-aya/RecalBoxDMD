@@ -20,6 +20,20 @@ The real-time link between Recalbox and the DMD switched from **MQTT to UDP** un
 
 MQTT support has been fully removed from the firmware as of v209 (2026-09-14) — not just turned off by a flag as earlier versions of this page said. `MQTT_ENABLED=true` no longer does anything: the connection/task code itself is gone from the source, not just disabled. If you had something external publishing to or subscribing from the DMD's old MQTT topics, you'd need to pull that code back from the git history predating v209 and rebuild from there. UDP is the only supported real-time path going forward.
 
+## 5. Recalbox theme logos (firmware 2.33 and later) — optional, but three steps if you want them
+
+From firmware **2.33** the DMD can show your console logos in the style of the theme active in Recalbox (Midnight, CRT Color, Neoretro…). It does nothing until you have done all three of these — flashing the firmware alone is **not** enough:
+
+1. **Reinstall the Recalbox scripts with Mode 9** (or a fresh Mode 1): the updated `dmd_udp_resync.py` (**v6**) is the one that tells the DMD which theme Recalbox is using. With the old script the DMD never learns the theme and keeps its default logos.
+2. **Put the theme logos on the SD card with Mode 12 or Mode 13** of the PC Toolkit — the logos live in `systems/_defaults/_themes/<theme>/` on the SD card and are not there after a plain firmware update:
+   - **Mode 13** downloads the ready-made theme package from GitHub (8 themes) and copies the themes you tick to the SD card — the quickest way;
+   - **Mode 12** ("Recalbox theme management") lists the themes on your Recalbox, converts the ones that are missing or outdated and keeps the SD card up to date.
+
+   Mode 1 also asks about themes (it offers the themes found on your Recalbox), so a full Mode 1 covers this step too. Themes already up to date on the SD card are not rewritten.
+3. **Check the switch**: *Recalbox theme* section (Display page) of the DMD web config page (`feat_theme_follow`, ticked by default). Untick it to keep the default logos.
+
+A theme or a logo that is missing from the SD card is harmless: the DMD falls back to the default logo. Updating the firmware from 2.33 to 2.35 needs nothing more than a reflash.
+
 ## What you *don't* need to do
 
 - Re-scrape your games, rebuild your SD card, regenerate any cache, or touch your playlists — none of that changed.
