@@ -1,0 +1,71 @@
+name: Update theme logos
+
+# Met a jour le paquet de logos de themes Recalbox (carte SD/systems/_defaults/_themes) a partir du theme-hub officiel
+# (https://gitlab.com/recalbox/themes/theme-hub) et ouvre une Pull Request si quelque chose a change.
+#
+# ETAPE 1 (actuelle) : lancement MANUEL uniquement (Actions > Update theme logos > Run workflow).
+#   - verify = true  : reconstruit tout le paquet et compare les revisions avec celles publiees (reproductibilite). Ne publie rien.
+#   - verify = false : mise a jour incrementale (themes dont la version du hub a change) puis Pull Request.
+# ETAPE 2 (apres validation de l'essai a blanc) : decommenter le bloc "schedule" ci-dessous.
+
+on:
+  workflow_dispatch:
+    inputs:
+      verify:
+        description: "Verifier seulement la reproductibilite (aucune publication)"
+        type: boolean
+        default: true
+  # schedule:
+  #   - cron: "17 5 * * 1"    # chaque lundi 05:17 UTC
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-theme-logos
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: tools/theme_package/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r tools/theme_package/requirements.txt
+
+      - name: Verify reproducibility (no publication)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.verify }}
+        run: >
+          python tools/theme_package/verify_package.py
+          "carte SD/systems/_defaults/_themes"
+          --known "carte SD/systems/_defaults"
+
+      - name: Incremental build
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.verify) }}
+        run: >
+          python tools/theme_package/build_theme_package.py
+          "carte SD/systems/_defaults/_themes"
+          --known "carte SD/systems/_defaults"
+          --incremental
+          --summary "$RUNNER_TEMP/summary.md"
+
+      - name: Pull Request
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.verify) }}
+        uses: peter-evans/create-pull-request@v7
+        with:
+          add-paths: carte SD/systems/_defaults/_themes
+          branch: auto/update-theme-logos
+          base: main
+          commit-message: "Logos de themes - mise a jour automatique depuis le hub Recalbox"
+          title: "Mise à jour automatique des logos de thèmes (hub Recalbox)"
+          body-path: ${{ runner.temp }}/summary.md
+          delete-branch: true

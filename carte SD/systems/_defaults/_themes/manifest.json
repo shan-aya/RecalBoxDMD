@@ -1,7 +1,7 @@
 {
  "format": 1,
  "pipeline": 1,
- "generated": "2026-10-03 10:21",
+ "generated": "2026-10-03 11:11",
  "themes": {
   "bounitos-midnight": {
    "version": 2.1,
@@ -2963,5 +2963,8 @@
  },
  "skipped": {
   "helmicretro-haigenco": "aucun logo de système exploitable"
+ },
+ "skipped_versions": {
+  "helmicretro-haigenco": 2
  }
 }
