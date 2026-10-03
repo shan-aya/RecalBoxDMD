@@ -28,7 +28,10 @@ concurrency:
 
 jobs:
   update:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest   # PAS Linux : certains SVG contiennent du texte rendu avec les polices systeme (Times New Roman, Arial...) ; sur Linux le texte disparait (ex. FMV, MOBA, STEALTH)
+    defaults:
+      run:
+        shell: bash
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
