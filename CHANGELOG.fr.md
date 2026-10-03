@@ -8,6 +8,15 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-03 (3) — Boîte à outils PC build 9860 : choisir les thèmes Recalbox à installer
+
+- **Boîte à outils PC** (build `9860`) : vous décidez quels thèmes Recalbox vont sur le DMD.
+  - Le **Mode 1** demande maintenant s'il faut activer le suivi des thèmes Recalbox (la nouvelle option du firmware 2.35), puis liste les thèmes installés sur votre Recalbox à côté de ceux disponibles sur GitHub, avec des cases à cocher : **seuls les thèmes cochés sont copiés**. Un thème déjà **à jour sur la carte SD** n'est ni téléchargé ni réécrit. Recalbox injoignable ? Vous obtenez la liste complète des thèmes disponibles.
+  - **Nouveau Mode 13 — Thèmes Recalbox** (catégorie *DOWNLOAD FROM GITHUB*) : télécharge les thèmes que vous choisissez dans le dossier de travail, avec les mêmes questions qu'au Mode 1.
+  - **Nouveau Mode 12 — Gestion des thèmes** (catégorie à part, lancé avec DÉMARRER) : compare GitHub, les thèmes installés sur votre Recalbox et la **carte SD du DMD**, signale les thèmes périmés ou jamais convertis, les met à jour et convertit ceux que GitHub ne propose pas. La liste se remplit toute seule à l'ouverture, avec un bouton *Actualiser*.
+  - Le panneau de copie sur la carte SD présélectionne désormais le lecteur nommé **RECALBOXDMD** ; son bouton *Démarrer la copie* reste visible après le Mode 13 ; le menu Avancé est plus compact (le bouton Quitter était coupé). L'onglet Aide documente les nouveaux modes.
+- **Pour avoir toute la fonction** : firmware **2.35** (case pour activer ou non les logos de thèmes) + cette boîte à outils. Le paquet de 8 thèmes est tenu à jour depuis le hub de thèmes Recalbox par une vérification hebdomadaire automatique sur GitHub.
+
 ## 2026-10-03 (2) — Firmware v2.35 : une case pour les logos des thèmes Recalbox
 
 - **Firmware** (v2.34 et v2.35) : nouvelle section **« Thème Recalbox »** sur la page web (*Affichage & Playlists*) avec une case **« Suivre le thème Recalbox »**, cochée par défaut (même comportement qu'en v2.33). Décochée, le DMD affiche toujours les logos par défaut. Le thème annoncé par la Recalbox est mémorisé : recocher la case l'applique aussitôt. Le réglage est enregistré dans `config.ini` (`feat_theme_follow=`).

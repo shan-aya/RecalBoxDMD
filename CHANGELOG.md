@@ -8,6 +8,15 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-03 (3) — PC Toolkit build 9860: choose the Recalbox themes to install
+
+- **PC Toolkit** (build `9860`): you decide which Recalbox themes go on the DMD.
+  - **Mode 1** now asks whether to enable the Recalbox theme following (the new firmware 2.35 option), then lists the themes installed on your Recalbox next to those available on GitHub, with check boxes: **only the ticked themes are copied**. A theme already **up to date on the SD card** is neither downloaded nor rewritten. Recalbox unreachable? You get the full list of available themes instead.
+  - **New Mode 13 — Recalbox themes** (*DOWNLOAD FROM GITHUB* category): downloads the themes you choose into the working folder, with the same questions as Mode 1.
+  - **New Mode 12 — Themes management** (its own category, launched with START): compares GitHub, the themes installed on your Recalbox and the **DMD SD card**, flags the outdated or never-converted themes, updates them and converts the ones GitHub does not offer. It opens its list on its own and has a *Refresh* button.
+  - The SD copy panel now pre-selects the drive named **RECALBOXDMD**; its *Start copy* button stays visible after Mode 13; the Advanced menu is more compact (the Quit button was being cut off). The Help tab documents the new modes.
+- **To get the whole feature**: firmware **2.35** (on/off switch for the theme logos) + this toolkit. The package of 8 themes is kept up to date from the Recalbox theme hub by an automatic weekly check on GitHub.
+
 ## 2026-10-03 (2) — Firmware v2.35: a switch for the Recalbox theme logos
 
 - **Firmware** (v2.34 and v2.35): new **"Recalbox theme"** section on the web page (*Display & Playlists*) with a **"Follow the Recalbox theme"** checkbox, ticked by default (same behaviour as v2.33). Unticked, the DMD always shows the default logos. The theme announced by the Recalbox is remembered, so ticking the box again applies it at once. The setting is saved in `config.ini` (`feat_theme_follow=`).

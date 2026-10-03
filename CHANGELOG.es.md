@@ -8,6 +8,15 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-03 (3) — Caja de herramientas PC build 9860: elegir los temas de Recalbox que instalar
+
+- **Caja de herramientas PC** (build `9860`): tú decides qué temas de Recalbox van al DMD.
+  - El **Modo 1** ahora pregunta si se activa el seguimiento de los temas de Recalbox (la nueva opción del firmware 2.35), y luego lista los temas instalados en tu Recalbox junto a los disponibles en GitHub, con casillas para marcar: **solo se copian los temas marcados**. Un tema ya **actualizado en la tarjeta SD** no se descarga ni se reescribe. ¿Recalbox inaccesible? Obtienes la lista completa de temas disponibles.
+  - **Nuevo Modo 13 — Temas Recalbox** (categoría *DOWNLOAD FROM GITHUB*): descarga en la carpeta de trabajo los temas que elijas, con las mismas preguntas que el Modo 1.
+  - **Nuevo Modo 12 — Gestión de temas** (categoría propia, se lanza con INICIAR): compara GitHub, los temas instalados en tu Recalbox y la **tarjeta SD del DMD**, señala los temas obsoletos o nunca convertidos, los actualiza y convierte los que GitHub no ofrece. La lista se rellena sola al abrir, con un botón *Actualizar*.
+  - El panel de copia a la tarjeta SD ahora preselecciona la unidad llamada **RECALBOXDMD**; su botón *Iniciar la copia* sigue visible tras el Modo 13; el menú Avanzado es más compacto (el botón Salir quedaba cortado). La pestaña Ayuda documenta los nuevos modos.
+- **Para tener toda la función**: firmware **2.35** (casilla para activar o no los logos de temas) + esta caja de herramientas. El paquete de 8 temas se mantiene al día desde el hub de temas de Recalbox mediante una comprobación semanal automática en GitHub.
+
 ## 2026-10-03 (2) — Firmware v2.35: una casilla para los logos de los temas de Recalbox
 
 - **Firmware** (v2.34 y v2.35): nueva sección **«Tema de Recalbox»** en la página web (*Pantalla y listas*) con una casilla **«Seguir el tema de Recalbox»**, marcada por defecto (mismo comportamiento que en la v2.33). Desmarcada, el DMD muestra siempre los logos por defecto. El tema anunciado por Recalbox se recuerda: volver a marcar la casilla lo aplica al instante. El ajuste se guarda en `config.ini` (`feat_theme_follow=`).
