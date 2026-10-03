@@ -1,0 +1,3 @@
+# Logos de themes Recalbox (paquet genere par tools/build_theme_package.py) : fichiers binaires, jamais de conversion de fins de ligne
+*.raw565 binary
+*.bin binary
