@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-03 (5) — Boîte à outils PC build 10062 : l'avis de mise à jour compare avec le firmware flashé dans votre DMD
+
+- **Boîte à outils PC** (build `10062`) : quelques secondes après l'ouverture, la boîte à outils lit la **version du firmware de votre DMD par le Wi-Fi** (elle retrouve le DMD sur votre réseau toute seule — pas besoin d'USB) et vous prévient si un firmware plus récent est publié, une fois par version publiée. Le DMD doit avoir le firmware **2.37 ou plus récent** pour annoncer sa version ; un firmware plus ancien est reconnu comme « antérieur à la v2.37 ». DMD éteint ou sur un autre réseau : l'avis reste informatif, comme avant. Elle ménage le DMD (une seule requête au démarrage, son adresse est mémorisée). Pour désactiver les vérifications : `"update_check": false` dans `RecalBoxDMD_prefs.json`.
+- **Site web** : une pastille verte **« Nouveauté »** signale désormais la dernière fonctionnalité sur la page d'accueil (thèmes Recalbox).
+
 ## 2026-10-03 (4) — Firmware v2.37 et boîte à outils PC build 9961 : vous êtes prévenu quand une nouvelle version sort
 
 - **Firmware** (v2.37) : la page d'accueil de la configuration web affiche maintenant la **version du firmware** et, quand une version plus récente est publiée, un avis **« Nouvelle version disponible »** avec un lien vers le Web Installer. La vérification est faite par **votre navigateur** (le DMD n'a besoin d'aucun accès Internet et n'utilise pas de mémoire en plus) ; hors ligne, rien ne s'affiche.

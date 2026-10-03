@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-03 (5) — PC Toolkit build 10062: the update notice compares with the firmware flashed in your DMD
+
+- **PC Toolkit** (build `10062`): a few seconds after it opens, the toolkit reads the **firmware version of your DMD over Wi-Fi** (it finds the DMD on your network by itself — no USB needed) and tells you if a newer firmware is published, once per published version. The DMD must run firmware **2.37 or later** to report its version; an older one is recognised as "older than v2.37". DMD switched off or on another network: the notice stays informative, as before. It is gentle with the DMD (a single request at startup, its address is remembered). To turn the checks off: `"update_check": false` in `RecalBoxDMD_prefs.json`.
+- **Web site**: a green **"New"** tag now marks the latest feature on the home page (Recalbox themes).
+
 ## 2026-10-03 (4) — Firmware v2.37 and PC Toolkit build 9961: you are told when a new version is out
 
 - **Firmware** (v2.37): the home page of the web configuration now shows the **firmware version** and, when a newer one is published, a **"New version available"** notice with a link to the Web Installer. The check is made by **your browser** (the DMD needs no Internet access and uses no extra memory); offline, nothing is shown.
