@@ -8,6 +8,13 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-03 (6) — Le thème par défaut de Recalbox (recalbox-next) fonctionne : boîte à outils PC build 10163 + script Recalbox v7
+
+- **Script Recalbox `dmd_udp_resync.py` v7** (à réinstaller avec le **Mode 9**) : si vous n'avez jamais changé de thème dans Recalbox, le script annonce maintenant le thème par défaut de Recalbox, **`recalbox-next`**. Avant, il annonçait « aucun thème » dans ce cas : la plupart des utilisateurs ne voyaient donc jamais les logos de thème.
+- **Paquet de logos** : **`recalbox-next`** (thème par défaut) et **`recalbox-240p`** rejoignent le paquet, qui compte maintenant **10 thèmes**. Ils sont redistribués avec l'accord de Recalbox (voir `NOTICE.txt` dans le paquet). Installez-les avec les Modes 1, 12 ou 13 (ils y sont listés ; le thème par défaut est pré-coché quand c'est celui de votre Recalbox).
+- **Boîte à outils PC** (build `10163`) : sait aussi télécharger et convertir directement depuis GitLab les thèmes livrés avec Recalbox quand ils ne sont pas dans le paquet (solution de repli pour d'éventuels futurs thèmes) ; l'onglet Aide l'explique.
+- Rien à flasher : le firmware est inchangé (v2.37).
+
 ## 2026-10-03 (5) — Boîte à outils PC build 10062 : l'avis de mise à jour compare avec le firmware flashé dans votre DMD
 
 - **Boîte à outils PC** (build `10062`) : quelques secondes après l'ouverture, la boîte à outils lit la **version du firmware de votre DMD par le Wi-Fi** (elle retrouve le DMD sur votre réseau toute seule — pas besoin d'USB) et vous prévient si un firmware plus récent est publié, une fois par version publiée. Le DMD doit avoir le firmware **2.37 ou plus récent** pour annoncer sa version ; un firmware plus ancien est reconnu comme « antérieur à la v2.37 ». DMD éteint ou sur un autre réseau : l'avis reste informatif, comme avant. Elle ménage le DMD (une seule requête au démarrage, son adresse est mémorisée). Pour désactiver les vérifications : `"update_check": false` dans `RecalBoxDMD_prefs.json`.

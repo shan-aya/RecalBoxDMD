@@ -8,6 +8,13 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-03 (6) — El tema por defecto de Recalbox (recalbox-next) ya funciona: caja de herramientas PC build 10163 + script de Recalbox v7
+
+- **Script de Recalbox `dmd_udp_resync.py` v7** (reinstálalo con el **Modo 9**): si nunca cambiaste de tema en Recalbox, el script anuncia ahora el tema por defecto de Recalbox, **`recalbox-next`**. Antes anunciaba «ningún tema» en ese caso, así que la mayoría de los usuarios nunca veía los logos de tema.
+- **Paquete de logos**: **`recalbox-next`** (tema por defecto) y **`recalbox-240p`** se unen al paquete, que cuenta ahora **10 temas**. Se redistribuyen con el permiso de Recalbox (véase `NOTICE.txt` en el paquete). Instálalos con los Modos 1, 12 o 13 (aparecen en la lista; el tema por defecto aparece marcado de antemano cuando es el de tu Recalbox).
+- **Caja de herramientas PC** (build `10163`): también puede descargar y convertir directamente de GitLab los temas que vienen con Recalbox cuando no están en el paquete (solución de reserva para futuros temas); la pestaña Ayuda lo explica.
+- Nada que flashear: el firmware no cambia (v2.37).
+
 ## 2026-10-03 (5) — Caja de herramientas PC build 10062: el aviso de actualización compara con el firmware flasheado en tu DMD
 
 - **Caja de herramientas PC** (build `10062`): unos segundos después de abrirse, lee la **versión del firmware de tu DMD por Wi-Fi** (encuentra el DMD en tu red sola — sin USB) y te avisa si hay un firmware más reciente publicado, una vez por versión publicada. El DMD debe tener el firmware **2.37 o posterior** para indicar su versión; uno más antiguo se reconoce como «anterior a la v2.37». DMD apagado o en otra red: el aviso sigue siendo informativo, como antes. Es cuidadosa con el DMD (una sola petición al arrancar, se recuerda su dirección). Para desactivar las comprobaciones: `"update_check": false` en `RecalBoxDMD_prefs.json`.

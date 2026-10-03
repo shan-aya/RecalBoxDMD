@@ -8,6 +8,13 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-03 (6) — Recalbox's default theme (recalbox-next) now works: PC Toolkit build 10163 + Recalbox script v7
+
+- **Recalbox script `dmd_udp_resync.py` v7** (reinstall with **Mode 9**): if you never changed the theme in Recalbox, the script now announces Recalbox's default theme, **`recalbox-next`**. Before, it announced "no theme" in that case, so most users never saw the theme logos at all.
+- **Logo package**: **`recalbox-next`** (default theme) and **`recalbox-240p`** join the package, now **10 themes**. They are redistributed with Recalbox's permission (see `NOTICE.txt` in the package). Install them with Mode 1, 12 or 13 (they are listed there; the default theme is pre-ticked when it is the one active in your Recalbox).
+- **PC Toolkit** (build `10163`): can also download and convert the themes that ship with Recalbox straight from GitLab when they are not in the package (fallback for any future ones); the Help tab explains it.
+- Nothing to flash: the firmware is unchanged (v2.37).
+
 ## 2026-10-03 (5) — PC Toolkit build 10062: the update notice compares with the firmware flashed in your DMD
 
 - **PC Toolkit** (build `10062`): a few seconds after it opens, the toolkit reads the **firmware version of your DMD over Wi-Fi** (it finds the DMD on your network by itself — no USB needed) and tells you if a newer firmware is published, once per published version. The DMD must run firmware **2.37 or later** to report its version; an older one is recognised as "older than v2.37". DMD switched off or on another network: the notice stays informative, as before. It is gentle with the DMD (a single request at startup, its address is remembered). To turn the checks off: `"update_check": false` in `RecalBoxDMD_prefs.json`.

@@ -2,7 +2,13 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v6
+# Version actuelle : v7
+#
+# v7 - 2026-10-03 - safe-modify - THEME PAR DEFAUT : quand emulationstation.theme.folder est ABSENT de recalbox.conf (l'utilisateur n'a jamais
+#   change de theme), ES utilise "recalbox-next" (RecalboxConf.h : DefineGetterSetter(ThemeFolder, ..., "recalbox-next")). Jusqu'en v6 on
+#   annoncait alors un theme vide (= logos par defaut du DMD) : la majorite des utilisateurs, restes sur le theme par defaut, ne beneficiaient
+#   jamais des logos de theme. On annonce maintenant "recalbox-next" ; si la carte SD n'a pas ce dossier, le firmware l'ignore et garde les
+#   logos par defaut (aucun risque). Une cle presente mais VIDE reste "pas de theme".
 #
 # v6 - 2026-10-03 - safe-modify - THEME RECALBOX pour les logos systeme du DMD (firmware v233, commande UDP "CMD=theme ARG=<dossier>").
 #   Lit emulationstation.theme.folder (et dmd.logo s'il existe : different de "theme" => theme desactive) dans
@@ -194,6 +200,9 @@ def update_dmd_ip_cache(ip):
         log(f"ERREUR ecriture {DMD_IP_CACHE_PATH}: {e}")
 
 
+DEFAULT_THEME_FOLDER = "recalbox-next"   # valeur par defaut de emulationstation.theme.folder dans Recalbox 9/10/11
+
+
 def compute_theme():
     """Theme a annoncer au DMD (chaine vide = logos par defaut).
     Regle (choix utilisateur : automatique) : dmd.logo absent ou "theme" => on suit emulationstation.theme.folder ;
@@ -216,7 +225,8 @@ def compute_theme():
     if logo_mode and logo_mode != "theme":
         return ""
     # meme assainissement que le firmware (CMD=theme) : caracteres autorises puis 31 max
-    folder = re.sub(r"[^A-Za-z0-9._-]", "", values.get("emulationstation.theme.folder", ""))[:31]
+    # v7 : cle absente => theme par defaut d'ES ; cle presente mais vide => rien
+    folder = re.sub(r"[^A-Za-z0-9._-]", "", values.get("emulationstation.theme.folder", DEFAULT_THEME_FOLDER))[:31]
     return "" if folder in ("", ".", "..") else folder
 
 
