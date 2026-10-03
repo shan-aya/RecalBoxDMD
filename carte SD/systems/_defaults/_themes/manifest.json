@@ -473,7 +473,8 @@
      "snes.raw565"
     ]
    },
-   "bytes": 3686400
+   "bytes": 3686400,
+   "rev": "869a7417c3df"
   },
   "beudbeud-artbook-crt": {
    "version": 2.7,
@@ -1009,7 +1010,8 @@
     "zxspectrum.raw565"
    ],
    "overlays": {},
-   "bytes": 4292608
+   "bytes": 4292608,
+   "rev": "4c0d0494abd8"
   },
   "serviettzky-dashboard-X": {
    "version": 1.4,
@@ -1445,7 +1447,8 @@
      "tate.raw565"
     ]
    },
-   "bytes": 3432448
+   "bytes": 3432448,
+   "rev": "7e824e965255"
   },
   "bounitos-crt-color-package": {
    "version": 1.7,
@@ -1867,7 +1870,8 @@
      "snes.raw565"
     ]
    },
-   "bytes": 3293184
+   "bytes": 3293184,
+   "rev": "c49bb3899faa"
   },
   "beudbeud-crt-vision": {
    "version": 1.2,
@@ -2420,7 +2424,8 @@
     "zxspectrum.raw565"
    ],
    "overlays": {},
-   "bytes": 4431872
+   "bytes": 4431872,
+   "rev": "61bb724ddbbb"
   },
   "serviettzky-neoretro": {
    "version": 1.2,
@@ -2729,7 +2734,8 @@
     "zxspectrum.raw565"
    ],
    "overlays": {},
-   "bytes": 2433024
+   "bytes": 2433024,
+   "rev": "b172ddc1e562"
   },
   "myst-next-pixel": {
    "version": 3.2,
@@ -2838,7 +2844,8 @@
     "zxspectrum.raw565"
    ],
    "overlays": {},
-   "bytes": 794624
+   "bytes": 794624,
+   "rev": "6fd65c58d08a"
   },
   "airdream-mukashi": {
    "version": 1.2,
@@ -2950,7 +2957,8 @@
     "zxspectrum.raw565"
    ],
    "overlays": {},
-   "bytes": 819200
+   "bytes": 819200,
+   "rev": "887e1225003e"
   }
  }
 }
