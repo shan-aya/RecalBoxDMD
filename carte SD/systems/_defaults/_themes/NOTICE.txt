@@ -1,0 +1,15 @@
+Recalbox themes included in this package: recalbox-next (Recalbox's default theme) and recalbox-240p
+===========================================================================================================
+
+The logos in `recalbox-next/` and `recalbox-240p/` are converted (128x32, RGB565) from the official Recalbox themes
+(https://gitlab.com/recalbox/recalbox-themes). They are (c) the Recalbox team and are redistributed here with the permission
+of Recalbox. Do not reuse them outside this project without asking Recalbox. System, console and game logos shown in them
+belong to their respective owners.
+
+Thèmes Recalbox inclus dans ce paquet : recalbox-next (thème par défaut de Recalbox) et recalbox-240p
+------------------------------------------------------------------------------------------------------
+
+Les logos de `recalbox-next/` et `recalbox-240p/` sont convertis (128x32, RVB565) à partir des thèmes officiels Recalbox
+(https://gitlab.com/recalbox/recalbox-themes). Ils sont (c) l'équipe Recalbox et redistribués ici avec l'accord de Recalbox.
+Ne les réutilisez pas hors de ce projet sans demander à Recalbox. Les logos de systèmes, consoles et jeux qu'ils montrent
+appartiennent à leurs propriétaires respectifs.

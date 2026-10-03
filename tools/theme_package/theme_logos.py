@@ -16,6 +16,7 @@ Sortie : <out>/<nom du theme, 31 car. max>/<systeme>.raw565 (8192 o) + _index.bi
 Sur la SD : systems/_defaults/_themes/<nom>/ (le firmware v233 lit ce chemin, voir DECISIONS.md).
 
 safe-modify -- v1 - 2026-10-03 - creation (prototype valide sur midnight : logos RB1 identiques au prototype).
+safe-modify -- v2 - 2026-10-03 - THEMES SYSTEME de Recalbox (SYSTEM_THEMES, ici recalbox-next = le theme PAR DEFAUT de Recalbox 10+, absent du theme-hub et du dossier share/themes de la Recalbox) : proposes comme des themes du hub (hub_catalog) mais telecharges depuis l'archive GitLab du depot recalbox/recalbox-themes (dossier du theme seulement, ~26 Mo, mis en cache) et convertis EN LOCAL. Licence CC BY-NC-ND 4.0 : pas de redistribution des logos convertis (ils ne vont donc PAS dans le paquet GitHub du projet).
 """
 import argparse
 import hashlib
@@ -34,6 +35,14 @@ PIPELINE_VERSION = 1          # a incrementer quand le rendu change (declenche "
 HUB_BASE = "https://gitlab.com/recalbox/themes/theme-hub/-/raw/main"
 HUB_ZIP_MIRROR = "https://media.recalbox.com/hub/-/raw/main"
 DEFAULT_RB_THEMES = r"\\RECALBOX\share\themes"
+# themes fournis avec Recalbox (absents du hub) : dossier -> depot GitLab, chemin du theme, licence
+SYSTEM_THEMES = {
+    "recalbox-next": {"project": "recalbox%2Frecalbox-themes", "path": "themes/recalbox-next",
+                      "name": "Recalbox NEXT (theme par defaut)", "license": "CC BY-NC-ND 4.0"},
+    "recalbox-240p": {"project": "recalbox%2Frecalbox-themes", "path": "themes/recalbox-240p",
+                      "name": "Recalbox 240p", "license": "licence du depot recalbox-themes"},
+    # recalbox-next-v9 (ancienne version) : aucun logo de systeme exploitable (structure d'avant la 10), volontairement absent
+}
 USER_AGENT = "RecalBoxDMD-Toolkit/theme_logos"
 
 
@@ -594,7 +603,55 @@ def hub_catalog(log=print):
         except Exception as e:
             row["error"] = str(e)[:80]
         out.append(row)
+    out.extend(system_catalog(log))
     return out
+
+
+def system_catalog(log=print):
+    """Themes fournis avec Recalbox, presentes comme des lignes du hub : {folder, active, name, version, zips, system, license, ref}.
+    version = date + debut du dernier commit touchant le dossier du theme (change quand le theme change)."""
+    out = []
+    for folder, s in SYSTEM_THEMES.items():
+        try:
+            c = json.loads(_http_get(f"https://gitlab.com/api/v4/projects/{s['project']}/repository/commits?path={s['path']}&per_page=1").decode("utf-8"))[0]
+            out.append({"folder": folder, "active": True, "name": s["name"], "version": f"{str(c['committed_date'])[:10]}-{c['id'][:7]}",
+                        "zips": [f"{folder}.zip"], "system": True, "license": s["license"], "ref": c["id"]})
+        except Exception as e:
+            log(f"theme systeme {folder} injoignable : {str(e)[:80]}")
+    return out
+
+
+def system_download(h, cache_dir, log=print):
+    """Archive GitLab du dossier d'un theme systeme (cache <dossier>__<version>.zip). Retourne le chemin local."""
+    s = SYSTEM_THEMES[h["folder"]]
+    os.makedirs(cache_dir, exist_ok=True)
+    dst = os.path.join(cache_dir, f"{h['folder']}__{h['version']}.zip")
+    if os.path.exists(dst) and os.path.getsize(dst) > 1 << 20:
+        log("theme systeme deja en cache")
+        return dst
+    url = f"https://gitlab.com/api/v4/projects/{s['project']}/repository/archive.zip?path={s['path']}&sha={h['ref']}"
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    tmp = dst + ".part"
+    got = 0
+    with urllib.request.urlopen(req, timeout=120) as r, open(tmp, "wb") as f:
+        while True:
+            chunk = r.read(1 << 20)
+            if not chunk:
+                break
+            f.write(chunk)
+            got += len(chunk)
+    os.replace(tmp, dst)
+    log(f"theme systeme telecharge ({got / 1e6:.0f} Mo)")
+    return dst
+
+
+def open_hub_source(h, cache_dir=None, log=print):
+    """Source de conversion d'une ligne du catalogue : (ZipSource, RangeFile|None). Theme du hub = ZIP distant lu par morceaux ;
+    theme systeme = archive GitLab complete du dossier du theme (pas de lecture partielle possible)."""
+    if h.get("system"):
+        return ZipSource(system_download(h, cache_dir or default_cache_dir(), log)), None
+    rf = RangeFile(hub_zip_urls(h["folder"], h["zips"][0]))
+    return ZipSource(rf), rf
 
 
 def hub_zip_urls(folder, zipname):
@@ -795,13 +852,17 @@ def _cli():
         if not h or not h.get("zips"):
             print(f"theme '{folder}' absent du hub"); return 2
         hub_info = {"hub_version": h.get("version"), "zip": h["zips"][0]}
-        if a.full_download:
+        rf = None
+        if h.get("system"):
+            if h.get("license"):
+                print(f"licence {h['license']} : conversion locale uniquement, ne pas redistribuer les logos convertis")
+            src, rf = open_hub_source(h, a.cache)
+        elif a.full_download:
             src = ZipSource(hub_download(folder, h["zips"][0], a.cache))
         else:   # lecture partielle : seuls l'index du ZIP et les logos sont telecharges
-            rf = RangeFile(hub_zip_urls(folder, h["zips"][0]))
-            src = ZipSource(rf)
+            src, rf = open_hub_source(h, a.cache)
     convert_theme(src, out_dir, known, hub_info=hub_info, source_label=source, prefer=prefer)
-    if source == "hub" and not a.full_download:
+    if source == "hub" and rf is not None:
         print(f"telecharge : {rf.fetched / 1e6:.1f} Mo sur {rf.size / 1e6:.0f} Mo ({rf.requests} requetes)")
     print("->", out_dir)
     return 0

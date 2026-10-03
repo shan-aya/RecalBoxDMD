@@ -18,7 +18,9 @@ Usage : python build_theme_package.py <dossier _themes> [--known <dossier _defau
   --summary     : ecrit un compte rendu Markdown des changements (corps de la Pull Request du workflow GitHub).
 Dependances : resvg-py, numpy, pillow (versions figees dans requirements.txt : le rendu doit rester reproductible).
 
-safe-modify -- v6 - 2026-10-03 - mode --incremental + --summary (workflow GitHub Actions "Update theme logos"), skipped_versions.
+safe-modify -- v7 - 2026-10-03 - THEMES SYSTEME de Recalbox (recalbox-next, recalbox-240p ; theme_logos v2 : tl.SYSTEM_THEMES / open_hub_source) construits depuis l'archive GitLab du depot
+recalbox/recalbox-themes comme les themes du hub (packaged_from = "system"). Redistribution autorisee par Recalbox (accord declare par le mainteneur le 2026-10-03).
+v6 - 2026-10-03 - mode --incremental + --summary (workflow GitHub Actions "Update theme logos"), skipped_versions.
 v5 : manifest skipped (themes du hub sans logo de systeme). v4 : champ rev (revision du contenu de chaque theme, comparee par le
 toolkit avec la SD). v3 : champ variants (langues/regions proposees par theme). v2 : fr/es utilisent la region eu (consoles
 europeennes), base = us. v1 : creation. Sauvegardes : _backups/build_theme_package.py.*.bak
@@ -45,8 +47,8 @@ def _open_source(folder, hub, rb_root):
     Recalbox de test sont trop variables) ; copie de la Recalbox seulement si le theme n est pas dans le hub ET que rb_root est fourni."""
     h = hub.get(folder)
     if h and h.get("zips"):
-        rf = tl.RangeFile(tl.hub_zip_urls(folder, h["zips"][0]))
-        return tl.ZipSource(rf), "hub", rf
+        src, rf = tl.open_hub_source(h)          # theme du hub : ZIP distant lu par morceaux ; theme systeme : archive GitLab du dossier
+        return src, ("system" if h.get("system") else "hub"), rf
     rb_dir = os.path.join(rb_root, folder) if rb_root else ""
     if rb_dir and os.path.exists(os.path.join(rb_dir, "theme.xml")):
         return tl.DirSource(rb_dir), "rb", None
