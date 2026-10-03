@@ -680,6 +680,8 @@ Pour les gels, la corruption d'affichage, les boucles de configuration WiFi, ou 
 
 Sous licence [MIT](LICENSE).
 
+🔔 **Être prévenu des nouvelles versions** : sur GitHub, cliquez sur **Watch → Custom → Releases** (ou abonnez-vous au [flux des releases](https://github.com/shan-aya/RecalBoxDMD/releases.atom)). La boîte à outils PC vous avertit aussi au démarrage quand une version plus récente est publiée, et le [Web Installer](https://shan-aya.github.io/RecalBoxDMD/install/) affiche la version du firmware qu'il installe.
+
 ☕ Si ce projet vous est utile : [offrez-moi un café](https://buymeacoffee.com/shan_aya) ou [faites un don via PayPal](https://www.paypal.com/paypalme/felysaya)
 
 <p align="center"><i>RecalBoxDMD RawEdition — Recalbox + un vrai panneau LED marquee, instantané même avec 30 000 jeux MAME.</i> 🎮⚡</p>

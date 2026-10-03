@@ -679,6 +679,8 @@ For freezes, display corruption, WiFi setup loops, or a DMD that seems to lose s
 
 Licensed under the [MIT License](LICENSE).
 
+🔔 **Stay informed of new versions**: on GitHub click **Watch → Custom → Releases** (or subscribe to the [releases feed](https://github.com/shan-aya/RecalBoxDMD/releases.atom)). The PC Toolkit also tells you at startup when a newer version is out, and the [Web Installer](https://shan-aya.github.io/RecalBoxDMD/install/) shows the firmware version it installs.
+
 ☕ If this project helps you: [buy me a coffee](https://buymeacoffee.com/shan_aya) or [donate via PayPal](https://www.paypal.com/paypalme/felysaya)
 
 <p align="center"><i>RecalBoxDMD RawEdition — Recalbox + a real LED marquee, instant even with 30,000 MAME games.</i> 🎮⚡</p>
