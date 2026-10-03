@@ -1,4 +1,4 @@
-# RecalBoxDMD — RawEdition <img alt="Firmware : v2.33" src="https://img.shields.io/badge/firmware-v2.33-blueviolet.svg"> <img alt="Outil PC : v8056" src="https://img.shields.io/badge/outil%20PC-v8056-blueviolet.svg">
+# RecalBoxDMD — RawEdition <img alt="Firmware : v2.35" src="https://img.shields.io/badge/firmware-v2.35-blueviolet.svg"> <img alt="Outil PC : v8056" src="https://img.shields.io/badge/outil%20PC-v8056-blueviolet.svg">
 
 **Un vrai panneau marquee lumineux pour votre borne d'arcade Recalbox — affichage instantané, même avec un fullset MAME de 30 000 jeux.**
 
@@ -96,6 +96,7 @@ C'est un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), r
 - 🎯 **Système de masque pour les grosses collections (MAME, FBNeo...)** — les systèmes marqués **« L »** (Large/lent) affichent immédiatement une image par défaut en cache pendant que la vraie image se décode en tâche de fond : le panneau **ne reste jamais noir**, même en enchaînant un fullset de 30 000 jeux.
 - 🖼️ **Image de secours personnalisée** — 4 images par défaut sont fournies (Recalbox, JAMMA, RGB Dual, RGB Dual 2), ou choisissez **votre propre image** depuis la boîte à outils PC comme image de secours globale, affichée quand rien d'autre ne correspond.
 - 🧮 **Cache de jeux bigramme** — un cache indexé compact (`games_cache.bin`) évite de lister des dizaines de milliers de fichiers SD à l'exécution ; les recherches sont quasi instantanées.
+- 🎨 **Logos des thèmes Recalbox** — le panneau affiche le logo de chaque système dans le style du thème actif dans Recalbox (Midnight, CRT Color, Neoretro…) au lieu du logo par défaut, et suit seul les changements de thème. **8 paquets de thèmes prêts à l'emploi** (issus du hub de thèmes Recalbox, textes de logos FR/EN/ES quand le thème les fournit) sont dans `carte SD/systems/_defaults/_themes/` ; un logo manquant retombe sur le logo par défaut. Une case de la page web désactive la fonction.
 - 🕹️ **10 thèmes horloge pixel-art intégrés** — Super Mario, Tetris, Pac-Man, Space Invaders, Pong, Neon, Matrix, Fire, Rainbow, et un niveau 1-1 défilant — affichés périodiquement entre les jeux (ou en continu), thème sélectionnable depuis la page web avec **aperçu en direct sur le panneau physique**.
 - 📦 **~600 GIFs rétro gratuits inclus** — téléchargement en un clic (Arcade, Consoles, Ordinateurs, Flipper, Halloween, Noël, et plus) pour vos playlists d'attente.
 - 🖥️ **Boîte à outils PC Windows en un clic** (GUI, FR/EN/ES) — des ROMs brutes + `gamelist.xml` jusqu'à une carte SD prête à l'emploi : extraction consciente du scraping, conversion, cache, et copie SD reprenable, le tout en un clic « Démarrer ».
@@ -472,7 +473,7 @@ Tapez l'IP de l'ESP32 (affichée au démarrage, ou visible sur le panneau lui-m�
 
 **🏠 Page d'accueil** — le menu principal s'ouvre sur le cadre **Affichage** : luminosité du panneau avec un **aperçu en direct poussé sur le panneau physique** pendant que vous bougez le curseur, démarrage silencieux ou normal, et l'interrupteur **Mode Pinball (VPX)**. Son bouton Enregistrer confirme sur la ligne 2 du DMD.
 
-**💡 Affichage & Playlists** — options des écrans superposés en jeu, **veille Recalbox** (pendant les économiseurs d'écran « démos de jeux » / « clips vidéo de jeux », soit suivre le logo du jeu comme avant, soit garder la playlist simple comme les autres veilles), playlist par défaut + lecture aléatoire, et gestion des playlists (créer une nouvelle playlist directement à partir des dossiers de GIFs déjà sur la carte SD, modifier ou supprimer les playlists existantes — pour les dossiers avec beaucoup de fichiers, préférez la boîte à outils PC, conçue pour ça).
+**💡 Affichage & Playlists** — options des écrans superposés en jeu, **veille Recalbox** (pendant les économiseurs d'écran « démos de jeux » / « clips vidéo de jeux », soit suivre le logo du jeu comme avant, soit garder la playlist simple comme les autres veilles), le réglage **thème Recalbox** (suivre le thème actif pour les logos système, ou toujours afficher les logos par défaut), playlist par défaut + lecture aléatoire, et gestion des playlists (créer une nouvelle playlist directement à partir des dossiers de GIFs déjà sur la carte SD, modifier ou supprimer les playlists existantes — pour les dossiers avec beaucoup de fichiers, préférez la boîte à outils PC, conçue pour ça).
 
 <p align="center"><img src="medias/screenshots/webconfig_display_playlists.png" alt="Configuration web — page Affichage & Playlists" width="420"></p>
 

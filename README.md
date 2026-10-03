@@ -1,4 +1,4 @@
-# RecalBoxDMD — RawEdition <img alt="Firmware: v2.33" src="https://img.shields.io/badge/firmware-v2.33-blueviolet.svg"> <img alt="PC Toolkit: v8056" src="https://img.shields.io/badge/PC%20Toolkit-v8056-blueviolet.svg">
+# RecalBoxDMD — RawEdition <img alt="Firmware: v2.35" src="https://img.shields.io/badge/firmware-v2.35-blueviolet.svg"> <img alt="PC Toolkit: v8056" src="https://img.shields.io/badge/PC%20Toolkit-v8056-blueviolet.svg">
 
 **A real LED marquee for your Recalbox arcade cabinet — instant display, even with a 30,000-game MAME fullset.**
 
@@ -96,6 +96,7 @@ It is a fork of [Jamyz's RetroBoxLED](https://github.com/Jamyz/RetroBoxLED), reb
 - 🎯 **Mask system for huge collections (MAME, FBNeo...)** — systems flagged **"L"** (Large/slow) instantly show a cached default image while the real one decodes in the background, so the panel **never goes black**, even scrolling through a 30,000-game fullset.
 - 🖼️ **Custom fallback image** — 4 ready-made defaults are included (Recalbox, JAMMA, RGB Dual, RGB Dual 2), or pick **your own** picture from the PC Toolkit to use as the global fallback shown whenever nothing else matches.
 - 🧮 **Bigram game cache** — a compact indexed cache (`games_cache.bin`) avoids listing tens of thousands of SD-card files at runtime; lookups are near-instant.
+- 🎨 **Recalbox theme logos** — the panel shows each system's logo in the style of the theme active in Recalbox (Midnight, CRT Color, Neoretro…) instead of the default logo, and follows theme changes by itself. **8 ready-made theme packs** (from the Recalbox theme hub, FR/EN/ES logo texts when the theme provides them) are in `carte SD/systems/_defaults/_themes/`; a missing logo falls back to the default one. One switch on the web page turns the feature off.
 - 🕹️ **10 built-in pixel-art clock themes** — Super Mario, Tetris, Pac-Man, Space Invaders, Pong, Neon, Matrix, Fire, Rainbow, and a scrolling Level 1‑1 — shown periodically between games (or full-time), theme selectable from the web UI with **live preview on the physical panel**.
 - 📦 **~600 free retro GIFs included** — an optional one-click download (Arcade, Consoles, Computers, Pinball, Halloween, Xmas, and more) for idle/attract-mode playlists.
 - 🖥️ **One-click Windows PC Toolkit** (GUI, FR/EN/ES) — from raw ROMs + `gamelist.xml` to a ready-to-use SD card: scraping-aware extraction, conversion, caching, and resumable SD-card copy, all in a single "Start" click.
@@ -472,7 +473,7 @@ Type the ESP32's IP (shown at boot, or on the panel itself) into any phone/PC br
 
 **🏠 Home page** — the main menu opens with the **Display** frame: panel brightness with a **live preview pushed straight to the physical panel** as you drag the slider, silent vs. normal boot, and the **Pinball (VPX) mode** switch. Its Save button confirms on line 2 of the DMD.
 
-**💡 Display & Playlists** — the in-game overlay options, **Recalbox standby** (during the "game demos" / "game video clips" screensavers, either follow the game logo as before, or just keep the simple playlist like the other screensavers), default playlist + random playback, and playlist management (create a new playlist straight from the GIF folders already on the SD card, edit or delete existing ones — for folders with a lot of files, use the PC Toolkit instead, it's built for scale).
+**💡 Display & Playlists** — the in-game overlay options, **Recalbox standby** (during the "game demos" / "game video clips" screensavers, either follow the game logo as before, or just keep the simple playlist like the other screensavers), the **Recalbox theme** switch (follow the active theme for system logos, or always show the default logos), default playlist + random playback, and playlist management (create a new playlist straight from the GIF folders already on the SD card, edit or delete existing ones — for folders with a lot of files, use the PC Toolkit instead, it's built for scale).
 
 <p align="center"><img src="medias/screenshots/webconfig_display_playlists.png" alt="Web config — Display & Playlists page" width="420"></p>
 

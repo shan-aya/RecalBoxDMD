@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-03 (2) — Firmware v2.35 : une case pour les logos des thèmes Recalbox
+
+- **Firmware** (v2.34 et v2.35) : nouvelle section **« Thème Recalbox »** sur la page web (*Affichage & Playlists*) avec une case **« Suivre le thème Recalbox »**, cochée par défaut (même comportement qu'en v2.33). Décochée, le DMD affiche toujours les logos par défaut. Le thème annoncé par la Recalbox est mémorisé : recocher la case l'applique aussitôt. Le réglage est enregistré dans `config.ini` (`feat_theme_follow=`).
+- **Correction** : quand le thème change **pendant qu'une animation tourne**, l'index des logos du thème (`_index.bin`) est maintenant chargé (il était ignoré faute d'un bloc de mémoire libre assez grand, et un logo absent du thème mettait environ 1 seconde à retomber sur le logo par défaut).
+- **Rien à changer côté Recalbox** : le `dmd_udp_resync.py` v6 de la v2.33 est toujours le bon. L'installation des paquets de thèmes par la boîte à outils PC arrivera avec sa prochaine version.
+
 ## 2026-10-03 — Firmware v2.33 : logos des thèmes Recalbox sur le DMD
 
 - **Firmware** (v2.33) : le DMD peut désormais afficher les **logos système du thème sélectionné dans Recalbox** (Midnight, Recalbox Next, Dashboard-X...) à la place des logos par défaut. Les scripts Recalbox envoient le nom du thème ; le firmware cherche `/systems/_defaults/_themes/<thème>/<système>.raw565` sur la carte SD et, si le logo n'y est pas, retombe sur le logo par défaut. Un petit fichier `_index.bin` par thème évite les recherches lentes sur les logos absents. Pas de dossier de thème sur la SD = rien ne change.
