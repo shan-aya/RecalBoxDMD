@@ -1,0 +1,3 @@
+# caches Python (generes en lancant tools/theme_package/*.py)
+__pycache__/
+*.pyc
