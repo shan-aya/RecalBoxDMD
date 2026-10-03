@@ -2,7 +2,14 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v5
+# Version actuelle : v6
+#
+# v6 - 2026-10-03 - safe-modify - THEME RECALBOX pour les logos systeme du DMD (firmware v233, commande UDP "CMD=theme ARG=<dossier>").
+#   Lit emulationstation.theme.folder (et dmd.logo s'il existe : different de "theme" => theme desactive) dans
+#   /recalbox/share/system/recalbox.conf. Nom assaini comme le firmware ([A-Za-z0-9._-], 31 car. max : le dossier des logos
+#   sur la SD doit porter ce nom tronque). Envoye : a chaque HELLO du DMD (boot/reconnexion, AVANT la resync, pour que
+#   le logo qui suit utilise deja le theme) et, sur les PING (15 s), des que la valeur change (changement de theme dans ES
+#   pris en compte en <= 15 s). UDP sans accuse : un theme perdu est renvoye au prochain hello/changement.
 #
 # v5 - 2026-09-19 - safe-modify - BUG REEL corrige (retour utilisateur
 #   externe, testeur tiers : "le DMD reste en playlist" alors que les
@@ -115,6 +122,9 @@ FEATURES_PREFIX = "FEATURES:"
 # (hello/PING/FEATURES, peu importe le type) -- lue par marquee.sh/
 # dmd_score.sh/dmd_achievement.sh au lieu de leur ancienne IP codee en dur.
 DMD_IP_CACHE_PATH = "/tmp/dmd_udp_ip"
+# v6 -- theme Recalbox (voir changelog v6).
+RECALBOX_CONF_PATH = "/recalbox/share/system/recalbox.conf"
+_last_theme_sent = {}  # ip du DMD -> dernier theme envoye (changement detecte sur les PING)
 
 
 def log(msg):
@@ -184,6 +194,43 @@ def update_dmd_ip_cache(ip):
         log(f"ERREUR ecriture {DMD_IP_CACHE_PATH}: {e}")
 
 
+def compute_theme():
+    """Theme a annoncer au DMD (chaine vide = logos par defaut).
+    Regle (choix utilisateur : automatique) : dmd.logo absent ou "theme" => on suit emulationstation.theme.folder ;
+    dmd.logo = autre chose (recalbox/custom) => pas de theme. Lignes commentees (; ou #) ignorees."""
+    wanted = ("emulationstation.theme.folder", "dmd.logo")
+    values = {}
+    try:
+        with open(RECALBOX_CONF_PATH, "r", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line[0] in ";#" or "=" not in line:
+                    continue
+                key, val = line.split("=", 1)
+                if key.strip() in wanted:
+                    values[key.strip()] = val.strip()
+    except Exception as e:
+        log(f"ERREUR lecture {RECALBOX_CONF_PATH}: {e}")
+        return ""
+    logo_mode = values.get("dmd.logo", "").lower()
+    if logo_mode and logo_mode != "theme":
+        return ""
+    # meme assainissement que le firmware (CMD=theme) : caracteres autorises puis 31 max
+    folder = re.sub(r"[^A-Za-z0-9._-]", "", values.get("emulationstation.theme.folder", ""))[:31]
+    return "" if folder in ("", ".", "..") else folder
+
+
+def send_theme(sock, dmd_ip, force=False):
+    """Envoie CMD=theme si force ou si la valeur a change depuis le dernier envoi a ce DMD."""
+    theme = compute_theme()
+    changed = _last_theme_sent.get(dmd_ip) != theme
+    if force or changed:
+        send_udp(sock, dmd_ip, "theme", theme)
+        if changed:
+            log(f"theme pour {dmd_ip}: {theme or '(defaut)'}")
+        _last_theme_sent[dmd_ip] = theme
+
+
 def send_udp(sock, dmd_ip, cmd, arg):
     payload = f"CMD={cmd} ARG={arg}".encode("utf-8", "replace")
     sock.sendto(payload, (dmd_ip, DMD_UDP_PORT))
@@ -219,6 +266,7 @@ def main():
         # brute (pas via send_udp(), qui formate en "CMD=.../ARG=...").
         if text == "PING":
             send_sock.sendto(b"PONG", (addr[0], DMD_UDP_PORT))
+            send_theme(send_sock, addr[0])  # v6 -- pris en compte si le theme a change (<= 15 s)
             continue
         if text.startswith(FEATURES_PREFIX):
             payload = text[len(FEATURES_PREFIX):]
@@ -230,6 +278,7 @@ def main():
                 log(f"ERREUR ecriture {FEATURES_CACHE_PATH}: {e}")
             continue
 
+        send_theme(send_sock, addr[0], force=True)  # v6 -- AVANT la resync : le logo systeme qui suit utilise deja le theme
         cmds = compute_current_state()
         log(f"hello de {addr[0]} -> resync {cmds}")
         for cmd, arg in cmds:
