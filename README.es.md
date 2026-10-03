@@ -1,4 +1,4 @@
-# RecalBoxDMD — RawEdition <img alt="Firmware: v2.35" src="https://img.shields.io/badge/firmware-v2.35-blueviolet.svg"> <img alt="Herramienta PC: v9860" src="https://img.shields.io/badge/herramienta%20PC-v9860-blueviolet.svg">
+# RecalBoxDMD — RawEdition <img alt="Firmware: v2.35" src="https://img.shields.io/badge/firmware-v2.35-blueviolet.svg"> <img alt="Herramienta PC: v9961" src="https://img.shields.io/badge/herramienta%20PC-v9961-blueviolet.svg">
 
 **Un verdadero marquee LED para tu mueble arcade Recalbox — visualización instantánea, incluso con un fullset MAME de 30 000 juegos.**
 
@@ -474,7 +474,7 @@ TZ=CET-1CEST,M3.5.0,M10.5.0/3
 
 Escribe la IP del ESP32 (mostrada al arrancar, o visible en el propio panel) en el navegador de un móvil o PC: obtienes un sitio de configuración completo, dividido en 4 páginas de carga rápida, trilingüe (FR/EN/ES), con ayuda integrada — sin apps, sin recompilar.
 
-**🏠 Página de inicio** — el menú principal se abre con el marco **Pantalla**: brillo del panel con una **vista previa en vivo enviada directamente al panel físico** mientras mueves el control deslizante, arranque silencioso o normal, y el interruptor **Modo Pinball (VPX)**. Su botón Guardar confirma en la línea 2 del DMD.
+**🏠 Página de inicio** — el menú principal se abre con el marco **Pantalla**: brillo del panel con una **vista previa en vivo enviada directamente al panel físico** mientras mueves el control deslizante, arranque silencioso o normal, y el interruptor **Modo Pinball (VPX)**. Su botón Guardar confirma en la línea 2 del DMD. La página también muestra la **versión del firmware** y, cuando se publica una más reciente, un aviso **«Nueva versión disponible»** con un enlace al Web Installer (la comprobación la hace tu navegador: el DMD no necesita acceso a Internet).
 
 **💡 Pantalla y listas** — opciones de las superposiciones en juego, **reposo de Recalbox** (durante los salvapantallas «demos de juegos» / «clips de vídeo de juegos», o bien seguir el logo del juego como antes, o bien mantener la playlist simple como en los demás reposos), el ajuste **tema de Recalbox** (seguir el tema activo para los logos de sistema, o mostrar siempre los logos por defecto), playlist por defecto + reproducción aleatoria, y gestión de playlists (crear una nueva playlist directamente desde las carpetas de GIFs ya presentes en la SD, editar o borrar las existentes — para carpetas con muchos archivos, usa mejor la caja de herramientas de PC, pensada para eso).
 

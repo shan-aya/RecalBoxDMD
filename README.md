@@ -1,4 +1,4 @@
-# RecalBoxDMD — RawEdition <img alt="Firmware: v2.35" src="https://img.shields.io/badge/firmware-v2.35-blueviolet.svg"> <img alt="PC Toolkit: v9860" src="https://img.shields.io/badge/PC%20Toolkit-v9860-blueviolet.svg">
+# RecalBoxDMD — RawEdition <img alt="Firmware: v2.35" src="https://img.shields.io/badge/firmware-v2.35-blueviolet.svg"> <img alt="PC Toolkit: v9961" src="https://img.shields.io/badge/PC%20Toolkit-v9961-blueviolet.svg">
 
 **A real LED marquee for your Recalbox arcade cabinet — instant display, even with a 30,000-game MAME fullset.**
 
@@ -474,7 +474,7 @@ TZ=CET-1CEST,M3.5.0,M10.5.0/3
 
 Type the ESP32's IP (shown at boot, or on the panel itself) into any phone/PC browser and you get a full settings site, split into 4 fast-loading pages, trilingual (FR/EN/ES), with a built-in help panel — no app, no recompiling.
 
-**🏠 Home page** — the main menu opens with the **Display** frame: panel brightness with a **live preview pushed straight to the physical panel** as you drag the slider, silent vs. normal boot, and the **Pinball (VPX) mode** switch. Its Save button confirms on line 2 of the DMD.
+**🏠 Home page** — the main menu opens with the **Display** frame: panel brightness with a **live preview pushed straight to the physical panel** as you drag the slider, silent vs. normal boot, and the **Pinball (VPX) mode** switch. Its Save button confirms on line 2 of the DMD. The page also shows the **firmware version** and, when a newer one is published, a **"New version available"** notice with a link to the Web Installer (the check is made by your browser: the DMD needs no Internet access).
 
 **💡 Display & Playlists** — the in-game overlay options, **Recalbox standby** (during the "game demos" / "game video clips" screensavers, either follow the game logo as before, or just keep the simple playlist like the other screensavers), the **Recalbox theme** switch (follow the active theme for system logos, or always show the default logos), default playlist + random playback, and playlist management (create a new playlist straight from the GIF folders already on the SD card, edit or delete existing ones — for folders with a lot of files, use the PC Toolkit instead, it's built for scale).
 

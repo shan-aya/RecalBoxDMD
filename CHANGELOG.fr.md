@@ -8,6 +8,13 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-03 (4) — Firmware v2.37 et boîte à outils PC build 9961 : vous êtes prévenu quand une nouvelle version sort
+
+- **Firmware** (v2.37) : la page d'accueil de la configuration web affiche maintenant la **version du firmware** et, quand une version plus récente est publiée, un avis **« Nouvelle version disponible »** avec un lien vers le Web Installer. La vérification est faite par **votre navigateur** (le DMD n'a besoin d'aucun accès Internet et n'utilise pas de mémoire en plus) ; hors ligne, rien ne s'affiche.
+- **Boîte à outils PC** (build `9961`) : quelques secondes après l'ouverture, la boîte à outils consulte la dernière version publiée de la boîte à outils et du firmware. Si une boîte à outils plus récente existe, une fenêtre propose d'ouvrir la page de téléchargement (une seule fois par version). L'avis firmware est informatif : la boîte à outils ne peut pas savoir quelle version est flashée dans votre DMD, regardez la version sur la page web du DMD. Pour désactiver la vérification : `"update_check": false` dans `RecalBoxDMD_prefs.json`.
+- **Web Installer** : la page affiche maintenant la version qu'elle va installer, et ce numéro est mis à jour automatiquement à partir du fichier du firmware lui-même (le firmware porte son propre numéro de version).
+- **Rester informé** : sur GitHub, *Watch → Custom → Releases* (ou le flux des releases).
+
 ## 2026-10-03 (3) — Boîte à outils PC build 9860 : choisir les thèmes Recalbox à installer
 
 - **Boîte à outils PC** (build `9860`) : vous décidez quels thèmes Recalbox vont sur le DMD.

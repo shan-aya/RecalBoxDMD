@@ -1,4 +1,4 @@
-# RecalBoxDMD — RawEdition <img alt="Firmware : v2.35" src="https://img.shields.io/badge/firmware-v2.35-blueviolet.svg"> <img alt="Outil PC : v9860" src="https://img.shields.io/badge/outil%20PC-v9860-blueviolet.svg">
+# RecalBoxDMD — RawEdition <img alt="Firmware : v2.35" src="https://img.shields.io/badge/firmware-v2.35-blueviolet.svg"> <img alt="Outil PC : v9961" src="https://img.shields.io/badge/outil%20PC-v9961-blueviolet.svg">
 
 **Un vrai panneau marquee lumineux pour votre borne d'arcade Recalbox — affichage instantané, même avec un fullset MAME de 30 000 jeux.**
 
@@ -474,7 +474,7 @@ TZ=CET-1CEST,M3.5.0,M10.5.0/3
 
 Tapez l'IP de l'ESP32 (affichée au démarrage, ou visible sur le panneau lui-même) dans le navigateur d'un téléphone ou d'un PC : vous obtenez un site de configuration complet, réparti en 4 pages à chargement rapide, trilingue (FR/EN/ES), avec une aide intégrée — aucune application, aucune recompilation.
 
-**🏠 Page d'accueil** — le menu principal s'ouvre sur le cadre **Affichage** : luminosité du panneau avec un **aperçu en direct poussé sur le panneau physique** pendant que vous bougez le curseur, démarrage silencieux ou normal, et l'interrupteur **Mode Pinball (VPX)**. Son bouton Enregistrer confirme sur la ligne 2 du DMD.
+**🏠 Page d'accueil** — le menu principal s'ouvre sur le cadre **Affichage** : luminosité du panneau avec un **aperçu en direct poussé sur le panneau physique** pendant que vous bougez le curseur, démarrage silencieux ou normal, et l'interrupteur **Mode Pinball (VPX)**. Son bouton Enregistrer confirme sur la ligne 2 du DMD. La page affiche aussi la **version du firmware** et, quand une version plus récente est publiée, un avis **« Nouvelle version disponible »** avec un lien vers le Web Installer (la vérification est faite par votre navigateur : le DMD n'a besoin d'aucun accès Internet).
 
 **💡 Affichage & Playlists** — options des écrans superposés en jeu, **veille Recalbox** (pendant les économiseurs d'écran « démos de jeux » / « clips vidéo de jeux », soit suivre le logo du jeu comme avant, soit garder la playlist simple comme les autres veilles), le réglage **thème Recalbox** (suivre le thème actif pour les logos système, ou toujours afficher les logos par défaut), playlist par défaut + lecture aléatoire, et gestion des playlists (créer une nouvelle playlist directement à partir des dossiers de GIFs déjà sur la carte SD, modifier ou supprimer les playlists existantes — pour les dossiers avec beaucoup de fichiers, préférez la boîte à outils PC, conçue pour ça).
 
