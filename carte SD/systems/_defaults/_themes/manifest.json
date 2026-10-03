@@ -2960,5 +2960,8 @@
    "bytes": 819200,
    "rev": "887e1225003e"
   }
+ },
+ "skipped": {
+  "helmicretro-haigenco": "aucun logo de système exploitable"
  }
 }
