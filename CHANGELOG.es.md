@@ -8,6 +8,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-03 (7) — Caja de herramientas PC build 10263: panel de copia a la SD corregido tras el Modo 13, columna SD en el Modo 12
+
+- **Corrección**: tras el **Modo 13** (y los Modos 2 y 11) lanzado desde la pestaña Avanzado, el **panel «copiar a la tarjeta SD»** se ocultaba justo al terminar la descarga. Ahora permanece visible, para copiar los archivos a la tarjeta SD enseguida.
+- **Modo 12** (Gestión de temas de Recalbox): una nueva columna **SD**, junto a *Recalbox*, indica si cada tema ya está en la tarjeta SD del DMD (✓ presente, — ausente, ? si no se detecta la tarjeta).
+
 ## 2026-10-03 (6) — El tema por defecto de Recalbox (recalbox-next) ya funciona: caja de herramientas PC build 10163 + script de Recalbox v7
 
 - **Script de Recalbox `dmd_udp_resync.py` v7** (reinstálalo con el **Modo 9**): si nunca cambiaste de tema en Recalbox, el script anuncia ahora el tema por defecto de Recalbox, **`recalbox-next`**. Antes anunciaba «ningún tema» en ese caso, así que la mayoría de los usuarios nunca veía los logos de tema.

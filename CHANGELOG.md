@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-03 (7) — PC Toolkit build 10263: copy-to-SD panel fixed after Mode 13, SD column in Mode 12
+
+- **Fix**: after **Mode 13** (and Modes 2 and 11) launched from the Advanced tab, the **"copy to SD card" panel** was hidden right after the download ended. It now stays visible, so you can copy the files to the SD card straight away.
+- **Mode 12** (Recalbox themes management): a new **SD** column next to *Recalbox* shows whether each theme is already on the DMD's SD card (✓ present, — absent, ? if the card is not detected).
+
 ## 2026-10-03 (6) — Recalbox's default theme (recalbox-next) now works: PC Toolkit build 10163 + Recalbox script v7
 
 - **Recalbox script `dmd_udp_resync.py` v7** (reinstall with **Mode 9**): if you never changed the theme in Recalbox, the script now announces Recalbox's default theme, **`recalbox-next`**. Before, it announced "no theme" in that case, so most users never saw the theme logos at all.

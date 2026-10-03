@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-03 (7) — Boîte à outils PC build 10263 : panneau de copie vers la SD corrigé après le Mode 13, colonne SD dans le Mode 12
+
+- **Correctif** : après le **Mode 13** (et les Modes 2 et 11) lancé depuis l'onglet Avancé, le **panneau « copier sur la carte SD »** était masqué juste après la fin du téléchargement. Il reste maintenant visible : vous pouvez copier les fichiers sur la carte SD tout de suite.
+- **Mode 12** (Gestion des thèmes Recalbox) : une nouvelle colonne **SD**, à côté de *Recalbox*, indique si chaque thème est déjà sur la carte SD du DMD (✓ présent, — absent, ? si la carte n'est pas détectée).
+
 ## 2026-10-03 (6) — Le thème par défaut de Recalbox (recalbox-next) fonctionne : boîte à outils PC build 10163 + script Recalbox v7
 
 - **Script Recalbox `dmd_udp_resync.py` v7** (à réinstaller avec le **Mode 9**) : si vous n'avez jamais changé de thème dans Recalbox, le script annonce maintenant le thème par défaut de Recalbox, **`recalbox-next`**. Avant, il annonçait « aucun thème » dans ce cas : la plupart des utilisateurs ne voyaient donc jamais les logos de thème.
