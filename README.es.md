@@ -110,6 +110,8 @@ Es un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), reco
 - 🗣️ **Imágenes de sistema/género multilingües** — el pack de respaldo `_defaults` (insignias de género, Favoritos, Últimos Jugados...) está disponible en francés y español, seleccionable desde la caja de herramientas de PC con una vista previa comparativa en vivo; los géneros aún no traducidos simplemente quedan en inglés.
 - 🔁 **Scraping consciente de la versión de Recalbox** — apunta automáticamente a la etiqueta correcta de `gamelist.xml` y a la carpeta de medios adecuada para Recalbox 10.x / 9.x / legacy, con una guía de «cómo hacer el scrape» integrada.
 
+<p align="center"><img src="medias/marketing/plaquette_6_themes_recalbox_es.png" alt="Anuncio: el DMD sigue el tema de tu Recalbox" width="720"></p>
+
 ---
 
 ## Cómo funciona

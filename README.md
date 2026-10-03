@@ -110,6 +110,8 @@ It is a fork of [Jamyz's RetroBoxLED](https://github.com/Jamyz/RetroBoxLED), reb
 - 🗣️ **Multi-language system/genre images** — the `_defaults` fallback pack (genre badges, Favorites, Last Played...) is available in French and Spanish, selectable from the PC Toolkit with a live comparison preview; untranslated genres simply stay in English.
 - 🔁 **Recalbox-version aware scraping** — automatically targets the right `gamelist.xml` tag and media folder for Recalbox 10.x / 9.x / legacy, with a built-in "how to scrape" guide.
 
+<p align="center"><img src="medias/marketing/plaquette_6_themes_recalbox_en.png" alt="Announcement: the DMD follows your Recalbox theme" width="720"></p>
+
 ---
 
 ## How it works
