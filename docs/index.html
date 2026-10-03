@@ -124,6 +124,22 @@
     border-radius:3px;
     border:1px solid var(--line);
   }
+  /* Pastille « Nouveauté » : UNE SEULE sur toute la page (voir le commentaire dans le HTML) */
+  .newtag{
+    display:inline-block;
+    margin-left:10px;
+    padding:4px 9px 3px;
+    border-radius:3px;
+    font-family:"JetBrains Mono",monospace;
+    font-size:11px;
+    font-weight:800;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    vertical-align:middle;
+    background:var(--led-green);
+    color:#04120a;
+    box-shadow:0 0 10px var(--led-green);
+  }
   .eyebrow::before{
     content:"";
     width:6px;
@@ -474,7 +490,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
   </section>
 
   <section class="feat">
-    <span class="eyebrow" style="color:var(--amber)" data-i18n="s5c.eyebrow">Thèmes Recalbox</span>
+    <span class="eyebrow" style="color:var(--amber)" data-i18n="s5c.eyebrow">Thèmes Recalbox</span><!-- NOUVEAUTE : un seul badge « newtag » sur toute la page. A la publication de la prochaine fonctionnalite : SUPPRIMER cette pastille et la recopier a cote de l'eyebrow de la nouvelle section. --><span class="newtag" data-i18n="new.label">Nouveauté</span>
     <h2 data-i18n="s5c.h2">Il adopte le thème de votre Recalbox</h2>
     <p data-i18n="s5c.p">Changez de thème dans Recalbox : le DMD affiche les logos de vos consoles dans le style du thème actif — Midnight, CRT Color, Neoretro… 8 thèmes prêts à l'emploi, textes FR/EN/ES quand le thème les propose, une case dans la page web du panneau pour activer ou non le suivi, et la boîte à outils PC n'installe que les thèmes que vous choisissez. (Rendu simulé à partir des vrais logos.)</p>
     <div class="grid2">
@@ -576,6 +592,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "s5.h2": "Il devient le marquee numérique de votre Recalbox",
       "s5.p": "Aucune connexion n'est obligatoire pour la déco — mais connectez-le en WiFi à n'importe quelle Recalbox (PC, Raspberry Pi, Steam Deck, RGB Dual, RGB Dual 2, RGB Jamma...) et il affiche en direct le logo du jeu que vous lancez, son meilleur score, sa fiche, et le classement du défi communautaire du mois — automatiquement, sans rien reconfigurer.",
       "s5c.eyebrow": "Thèmes Recalbox",
+      "new.label": "Nouveauté",
       "s5c.h2": "Il adopte le thème de votre Recalbox",
       "s5c.p": "Changez de thème dans Recalbox : le DMD affiche les logos de vos consoles dans le style du thème actif — Midnight, CRT Color, Neoretro… 8 thèmes prêts à l'emploi, textes FR/EN/ES quand le thème les propose, une case dans la page web du panneau pour activer ou non le suivi, et la boîte à outils PC n'installe que les thèmes que vous choisissez. (Rendu simulé à partir des vrais logos.)",
       "cap.themedefault": "Logo par défaut",
@@ -634,6 +651,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "s5.h2": "It becomes your Recalbox's digital marquee",
       "s5.p": "No connection is required for the decor — but connect it over WiFi to any Recalbox (PC, Raspberry Pi, Steam Deck, RGB Dual, RGB Dual 2, RGB Jamma...) and it shows, live, the logo of the game you launch, its best score, its info card, and the standings of this month's community challenge — automatically, nothing to reconfigure.",
       "s5c.eyebrow": "Recalbox themes",
+      "new.label": "New",
       "s5c.h2": "It adopts your Recalbox theme",
       "s5c.p": "Change theme in Recalbox: the DMD shows your console logos in the style of the active theme — Midnight, CRT Color, Neoretro… 8 ready-made themes, FR/EN/ES logo texts when the theme provides them, a switch on the panel's web page to turn the following on or off, and the PC Toolkit only installs the themes you choose. (Simulated rendering from the real logos.)",
       "cap.themedefault": "Default logo",
@@ -692,6 +710,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "s5.h2": "Se convierte en el marquee digital de tu Recalbox",
       "s5.p": "Ninguna conexión es obligatoria para la decoración — pero conéctalo por WiFi a cualquier Recalbox (PC, Raspberry Pi, Steam Deck, RGB Dual, RGB Dual 2, RGB Jamma...) y mostrará en directo el logo del juego que lances, su mejor puntuación, su ficha, y la clasificación del reto comunitario del mes — automáticamente, sin reconfigurar nada.",
       "s5c.eyebrow": "Temas de Recalbox",
+      "new.label": "Novedad",
       "s5c.h2": "Adopta el tema de tu Recalbox",
       "s5c.p": "Cambia de tema en Recalbox: el DMD muestra los logos de tus consolas con el estilo del tema activo — Midnight, CRT Color, Neoretro… 8 temas listos para usar, textos de logos FR/EN/ES cuando el tema los ofrece, una casilla en la página web del panel para activar o no el seguimiento, y la caja de herramientas PC solo instala los temas que eliges. (Render simulado a partir de los logos reales.)",
       "cap.themedefault": "Logo por defecto",
