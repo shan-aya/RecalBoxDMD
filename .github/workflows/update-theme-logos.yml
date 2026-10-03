@@ -67,7 +67,7 @@ jobs:
         with:
           add-paths: carte SD/systems/_defaults/_themes
           branch: auto/update-theme-logos
-          base: main
+          base: ${{ github.ref_name }}      # main en production ; la branche de test lors d'un essai
           commit-message: "Logos de themes - mise a jour automatique depuis le hub Recalbox"
           title: "Mise à jour automatique des logos de thèmes (hub Recalbox)"
           body-path: ${{ runner.temp }}/summary.md
