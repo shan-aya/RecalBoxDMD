@@ -407,7 +407,7 @@ Avec **Chrome ou Edge**, branchez l'ESP32 en USB, cliquez sur **Installer**, cho
 | [Adafruit GFX Library](https://github.com/adafruit/Adafruit-GFX-Library) | Rendu texte/formes |
 | [ArduinoJson](https://github.com/bblanchon/ArduinoJson) | (Dé)sérialisation config & page web |
 
-3. Outils → Type de carte : **ESP32 Dev Module**, Taille flash **4 Mo**, Schéma de partition **Huge APP**.
+3. Outils → Type de carte : **ESP32 Dev Module**, Taille flash **4 Mo**, Schéma de partition **Minimal SPIFFS (1.9MB APP with OTA/190KB SPIFFS)** (deux emplacements de firmware, nécessaires aux mises à jour par Wi-Fi).
 4. Sélectionnez le bon port COM, puis **Téléverser**.
 
 ### ⌨️ Option C — `esptool.py` (ligne de commande)
@@ -484,7 +484,7 @@ Tapez l'IP de l'ESP32 (affichée au démarrage, ou visible sur le panneau lui-m�
 
 <p align="center"><img src="medias/screenshots/webconfig_display_playlists.png" alt="Configuration web — page Affichage & Playlists" width="420"></p>
 
-**📶 Wi-Fi & Bluetooth** — scan et sélection du réseau, mot de passe, IP statique (passerelle/masque/DNS), bascule Bluetooth (utile en cas de conflit avec une manette comme la 8BitDo Pro 3), et l'IP Recalbox utilisée pour la liaison UDP.
+**📶 Wi-Fi** — scan et sélection du réseau, mot de passe, IP statique (passerelle/masque/DNS), et l'IP Recalbox utilisée pour la liaison UDP.
 
 <p align="center"><img src="medias/screenshots/webconfig_wifi_bluetooth.png" alt="Configuration web — page Wi-Fi & Bluetooth" width="420"></p>
 

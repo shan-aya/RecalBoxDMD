@@ -43,3 +43,11 @@ Un thème ou un logo absent de la carte SD est sans conséquence : le DMD retomb
 - Re-scraper tes jeux, reconstruire ta carte SD, régénérer un cache, ou toucher à tes playlists — rien de tout ça n'a changé.
 - Reconfigurer l'IP Recalbox, le WiFi, ou quoi que ce soit d'autre sur la page de config web — mêmes champs, mêmes valeurs.
 - Faire quoi que ce soit au sujet du broker MQTT (Mosquitto) qui tourne toujours sur Recalbox — le DMD ne lui parle simplement plus ; laisse-le tourner ou retire-le, comme tu préfères.
+
+## 6. Firmware 2.44 et suivants — mise à jour par Wi-Fi (une réinstallation USB d'abord)
+
+À partir du firmware **2.44**, le DMD se met à jour tout seul par Wi-Fi : bouton **Mettre à jour maintenant (Wi-Fi)** dans l'avis « nouvelle version disponible » de sa page web, ou **Mode 14** de la boîte à outils PC (build 10567 et suivants). Le DMD télécharge lui-même le nouveau firmware sur GitHub (environ 2 minutes, écran éteint pendant ce temps), vérifie sa taille et son SHA-256 et revient seul à l'ancien firmware en cas de problème ou si le nouveau ne démarre pas.
+
+**Pour passer à la 2.44 depuis un firmware plus ancien, il faut réinstaller une fois par USB** avec le [Web Installer](https://shan-aya.github.io/RecalBoxDMD/) : la répartition de la mémoire flash a changé (deux emplacements de firmware au lieu d'un), ce qui rend possibles les mises à jour suivantes par Wi-Fi. Votre `config.ini` et la carte SD ne sont pas touchés. Ne flashez pas `RecalBoxDMD_v2.0_app.bin` seul sur un DMD qui n'a pas été réinstallé ainsi. Vous compilez vous-même ? Schéma de partition **Minimal SPIFFS (1.9MB APP with OTA/190KB SPIFFS)**.
+
+Le port série Bluetooth classique a été retiré dans la 2.44 (désactivé par défaut, il occupait ~660 Ko de flash et ~40 Ko de RAM) : le DMD dispose maintenant de beaucoup plus de mémoire libre en fonctionnement normal. Les lignes `bluetooth_*` restées dans `config.ini` sont simplement ignorées.

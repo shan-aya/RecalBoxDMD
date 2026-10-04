@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-04 (8) — Firmware v2.44 y caja de herramientas PC build 10567: actualización del DMD por Wi-Fi
+
+- **Nuevo**: el DMD se actualiza ahora solo desde GitHub. El aviso « nueva versión disponible » de su página web incluye un botón **Actualizar ahora (Wi-Fi)**, y la caja de herramientas PC un nuevo **Modo 14 — Firmware del DMD (Wi-Fi)**, que encuentra el DMD, compara versiones e inicia la actualización. El DMD descarga él mismo el firmware (unos 2 minutos, pantalla apagada mientras tanto, varios reinicios), comprueba su tamaño y su SHA-256 antes de instalarlo y vuelve solo al firmware anterior si la descarga falla o si el nuevo no arranca.
+- **Hace falta una reinstalación por USB para pasar a la 2.44** (Web Installer): ha cambiado el reparto de la memoria flash (dos ranuras de firmware en lugar de una). Su `config.ini` y la tarjeta SD no se tocan; después, sin cable. Véase [Actualización](UPGRADING.es.md). Compilación propia: esquema de particiones **Minimal SPIFFS (1.9MB APP with OTA/190KB SPIFFS)**.
+- **Eliminado**: el puerto serie Bluetooth clásico (desactivado por defecto, ~660 KB de flash y ~40 KB de RAM). El DMD dispone ahora de unos 58–72 KB de memoria libre en uso normal en lugar de 12–24 KB.
+
 ## 2026-10-04 (7) — Firmware v2.43: los logos de tema de Recalbox también se aplican a los sistemas de género
 
 - **Corrección**: en Recalbox 10.1, los sistemas de género (Deportes, Estrategia, Plataformas de acción…) y sistemas virtuales como *Últimos jugados* conservaban las imágenes por defecto del DMD aunque hubiera un tema seleccionado. EmulationStation los anuncia como `genre-<nombre>` pero busca su logo de tema como `auto-<nombre>`. Ahora el DMD prueba `auto-<nombre>` cuando el tema no tiene logo con el nombre anunciado (incluidas las variantes de idioma y región). No hay que reinstalar nada: los paquetes de temas ya contienen estos logos (Midnight incluye, por ejemplo, `auto-sports`, `auto-strategy`…).

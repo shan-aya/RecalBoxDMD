@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-04 (8) — Firmware v2.44 et boîte à outils PC build 10567 : mise à jour du DMD par Wi-Fi
+
+- **Nouveau** : le DMD se met désormais à jour tout seul depuis GitHub. L'avis « nouvelle version disponible » de sa page web propose un bouton **Mettre à jour maintenant (Wi-Fi)**, et la boîte à outils PC un nouveau **Mode 14 — Firmware du DMD (Wi-Fi)**, qui trouve le DMD, compare les versions et lance la mise à jour. Le DMD télécharge lui-même le firmware (environ 2 minutes, écran éteint pendant ce temps, plusieurs redémarrages), vérifie sa taille et son SHA-256 avant de l'installer et revient seul à l'ancien firmware si le téléchargement échoue ou si le nouveau ne démarre pas.
+- **Une réinstallation USB est nécessaire pour passer à la 2.44** (Web Installer) : la répartition de la mémoire flash a changé (deux emplacements de firmware au lieu d'un). Votre `config.ini` et la carte SD ne sont pas touchés ; ensuite, plus de câble. Voir [Mise à jour](UPGRADING.fr.md). Compilation personnelle : schéma de partition **Minimal SPIFFS (1.9MB APP with OTA/190KB SPIFFS)**.
+- **Retiré** : le port série Bluetooth classique (désactivé par défaut, ~660 Ko de flash et ~40 Ko de RAM). Le DMD dispose maintenant d'environ 58–72 Ko de mémoire libre en fonctionnement normal au lieu de 12–24 Ko.
+
 ## 2026-10-04 (7) — Firmware v2.43 : les logos de thème Recalbox suivent aussi sur les systèmes de genre
 
 - **Correctif** : sur Recalbox 10.1, les systèmes de genre (Sports, Stratégie, Plateforme action…) et des systèmes virtuels comme *Derniers joués* gardaient les images par défaut du DMD même avec un thème sélectionné. EmulationStation les annonce sous le nom `genre-<nom>` mais cherche leur logo de thème sous `auto-<nom>`. Le DMD essaie maintenant `auto-<nom>` quand le thème n'a pas de logo sous le nom annoncé (variantes de langue et de région comprises). Rien à réinstaller : les paquets de thèmes contiennent déjà ces logos (Midnight fournit par exemple `auto-sports`, `auto-strategy`…).

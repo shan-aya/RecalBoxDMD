@@ -43,3 +43,11 @@ A theme or a logo that is missing from the SD card is harmless: the DMD falls ba
 - Re-scrape your games, rebuild your SD card, regenerate any cache, or touch your playlists — none of that changed.
 - Reconfigure the Recalbox IP, WiFi, or anything else on the web config page — same fields, same values.
 - Do anything about the MQTT broker (Mosquitto) still running on Recalbox — the DMD simply no longer talks to it; leave it running or remove it, your call.
+
+## 6. Firmware 2.44 and later — update over Wi-Fi (one USB reinstall needed first)
+
+From firmware **2.44** the DMD updates itself over Wi-Fi: **Update now (Wi-Fi)** button in the “new version available” notice of its web page, or **Mode 14** of the PC Toolkit (build 10567 and later). The DMD downloads the new firmware from GitHub itself (about 2 minutes, screen dark meanwhile), checks its size and SHA-256 and goes back to the previous firmware on its own if anything fails or if the new one does not start.
+
+**To get to 2.44 from an earlier firmware you must reinstall once over USB** with the [Web Installer](https://shan-aya.github.io/RecalBoxDMD/): the flash layout changed (two firmware slots instead of one), which is what makes later updates over Wi-Fi possible. Your `config.ini` and the SD card are untouched. Do not flash `RecalBoxDMD_v2.0_app.bin` alone on a DMD that has not been reinstalled this way. Compiling it yourself? Use Partition Scheme **Minimal SPIFFS (1.9MB APP with OTA/190KB SPIFFS)**.
+
+The classic Bluetooth serial port was removed in 2.44 (it was off by default, took ~660 KB of flash and ~40 KB of RAM): the DMD now has far more free memory in normal use. Any `bluetooth_*` lines left in `config.ini` are simply ignored.

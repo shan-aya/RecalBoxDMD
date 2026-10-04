@@ -4,6 +4,8 @@ name: Sync firmware version
 # generee a la compilation a partir de FW_VERSION_NUM) puis recopiee dans :
 #   - docs/install/manifest.json  (page d'installation + page d'accueil)
 #   - la cle "scripts" du manifeste = SCRIPTS_BUNDLE de dmd_udp_resync.py (numero d'ensemble des scripts Recalbox)
+#   - les cles "app_sha256" / "app_size" du manifeste = empreinte SHA-256 et taille de binaries/RecalBoxDMD_v2.0_app.bin
+#     (firmware 2.44+ : le DMD telecharge lui-meme ce fichier et refuse de l'installer si la taille ou l'empreinte ne correspondent pas)
 #   - le badge "firmware-vM.mm" des trois README
 # Plus aucun numero a changer a la main a chaque publication. Binaire sans marqueur (firmware <= 2.35) : rien n'est modifie.
 
@@ -12,6 +14,7 @@ on:
     branches: [main]
     paths:
       - "binaries/RecalBoxDMD_v2.0_merged.bin"
+      - "binaries/RecalBoxDMD_v2.0_app.bin"
       - "tools/recalbox_scripts/dmd_helpers/dmd_udp_resync.py"
   workflow_dispatch:
 
@@ -71,6 +74,31 @@ jobs:
               sub(readme, rb'(alt="Firmware ?: v)[0-9]\.[0-9]{2}', rb"\g<1>" + v)
               sub(readme, rb"(badge/firmware-v)[0-9]\.[0-9]{2}", rb"\g<1>" + v)
           open(os.environ["GITHUB_OUTPUT"], "a").write(f"changed=true\nversion={ver}\n")
+
+      - name: Record size and SHA-256 of the app image in the manifest (used by the DMD for Wi-Fi updates)
+        shell: python
+        run: |
+          import hashlib, re, sys
+          app = open("binaries/RecalBoxDMD_v2.0_app.bin", "rb").read()
+          merged = open("binaries/RecalBoxDMD_v2.0_merged.bin", "rb").read()
+          mark = re.compile(rb"RBDMD_FWVER=([0-9]\.[0-9]{2});")
+          va, vm = set(mark.findall(app)), set(mark.findall(merged))
+          if va != vm or len(va) != 1:
+              print(f"::error::versions incoherentes entre app.bin {sorted(va)} et merged.bin {sorted(vm)} - manifeste inchange")
+              sys.exit(1)
+          sha = hashlib.sha256(app).hexdigest().encode()
+          size = str(len(app)).encode()
+          raw = open("docs/install/manifest.json", "rb").read()
+          nl = b"\r\n" if b"\r\n" in raw else b"\n"
+          base = re.sub(rb'\s*"app_sha256"\s*:\s*"[^"]*",?', b"", raw)
+          base = re.sub(rb'\s*"app_size"\s*:\s*\d+,?', b"", base)
+          new, n = re.subn(rb'("scripts"\s*:\s*\d+,)', rb"\g<1>" + nl + b'  "app_sha256": "' + sha + b'",' + nl + b'  "app_size": ' + size + b",", base)
+          if n != 1:
+              print(f"::error::manifest.json : {n} occurrence(s) de la cle scripts (1 attendue)")
+              sys.exit(1)
+          if new != raw:
+              open("docs/install/manifest.json", "wb").write(new)
+          print("app.bin :", size.decode(), "octets, sha256", sha.decode())
 
       - name: Commit if changed
         run: |

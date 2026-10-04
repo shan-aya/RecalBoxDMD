@@ -407,7 +407,7 @@ Using **Chrome or Edge**, plug the ESP32 in via USB, click **Install**, pick the
 | [Adafruit GFX Library](https://github.com/adafruit/Adafruit-GFX-Library) | Text/shape rendering |
 | [ArduinoJson](https://github.com/bblanchon/ArduinoJson) | Config & web page (de)serialization |
 
-3. Tools → Board: **ESP32 Dev Module**, Flash size **4 MB**, Partition Scheme **Huge APP**.
+3. Tools → Board: **ESP32 Dev Module**, Flash size **4 MB**, Partition Scheme **Minimal SPIFFS (1.9MB APP with OTA/190KB SPIFFS)** (two firmware slots, needed for Wi-Fi updates).
 4. Select the correct COM port, then **Upload**.
 
 ### ⌨️ Option C — `esptool.py` (command line)
@@ -484,7 +484,7 @@ Type the ESP32's IP (shown at boot, or on the panel itself) into any phone/PC br
 
 <p align="center"><img src="medias/screenshots/webconfig_display_playlists.png" alt="Web config — Display & Playlists page" width="420"></p>
 
-**📶 Wi-Fi & Bluetooth** — network scan and selection, password, static IP (gateway/subnet/DNS), Bluetooth toggle (handy if it conflicts with a controller like the 8BitDo Pro 3), and the Recalbox IP used for the UDP link.
+**📶 Wi-Fi** — network scan and selection, password, static IP (gateway/subnet/DNS), and the Recalbox IP used for the UDP link.
 
 <p align="center"><img src="medias/screenshots/webconfig_wifi_bluetooth.png" alt="Web config — Wi-Fi & Bluetooth page" width="420"></p>
 

@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-04 (8) — Firmware v2.44 and PC Toolkit build 10567: update the DMD over Wi-Fi
+
+- **New**: the DMD now updates itself from GitHub. The “new version available” notice on its web page gets an **Update now (Wi-Fi)** button, and the PC Toolkit a new **Mode 14 — DMD firmware (Wi-Fi)**, which finds the DMD, compares versions and starts the update. The DMD downloads the firmware itself (about 2 minutes, screen dark meanwhile, several restarts), checks its size and SHA-256 before installing and goes back to the previous firmware on its own if the download fails or the new one does not start.
+- **One USB reinstall is required to get to 2.44** (Web Installer): the flash layout changed (two firmware slots instead of one). Your `config.ini` and the SD card are untouched; after that, no more cable. See [Upgrading](UPGRADING.md). Compiling yourself: Partition Scheme **Minimal SPIFFS (1.9MB APP with OTA/190KB SPIFFS)**.
+- **Removed**: the classic Bluetooth serial port (off by default, ~660 KB of flash and ~40 KB of RAM). The DMD now has about 58–72 KB of free memory in normal use instead of 12–24 KB.
+
 ## 2026-10-04 (7) — Firmware v2.43: Recalbox theme logos now follow on genre systems
 
 - **Fix**: on Recalbox 10.1, genre systems (Sports, Strategy, Action platformer…) and virtual systems such as *Last Played* kept the DMD's default images even with a theme selected. EmulationStation announces them as `genre-<name>` but looks for their theme logo under `auto-<name>`. The DMD now tries `auto-<name>` when the theme has no logo under the announced name (language and region variants included). Nothing to reinstall: the theme packages already contain these logos (Midnight, for instance, ships `auto-sports`, `auto-strategy`…).
