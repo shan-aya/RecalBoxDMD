@@ -1,4 +1,4 @@
-# RecalBoxDMD — RawEdition <img alt="Firmware : v2.39" src="https://img.shields.io/badge/firmware-v2.39-blueviolet.svg"> <img alt="Outil PC : v10365" src="https://img.shields.io/badge/outil%20PC-v10365-blueviolet.svg">
+# RecalBoxDMD — RawEdition <img alt="Firmware : v2.40" src="https://img.shields.io/badge/firmware-v2.40-blueviolet.svg"> <img alt="Outil PC : v10365" src="https://img.shields.io/badge/outil%20PC-v10365-blueviolet.svg">
 
 **Un vrai panneau marquee lumineux pour votre borne d'arcade Recalbox — affichage instantané, même avec un fullset MAME de 30 000 jeux.**
 
