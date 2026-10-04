@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-04 (5) — Firmware v2.41 and script v10: “Resume DMD” shows the Recalbox's current state
+
+- **Fix** (script `dmd_udp_resync` v10 — reinstall with **Mode 9**, then restart the Recalbox): after **Resume DMD** the DMD could stay on an empty screen until you moved in the Recalbox. When the Recalbox was showing a **system** (not a game), it answered “playlist”. It now sends the current system, so its logo appears right away.
+- **Firmware** (v2.41): closing or leaving the web configuration no longer forces the configuration screen once the DMD has been resumed; a clock preview started after resuming no longer stays frozen on screen.
+- Update from the web configuration page (“new version available” notice) or the web installer.
+
 ## 2026-10-04 (4) — Firmware v2.40: web configuration keeps your changes across pages
 
 - **Fix**: on the DMD's web configuration, a setting changed on one page (for example **Pinball mode** on the home page) was lost if you pressed Save on another page. Now the changes you make on any page are kept while you move around, and **one Save / Save & Reboot (on any page) saves them all**.

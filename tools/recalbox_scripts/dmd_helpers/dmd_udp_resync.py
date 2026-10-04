@@ -2,7 +2,12 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v9
+# Version actuelle : v10
+#
+# v10 - 2026-10-04 - safe-modify - BUG REEL corrige (retour utilisateur : « quand je fais Reprendre DMD, le DMD passe sur un ecran vide ; il faut renvoyer une commande de navigation pour qu'il
+#   affiche le logo » au lieu d'afficher l'etat de la RB a la reprise) : la resync (reponse au hello du DMD) ne connaissait que les JEUX (rungame / rundemo / position sur un jeu) ; quand ES
+#   affichait un SYSTEME (Action=systembrowsing ou gamelistbrowsing sans jeu, ex. SystemId=lastplayed, favorites, snes...), elle repondait « default » -> le DMD reprenait une playlist vide
+#   (ecran noir). Desormais : systeme affiche sans jeu -> « system <SystemId> » (meme commande que la navigation, marquee.sh), le DMD affiche le logo du systeme courant.
 #
 # v9 - 2026-10-04 - safe-modify - BUG REEL corrige (retour utilisateur : « theme change dans ES, le DMD garde les logos de l'ancien theme ») : v8 envoyait « themeopt » puis
 #   « theme » dans la MEME milliseconde. Le DMD ne retient QU'UN paquet par passage de sa boucle de reception quand plusieurs arrivent ensemble (regle v7/v163 du firmware : le
@@ -198,6 +203,12 @@ def compute_current_state():
         if system_id and rom:
             return [("game", f"{system_id}/{rom}")]
         return [("default", "1")]
+
+    # v10 -- systeme affiche sans jeu (liste des systemes, ou liste de jeux dont le curseur est sur un dossier) : meme commande que la navigation en direct
+    if action in ("systembrowsing", "gamelistbrowsing"):
+        sysid = re.sub(r"[^A-Za-z0-9_.-]", "", system_id)
+        if sysid:
+            return [("system", sysid)]
 
     return [("default", "1")]
 

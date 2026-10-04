@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-04 (5) — Firmware v2.41 y script v10: «Reanudar DMD» muestra el estado actual de la Recalbox
+
+- **Corrección** (script `dmd_udp_resync` v10 — reinstálelo con el **Modo 9** y reinicie la Recalbox): tras **Reanudar DMD**, el DMD podía quedarse con la pantalla vacía hasta que se moviera por la Recalbox. Cuando la Recalbox mostraba un **sistema** (no un juego), respondía «playlist». Ahora envía el sistema actual y su logo aparece enseguida.
+- **Firmware** (v2.41): cerrar o salir de la configuración web ya no fuerza la pantalla de configuración una vez reanudado el DMD; una vista previa del reloj lanzada tras reanudar ya no se queda congelada en pantalla.
+- Actualice desde la página de configuración web (aviso «nueva versión disponible») o el instalador web.
+
 ## 2026-10-04 (4) — Firmware v2.40: la configuración web conserva sus cambios entre páginas
 
 - **Corrección**: en la configuración web del DMD, un ajuste cambiado en una página (por ejemplo el **modo Pinball** en la página de inicio) se perdía si pulsaba Guardar en otra página. Ahora los cambios hechos en cualquier página se conservan mientras navega, y **un solo Guardar / Guardar y reiniciar (en cualquier página) los guarda todos**.
