@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-04 (2) — PC Toolkit build 10365: default (US) console logos fixed
+
+- **Fix**: with the language / region variants, the **base logos** of a theme were taken from the theme's *neutral* path instead of its **US** variant. On themes where the two differ (for example **Midnight**: the neutral Super Nintendo logo is the Japanese *Super Famicom*), the DMD showed the Japanese logo for the default US region. Fixed in the package (**10 themes rebuilt**, a handful of console logos change per theme) and in the toolkit's own conversions (Mode 12).
+- **To get it**: reinstall / update your themes once more (Mode 12 flags them as outdated; or Mode 1 / 13).
+- **Reminder**: after **Mode 9** (Recalbox scripts), **restart the Recalbox** — the old scripts keep running in memory until then, so the DMD would not follow the Recalbox's language and region.
+
 ## 2026-10-04 — Firmware v2.38 and PC Toolkit build 10364: language and region follow your Recalbox, live
 
 - **Firmware** (v2.38) + **Recalbox script `dmd_udp_resync` v8** (reinstall with **Mode 9**): the DMD now uses the **language** and the **theme region** of your Recalbox. The **region** picks the console logos (*Super Famicom* / *Super Nintendo*, *Mega Drive* / *Genesis*…), the **language** picks the translated texts (*Favoris* / *Favorites*…). Change either in Recalbox and the DMD follows within seconds — no reinstall, no reboot. Also works for the default images (English, French, Spanish) when no theme is active.

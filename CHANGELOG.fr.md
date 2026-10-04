@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-04 (2) — Boîte à outils PC build 10365 : logos de consoles par défaut (US) corrigés
+
+- **Correctif** : avec les variantes de langue / région, les **logos de base** d'un thème étaient pris sur le chemin *neutre* du thème au lieu de sa variante **US**. Sur les thèmes où les deux diffèrent (par exemple **Midnight** : le logo neutre de la Super Nintendo est le *Super Famicom* japonais), le DMD affichait le logo japonais pour la région US par défaut. Corrigé dans le paquet (**10 thèmes reconstruits**, quelques logos de consoles changent par thème) et dans les conversions propres de la boîte à outils (Mode 12).
+- **Pour en profiter** : réinstallez / mettez à jour vos thèmes une fois de plus (le Mode 12 les signale comme périmés ; ou Mode 1 / 13).
+- **Rappel** : après le **Mode 9** (scripts Recalbox), **redémarrez la Recalbox** — les anciens scripts continuent de tourner en mémoire jusque-là, donc le DMD ne suivrait pas la langue et la région de la Recalbox.
+
 ## 2026-10-04 — Firmware v2.38 et boîte à outils PC build 10364 : la langue et la région suivent votre Recalbox, à la volée
 
 - **Firmware** (v2.38) + **script Recalbox `dmd_udp_resync` v8** (à réinstaller avec le **Mode 9**) : le DMD prend maintenant la **langue** et la **région du thème** de votre Recalbox. La **région** choisit les logos de consoles (*Super Famicom* / *Super Nintendo*, *Mega Drive* / *Genesis*…), la **langue** choisit les textes traduits (*Favoris* / *Favorites*…). Changez l'une ou l'autre dans la Recalbox et le DMD suit en quelques secondes — sans réinstaller, sans redémarrer. Fonctionne aussi pour les images par défaut (anglais, français, espagnol) quand aucun thème n'est actif.
