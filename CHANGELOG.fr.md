@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-04 (4) — Firmware v2.40 : la configuration web garde vos modifications d'une page à l'autre
+
+- **Correctif** : dans la configuration web du DMD, un réglage modifié sur une page (par exemple le **mode Pinball** sur l'accueil) était perdu si l'on appuyait sur Enregistrer depuis une autre page. Désormais les modifications faites sur n'importe quelle page sont conservées pendant que vous naviguez, et **un seul Enregistrer / Enreg. & Redémarrer (depuis n'importe quelle page) les enregistre toutes**.
+- Quand vous quittez avec **Reprendre DMD** ou **Redémarrer** alors que des modifications ne sont pas enregistrées, une boîte de dialogue vous le signale et propose **Enregistrer** / **Quitter quand même** (ou Annuler). Rien d'autre ne vous interrompt : passer d'une page à l'autre reste libre.
+- Mise à jour depuis la page de configuration web (avis « nouvelle version disponible ») ou l'installeur web.
+
 ## 2026-10-04 (3) — Firmware v2.39 et script v9 : le changement de thème dans Recalbox arrive bien au DMD
 
 - **Correctif** (script `dmd_udp_resync` v9 — à réinstaller avec le **Mode 9**, puis redémarrer la Recalbox) : changer de thème dans Recalbox pouvait laisser le DMD sur les logos de l'ancien thème. Les deux messages (langue/région, puis thème) partaient dans la même milliseconde et le DMD n'en gardait qu'un.

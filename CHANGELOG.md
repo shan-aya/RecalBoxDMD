@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-04 (4) — Firmware v2.40: web configuration keeps your changes across pages
+
+- **Fix**: on the DMD's web configuration, a setting changed on one page (for example **Pinball mode** on the home page) was lost if you pressed Save on another page. Now the changes you make on any page are kept while you move around, and **one Save / Save & Reboot (on any page) saves them all**.
+- When you leave with **Resume DMD** or **Reboot** while some changes are not saved, a dialog tells you and offers **Save** / **Leave anyway** (or Cancel). Nothing else interrupts you: moving between pages stays free.
+- Update from the web configuration page (“new version available” notice) or the web installer.
+
 ## 2026-10-04 (3) — Firmware v2.39 and script v9: theme changes in Recalbox reach the DMD
 
 - **Fix** (script `dmd_udp_resync` v9 — reinstall with **Mode 9**, then restart the Recalbox): changing the theme in Recalbox could leave the DMD on the previous theme's logos. The two messages (language/region, then theme) were sent in the same millisecond and the DMD kept only one.
