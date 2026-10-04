@@ -34,6 +34,8 @@ Desde el firmware **2.33**, el DMD puede mostrar los logos de tus consolas con e
 
 Un tema o un logo ausente de la tarjeta SD es inofensivo: el DMD vuelve al logo por defecto. Pasar del firmware 2.33 al 2.35 no requiere más que volver a flashear.
 
+**Desde el firmware 2.38 — el idioma y la región son automáticos.** La tarjeta SD contiene ahora todas las variantes (temas: subcarpetas `l_<idioma>/` y `r_<región>/`; imágenes por defecto: `_defaults/fr/` y `_defaults/es/`) y el DMD usa el idioma y la región del tema de tu Recalbox, incluso tras cambiarlos. Para tenerlo: flashea la **2.38**, reinstala los scripts de Recalbox con el **Modo 9** (`dmd_udp_resync` v8) y **reinstala una vez tus temas** (Modo 1, 12 o 13) y las imágenes por defecto (Modo 1 o 2) para que la tarjeta SD reciba las variantes — la caja de herramientas ya no pregunta el idioma. Hasta entonces, todo sigue funcionando con los logos en inglés / US.
+
 ## Lo que *no* necesitas hacer
 
 - Volver a escanear tus juegos, reconstruir tu tarjeta SD, regenerar ningún caché, ni tocar tus playlists — nada de eso ha cambiado.

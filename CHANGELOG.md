@@ -8,6 +8,13 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-04 — Firmware v2.38 and PC Toolkit build 10364: language and region follow your Recalbox, live
+
+- **Firmware** (v2.38) + **Recalbox script `dmd_udp_resync` v8** (reinstall with **Mode 9**): the DMD now uses the **language** and the **theme region** of your Recalbox. The **region** picks the console logos (*Super Famicom* / *Super Nintendo*, *Mega Drive* / *Genesis*…), the **language** picks the translated texts (*Favoris* / *Favorites*…). Change either in Recalbox and the DMD follows within seconds — no reinstall, no reboot. Also works for the default images (English, French, Spanish) when no theme is active.
+- **PC Toolkit** (build `10364`): **nothing left to choose** — the language question of Modes 1, 2 and 13 and the language / region lists of Mode 12 are gone. The toolkit installs the English / US base plus **every variant** (themes: `l_<language>/` and `r_<region>/` sub-folders; default images: `_defaults/fr/` and `_defaults/es/`), a few hundred KB more per theme.
+- **Theme package** rebuilt in the new format (10 themes). **One-time reinstall needed** to get the variants: Mode 1, 12 or 13 for the themes, Mode 1 or 2 for the default images. Until then everything keeps working with the English / US logos. Older toolkits install the base US logos only.
+- Reason: Recalbox's theme region is its own setting (default US, independent of the language), whereas the old package tied the language to the region — nine `recalbox-next` console logos differed from what the Recalbox showed.
+
 ## 2026-10-03 (7) — PC Toolkit build 10263: copy-to-SD panel fixed after Mode 13, SD column in Mode 12
 
 - **Fix**: after **Mode 13** (and Modes 2 and 11) launched from the Advanced tab, the **"copy to SD card" panel** was hidden right after the download ended. It now stays visible, so you can copy the files to the SD card straight away.

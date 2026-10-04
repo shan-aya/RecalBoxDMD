@@ -2,7 +2,13 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v7
+# Version actuelle : v8
+#
+# v8 - 2026-10-03 - safe-modify - LANGUE ET REGION A LA VOLEE (firmware v238 : commande UDP "CMD=themeopt ARG=<langue>,<region>", ex. "fr,eu"). Lit
+#   system.language (2 premieres lettres, defaut "en") et emulationstation.theme.region (us / eu / jp, defaut "us" -- ES ne deduit PAS la region de la langue :
+#   ThemeData.cpp, RecalboxConf.h). Envoye AVANT "theme", au HELLO du DMD et sur les PING des que la langue ou la region change : le DMD affiche alors les logos
+#   de theme (sous-dossiers l_<langue>/ et r_<region>/) ET les images par defaut (_defaults/<langue>/) dans la langue / la region de la Recalbox, sans reinstallation.
+#   Un firmware plus ancien ignore la commande (comportement inchange : base US / anglais).
 #
 # v7 - 2026-10-03 - safe-modify - THEME PAR DEFAUT : quand emulationstation.theme.folder est ABSENT de recalbox.conf (l'utilisateur n'a jamais
 #   change de theme), ES utilise "recalbox-next" (RecalboxConf.h : DefineGetterSetter(ThemeFolder, ..., "recalbox-next")). Jusqu'en v6 on
@@ -130,7 +136,7 @@ FEATURES_PREFIX = "FEATURES:"
 DMD_IP_CACHE_PATH = "/tmp/dmd_udp_ip"
 # v6 -- theme Recalbox (voir changelog v6).
 RECALBOX_CONF_PATH = "/recalbox/share/system/recalbox.conf"
-_last_theme_sent = {}  # ip du DMD -> dernier theme envoye (changement detecte sur les PING)
+_last_theme_sent = {}  # ip du DMD -> dernier (options, theme) envoye (changement detecte sur les PING)
 
 
 def log(msg):
@@ -230,15 +236,41 @@ def compute_theme():
     return "" if folder in ("", ".", "..") else folder
 
 
+def compute_theme_options():
+    """'<langue>,<region>' a annoncer au DMD (ex. 'fr,eu'), chaine vide si recalbox.conf est illisible.
+    langue = 2 premieres lettres de system.language (defaut en) ; region = emulationstation.theme.region si us/eu/jp, sinon us."""
+    values = {}
+    try:
+        with open(RECALBOX_CONF_PATH, "r", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line[0] in ";#" or "=" not in line:
+                    continue
+                key, val = line.split("=", 1)
+                if key.strip() in ("system.language", "emulationstation.theme.region"):
+                    values[key.strip()] = val.strip().lower()
+    except Exception as e:
+        log(f"ERREUR lecture {RECALBOX_CONF_PATH}: {e}")
+        return ""
+    m = re.match(r"^([a-z]{2})", values.get("system.language", "en_us"))
+    lang = m.group(1) if m else "en"
+    region = values.get("emulationstation.theme.region", "us")
+    return f"{lang},{region if region in ('us', 'eu', 'jp') else 'us'}"
+
+
 def send_theme(sock, dmd_ip, force=False):
-    """Envoie CMD=theme si force ou si la valeur a change depuis le dernier envoi a ce DMD."""
+    """Envoie CMD=themeopt (langue, region) puis CMD=theme si force ou si l'un des deux a change depuis le dernier envoi a ce DMD."""
+    opts = compute_theme_options()
     theme = compute_theme()
-    changed = _last_theme_sent.get(dmd_ip) != theme
+    state = (opts, theme)
+    changed = _last_theme_sent.get(dmd_ip) != state
     if force or changed:
+        if opts:
+            send_udp(sock, dmd_ip, "themeopt", opts)      # AVANT le theme : une seule selection cote DMD
         send_udp(sock, dmd_ip, "theme", theme)
         if changed:
-            log(f"theme pour {dmd_ip}: {theme or '(defaut)'}")
-        _last_theme_sent[dmd_ip] = theme
+            log(f"theme pour {dmd_ip}: {theme or '(defaut)'} ; langue/region: {opts or '(inconnues)'}")
+        _last_theme_sent[dmd_ip] = state
 
 
 def send_udp(sock, dmd_ip, cmd, arg):

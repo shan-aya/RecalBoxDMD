@@ -8,6 +8,13 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-04 — Firmware v2.38 et boîte à outils PC build 10364 : la langue et la région suivent votre Recalbox, à la volée
+
+- **Firmware** (v2.38) + **script Recalbox `dmd_udp_resync` v8** (à réinstaller avec le **Mode 9**) : le DMD prend maintenant la **langue** et la **région du thème** de votre Recalbox. La **région** choisit les logos de consoles (*Super Famicom* / *Super Nintendo*, *Mega Drive* / *Genesis*…), la **langue** choisit les textes traduits (*Favoris* / *Favorites*…). Changez l'une ou l'autre dans la Recalbox et le DMD suit en quelques secondes — sans réinstaller, sans redémarrer. Fonctionne aussi pour les images par défaut (anglais, français, espagnol) quand aucun thème n'est actif.
+- **Boîte à outils PC** (build `10364`) : **plus rien à choisir** — la question de langue des Modes 1, 2 et 13 et les listes langue / région du Mode 12 disparaissent. La boîte à outils installe la base anglais / US plus **toutes les variantes** (thèmes : sous-dossiers `l_<langue>/` et `r_<région>/` ; images par défaut : `_defaults/fr/` et `_defaults/es/`), quelques centaines de Ko de plus par thème.
+- **Paquet de thèmes** reconstruit dans le nouveau format (10 thèmes). **Une réinstallation est nécessaire une fois** pour obtenir les variantes : Mode 1, 12 ou 13 pour les thèmes, Mode 1 ou 2 pour les images par défaut. D'ici là, tout continue de fonctionner avec les logos anglais / US. Les anciennes boîtes à outils n'installent que les logos US de base.
+- Pourquoi : la région du thème est un réglage propre à la Recalbox (US par défaut, indépendant de la langue), alors que l'ancien paquet liait la langue à la région — neuf logos de consoles de `recalbox-next` différaient de ce que montrait la Recalbox.
+
 ## 2026-10-03 (7) — Boîte à outils PC build 10263 : panneau de copie vers la SD corrigé après le Mode 13, colonne SD dans le Mode 12
 
 - **Correctif** : après le **Mode 13** (et les Modes 2 et 11) lancé depuis l'onglet Avancé, le **panneau « copier sur la carte SD »** était masqué juste après la fin du téléchargement. Il reste maintenant visible : vous pouvez copier les fichiers sur la carte SD tout de suite.

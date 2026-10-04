@@ -34,6 +34,8 @@ From firmware **2.33** the DMD can show your console logos in the style of the t
 
 A theme or a logo that is missing from the SD card is harmless: the DMD falls back to the default logo. Updating the firmware from 2.33 to 2.35 needs nothing more than a reflash.
 
+**Since firmware 2.38 — language and region are automatic.** The SD card now holds every variant (themes: `l_<language>/` and `r_<region>/` sub-folders; default images: `_defaults/fr/` and `_defaults/es/`) and the DMD uses your Recalbox's language and theme region, even after you change them. To get it: flash **2.38**, reinstall the Recalbox scripts with **Mode 9** (`dmd_udp_resync` v8), and **reinstall your themes once** (Mode 1, 12 or 13) and the default images (Mode 1 or 2) so that the SD card receives the variants — the toolkit no longer asks for a language. Until you do, everything keeps working with the English / US logos.
+
 ## What you *don't* need to do
 
 - Re-scrape your games, rebuild your SD card, regenerate any cache, or touch your playlists — none of that changed.

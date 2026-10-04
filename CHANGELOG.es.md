@@ -8,6 +8,13 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-04 — Firmware v2.38 y caja de herramientas PC build 10364: el idioma y la región siguen a tu Recalbox, en directo
+
+- **Firmware** (v2.38) + **script de Recalbox `dmd_udp_resync` v8** (reinstálalo con el **Modo 9**): el DMD usa ahora el **idioma** y la **región del tema** de tu Recalbox. La **región** elige los logos de las consolas (*Super Famicom* / *Super Nintendo*, *Mega Drive* / *Genesis*…), el **idioma** elige los textos traducidos (*Favoritos* / *Favorites*…). Cambia uno u otro en Recalbox y el DMD lo sigue en pocos segundos — sin reinstalar, sin reiniciar. También funciona para las imágenes por defecto (inglés, francés, español) cuando no hay tema activo.
+- **Caja de herramientas PC** (build `10364`): **nada que elegir** — la pregunta de idioma de los Modos 1, 2 y 13 y las listas de idioma / región del Modo 12 desaparecen. La caja de herramientas instala la base inglés / US más **todas las variantes** (temas: subcarpetas `l_<idioma>/` y `r_<región>/`; imágenes por defecto: `_defaults/fr/` y `_defaults/es/`), unos cientos de KB más por tema.
+- **Paquete de temas** reconstruido en el nuevo formato (10 temas). **Hace falta reinstalar una vez** para obtener las variantes: Modo 1, 12 o 13 para los temas, Modo 1 o 2 para las imágenes por defecto. Hasta entonces todo sigue funcionando con los logos en inglés / US. Las cajas de herramientas antiguas solo instalan los logos US de base.
+- Motivo: la región del tema es un ajuste propio de Recalbox (US por defecto, independiente del idioma), mientras que el paquete antiguo ataba el idioma a la región — nueve logos de consolas de `recalbox-next` diferían de lo que mostraba Recalbox.
+
 ## 2026-10-03 (7) — Caja de herramientas PC build 10263: panel de copia a la SD corregido tras el Modo 13, columna SD en el Modo 12
 
 - **Corrección**: tras el **Modo 13** (y los Modos 2 y 11) lanzado desde la pestaña Avanzado, el **panel «copiar a la tarjeta SD»** se ocultaba justo al terminar la descarga. Ahora permanece visible, para copiar los archivos a la tarjeta SD enseguida.
