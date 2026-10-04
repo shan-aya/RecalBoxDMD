@@ -2,7 +2,12 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v8
+# Version actuelle : v9
+#
+# v9 - 2026-10-04 - safe-modify - BUG REEL corrige (retour utilisateur : « theme change dans ES, le DMD garde les logos de l'ancien theme ») : v8 envoyait « themeopt » puis
+#   « theme » dans la MEME milliseconde. Le DMD ne retient QU'UN paquet par passage de sa boucle de reception quand plusieurs arrivent ensemble (regle v7/v163 du firmware : le
+#   premier tant que le retard est petit) : « theme » etait jete, seul « themeopt » (identique, donc sans effet) passait. Confirme au moniteur serie : 2 changements de theme, 2 paquets
+#   themeopt recus, AUCUN paquet theme. Correctif : 0,5 s d'ecart entre les deux datagrammes (le firmware 2.39 traite en plus theme / themeopt directement a la reception).
 #
 # v8 - 2026-10-03 - safe-modify - LANGUE ET REGION A LA VOLEE (firmware v238 : commande UDP "CMD=themeopt ARG=<langue>,<region>", ex. "fr,eu"). Lit
 #   system.language (2 premieres lettres, defaut "en") et emulationstation.theme.region (us / eu / jp, defaut "us" -- ES ne deduit PAS la region de la langue :
@@ -206,6 +211,7 @@ def update_dmd_ip_cache(ip):
         log(f"ERREUR ecriture {DMD_IP_CACHE_PATH}: {e}")
 
 
+THEME_PACKET_GAP_S = 0.5   # v9 -- ecart entre CMD=themeopt et CMD=theme
 DEFAULT_THEME_FOLDER = "recalbox-next"   # valeur par defaut de emulationstation.theme.folder dans Recalbox 9/10/11
 
 
@@ -267,6 +273,7 @@ def send_theme(sock, dmd_ip, force=False):
     if force or changed:
         if opts:
             send_udp(sock, dmd_ip, "themeopt", opts)      # AVANT le theme : une seule selection cote DMD
+            time.sleep(THEME_PACKET_GAP_S)                # v9 : jamais 2 paquets dans le meme passage de la boucle de reception du DMD (un seul est retenu)
         send_udp(sock, dmd_ip, "theme", theme)
         if changed:
             log(f"theme pour {dmd_ip}: {theme or '(defaut)'} ; langue/region: {opts or '(inconnues)'}")

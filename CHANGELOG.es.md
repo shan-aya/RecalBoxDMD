@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-04 (3) — Firmware v2.39 y script v9: el cambio de tema en Recalbox llega al DMD
+
+- **Corrección** (script `dmd_udp_resync` v9 — reinstálelo con el **Modo 9** y reinicie la Recalbox): al cambiar de tema en Recalbox, el DMD podía quedarse con los logos del tema anterior. Los dos mensajes (idioma/región y luego tema) se enviaban en el mismo milisegundo y el DMD solo conservaba uno.
+- **Firmware** (v2.39): los mensajes de tema e idioma/región se aplican en cuanto llegan (ya no se puede perder ninguno); se **memorizan el último tema, idioma y región**, así que tras un arranque en frío el DMD muestra enseguida los logos correctos en lugar de los predeterminados; el logo en pantalla se **redibuja de inmediato** al cambiar de tema, idioma o región.
+- Actualice el firmware del DMD desde la página de configuración web (aviso «nueva versión disponible») o el instalador web.
+
 ## 2026-10-04 (2) — Caja de herramientas PC build 10365: logos de consolas por defecto (US) corregidos
 
 - **Corrección**: con las variantes de idioma / región, los **logos de base** de un tema se tomaban de la ruta *neutra* del tema en lugar de su variante **US**. En los temas donde ambas difieren (por ejemplo **Midnight**: el logo neutro de la Super Nintendo es el *Super Famicom* japonés), el DMD mostraba el logo japonés para la región US por defecto. Corregido en el paquete (**10 temas reconstruidos**, cambian unos pocos logos de consolas por tema) y en las conversiones propias de la caja de herramientas (Modo 12).

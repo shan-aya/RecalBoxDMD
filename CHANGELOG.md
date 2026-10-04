@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-04 (3) — Firmware v2.39 and script v9: theme changes in Recalbox reach the DMD
+
+- **Fix** (script `dmd_udp_resync` v9 — reinstall with **Mode 9**, then restart the Recalbox): changing the theme in Recalbox could leave the DMD on the previous theme's logos. The two messages (language/region, then theme) were sent in the same millisecond and the DMD kept only one.
+- **Firmware** (v2.39): theme and language/region messages are now applied the moment they arrive (none can be lost any more); the **last theme, language and region are remembered**, so after a cold start the DMD shows the right logos right away instead of the default ones; the logo on screen is **redrawn immediately** when you change the theme, language or region.
+- Update the DMD firmware from the web configuration page (“new version available” notice) or the web installer.
+
 ## 2026-10-04 (2) — PC Toolkit build 10365: default (US) console logos fixed
 
 - **Fix**: with the language / region variants, the **base logos** of a theme were taken from the theme's *neutral* path instead of its **US** variant. On themes where the two differ (for example **Midnight**: the neutral Super Nintendo logo is the Japanese *Super Famicom*), the DMD showed the Japanese logo for the default US region. Fixed in the package (**10 themes rebuilt**, a handful of console logos change per theme) and in the toolkit's own conversions (Mode 12).
