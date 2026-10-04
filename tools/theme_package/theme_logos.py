@@ -16,6 +16,10 @@ Sortie : <out>/<nom du theme, 31 car. max>/<systeme>.raw565 (8192 o) + _index.bi
 Sur la SD : systems/_defaults/_themes/<nom>/ (le firmware v233 lit ce chemin, voir DECISIONS.md).
 
 safe-modify -- v1 - 2026-10-03 - creation (prototype valide sur midnight : logos RB1 identiques au prototype).
+safe-modify -- v4 - 2026-10-04 - BUG REEL corrige (retour utilisateur : « sur midnight la Super Nintendo reste en version JP sur le DMD, meme en US ou EU ») : en mode variantes, les logos de BASE
+etaient convertis avec prefer=() = le chemin NEUTRE du theme, qui n'est pas la variante US (midnight : « snes - whlogo.svg » = la version japonaise), alors que les surcharges etaient calculees contre la base
+US (prefer_keys('en_US','us')). Resultat : region US (defaut) = logo japonais pour tout theme dont le chemin neutre differe de sa variante US. La base utilise maintenant prefer_keys('en_US','us') ;
+_source.json['prefer'] reste [] (comparaison stable avec la fenetre). PIPELINE_VERSION 3 : tout est a reconvertir / republier.
 safe-modify -- v3 - 2026-10-03 - VARIANTES DE LANGUE ET DE REGION A LA VOLEE : convert_theme() ecrit, en plus des logos de BASE (US / anglais), un sous-dossier par variante
 <theme>/l_<langue>/ (textes traduits, ex. l_fr) et <theme>/r_<region>/ (consoles regionales, r_eu / r_jp), chacun avec son _index.bin et SEULEMENT les logos qui
 different de la base. Le firmware (v238) choisit selon la langue et la region ANNONCEES par la Recalbox (script dmd_udp_resync v8) : plus de choix de langue / region
@@ -36,7 +40,7 @@ import urllib.request
 import zipfile
 
 W, H, SS = 128, 32, 8
-PIPELINE_VERSION = 2          # a incrementer quand le rendu change (declenche "a reconvertir" dans check)
+PIPELINE_VERSION = 3          # a incrementer quand le rendu change (declenche "a reconvertir" dans check)
 HUB_BASE = "https://gitlab.com/recalbox/themes/theme-hub/-/raw/main"
 HUB_ZIP_MIRROR = "https://media.recalbox.com/hub/-/raw/main"
 DEFAULT_RB_THEMES = r"\\RECALBOX\share\themes"
@@ -571,7 +575,9 @@ def write_overlay(src, diff, base_ids, out_dir):
 def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_label="dir", prefer=(), variants=True):
     """Convertit les logos de `src` dans out_dir. Retourne le dict _source.json ecrit.
     variants=True (defaut) : en plus de la base US / anglais, ecrit les surcharges l_<langue>/ et r_<region>/ (voir overlay_dirs) -- ignore si `prefer` est donne."""
-    logos, method = find_logos(src, known, prefer)
+    # v4 : en mode variantes (aucune preference imposee), la BASE est la variante US / anglais -- pas le chemin neutre du theme (qui peut etre la version japonaise)
+    base_prefer = tuple(prefer) if prefer else (prefer_keys("en_US", "us") if variants else ())
+    logos, method = find_logos(src, known, base_prefer)
     if not logos:
         raise RuntimeError("aucun logo de systeme detecte dans ce theme")
     os.makedirs(out_dir, exist_ok=True)

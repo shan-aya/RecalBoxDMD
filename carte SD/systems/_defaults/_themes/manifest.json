@@ -1,7 +1,7 @@
 {
  "format": 2,
- "pipeline": 2,
- "generated": "2026-10-03 18:23",
+ "pipeline": 3,
+ "generated": "2026-10-04 03:27",
  "themes": {
   "bounitos-midnight": {
    "version": 2.1,
@@ -476,7 +476,7 @@
     ]
    },
    "bytes": 3686400,
-   "rev": "55018366a9ea"
+   "rev": "3bd46b544d57"
   },
   "beudbeud-artbook-crt": {
    "version": 2.7,
@@ -1766,6 +1766,7 @@
     "pc98.raw565",
     "pce-cd.raw565",
     "pcengine.raw565",
+    "pcenginecd.raw565",
     "pcfx.raw565",
     "pcv2.raw565",
     "pet.raw565",
@@ -1872,8 +1873,8 @@
      "vic20.raw565"
     ]
    },
-   "bytes": 3293184,
-   "rev": "cb59f57db342"
+   "bytes": 3301376,
+   "rev": "105378cb1830"
   },
   "beudbeud-crt-vision": {
    "version": 1.2,
@@ -3250,7 +3251,7 @@
     ]
    },
    "bytes": 2203648,
-   "rev": "2a3cf0618cd4"
+   "rev": "40e840d4ab59"
   },
   "recalbox-240p": {
    "version": "2026-02-05-febce03",
