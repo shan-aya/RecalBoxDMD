@@ -36,6 +36,8 @@ A theme or a logo that is missing from the SD card is harmless: the DMD falls ba
 
 **Since firmware 2.38 — language and region are automatic.** The SD card now holds every variant (themes: `l_<language>/` and `r_<region>/` sub-folders; default images: `_defaults/fr/` and `_defaults/es/`) and the DMD uses your Recalbox's language and theme region, even after you change them. To get it: flash **2.38**, reinstall the Recalbox scripts with **Mode 9** (`dmd_udp_resync` v8), and **reinstall your themes once** (Mode 1, 12 or 13) and the default images (Mode 1 or 2) so that the SD card receives the variants — the toolkit no longer asks for a language. Until you do, everything keeps working with the English / US logos.
 
+**Since firmware 2.42 — you are told when the scripts are out of date.** The DMD home page and the PC Toolkit (build 10466 and later, at startup) also check the Recalbox scripts and say what to do: run the PC Toolkit and do a **Mode 9**, then restart the Recalbox. Nothing is read on the Recalbox (no SSH): the scripts (`dmd_udp_resync` v11) announce their number to the DMD, which shows it on its web page and gives it to the toolkit over Wi-Fi. Older scripts announce nothing — once the Recalbox has been running for a minute and a half, the DMD recognises that and asks for the Mode 9. Rule of thumb after any update: **firmware → Mode 9 → restart the Recalbox**.
+
 ## What you *don't* need to do
 
 - Re-scrape your games, rebuild your SD card, regenerate any cache, or touch your playlists — none of that changed.

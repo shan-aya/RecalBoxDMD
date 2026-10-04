@@ -3,6 +3,7 @@ name: Sync firmware version
 # La version du firmware est lue DANS le binaire publie (chaine "RBDMD_FWVER=M.mm;" ajoutee au firmware v2.36,
 # generee a la compilation a partir de FW_VERSION_NUM) puis recopiee dans :
 #   - docs/install/manifest.json  (page d'installation + page d'accueil)
+#   - la cle "scripts" du manifeste = SCRIPTS_BUNDLE de dmd_udp_resync.py (numero d'ensemble des scripts Recalbox)
 #   - le badge "firmware-vM.mm" des trois README
 # Plus aucun numero a changer a la main a chaque publication. Binaire sans marqueur (firmware <= 2.35) : rien n'est modifie.
 
@@ -11,6 +12,7 @@ on:
     branches: [main]
     paths:
       - "binaries/RecalBoxDMD_v2.0_merged.bin"
+      - "tools/recalbox_scripts/dmd_helpers/dmd_udp_resync.py"
   workflow_dispatch:
 
 permissions:
@@ -21,6 +23,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Sync the scripts bundle number into the manifest
+        shell: python
+        run: |
+          import re, sys
+          src = open("tools/recalbox_scripts/dmd_helpers/dmd_udp_resync.py", "rb").read()
+          m = re.search(rb"^SCRIPTS_BUNDLE\s*=\s*(\d+)", src, re.M)
+          if not m:
+              print("::warning::SCRIPTS_BUNDLE introuvable dans dmd_udp_resync.py - manifeste inchange")
+              sys.exit(0)
+          raw = open("docs/install/manifest.json", "rb").read()
+          new, n = re.subn(rb'("scripts"\s*:\s*)\d+', rb"\g<1>" + m.group(1), raw)
+          if n != 1:
+              print(f"::error::manifest.json : {n} occurrence(s) de la cle scripts (1 attendue)")
+              sys.exit(1)
+          if new != raw:
+              open("docs/install/manifest.json", "wb").write(new)
+          print("numero d'ensemble des scripts :", m.group(1).decode())
 
       - name: Read version from the binary and update files
         id: ver

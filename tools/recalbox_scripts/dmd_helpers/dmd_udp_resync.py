@@ -2,7 +2,11 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v10
+# Version actuelle : v11
+#
+# v11 - 2026-10-04 - safe-modify - NUMERO DE VERSION DES SCRIPTS annonce au DMD (« CMD=scriptver ARG=<SCRIPTS_BUNDLE> », a chaque hello) : le DMD l'expose dans sa page web et le toolkit le lit pour dire
+#   « scripts Recalbox a mettre a jour : lancez la boite a outils et faites un Mode 9 ». SCRIPTS_BUNDLE = numero d'ensemble des scripts publies dans tools/recalbox_scripts : A INCREMENTER A CHAQUE
+#   MODIFICATION D'UN SCRIPT PUBLIE (et le recopier dans docs/install/manifest.json, cle « scripts » -- le workflow sync-installer-version.yml le fait).
 #
 # v10 - 2026-10-04 - safe-modify - BUG REEL corrige (retour utilisateur : « quand je fais Reprendre DMD, le DMD passe sur un ecran vide ; il faut renvoyer une commande de navigation pour qu'il
 #   affiche le logo » au lieu d'afficher l'etat de la RB a la reprise) : la resync (reponse au hello du DMD) ne connaissait que les JEUX (rungame / rundemo / position sur un jeu) ; quand ES
@@ -222,6 +226,7 @@ def update_dmd_ip_cache(ip):
         log(f"ERREUR ecriture {DMD_IP_CACHE_PATH}: {e}")
 
 
+SCRIPTS_BUNDLE = 1   # v11 -- voir l'en-tete : a incrementer a chaque modification d'un script publie
 THEME_PACKET_GAP_S = 0.5   # v9 -- ecart entre CMD=themeopt et CMD=theme
 DEFAULT_THEME_FOLDER = "recalbox-next"   # valeur par defaut de emulationstation.theme.folder dans Recalbox 9/10/11
 
@@ -338,6 +343,7 @@ def main():
                 log(f"ERREUR ecriture {FEATURES_CACHE_PATH}: {e}")
             continue
 
+        send_udp(send_sock, addr[0], "scriptver", str(SCRIPTS_BUNDLE))  # v11 -- version des scripts, lue par la page web du DMD et le toolkit
         send_theme(send_sock, addr[0], force=True)  # v6 -- AVANT la resync : le logo systeme qui suit utilise deja le theme
         cmds = compute_current_state()
         log(f"hello de {addr[0]} -> resync {cmds}")

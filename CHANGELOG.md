@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-04 (6) — Firmware v2.42, script v11: the update check now covers the Recalbox scripts
+
+- **New**: the DMD's web page and the PC Toolkit (build `10466`, at startup) now also tell you when the **Recalbox scripts** are out of date, and what to do: **run the PC Toolkit and do a Mode 9, then restart the Recalbox**. A new firmware notice reminds you of it too.
+- How: the scripts (`dmd_udp_resync` v11, reinstall with **Mode 9**) announce their number to the DMD, which shows it on its web page and gives it to the toolkit over Wi-Fi. Nothing is read on the Recalbox itself. Scripts older than v11 announce nothing: the DMD recognises them once the Recalbox has been running for a minute and a half.
+- Update the firmware from the web configuration page or the web installer, then run a **Mode 9** once.
+
 ## 2026-10-04 (5) — Firmware v2.41 and script v10: “Resume DMD” shows the Recalbox's current state
 
 - **Fix** (script `dmd_udp_resync` v10 — reinstall with **Mode 9**, then restart the Recalbox): after **Resume DMD** the DMD could stay on an empty screen until you moved in the Recalbox. When the Recalbox was showing a **system** (not a game), it answered “playlist”. It now sends the current system, so its logo appears right away.
