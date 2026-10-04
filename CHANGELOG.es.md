@@ -8,6 +8,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-04 (9) — Firmware v2.45: las imágenes traducidas de Favoritos / Último jugado / géneros ganan a las del tema, en inglés
+
+- **Corrección**: con un idioma de Recalbox que tiene imágenes por defecto traducidas (francés, español) y un tema que aporta sus propios logos de *Favoritos*, *Último jugado* o de géneros **sin variante para ese idioma** (por ejemplo Midnight en español: solo existe una variante francesa), el DMD mostraba el logo en inglés del tema aunque la imagen traducida estuviera en la tarjeta SD. Ahora se usa la imagen traducida; las consolas conservan el logo del tema, y una variante de idioma del propio tema sigue teniendo prioridad (Midnight en francés no cambia para Favoritos y Último jugado).
+- Actualización desde la página de configuración web (botón **Actualizar ahora (Wi-Fi)**) o la caja de herramientas PC (**Modo 14**). No hay que reinstalar nada en la tarjeta SD.
+
 ## 2026-10-04 (8) — Firmware v2.44 y caja de herramientas PC build 10567: actualización del DMD por Wi-Fi
 
 - **Nuevo**: el DMD se actualiza ahora solo desde GitHub. El aviso « nueva versión disponible » de su página web incluye un botón **Actualizar ahora (Wi-Fi)**, y la caja de herramientas PC un nuevo **Modo 14 — Firmware del DMD (Wi-Fi)**, que encuentra el DMD, compara versiones e inicia la actualización. El DMD descarga él mismo el firmware (unos 2 minutos, pantalla apagada mientras tanto, varios reinicios), comprueba su tamaño y su SHA-256 antes de instalarlo y vuelve solo al firmware anterior si la descarga falla o si el nuevo no arranca.

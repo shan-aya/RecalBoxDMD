@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-04 (9) — Firmware v2.45: translated Favorites / Last played / genre images now win over the theme's English ones
+
+- **Fix**: with a Recalbox language that has translated default images (French, Spanish) and a theme that provides its own *Favorites*, *Last played* or genre logos but **no variant for that language** (for example Midnight in Spanish: only a French variant exists), the DMD showed the theme's English logo even though the translated image was on the SD card. The translated image is now used; consoles keep the theme's logo, and a language variant provided by the theme still takes priority (Midnight in French is unchanged for Favorites and Last played).
+- Update from the web configuration page (**Update now (Wi-Fi)** button) or the PC Toolkit (**Mode 14**). Nothing to reinstall on the SD card.
+
 ## 2026-10-04 (8) — Firmware v2.44 and PC Toolkit build 10567: update the DMD over Wi-Fi
 
 - **New**: the DMD now updates itself from GitHub. The “new version available” notice on its web page gets an **Update now (Wi-Fi)** button, and the PC Toolkit a new **Mode 14 — DMD firmware (Wi-Fi)**, which finds the DMD, compares versions and starts the update. The DMD downloads the firmware itself (about 2 minutes, screen dark meanwhile, several restarts), checks its size and SHA-256 before installing and goes back to the previous firmware on its own if the download fails or the new one does not start.
