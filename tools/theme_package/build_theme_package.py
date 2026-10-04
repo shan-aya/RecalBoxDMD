@@ -18,6 +18,9 @@ Usage : python build_theme_package.py <dossier _themes> [--known <dossier _defau
   --summary     : ecrit un compte rendu Markdown des changements (corps de la Pull Request du workflow GitHub).
 Dependances : resvg-py, numpy, pillow (versions figees dans requirements.txt : le rendu doit rester reproductible).
 
+safe-modify -- v8 - 2026-10-03 - VARIANTES A LA VOLEE (format 2) : plus de surcharges fr/es construites avec une region eu. Le paquet contient la BASE (US / anglais) + des sous-dossiers
+l_<langue>/ (textes traduits) et r_<region>/ (consoles eu / jp), chacun avec _index.bin et seulement les logos qui different ; le DMD choisit selon la langue et la region de la Recalbox.
+Manifeste : overlays = {"l_fr": [...], "r_eu": [...]}. Les anciens toolkits (cles fr/es) n'installent plus que la base US.
 safe-modify -- v7 - 2026-10-03 - THEMES SYSTEME de Recalbox (recalbox-next, recalbox-240p ; theme_logos v2 : tl.SYSTEM_THEMES / open_hub_source) construits depuis l'archive GitLab du depot
 recalbox/recalbox-themes comme les themes du hub (packaged_from = "system"). Redistribution autorisee par Recalbox (accord declare par le mainteneur le 2026-10-03).
 v6 - 2026-10-03 - mode --incremental + --summary (workflow GitHub Actions "Update theme logos"), skipped_versions.
@@ -29,6 +32,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import sys
 import time
@@ -38,7 +42,7 @@ import theme_logos as tl   # noqa: E402
 
 LANGS = {"en": "en_US", "fr": "fr_FR", "es": "es_ES"}
 REGIONS = {"en": "us", "fr": "eu", "es": "eu"}   # region d origine des consoles associee a chaque langue (fr/es -> logos de consoles europeens)
-PACKAGE_FORMAT = 1
+PACKAGE_FORMAT = 2
 NO_LOGO_REASON = "aucun logo de système exploitable"
 
 
@@ -142,10 +146,7 @@ def build(out_root, known_dir, only=None, rb_root=None, log=print, incremental=F
                 manifest["themes"][name] = old_themes[name]
                 changes["errors"].append(f"{folder} : source introuvable, version précédente conservée")
             continue
-        by_lang = {}
-        for code, lang in LANGS.items():
-            by_lang[code] = tl.find_logos(src, known, tl.prefer_keys(lang, REGIONS[code]))[0]
-        base = by_lang["en"]
+        base = tl.find_logos(src, known, tl.prefer_keys("en_US", "us"))[0]
         if not base:
             log(f"[{folder}] aucun logo de systeme : ignore")
             if name in old_themes:      # avait des logos avant : ne pas les perdre sur un echec de detection, a examiner
@@ -162,29 +163,15 @@ def build(out_root, known_dir, only=None, rb_root=None, log=print, incremental=F
         hub_info = {"hub_version": hv} if folder in hub else {}
         hub_info["packaged_from"] = origin
         tl.convert_theme(src, out, known, log=lambda s, f=folder: log(f"[{f}] {s}"), hub_info=hub_info,
-                         source_label="package", prefer=tl.prefer_keys(LANGS["en"]))
+                         source_label="package", variants=True)
         base_files = sorted(f for f in os.listdir(out) if f.endswith(".raw565"))
+        overlays = {}
+        for code in sorted(d for d in os.listdir(out) if re.fullmatch(r"[lr]_[a-z]{2}", d) and os.path.isdir(os.path.join(out, d))):
+            overlays[code] = sorted(f for f in os.listdir(os.path.join(out, code)) if f.endswith(".raw565"))
         entry = {"version": hv, "packaged_from": origin, "variants": tl.detect_variants(src, known),
-                 "files": base_files, "overlays": {}, "bytes": sum(os.path.getsize(os.path.join(out, f)) for f in base_files)}
-        for code in ("fr", "es"):
-            diff = {sid: f for sid, f in by_lang[code].items() if base.get(sid) != f}
-            if not diff:
-                continue
-            odir = os.path.join(out, code)
-            os.makedirs(odir, exist_ok=True)
-            written = []
-            for sid, rel in sorted(diff.items()):
-                data = tl.convert_bytes(src.read(rel), rel.lower().endswith(".svg"))
-                names = [sid]
-                a = _alias_name(sid, set(base))
-                if a:
-                    names.append(a)
-                for n in names:
-                    with open(os.path.join(odir, n + ".raw565"), "wb") as f:
-                        f.write(data)
-                    written.append(n + ".raw565")
-            entry["overlays"][code] = sorted(written)
-            entry["bytes"] += sum(os.path.getsize(os.path.join(odir, w)) for w in written)
+                 "files": base_files, "overlays": overlays,
+                 "bytes": sum(os.path.getsize(os.path.join(out, f)) for f in base_files)
+                 + sum(os.path.getsize(os.path.join(out, c, f)) for c, fl in overlays.items() for f in fl)}
         if rf is not None:
             log(f"[{folder}] telecharge : {rf.fetched / 1e6:.1f} Mo")
         entry["rev"] = theme_rev(out)
@@ -198,7 +185,7 @@ def build(out_root, known_dir, only=None, rb_root=None, log=print, incremental=F
             changes["new"].append(f"{folder} v{hv}")
         elif old_entry.get("rev") != entry["rev"] or str(old_entry.get("version")) != str(hv):
             changes["updated"].append(f"{folder} v{old_entry.get('version')} → v{hv}" + ("" if old_entry.get("rev") != entry["rev"] else " (contenu identique)"))
-        log(f"[{folder}] base {len(base_files)} fichiers ; surcharges : " + (", ".join(f"{k}={len(v)}" for k, v in entry["overlays"].items()) or "aucune"))
+        log(f"[{folder}] base {len(base_files)} fichiers ; variantes : " + (", ".join(f"{k}={len(v)}" for k, v in entry["overlays"].items()) or "aucune"))
 
     # --- themes d'un ancien paquet non traites ici (filtre --only) : conserves ; retires du hub : supprimes
     if reuse:

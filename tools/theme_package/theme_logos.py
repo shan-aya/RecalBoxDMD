@@ -16,6 +16,10 @@ Sortie : <out>/<nom du theme, 31 car. max>/<systeme>.raw565 (8192 o) + _index.bi
 Sur la SD : systems/_defaults/_themes/<nom>/ (le firmware v233 lit ce chemin, voir DECISIONS.md).
 
 safe-modify -- v1 - 2026-10-03 - creation (prototype valide sur midnight : logos RB1 identiques au prototype).
+safe-modify -- v3 - 2026-10-03 - VARIANTES DE LANGUE ET DE REGION A LA VOLEE : convert_theme() ecrit, en plus des logos de BASE (US / anglais), un sous-dossier par variante
+<theme>/l_<langue>/ (textes traduits, ex. l_fr) et <theme>/r_<region>/ (consoles regionales, r_eu / r_jp), chacun avec son _index.bin et SEULEMENT les logos qui
+different de la base. Le firmware (v238) choisit selon la langue et la region ANNONCEES par la Recalbox (script dmd_udp_resync v8) : plus de choix de langue / region
+dans le toolkit. Ordre de recherche : langue, region, base (meme priorite que find_logos). PIPELINE_VERSION 2 (reconversion de tous les themes).
 safe-modify -- v2 - 2026-10-03 - THEMES SYSTEME de Recalbox (SYSTEM_THEMES, ici recalbox-next = le theme PAR DEFAUT de Recalbox 10+, absent du theme-hub et du dossier share/themes de la Recalbox) : proposes comme des themes du hub (hub_catalog) mais telecharges depuis l'archive GitLab du depot recalbox/recalbox-themes (dossier du theme seulement, ~26 Mo, mis en cache) et convertis EN LOCAL. Licence CC BY-NC-ND 4.0 : pas de redistribution des logos convertis (ils ne vont donc PAS dans le paquet GitHub du projet).
 """
 import argparse
@@ -24,6 +28,7 @@ import io
 import json
 import os
 import re
+import shutil
 import struct
 import sys
 import time
@@ -31,7 +36,7 @@ import urllib.request
 import zipfile
 
 W, H, SS = 128, 32, 8
-PIPELINE_VERSION = 1          # a incrementer quand le rendu change (declenche "a reconvertir" dans check)
+PIPELINE_VERSION = 2          # a incrementer quand le rendu change (declenche "a reconvertir" dans check)
 HUB_BASE = "https://gitlab.com/recalbox/themes/theme-hub/-/raw/main"
 HUB_ZIP_MIRROR = "https://media.recalbox.com/hub/-/raw/main"
 DEFAULT_RB_THEMES = r"\\RECALBOX\share\themes"
@@ -513,8 +518,59 @@ def detect_variants(src, known=None):
             out["region"].append(reg)
     return out
 
-def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_label="dir", prefer=()):
-    """Convertit les logos de `src` dans out_dir. Retourne le dict _source.json ecrit."""
+REGION_CODES = ("eu", "jp")          # regions proposees par les themes en plus de la base (us)
+
+
+def overlay_dirs(src, known=None):
+    """Variantes d'un theme sous forme de surcharges : {"l_fr": {systeme: fichier}, "r_eu": {...}} -- SEULEMENT les logos qui different de
+    la base (US / anglais). l_<langue> : langues trouvees dans le theme (attributs path.fr / path.fr_FR...), r_<region> : eu / jp.
+    La base est celle de prefer_keys("en_US", "us") ; une variante est calculee seule (langue sans region, region sans langue)."""
+    base = find_logos(src, known, prefer_keys("en_US", "us"))[0]
+    keys = set(_xml_logo_templates(src)[1])
+    langs = {}
+    for k in keys:
+        if k in ("us",) + REGION_CODES:
+            continue
+        if re.fullmatch(r"[a-z]{2}", k):
+            langs.setdefault(k, k.upper())
+        elif re.fullmatch(r"[a-z]{2}_[a-z]{2}", k):
+            langs.setdefault(k[:2], k[3:].upper())
+    out = {}
+    for lang, cc in sorted(langs.items()):
+        if lang == "en":
+            continue
+        cur = find_logos(src, known, prefer_keys(f"{lang}_{cc}", "us"))[0]
+        diff = {sid: f for sid, f in cur.items() if base.get(sid) != f}
+        if diff:
+            out[f"l_{lang}"] = diff
+    for reg in REGION_CODES:
+        cur = find_logos(src, known, prefer_keys("en_US", reg))[0]
+        diff = {sid: f for sid, f in cur.items() if base.get(sid) != f}
+        if diff:
+            out[f"r_{reg}"] = diff
+    return out
+
+
+def write_overlay(src, diff, base_ids, out_dir):
+    """Ecrit une surcharge (logos qui different + alias 'auto-X' -> 'X' comme la base) et son _index.bin. Retourne les noms de fichiers .raw565."""
+    os.makedirs(out_dir, exist_ok=True)
+    written = []
+    for sid, rel in sorted(diff.items()):
+        data = convert_bytes(src.read(rel), rel.lower().endswith(".svg"))
+        names = [sid]
+        if sid.startswith("auto-") and len(sid) > 5 and sid[5:] not in base_ids:
+            names.append(sid[5:])
+        for n in names:
+            with open(os.path.join(out_dir, n + ".raw565"), "wb") as f:
+                f.write(data)
+            written.append(n + ".raw565")
+    write_index(out_dir)
+    return sorted(written)
+
+
+def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_label="dir", prefer=(), variants=True):
+    """Convertit les logos de `src` dans out_dir. Retourne le dict _source.json ecrit.
+    variants=True (defaut) : en plus de la base US / anglais, ecrit les surcharges l_<langue>/ et r_<region>/ (voir overlay_dirs) -- ignore si `prefer` est donne."""
     logos, method = find_logos(src, known, prefer)
     if not logos:
         raise RuntimeError("aucun logo de systeme detecte dans ce theme")
@@ -538,6 +594,17 @@ def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_lab
                 g.write(f.read())
             alias.append(a)
     n_idx = write_index(out_dir)
+    overlays = {}
+    if os.path.isdir(out_dir):
+        for d in os.listdir(out_dir):      # anciennes surcharges : retirees (une reconversion remplace tout)
+            if re.fullmatch(r"[lr]_[a-z]{2}", d) and os.path.isdir(os.path.join(out_dir, d)):
+                shutil.rmtree(os.path.join(out_dir, d), ignore_errors=True)
+    if variants and not prefer:
+        try:
+            for code, diff in overlay_dirs(src, known).items():
+                overlays[code] = write_overlay(src, diff, set(logos), os.path.join(out_dir, code))
+        except Exception as e:
+            log(f"variantes de langue/region non ecrites : {type(e).__name__}: {e}")
     sig = logo_signature(logos, src)
     info = {
         "pipeline": PIPELINE_VERSION,
@@ -548,6 +615,7 @@ def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_lab
         "alias_count": len(alias),
         "index_count": n_idx,
         "errors": errors[:20],
+        "overlays": {k: len(v) for k, v in overlays.items()},
         "signature": sig,
         "converted": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
@@ -559,7 +627,8 @@ def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_lab
         info.update(hub_info)
     with open(os.path.join(out_dir, "_source.json"), "w", encoding="utf-8") as f:
         json.dump(info, f, indent=2, ensure_ascii=False)
-    log(f"{len(made)} logos ({method}) + {len(alias)} alias, index {n_idx}, {len(errors)} echec(s)")
+    log(f"{len(made)} logos ({method}) + {len(alias)} alias, index {n_idx}, {len(errors)} echec(s)"
+        + ("" if not overlays else " ; variantes : " + ", ".join(f"{k}={len(v)}" for k, v in sorted(overlays.items()))))
     return info
 
 
