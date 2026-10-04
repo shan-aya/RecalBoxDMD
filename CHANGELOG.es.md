@@ -8,6 +8,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-04 (7) — Firmware v2.43: los logos de tema de Recalbox también se aplican a los sistemas de género
+
+- **Corrección**: en Recalbox 10.1, los sistemas de género (Deportes, Estrategia, Plataformas de acción…) y sistemas virtuales como *Últimos jugados* conservaban las imágenes por defecto del DMD aunque hubiera un tema seleccionado. EmulationStation los anuncia como `genre-<nombre>` pero busca su logo de tema como `auto-<nombre>`. Ahora el DMD prueba `auto-<nombre>` cuando el tema no tiene logo con el nombre anunciado (incluidas las variantes de idioma y región). No hay que reinstalar nada: los paquetes de temas ya contienen estos logos (Midnight incluye, por ejemplo, `auto-sports`, `auto-strategy`…).
+- Actualice desde la página de configuración web (aviso «nueva versión disponible») o el instalador web.
+
 ## 2026-10-04 (6) — Firmware v2.42, script v11: la comprobación de actualizaciones cubre también los scripts de Recalbox
 
 - **Novedad**: la página web del DMD y la caja de herramientas del PC (build `10466`, al arrancar) avisan también cuando los **scripts de Recalbox** no están al día, e indican qué hacer: **ejecute la caja de herramientas del PC y haga un Modo 9, luego reinicie la Recalbox**. El aviso de nuevo firmware también lo recuerda.
