@@ -15,6 +15,8 @@
 </p>
 <p align="center"><sub>📹 Real footage, not a mockup — the marquee updates live as you browse games · <a href="medias/dmd_in_action.mp4">watch the full clip (MP4)</a></sub></p>
 
+<p align="center"><a href="https://youtu.be/xF8O88XXSwU"><img src="https://img.youtube.com/vi/xF8O88XXSwU/hqdefault.jpg" alt="Video: RecalBoxDMD overview, assembly and installation" width="420"></a><br><sub>🎬 <b>Video guide</b> — overview, assembly and installation, by Jamyz Gaming · <a href="https://youtu.be/xF8O88XXSwU">YouTube</a></sub></p>
+
 <p align="center">
   <img src="medias/clock_themes/00_super_mario.gif" width="140" alt="Super Mario clock theme">
   <img src="medias/clock_themes/02_pac_man.gif" width="140" alt="Pac-Man clock theme">
@@ -173,6 +175,8 @@ The toolkit ships with 9 visual skins (SNES, Mega Drive, Dreamcast, PlayStation,
 *(Also available as a standalone page: [QUICK-START.md](QUICK-START.md))*
 
 <p align="center"><b>🚀 Zero to a working marquee in 4 steps 🚀</b></p>
+
+🎬 *Prefer to watch? The [video guide](https://youtu.be/xF8O88XXSwU) covers the overview, the assembly and the installation.*
 
 <table align="center">
 <tr>

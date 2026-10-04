@@ -15,6 +15,8 @@
 </p>
 <p align="center"><sub>📹 Imágenes reales, no un montaje — el marquee se actualiza en vivo al navegar · <a href="medias/dmd_in_action.mp4">ver el clip completo (MP4)</a></sub></p>
 
+<p align="center"><a href="https://youtu.be/xF8O88XXSwU"><img src="https://img.youtube.com/vi/xF8O88XXSwU/hqdefault.jpg" alt="Vídeo: presentación, montaje e instalación de RecalBoxDMD" width="420"></a><br><sub>🎬 <b>Vídeo</b> — presentación, montaje e instalación, por Jamyz Gaming · <a href="https://youtu.be/xF8O88XXSwU">YouTube</a></sub></p>
+
 <p align="center">
   <img src="medias/clock_themes/00_super_mario.gif" width="140" alt="Tema de reloj Super Mario">
   <img src="medias/clock_themes/02_pac_man.gif" width="140" alt="Tema de reloj Pac-Man">
@@ -173,6 +175,8 @@ La herramienta incluye 9 temas visuales (SNES, Mega Drive, Dreamcast, PlayStatio
 *(También disponible como página independiente: [QUICK-START.md](QUICK-START.es.md))*
 
 <p align="center"><b>🚀 De cero a un marquee funcionando en 4 pasos 🚀</b></p>
+
+🎬 *¿Prefieres verlo? El [vídeo](https://youtu.be/xF8O88XXSwU) cubre la presentación, el montaje y la instalación.*
 
 <table align="center">
 <tr>
