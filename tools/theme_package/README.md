@@ -9,6 +9,7 @@ Users get it through the PC Toolkit (Mode 1 and the "Recalbox theme logos" windo
 | `theme_logos.py` | Engine (theme-hub catalogue, logo detection, SVG/PNG → `.raw565`, `_index.bin`). |
 | `build_theme_package.py` | Builds the package; `--incremental` only rebuilds themes whose hub version changed. |
 | `verify_package.py` | Rebuilds everything in a temp folder and compares each theme `rev` with the published manifest. |
+| `verify_package_semantics.py` | For every theme, system, language and region: checks that the logo the DMD picks (language variant, region variant, base) is the one EmulationStation would pick (rules read from the theme XML). Run by the workflow before any Pull Request. |
 | `requirements.txt` | Pinned versions (the rendering must stay reproducible). |
 
 The GitHub Action `.github/workflows/update-theme-logos.yml` runs the incremental build and opens a Pull Request

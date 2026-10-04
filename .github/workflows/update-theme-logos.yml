@@ -52,6 +52,12 @@ jobs:
           "carte SD/systems/_defaults/_themes"
           --known "carte SD/systems/_defaults"
 
+      - name: Verify language / region selection against EmulationStation (all themes)
+        run: >
+          python tools/theme_package/verify_package_semantics.py
+          "carte SD/systems/_defaults/_themes"
+          --known "carte SD/systems/_defaults"
+
       - name: Incremental build
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.verify) }}
         run: >
@@ -60,6 +66,13 @@ jobs:
           --known "carte SD/systems/_defaults"
           --incremental
           --summary "$RUNNER_TEMP/summary.md"
+
+      - name: Verify language / region selection of the rebuilt package (all themes)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.verify) }}
+        run: >
+          python tools/theme_package/verify_package_semantics.py
+          "carte SD/systems/_defaults/_themes"
+          --known "carte SD/systems/_defaults"
 
       - name: Pull Request
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.verify) }}
