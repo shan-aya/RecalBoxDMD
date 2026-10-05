@@ -56,6 +56,19 @@ USER_AGENT = "RecalBoxDMD-Toolkit/theme_logos"
 
 
 # --------------------------------------------------------------------------- noms
+def version_newer(new, old):
+    """True si la version `new` est strictement plus recente que `old`. Versions pointees (1.4, 2.1, 1.41) comparees numeriquement ; sinon (dates, hash) : simple difference.
+    Evite qu'un hub EN RETARD (ex. Dashboard-X 1.4) soit pris pour une mise a jour d'une copie Recalbox plus recente (1.5)."""
+    def parse(v):
+        m = re.fullmatch(r"\s*(\d+(?:\.\d+)*)\s*", str(v))
+        return tuple(int(x) for x in m.group(1).split(".")) if m else None
+    a, b = parse(new), parse(old)
+    if a is not None and b is not None:
+        n = max(len(a), len(b))
+        return a + (0,) * (n - len(a)) > b + (0,) * (n - len(b))
+    return str(new) != str(old)
+
+
 def theme_dir_name(folder):
     """Meme assainissement que le firmware (CMD=theme) : [A-Za-z0-9._-], 31 car. max."""
     clean = re.sub(r"[^A-Za-z0-9._-]", "", folder or "")[:31]
@@ -311,7 +324,7 @@ class ZipSource:
 # --------------------------------------------------------------------------- detection des logos
 IMG_EXT = (".svg", ".png")
 # noms qui ne sont pas des systemes (images de manettes, copies...) meme s'ils tombent dans le modele de chemin
-_NOISE = re.compile(r"[()\s]|_(controller|console|consolegame|game|bg|background)$", re.I)
+_NOISE = re.compile(r"[()\s@]|_(controller|console|consolegame|game|bg|background)$", re.I)   # « @ » exclu : x@fr.svg = variante de langue (Dashboard-X 1.5) non utilisee par la Recalbox 10.1.1, pas un systeme
 # suffixes de decoration courants autour du nom de systeme dans les themes
 _STRIP = [r"\s*-\s*whlogo$", r"[-_ ]?logo$", r"^logo[-_ ]?"]
 
@@ -827,7 +840,7 @@ def check_status(out_root, rb_themes=None, use_hub=True, known=None, log=print, 
         if local:
             if local.get("pipeline", 0) < PIPELINE_VERSION:
                 st, why = "MAJ", f"rendu v{local.get('pipeline')} -> v{PIPELINE_VERSION}"
-            elif local.get("source") in ("hub", "package") and local.get("hub_version") is not None and str(local.get("hub_version")) != str(h.get("version")):
+            elif local.get("source") in ("hub", "package") and local.get("hub_version") is not None and version_newer(h.get("version"), local.get("hub_version")):
                 st, why = "MAJ", f"hub {local.get('hub_version')} -> {h.get('version')}"
             else:
                 if local.get("source") == "hub" and prefer and local.get("prefer") and list(local["prefer"]) != list(prefer):

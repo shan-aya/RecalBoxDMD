@@ -18,6 +18,7 @@ Usage : python build_theme_package.py <dossier _themes> [--known <dossier _defau
   --summary     : ecrit un compte rendu Markdown des changements (corps de la Pull Request du workflow GitHub).
 Dependances : resvg-py, numpy, pillow (versions figees dans requirements.txt : le rendu doit rester reproductible).
 
+safe-modify -- v9 - 2026-10-05 - LA RECALBOX COMME SOURCE : --prefer-rb (avec --rb et --only) construit les themes choisis depuis leur copie INSTALLEE sur la Recalbox (le hub peut etre en retard : Dashboard-X 1.4 publie, 1.5 installee) ; version du paquet = version du theme.xml ; entree marquee packaged_from="rb". Le mode --incremental (workflow du lundi, sans Recalbox) CONSERVE une entree packaged_from="rb" tant que la version du hub n'est pas strictement plus recente (tl.version_newer), au lieu de la reconstruire depuis un hub en retard.
 safe-modify -- v8 - 2026-10-03 - VARIANTES A LA VOLEE (format 2) : plus de surcharges fr/es construites avec une region eu. Le paquet contient la BASE (US / anglais) + des sous-dossiers
 l_<langue>/ (textes traduits) et r_<region>/ (consoles eu / jp), chacun avec _index.bin et seulement les logos qui different ; le DMD choisit selon la langue et la region de la Recalbox.
 Manifeste : overlays = {"l_fr": [...], "r_eu": [...]}. Les anciens toolkits (cles fr/es) n'installent plus que la base US.
@@ -46,10 +47,23 @@ PACKAGE_FORMAT = 2
 NO_LOGO_REASON = "aucun logo de système exploitable"
 
 
-def _open_source(folder, hub, rb_root):
+def _rb_version(rb_dir):
+    """Version declaree par le theme installe (attribut version de <theme> dans theme.xml), ou None."""
+    try:
+        with open(os.path.join(rb_dir, "theme.xml"), encoding="utf-8", errors="replace") as f:
+            m = re.search(r"<theme\b[^>]*\bversion=\"([^\"]+)\"", f.read(4000))
+        return m.group(1) if m else None
+    except OSError:
+        return None
+
+
+def _open_source(folder, hub, rb_root, prefer_rb=False):
     """ZIP du THEME-HUB en priorite (reference publique/stable : decision utilisateur 2026-10-03, les copies installees sur une
     Recalbox de test sont trop variables) ; copie de la Recalbox seulement si le theme n est pas dans le hub ET que rb_root est fourni."""
     h = hub.get(folder)
+    rb_first = os.path.join(rb_root, folder) if (prefer_rb and rb_root) else ""
+    if rb_first and os.path.exists(os.path.join(rb_first, "theme.xml")):
+        return tl.DirSource(rb_first), "rb", None          # v9 : copie installee sur la Recalbox = reference
     if h and h.get("zips"):
         src, rf = tl.open_hub_source(h)          # theme du hub : ZIP distant lu par morceaux ; theme systeme : archive GitLab du dossier
         return src, ("system" if h.get("system") else "hub"), rf
@@ -105,7 +119,7 @@ def _write_summary(path, changes, total_themes):
         f.write("\n".join(lines) + "\n")
 
 
-def build(out_root, known_dir, only=None, rb_root=None, log=print, incremental=False, summary_path=None):
+def build(out_root, known_dir, only=None, rb_root=None, log=print, incremental=False, summary_path=None, prefer_rb=False):
     known = tl.known_systems_from_dir(known_dir)
     hub = {h["folder"]: h for h in tl.hub_catalog() if h.get("active", True)}
     hub_names = {tl.theme_dir_name(f) for f in hub}
@@ -128,8 +142,17 @@ def build(out_root, known_dir, only=None, rb_root=None, log=print, incremental=F
     for folder in folders:
         name = tl.theme_dir_name(folder)
         hv = hub[folder].get("version") if folder in hub else None
+        rb_here = bool(prefer_rb and rb_root and folder in rb_names)
+        if rb_here:
+            hv = _rb_version(os.path.join(rb_root, folder)) or hv      # v9 : version de la copie Recalbox
+        elif reuse and hv is not None:
+            o_rb = old_themes.get(name)
+            if o_rb and o_rb.get("packaged_from") == "rb" and os.path.isdir(os.path.join(out_root, name)) and not tl.version_newer(hv, o_rb.get("version")):
+                manifest["themes"][name] = o_rb          # v9 : paquet fait depuis la Recalbox ; hub en retard ou egal : on conserve
+                log(f"[{folder}] copie Recalbox v{o_rb.get('version')} conservee (hub v{hv} pas plus recent)")
+                continue
         # --- incremental : version du hub inchangee => rien a refaire
-        if reuse and hv is not None:
+        if reuse and hv is not None and not rb_here:
             o = old_themes.get(name)
             if o and str(o.get("version")) == str(hv) and os.path.isdir(os.path.join(out_root, name)):
                 manifest["themes"][name] = o
@@ -139,7 +162,7 @@ def build(out_root, known_dir, only=None, rb_root=None, log=print, incremental=F
                 _mark_skipped(manifest, folder, old_skipped[folder], hv)
                 log(f"[{folder}] v{hv} toujours sans logo exploitable")
                 continue
-        src, origin, rf = _open_source(folder, hub, rb_root)
+        src, origin, rf = _open_source(folder, hub, rb_root, prefer_rb)
         if not src:
             log(f"[{folder}] source introuvable, ignore")
             if name in old_themes:
@@ -160,7 +183,7 @@ def build(out_root, known_dir, only=None, rb_root=None, log=print, incremental=F
         out = os.path.join(out_root, name)
         if os.path.isdir(out):
             shutil.rmtree(out)          # reconstruction complete du theme : aucun fichier obsolete (logos supprimes, anciennes surcharges)
-        hub_info = {"hub_version": hv} if folder in hub else {}
+        hub_info = {"hub_version": hv} if (folder in hub or origin == "rb") else {}
         hub_info["packaged_from"] = origin
         tl.convert_theme(src, out, known, log=lambda s, f=folder: log(f"[{f}] {s}"), hub_info=hub_info,
                          source_label="package", variants=True)
@@ -221,11 +244,12 @@ def main():
     ap.add_argument("--known", default=os.path.join("sd_card", "systems", "_defaults"))
     ap.add_argument("--only", default="")
     ap.add_argument("--rb", default=None, help="themes installes sur une Recalbox (hors hub) a ajouter ; par defaut : hub uniquement")
+    ap.add_argument("--prefer-rb", action="store_true", help="construire les themes de --only depuis leur copie installee sur la Recalbox (--rb) plutot que depuis le hub")
     ap.add_argument("--incremental", action="store_true", help="ne reconstruit que les themes dont la version du hub a change")
     ap.add_argument("--summary", default=None, help="fichier Markdown de compte rendu des changements")
     a = ap.parse_args()
     only = {x for x in a.only.split(",") if x} or None
-    build(a.out, a.known, only, a.rb, incremental=a.incremental, summary_path=a.summary)
+    build(a.out, a.known, only, a.rb, incremental=a.incremental, summary_path=a.summary, prefer_rb=a.prefer_rb)
     return 0
 
 
