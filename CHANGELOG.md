@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-05 (2) — Firmware v2.47: new "Language first" option for the theme following
+
+- **New**: web configuration page, "Recalbox theme" section: a new checkbox **Language first (theme without variant)**, **off by default** (nothing changes). When ticked and the theme has no variant for the Recalbox language (for example Midnight in Spanish), the DMD prefers the translated default image (French or Spanish, installed by the toolkit Mode 2) over the theme's base logo, which is often in English. The DMD may then differ from the Recalbox screen. A language variant provided by the theme always wins. It applies at the next system change.
+- Update from the web configuration page (**Update now (Wi-Fi)** button) or the PC Toolkit (**Mode 14**). Nothing to reinstall on the SD card.
+
 ## 2026-10-05 (1) — Firmware v2.46: the DMD shows what the Recalbox shows
 
 - **Change**: the logo selection order is back to what the Recalbox screen does. For a system, the DMD now uses, in this order: the theme's logo for your **language**, then for your **region**, then the theme's **base logo**. The translated default image (French, Spanish) is only used when the theme has **no logo at all** for that system. This reverses v2.45, which put the translated default image before the theme's base logos and could make the DMD differ from the Recalbox screen.

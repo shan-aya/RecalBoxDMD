@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-05 (2) — Firmware v2.47 : nouvelle option « Langue prioritaire » pour le suivi du thème
+
+- **Nouveau** : page de configuration web, section « Thème Recalbox » : une nouvelle case **Langue prioritaire (thème sans variante)**, **décochée par défaut** (rien ne change). Cochée, si le thème n'a pas de variante pour la langue de la Recalbox (par exemple Midnight en espagnol), le DMD préfère l'image par défaut traduite (française ou espagnole, installée par le Mode 2 de la boîte à outils) au logo de base du thème, souvent en anglais. Le DMD peut alors différer de l'écran de la Recalbox. Une variante de langue fournie par le thème reste toujours prioritaire. Elle s'applique au prochain changement de système.
+- Mise à jour depuis la page de configuration web (bouton **Mettre à jour maintenant (Wi-Fi)**) ou la boîte à outils PC (**Mode 14**). Rien à réinstaller sur la carte SD.
+
 ## 2026-10-05 (1) — Firmware v2.46 : le DMD affiche ce que la Recalbox affiche
 
 - **Changement** : l'ordre de choix des logos redevient celui de l'écran de la Recalbox. Pour un système, le DMD utilise, dans cet ordre : le logo du thème pour votre **langue**, puis pour votre **région**, puis le **logo de base** du thème. L'image par défaut traduite (français, espagnol) n'est utilisée que si le thème n'a **aucun logo** pour ce système. Cela annule la v2.45, qui plaçait l'image par défaut traduite avant les logos de base du thème et pouvait rendre le DMD différent de l'écran de la Recalbox.
