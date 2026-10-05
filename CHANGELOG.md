@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-05 (1) — Firmware v2.46: the DMD shows what the Recalbox shows
+
+- **Change**: the logo selection order is back to what the Recalbox screen does. For a system, the DMD now uses, in this order: the theme's logo for your **language**, then for your **region**, then the theme's **base logo**. The translated default image (French, Spanish) is only used when the theme has **no logo at all** for that system. This reverses v2.45, which put the translated default image before the theme's base logos and could make the DMD differ from the Recalbox screen.
+- Consequence: with a theme that has no variant for your language, the DMD shows the same (usually English) logo as the Recalbox screen. Theme authors can add language variants (`path.fr`, `path.es`, `path.en`) and both screens follow.
+- Update from the web configuration page (**Update now (Wi-Fi)** button) or the PC Toolkit (**Mode 14**). Nothing to reinstall on the SD card. The default images in `systems/_defaults/es` and `fr` were also redone (new logos, no more text errors): run **Mode 2** to refresh them.
+
 ## 2026-10-04 (9) — Firmware v2.45: translated Favorites / Last played / genre images now win over the theme's English ones
 
 - **Fix**: with a Recalbox language that has translated default images (French, Spanish) and a theme that provides its own *Favorites*, *Last played* or genre logos but **no variant for that language** (for example Midnight in Spanish: only a French variant exists), the DMD showed the theme's English logo even though the translated image was on the SD card. The translated image is now used; consoles keep the theme's logo, and a language variant provided by the theme still takes priority (Midnight in French is unchanged for Favorites and Last played).

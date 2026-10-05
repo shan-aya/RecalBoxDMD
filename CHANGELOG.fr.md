@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-05 (1) — Firmware v2.46 : le DMD affiche ce que la Recalbox affiche
+
+- **Changement** : l'ordre de choix des logos redevient celui de l'écran de la Recalbox. Pour un système, le DMD utilise, dans cet ordre : le logo du thème pour votre **langue**, puis pour votre **région**, puis le **logo de base** du thème. L'image par défaut traduite (français, espagnol) n'est utilisée que si le thème n'a **aucun logo** pour ce système. Cela annule la v2.45, qui plaçait l'image par défaut traduite avant les logos de base du thème et pouvait rendre le DMD différent de l'écran de la Recalbox.
+- Conséquence : avec un thème sans variante pour votre langue, le DMD affiche le même logo (souvent en anglais) que l'écran de la Recalbox. Les auteurs de thèmes peuvent ajouter des variantes de langue (`path.fr`, `path.es`, `path.en`) et les deux écrans suivent.
+- Mise à jour depuis la page de configuration web (bouton **Mettre à jour maintenant (Wi-Fi)**) ou la boîte à outils PC (**Mode 14**). Rien à réinstaller sur la carte SD. Les images par défaut de `systems/_defaults/es` et `fr` ont aussi été refaites (nouveaux logos, plus de fautes de texte) : lancez le **Mode 2** pour les actualiser.
+
 ## 2026-10-04 (9) — Firmware v2.45 : les images Favoris / Dernier joué / genres traduites passent avant celles, en anglais, du thème
 
 - **Correction** : avec une langue de Recalbox qui a des images par défaut traduites (français, espagnol) et un thème qui fournit ses propres logos *Favoris*, *Dernier joué* ou de genres **sans variante pour cette langue** (par exemple Midnight en espagnol : il n'existe qu'une variante française), le DMD affichait le logo anglais du thème alors que l'image traduite était sur la carte SD. L'image traduite est maintenant utilisée ; les consoles gardent le logo du thème, et une variante de langue fournie par le thème reste prioritaire (Midnight en français est inchangé pour Favoris et Dernier joué).
