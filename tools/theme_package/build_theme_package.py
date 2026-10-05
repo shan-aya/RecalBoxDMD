@@ -119,14 +119,14 @@ def _write_summary(path, changes, total_themes):
         f.write("\n".join(lines) + "\n")
 
 
-def build(out_root, known_dir, only=None, rb_root=None, log=print, incremental=False, summary_path=None, prefer_rb=False):
+def build(out_root, known_dir, only=None, rb_root=None, log=print, incremental=False, summary_path=None, prefer_rb=False, exclude=None):
     known = tl.known_systems_from_dir(known_dir)
     hub = {h["folder"]: h for h in tl.hub_catalog() if h.get("active", True)}
     hub_names = {tl.theme_dir_name(f) for f in hub}
     rb_names = []
     if rb_root and os.path.isdir(rb_root):
         rb_names = [n for n in sorted(os.listdir(rb_root)) if os.path.exists(os.path.join(rb_root, n, "theme.xml"))]
-    folders = [f for f in dict.fromkeys(list(hub) + rb_names) if not only or f in only]
+    folders = [f for f in dict.fromkeys(list(hub) + rb_names) if (not only or f in only) and not (exclude and f in exclude)]   # v9 : exclude = themes a ne pas publier
     os.makedirs(out_root, exist_ok=True)
 
     old = _load_manifest(out_root) if incremental else None
@@ -244,12 +244,13 @@ def main():
     ap.add_argument("--known", default=os.path.join("sd_card", "systems", "_defaults"))
     ap.add_argument("--only", default="")
     ap.add_argument("--rb", default=None, help="themes installes sur une Recalbox (hors hub) a ajouter ; par defaut : hub uniquement")
+    ap.add_argument("--exclude", default="", help="themes a NE PAS publier (liste separee par des virgules) ; le nombre de themes evolue : aucune liste figee")
     ap.add_argument("--prefer-rb", action="store_true", help="construire les themes de --only depuis leur copie installee sur la Recalbox (--rb) plutot que depuis le hub")
     ap.add_argument("--incremental", action="store_true", help="ne reconstruit que les themes dont la version du hub a change")
     ap.add_argument("--summary", default=None, help="fichier Markdown de compte rendu des changements")
     a = ap.parse_args()
     only = {x for x in a.only.split(",") if x} or None
-    build(a.out, a.known, only, a.rb, incremental=a.incremental, summary_path=a.summary, prefer_rb=a.prefer_rb)
+    build(a.out, a.known, only, a.rb, incremental=a.incremental, summary_path=a.summary, prefer_rb=a.prefer_rb, exclude={x for x in a.exclude.split(',') if x} or None)
     return 0
 
 

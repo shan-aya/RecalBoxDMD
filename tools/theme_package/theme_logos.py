@@ -41,8 +41,10 @@ import zipfile
 
 W, H, SS = 128, 32, 8
 PIPELINE_VERSION = 3          # a incrementer quand le rendu change (declenche "a reconvertir" dans check)
-HUB_BASE = "https://gitlab.com/recalbox/themes/theme-hub/-/raw/main"
-HUB_ZIP_MIRROR = "https://media.recalbox.com/hub/-/raw/main"
+# v18 (2026-10-05) : le depot GitLab theme-hub n'est plus alimente (Recalbox abandonne GitLab) : catalogue et ZIP des themes sont publies a jour sur
+# media.recalbox.com (c'est de la que la Recalbox telecharge ses themes : .installedFrom). Miroir en premier, GitLab (fige) seulement en repli.
+HUB_BASE = "https://media.recalbox.com/hub/-/raw/main"
+HUB_ZIP_MIRROR = "https://gitlab.com/recalbox/themes/theme-hub/-/raw/main"
 DEFAULT_RB_THEMES = r"\\RECALBOX\share\themes"
 # themes fournis avec Recalbox (absents du hub) : dossier -> depot GitLab, chemin du theme, licence
 SYSTEM_THEMES = {
@@ -678,14 +680,26 @@ def _http_get(url, timeout=30):
         return r.read()
 
 
+def _hub_json(rel, log=print):
+    """JSON du hub : miroir media.recalbox.com d'abord, GitLab (fige) en repli."""
+    last = None
+    for base in (HUB_BASE, HUB_ZIP_MIRROR):
+        try:
+            return json.loads(_http_get(f"{base}/{rel}").decode("utf-8-sig"))
+        except Exception as e:
+            last = e
+            log(f"hub {base.split('/')[2]} : {rel} injoignable ({str(e)[:60]})")
+    raise last
+
+
 def hub_catalog(log=print):
     """[{folder, active, name, version, zips:[...], error?}] depuis list.json + descriptor.json de chaque theme."""
     out = []
-    lst = json.loads(_http_get(f"{HUB_BASE}/list.json").decode("utf-8-sig"))
+    lst = _hub_json("list.json", log)
     for t in lst.get("themes", []):
         row = {"folder": t.get("folder", ""), "active": bool(t.get("active", True))}
         try:
-            d = json.loads(_http_get(f"{HUB_BASE}/{row['folder']}/descriptor.json").decode("utf-8-sig"))
+            d = _hub_json(f"{row['folder']}/descriptor.json", log)
             row.update(name=d.get("name", row["folder"]), version=d.get("version"),
                        zips=[f.get("file") for f in d.get("files", []) if f.get("file")])
         except Exception as e:
