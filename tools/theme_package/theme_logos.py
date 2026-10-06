@@ -589,6 +589,10 @@ def _xml_logo_templates(src):
             child = re.search(r"<path>\s*([^<]*?)\s*</path>", body, re.I)
             if child:
                 paths.append((None, child.group(1)))
+            # v5 : variantes en ELEMENTS ENFANTS, forme que ecrit le Theme Studio (theme-studio.recalbox.com) : <path.fr>...</path.fr>, <path.EU>...</path.EU>
+            # (le suffixe est la langue ou la region ; un « if="..." » eventuel est ignore)
+            for cm in re.finditer(r"<path\.(?P<v>\w+)(?:\s[^>]*)?>\s*(?P<p>[^<]*?)\s*</path\.\w+>", body, re.I):
+                paths.append((cm.group("v").lower(), cm.group("p")))
             for vkey, p in paths:
                 if not has_system.search(p):
                     continue
