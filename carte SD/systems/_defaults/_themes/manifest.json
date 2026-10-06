@@ -1,7 +1,7 @@
 {
  "format": 2,
- "pipeline": 3,
- "generated": "2026-10-05 22:46",
+ "pipeline": 4,
+ "generated": "2026-10-06 01:51",
  "themes": {
   "alekfull-galisteo-artflix-cobal": {
    "version": "1.0",
@@ -131,7 +131,7 @@
    ],
    "overlays": {},
    "bytes": 958464,
-   "rev": "110cc4bb0ea9"
+   "rev": "ec833170c2d6"
   },
   "serviettzky-dashboard-X": {
    "version": "1.5",
@@ -502,7 +502,7 @@
    ],
    "overlays": {},
    "bytes": 2932736,
-   "rev": "00424914360f"
+   "rev": "e5ad7a840f56"
   },
   "bounitos-midnight": {
    "version": "3.1",
@@ -1001,7 +1001,7 @@
     ]
    },
    "bytes": 3883008,
-   "rev": "e8d16f35823f"
+   "rev": "5fa438665642"
   },
   "airdream-mukashi": {
    "version": "1.3",
@@ -1114,7 +1114,7 @@
    ],
    "overlays": {},
    "bytes": 819200,
-   "rev": "887e1225003e"
+   "rev": "d676a6d968b1"
   },
   "beudbeud-artbook-crt": {
    "version": "2.7",
@@ -1651,7 +1651,7 @@
    ],
    "overlays": {},
    "bytes": 4292608,
-   "rev": "4c0d0494abd8"
+   "rev": "9dc243f0fe7b"
   },
   "bounitos-crt-color-package": {
    "version": "1.8",
@@ -1941,7 +1941,7 @@
    ],
    "overlays": {},
    "bytes": 2269184,
-   "rev": "8aad5d5a0942"
+   "rev": "f1d5840dbebf"
   },
   "beudbeud-crt-vision": {
    "version": "1.2",
@@ -2495,7 +2495,7 @@
    ],
    "overlays": {},
    "bytes": 4431872,
-   "rev": "61bb724ddbbb"
+   "rev": "ab5a33dee88c"
   },
   "serviettzky-neoretro": {
    "version": "1.2",
@@ -2805,7 +2805,7 @@
    ],
    "overlays": {},
    "bytes": 2433024,
-   "rev": "b172ddc1e562"
+   "rev": "585d8be6e031"
   },
   "myst-next-pixel": {
    "version": "3.2",
@@ -2915,7 +2915,7 @@
    ],
    "overlays": {},
    "bytes": 794624,
-   "rev": "6fd65c58d08a"
+   "rev": "a99de264e31e"
   },
   "recalbox-next": {
    "version": "2026-02-05-febce03",
@@ -3205,7 +3205,7 @@
     ]
    },
    "bytes": 2203648,
-   "rev": "40e840d4ab59"
+   "rev": "f0a690b4f897"
   },
   "recalbox-240p": {
    "version": "2026-02-05-febce03",
@@ -3489,7 +3489,7 @@
     ]
    },
    "bytes": 2154496,
-   "rev": "82110fdb6628"
+   "rev": "0244132a1397"
   }
  },
  "skipped": {
@@ -3498,6 +3498,6 @@
  },
  "skipped_versions": {
   "serviettzy-dmd": "0.91",
-  "helmicretro-haigenco": "2.0"
+  "helmicretro-haigenco": 2
  }
 }

@@ -40,7 +40,7 @@ import urllib.request
 import zipfile
 
 W, H, SS = 128, 32, 8
-PIPELINE_VERSION = 3          # a incrementer quand le rendu change (declenche "a reconvertir" dans check)
+PIPELINE_VERSION = 4          # a incrementer quand le rendu change (declenche "a reconvertir" dans check)
 # v18 (2026-10-05) : le depot GitLab theme-hub n'est plus alimente (Recalbox abandonne GitLab) : catalogue et ZIP des themes sont publies a jour sur
 # media.recalbox.com (c'est de la que la Recalbox telecharge ses themes : .installedFrom). Miroir en premier, GitLab (fige) seulement en repli.
 HUB_BASE = "https://media.recalbox.com/hub/-/raw/main"
@@ -124,6 +124,145 @@ def _lighten_dark(img, thr=0.10, bigfrac=0.18, lift=0.38):
     return Image.fromarray(a.astype(np.uint8), "RGBA")
 
 
+# --------------------------------------------------------------------------- v4 : reduction « 1 pixel = 1 LED » (pixel-art a partir du vectoriel)
+# Content-Adaptive Image Downscaling (Kopf, Shamir, Peers, SIGGRAPH Asia 2013) : chaque LED de sortie est un noyau (position, covariance, couleur, tolerance de couleur)
+# ajuste par EM sur l'image haute resolution ; les contours restent nets et connectes (l'article cite explicitement le pixel-art a partir de graphiques vectoriels).
+# Implementation personnelle d'apres leur pseudo-code (document supplementaire) : numpy seul, float32, calculs limites aux noyaux dont la fenetre contient du logo.
+KOPF_R = 4          # pixels d'entree par LED de sortie (pair)
+KOPF_ITERS = 8
+KOPF_SIGMA = 0.02   # tolerance de couleur initiale (ecart-type, Lab normalise [0,1]) : petit = contours francs
+_KOPF_CONST = {}
+
+
+def _kopf_consts():
+    import numpy as np
+    if not _KOPF_CONST:
+        _KOPF_CONST["M"] = np.array([[0.4124564, 0.3575761, 0.1804375], [0.2126729, 0.7151522, 0.0721750], [0.0193339, 0.1191920, 0.9503041]], np.float32)
+        _KOPF_CONST["W"] = np.array([0.95047, 1.0, 1.08883], np.float32)
+        _KOPF_CONST["Minv"] = np.linalg.inv(_KOPF_CONST["M"]).astype(np.float32)
+    return _KOPF_CONST["M"], _KOPF_CONST["W"], _KOPF_CONST["Minv"]
+
+
+def _rgb_to_lab01(rgb):
+    import numpy as np
+    M, WH, _ = _kopf_consts()
+    c = rgb.astype(np.float32) / 255.0
+    lin = np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+    xyz = (lin @ M.T) / WH
+    f = np.where(xyz > 0.008856, np.cbrt(xyz), 7.787 * xyz + 16.0 / 116.0)
+    L = 116.0 * f[..., 1] - 16.0; a = 500.0 * (f[..., 0] - f[..., 1]); b = 200.0 * (f[..., 1] - f[..., 2])
+    return np.stack([L / 100.0, (a + 128.0) / 255.0, (b + 128.0) / 255.0], -1).astype(np.float32)
+
+
+def _lab01_to_rgb(lab01):
+    import numpy as np
+    M, WH, Minv = _kopf_consts()
+    L = lab01[..., 0] * 100.0; a = lab01[..., 1] * 255.0 - 128.0; b = lab01[..., 2] * 255.0 - 128.0
+    fy = (L + 16.0) / 116.0; fx = fy + a / 500.0; fz = fy - b / 200.0
+    f = np.stack([fx, fy, fz], -1)
+    xyz = np.where(f ** 3 > 0.008856, f ** 3, (f - 16.0 / 116.0) / 7.787) * WH
+    lin = np.clip(xyz @ Minv.T, 0.0, 1.0)
+    c = np.where(lin <= 0.0031308, lin * 12.92, 1.055 * lin ** (1 / 2.4) - 0.055)
+    return np.clip(c * 255.0 + 0.5, 0, 255).astype(np.uint8)
+
+
+def kopf_downscale(rgb, wo, ho, iters=KOPF_ITERS, sigma0=KOPF_SIGMA, var_lo=0.05, var_hi=0.10, grow=1.1, s_thr=0.2, dark=6):
+    """RGB uint8 de taille EXACTE (ho*r, wo*r), r entier pair, fond noir -> RGB uint8 (ho, wo)."""
+    import numpy as np
+    from numpy.lib.stride_tricks import as_strided
+    hi_, wi_ = rgb.shape[:2]
+    r = hi_ // ho
+    if wi_ != wo * r or hi_ != ho * r or r % 2:
+        raise ValueError("kopf_downscale : taille d'entree = (ho*r, wo*r), r entier pair")
+    C = _rgb_to_lab01(rgb)
+    win = 4 * r; off = r // 2 - 2 * r; pad = 2 * r
+    Cp = np.pad(C, ((pad, pad), (pad, pad), (0, 0)), mode="edge")
+    s0, s1, s2 = Cp.strides
+    Cw_all = as_strided(Cp[pad + off:, pad + off:], shape=(ho, wo, win, win, 3), strides=(r * s0, r * s1, s0, s1, s2))
+    bright = (rgb.max(axis=2) > dark)
+    cell = bright.reshape(ho, r, wo, r).any(axis=(1, 3))
+    act = cell.copy()
+    for dy in (-2, -1, 0, 1, 2):
+        for dx in (-2, -1, 0, 1, 2):
+            sh = np.zeros_like(cell)
+            ys0, ys1 = max(0, dy), ho + min(0, dy); xs0, xs1 = max(0, dx), wo + min(0, dx)
+            sh[ys0:ys1, xs0:xs1] = cell[ys0 - dy:ys1 - dy, xs0 - dx:xs1 - dx]
+            act |= sh
+    ay, ax = np.nonzero(act); K = len(ay)
+    out_lab = np.zeros((ho, wo, 3), np.float32); out_lab[..., 1] = 128.0 / 255.0; out_lab[..., 2] = 128.0 / 255.0        # noir
+    if K == 0:
+        return _lab01_to_rgb(out_lab)
+    Cw = np.ascontiguousarray(Cw_all[ay, ax])
+    xin = ax[:, None] * r + off + np.arange(win); yin = ay[:, None] * r + off + np.arange(win)
+    vx = (xin >= 0) & (xin < wi_); vy = (yin >= 0) & (yin < hi_)
+    valid = vy[:, :, None] & vx[:, None, :]
+    flat = np.where(valid, np.clip(yin, 0, hi_ - 1)[:, :, None] * wi_ + np.clip(xin, 0, wi_ - 1)[:, None, :], hi_ * wi_)
+    PX = ((xin + 0.5) / r).astype(np.float32); PY = ((yin + 0.5) / r).astype(np.float32)
+    home = np.stack([ax + 0.5, ay + 0.5], -1).astype(np.float32)
+    mu = home.copy(); sxx = np.full(K, var_hi, np.float32); syy = sxx.copy(); sxy = np.zeros(K, np.float32)
+    nu = np.full((K, 3), 0.5, np.float32); sig = np.full((ho, wo), sigma0, np.float32)
+    full_mu = np.stack(np.meshgrid(np.arange(wo) + 0.5, np.arange(ho) + 0.5), -1).astype(np.float32)
+    for _it in range(iters):
+        det = sxx * syy - sxy ** 2
+        iA = syy / det; iB = -sxy / det; iC = sxx / det
+        dx = PX - mu[:, 0, None]; dy = PY - mu[:, 1, None]
+        quad = iA[:, None, None] * dx[:, None, :] ** 2 + 2 * iB[:, None, None] * dx[:, None, :] * dy[:, :, None] + iC[:, None, None] * dy[:, :, None] ** 2
+        sg = sig[ay, ax]
+        col = ((Cw - nu[:, None, None, :]) ** 2).sum(-1) / (2.0 * sg[:, None, None] ** 2)
+        logw = np.where(valid, -0.5 * quad - col, -np.inf)
+        logw -= logw.max(axis=(1, 2), keepdims=True)
+        w = np.exp(logw); w /= np.maximum(w.sum(axis=(1, 2), keepdims=True), 1e-30)
+        tot = np.bincount(flat.ravel(), weights=w.ravel(), minlength=hi_ * wi_ + 1)
+        g = (w / np.maximum(tot[flat], 1e-30).astype(np.float32)).astype(np.float32)
+        g = np.where(valid, g, 0.0)
+        ws = np.maximum(g.sum(axis=(1, 2)), 1e-12)
+        ddx = PX - mu[:, 0, None]; ddy = PY - mu[:, 1, None]
+        nsxx = (g * ddx[:, None, :] ** 2).sum(axis=(1, 2)) / ws
+        nsyy = (g * ddy[:, :, None] ** 2).sum(axis=(1, 2)) / ws
+        nsxy = (g * ddx[:, None, :] * ddy[:, :, None]).sum(axis=(1, 2)) / ws
+        nmu = np.stack([(g * PX[:, None, :]).sum(axis=(1, 2)) / ws, (g * PY[:, :, None]).sum(axis=(1, 2)) / ws], -1)
+        nu = ((g[..., None] * Cw).sum(axis=(1, 2)) / ws[:, None]).astype(np.float32)
+        sxx, syy, sxy, mu = nsxx, nsyy, nsxy, nmu
+        fm = full_mu.copy(); fm[ay, ax] = mu
+        pm = np.pad(fm, ((1, 1), (1, 1), (0, 0)), mode="edge")
+        nb = (pm[:-2, 1:-1] + pm[2:, 1:-1] + pm[1:-1, :-2] + pm[1:-1, 2:]) / 4.0
+        mu = np.clip(0.5 * mu + 0.5 * nb[ay, ax], home - 0.25, home + 0.25)
+        tr = (sxx + syy) / 2; dd = np.sqrt(np.maximum(((sxx - syy) / 2) ** 2 + sxy ** 2, 0))
+        e1 = np.clip(tr + dd, var_lo, var_hi); e2 = np.clip(tr - dd, var_lo, var_hi)
+        th = 0.5 * np.arctan2(2 * sxy, sxx - syy); c_, s_ = np.cos(th), np.sin(th)
+        sxx = e1 * c_ ** 2 + e2 * s_ ** 2; syy = e1 * s_ ** 2 + e2 * c_ ** 2; sxy = (e1 - e2) * c_ * s_
+        ddx = PX - mu[:, 0, None]; ddy = PY - mu[:, 1, None]
+        for oy in (-1, 0, 1):
+            for ox in (-1, 0, 1):
+                if oy == 0 and ox == 0:
+                    continue
+                s = (g * np.maximum(0.0, ddx[:, None, :] * ox + ddy[:, :, None] * oy) ** 2).sum(axis=(1, 2))
+                bad = s > s_thr
+                if not bad.any():
+                    continue
+                np.multiply.at(sig, (ay[bad], ax[bad]), np.float32(grow))
+                ny, nx = ay[bad] + oy, ax[bad] + ox
+                okk = (ny >= 0) & (ny < ho) & (nx >= 0) & (nx < wo)
+                np.multiply.at(sig, (ny[okk], nx[okk]), np.float32(grow))
+    out_lab[ay, ax] = nu
+    return _lab01_to_rgb(out_lab)
+
+
+def _fit_pixel_art(rgb, nw, nh):
+    """Image RGB (fond noir) -> (nh, nw) RGB par noyaux adaptatifs ; repli sur la moyenne exacte (BOX) si l'image est trop petite ou en cas d'erreur."""
+    np, Image = _imports()
+    try:
+        if nw >= 2 and nh >= 2 and (rgb.width > nw or rgb.height > nh):
+            big = np.asarray(rgb.resize((nw * KOPF_R, nh * KOPF_R), Image.LANCZOS))
+            return Image.fromarray(kopf_downscale(big, nw, nh), "RGB")
+        if rgb.width <= nw and rgb.height <= nh:      # source plus petite que la dalle (pixel-art) : facteur ENTIER, reproduction exacte des pixels (regle de DMD GIF Creator)
+            k = max(1, min(nw // rgb.width, nh // rgb.height))
+            return rgb.resize((rgb.width * k, rgb.height * k), Image.NEAREST)
+    except Exception:
+        pass
+    return rgb.resize((nw, nh), Image.BOX)
+
+
 def _fit(big):
     """RGBA grande taille -> canvas RGB 128x32 (rognage des marges, ajustement proportionnel centre, filtre BOX)."""
     np, Image = _imports()
@@ -136,7 +275,8 @@ def _fit(big):
     rgb = bg.convert("RGB")
     sc = min(W / rgb.width, H / rgb.height)
     nw, nh = max(1, round(rgb.width * sc)), max(1, round(rgb.height * sc))
-    small = rgb.resize((nw, nh), Image.BOX)
+    small = _fit_pixel_art(rgb, nw, nh)         # v4 : « 1 pixel = 1 LED » (avant : moyenne BOX = LED a demi allumees)
+    nw, nh = small.size
     canvas = Image.new("RGB", (W, H), (0, 0, 0))
     canvas.paste(small, ((W - nw) // 2, (H - nh) // 2))
     return canvas
@@ -326,7 +466,7 @@ class ZipSource:
 # --------------------------------------------------------------------------- detection des logos
 IMG_EXT = (".svg", ".png")
 # noms qui ne sont pas des systemes (images de manettes, copies...) meme s'ils tombent dans le modele de chemin
-_NOISE = re.compile(r"[()\s@]|_(controller|console|consolegame|game|bg|background)$", re.I)   # « @ » exclu : x@fr.svg = variante de langue (Dashboard-X 1.5) non utilisee par la Recalbox 10.1.1, pas un systeme
+_NOISE = re.compile(r"[()\s@]|_(controller|console|consolegame|game|bg|background)$", re.I)   # v18 : « @ » exclu (Dashboard-X 1.5 : genre-x@fr.svg = variante de langue que la Recalbox 10.1.1 n'utilise pas, pas un systeme)
 # suffixes de decoration courants autour du nom de systeme dans les themes
 _STRIP = [r"\s*-\s*whlogo$", r"[-_ ]?logo$", r"^logo[-_ ]?"]
 
@@ -587,6 +727,21 @@ def write_overlay(src, diff, base_ids, out_dir):
     return sorted(written)
 
 
+def _convert_many(jobs, workers=None):
+    """[(octets, est_svg), ...] -> [raw565 ou Exception, ...] dans le meme ordre ; fils d'execution (v4 : la reduction pixel-art est plus lourde que l'ancienne moyenne)."""
+    from concurrent.futures import ThreadPoolExecutor
+    def one(j):
+        try:
+            return convert_bytes(j[0], j[1])
+        except Exception as e:
+            return e
+    n = workers or max(1, min(6, (os.cpu_count() or 2) - 1))
+    if n <= 1 or len(jobs) < 4:
+        return [one(j) for j in jobs]
+    with ThreadPoolExecutor(max_workers=n) as ex:
+        return list(ex.map(one, jobs))
+
+
 def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_label="dir", prefer=(), variants=True):
     """Convertit les logos de `src` dans out_dir. Retourne le dict _source.json ecrit.
     variants=True (defaut) : en plus de la base US / anglais, ecrit les surcharges l_<langue>/ et r_<region>/ (voir overlay_dirs) -- ignore si `prefer` est donne."""
@@ -597,15 +752,20 @@ def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_lab
         raise RuntimeError("aucun logo de systeme detecte dans ce theme")
     os.makedirs(out_dir, exist_ok=True)
     made, errors = {}, []
-    for sid, rel in sorted(logos.items()):
+    items = sorted(logos.items())
+    raws = {}
+    for sid, rel in items:      # lecture sequentielle (la source peut etre un ZIP distant lu par morceaux)
         try:
-            data = convert_bytes(src.read(rel), rel.lower().endswith(".svg"))
-        except Exception as e:  # un logo defectueux ne bloque pas le theme
+            raws[sid] = src.read(rel)
+        except Exception as e:
             errors.append((sid, str(e)[:80]))
+    for sid, res in zip([s for s, _ in items if s in raws], _convert_many([(raws[s], logos[s].lower().endswith(".svg")) for s, _ in items if s in raws])):
+        if isinstance(res, Exception):      # un logo defectueux ne bloque pas le theme
+            errors.append((sid, str(res)[:80]))
             continue
         with open(os.path.join(out_dir, sid + ".raw565"), "wb") as f:
-            f.write(data)
-        made[sid] = rel
+            f.write(res)
+        made[sid] = logos[sid]
     # alias : 'auto-X' (systemes virtuels nommes par le theme) -> 'X' (SystemId envoye par ES), sans ecraser un vrai 'X'
     alias = []
     for sid in list(made):
@@ -887,14 +1047,15 @@ def check_status(out_root, rb_themes=None, use_hub=True, known=None, log=print, 
             elif local.get("pipeline", 0) < PIPELINE_VERSION:
                 rows.append((name, "MAJ", f"rendu v{local.get('pipeline')} -> v{PIPELINE_VERSION}", None, "rb"))
             elif local.get("source") == "package":
-                # installe depuis le paquet GitHub (toutes langues, pas d'empreinte) : a jour tant que le paquet n'a pas change
-                rows.append((name, "A JOUR", f"paquet GitHub ({local.get('converted')})", None, "rb"))
+                # v18 : la Recalbox est la REFERENCE (le hub / le paquet GitHub peuvent etre en retard : ex. Dashboard-X 1.4 publie, 1.5 installee) ;
+                # une copie venue du paquet n'a pas d'empreinte : on ne peut pas savoir qu'elle correspond a la Recalbox -> a refaire depuis la Recalbox
+                rows.append((name, "MAJ", "installé depuis le paquet GitHub : la Recalbox est la référence", None, "rb"))
             elif list(local.get("prefer", [])) != list(prefer):
                 rows.append((name, "MAJ", f"langue/region des logos {local.get('prefer')} -> {list(prefer)}", None, "rb"))
             elif local.get("signature") != sig and local.get("source") == "rb":
                 rows.append((name, "MAJ", "logos modifies sur la Recalbox depuis la conversion", None, "rb"))
             elif local.get("source") == "hub" and local.get("signature") != sig:
-                rows.append((name, "DIFFERENT", "converti depuis le hub, la copie de la Recalbox a d'autres logos", None, "rb"))
+                rows.append((name, "MAJ", "converti depuis le hub : la Recalbox a d'autres logos (la Recalbox est la référence)", None, "rb"))
             else:
                 rows.append((name, "A JOUR", f"converti {local.get('converted')} (source {local.get('source')})", None, "rb"))
     return rows
