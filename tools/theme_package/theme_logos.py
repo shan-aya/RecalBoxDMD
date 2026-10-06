@@ -1033,7 +1033,9 @@ def check_status(out_root, rb_themes=None, use_hub=True, known=None, log=print, 
             local = _read_source_json(out_root, name)
             try:
                 src = DirSource(p)
-                logos, _m = find_logos(src, known, prefer)
+                # meme base que convert_theme (variantes : BASE = US / anglais) -- sinon un theme a variantes (Midnight) differait de sa propre conversion
+                # et restait « logos modifies sur la Recalbox » a chaque verification (constate au test du 06/10)
+                logos, _m = find_logos(src, known, tuple(prefer) if prefer else prefer_keys("en_US", "us"))
                 sig = logo_signature(logos, src) if logos else None
             except Exception as e:
                 rows.append((name, "ERREUR", str(e)[:60], None, "rb"))
