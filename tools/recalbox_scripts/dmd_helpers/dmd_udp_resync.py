@@ -2,7 +2,9 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v11
+# Version actuelle : v12
+#
+# v12 - 2026-10-06 - safe-modify - SCRIPTS_BUNDLE 1 -> 2 : le script marquee passe en v54 (extinction propre de la Recalbox : EVENT=shutdown -> retour playlist immediat du DMD). Aucune autre modification de ce fichier.
 #
 # v11 - 2026-10-04 - safe-modify - NUMERO DE VERSION DES SCRIPTS annonce au DMD (« CMD=scriptver ARG=<SCRIPTS_BUNDLE> », a chaque hello) : le DMD l'expose dans sa page web et le toolkit le lit pour dire
 #   « scripts Recalbox a mettre a jour : lancez la boite a outils et faites un Mode 9 ». SCRIPTS_BUNDLE = numero d'ensemble des scripts publies dans tools/recalbox_scripts : A INCREMENTER A CHAQUE
@@ -226,7 +228,7 @@ def update_dmd_ip_cache(ip):
         log(f"ERREUR ecriture {DMD_IP_CACHE_PATH}: {e}")
 
 
-SCRIPTS_BUNDLE = 1   # v11 -- voir l'en-tete : a incrementer a chaque modification d'un script publie
+SCRIPTS_BUNDLE = 2   # v12 (v11 : voir l'en-tete) : a incrementer a chaque modification d'un script publie
 THEME_PACKET_GAP_S = 0.5   # v9 -- ecart entre CMD=themeopt et CMD=theme
 DEFAULT_THEME_FOLDER = "recalbox-next"   # valeur par defaut de emulationstation.theme.folder dans Recalbox 9/10/11
 

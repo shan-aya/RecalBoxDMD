@@ -37,6 +37,7 @@ LOG="/recalbox/share/system/logs/marquee_mqtt.log"
 DMD_UDP_IP_FALLBACK="192.168.0.51"
 DMD_UDP_IP_CACHE="/tmp/dmd_udp_ip"
 DMD_UDP_PORT=5005
+# v54 - 2026-10-06 - safe-modify - EXTINCTION PROPRE : nouvelle branche shutdown|reboot (retour playlist immediat, comme stop) -- voir son commentaire. NON TESTE SUR MATERIEL.
 # v53 - 2026-09-19 - safe-modify - Reglages "Veille Recalbox" de la page web
 # du DMD (demande utilisateur) : demo_follow / clip_follow dans le cache
 # FEATURES ecrit par dmd_udp_resync.py (meme fichier/format que dmd_score.sh).
@@ -1845,6 +1846,18 @@ while true; do
             send_mqtt_retain "ingame" "0"
             send_mqtt_retain "default" "1"
             sleep 2
+            ;;
+
+        shutdown|reboot)
+            # v54 -- extinction PROPRE de la Recalbox : ES emet EVENT=shutdown (releve dans marquee_mqtt.log le 2026-10-06 : « 19:09:12 EVENT=shutdown »
+            # puis « configurationchanged », JAMAIS « stop ») mais ce script ne le traitait pas (branche *) vide) : le DMD ne recevait rien et ne revenait
+            # a la playlist qu'au bout de ~60 s, par detection d'absence de pong/paquets. Meme action que stop : retour playlist immediat.
+            # « reboot » : nom d'evenement NON verifie sur materiel (ajoute par prudence, sans effet s'il n'est jamais emis).
+            echo "$(date '+%H:%M:%S') SHUTDOWN/REBOOT -> playlist" >> "$LOG"
+            IN_GAME=0
+            LAST_ROM=""
+            send_mqtt_retain "ingame" "0"
+            send_mqtt_retain "default" "1"
             ;;
 
         sleep)
