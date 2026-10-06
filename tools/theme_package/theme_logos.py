@@ -340,17 +340,51 @@ class DirSource:
         self.root = root
 
     def files(self):
-        out = []
-        for base, _dirs, names in os.walk(self.root):
-            for n in names:
-                out.append(os.path.relpath(os.path.join(base, n), self.root).replace("\\", "/"))
-        return out
+        # v5 : liste memorisee (un parcours complet d'un theme sur le partage reseau coute plusieurs secondes et find_logos / _xml_logo_templates /
+        # detect_variants le refaisaient 2 a 10 fois sur la meme instance)
+        cached = getattr(self, "_files_cache", None)
+        if cached is not None:
+            return list(cached)
+        # v5 : meme ordre que os.walk (fichiers d'un dossier, puis ses sous-dossiers) ; les tailles viennent de l'enumeration du dossier
+        # (DirEntry.stat() : aucun aller-retour reseau en plus) -- le tri des XML en demandait une par fichier (6188 stat = 7 s sur un theme).
+        out, sizes = [], {}
+
+        def walk(abs_dir, rel_dir):
+            try:
+                with os.scandir(abs_dir) as it:
+                    entries = list(it)
+            except OSError:
+                return
+            dirs = []
+            for e in entries:
+                try:
+                    is_dir = e.is_dir(follow_symlinks=False)
+                except OSError:
+                    is_dir = False
+                if is_dir:
+                    dirs.append(e)
+                    continue
+                rel = (rel_dir + "/" + e.name) if rel_dir else e.name
+                out.append(rel)
+                try:
+                    sizes[rel] = e.stat().st_size
+                except OSError:
+                    pass
+            for e in dirs:
+                walk(e.path, (rel_dir + "/" + e.name) if rel_dir else e.name)
+
+        walk(self.root, "")
+        self._files_cache, self._sizes = out, sizes
+        return list(out)
 
     def read(self, rel):
         with open(os.path.join(self.root, rel), "rb") as f:
             return f.read()
 
     def size(self, rel):
+        s = getattr(self, "_sizes", None)
+        if s is not None and rel in s:
+            return s[rel]
         try:
             return os.path.getsize(os.path.join(self.root, rel))
         except OSError:
@@ -995,8 +1029,9 @@ def _has_converted_logos(out_root, folder):
         return False
 
 
-def check_status(out_root, rb_themes=None, use_hub=True, known=None, log=print, prefer=()):
-    """Etat de chaque theme : NOUVEAU (jamais converti), MAJ (version du hub / logos du theme installe / rendu), A JOUR."""
+def check_status(out_root, rb_themes=None, use_hub=True, known=None, log=print, prefer=(), progress=None):
+    """Etat de chaque theme : NOUVEAU (jamais converti), MAJ (version du hub / logos du theme installe / rendu), A JOUR.
+    progress(fait, total, nom_du_theme) : appele (depuis un fil d'execution) a chaque theme de la Recalbox analyse (lecture reseau lente : affichage de l'avancement)."""
     rows = []
     hub = []
     if use_hub:
@@ -1026,19 +1061,38 @@ def check_status(out_root, rb_themes=None, use_hub=True, known=None, log=print, 
         rows.append((h["folder"], st, why, h.get("version"), "hub"))
     # themes installes sur la Recalbox (copie utilisee par ES) : comparaison de l'empreinte des logos
     if rb_themes and os.path.isdir(rb_themes):
-        for name in sorted(os.listdir(rb_themes)):
-            p = os.path.join(rb_themes, name)
-            if not os.path.isdir(p) or not os.path.exists(os.path.join(p, "theme.xml")):
-                continue
-            local = _read_source_json(out_root, name)
+        names = [n for n in sorted(os.listdir(rb_themes))
+                 if os.path.isdir(os.path.join(rb_themes, n)) and os.path.exists(os.path.join(rb_themes, n, "theme.xml"))]
+
+        def _scan(name):
+            """Analyse d'un theme installe (parcours + lecture des logos sur le partage reseau) : (logos, empreinte, erreur)."""
             try:
-                src = DirSource(p)
+                src = DirSource(os.path.join(rb_themes, name))
                 # meme base que convert_theme (variantes : BASE = US / anglais) -- sinon un theme a variantes (Midnight) differait de sa propre conversion
                 # et restait « logos modifies sur la Recalbox » a chaque verification (constate au test du 06/10)
                 logos, _m = find_logos(src, known, tuple(prefer) if prefer else prefer_keys("en_US", "us"))
-                sig = logo_signature(logos, src) if logos else None
+                return logos, (logo_signature(logos, src) if logos else None), None
             except Exception as e:
-                rows.append((name, "ERREUR", str(e)[:60], None, "rb"))
+                return None, None, e
+
+        # v5 : themes analyses en parallele (l'attente est reseau : ~38 s en sequence pour 11 themes, dont ~17 s pour un seul)
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        scanned, done = {}, 0
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            futs = {ex.submit(_scan, n): n for n in names}
+            for fu in as_completed(futs):
+                scanned[futs[fu]] = fu.result()
+                done += 1
+                if progress:
+                    try:
+                        progress(done, len(names), futs[fu])
+                    except Exception:
+                        pass
+        for name in names:
+            local = _read_source_json(out_root, name)
+            logos, sig, err = scanned[name]
+            if err is not None:
+                rows.append((name, "ERREUR", str(err)[:60], None, "rb"))
                 continue
             if not logos:
                 rows.append((name, "SANS LOGOS", "aucun logo de systeme detecte", None, "rb"))
