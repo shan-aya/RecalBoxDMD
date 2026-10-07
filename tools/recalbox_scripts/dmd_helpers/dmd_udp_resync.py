@@ -2,7 +2,9 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v12
+# Version actuelle : v13
+#
+# v13 - 2026-10-07 - safe-modify - FAUSSE ALERTE « scripts Recalbox a mettre a jour » apres un Mode 9 + redemarrage de la Recalbox (DMD reste allume) : « CMD=scriptver » n'etait envoye que sur un HELLO (demarrage / reconnexion Wi-Fi du DMD), jamais quand seule la Recalbox redemarre ; le DMD n'avait donc aucun numero et la page web (web_config.h : Recalbox muette depuis >= 90 s => scripts anciens) affichait l'alerte. Le numero est maintenant AUSSI annonce (1) en reponse au message FEATURES, que le DMD renvoie des que ses pings reviennent apres une coupure de la Recalbox, et (2) au 1er PING recu par DMD depuis le demarrage de ce script. Aucun changement du firmware ni de la page. SCRIPTS_BUNDLE 2 -> 3.
 #
 # v12 - 2026-10-06 - safe-modify - SCRIPTS_BUNDLE 1 -> 2 : le script marquee passe en v54 (extinction propre de la Recalbox : EVENT=shutdown -> retour playlist immediat du DMD). Aucune autre modification de ce fichier.
 #
@@ -153,6 +155,7 @@ DMD_IP_CACHE_PATH = "/tmp/dmd_udp_ip"
 # v6 -- theme Recalbox (voir changelog v6).
 RECALBOX_CONF_PATH = "/recalbox/share/system/recalbox.conf"
 _last_theme_sent = {}  # ip du DMD -> dernier (options, theme) envoye (changement detecte sur les PING)
+_scriptver_announced = set()  # v13 -- IP des DMD a qui le numero d'ensemble a deja ete annonce depuis le demarrage de ce script (1er PING)
 
 
 def log(msg):
@@ -228,7 +231,7 @@ def update_dmd_ip_cache(ip):
         log(f"ERREUR ecriture {DMD_IP_CACHE_PATH}: {e}")
 
 
-SCRIPTS_BUNDLE = 2   # v12 (v11 : voir l'en-tete) : a incrementer a chaque modification d'un script publie
+SCRIPTS_BUNDLE = 3   # v13 (v11 : voir l'en-tete) : a incrementer a chaque modification d'un script publie
 THEME_PACKET_GAP_S = 0.5   # v9 -- ecart entre CMD=themeopt et CMD=theme
 DEFAULT_THEME_FOLDER = "recalbox-next"   # valeur par defaut de emulationstation.theme.folder dans Recalbox 9/10/11
 
@@ -334,6 +337,9 @@ def main():
         if text == "PING":
             send_sock.sendto(b"PONG", (addr[0], DMD_UDP_PORT))
             send_theme(send_sock, addr[0])  # v6 -- pris en compte si le theme a change (<= 15 s)
+            if addr[0] not in _scriptver_announced:   # v13 -- 1er PING apres le demarrage de ce script : le DMD n'a peut-etre jamais recu le numero (voir l'en-tete)
+                send_udp(send_sock, addr[0], "scriptver", str(SCRIPTS_BUNDLE))
+                _scriptver_announced.add(addr[0])
             continue
         if text.startswith(FEATURES_PREFIX):
             payload = text[len(FEATURES_PREFIX):]
@@ -343,6 +349,7 @@ def main():
                 log(f"features de {addr[0]} -> cache mis a jour: {payload}")
             except Exception as e:
                 log(f"ERREUR ecriture {FEATURES_CACHE_PATH}: {e}")
+            send_udp(send_sock, addr[0], "scriptver", str(SCRIPTS_BUNDLE))   # v13 -- le DMD renvoie FEATURES des que la Recalbox repond a nouveau apres une coupure
             continue
 
         send_udp(send_sock, addr[0], "scriptver", str(SCRIPTS_BUNDLE))  # v11 -- version des scripts, lue par la page web du DMD et le toolkit
