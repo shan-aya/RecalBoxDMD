@@ -1,7 +1,7 @@
 {
  "format": 2,
- "pipeline": 4,
- "generated": "2026-10-06 01:51",
+ "pipeline": 5,
+ "generated": "2026-10-07 16:54",
  "themes": {
   "alekfull-galisteo-artflix-cobal": {
    "version": "1.0",
@@ -131,7 +131,7 @@
    ],
    "overlays": {},
    "bytes": 958464,
-   "rev": "ec833170c2d6"
+   "rev": "d22b5416cf87"
   },
   "serviettzky-dashboard-X": {
    "version": "1.5",
@@ -1651,7 +1651,7 @@
    ],
    "overlays": {},
    "bytes": 4292608,
-   "rev": "9dc243f0fe7b"
+   "rev": "0c21c214b74e"
   },
   "bounitos-crt-color-package": {
    "version": "1.8",
@@ -1665,7 +1665,6 @@
     "3do.raw565",
     "3ds.raw565",
     "64dd.raw565",
-    "allgames-fr.raw565",
     "allgames.raw565",
     "amiga1200.raw565",
     "amiga600.raw565",
@@ -1757,7 +1756,6 @@
     "dreamcast.raw565",
     "easyrpg.raw565",
     "exl100.raw565",
-    "favorites-fr.raw565",
     "favorites.raw565",
     "fbneo.raw565",
     "fds.raw565",
@@ -1780,11 +1778,9 @@
     "genre-actionshootemup.raw565",
     "genre-actionshootwithgun.raw565",
     "genre-actionstealth.raw565",
-    "genre-adventure-fr.raw565",
     "genre-adventure.raw565",
     "genre-adventuregraphics.raw565",
     "genre-adventureinteractivemovie.raw565",
-    "genre-adventurerealtime3d-fr.raw565",
     "genre-adventurerealtime3d.raw565",
     "genre-adventuresurvivalhorror.raw565",
     "genre-adventuretext.raw565",
@@ -1832,7 +1828,6 @@
     "imageviewer.raw565",
     "intellivision.raw565",
     "jaguar.raw565",
-    "lastplayed-fr.raw565",
     "lastplayed.raw565",
     "lightgun.raw565",
     "lowresnx.raw565",
@@ -1885,7 +1880,6 @@
     "pico.raw565",
     "pico8.raw565",
     "pokemini.raw565",
-    "ports-fr.raw565",
     "ports.raw565",
     "ps2.raw565",
     "psp.raw565",
@@ -1940,8 +1934,8 @@
     "zxspectrum.raw565"
    ],
    "overlays": {},
-   "bytes": 2269184,
-   "rev": "f1d5840dbebf"
+   "bytes": 2220032,
+   "rev": "29fb49dbfbd5"
   },
   "beudbeud-crt-vision": {
    "version": "1.2",
@@ -2495,7 +2489,7 @@
    ],
    "overlays": {},
    "bytes": 4431872,
-   "rev": "ab5a33dee88c"
+   "rev": "d85f4068277f"
   },
   "serviettzky-neoretro": {
    "version": "1.2",
@@ -3205,7 +3199,7 @@
     ]
    },
    "bytes": 2203648,
-   "rev": "f0a690b4f897"
+   "rev": "adb64f328e08"
   },
   "recalbox-240p": {
    "version": "2026-02-05-febce03",
@@ -3489,7 +3483,7 @@
     ]
    },
    "bytes": 2154496,
-   "rev": "0244132a1397"
+   "rev": "db36301b3705"
   }
  },
  "skipped": {
@@ -3498,6 +3492,6 @@
  },
  "skipped_versions": {
   "serviettzy-dmd": "0.91",
-  "helmicretro-haigenco": 2
+  "helmicretro-haigenco": "2.0"
  }
 }
