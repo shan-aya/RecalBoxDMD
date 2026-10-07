@@ -40,7 +40,11 @@ import urllib.request
 import zipfile
 
 W, H, SS = 128, 32, 8
-PIPELINE_VERSION = 4          # a incrementer quand le rendu change (declenche "a reconvertir" dans check)
+PIPELINE_VERSION = 5          # a incrementer quand le rendu change (declenche "a reconvertir" dans check) ; v5 : traits sombres fins elargis pour certains logos (GAP_WIDEN)
+# v5 -- logos dont les lettres sont separees par un trait sombre PLUS FIN qu'une LED (police pochoir de « 240p TEST SUITE » : sans ce traitement
+# « 2 », « P », « S », « E » deviennent des blocs pleins). Valeur = rayon d'elargissement en FRACTION DE LED (independant de la resolution de la
+# source) ; ne s'applique QU'AUX systemes listes ici : un filtre general abimerait les logos a traits fins.
+GAP_WIDEN = {"240ptestsuite": 0.13}
 # v18 (2026-10-05) : le depot GitLab theme-hub n'est plus alimente (Recalbox abandonne GitLab) : catalogue et ZIP des themes sont publies a jour sur
 # media.recalbox.com (c'est de la que la Recalbox telecharge ses themes : .installedFrom). Miroir en premier, GitLab (fige) seulement en repli.
 HUB_BASE = "https://media.recalbox.com/hub/-/raw/main"
@@ -263,12 +267,54 @@ def _fit_pixel_art(rgb, nw, nh):
     return rgb.resize((nw, nh), Image.BOX)
 
 
-def _fit(big):
-    """RGBA grande taille -> canvas RGB 128x32 (rognage des marges, ajustement proportionnel centre, filtre BOX)."""
+GAP_WIDEN_MAX_THIN = 0.03     # part maximale de traits lumineux plus fins qu'une LED pour autoriser l'elargissement des traits sombres
+
+
+def _thin_light_fraction(big, led_px, rled=0.5):
+    """Part (0..1) de la matiere lumineuse qui disparait a une ouverture morphologique de rayon `rled` LED = traits lumineux plus fins qu'environ 1 LED."""
+    np, Image = _imports()
+    from PIL import ImageFilter
+    a = np.asarray(big.convert("RGBA")).astype(float)
+    y = (0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]) * (a[..., 3] / 255.0)
+    m = Image.fromarray(((y > 60) * 255).astype(np.uint8), "L")
+    r = max(1, round(rled * led_px))
+    op = m.filter(ImageFilter.MinFilter(2 * r + 1)).filter(ImageFilter.MaxFilter(2 * r + 1))
+    tot = int((np.asarray(m) > 0).sum())
+    return 1.0 - int((np.asarray(op) > 0).sum()) / max(1, tot)
+
+
+def _widen_for(sid):
+    """Fraction de LED d'elargissement des traits sombres pour ce systeme (0 = aucun) ; « auto-<x> » suit « <x> »."""
+    s = str(sid or "").lower()
+    return GAP_WIDEN.get(s) or (GAP_WIDEN.get(s[5:], 0.0) if s.startswith("auto-") else 0.0)
+
+
+def _widen_dark_lines(big, k):
+    """v5 : elargit de k px (a la resolution de `big`) les traits SOMBRES fins : filtre « minimum » sur l'image posee sur noir (les traits fonces
+    gagnent 2k px, les aplats lumineux perdent k px a chaque bord) et sur la transparence (un trou transparent s'elargit de meme)."""
+    _np, Image = _imports()
+    from PIL import ImageFilter
+    a0 = big.split()[3]
+    bg = Image.new("RGBA", big.size, (0, 0, 0, 255))
+    bg.alpha_composite(big)
+    out = bg.convert("RGB").filter(ImageFilter.MinFilter(2 * k + 1)).convert("RGBA")
+    out.putalpha(a0.filter(ImageFilter.MinFilter(2 * k + 1)))
+    return out
+
+
+def _fit(big, widen=0.0):
+    """RGBA grande taille -> canvas RGB 128x32 (rognage des marges, ajustement proportionnel centre, filtre BOX).
+    widen = fraction de LED (voir GAP_WIDEN) : elargissement des traits sombres fins, applique apres le rognage."""
     np, Image = _imports()
     bb = big.split()[3].point(lambda v: 255 if v > 8 else 0).getbbox()
     if bb:
         big = big.crop(bb)
+    if widen and widen > 0:
+        sc0 = min(W / big.width, H / big.height)
+        # garde-fou : un logo qui contient deja des traits LUMINEUX fins (texte leger de Midnight, Dashboard-X) les perdrait avec ce filtre -> pas d'elargissement
+        # (mesure du 07/10 : 0,00 pour les logos a grosses barres, 0,06 a 0,09 pour Midnight / Dashboard-X ; seuil 0,03)
+        if _thin_light_fraction(big, 1.0 / sc0) <= GAP_WIDEN_MAX_THIN:
+            big = _widen_dark_lines(big, max(1, round(widen / sc0)))
     big = _lighten_dark(big)
     bg = Image.new("RGBA", big.size, (0, 0, 0, 255))
     bg.alpha_composite(big)
@@ -282,14 +328,14 @@ def _fit(big):
     return canvas
 
 
-def convert_bytes(data, is_svg):
-    """Octets d'un logo (SVG ou PNG) -> 8192 octets RGB565 little-endian."""
+def convert_bytes(data, is_svg, widen=0.0):
+    """Octets d'un logo (SVG ou PNG) -> 8192 octets RGB565 little-endian. widen : voir GAP_WIDEN / _fit."""
     np, Image = _imports()
     if is_svg:
         big = _render_svg(data, H * SS)
     else:
         big = Image.open(io.BytesIO(data)).convert("RGBA")
-    a = np.asarray(_fit(big), dtype=np.uint16)
+    a = np.asarray(_fit(big, widen), dtype=np.uint16)
     v = ((a[..., 0] & 0xF8) << 8) | ((a[..., 1] & 0xFC) << 3) | (a[..., 2] >> 3)
     return v.astype("<u2").tobytes()
 
@@ -753,7 +799,7 @@ def write_overlay(src, diff, base_ids, out_dir):
     os.makedirs(out_dir, exist_ok=True)
     written = []
     for sid, rel in sorted(diff.items()):
-        data = convert_bytes(src.read(rel), rel.lower().endswith(".svg"))
+        data = convert_bytes(src.read(rel), rel.lower().endswith(".svg"), _widen_for(sid))
         names = [sid]
         if sid.startswith("auto-") and len(sid) > 5 and sid[5:] not in base_ids:
             names.append(sid[5:])
@@ -770,7 +816,7 @@ def _convert_many(jobs, workers=None):
     from concurrent.futures import ThreadPoolExecutor
     def one(j):
         try:
-            return convert_bytes(j[0], j[1])
+            return convert_bytes(j[0], j[1], j[2] if len(j) > 2 else 0.0)
         except Exception as e:
             return e
     n = workers or max(1, min(6, (os.cpu_count() or 2) - 1))
@@ -797,7 +843,7 @@ def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_lab
             raws[sid] = src.read(rel)
         except Exception as e:
             errors.append((sid, str(e)[:80]))
-    for sid, res in zip([s for s, _ in items if s in raws], _convert_many([(raws[s], logos[s].lower().endswith(".svg")) for s, _ in items if s in raws])):
+    for sid, res in zip([s for s, _ in items if s in raws], _convert_many([(raws[s], logos[s].lower().endswith(".svg"), _widen_for(s)) for s, _ in items if s in raws])):
         if isinstance(res, Exception):      # un logo defectueux ne bloque pas le theme
             errors.append((sid, str(res)[:80]))
             continue
