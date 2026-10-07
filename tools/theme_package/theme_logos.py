@@ -40,11 +40,15 @@ import urllib.request
 import zipfile
 
 W, H, SS = 128, 32, 8
-PIPELINE_VERSION = 5          # a incrementer quand le rendu change (declenche "a reconvertir" dans check) ; v5 : traits sombres fins elargis pour certains logos (GAP_WIDEN)
+PIPELINE_VERSION = 11         # a incrementer quand le rendu change (declenche "a reconvertir" dans check) ; v5 : traits sombres fins elargis pour certains logos (GAP_WIDEN) ; v6 : + tons fonces ramenes vers le noir (GAP_CUT) ; v7 : + logos EMBARQUES Recalbox dans les themes systeme (EMBEDDED_LOGOS) ; v8 : logos embarques eclaircis comme les images par defaut (plus de detourage blanc) ; v9 : eclaircissement par defaut des themes = _lighten_v3 (noir colle a une couleur = contour conserve, noir isole = eclairci) ; v10 : contours sombres en gris 46 (OUTLINE_GRAY) et composantes connexes ; v11 : dominance du noir limitee aux logos sans grande zone coloree + logos embarques en _lighten_v3
 # v5 -- logos dont les lettres sont separees par un trait sombre PLUS FIN qu'une LED (police pochoir de « 240p TEST SUITE » : sans ce traitement
 # « 2 », « P », « S », « E » deviennent des blocs pleins). Valeur = rayon d'elargissement en FRACTION DE LED (independant de la resolution de la
 # source) ; ne s'applique QU'AUX systemes listes ici : un filtre general abimerait les logos a traits fins.
 GAP_WIDEN = {"240ptestsuite": 0.13}
+# v6 -- ET separations qui ne sont PAS noires : dans « recalbox-next » (PNG de 373 px) et dans les logos bleus (crt-color, galisteo) la separation entre barres
+# est un bleu fonce (luminance ~60-80 contre ~140-160 pour les faces) : meme elargie elle reste peu contrastee. (bas, haut) = luminance sous « bas » -> noir,
+# au-dessus de « haut » -> inchange, progressif entre les deux. Meme garde-fou que GAP_WIDEN (pas pour les logos a traits lumineux fins).
+GAP_CUT = {"240ptestsuite": (70.0, 110.0)}
 # v18 (2026-10-05) : le depot GitLab theme-hub n'est plus alimente (Recalbox abandonne GitLab) : catalogue et ZIP des themes sont publies a jour sur
 # media.recalbox.com (c'est de la que la Recalbox telecharge ses themes : .installedFrom). Miroir en premier, GitLab (fige) seulement en repli.
 HUB_BASE = "https://media.recalbox.com/hub/-/raw/main"
@@ -112,8 +116,8 @@ def _render_svg(svg_bytes, height):
     return Image.open(io.BytesIO(bytes(png))).convert("RGBA")
 
 
-def _lighten_dark(img, thr=0.10, bigfrac=0.18, lift=0.38):
-    """Quasi-noir -> blanc (sauf grand aplat clair, ex. cadre blanc 3DO) puis releve les couleurs sombres (teinte gardee)."""
+def _lighten_dark_orig(img, thr=0.10, bigfrac=0.18, lift=0.38):
+    """Quasi-noir -> blanc (sauf grand aplat clair, ex. cadre blanc 3DO) puis releve les couleurs sombres (teinte gardee). METHODE D'ORIGINE (conservee : logos embarques « orig »)."""
     np, Image = _imports()
     a = np.asarray(img, dtype=np.float32).copy()
     lum = (0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]) / 255.0
@@ -126,6 +130,140 @@ def _lighten_dark(img, thr=0.10, bigfrac=0.18, lift=0.38):
     f = np.minimum(lift / np.maximum(lum2[dk], 1e-3), 3.0)
     a[dk, 0:3] = np.minimum(a[dk, 0:3] * f[:, None], 255.0)
     return Image.fromarray(a.astype(np.uint8), "RGBA")
+
+
+# --------------------------------------------------------------------------- v9 : eclaircissement par defaut des themes = FIDELITE d'abord (decision utilisateur 07/10)
+# La Recalbox dessine le SVG du theme tel quel. Le quasi-noir est donc traite selon son ROLE : colle a une zone de couleur (contour, ombre, texte pose sur une forme) = CONSERVE ;
+# isole (texte ou forme noire seule sur fond transparent, illisible sur une dalle noire) = eclairci (blanc). Un logo dont le quasi-noir DOMINE (>= 45 %) est entierement passe en blanc, comme avant.
+def _dilate_square(mask, r):
+    """Dilatation d'un masque booleen par un carre de rayon r (separable, numpy seul)."""
+    a = mask.copy()
+    for k in range(1, r + 1):
+        a[k:, :] |= mask[:-k, :]
+        a[:-k, :] |= mask[k:, :]
+    b = a.copy()
+    for k in range(1, r + 1):
+        b[:, k:] |= a[:, :-k]
+        b[:, :-k] |= a[:, k:]
+    return b
+
+
+OUTLINE_GRAY = 46     # v10 (valeur choisie par l'utilisateur le 07/10 ; 0 = noir pur) : luminance (0-255) donnee aux contours sombres CONSERVES : 0 = noir pur (LED eteinte), ~46-70 = gris sombre visible sur la dalle (idee de l'utilisateur, 07/10)
+
+
+def _dark_outline(a, mask, gray):
+    """Ramene la luminance des pixels de `mask` a `gray` (0-255) en gardant leur teinte (additif) : un contour noir devient gris sombre, visible sur la dalle."""
+    if not gray or not mask.any():
+        return
+    np, _Image = _imports()
+    l255 = 0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]
+    a[mask, 0:3] = np.clip(a[mask, 0:3] + (gray - l255[mask])[:, None], 0, 255)
+
+
+def _lighten_v3(img, thr=0.10, bigfrac=0.18, lift=0.38, darkdom=0.45, lit=0.30, reach=0.035, outline_gray=None, dominance=True, litdom=0.45):
+    np, Image = _imports()
+    a = np.asarray(img, dtype=np.float32).copy()
+    lum = (0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]) / 255.0
+    op = a[..., 3] > 0
+    if ((a[..., 3] > 200) & (lum > 0.80)).mean() >= bigfrac:
+        return img
+    nb = (lum < thr) & op
+    outline = np.zeros_like(nb)
+    if dominance and op.sum() and nb.sum() / op.sum() >= darkdom and (op & (lum >= lit)).sum() / op.sum() < litdom:   # v11 : pas de grande zone claire/coloree (sinon le noir est un contour, ex. multiplayer)
+        whiten = nb                                                            # le logo EST sombre : tout passe en blanc
+    else:
+        near = _dilate_square(op & (lum >= lit), max(2, round(reach * a.shape[0])))   # a portee d'une zone claire / coloree
+        keep = nb & near                                                       # graines : noir colle a une zone de couleur
+        for _i in range(150):                                                  # v10 : croissance GEODESIQUE -> toute la composante noire (un contour epais n'est plus blanchi a l'exterieur)
+            grown = _dilate_square(keep, 1) & nb
+            if int(grown.sum()) == int(keep.sum()):
+                break
+            keep = grown
+        outline, whiten = keep, nb & ~keep                                     # contour / ombre = conserve ; noir ISOLE = eclairci
+    a[whiten, 0:3] = 255.0
+    _dark_outline(a, outline, OUTLINE_GRAY if outline_gray is None else outline_gray)
+    lum2 = (0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]) / 255.0
+    dk = op & (lum2 >= thr) & (lum2 < lift) & ~outline                         # relevement des teintes sombres : IDENTIQUE a la methode d'origine (seul le sort du noir pur change) ; le contour gris choisi n'est pas re-releve
+    f = np.minimum(lift / np.maximum(lum2[dk], 1e-3), 3.0)
+    a[dk, 0:3] = np.minimum(a[dk, 0:3] * f[:, None], 255.0)
+    return Image.fromarray(a.astype(np.uint8), "RGBA")
+
+
+_lighten_dark = _lighten_v3          # eclaircissement par defaut des themes (les logos embarques ont leur table EMBEDDED_LIGHTEN)
+
+
+# --------------------------------------------------------------------------- v8 : eclaircissements « logos embarques » (ceux des images par defaut validees le 05-07/10)
+# Le quasi-noir -> blanc d'origine (_lighten_dark) rend BLANC un simple contour sombre autour de lettres colorees (detourage blanc de tous les genres). _lighten_v2 ne le fait que
+# si le quasi-noir DOMINE le logo (>= 45 %) ; quelques logos ont leur traitement propre. Utilises pour les logos embarques de Recalbox (EMBEDDED_LIGHTEN) ; les autres themes gardent _lighten_dark.
+def _lighten_v2(img, thr=0.10, bigfrac=0.18, lift=0.38, darkdom=0.45, outline_gray=None):
+    np, Image = _imports()
+    a = np.asarray(img, dtype=np.float32).copy()
+    lum = (0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]) / 255.0
+    op = a[..., 3] > 0
+    if ((a[..., 3] > 200) & (lum > 0.80)).mean() >= bigfrac:
+        return img
+    near_black = (lum < thr) & op
+    if op.sum() and near_black.sum() / op.sum() >= darkdom:           # le logo EST sombre : on le passe en blanc
+        a[near_black, 0:3] = 255.0
+    else:
+        _dark_outline(a, near_black, OUTLINE_GRAY if outline_gray is None else outline_gray)      # v10 : le noir conserve (contour) peut devenir un gris sombre visible
+    lum2 = (0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]) / 255.0
+    dk = op & (lum2 >= 0.14) & (lum2 < lift) & ~near_black             # releve seulement les teintes sombres (pas le liseré noir, ni le gris de contour choisi)
+    f = np.minimum(lift / np.maximum(lum2[dk], 1e-3), 3.0)
+    a[dk, 0:3] = np.minimum(a[dk, 0:3] * f[:, None], 255.0)
+    return Image.fromarray(a.astype(np.uint8), "RGBA")
+
+
+def _lighten_none(img):
+    return img
+
+
+def _lighten_terminal(img, black=0.16, gmin=0.20, target=215.0):
+    """Ecran de terminal (plaque quasi noire + texte vert, genre-adventuretext) : plaque noire, vert eclairci (meme teinte)."""
+    np, Image = _imports()
+    a = np.asarray(img, dtype=np.float32).copy()
+    lum = (0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]) / 255.0
+    green = (a[..., 1] > a[..., 0] + 25) & (a[..., 1] > a[..., 2] + 25) & (lum >= gmin) & (a[..., 3] > 0)
+    a[green, 0:3] = np.minimum(a[green, 0:3] * (target / np.maximum(a[green, 1], 1.0))[:, None], 255.0)
+    plaque = (lum < black) & (a[..., 3] > 0) & ~green
+    a[plaque, 0:3] = 0.0
+    return Image.fromarray(a.astype(np.uint8), "RGBA")
+
+
+def _lighten_boost(img, lim=0.30, target=0.85, cap=6.0):
+    """Texte tres sombre sur dalle noire (genre-strategyautobattler) : eclairci fortement en gardant la teinte."""
+    np, Image = _imports()
+    a = np.asarray(img, dtype=np.float32).copy()
+    lum = (0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]) / 255.0
+    dk = (a[..., 3] > 0) & (lum < lim)
+    f = np.minimum(target / np.maximum(lum[dk], 1e-3), cap)
+    a[dk, 0:3] = np.minimum(a[dk, 0:3] * f[:, None], 255.0)
+    return Image.fromarray(a.astype(np.uint8), "RGBA")
+
+
+def _lighten_sim(img, icon_frac=0.19, target=0.50, cap=4.0):
+    """genre-simulation : couleurs d'origine (marine + rouge) eclaircies (teinte gardee), liseré exterieur sombre et icone inchanges. Sans OpenCV (filtres PIL)."""
+    np, Image = _imports()
+    from PIL import ImageFilter
+    a = np.asarray(img, dtype=np.float32).copy()
+    lum = (0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]) / 255.0
+    mask = Image.fromarray(((a[..., 3] > 60) * 255).astype(np.uint8), "L")
+    solid = mask.filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.MinFilter(9))        # fermeture 9x9 : comble les trous entre les chemins du logo de base
+    m = np.asarray(solid.filter(ImageFilter.MinFilter(5))) > 0                              # erosion 5x5
+    m[:, :int(icon_frac * a.shape[1])] = False
+    f = np.clip(target / np.maximum(lum[m], 0.02), 1.0, cap)
+    a[m, 0:3] = np.minimum(a[m, 0:3] * f[:, None] + 18, 255)
+    return Image.fromarray(a.astype(np.uint8), "RGBA")
+
+
+# logos embarques dont le traitement n'est pas _lighten_v2 (valide a l'oeil sur les images par defaut, 05-07/10) :
+#   terminal = _lighten_terminal, boost = _lighten_boost, sim = _lighten_sim, orig = _lighten_dark d'origine (texte noir sur noir), none = aucun (lastplayed : coupure seule)
+EMBEDDED_LIGHTEN = {"genre-adventuretext": "terminal", "genre-strategyautobattler": "boost", "genre-simulation": "sim", "genre-digitalcard": "orig", "lastplayed": "none"}
+
+
+def _embedded_lighten(sid):
+    k = EMBEDDED_LIGHTEN.get(sid, "v3")
+    return {"v2": _lighten_v2, "v3": _lighten_v3, "terminal": _lighten_terminal, "boost": _lighten_boost, "sim": _lighten_sim, "none": _lighten_none, "orig": _lighten_dark_orig}[k]
 
 
 # --------------------------------------------------------------------------- v4 : reduction « 1 pixel = 1 LED » (pixel-art a partir du vectoriel)
@@ -289,6 +427,24 @@ def _widen_for(sid):
     return GAP_WIDEN.get(s) or (GAP_WIDEN.get(s[5:], 0.0) if s.startswith("auto-") else 0.0)
 
 
+def _cut_for(sid):
+    """(bas, haut) de la coupe des tons fonces pour ce systeme, ou None ; « auto-<x> » suit « <x> »."""
+    s = str(sid or "").lower()
+    return GAP_CUT.get(s) or (GAP_CUT.get(s[5:]) if s.startswith("auto-") else None)
+
+
+def _cut_dark_tones(big, lo, hi):
+    """v6 : luminance < lo -> noir, > hi -> inchange, lissage entre les deux (la transparence est conservee)."""
+    np, Image = _imports()
+    a = np.asarray(big.convert("RGBA")).astype(float)
+    rgb = a[..., :3]
+    y = 0.299 * rgb[..., 0] + 0.587 * rgb[..., 1] + 0.114 * rgb[..., 2]
+    k = np.clip((y - lo) / (hi - lo), 0, 1)
+    k = k * k * (3 - 2 * k)
+    a[..., :3] = rgb * k[..., None]
+    return Image.fromarray(a.astype(np.uint8), "RGBA")
+
+
 def _widen_dark_lines(big, k):
     """v5 : elargit de k px (a la resolution de `big`) les traits SOMBRES fins : filtre « minimum » sur l'image posee sur noir (les traits fonces
     gagnent 2k px, les aplats lumineux perdent k px a chaque bord) et sur la transparence (un trou transparent s'elargit de meme)."""
@@ -302,20 +458,29 @@ def _widen_dark_lines(big, k):
     return out
 
 
-def _fit(big, widen=0.0):
+def _fit(big, widen=0.0, cut=None, lighten=None):
     """RGBA grande taille -> canvas RGB 128x32 (rognage des marges, ajustement proportionnel centre, filtre BOX).
-    widen = fraction de LED (voir GAP_WIDEN) : elargissement des traits sombres fins, applique apres le rognage."""
+    widen = fraction de LED (voir GAP_WIDEN) : elargissement des traits sombres fins, applique apres le rognage.
+    cut = (bas, haut) (voir GAP_CUT) : tons fonces ramenes vers le noir, meme garde-fou que widen.
+    lighten = fonction d'eclaircissement (defaut : _lighten_dark d'origine ; logos embarques : voir _embedded_lighten)."""
     np, Image = _imports()
     bb = big.split()[3].point(lambda v: 255 if v > 8 else 0).getbbox()
     if bb:
         big = big.crop(bb)
-    if widen and widen > 0:
+    do_cut = None
+    if (widen and widen > 0) or cut:
         sc0 = min(W / big.width, H / big.height)
         # garde-fou : un logo qui contient deja des traits LUMINEUX fins (texte leger de Midnight, Dashboard-X) les perdrait avec ce filtre -> pas d'elargissement
         # (mesure du 07/10 : 0,00 pour les logos a grosses barres, 0,06 a 0,09 pour Midnight / Dashboard-X ; seuil 0,03)
         if _thin_light_fraction(big, 1.0 / sc0) <= GAP_WIDEN_MAX_THIN:
-            big = _widen_dark_lines(big, max(1, round(widen / sc0)))
-    big = _lighten_dark(big)
+            if widen and widen > 0:
+                big = _widen_dark_lines(big, max(1, round(widen / sc0)))
+            do_cut = cut
+    big = (lighten or _lighten_dark)(big)
+    if cut and len(cut) > 2 and cut[2]:
+        do_cut = cut        # (bas, haut, True) = coupure FORCEE, sans garde-fou (logo valide a l'oeil, ex. lastplayed embarque)
+    if do_cut:      # APRES _lighten_dark : sinon le quasi-noir obtenu est remonte en clair (« quasi-noir -> blanc » de la conversion d'origine)
+        big = _cut_dark_tones(big, do_cut[0], do_cut[1])        # do_cut[2] eventuel = drapeau « force », ignore ici
     bg = Image.new("RGBA", big.size, (0, 0, 0, 255))
     bg.alpha_composite(big)
     rgb = bg.convert("RGB")
@@ -328,14 +493,14 @@ def _fit(big, widen=0.0):
     return canvas
 
 
-def convert_bytes(data, is_svg, widen=0.0):
-    """Octets d'un logo (SVG ou PNG) -> 8192 octets RGB565 little-endian. widen : voir GAP_WIDEN / _fit."""
+def convert_bytes(data, is_svg, widen=0.0, cut=None, lighten=None):
+    """Octets d'un logo (SVG ou PNG) -> 8192 octets RGB565 little-endian. widen / cut / lighten : voir GAP_WIDEN, GAP_CUT, _fit."""
     np, Image = _imports()
     if is_svg:
         big = _render_svg(data, H * SS)
     else:
         big = Image.open(io.BytesIO(data)).convert("RGBA")
-    a = np.asarray(_fit(big, widen), dtype=np.uint16)
+    a = np.asarray(_fit(big, widen, cut, lighten), dtype=np.uint16)
     v = ((a[..., 0] & 0xF8) << 8) | ((a[..., 1] & 0xFC) << 3) | (a[..., 2] >> 3)
     return v.astype("<u2").tobytes()
 
@@ -799,7 +964,7 @@ def write_overlay(src, diff, base_ids, out_dir):
     os.makedirs(out_dir, exist_ok=True)
     written = []
     for sid, rel in sorted(diff.items()):
-        data = convert_bytes(src.read(rel), rel.lower().endswith(".svg"), _widen_for(sid))
+        data = convert_bytes(src.read(rel), rel.lower().endswith(".svg"), _widen_for(sid), _cut_for(sid))
         names = [sid]
         if sid.startswith("auto-") and len(sid) > 5 and sid[5:] not in base_ids:
             names.append(sid[5:])
@@ -816,7 +981,7 @@ def _convert_many(jobs, workers=None):
     from concurrent.futures import ThreadPoolExecutor
     def one(j):
         try:
-            return convert_bytes(j[0], j[1], j[2] if len(j) > 2 else 0.0)
+            return convert_bytes(j[0], j[1], j[2] if len(j) > 2 else 0.0, j[3] if len(j) > 3 else None, j[4] if len(j) > 4 else None)
         except Exception as e:
             return e
     n = workers or max(1, min(6, (os.cpu_count() or 2) - 1))
@@ -826,8 +991,9 @@ def _convert_many(jobs, workers=None):
         return list(ex.map(one, jobs))
 
 
-def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_label="dir", prefer=(), variants=True):
+def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_label="dir", prefer=(), variants=True, embedded=False):
     """Convertit les logos de `src` dans out_dir. Retourne le dict _source.json ecrit.
+    embedded=True (themes SYSTEME de Recalbox) : ajoute les logos EMBARQUES de la Recalbox (${system.logo}) -- voir EMBEDDED_LOGOS.
     variants=True (defaut) : en plus de la base US / anglais, ecrit les surcharges l_<langue>/ et r_<region>/ (voir overlay_dirs) -- ignore si `prefer` est donne."""
     # v4 : en mode variantes (aucune preference imposee), la BASE est la variante US / anglais -- pas le chemin neutre du theme (qui peut etre la version japonaise)
     base_prefer = tuple(prefer) if prefer else (prefer_keys("en_US", "us") if variants else ())
@@ -843,7 +1009,7 @@ def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_lab
             raws[sid] = src.read(rel)
         except Exception as e:
             errors.append((sid, str(e)[:80]))
-    for sid, res in zip([s for s, _ in items if s in raws], _convert_many([(raws[s], logos[s].lower().endswith(".svg"), _widen_for(s)) for s, _ in items if s in raws])):
+    for sid, res in zip([s for s, _ in items if s in raws], _convert_many([(raws[s], logos[s].lower().endswith(".svg"), _widen_for(s), _cut_for(s)) for s, _ in items if s in raws])):
         if isinstance(res, Exception):      # un logo defectueux ne bloque pas le theme
             errors.append((sid, str(res)[:80]))
             continue
@@ -870,6 +1036,15 @@ def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_lab
                 overlays[code] = write_overlay(src, diff, set(logos), os.path.join(out_dir, code))
         except Exception as e:
             log(f"variantes de langue/region non ecrites : {type(e).__name__}: {e}")
+    emb_info = None
+    if embedded:       # v7 : theme systeme Recalbox -> ajoute les logos embarques (voir EMBEDDED_LOGOS)
+        try:
+            emb_info = apply_embedded_logos(out_dir, log=log)
+            n_idx = write_index(out_dir)
+            errors += emb_info["errors"]
+            log(f"logos embarques Recalbox {emb_info['ref']} : {emb_info['base']} en base, variantes de langue : {emb_info['lang'] or 'aucune'}")
+        except Exception as e:
+            log(f"logos embarques Recalbox non ajoutes : {type(e).__name__}: {e}")
     sig = logo_signature(logos, src)
     info = {
         "pipeline": PIPELINE_VERSION,
@@ -888,6 +1063,11 @@ def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_lab
         info["variants"] = detect_variants(src, known)
     except Exception:
         pass
+    if emb_info:
+        info["embedded"] = {"ref": emb_info["ref"], "base": emb_info["base"], "lang": emb_info["lang"]}
+        info["overlays"].update({f"l_{k}": v for k, v in emb_info["lang"].items()})
+        v = info.setdefault("variants", {"lang": [], "region": []})
+        v["lang"] = sorted(set(v.get("lang", [])) | set(emb_info["lang"]))
     if hub_info:
         info.update(hub_info)
     with open(os.path.join(out_dir, "_source.json"), "w", encoding="utf-8") as f:
@@ -903,6 +1083,86 @@ def write_index(out_dir):
     with open(os.path.join(out_dir, "_index.bin"), "wb") as f:
         f.write(b"".join(struct.pack("<I", h) for h in hashes))
     return len(hashes)
+
+
+# --------------------------------------------------------------------------- logos EMBARQUES dans Recalbox (${system.logo})
+# v7 -- les themes systeme de Recalbox (recalbox-next, recalbox-240p) declarent path="${system.logo}" EN PREMIER : la Recalbox affiche alors le logo EMBARQUE dans son
+# systeme (/recalbox/system/resources/logos : 279 SVG, variantes de langue = 7 « -fr », aucune « -es »), et ne se rabat sur le PNG du theme que s'il n'existe pas.
+# Ces logos ne sont pas dans l'archive du theme : sans eux le DMD retombait sur l'image par defaut traduite (« Multijoueur » sur le DMD, « Multiplayer » sur l'ecran).
+# Source = depot GitLab Recalbox, version STABLE (10.1.1 ; identique a master au 07/10/2026). Accord de Recalbox pour cet usage (logos reduits a 128x32).
+EMBEDDED_LOGOS = {"project": "recalbox%2Frecalbox", "path": "board/recalbox/fsoverlay/recalbox/system/resources/logos", "ref": "10.1.1"}
+EMBEDDED_LANGS = ("fr", "es", "de", "it", "pt")      # suffixes « -xx » reconnus comme variantes de langue
+
+
+def embedded_logos_download(cache_dir=None, log=print):
+    """Archive GitLab du dossier des logos embarques (cache embedded_logos__<ref>.zip, ~9 Mo). Retourne le chemin local."""
+    s = EMBEDDED_LOGOS
+    cache_dir = cache_dir or default_cache_dir()
+    os.makedirs(cache_dir, exist_ok=True)
+    dst = os.path.join(cache_dir, f"embedded_logos__{s['ref']}.zip")
+    if os.path.exists(dst) and os.path.getsize(dst) > 1 << 20:
+        return dst
+    url = f"https://gitlab.com/api/v4/projects/{s['project']}/repository/archive.zip?path={urllib.request.quote(s['path'], safe='')}&sha={s['ref']}"
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    tmp = dst + ".part"
+    with urllib.request.urlopen(req, timeout=120) as r, open(tmp, "wb") as f:
+        shutil.copyfileobj(r, f)
+    os.replace(tmp, dst)
+    log(f"logos embarques Recalbox {s['ref']} telecharges ({os.path.getsize(dst) / 1e6:.0f} Mo)")
+    return dst
+
+
+def load_embedded_logos(cache_dir=None, log=print):
+    """-> (base {id: octets SVG}, variantes {langue: {id: octets SVG}}) depuis l'archive des logos embarques."""
+    base, var = {}, {}
+    with zipfile.ZipFile(embedded_logos_download(cache_dir, log)) as z:
+        for n in z.namelist():
+            m = re.search(r"/logos/([^/]+)\.svg$", n, re.I)
+            if not m:
+                continue
+            name = m.group(1)
+            mm = re.fullmatch(r"(.+)-(" + "|".join(EMBEDDED_LANGS) + ")", name, re.I)
+            if mm:
+                var.setdefault(mm.group(2).lower(), {})[mm.group(1)] = z.read(n)
+            else:
+                base[name] = z.read(n)
+    return base, var
+
+
+EMBEDDED_CUT = {"lastplayed": (70.0, 110.0, True)}    # logos 3D embarques dont l'extrusion fonce fondait les lettres (lastplayed, base ET -fr) : meme traitement que l'image par defaut validee le 07/10 ; ne vaut QUE pour les logos embarques (pas pour le « lastplayed » d'un autre theme)
+
+
+def _write_logo_set(out_dir, items, cuts=None, lighten_for=None):
+    """Convertit {id: octets SVG} en <id>.raw565 dans out_dir (fils d'execution) ; retourne (nombre ecrit, erreurs).
+    lighten_for(id) = fonction d'eclaircissement du logo (None = _lighten_dark d'origine)."""
+    os.makedirs(out_dir, exist_ok=True)
+    ids = sorted(items)
+    res = _convert_many([(items[i], True, _widen_for(i), (cuts or {}).get(i) or _cut_for(i), lighten_for(i) if lighten_for else None) for i in ids])
+    n, errs = 0, []
+    for i, r in zip(ids, res):
+        if isinstance(r, Exception):
+            errs.append((i, str(r)[:80]))
+            continue
+        with open(os.path.join(out_dir, i + ".raw565"), "wb") as f:
+            f.write(r)
+        n += 1
+    return n, errs
+
+
+def apply_embedded_logos(out_dir, cache_dir=None, log=print):
+    """Ajoute au theme converti (out_dir) les logos embarques : base (ils PRIMENT sur le PNG du theme, comme sur la Recalbox) et surcharges l_<langue>/.
+    Retourne {"ref", "base", "lang": {langue: nombre}, "errors"}."""
+    base, var = load_embedded_logos(cache_dir, log)
+    n, errs = _write_logo_set(out_dir, base, EMBEDDED_CUT, _embedded_lighten)
+    write_index(out_dir)
+    langs = {}
+    for lang, items in sorted(var.items()):
+        ldir = os.path.join(out_dir, f"l_{lang}")
+        k, e = _write_logo_set(ldir, items, EMBEDDED_CUT, _embedded_lighten)
+        write_index(ldir)
+        langs[lang] = k
+        errs += e
+    return {"ref": EMBEDDED_LOGOS["ref"], "base": n, "lang": langs, "errors": errs[:20]}
 
 
 def logo_signature(logos, src):

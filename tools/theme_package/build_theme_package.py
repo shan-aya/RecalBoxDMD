@@ -185,13 +185,14 @@ def build(out_root, known_dir, only=None, rb_root=None, log=print, incremental=F
             shutil.rmtree(out)          # reconstruction complete du theme : aucun fichier obsolete (logos supprimes, anciennes surcharges)
         hub_info = {"hub_version": hv} if (folder in hub or origin == "rb") else {}
         hub_info["packaged_from"] = origin
-        tl.convert_theme(src, out, known, log=lambda s, f=folder: log(f"[{f}] {s}"), hub_info=hub_info,
-                         source_label="package", variants=True)
+        # v10 : themes SYSTEME de Recalbox (recalbox-next, recalbox-240p) -> + logos EMBARQUES de la Recalbox (${system.logo}) : la Recalbox les affiche en priorite
+        conv = tl.convert_theme(src, out, known, log=lambda s, f=folder: log(f"[{f}] {s}"), hub_info=hub_info,
+                                source_label="package", variants=True, embedded=(folder in tl.SYSTEM_THEMES))
         base_files = sorted(f for f in os.listdir(out) if f.endswith(".raw565"))
         overlays = {}
         for code in sorted(d for d in os.listdir(out) if re.fullmatch(r"[lr]_[a-z]{2}", d) and os.path.isdir(os.path.join(out, d))):
             overlays[code] = sorted(f for f in os.listdir(os.path.join(out, code)) if f.endswith(".raw565"))
-        entry = {"version": hv, "packaged_from": origin, "variants": tl.detect_variants(src, known),
+        entry = {"version": hv, "packaged_from": origin, "variants": conv.get("variants") or tl.detect_variants(src, known),
                  "files": base_files, "overlays": overlays,
                  "bytes": sum(os.path.getsize(os.path.join(out, f)) for f in base_files)
                  + sum(os.path.getsize(os.path.join(out, c, f)) for c, fl in overlays.items() for f in fl)}
