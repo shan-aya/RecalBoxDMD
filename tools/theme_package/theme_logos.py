@@ -40,7 +40,7 @@ import urllib.request
 import zipfile
 
 W, H, SS = 128, 32, 8
-PIPELINE_VERSION = 11         # a incrementer quand le rendu change (declenche "a reconvertir" dans check) ; v5 : traits sombres fins elargis pour certains logos (GAP_WIDEN) ; v6 : + tons fonces ramenes vers le noir (GAP_CUT) ; v7 : + logos EMBARQUES Recalbox dans les themes systeme (EMBEDDED_LOGOS) ; v8 : logos embarques eclaircis comme les images par defaut (plus de detourage blanc) ; v9 : eclaircissement par defaut des themes = _lighten_v3 (noir colle a une couleur = contour conserve, noir isole = eclairci) ; v10 : contours sombres en gris 46 (OUTLINE_GRAY) et composantes connexes ; v11 : dominance du noir limitee aux logos sans grande zone coloree + logos embarques en _lighten_v3
+PIPELINE_VERSION = 15         # a incrementer quand le rendu change (declenche "a reconvertir" dans check) ; v5 : traits sombres fins elargis pour certains logos (GAP_WIDEN) ; v6 : + tons fonces ramenes vers le noir (GAP_CUT) ; v7 : + logos EMBARQUES Recalbox dans les themes systeme (EMBEDDED_LOGOS) ; v8 : logos embarques eclaircis comme les images par defaut (plus de detourage blanc) ; v9 : eclaircissement par defaut des themes = _lighten_v3 (noir colle a une couleur = contour conserve, noir isole = eclairci) ; v10 : contours sombres en gris 46 (OUTLINE_GRAY) et composantes connexes ; v11 : dominance du noir limitee aux logos sans grande zone coloree + logos embarques en _lighten_v3 ; v12 : retouches de lisibilite par logo (exl100, mitchell : texte sombre -> blanc ; scummvm : gris eclaircis) + plaques noires a texte blanc conservees (Midway/Sammy/Dragon/Lynx) + degrade de Dashboard-X preserve ; v13 : une plaque noire doit contenir de la matiere non noire (Acclaim, Raizing embarques) ; v14 : emprise de la plaque, texte blanc sur plaque pleine, points blancs seulement en haute resolution (Raizing PNG) ; v15 : plaque « grande » = pourtour surtout de la matiere (rapport >= 3) au lieu de la quantite de matiere dans la boite (terminal de TEXTUAL ADVENTURE)
 # v5 -- logos dont les lettres sont separees par un trait sombre PLUS FIN qu'une LED (police pochoir de « 240p TEST SUITE » : sans ce traitement
 # « 2 », « P », « S », « E » deviennent des blocs pleins). Valeur = rayon d'elargissement en FRACTION DE LED (independant de la resolution de la
 # source) ; ne s'applique QU'AUX systemes listes ici : un filtre general abimerait les logos a traits fins.
@@ -160,17 +160,26 @@ def _dark_outline(a, mask, gray):
     a[mask, 0:3] = np.clip(a[mask, 0:3] + (gray - l255[mask])[:, None], 0, 255)
 
 
-def _lighten_v3(img, thr=0.10, bigfrac=0.18, lift=0.38, darkdom=0.45, lit=0.30, reach=0.035, outline_gray=None, dominance=True, litdom=0.45):
+def _lighten_v3(img, thr=0.10, bigfrac=0.18, lift=0.38, darkdom=0.45, lit=0.30, reach=0.035, outline_gray=None, dominance=True, litdom=0.45, plates=True, plate_range=(0.14, 0.50), plate_share=0.6):
     np, Image = _imports()
     a = np.asarray(img, dtype=np.float32).copy()
     lum = (0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]) / 255.0
     op = a[..., 3] > 0
     if ((a[..., 3] > 200) & (lum > 0.80)).mean() >= bigfrac:
         return img
-    nb = (lum < thr) & op
+    mxc, mnc = a[..., :3].max(axis=2), a[..., :3].min(axis=2)
+    chrom_dark = op & (mxc >= 90) & ((mxc - mnc) >= 0.6 * mxc)                 # v12 : bleu / rouge pur sombre (VECTREX) : lum < 0.10 mais c'est de la COULEUR, pas du noir
+    nb = (lum < thr) & op & ~chrom_dark
     outline = np.zeros_like(nb)
     if dominance and op.sum() and nb.sum() / op.sum() >= darkdom and (op & (lum >= lit)).sum() / op.sum() < litdom:   # v11 : pas de grande zone claire/coloree (sinon le noir est un contour, ex. multiplayer)
         whiten = nb                                                            # le logo EST sombre : tout passe en blanc
+        if plates:                                                             # v12 : une PLAQUE noire n'est pas blanchie : elle porte du texte BLANC (« CLASSICS » Midway/Sammy, « 32 » de Dragon) ou elle est grande dans un logo colore (Dragon, Lynx)
+            kept, solid = _black_plates(nb, op & (a[..., 3] > 200) & (lum >= 0.80), op & ((a[..., :3].max(axis=2) - a[..., :3].min(axis=2)) <= 0.20 * np.maximum(a[..., :3].max(axis=2), 1.0)), op.sum(), (op & (lum >= lit)).sum() / max(1, op.sum()), op)
+            a[solid, 0:3] = 0.0                                                # vraie plaque = NOIR PUR (LED eteintes, comme l'original), pas le gris 46 reserve aux contours fins
+            outline, whiten = kept & ~solid, nb & ~kept
+            enclosed = _enclosed_black(nb, op & (lum >= lit))                                 # noir ENFERME dans la couleur (contre-formes du « 3 » de F3, de DRAGON...) : n'est pas du texte isole
+            a[enclosed & whiten, 0:3] = 0.0
+            whiten = whiten & ~enclosed
     else:
         near = _dilate_square(op & (lum >= lit), max(2, round(reach * a.shape[0])))   # a portee d'une zone claire / coloree
         keep = nb & near                                                       # graines : noir colle a une zone de couleur
@@ -183,13 +192,227 @@ def _lighten_v3(img, thr=0.10, bigfrac=0.18, lift=0.38, darkdom=0.45, lit=0.30, 
     a[whiten, 0:3] = 255.0
     _dark_outline(a, outline, OUTLINE_GRAY if outline_gray is None else outline_gray)
     lum2 = (0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]) / 255.0
-    dk = op & (lum2 >= thr) & (lum2 < lift) & ~outline                         # relevement des teintes sombres : IDENTIQUE a la methode d'origine (seul le sort du noir pur change) ; le contour gris choisi n'est pas re-releve
-    f = np.minimum(lift / np.maximum(lum2[dk], 1e-3), 3.0)
+    dk = op & ((lum2 >= thr) | chrom_dark) & (lum2 < lift) & ~outline                         # relevement des teintes sombres : IDENTIQUE a la methode d'origine (seul le sort du noir pur change) ; le contour gris choisi n'est pas re-releve
+    mxx = a[..., :3].max(axis=2); mnn = a[..., :3].min(axis=2)
+    satt = (mxx - mnn) / np.maximum(mxx, 1.0)
+    if plates and op.sum() and _is_gradient_plate(dk & (satt >= 0.30), lum2, op.sum(), plate_share):        # v12 : plaque coloree sombre a DEGRADE (Dashboard-X) : remappage MONOTONE (le releve d'origine aplatit tout a `lift` -> degrade perdu)
+        newl = plate_range[0] + (lum2[dk] - thr) / (lift - thr) * (plate_range[1] - plate_range[0])
+        f = np.minimum(newl / np.maximum(lum2[dk], 1e-3), 3.0)
+    else:
+        f = np.minimum(lift / np.maximum(lum2[dk], 1e-3), 3.0)
     a[dk, 0:3] = np.minimum(a[dk, 0:3] * f[:, None], 255.0)
     return Image.fromarray(a.astype(np.uint8), "RGBA")
 
 
+def _is_gradient_plate(m, lum2, n_op, share, min_std=0.04, min_corr=0.90):
+    """Plaque coloree sombre a DEGRADE HORIZONTAL (Dashboard-X : correlation luminance/colonne >= 0.97) : couvre >= `share` du logo, assez de dynamique, degrade net."""
+    np, _Image = _imports()
+    if m.sum() < share * n_op or m.sum() < 50:
+        return False
+    ys, xs = np.nonzero(m)
+    v = lum2[m]
+    if float(v.std()) < min_std or float(xs.std()) < 1.0:
+        return False
+    return abs(float(np.corrcoef(xs, v)[0, 1])) >= min_corr
+
+
+def _label(mask):
+    """Etiquettes de composantes connexes d'un masque booleen (segments par ligne + union-find ; numpy/Python, pas d'OpenCV). 0 = fond."""
+    np, _Image = _imports()
+    h, w = mask.shape
+    lab = np.zeros((h, w), dtype=np.int32)
+    parent = [0]
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    prev = []                                    # segments de la ligne precedente : (x0, x1, etiquette)
+    for y in range(h):
+        d = np.diff(np.concatenate(([0], mask[y].astype(np.int8), [0])))
+        starts, ends = np.nonzero(d == 1)[0], np.nonzero(d == -1)[0]
+        cur = []
+        k = 0
+        for x0, x1 in zip(starts.tolist(), ends.tolist()):
+            lbl = 0
+            while k < len(prev) and prev[k][1] <= x0:
+                k += 1
+            kk = k
+            while kk < len(prev) and prev[kk][0] < x1:
+                pl = prev[kk][2]
+                if lbl == 0:
+                    lbl = pl
+                else:
+                    ra, rb = find(lbl), find(pl)
+                    if ra != rb:
+                        parent[rb] = ra
+                kk += 1
+            if lbl == 0:
+                lbl = len(parent)
+                parent.append(lbl)
+            lab[y, x0:x1] = lbl
+            cur.append((x0, x1, lbl))
+        prev = cur
+    roots = np.array([find(i) for i in range(len(parent))], dtype=np.int32)
+    return roots[lab]
+
+
+def _black_plates(nb, white, achro, n_op, colored_share, op_mask=None, open_frac=0.07, big=0.15, min_colored=0.15, fill=0.7, text_share=0.05, black_share=0.2):
+    """Vraies PLAQUES noires du logo, a garder en NOIR PUR : (conserve, plein) ; les deux masques sont identiques.
+    Une plaque est une zone EPAISSE (ouverture morphologique : ni lettres noires, ni queue de lettre collee comme le « y » de Sammy) de noir + texte blanc, qui
+    - porte du texte blanc epais (pilule « CLASSICS » de Midway/Sammy, « 32 » de Dragon) ou
+    - est grande dans un logo colore (Dragon, Lynx),
+    et qui est pleine (aire / boite >= `fill`) et surtout noire. Le noir enferme dans sa boite (interieur des lettres de DRAGON 32) la suit."""
+    np, _Image = _imports()
+    empty = np.zeros_like(nb)
+    h, w = nb.shape
+    wh = _big_components(white, 0.002)
+    R = max(3, round(open_frac * h))
+    pw = nb | wh | achro                                              # noir + blanc + tout ce qui est achromatique (pixels d'anti-crenelage entre le noir et le blanc des lettres)
+    core = _dilate_square(~_dilate_square(~pw, R), R) & pw             # coeur epais (ouverture) de noir + blanc
+    if not core.any():
+        return empty, empty
+    lab = _label(core)
+    ring = _dilate_square(nb, 2) & ~nb                                       # pourtour du noir : matiere (opaque) ou vide (transparent)
+    plein = empty.copy()
+    for i in range(1, int(lab.max()) + 1):
+        m = lab == i
+        n = int(m.sum())
+        if n == 0:
+            continue
+        ys, xs = np.nonzero(m)
+        box = (ys.max() - ys.min() + 1) * (xs.max() - xs.min() + 1)
+        n_black, n_white = int((m & nb).sum()), int((m & white).sum())      # blanc BRUT : les points blancs du hibou BBC sont de la « matiere » blanche sur plaque noire
+        if n_black < black_share * n:
+            continue
+        with_text = n_white >= text_share * n and n_white > 0
+        xs0, ys0 = np.arange(w)[None, :], np.arange(h)[:, None]                       # emprise ligne/colonne du coeur (sans marge)
+        ra, ca = m.any(axis=1), m.any(axis=0)
+        q0, q1 = m.argmax(axis=1), w - 1 - m[:, ::-1].argmax(axis=1)
+        k0, k1 = m.argmax(axis=0), h - 1 - m[::-1, :].argmax(axis=0)
+        emp = (xs0 >= q0[:, None]) & (xs0 <= q1[:, None]) & ra[:, None] & (ys0 >= k0[None, :]) & (ys0 <= k1[None, :]) & ca[None, :]
+        inner = float(((op_mask & ~nb) & emp).sum()) / max(1, int(emp.sum())) if op_mask is not None else 1.0   # matiere NON noire DANS l'emprise : une plaque en porte beaucoup (lettres de DRAGON, LYNX), un gros texte noir (Acclaim, « ing ») presque pas
+        if op_mask is not None and colored_share >= min_colored and n_black >= big * n_op:       # plaque = bordee surtout par de la MATIERE (lettres, icones) ; un gros texte noir (Acclaim, « ing ») surtout par du VIDE : rapport mesure >= 6.7 (DRAGON, LYNX, VIC-20, terminal) contre <= 0.5
+            sl = (slice(max(0, ys.min() - R), ys.max() + 1 + R), slice(max(0, xs.min() - R), xs.max() + 1 + R))
+            edge_mat, edge_void = int((ring & op_mask)[sl].sum()), int((ring & ~op_mask)[sl].sum())
+            large = edge_mat >= 3.0 * max(1, edge_void)
+        else:
+            large = False
+        if with_text and (inner < 0.12 or n < 0.6 * box):       # texte blanc SUR une plaque pleine (pilule CLASSICS) ; pas du texte blanc voisin d'un texte noir (RAIZING / « ing »)
+            with_text = False
+        if not (with_text or large):
+            continue
+        xs_, ys_ = np.arange(w)[None, :], np.arange(h)[:, None]           # EMPRISE du coeur : pour chaque ligne / colonne, de son premier a son dernier pixel (interstices entre lettres colorees inclus ; « ACORN » a gauche du hibou et la queue du « y » de Sammy hors emprise)
+        r_any, c_any = m.any(axis=1), m.any(axis=0)
+        r0, r1 = m.argmax(axis=1), w - 1 - m[:, ::-1].argmax(axis=1)
+        c0, c1 = m.argmax(axis=0), h - 1 - m[::-1, :].argmax(axis=0)
+        span = (xs_ >= r0[:, None] - R) & (xs_ <= r1[:, None] + R) & r_any[:, None] & (ys_ >= c0[None, :] - R) & (ys_ <= c1[None, :] + R) & c_any[None, :]
+        plein |= nb & ((span & _dilate_square(m, 3 * R)) | _dilate_square(m, R))      # noir de la plaque (+ coins arrondis rendus par l'ouverture)
+    if plein.any():                                                       # poches noires entre les lettres colorees (entre le N et le X de LYNX) : fermeture morphologique de la plaque
+        closed = ~_dilate_square(~_dilate_square(plein, 2 * R), 2 * R)
+        plein |= nb & closed
+        rest = nb & ~plein
+        opaque = np.asarray(op_mask) if op_mask is not None else plein
+        plein |= _enclosed_black(rest, opaque & ~rest)                     # poche noire bornee par de l'opaque (plaque ou texte colore) dans les 4 directions : grand bloc au milieu de « TEXTUAL ADVENTURE »
+    # plaques noires a POINTS blancs (hibou de BBC Micro) : l'ouverture les perfore ; on les trouve par connexite du noir + blanc, sans recouvrir une plaque deja trouvee
+    full = nb | white
+    lab2 = _label(_dilate_square(full, 2)) if h >= 180 else np.zeros(nb.shape, dtype=np.int32)      # detection de points fiable seulement sur un rendu haute resolution (SVG : 256 px) ; un petit PNG anti-crenele donne des miettes blanches
+    for i in range(1, int(lab2.max()) + 1):
+        m2 = (lab2 == i) & full
+        n2 = int(m2.sum())
+        if n2 < 0.05 * n_op:
+            continue
+        if int((m2 & white).sum()) >= 0.25 * n2 and int((m2 & nb).sum()) >= 0.3 * n2 and colored_share >= min_colored and len(np.unique(_label(m2 & white))) - 1 >= 30:      # et au moins 30 points distincts (hibou BBC : ~80 ; les lettres blanches de RAIZING : moins de 20 meme en petit PNG)      # >= 25 % de blanc : dalle de POINTS (Sammy / Midway : ~13 %, texte seul, non concernes)
+            wy, wx = np.nonzero(m2 & white)
+            zb = np.zeros_like(nb)
+            zb[max(0, wy.min() - R):wy.max() + 1 + R, max(0, wx.min() - R):wx.max() + 1 + R] = True    # le cadre noir du hibou, pas « ACORN » colle a gauche
+            plein |= m2 & nb & zb
+    return plein, plein
+
+
+def _enclosed_black(nb, lit):
+    """Quasi-noir ENTOURE de couleur dans les 4 directions : le premier pixel non noir rencontre (a gauche, a droite, en haut, en bas) est une zone claire/coloree, jamais du vide.
+    Contre-formes et glyphes noirs poses SUR de la couleur (le « 3 » de F3, l'interieur de DRAGON) ; un contour exterieur a toujours du vide d'un cote, un texte noir sur le vide aussi."""
+    np, _Image = _imports()
+    h, w = nb.shape
+
+    def scan(mask_nb, mask_lit, axis, reverse):
+        a_nb = np.moveaxis(mask_nb, axis, 0)
+        a_lit = np.moveaxis(mask_lit, axis, 0)
+        n = a_nb.shape[0]
+        out = np.zeros_like(a_nb)
+        nxt = np.zeros(a_nb.shape[1], dtype=bool)                  # etat du premier pixel non noir deja rencontre dans le sens du balayage
+        order = range(n - 1, -1, -1) if reverse else range(n)
+        for k in order:
+            out[k] = np.where(a_nb[k], nxt, False)
+            nxt = np.where(a_nb[k], nxt, a_lit[k])
+        return np.moveaxis(out, 0, axis)
+
+    ok = np.ones_like(nb)
+    for axis in (0, 1):
+        for rev in (False, True):
+            ok &= scan(nb, lit, axis, rev)
+    return nb & ok
+
+
+def _big_components(mask, min_frac):
+    """Parties EPAISSES de `mask` (ouverture morphologique : ecarte halos d'anti-crenelage et pixels isoles) ; vide si elles couvrent moins de `min_frac` de l'image. numpy seul (pas d'OpenCV)."""
+    np, _Image = _imports()
+    r = max(1, round(0.008 * mask.shape[0]))
+    core = ~_dilate_square(~mask, r)                  # erosion
+    opened = _dilate_square(core, r) & mask           # puis dilatation
+    return opened if opened.sum() >= min_frac * mask.size else np.zeros_like(mask)
+
 _lighten_dark = _lighten_v3          # eclaircissement par defaut des themes (les logos embarques ont leur table EMBEDDED_LIGHTEN)
+
+# --------------------------------------------------------------------------- v12 : retouches de LISIBILITE par logo (valide a l'oeil le 07/10 sur la planche lisib_proposition2)
+# Texte noir/gris fonce COLLE a une zone coloree : v3 le prend pour un contour et le garde sombre (Mitchell), ou le garde-fou « grande zone claire » laisse noir sur noir (« exelvision » de EXL100).
+def _lighten_textwhite(img, lmax=0.32, smax=0.30):
+    """Texte sombre peu sature (noir, gris fonce) -> blanc, puis eclaircissement par defaut (_lighten_v3)."""
+    np, Image = _imports()
+    a = np.asarray(img, dtype=np.float32).copy()
+    rgb = a[..., :3]
+    mx = rgb.max(axis=2); mn = rgb.min(axis=2)
+    lum = (0.299 * rgb[..., 0] + 0.587 * rgb[..., 1] + 0.114 * rgb[..., 2]) / 255.0
+    sat = (mx - mn) / np.maximum(mx, 1.0)
+    m = (a[..., 3] > 0) & (lum < lmax) & (sat < smax)
+    a[m, 0:3] = 255.0
+    return _lighten_v3(Image.fromarray(a.astype(np.uint8), "RGBA"))
+
+
+def _lighten_graybost(img, lmin=0.10, lmax=0.60, smax=0.25, target=0.78):
+    """Gris peu satures (lum 0.10-0.60) eclaircis en gardant leur teinte (le « VM » de ScummVM), puis eclaircissement par defaut ; le noir (< 0.10 : contour) n'est pas touche."""
+    np, Image = _imports()
+    a = np.asarray(img, dtype=np.float32).copy()
+    rgb = a[..., :3]
+    mx = rgb.max(axis=2); mn = rgb.min(axis=2)
+    lum = (0.299 * rgb[..., 0] + 0.587 * rgb[..., 1] + 0.114 * rgb[..., 2]) / 255.0
+    sat = (mx - mn) / np.maximum(mx, 1.0)
+    m = (a[..., 3] > 0) & (lum >= lmin) & (lum < lmax) & (sat < smax)
+    f = np.minimum(target / np.maximum(lum[m], 1e-3), 4.0)
+    a[m, 0:3] = np.minimum(rgb[m] * f[:, None], 255.0)
+    return _lighten_v3(Image.fromarray(a.astype(np.uint8), "RGBA"))
+
+
+def _lighten_f3(img):
+    """Taito F3 : contour noir autour du F rouge et du 3 vert -> gris 46 (le rouge pur a une luminance < 0.30 : seuil de « clair » abaisse) ; le texte isole est eclairci."""
+    return _lighten_v3(img, plates=False, dominance=False, lit=0.20)
+
+
+def _lighten_noplate(img):
+    """Sans la regle des plaques noires (PSIKYO : lettres noires a reflets blancs, plus lisibles blanchies)."""
+    return _lighten_v3(img, plates=False)
+
+
+LIGHTEN_OVERRIDE = {"exl100": _lighten_textwhite, "arcade-manufacturer-mitchell": _lighten_textwhite, "scummvm": _lighten_graybost, "arcade-manufacturer-psikyo": _lighten_noplate, "arcade-manufacturer-taito-f3": _lighten_f3}
+
+
+def _lighten_for(sid):
+    """Eclaircissement propre a ce systeme (LIGHTEN_OVERRIDE) ou None = defaut ; « auto-<x> » suit « <x> »."""
+    s = str(sid or "").lower()
+    return LIGHTEN_OVERRIDE.get(s) or (LIGHTEN_OVERRIDE.get(s[5:]) if s.startswith("auto-") else None)
 
 
 # --------------------------------------------------------------------------- v8 : eclaircissements « logos embarques » (ceux des images par defaut validees le 05-07/10)
@@ -262,6 +485,8 @@ EMBEDDED_LIGHTEN = {"genre-adventuretext": "terminal", "genre-strategyautobattle
 
 
 def _embedded_lighten(sid):
+    if sid not in EMBEDDED_LIGHTEN and _lighten_for(sid):
+        return _lighten_for(sid)
     k = EMBEDDED_LIGHTEN.get(sid, "v3")
     return {"v2": _lighten_v2, "v3": _lighten_v3, "terminal": _lighten_terminal, "boost": _lighten_boost, "sim": _lighten_sim, "none": _lighten_none, "orig": _lighten_dark_orig}[k]
 
@@ -964,7 +1189,7 @@ def write_overlay(src, diff, base_ids, out_dir):
     os.makedirs(out_dir, exist_ok=True)
     written = []
     for sid, rel in sorted(diff.items()):
-        data = convert_bytes(src.read(rel), rel.lower().endswith(".svg"), _widen_for(sid), _cut_for(sid))
+        data = convert_bytes(src.read(rel), rel.lower().endswith(".svg"), _widen_for(sid), _cut_for(sid), _lighten_for(sid))
         names = [sid]
         if sid.startswith("auto-") and len(sid) > 5 and sid[5:] not in base_ids:
             names.append(sid[5:])
@@ -1009,7 +1234,7 @@ def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_lab
             raws[sid] = src.read(rel)
         except Exception as e:
             errors.append((sid, str(e)[:80]))
-    for sid, res in zip([s for s, _ in items if s in raws], _convert_many([(raws[s], logos[s].lower().endswith(".svg"), _widen_for(s), _cut_for(s)) for s, _ in items if s in raws])):
+    for sid, res in zip([s for s, _ in items if s in raws], _convert_many([(raws[s], logos[s].lower().endswith(".svg"), _widen_for(s), _cut_for(s), _lighten_for(s)) for s, _ in items if s in raws])):
         if isinstance(res, Exception):      # un logo defectueux ne bloque pas le theme
             errors.append((sid, str(res)[:80]))
             continue
