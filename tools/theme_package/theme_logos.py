@@ -35,6 +35,7 @@ import re
 import shutil
 import struct
 import sys
+import threading
 import time
 import urllib.request
 import zipfile
@@ -1201,14 +1202,45 @@ def write_overlay(src, diff, base_ids, out_dir):
     return sorted(written)
 
 
+# v16 : avancement d'une conversion de theme. _PROG = {"cb": fonction(fraction 0..1, libelle) ou None, "lo"/"hi": tranche de la phase en cours, "max": derniere fraction annoncee (monotone)}.
+_PROG = {"cb": None, "lo": 0.0, "hi": 1.0, "label": "", "max": 0.0}
+_PROG_LOCK = threading.Lock()
+
+
+def _prog_phase(lo, hi, label=""):
+    """Ouvre une phase : les avancements suivants sont ramenes a [lo, hi]."""
+    _PROG.update(lo=lo, hi=hi, label=label)
+    _prog_emit(0.0)
+
+
+def _prog_emit(frac):
+    cb = _PROG["cb"]
+    if cb is None:
+        return
+    with _PROG_LOCK:
+        f = _PROG["lo"] + (_PROG["hi"] - _PROG["lo"]) * max(0.0, min(1.0, frac))
+        f = max(f, _PROG["max"])        # jamais de recul
+        _PROG["max"] = f
+    try:
+        cb(f, _PROG["label"])
+    except Exception:
+        pass
+
+
 def _convert_many(jobs, workers=None):
     """[(octets, est_svg), ...] -> [raw565 ou Exception, ...] dans le meme ordre ; fils d'execution (v4 : la reduction pixel-art est plus lourde que l'ancienne moyenne)."""
     from concurrent.futures import ThreadPoolExecutor
+    total = max(1, len(jobs))
+    done = [0]
+
     def one(j):
         try:
-            return convert_bytes(j[0], j[1], j[2] if len(j) > 2 else 0.0, j[3] if len(j) > 3 else None, j[4] if len(j) > 4 else None)
+            r = convert_bytes(j[0], j[1], j[2] if len(j) > 2 else 0.0, j[3] if len(j) > 3 else None, j[4] if len(j) > 4 else None)
         except Exception as e:
-            return e
+            r = e
+        done[0] += 1
+        _prog_emit(done[0] / total)
+        return r
     n = workers or max(1, min(6, (os.cpu_count() or 2) - 1))
     if n <= 1 or len(jobs) < 4:
         return [one(j) for j in jobs]
@@ -1216,12 +1248,21 @@ def _convert_many(jobs, workers=None):
         return list(ex.map(one, jobs))
 
 
-def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_label="dir", prefer=(), variants=True, embedded=False):
+def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_label="dir", prefer=(), variants=True, embedded=False, progress=None):
     """Convertit les logos de `src` dans out_dir. Retourne le dict _source.json ecrit.
     embedded=True (themes SYSTEME de Recalbox) : ajoute les logos EMBARQUES de la Recalbox (${system.logo}) -- voir EMBEDDED_LOGOS.
     variants=True (defaut) : en plus de la base US / anglais, ecrit les surcharges l_<langue>/ et r_<region>/ (voir overlay_dirs) -- ignore si `prefer` est donne."""
     # v4 : en mode variantes (aucune preference imposee), la BASE est la variante US / anglais -- pas le chemin neutre du theme (qui peut etre la version japonaise)
+    _PROG.update(cb=progress, lo=0.0, hi=1.0, label="", max=0.0)      # progress(fraction 0..1, libelle de phase)
+    try:
+        return _convert_theme(src, out_dir, known, log, hub_info, source_label, prefer, variants, embedded)
+    finally:
+        _PROG["cb"] = None
+
+
+def _convert_theme(src, out_dir, known, log, hub_info, source_label, prefer, variants, embedded):
     base_prefer = tuple(prefer) if prefer else (prefer_keys("en_US", "us") if variants else ())
+    _prog_phase(0.0, 0.10, "lecture")
     logos, method = find_logos(src, known, base_prefer)
     if not logos:
         raise RuntimeError("aucun logo de systeme detecte dans ce theme")
@@ -1229,11 +1270,14 @@ def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_lab
     made, errors = {}, []
     items = sorted(logos.items())
     raws = {}
-    for sid, rel in items:      # lecture sequentielle (la source peut etre un ZIP distant lu par morceaux)
+    for k, (sid, rel) in enumerate(items):      # lecture sequentielle (la source peut etre un ZIP distant lu par morceaux)
         try:
             raws[sid] = src.read(rel)
         except Exception as e:
             errors.append((sid, str(e)[:80]))
+        if k % 8 == 0:
+            _prog_emit((k + 1) / max(1, len(items)))
+    _prog_phase(0.10, 0.45, "conversion")
     for sid, res in zip([s for s, _ in items if s in raws], _convert_many([(raws[s], logos[s].lower().endswith(".svg"), _widen_for(s), _cut_for(s), _lighten_for(s)) for s, _ in items if s in raws])):
         if isinstance(res, Exception):      # un logo defectueux ne bloque pas le theme
             errors.append((sid, str(res)[:80]))
@@ -1257,19 +1301,24 @@ def convert_theme(src, out_dir, known=None, log=print, hub_info=None, source_lab
                 shutil.rmtree(os.path.join(out_dir, d), ignore_errors=True)
     if variants and not prefer:
         try:
-            for code, diff in overlay_dirs(src, known).items():
+            _prog_phase(0.45, 0.60 if embedded else 0.95, "variantes")
+            ov = overlay_dirs(src, known)
+            for q, (code, diff) in enumerate(ov.items()):
                 overlays[code] = write_overlay(src, diff, set(logos), os.path.join(out_dir, code))
+                _prog_emit((q + 1) / max(1, len(ov)))
         except Exception as e:
             log(f"variantes de langue/region non ecrites : {type(e).__name__}: {e}")
     emb_info = None
     if embedded:       # v7 : theme systeme Recalbox -> ajoute les logos embarques (voir EMBEDDED_LOGOS)
         try:
+            _prog_phase(0.60, 0.97, "logos embarques")
             emb_info = apply_embedded_logos(out_dir, log=log)
             n_idx = write_index(out_dir)
             errors += emb_info["errors"]
             log(f"logos embarques Recalbox {emb_info['ref']} : {emb_info['base']} en base, variantes de langue : {emb_info['lang'] or 'aucune'}")
         except Exception as e:
             log(f"logos embarques Recalbox non ajoutes : {type(e).__name__}: {e}")
+    _prog_phase(0.97, 1.0, "finalisation")
     sig = logo_signature(logos, src)
     info = {
         "pipeline": PIPELINE_VERSION,
@@ -1556,6 +1605,27 @@ def read_rb_region(rb_themes):
     return read_rb_setting(rb_themes, "emulationstation.theme.region", "us")
 
 
+def theme_xml_version(theme_dir):
+    """Version declaree par <theme ... version="x.y"> dans theme.xml (None si illisible)."""
+    try:
+        with open(os.path.join(theme_dir, "theme.xml"), encoding="utf-8", errors="replace") as f:
+            m = re.search(r'<theme\b[^>]*\bversion="([^"]+)"', f.read(4096))
+        return m.group(1).strip() if m else None
+    except OSError:
+        return None
+
+
+def same_version(a, b):
+    """Meme version de theme (insensible a un « v » initial et a un « 1.50 » / « 1.5 »)."""
+    def norm(x):
+        s = str(x if x is not None else "").strip().lstrip("vV")
+        try:
+            return str(float(s))
+        except ValueError:
+            return s
+    return bool(str(a or "").strip()) and norm(a) == norm(b)
+
+
 def _has_converted_logos(out_root, folder):
     """True si le dossier du theme contient des logos .raw565 (meme sans _source.json : copie manuelle)."""
     try:
@@ -1606,9 +1676,9 @@ def check_status(out_root, rb_themes=None, use_hub=True, known=None, log=print, 
                 # meme base que convert_theme (variantes : BASE = US / anglais) -- sinon un theme a variantes (Midnight) differait de sa propre conversion
                 # et restait « logos modifies sur la Recalbox » a chaque verification (constate au test du 06/10)
                 logos, _m = find_logos(src, known, tuple(prefer) if prefer else prefer_keys("en_US", "us"))
-                return logos, (logo_signature(logos, src) if logos else None), None
+                return logos, (logo_signature(logos, src) if logos else None), None, theme_xml_version(os.path.join(rb_themes, name))
             except Exception as e:
-                return None, None, e
+                return None, None, e, None
 
         # v5 : themes analyses en parallele (l'attente est reseau : ~38 s en sequence pour 11 themes, dont ~17 s pour un seul)
         from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -1625,30 +1695,34 @@ def check_status(out_root, rb_themes=None, use_hub=True, known=None, log=print, 
                         pass
         for name in names:
             local = _read_source_json(out_root, name)
-            logos, sig, err = scanned[name]
+            logos, sig, err, rbver = scanned[name]
             if err is not None:
                 rows.append((name, "ERREUR", str(err)[:60], None, "rb"))
                 continue
             if not logos:
                 rows.append((name, "SANS LOGOS", "aucun logo de systeme detecte", None, "rb"))
             elif not local and _has_converted_logos(out_root, name):
-                rows.append((name, "MAJ", "version inconnue (copie manuelle)", None, "rb"))
+                rows.append((name, "MAJ", "version inconnue (copie manuelle)", rbver, "rb"))
             elif not local:
-                rows.append((name, "NOUVEAU", "installe sur la Recalbox, jamais converti", None, "rb"))
+                rows.append((name, "NOUVEAU", "installe sur la Recalbox, jamais converti", rbver, "rb"))
             elif local.get("pipeline", 0) < PIPELINE_VERSION:
-                rows.append((name, "MAJ", f"rendu v{local.get('pipeline')} -> v{PIPELINE_VERSION}", None, "rb"))
+                rows.append((name, "MAJ", f"rendu v{local.get('pipeline')} -> v{PIPELINE_VERSION}", rbver, "rb"))
             elif local.get("source") == "package":
                 # v18 : la Recalbox est la REFERENCE (le hub / le paquet GitHub peuvent etre en retard : ex. Dashboard-X 1.4 publie, 1.5 installee) ;
-                # une copie venue du paquet n'a pas d'empreinte : on ne peut pas savoir qu'elle correspond a la Recalbox -> a refaire depuis la Recalbox
-                rows.append((name, "MAJ", "installé depuis le paquet GitHub : la Recalbox est la référence", None, "rb"))
+                # v16 : le paquet est construit DEPUIS les copies de la Recalbox : une copie du paquet de MEME VERSION que le theme installe est equivalente (sans empreinte,
+                # on ne peut pas voir une retouche manuelle des logos de la Recalbox sans changement de version : cas accepte)
+                if same_version(local.get("hub_version"), rbver):
+                    rows.append((name, "A JOUR", f"installé depuis le paquet GitHub (v{rbver}, identique à la Recalbox)", rbver, "rb"))
+                else:
+                    rows.append((name, "MAJ", "installé depuis le paquet GitHub : la Recalbox est la référence", rbver, "rb"))
             elif list(local.get("prefer", [])) != list(prefer):
-                rows.append((name, "MAJ", f"langue/region des logos {local.get('prefer')} -> {list(prefer)}", None, "rb"))
+                rows.append((name, "MAJ", f"langue/region des logos {local.get('prefer')} -> {list(prefer)}", rbver, "rb"))
             elif local.get("signature") != sig and local.get("source") == "rb":
-                rows.append((name, "MAJ", "logos modifies sur la Recalbox depuis la conversion", None, "rb"))
+                rows.append((name, "MAJ", "logos modifies sur la Recalbox depuis la conversion", rbver, "rb"))
             elif local.get("source") == "hub" and local.get("signature") != sig:
-                rows.append((name, "MAJ", "converti depuis le hub : la Recalbox a d'autres logos (la Recalbox est la référence)", None, "rb"))
+                rows.append((name, "MAJ", "converti depuis le hub : la Recalbox a d'autres logos (la Recalbox est la référence)", rbver, "rb"))
             else:
-                rows.append((name, "A JOUR", f"converti {local.get('converted')} (source {local.get('source')})", None, "rb"))
+                rows.append((name, "A JOUR", f"converti {local.get('converted')} (source {local.get('source')})", rbver, "rb"))
     return rows
 
 
