@@ -26,7 +26,7 @@ Desde el firmware **2.33**, el DMD puede mostrar los logos de tus consolas con e
 
 1. **Reinstala los scripts de Recalbox con el Modo 9** (o un Modo 1 completo): el `dmd_udp_resync.py` actualizado (**v6**) es el que le dice al DMD qué tema usa Recalbox. Con el script antiguo, el DMD nunca conoce el tema y mantiene sus logos por defecto.
 2. **Copia los logos del tema a la tarjeta SD con el Modo 12 o el Modo 13** de la caja de herramientas de PC — los logos viven en `systems/_defaults/_themes/<tema>/` en la tarjeta SD y no están ahí tras una simple actualización del firmware:
-   - **El Modo 13** descarga de GitHub el paquete de temas listo para usar (10 temas, incluido el tema por defecto de Recalbox) y copia a la tarjeta SD los que marques — lo más rápido;
+   - **El Modo 13** descarga de GitHub el paquete de temas listo para usar (11 temas, incluidos el tema por defecto de Recalbox y recalbox-240p) y copia a la tarjeta SD los que marques — lo más rápido;
    - **El Modo 12** («Gestión de temas de Recalbox») lista los temas de tu Recalbox, convierte los que faltan o están desactualizados y mantiene la tarjeta SD al día.
 
    El Modo 1 también pregunta por los temas (propone los que encuentra en tu Recalbox), así que un Modo 1 completo cubre también este paso. Los temas ya actualizados en la tarjeta SD no se reescriben.

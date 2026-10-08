@@ -8,6 +8,15 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-08 — Caja de herramientas PC, builds 10768 → 11169: logos del DMD más cercanos a lo que muestra Recalbox, Modo 12 más rápido
+
+- **Temas propios de Recalbox** (*recalbox-next*, el tema por defecto, y *recalbox-240p*): la caja de herramientas también convierte los logos **integrados en Recalbox** (géneros, Favoritos, Último jugado, Ports…) con sus variantes en francés. Los logos de género siguen el idioma de tu Recalbox (*Multijoueur* en lugar de *Multiplayer*) y los logos propios de una región (Super Nintendo EU / JP / US) siguen tu región. Ambos temas están en el paquete de GitHub, que ahora contiene **11 temas**.
+- **Logos más nítidos y legibles**: reducción «pixel art» (Kopf et al. 2013) en lugar de un simple promedio; «240p TEST SUITE» legible; variantes del Theme Studio (`<path.fr>`, `<path.EU>`) detectadas. Una **placa** oscura detrás de texto blanco sigue negra (Dragon 32, Lynx, *CLASSICS* de Midway / Sammy, VIC-20, Textual Adventure, el búho de BBC Micro); un **contorno** oscuro sigue siendo un gris oscuro visible en lugar de un halo blanco; vuelve el **degradado de Dashboard-X**; los azules puros siguen azules (Vectrex, lutro, SAM Coupé); retoques para EXL100, Mitchell y ScummVM.
+- **Como el renderizado cambió (render 15), los temas ya convertidos aparecen *por actualizar* en el Modo 12** — basta un *Actualizar los obsoletos*.
+- **Modo 12 (build 11169)**: un tema cuya versión es la del paquete de GitHub se actualiza **descargando los logos ya preparados** (segundos) en lugar de convertirlo (minutos); solo convierte desde tu Recalbox si la versión difiere, si el tema no está en el paquete o si sus logos se modificaron. Una **barra de progreso** muestra el avance, cada tema pasa a *AL DÍA* en cuanto termina, y el mensaje de verificación de la tarjeta SD indica que los temas instalados en la Recalbox se comparan con la Recalbox (la referencia).
+- **Modos 12 / 13**: el tema activo de tu Recalbox se ofrece primero; una sola pregunta a la vez; verificación más rápida. El **Modo 9** propone reiniciar la Recalbox tras instalar los scripts; se corrigió la falsa alerta *scripts por actualizar* (`dmd_udp_resync` v13 — reinstala los scripts con el Modo 9).
+- Detalle del comportamiento del Modo 12: pestaña Ayuda (*Temas de Recalbox*).
+
 ## 2026-10-05 (2) — Firmware v2.47: nueva opción «Idioma prioritario» para el seguimiento del tema
 
 - **Novedad**: página de configuración web, sección «Tema de Recalbox»: una nueva casilla **Idioma prioritario (tema sin variante)**, **desmarcada por defecto** (no cambia nada). Marcada, si el tema no tiene variante para el idioma de Recalbox (por ejemplo Midnight en español), el DMD prefiere la imagen por defecto traducida (francés o español, instalada por el Modo 2 de la caja de herramientas) al logo base del tema, a menudo en inglés. El DMD puede entonces diferir de la pantalla de Recalbox. Una variante de idioma del propio tema siempre tiene prioridad. Se aplica en el próximo cambio de sistema.

@@ -26,8 +26,8 @@ From firmware **2.33** the DMD can show your console logos in the style of the t
 
 1. **Reinstall the Recalbox scripts with Mode 9** (or a fresh Mode 1): the updated `dmd_udp_resync.py` (**v6**) is the one that tells the DMD which theme Recalbox is using. With the old script the DMD never learns the theme and keeps its default logos.
 2. **Put the theme logos on the SD card with Mode 12 or Mode 13** of the PC Toolkit — the logos live in `systems/_defaults/_themes/<theme>/` on the SD card and are not there after a plain firmware update:
-   - **Mode 13** downloads the ready-made theme package from GitHub (10 themes, including Recalbox's default theme) and copies the themes you tick to the SD card — the quickest way;
-   - **Mode 12** ("Recalbox theme management") lists the themes on your Recalbox, converts the ones that are missing or outdated and keeps the SD card up to date.
+   - **Mode 13** downloads the ready-made theme package from GitHub (11 themes, including Recalbox's default theme and recalbox-240p) and copies the themes you tick to the SD card — the quickest way;
+   - **Mode 12** ("Recalbox theme management") lists the themes on your Recalbox, downloads the ready-made logos from the package when the version is the same as your Recalbox's (otherwise converts them from your Recalbox) and keeps the SD card up to date.
 
    Mode 1 also asks about themes (it offers the themes found on your Recalbox), so a full Mode 1 covers this step too. Themes already up to date on the SD card are not rewritten.
 3. **Check the switch**: *Recalbox theme* section (Display page) of the DMD web config page (`feat_theme_follow`, ticked by default). Untick it to keep the default logos.

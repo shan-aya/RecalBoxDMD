@@ -8,6 +8,15 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-08 — PC Toolkit builds 10768 → 11169: DMD logos closer to what the Recalbox shows, faster Mode 12
+
+- **Recalbox's own themes** (*recalbox-next*, the default theme, and *recalbox-240p*): the toolkit now also converts the logos **built into Recalbox** (genres, Favorites, Last played, Ports…) with their French variants. Genre logos follow your Recalbox language (*Multijoueur* instead of *Multiplayer*) and region-specific logos (Super Nintendo EU / JP / US) follow your region. Both themes are in the GitHub package, which now holds **11 themes**.
+- **Sharper and more readable logos**: pixel-art reduction (Kopf et al. 2013) instead of a plain average; "240p TEST SUITE" readable; Theme Studio variants (`<path.fr>`, `<path.EU>`) detected. A dark **plate** behind white text stays black (Dragon 32, Lynx, Midway / Sammy *CLASSICS*, VIC-20, Textual Adventure, the BBC Micro owl); a dark **outline** stays a visible dark grey instead of turning into a white halo; the **Dashboard-X gradient** is back; true blues stay blue (Vectrex, lutro, SAM Coupé); touch-ups for EXL100, Mitchell and ScummVM.
+- **Because the rendering changed (render 15), themes you already converted show as *to update* in Mode 12** — one *Update outdated* is enough.
+- **Mode 12 (build 11169)**: a theme whose version equals the one in the GitHub package is now updated by **downloading the ready-made logos** (seconds) instead of converting it (minutes); it converts from your Recalbox only when the version differs, the theme is not in the package or its logos were modified. A **progress bar** shows the work, each theme turns to *UP TO DATE* as soon as it is finished, and the SD-card check message now says that themes installed on the Recalbox are compared with the Recalbox (the reference).
+- **Modes 12 / 13**: the theme active on your Recalbox is offered first; one question at a time; faster check. **Mode 9** offers to restart the Recalbox once the scripts are installed; the false *scripts to update* alert is fixed (`dmd_udp_resync` v13 — reinstall the scripts with Mode 9).
+- Details of the Mode 12 behaviour: Help tab (*Recalbox themes*).
+
 ## 2026-10-05 (2) — Firmware v2.47: new "Language first" option for the theme following
 
 - **New**: web configuration page, "Recalbox theme" section: a new checkbox **Language first (theme without variant)**, **off by default** (nothing changes). When ticked and the theme has no variant for the Recalbox language (for example Midnight in Spanish), the DMD prefers the translated default image (French or Spanish, installed by the toolkit Mode 2) over the theme's base logo, which is often in English. The DMD may then differ from the Recalbox screen. A language variant provided by the theme always wins. It applies at the next system change.
