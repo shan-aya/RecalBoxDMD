@@ -1,7 +1,7 @@
 {
  "format": 2,
- "pipeline": 15,
- "generated": "2026-10-08 08:01",
+ "pipeline": 18,
+ "generated": "2026-10-10 20:29",
  "themes": {
   "alekfull-galisteo-artflix-cobal": {
    "version": "1.0",
@@ -131,7 +131,7 @@
    ],
    "overlays": {},
    "bytes": 958464,
-   "rev": "ddda718406eb"
+   "rev": "3df2e4b20e61"
   },
   "serviettzky-dashboard-X": {
    "version": "1.5",
@@ -502,7 +502,7 @@
    ],
    "overlays": {},
    "bytes": 2932736,
-   "rev": "a53b19684968"
+   "rev": "66dd275de224"
   },
   "bounitos-midnight": {
    "version": "3.1",
@@ -1001,7 +1001,7 @@
     ]
    },
    "bytes": 3883008,
-   "rev": "5fa438665642"
+   "rev": "71432a13e9ac"
   },
   "airdream-mukashi": {
    "version": "1.3",
@@ -1114,7 +1114,7 @@
    ],
    "overlays": {},
    "bytes": 819200,
-   "rev": "7e94570abca9"
+   "rev": "fea6b62ef924"
   },
   "beudbeud-artbook-crt": {
    "version": "2.7",
@@ -1651,7 +1651,7 @@
    ],
    "overlays": {},
    "bytes": 4292608,
-   "rev": "bbfa5f6d6a65"
+   "rev": "b5bb6ccd4287"
   },
   "bounitos-crt-color-package": {
    "version": "1.8",
@@ -1682,6 +1682,7 @@
     "arcade-manufacturer-capcom-cps3.raw565",
     "arcade-manufacturer-capcom.raw565",
     "arcade-manufacturer-cave.raw565",
+    "arcade-manufacturer-data east.raw565",
     "arcade-manufacturer-exidy.raw565",
     "arcade-manufacturer-hng64.raw565",
     "arcade-manufacturer-igs.raw565",
@@ -1934,8 +1935,8 @@
     "zxspectrum.raw565"
    ],
    "overlays": {},
-   "bytes": 2220032,
-   "rev": "b565f4d343be"
+   "bytes": 2228224,
+   "rev": "b2f1eda3baef"
   },
   "beudbeud-crt-vision": {
    "version": "1.2",
@@ -2489,7 +2490,7 @@
    ],
    "overlays": {},
    "bytes": 4431872,
-   "rev": "ebf0ef464f08"
+   "rev": "e6da37146ec8"
   },
   "serviettzky-neoretro": {
    "version": "1.2",
@@ -2799,7 +2800,7 @@
    ],
    "overlays": {},
    "bytes": 2433024,
-   "rev": "585d8be6e031"
+   "rev": "f4bdf0116bfb"
   },
   "myst-next-pixel": {
    "version": "3.2",
@@ -2909,7 +2910,7 @@
    ],
    "overlays": {},
    "bytes": 794624,
-   "rev": "6399da68d809"
+   "rev": "991b89074e3c"
   },
   "recalbox-next": {
    "version": "2026-02-05-febce03",
@@ -3328,6 +3329,7 @@
      "dreamcast.raw565",
      "gamegear.raw565",
      "megadrive.raw565",
+     "o2em.raw565",
      "odyssey2.raw565",
      "pcengine.raw565",
      "pcenginecd.raw565",
@@ -3348,10 +3350,20 @@
      "segacd.raw565",
      "snes.raw565",
      "vic20.raw565"
+    ],
+    "r_us": [
+     "dreamcast.raw565",
+     "gamegear.raw565",
+     "megadrive.raw565",
+     "pcengine.raw565",
+     "pcenginecd.raw565",
+     "sega32x.raw565",
+     "segacd.raw565",
+     "snes.raw565"
     ]
    },
-   "bytes": 3416064,
-   "rev": "83807855e56b"
+   "bytes": 3489792,
+   "rev": "76e622303002"
   },
   "recalbox-240p": {
    "version": "2026-02-05-febce03",
@@ -3770,6 +3782,7 @@
      "dreamcast.raw565",
      "gamegear.raw565",
      "megadrive.raw565",
+     "o2em.raw565",
      "odyssey2.raw565",
      "pcenginecd.raw565",
      "snes.raw565"
@@ -3784,10 +3797,20 @@
      "scv.raw565",
      "snes.raw565",
      "vic20.raw565"
+    ],
+    "r_us": [
+     "dreamcast.raw565",
+     "gamegear.raw565",
+     "megadrive.raw565",
+     "pcengine.raw565",
+     "pcenginecd.raw565",
+     "sega32x.raw565",
+     "segacd.raw565",
+     "snes.raw565"
     ]
    },
-   "bytes": 3366912,
-   "rev": "fd10b2e7c0de"
+   "bytes": 3440640,
+   "rev": "2fd5b66b767b"
   }
  },
  "skipped": {

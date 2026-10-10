@@ -41,7 +41,7 @@ import urllib.request
 import zipfile
 
 W, H, SS = 128, 32, 8
-PIPELINE_VERSION = 15         # a incrementer quand le rendu change (declenche "a reconvertir" dans check) ; v5 : traits sombres fins elargis pour certains logos (GAP_WIDEN) ; v6 : + tons fonces ramenes vers le noir (GAP_CUT) ; v7 : + logos EMBARQUES Recalbox dans les themes systeme (EMBEDDED_LOGOS) ; v8 : logos embarques eclaircis comme les images par defaut (plus de detourage blanc) ; v9 : eclaircissement par defaut des themes = _lighten_v3 (noir colle a une couleur = contour conserve, noir isole = eclairci) ; v10 : contours sombres en gris 46 (OUTLINE_GRAY) et composantes connexes ; v11 : dominance du noir limitee aux logos sans grande zone coloree + logos embarques en _lighten_v3 ; v12 : retouches de lisibilite par logo (exl100, mitchell : texte sombre -> blanc ; scummvm : gris eclaircis) + plaques noires a texte blanc conservees (Midway/Sammy/Dragon/Lynx) + degrade de Dashboard-X preserve ; v13 : une plaque noire doit contenir de la matiere non noire (Acclaim, Raizing embarques) ; v14 : emprise de la plaque, texte blanc sur plaque pleine, points blancs seulement en haute resolution (Raizing PNG) ; v15 : plaque « grande » = pourtour surtout de la matiere (rapport >= 3) au lieu de la quantite de matiere dans la boite (terminal de TEXTUAL ADVENTURE)
+PIPELINE_VERSION = 18         # a incrementer quand le rendu change (declenche "a reconvertir" dans check) ; v5 : traits sombres fins elargis pour certains logos (GAP_WIDEN) ; v6 : + tons fonces ramenes vers le noir (GAP_CUT) ; v7 : + logos EMBARQUES Recalbox dans les themes systeme (EMBEDDED_LOGOS) ; v8 : logos embarques eclaircis comme les images par defaut (plus de detourage blanc) ; v9 : eclaircissement par defaut des themes = _lighten_v3 (noir colle a une couleur = contour conserve, noir isole = eclairci) ; v10 : contours sombres en gris 46 (OUTLINE_GRAY) et composantes connexes ; v11 : dominance du noir limitee aux logos sans grande zone coloree + logos embarques en _lighten_v3 ; v12 : retouches de lisibilite par logo (exl100, mitchell : texte sombre -> blanc ; scummvm : gris eclaircis) + plaques noires a texte blanc conservees (Midway/Sammy/Dragon/Lynx) + degrade de Dashboard-X preserve ; v13 : une plaque noire doit contenir de la matiere non noire (Acclaim, Raizing embarques) ; v14 : emprise de la plaque, texte blanc sur plaque pleine, points blancs seulement en haute resolution (Raizing PNG) ; v18 : REDUCTION « bords nets » (sharp_downscale) a la place de Kopf : 10 % de demi-LED au lieu de 34 % ; v17 : ATARI ST : traits blancs epaissis (symbole ronge) ; v16 : logos embarques : variantes de REGION (o2em-eu = Videopac G7000...), contour sombre gris 8 des genres charges, ATARI ST sans marque (R), SNK CLASSICS sans blanc dans le A ; v15 : plaque « grande » = pourtour surtout de la matiere (rapport >= 3) au lieu de la quantite de matiere dans la boite (terminal de TEXTUAL ADVENTURE)
 # v5 -- logos dont les lettres sont separees par un trait sombre PLUS FIN qu'une LED (police pochoir de « 240p TEST SUITE » : sans ce traitement
 # « 2 », « P », « S », « E » deviennent des blocs pleins). Valeur = rayon d'elargissement en FRACTION DE LED (independant de la resolution de la
 # source) ; ne s'applique QU'AUX systemes listes ici : un filtre general abimerait les logos a traits fins.
@@ -402,6 +402,57 @@ def _lighten_f3(img):
     return _lighten_v3(img, plates=False, dominance=False, lit=0.20)
 
 
+def _remove_small_marks(img, max_frac=0.004):
+    """Retire les petites composantes isolees (< max_frac de la surface opaque) : marque (R) de ATARI ST, qui devient un carre lumineux a 32 px de haut."""
+    np, Image = _imports()
+    a = np.asarray(img).copy()
+    op = a[..., 3] > 0
+    if not op.any():
+        return img
+    lab = _label(op)
+    cnt = np.bincount(lab[op].ravel())
+    tot = int(op.sum())
+    for i in range(1, len(cnt)):
+        if 0 < cnt[i] < max_frac * tot:
+            a[lab == i, 3] = 0
+    return Image.fromarray(a, "RGBA")
+
+
+def _thicken_light(img, frac=0.012):
+    """Epaissit les traits BLANCS fins (frac x hauteur, 3 px a 256 px) : sinon la reduction pixel-art ronge les bras fins du symbole Atari (diagonales de 1-2 LED) ; l'ecart entre les barres est conserve (4 px les fusionnaient)."""
+    np, Image = _imports()
+    a = np.asarray(img).copy()
+    lum = (0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]) / 255.0
+    light = (a[..., 3] > 128) & (lum > 0.8)
+    if not light.any():
+        return img
+    grown = _dilate_square(light, max(1, round(frac * a.shape[0])))
+    add = grown & ~light & ((a[..., 3] < 128) | (lum > 0.8))
+    a[add, 0:3] = 255
+    a[add, 3] = 255
+    return Image.fromarray(a, "RGBA")
+
+
+def _lighten_nomarks(img):
+    """ATARI ST : sans marque (R), traits blancs epaissis (symbole Atari « ronge » sinon)."""
+    return _lighten_v3(_thicken_light(_remove_small_marks(img)))
+
+
+def _lighten_allgray(img):
+    """Tout le quasi-noir devient le gris de contour (jamais blanchi) : SNK CLASSICS = pastille noire dont les lettres sont des TROUS transparents ; la contre-forme du A (ilot noir) ne doit pas passer en blanc."""
+    return _lighten_v3(img, reach=0.5)
+
+
+def _lighten_darkplate(img):
+    """Pastille dont le noir est un peu plus clair que le seuil (Data East Classics : #1d1d1b, luminance 0.11 > 0.10) : sans ce seuil elle etait relevee en gris clair."""
+    return _lighten_v3(img, thr=0.14)
+
+
+def _lighten_darkoutline(img, gray=8):
+    """Genres a texte colore tres charge (PLATFORMER, BOARD GAME, COMPILATION...) : contour presque noir (gris 8) -> les lettres se detachent mieux que sur le gris 46."""
+    return _lighten_v3(img, outline_gray=gray)
+
+
 def _lighten_noplate(img):
     """Sans la regle des plaques noires (PSIKYO : lettres noires a reflets blancs, plus lisibles blanchies)."""
     return _lighten_v3(img, plates=False)
@@ -482,14 +533,14 @@ def _lighten_sim(img, icon_frac=0.19, target=0.50, cap=4.0):
 
 # logos embarques dont le traitement n'est pas _lighten_v2 (valide a l'oeil sur les images par defaut, 05-07/10) :
 #   terminal = _lighten_terminal, boost = _lighten_boost, sim = _lighten_sim, orig = _lighten_dark d'origine (texte noir sur noir), none = aucun (lastplayed : coupure seule)
-EMBEDDED_LIGHTEN = {"genre-adventuretext": "terminal", "genre-strategyautobattler": "boost", "genre-simulation": "sim", "genre-digitalcard": "orig", "lastplayed": "none"}
+EMBEDDED_LIGHTEN = {"arcade-manufacturer-data\u00a0east": "darkplate", "atarist": "nomarks", "arcade-manufacturer-snk": "allgray", "genre-actionplatformer": "darkoutline", "genre-actionplatformshooter": "darkoutline", "genre-board": "darkoutline", "genre-compilation": "darkoutline", "genre-adventuretext": "terminal", "genre-strategyautobattler": "boost", "genre-simulation": "sim", "genre-digitalcard": "orig", "lastplayed": "none"}
 
 
 def _embedded_lighten(sid):
     if sid not in EMBEDDED_LIGHTEN and _lighten_for(sid):
         return _lighten_for(sid)
     k = EMBEDDED_LIGHTEN.get(sid, "v3")
-    return {"v2": _lighten_v2, "v3": _lighten_v3, "terminal": _lighten_terminal, "boost": _lighten_boost, "sim": _lighten_sim, "none": _lighten_none, "orig": _lighten_dark_orig}[k]
+    return {"v2": _lighten_v2, "v3": _lighten_v3, "nomarks": _lighten_nomarks, "allgray": _lighten_allgray, "darkoutline": _lighten_darkoutline, "darkplate": _lighten_darkplate, "terminal": _lighten_terminal, "boost": _lighten_boost, "sim": _lighten_sim, "none": _lighten_none, "orig": _lighten_dark_orig}[k]
 
 
 # --------------------------------------------------------------------------- v4 : reduction « 1 pixel = 1 LED » (pixel-art a partir du vectoriel)
@@ -616,11 +667,40 @@ def kopf_downscale(rgb, wo, ho, iters=KOPF_ITERS, sigma0=KOPF_SIGMA, var_lo=0.05
     return _lab01_to_rgb(out_lab)
 
 
+# --------------------------------------------------------------------------- v18 : reduction « bords nets » (remplace Kopf et al. par defaut)
+# Constat (08/10) : sur 74 logos, 34 % des LED de bord etaient a moitie allumees avec Kopf (29 % avec la moyenne BOX) : traits flous, halos de couleur. Ici : prefiltrage LANCZOS a 8 x 8
+# pixels par LED, puis pour chaque LED -> couleur de la matiere allumee du bloc (pas de melange avec le noir) x COURBE de couverture (smoothstep lo..hi) : les LED de bord d'un corps
+# plein sont tranchees (allumee ou eteinte), tandis que les traits FINS (aucune voisine « solide ») gardent leur couverture (x boost) au lieu de disparaitre.
+# Mesure (74 logos) : 10 % de demi-LED (Kopf : 34 %, BOX : 29 %), matiere allumee 1,02 x BOX (Kopf : 1,03), environ 10 fois plus rapide que Kopf (conversion complete d'un logo : 590 -> 57 ms, mesure du 08/10). Voir DECISIONS.md.
+SHARP_LO, SHARP_HI = 0.45, 0.55
+SHARP_PROTECT, SHARP_BOOST, SHARP_THR = 0.7, 2.0, 28.0      # reglages retenus apres essais (08/10) : protect/boost plus forts = petits textes CONTINUS (MAME, NEO-GEO...), sans epaissir les gros traits
+REDUCER = "sharp"         # "sharp" | "kopf"
+
+
+def sharp_downscale(rgb, nw, nh, lo=SHARP_LO, hi=SHARP_HI, thr=SHARP_THR, protect=SHARP_PROTECT, boost=SHARP_BOOST, r=8):
+    """Image PIL RGB (fond noir) -> image PIL RGB (nw, nh) : voir le commentaire ci-dessus."""
+    np, Image = _imports()
+    a = np.asarray(rgb.resize((nw * r, nh * r), Image.LANCZOS)).astype(np.float32)
+    b = a.reshape(nh, r, nw, r, 3).transpose(0, 2, 1, 3, 4).reshape(nh, nw, r * r, 3)
+    on = b.max(axis=3) > thr
+    cov = on.mean(axis=2)
+    cnt = np.maximum(on.sum(axis=2), 1)
+    col = (b * on[..., None]).sum(axis=2) / cnt[..., None]
+    p = np.pad(cov, 1, mode="edge")
+    near = np.max(np.stack([p[i:i + nh, j:j + nw] for i in range(3) for j in range(3)]), axis=0)
+    t = np.clip((cov - lo) / (hi - lo), 0.0, 1.0)
+    cut = t * t * (3 - 2 * t)
+    scale = np.where(near < protect, np.minimum(1.0, cov * boost), cut)
+    return Image.fromarray(np.clip(col * scale[..., None] + 0.5, 0, 255).astype(np.uint8), "RGB")
+
+
 def _fit_pixel_art(rgb, nw, nh):
     """Image RGB (fond noir) -> (nh, nw) RGB par noyaux adaptatifs ; repli sur la moyenne exacte (BOX) si l'image est trop petite ou en cas d'erreur."""
     np, Image = _imports()
     try:
         if nw >= 2 and nh >= 2 and (rgb.width > nw or rgb.height > nh):
+            if REDUCER == "sharp":
+                return sharp_downscale(rgb, nw, nh)
             big = np.asarray(rgb.resize((nw * KOPF_R, nh * KOPF_R), Image.LANCZOS))
             return Image.fromarray(kopf_downscale(big, nw, nh), "RGB")
         if rgb.width <= nw and rgb.height <= nh:      # source plus petite que la dalle (pixel-art) : facteur ENTIER, reproduction exacte des pixels (regle de DMD GIF Creator)
@@ -1340,6 +1420,9 @@ def _convert_theme(src, out_dir, known, log, hub_info, source_label, prefer, var
     if emb_info:
         info["embedded"] = {"ref": emb_info["ref"], "base": emb_info["base"], "lang": emb_info["lang"]}
         info["overlays"].update({f"l_{k}": v for k, v in emb_info["lang"].items()})
+        for k in emb_info.get("region", {}):        # v16 : le nombre de logos d'une region = ce que contient reellement le dossier (theme + embarques)
+            rd = os.path.join(out_dir, f"r_{k}")
+            info["overlays"][f"r_{k}"] = len([f for f in os.listdir(rd) if f.endswith(".raw565")]) if os.path.isdir(rd) else 0
         v = info.setdefault("variants", {"lang": [], "region": []})
         v["lang"] = sorted(set(v.get("lang", [])) | set(emb_info["lang"]))
     if hub_info:
@@ -1436,7 +1519,20 @@ def apply_embedded_logos(out_dir, cache_dir=None, log=print):
         write_index(ldir)
         langs[lang] = k
         errs += e
-    return {"ref": EMBEDDED_LOGOS["ref"], "base": n, "lang": langs, "errors": errs[:20]}
+    # v16 : variantes de REGION embarquees (<id>-eu / -jp / -us, ex. o2em-eu = « Philips Videopac G7000 ») -> surcharges r_<region>/<id> : l'identifiant ENVOYE PAR ES est <id> (o2em) ;
+    # la surcharge du theme est parfois ecrite sous un autre nom (odyssey2) que le DMD ne demande jamais.
+    regions = {}
+    for rid in sorted(base):
+        mm = re.fullmatch(r"(.+)-(eu|jp|us)", rid, re.I)
+        if mm and mm.group(1) in base:
+            regions.setdefault(mm.group(2).lower(), {})[mm.group(1)] = base[rid]
+    for reg, items in sorted(regions.items()):
+        rdir = os.path.join(out_dir, f"r_{reg}")
+        k, e = _write_logo_set(rdir, items, EMBEDDED_CUT, _embedded_lighten)
+        write_index(rdir)
+        regions[reg] = k
+        errs += e
+    return {"ref": EMBEDDED_LOGOS["ref"], "base": n, "lang": langs, "region": regions, "errors": errs[:20]}
 
 
 def logo_signature(logos, src):
@@ -1497,7 +1593,17 @@ def system_catalog(log=print):
             out.append({"folder": folder, "active": True, "name": s["name"], "version": f"{str(c['committed_date'])[:10]}-{c['id'][:7]}",
                         "zips": [f"{folder}.zip"], "system": True, "license": s["license"], "ref": c["id"]})
         except Exception as e:
-            log(f"theme systeme {folder} injoignable : {str(e)[:80]}")
+            # v16 : GitLab injoignable / limite d'appels (HTTP 403 constate le 10/10 apres de nombreuses requetes) : on retombe sur la copie DEJA TELECHARGEE (cache) au lieu de faire
+            # disparaitre le theme de la liste -- et du paquet GitHub (le constructeur de paquet retirait alors recalbox-next / recalbox-240p du manifeste).
+            import glob as _glob
+            cached = sorted(_glob.glob(os.path.join(default_cache_dir(), f"{folder}__*.zip")), key=os.path.getmtime)
+            if cached and os.path.getsize(cached[-1]) > 1 << 20:
+                ver = os.path.basename(cached[-1])[len(folder) + 2:-4]
+                out.append({"folder": folder, "active": True, "name": s["name"], "version": ver, "zips": [f"{folder}.zip"], "system": True,
+                            "license": s["license"], "ref": ver.rsplit("-", 1)[-1]})
+                log(f"theme systeme {folder} : GitLab injoignable ({str(e)[:50]}), copie en cache utilisee (v{ver})")
+            else:
+                log(f"theme systeme {folder} injoignable : {str(e)[:80]}")
     return out
 
 
