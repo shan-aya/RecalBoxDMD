@@ -1,4 +1,4 @@
-# RecalBoxDMD — RawEdition <img alt="Firmware: v2.47" src="https://img.shields.io/badge/firmware-v2.47-blueviolet.svg"> <img alt="Herramienta PC: v11269" src="https://img.shields.io/badge/herramienta%20PC-v11269-blueviolet.svg">
+# RecalBoxDMD — RawEdition <img alt="Firmware: v2.47" src="https://img.shields.io/badge/firmware-v2.47-blueviolet.svg"> <img alt="Herramienta PC: v11369" src="https://img.shields.io/badge/herramienta%20PC-v11369-blueviolet.svg">
 
 **Un verdadero marquee LED para tu mueble arcade Recalbox — visualización instantánea, incluso con un fullset MAME de 30 000 juegos.**
 
