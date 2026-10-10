@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-11 — Boîte à outils PC, build 11369 : texte fin lisible, logos Recalbox 11, repli GitLab
+
+- **Les traits fins ne sont plus coupés en tirets (rendu 19).** Les traits plus fins qu'environ une demi-LED (texte fin comme *TECHNOLOGIES*, *MULTIPLE ARCADE MACHINE EMULATOR*, *PlayStation Portable*, contours comme l'ellipse de PC Engine) sont légèrement épaissis avant la réduction. Mesuré sur 311 logos : **88 LED isolées allumées en trop avant, 16 maintenant**. Les gros traits et les aplats ne sont pas touchés.
+- **Logos de Recalbox 11.0-patron-1.** Les logos intégrés à Recalbox viennent maintenant de la 11.0-patron-1 : **32 nouveaux systèmes** (Sega Model 1 / 2, Namco System 22, Hyper Neo Geo 64, Jaguar CD, N-Gage, Game.com, Archimedes, FM Towns…), logos existants inchangés. Les images par défaut les incluent.
+- **Repli GitLab.** GitLab répond depuis le 10/10 à la demande de version des thèmes propres à Recalbox par une page de protection anti-robot (HTTP 403) ; la boîte à outils lit maintenant la version sur la branche principale, donc *recalbox-next* et *recalbox-240p* restent listés dans le Mode 12 même sans cache local.
+
 ## 2026-10-09 — Boîte à outils PC, build 11269 : copie sur la carte SD plus sûre, colonne *Langues | zones* plus claire
 
 - **Copie sur la carte SD avec reprise.** Dans le Mode 12, chaque thème est maintenant **préparé dans le dossier de travail de la boîte à outils, puis copié sur la carte SD**. Si la copie est interrompue (carte retirée, erreur d'écriture, plantage), rien n'est perdu : le bouton **Copier vers la SD (n)** — grisé quand rien n'attend — reprend là où elle s'est arrêtée, et la carte n'affiche jamais un thème à moitié écrit comme à jour (le marqueur de version est écrit en dernier, l'ancien retiré avant). Les thèmes préparés lors d'une session précédente sont listés à l'ouverture de la fenêtre.

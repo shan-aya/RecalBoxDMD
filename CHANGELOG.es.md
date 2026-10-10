@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-11 — Caja de herramientas PC, build 11369: texto fino legible, logos de Recalbox 11, alternativa para GitLab
+
+- **Los trazos finos ya no se cortan en rayitas (render 19).** Los trazos más finos que media LED (texto fino como *TECHNOLOGIES*, *MULTIPLE ARCADE MACHINE EMULATOR*, *PlayStation Portable*, contornos como la elipse de PC Engine) se engrosan un poco antes de la reducción. Medido en 311 logos: **88 LED aisladas encendidas de más antes, 16 ahora**. Los trazos gruesos y las superficies no se tocan.
+- **Logos de Recalbox 11.0-patron-1.** Los logos integrados en Recalbox vienen ahora de la 11.0-patron-1: **32 sistemas nuevos** (Sega Model 1 / 2, Namco System 22, Hyper Neo Geo 64, Jaguar CD, N-Gage, Game.com, Archimedes, FM Towns…), logos existentes sin cambios. Las imágenes por defecto los incluyen.
+- **Alternativa para GitLab.** Desde el 10/10 GitLab responde a la petición de versión de los temas propios de Recalbox con una página anti-robot (HTTP 403); la caja de herramientas lee ahora la versión de la rama principal, así que *recalbox-next* y *recalbox-240p* siguen apareciendo en el Modo 12 incluso sin caché local.
+
 ## 2026-10-09 — Caja de herramientas PC, build 11269: copia a la tarjeta SD más segura, columna *Idiomas | zonas* más clara
 
 - **Copia a la tarjeta SD con reanudación.** En el Modo 12, cada tema se **prepara primero en la carpeta de trabajo de la caja de herramientas y luego se copia a la tarjeta SD**. Si la copia se interrumpe (tarjeta retirada, error de escritura, fallo), no se pierde nada: el botón **Copiar a la SD (n)** — desactivado cuando no hay nada pendiente — continúa donde se detuvo, y la tarjeta nunca muestra un tema a medio escribir como actualizado (el marcador de versión se escribe el último y el anterior se retira antes). Los temas preparados en una sesión anterior se listan al abrir la ventana.

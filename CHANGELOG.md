@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-11 — PC Toolkit build 11369: thin text readable, Recalbox 11 logos, GitLab fallback
+
+- **Thin strokes no longer broken into dashes (render 19).** Strokes thinner than about half an LED (fine text such as *TECHNOLOGIES*, *MULTIPLE ARCADE MACHINE EMULATOR*, *PlayStation Portable*, outlines such as the PC Engine ellipse) are thickened a little before the reduction. Measured on 311 logos: **88 stray lit LEDs before, 16 now**. Big strokes and solid shapes are untouched.
+- **Recalbox 11.0-patron-1 logos.** The logos built into Recalbox now come from 11.0-patron-1: **32 new systems** (Sega Model 1 / 2, Namco System 22, Hyper Neo Geo 64, Jaguar CD, N-Gage, Game.com, Archimedes, FM Towns…), existing logos unchanged. The default images include them.
+- **GitLab fallback.** GitLab started answering the version request of Recalbox's own themes with a bot-protection page (HTTP 403, since 10/10); the toolkit now reads the version from the main branch instead, so *recalbox-next* and *recalbox-240p* stay listed in Mode 12 even without a local cache.
+
 ## 2026-10-09 — PC Toolkit build 11269: safer copy to the SD card, clearer *Languages | regions* column
 
 - **Copy to the SD card with resume.** In Mode 12, every theme is now **prepared in the Toolkit's working folder, then copied to the SD card**. If the copy is interrupted (card removed, write error, crash), nothing is lost: the **Copy to SD (n)** button — greyed out when nothing is waiting — resumes where it stopped, and the card never shows a half-written theme as up to date (the version marker is written last and the old one removed first). Themes prepared in a previous session are listed when the window opens.
