@@ -41,7 +41,7 @@ import urllib.request
 import zipfile
 
 W, H, SS = 128, 32, 8
-PIPELINE_VERSION = 18         # a incrementer quand le rendu change (declenche "a reconvertir" dans check) ; v5 : traits sombres fins elargis pour certains logos (GAP_WIDEN) ; v6 : + tons fonces ramenes vers le noir (GAP_CUT) ; v7 : + logos EMBARQUES Recalbox dans les themes systeme (EMBEDDED_LOGOS) ; v8 : logos embarques eclaircis comme les images par defaut (plus de detourage blanc) ; v9 : eclaircissement par defaut des themes = _lighten_v3 (noir colle a une couleur = contour conserve, noir isole = eclairci) ; v10 : contours sombres en gris 46 (OUTLINE_GRAY) et composantes connexes ; v11 : dominance du noir limitee aux logos sans grande zone coloree + logos embarques en _lighten_v3 ; v12 : retouches de lisibilite par logo (exl100, mitchell : texte sombre -> blanc ; scummvm : gris eclaircis) + plaques noires a texte blanc conservees (Midway/Sammy/Dragon/Lynx) + degrade de Dashboard-X preserve ; v13 : une plaque noire doit contenir de la matiere non noire (Acclaim, Raizing embarques) ; v14 : emprise de la plaque, texte blanc sur plaque pleine, points blancs seulement en haute resolution (Raizing PNG) ; v18 : REDUCTION « bords nets » (sharp_downscale) a la place de Kopf : 10 % de demi-LED au lieu de 34 % ; v17 : ATARI ST : traits blancs epaissis (symbole ronge) ; v16 : logos embarques : variantes de REGION (o2em-eu = Videopac G7000...), contour sombre gris 8 des genres charges, ATARI ST sans marque (R), SNK CLASSICS sans blanc dans le A ; v15 : plaque « grande » = pourtour surtout de la matiere (rapport >= 3) au lieu de la quantite de matiere dans la boite (terminal de TEXTUAL ADVENTURE)
+PIPELINE_VERSION = 19         # a incrementer quand le rendu change (declenche "a reconvertir" dans check) ; v5 : traits sombres fins elargis pour certains logos (GAP_WIDEN) ; v6 : + tons fonces ramenes vers le noir (GAP_CUT) ; v7 : + logos EMBARQUES Recalbox dans les themes systeme (EMBEDDED_LOGOS) ; v8 : logos embarques eclaircis comme les images par defaut (plus de detourage blanc) ; v9 : eclaircissement par defaut des themes = _lighten_v3 (noir colle a une couleur = contour conserve, noir isole = eclairci) ; v10 : contours sombres en gris 46 (OUTLINE_GRAY) et composantes connexes ; v11 : dominance du noir limitee aux logos sans grande zone coloree + logos embarques en _lighten_v3 ; v12 : retouches de lisibilite par logo (exl100, mitchell : texte sombre -> blanc ; scummvm : gris eclaircis) + plaques noires a texte blanc conservees (Midway/Sammy/Dragon/Lynx) + degrade de Dashboard-X preserve ; v13 : une plaque noire doit contenir de la matiere non noire (Acclaim, Raizing embarques) ; v14 : emprise de la plaque, texte blanc sur plaque pleine, points blancs seulement en haute resolution (Raizing PNG) ; v19 : traits fins epaissis avant reduction (thicken_thin_strokes) + logos embarques 11.0-patron-1 (32 systemes de plus) ; v18 : REDUCTION « bords nets » (sharp_downscale) a la place de Kopf : 10 % de demi-LED au lieu de 34 % ; v17 : ATARI ST : traits blancs epaissis (symbole ronge) ; v16 : logos embarques : variantes de REGION (o2em-eu = Videopac G7000...), contour sombre gris 8 des genres charges, ATARI ST sans marque (R), SNK CLASSICS sans blanc dans le A ; v15 : plaque « grande » = pourtour surtout de la matiere (rapport >= 3) au lieu de la quantite de matiere dans la boite (terminal de TEXTUAL ADVENTURE)
 # v5 -- logos dont les lettres sont separees par un trait sombre PLUS FIN qu'une LED (police pochoir de « 240p TEST SUITE » : sans ce traitement
 # « 2 », « P », « S », « E » deviennent des blocs pleins). Valeur = rayon d'elargissement en FRACTION DE LED (independant de la resolution de la
 # source) ; ne s'applique QU'AUX systemes listes ici : un filtre general abimerait les logos a traits fins.
@@ -677,9 +677,41 @@ SHARP_PROTECT, SHARP_BOOST, SHARP_THR = 0.7, 2.0, 28.0      # reglages retenus a
 REDUCER = "sharp"         # "sharp" | "kopf"
 
 
+THIN_OPEN, THIN_GROW = 0.40, 0.25      # v19 : rayons (en LED) de detection / d'epaississement des traits plus fins qu'environ une demi-LED ; 0 = desactive
+
+
+def thicken_thin_strokes(rgb, nw, open_r=THIN_OPEN, grow_r=THIN_GROW, thr=40):
+    """Epaissit AVANT la reduction les traits plus fins qu'environ une demi-LED (texte fin « TECHNOLOGIES », contours d'un trait, branches du symbole Atari) : ils sont sinon
+    coupes en tirets ou en points isoles. Detection : matiere allumee qui disparait a une ouverture morphologique de rayon open_r LED ; ces pixels sont dilates de grow_r LED
+    (couleur = max du voisinage du trait). Les traits de plus d'une demi-LED et les aplats ne sont PAS touches. Essais du 10/10-11/10 : detection .40 ; epaississement .35 fusionnait les details des logos « trait » (trackball), .25 = compromis (texte fin lisible, details conserves) ; .50 fusionne les chiffres de MZ-700."""
+    np, Image = _imports()
+    from PIL import ImageFilter
+    if not open_r or not grow_r:
+        return rgb
+    led = rgb.width / float(nw)
+    ro = max(1, int(round(open_r * led)))
+    rg = max(1, int(round(grow_r * led)))
+    a = np.asarray(rgb)
+    mask = a.max(axis=2) >= thr
+    if not mask.any():
+        return rgb
+    m = Image.fromarray((mask * 255).astype(np.uint8), "L")
+    opened = np.asarray(m.filter(ImageFilter.MinFilter(2 * ro + 1)).filter(ImageFilter.MaxFilter(2 * ro + 1))) > 0
+    thin = mask & ~opened
+    if not thin.any():
+        return rgb
+    tm = np.asarray(Image.fromarray((thin * 255).astype(np.uint8), "L").filter(ImageFilter.MaxFilter(2 * rg + 1))) > 0
+    grow = tm & ~mask
+    src = np.asarray(Image.fromarray(np.where(thin[..., None], a, 0).astype(np.uint8), "RGB").filter(ImageFilter.MaxFilter(2 * rg + 1)))
+    out = a.copy()
+    out[grow] = src[grow]
+    return Image.fromarray(out, "RGB")
+
+
 def sharp_downscale(rgb, nw, nh, lo=SHARP_LO, hi=SHARP_HI, thr=SHARP_THR, protect=SHARP_PROTECT, boost=SHARP_BOOST, r=8):
     """Image PIL RGB (fond noir) -> image PIL RGB (nw, nh) : voir le commentaire ci-dessus."""
     np, Image = _imports()
+    rgb = thicken_thin_strokes(rgb, nw)
     a = np.asarray(rgb.resize((nw * r, nh * r), Image.LANCZOS)).astype(np.float32)
     b = a.reshape(nh, r, nw, r, 3).transpose(0, 2, 1, 3, 4).reshape(nh, nw, r * r, 3)
     on = b.max(axis=3) > thr
@@ -1447,7 +1479,7 @@ def write_index(out_dir):
 # systeme (/recalbox/system/resources/logos : 279 SVG, variantes de langue = 7 « -fr », aucune « -es »), et ne se rabat sur le PNG du theme que s'il n'existe pas.
 # Ces logos ne sont pas dans l'archive du theme : sans eux le DMD retombait sur l'image par defaut traduite (« Multijoueur » sur le DMD, « Multiplayer » sur l'ecran).
 # Source = depot GitLab Recalbox, version STABLE (10.1.1 ; identique a master au 07/10/2026). Accord de Recalbox pour cet usage (logos reduits a 128x32).
-EMBEDDED_LOGOS = {"project": "recalbox%2Frecalbox", "path": "board/recalbox/fsoverlay/recalbox/system/resources/logos", "ref": "10.1.1"}
+EMBEDDED_LOGOS = {"project": "recalbox%2Frecalbox", "path": "board/recalbox/fsoverlay/recalbox/system/resources/logos", "ref": "11.0-patron-1"}
 EMBEDDED_LANGS = ("fr", "es", "de", "it", "pt")      # suffixes « -xx » reconnus comme variantes de langue
 
 
@@ -1583,27 +1615,51 @@ def hub_catalog(log=print):
     return out
 
 
+def _gitlab_head(project):
+    """(date, id) du dernier commit de la branche principale, via branches/master : ce point d'acces n'est PAS derriere le defi anti-robot Cloudflare qui bloque
+    repository/commits depuis le 10/10/2026 (HTTP 403 « Just a moment... »), alors que l'archive zip, le projet, les branches et l'arbre repondent."""
+    for br in ("master", "main"):
+        try:
+            d = json.loads(_http_get(f"https://gitlab.com/api/v4/projects/{project}/repository/branches/{br}").decode("utf-8"))
+            c = d["commit"]
+            return str(c.get("committed_date") or c.get("created_at"))[:10], c["id"]
+        except Exception:
+            continue
+    raise RuntimeError("branches/master et branches/main injoignables")
+
+
 def system_catalog(log=print):
     """Themes fournis avec Recalbox, presentes comme des lignes du hub : {folder, active, name, version, zips, system, license, ref}.
-    version = date + debut du dernier commit touchant le dossier du theme (change quand le theme change)."""
+    version = date + debut du dernier commit touchant le dossier du theme (change quand le theme change).
+    v17 : si repository/commits est refuse (defi Cloudflare), repli 1) sur le dernier commit de la BRANCHE (meme valeur tant que le theme est le dernier a avoir change ; sinon une
+    simple re-telechargement) puis 2) sur la copie deja en cache."""
     out = []
     for folder, s in SYSTEM_THEMES.items():
         try:
             c = json.loads(_http_get(f"https://gitlab.com/api/v4/projects/{s['project']}/repository/commits?path={s['path']}&per_page=1").decode("utf-8"))[0]
             out.append({"folder": folder, "active": True, "name": s["name"], "version": f"{str(c['committed_date'])[:10]}-{c['id'][:7]}",
                         "zips": [f"{folder}.zip"], "system": True, "license": s["license"], "ref": c["id"]})
+            continue
         except Exception as e:
-            # v16 : GitLab injoignable / limite d'appels (HTTP 403 constate le 10/10 apres de nombreuses requetes) : on retombe sur la copie DEJA TELECHARGEE (cache) au lieu de faire
-            # disparaitre le theme de la liste -- et du paquet GitHub (le constructeur de paquet retirait alors recalbox-next / recalbox-240p du manifeste).
-            import glob as _glob
-            cached = sorted(_glob.glob(os.path.join(default_cache_dir(), f"{folder}__*.zip")), key=os.path.getmtime)
-            if cached and os.path.getsize(cached[-1]) > 1 << 20:
-                ver = os.path.basename(cached[-1])[len(folder) + 2:-4]
-                out.append({"folder": folder, "active": True, "name": s["name"], "version": ver, "zips": [f"{folder}.zip"], "system": True,
-                            "license": s["license"], "ref": ver.rsplit("-", 1)[-1]})
-                log(f"theme systeme {folder} : GitLab injoignable ({str(e)[:50]}), copie en cache utilisee (v{ver})")
-            else:
-                log(f"theme systeme {folder} injoignable : {str(e)[:80]}")
+            err = e
+        try:
+            date, cid = _gitlab_head(s["project"])
+            out.append({"folder": folder, "active": True, "name": s["name"], "version": f"{date}-{cid[:7]}",
+                        "zips": [f"{folder}.zip"], "system": True, "license": s["license"], "ref": cid})
+            log(f"theme systeme {folder} : liste des commits refusee ({str(err)[:40]}), version lue sur la branche principale")
+            continue
+        except Exception:
+            pass
+        # dernier recours : copie DEJA TELECHARGEE (cache)
+        import glob as _glob
+        cached = sorted(_glob.glob(os.path.join(default_cache_dir(), f"{folder}__*.zip")), key=os.path.getmtime)
+        if cached and os.path.getsize(cached[-1]) > 1 << 20:
+            ver = os.path.basename(cached[-1])[len(folder) + 2:-4]
+            out.append({"folder": folder, "active": True, "name": s["name"], "version": ver, "zips": [f"{folder}.zip"], "system": True,
+                        "license": s["license"], "ref": ver.rsplit("-", 1)[-1]})
+            log(f"theme systeme {folder} : GitLab injoignable ({str(err)[:50]}), copie en cache utilisee (v{ver})")
+        else:
+            log(f"theme systeme {folder} injoignable : {str(err)[:80]}")
     return out
 
 
