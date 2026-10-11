@@ -41,7 +41,7 @@ import urllib.request
 import zipfile
 
 W, H, SS = 128, 32, 8
-PIPELINE_VERSION = 19         # a incrementer quand le rendu change (declenche "a reconvertir" dans check) ; v5 : traits sombres fins elargis pour certains logos (GAP_WIDEN) ; v6 : + tons fonces ramenes vers le noir (GAP_CUT) ; v7 : + logos EMBARQUES Recalbox dans les themes systeme (EMBEDDED_LOGOS) ; v8 : logos embarques eclaircis comme les images par defaut (plus de detourage blanc) ; v9 : eclaircissement par defaut des themes = _lighten_v3 (noir colle a une couleur = contour conserve, noir isole = eclairci) ; v10 : contours sombres en gris 46 (OUTLINE_GRAY) et composantes connexes ; v11 : dominance du noir limitee aux logos sans grande zone coloree + logos embarques en _lighten_v3 ; v12 : retouches de lisibilite par logo (exl100, mitchell : texte sombre -> blanc ; scummvm : gris eclaircis) + plaques noires a texte blanc conservees (Midway/Sammy/Dragon/Lynx) + degrade de Dashboard-X preserve ; v13 : une plaque noire doit contenir de la matiere non noire (Acclaim, Raizing embarques) ; v14 : emprise de la plaque, texte blanc sur plaque pleine, points blancs seulement en haute resolution (Raizing PNG) ; v19 : traits fins epaissis avant reduction (thicken_thin_strokes) + logos embarques 11.0-patron-1 (32 systemes de plus) ; v18 : REDUCTION « bords nets » (sharp_downscale) a la place de Kopf : 10 % de demi-LED au lieu de 34 % ; v17 : ATARI ST : traits blancs epaissis (symbole ronge) ; v16 : logos embarques : variantes de REGION (o2em-eu = Videopac G7000...), contour sombre gris 8 des genres charges, ATARI ST sans marque (R), SNK CLASSICS sans blanc dans le A ; v15 : plaque « grande » = pourtour surtout de la matiere (rapport >= 3) au lieu de la quantite de matiere dans la boite (terminal de TEXTUAL ADVENTURE)
+PIPELINE_VERSION = 21         # a incrementer quand le rendu change (declenche "a reconvertir" dans check) ; v21 : contours FONCES des genres (compilation, board, rythm, platformer...) + logos recalboxtv / online / wheel ; v20 : reduction par AIRE EXACTE (comme EmulationStation en mode DMD natif) a la place de « bords nets » ; v5 : traits sombres fins elargis pour certains logos (GAP_WIDEN) ; v6 : + tons fonces ramenes vers le noir (GAP_CUT) ; v7 : + logos EMBARQUES Recalbox dans les themes systeme (EMBEDDED_LOGOS) ; v8 : logos embarques eclaircis comme les images par defaut (plus de detourage blanc) ; v9 : eclaircissement par defaut des themes = _lighten_v3 (noir colle a une couleur = contour conserve, noir isole = eclairci) ; v10 : contours sombres en gris 46 (OUTLINE_GRAY) et composantes connexes ; v11 : dominance du noir limitee aux logos sans grande zone coloree + logos embarques en _lighten_v3 ; v12 : retouches de lisibilite par logo (exl100, mitchell : texte sombre -> blanc ; scummvm : gris eclaircis) + plaques noires a texte blanc conservees (Midway/Sammy/Dragon/Lynx) + degrade de Dashboard-X preserve ; v13 : une plaque noire doit contenir de la matiere non noire (Acclaim, Raizing embarques) ; v14 : emprise de la plaque, texte blanc sur plaque pleine, points blancs seulement en haute resolution (Raizing PNG) ; v19 : traits fins epaissis avant reduction (thicken_thin_strokes) + logos embarques 11.0-patron-1 (32 systemes de plus) ; v18 : REDUCTION « bords nets » (sharp_downscale) a la place de Kopf : 10 % de demi-LED au lieu de 34 % ; v17 : ATARI ST : traits blancs epaissis (symbole ronge) ; v16 : logos embarques : variantes de REGION (o2em-eu = Videopac G7000...), contour sombre gris 8 des genres charges, ATARI ST sans marque (R), SNK CLASSICS sans blanc dans le A ; v15 : plaque « grande » = pourtour surtout de la matiere (rapport >= 3) au lieu de la quantite de matiere dans la boite (terminal de TEXTUAL ADVENTURE)
 # v5 -- logos dont les lettres sont separees par un trait sombre PLUS FIN qu'une LED (police pochoir de « 240p TEST SUITE » : sans ce traitement
 # « 2 », « P », « S », « E » deviennent des blocs pleins). Valeur = rayon d'elargissement en FRACTION DE LED (independant de la resolution de la
 # source) ; ne s'applique QU'AUX systemes listes ici : un filtre general abimerait les logos a traits fins.
@@ -448,9 +448,22 @@ def _lighten_darkplate(img):
     return _lighten_v3(img, thr=0.14)
 
 
-def _lighten_darkoutline(img, gray=8):
-    """Genres a texte colore tres charge (PLATFORMER, BOARD GAME, COMPILATION...) : contour presque noir (gris 8) -> les lettres se detachent mieux que sur le gris 46."""
-    return _lighten_v3(img, outline_gray=gray)
+def _lighten_darkoutline(img, gray=8, dark_lum=0.40, near_px=8, factor=0.06):
+    """Genres a texte colore tres charge (PLATFORMER, BOARD GAME, COMPILATION, RHYTHM & MUSIC...) : contour presque noir (gris 8) -> les lettres se detachent mieux que sur le gris 46.
+    v20 (retour utilisateur du 11/10 : contours trop clairs, lettres peu lisibles) : le contour de ces logos n'est pas noir mais bleu / violet / brun FONCE ; _lighten_v3 relevait ces teintes
+    sombres (lift) jusqu'a la luminosite des lettres. Tout pixel sombre (luminance < dark_lum) a moins de near_px pixels d'une matiere claire (> 0,50) est ramene a `factor` de sa valeur."""
+    np, Image = _imports()
+    from PIL import ImageFilter
+    out = _lighten_v3(img, outline_gray=gray)
+    o = np.asarray(out, dtype=np.float32).copy()
+    src = np.asarray(img, dtype=np.float32)
+    op = src[..., 3] > 128
+    lum = (0.299 * src[..., 0] + 0.587 * src[..., 1] + 0.114 * src[..., 2]) / 255.0
+    bright = op & (lum > 0.50)
+    near = np.asarray(Image.fromarray((bright * 255).astype(np.uint8), "L").filter(ImageFilter.MaxFilter(2 * near_px + 1))) > 0
+    dark = op & (lum < dark_lum) & near
+    o[dark, 0:3] = o[dark, 0:3] * factor
+    return Image.fromarray(np.clip(o, 0, 255).astype(np.uint8), out.mode)
 
 
 def _lighten_noplate(img):
@@ -533,7 +546,7 @@ def _lighten_sim(img, icon_frac=0.19, target=0.50, cap=4.0):
 
 # logos embarques dont le traitement n'est pas _lighten_v2 (valide a l'oeil sur les images par defaut, 05-07/10) :
 #   terminal = _lighten_terminal, boost = _lighten_boost, sim = _lighten_sim, orig = _lighten_dark d'origine (texte noir sur noir), none = aucun (lastplayed : coupure seule)
-EMBEDDED_LIGHTEN = {"arcade-manufacturer-data\u00a0east": "darkplate", "atarist": "nomarks", "arcade-manufacturer-snk": "allgray", "genre-actionplatformer": "darkoutline", "genre-actionplatformshooter": "darkoutline", "genre-board": "darkoutline", "genre-compilation": "darkoutline", "genre-adventuretext": "terminal", "genre-strategyautobattler": "boost", "genre-simulation": "sim", "genre-digitalcard": "orig", "lastplayed": "none"}
+EMBEDDED_LIGHTEN = {"arcade-manufacturer-data\u00a0east": "darkplate", "atarist": "nomarks", "arcade-manufacturer-snk": "allgray", "genre-actionplatformer": "darkoutline", "genre-actionplatformshooter": "darkoutline", "genre-actionrythm": "darkoutline", "genre-board": "darkoutline", "genre-compilation": "darkoutline", "genre-adventuretext": "terminal", "genre-strategyautobattler": "boost", "genre-simulation": "sim", "genre-digitalcard": "orig", "lastplayed": "none"}
 
 
 def _embedded_lighten(sid):
@@ -674,7 +687,7 @@ def kopf_downscale(rgb, wo, ho, iters=KOPF_ITERS, sigma0=KOPF_SIGMA, var_lo=0.05
 # Mesure (74 logos) : 10 % de demi-LED (Kopf : 34 %, BOX : 29 %), matiere allumee 1,02 x BOX (Kopf : 1,03), environ 10 fois plus rapide que Kopf (conversion complete d'un logo : 590 -> 57 ms, mesure du 08/10). Voir DECISIONS.md.
 SHARP_LO, SHARP_HI = 0.45, 0.55
 SHARP_PROTECT, SHARP_BOOST, SHARP_THR = 0.7, 2.0, 28.0      # reglages retenus apres essais (08/10) : protect/boost plus forts = petits textes CONTINUS (MAME, NEO-GEO...), sans epaissir les gros traits
-REDUCER = "sharp"         # "sharp" | "kopf"
+REDUCER = "area"          # "area" (v20, aire exacte comme ES) | "sharp" (v18/v19) | "kopf"
 
 
 THIN_OPEN, THIN_GROW = 0.40, 0.25      # v19 : rayons (en LED) de detection / d'epaississement des traits plus fins qu'environ une demi-LED ; 0 = desactive
@@ -726,11 +739,21 @@ def sharp_downscale(rgb, nw, nh, lo=SHARP_LO, hi=SHARP_HI, thr=SHARP_THR, protec
     return Image.fromarray(np.clip(col * scale[..., None] + 0.5, 0, 255).astype(np.uint8), "RGB")
 
 
+def area_downscale(rgb, nw, nh):
+    """v20 (2026-10-11) : reduction par AIRE EXACTE (moyenne des pixels de chaque LED, sans seuil) apres epaississement des traits fins. C'est ce que fait EmulationStation en mode DMD natif
+    (nanosvg rastérise a la taille de la dalle, anti-aliasing par couverture) : constat utilisateur sur la dalle = plus beau et plus detaille que le rendu « bords nets » (v18/v19), qui
+    deformait certaines lettres en forcant chaque LED a tout ou rien. Les LED de bord gardent leur niveau de gris (le firmware applique la courbe CIE 1931)."""
+    np, Image = _imports()
+    return thicken_thin_strokes(rgb, nw).resize((nw, nh), Image.BOX)
+
+
 def _fit_pixel_art(rgb, nw, nh):
     """Image RGB (fond noir) -> (nh, nw) RGB par noyaux adaptatifs ; repli sur la moyenne exacte (BOX) si l'image est trop petite ou en cas d'erreur."""
     np, Image = _imports()
     try:
         if nw >= 2 and nh >= 2 and (rgb.width > nw or rgb.height > nh):
+            if REDUCER == "area":
+                return area_downscale(rgb, nw, nh)
             if REDUCER == "sharp":
                 return sharp_downscale(rgb, nw, nh)
             big = np.asarray(rgb.resize((nw * KOPF_R, nh * KOPF_R), Image.LANCZOS))
@@ -1538,11 +1561,49 @@ def _write_logo_set(out_dir, items, cuts=None, lighten_for=None):
     return n, errs
 
 
+EXTRA_EMBEDDED_DIR = os.path.join(getattr(sys, "_MEIPASS", None) or os.path.dirname(os.path.abspath(__file__)), "extra_embedded_logos")   # exe PyInstaller : dossier embarque (datas du .spec)
+
+
+def load_extra_embedded():
+    """v20 : logos presents dans /recalbox/system/resources/logos d'une Recalbox 11.0-patron-1.1 mais ABSENTS de l'archive 11.0-patron-1 (recalboxtv.png, online.png, wheel*.svg) ;
+    dossier extra_embedded_logos/ a cote de ce module (outil du mainteneur : absent de l'exe, ignore sans erreur). -> (svg_base, svg_variantes, png_base)."""
+    base, var, png = {}, {}, {}
+    if os.path.isdir(EXTRA_EMBEDDED_DIR):
+        for f in sorted(os.listdir(EXTRA_EMBEDDED_DIR)):
+            name, ext = os.path.splitext(f)
+            data = open(os.path.join(EXTRA_EMBEDDED_DIR, f), "rb").read()
+            if ext.lower() == ".png":
+                png[name] = data
+            elif ext.lower() == ".svg":
+                mm = re.fullmatch(r"(.+)-(" + "|".join(EMBEDDED_LANGS) + ")", name, re.I)
+                if mm:
+                    var.setdefault(mm.group(2).lower(), {})[mm.group(1)] = data
+                else:
+                    base[name] = data
+    return base, var, png
+
+
 def apply_embedded_logos(out_dir, cache_dir=None, log=print):
     """Ajoute au theme converti (out_dir) les logos embarques : base (ils PRIMENT sur le PNG du theme, comme sur la Recalbox) et surcharges l_<langue>/.
     Retourne {"ref", "base", "lang": {langue: nombre}, "errors"}."""
     base, var = load_embedded_logos(cache_dir, log)
+    xb, xv, xp = load_extra_embedded()
+    for k, v in xb.items():
+        base.setdefault(k, v)
+    for lg, items in xv.items():
+        for k, v in items.items():
+            var.setdefault(lg, {}).setdefault(k, v)
     n, errs = _write_logo_set(out_dir, base, EMBEDDED_CUT, _embedded_lighten)
+    for pid, pdata in xp.items():       # logos PNG (recalboxtv, online)
+        if pid in base:
+            continue
+        try:
+            raw = convert_bytes(pdata, False, _widen_for(pid), EMBEDDED_CUT.get(pid) or _cut_for(pid), _embedded_lighten(pid))
+            with open(os.path.join(out_dir, pid + ".raw565"), "wb") as f:
+                f.write(raw)
+            n += 1
+        except Exception as e:
+            errs.append((pid, str(e)[:80]))
     write_index(out_dir)
     langs = {}
     for lang, items in sorted(var.items()):
