@@ -510,9 +510,9 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
   </section>
 
   <section class="feat">
-    <span class="eyebrow" style="color:var(--amber)" data-i18n="s5c.eyebrow">Thèmes Recalbox</span><!-- NOUVEAUTE : un seul badge « newtag » sur toute la page. A la publication de la prochaine fonctionnalite : SUPPRIMER cette pastille et la recopier a cote de l'eyebrow de la nouvelle section. --><span class="newtag" data-i18n="new.label">Nouveauté</span>
+    <span class="eyebrow" style="color:var(--amber)" data-i18n="s5c.eyebrow">Thèmes Recalbox</span><!-- NOUVEAUTE : un seul badge « newtag » sur toute la page. A la publication de la prochaine fonctionnalite : SUPPRIMER cette pastille et la recopier a cote de l'eyebrow de la nouvelle section. -->
     <h2 data-i18n="s5c.h2">Il adopte le thème de votre Recalbox</h2>
-    <p data-i18n="s5c.p">Changez de thème dans Recalbox : le DMD affiche les logos de vos consoles dans le style du thème actif — Midnight, CRT Color, Neoretro… 11 thèmes prêts à l'emploi, dont les thèmes officiels de Recalbox, textes FR/EN/ES quand le thème les propose, la langue et la région de votre Recalbox suivies en direct, une case dans la page web du panneau pour activer ou non le suivi, et la boîte à outils PC n'installe que les thèmes que vous choisissez. Et vos thèmes à vous ? Les thèmes créés par les utilisateurs sont eux aussi convertis, par notre moteur de conversion maison, directement depuis votre Recalbox : ils apparaissent sur le DMD comme les autres. (Rendu simulé à partir des vrais logos.) Compatible Recalbox 11 : les logos sont réduits comme Recalbox 11 le fait pour son propre DMD (lettres non déformées, détails conservés), avec les logos Recalbox TV, Recalbox Online et Volant.</p>
+    <p data-i18n="s5c.p">Changez de thème dans Recalbox : le DMD affiche les logos de vos consoles dans le style du thème actif — Midnight, CRT Color, Neoretro… 11 thèmes prêts à l'emploi, dont les thèmes officiels de Recalbox, textes FR/EN/ES quand le thème les propose, la langue et la région de votre Recalbox suivies en direct, une case dans la page web du panneau pour activer ou non le suivi, et la boîte à outils PC n'installe que les thèmes que vous choisissez. Et vos thèmes à vous ? Les thèmes créés par les utilisateurs sont eux aussi convertis, par notre moteur de conversion maison, directement depuis votre Recalbox : ils apparaissent sur le DMD comme les autres. (Rendu simulé à partir des vrais logos.)</p>
     <div class="grid2">
       <figure class="shot glow-b">
         <img src="media/themes/snes_defaut.png" data-i18n-alt="alt.themepanel" alt="Logo de la Super Nintendo affiché sur le panneau LED (rendu simulé à partir des vrais logos).">
@@ -531,6 +531,34 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
         <figcaption data-i18n="cap.themeneoretro">Thème Neoretro</figcaption>
       </figure>
     </div>
+  </section>
+
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--led-green, var(--amber))" data-i18n="s5d.eyebrow">Recalbox 11</span><span class="newtag" data-i18n="new.label">Nouveauté</span>
+    <h2 data-i18n="s5d.h2">Prêt pour Recalbox 11 : le mode natif du firmware</h2>
+    <p data-i18n="s5d.p1">Recalbox 11 sait piloter lui-même un afficheur DMD, ZeDMD en USB ou en Wi-Fi compris. Le firmware du panneau sait s'y brancher : cochez « Mode Recalbox natif » dans la page web du panneau, et votre DMD se comporte comme un ZeDMD WiFi — c'est Recalbox qui décide de tout ce qui s'affiche.</p>
+    <div class="grid2">
+      <figure class="shot glow-b">
+        <img src="media/native/marquee.png" data-i18n-alt="alt.native" alt="Écran simulé du panneau 128×32.">
+        <figcaption data-i18n="cap.native1">Marquee du système et du jeu</figcaption>
+      </figure>
+      <figure class="shot glow-b">
+        <img src="media/native/pinball.png" data-i18n-alt="alt.native" alt="Écran simulé du panneau 128×32.">
+        <figcaption data-i18n="cap.native2">Table Visual Pinball</figcaption>
+      </figure>
+      <figure class="shot glow-b">
+        <img src="media/native/hiscores.png" data-i18n-alt="alt.native" alt="Écran simulé du panneau 128×32.">
+        <figcaption data-i18n="cap.native3">Meilleurs scores</figcaption>
+      </figure>
+      <figure class="shot glow-b">
+        <img src="media/native/achievement.png" data-i18n-alt="alt.native" alt="Écran simulé du panneau 128×32.">
+        <figcaption data-i18n="cap.native4">Succès RetroAchievements</figcaption>
+      </figure>
+    </div>
+    <p data-i18n="s5d.p2" style="margin-top:14px">Ce que Recalbox 11 y affiche : le marquee du système et du jeu sélectionnés (logo, GIF animé ou PNG) ; l'écran des tables Visual Pinball, grâce au DMD externe pris en charge ; les meilleurs scores des jeux d'arcade MAME, FBNeo et Neo Geo, par pages de trois, avec la table d'origine du jeu vérifiée par RecalBoxDMD quand aucun score n'est sauvegardé ; et les succès RetroAchievements (badge, titre, points, progression, écran de maîtrise).</p>
+    <p data-i18n="s5d.p3" style="margin-top:14px">Une seule case, dans les deux sens. Le mode natif remplace les fonctions propres du firmware ; si vous préférez les garder — playlist de veille en GIF, horloge à thèmes, fiches infos des jeux, RB Challenge, commandes par scripts — décochez simplement la même case : tout revient comme vous l'aviez réglé.</p>
+    <p data-i18n="s5d.p4" style="margin-top:14px">Pour l'activer : 1. flashez le firmware avec le mode natif ; 2. dans Recalbox, renseignez l'adresse du DMD dans les réglages DMD (ZeDMD WiFi) — donnez une IP fixe à votre DMD pour qu'elle ne change pas ; 3. cochez « Mode Recalbox natif » dans la page web du DMD et redémarrez.</p>
+    <p data-i18n="s5d.p5" style="opacity:.7;font-size:.9em;margin-top:14px">Hi-scores et RetroAchievements : fonctions de la Recalbox 11 alpha Patreon (11.0-patron-1.1). Écrans simulés d'après la mise en page de Recalbox 11.</p>
   </section>
 
   <section class="feat">
@@ -631,12 +659,24 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "s5c.eyebrow": "Thèmes Recalbox",
       "new.label": "Nouveauté",
       "s5c.h2": "Il adopte le thème de votre Recalbox",
-      "s5c.p": "Changez de thème dans Recalbox : le DMD affiche les logos de vos consoles dans le style du thème actif — Midnight, CRT Color, Neoretro… 11 thèmes prêts à l'emploi, dont les thèmes officiels de Recalbox, textes FR/EN/ES quand le thème les propose, la langue et la région de votre Recalbox suivies en direct, une case dans la page web du panneau pour activer ou non le suivi, et la boîte à outils PC n'installe que les thèmes que vous choisissez. Et vos thèmes à vous ? Les thèmes créés par les utilisateurs sont eux aussi convertis, par notre moteur de conversion maison, directement depuis votre Recalbox : ils apparaissent sur le DMD comme les autres. (Rendu simulé à partir des vrais logos.) Compatible Recalbox 11 : les logos sont réduits comme Recalbox 11 le fait pour son propre DMD (lettres non déformées, détails conservés), avec les logos Recalbox TV, Recalbox Online et Volant.",
+      "s5c.p": "Changez de thème dans Recalbox : le DMD affiche les logos de vos consoles dans le style du thème actif — Midnight, CRT Color, Neoretro… 11 thèmes prêts à l'emploi, dont les thèmes officiels de Recalbox, textes FR/EN/ES quand le thème les propose, la langue et la région de votre Recalbox suivies en direct, une case dans la page web du panneau pour activer ou non le suivi, et la boîte à outils PC n'installe que les thèmes que vous choisissez. Et vos thèmes à vous ? Les thèmes créés par les utilisateurs sont eux aussi convertis, par notre moteur de conversion maison, directement depuis votre Recalbox : ils apparaissent sur le DMD comme les autres. (Rendu simulé à partir des vrais logos.)",
       "cap.themedefault": "Logo par défaut",
       "cap.thememidnight": "Thème Midnight",
       "cap.themecrt": "Thème CRT Color",
       "cap.themeneoretro": "Thème Neoretro",
       "alt.themepanel": "Logo de la Super Nintendo affiché sur le panneau LED (rendu simulé à partir des vrais logos).",
+      "s5d.eyebrow": "Recalbox 11",
+      "s5d.h2": "Prêt pour Recalbox 11 : le mode natif du firmware",
+      "s5d.p1": "Recalbox 11 sait piloter lui-même un afficheur DMD, ZeDMD en USB ou en Wi-Fi compris. Le firmware du panneau sait s'y brancher : cochez « Mode Recalbox natif » dans la page web du panneau, et votre DMD se comporte comme un ZeDMD WiFi — c'est Recalbox qui décide de tout ce qui s'affiche.",
+      "s5d.p2": "Ce que Recalbox 11 y affiche : le marquee du système et du jeu sélectionnés (logo, GIF animé ou PNG) ; l'écran des tables Visual Pinball, grâce au DMD externe pris en charge ; les meilleurs scores des jeux d'arcade MAME, FBNeo et Neo Geo, par pages de trois, avec la table d'origine du jeu vérifiée par RecalBoxDMD quand aucun score n'est sauvegardé ; et les succès RetroAchievements (badge, titre, points, progression, écran de maîtrise).",
+      "s5d.p3": "Une seule case, dans les deux sens. Le mode natif remplace les fonctions propres du firmware ; si vous préférez les garder — playlist de veille en GIF, horloge à thèmes, fiches infos des jeux, RB Challenge, commandes par scripts — décochez simplement la même case : tout revient comme vous l'aviez réglé.",
+      "s5d.p4": "Pour l'activer : 1. flashez le firmware avec le mode natif ; 2. dans Recalbox, renseignez l'adresse du DMD dans les réglages DMD (ZeDMD WiFi) — donnez une IP fixe à votre DMD pour qu'elle ne change pas ; 3. cochez « Mode Recalbox natif » dans la page web du DMD et redémarrez.",
+      "s5d.p5": "Hi-scores et RetroAchievements : fonctions de la Recalbox 11 alpha Patreon (11.0-patron-1.1). Écrans simulés d'après la mise en page de Recalbox 11.",
+      "cap.native1": "Marquee du système et du jeu",
+      "cap.native2": "Table Visual Pinball",
+      "cap.native3": "Meilleurs scores",
+      "cap.native4": "Succès RetroAchievements",
+      "alt.native": "Écran simulé du panneau 128×32.",
       "cap.marqueehiscore": "Marquee + Hi-Score", "cap.infosjeu": "Fiche du jeu", "cap.shuffle": "Navigation rapide", "cap.challenge": "Challenge RB",
       "s5b.eyebrow": "Visual Pinball", "s5b.h2": "Vos flippers virtuels s'affichent aussi sur le DMD", "s5b.p": "Lancez une table Visual Pinball depuis votre Recalbox : le DMD affiche en direct l'écran de la table, comme un vrai afficheur de flipper — puis reprend tout seul son marquee habituel à la fin de la partie. Sans redémarrage, activable d'un simple interrupteur dans la page web du panneau. Les tables colorisées (Serum) s'affichent en couleur, les autres gardent le rendu monochrome classique.", "cap.vpinballcolor": "Table colorisée (Serum) — AC/DC, en attente puis en jeu", "cap.vpinballmono": "Rendu classique monochrome — Indiana Jones Pinball Adventure, en attente puis en jeu",
       "s6.eyebrow": "Montage",
@@ -698,12 +738,24 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "s5c.eyebrow": "Recalbox themes",
       "new.label": "New",
       "s5c.h2": "It adopts your Recalbox theme",
-      "s5c.p": "Change theme in Recalbox: the DMD shows your console logos in the style of the active theme — Midnight, CRT Color, Neoretro… 11 ready-made themes, including Recalbox's official themes, FR/EN/ES logo texts when the theme provides them, your Recalbox's language and region followed live, a switch on the panel's web page to turn the following on or off, and the PC Toolkit only installs the themes you choose. And your own themes? Themes created by users are converted too, by our in-house conversion engine, straight from your Recalbox: they show up on the DMD like any other. (Simulated rendering from the real logos.) Recalbox 11 compatible: logos are reduced the way Recalbox 11 does for its own DMD (no deformed letters, details kept), including the Recalbox TV, Recalbox Online and Wheel logos.",
+      "s5c.p": "Change theme in Recalbox: the DMD shows your console logos in the style of the active theme — Midnight, CRT Color, Neoretro… 11 ready-made themes, including Recalbox's official themes, FR/EN/ES logo texts when the theme provides them, your Recalbox's language and region followed live, a switch on the panel's web page to turn the following on or off, and the PC Toolkit only installs the themes you choose. And your own themes? Themes created by users are converted too, by our in-house conversion engine, straight from your Recalbox: they show up on the DMD like any other. (Simulated rendering from the real logos.)",
       "cap.themedefault": "Default logo",
       "cap.thememidnight": "Midnight theme",
       "cap.themecrt": "CRT Color theme",
       "cap.themeneoretro": "Neoretro theme",
       "alt.themepanel": "Super Nintendo logo shown on the LED panel (simulated rendering from the real logos).",
+      "s5d.eyebrow": "Recalbox 11",
+      "s5d.h2": "Ready for Recalbox 11: the firmware's native mode",
+      "s5d.p1": "Recalbox 11 can drive a DMD display by itself, ZeDMD over USB or Wi-Fi included. The panel's firmware knows how to plug into it: tick “Native Recalbox mode” on the panel's web page and your DMD behaves like a ZeDMD WiFi — Recalbox decides everything that is shown.",
+      "s5d.p2": "What Recalbox 11 shows on it: the marquee of the selected system and game (logo, animated GIF or PNG); the screen of Visual Pinball tables, thanks to the supported external DMD; the top scores of MAME, FBNeo and Neo Geo arcade games, in pages of three, with the game's default table verified by RecalBoxDMD when no score is saved; and RetroAchievements unlocks (badge, title, points, progress, mastery screen).",
+      "s5d.p3": "One box, both ways. Native mode replaces the firmware's own features; if you'd rather keep them — idle GIF playlist, themed clock, game info screens, RB Challenge, script commands — just untick the same box: everything comes back as you had set it.",
+      "s5d.p4": "To turn it on: 1. flash the firmware with native mode; 2. in Recalbox, enter the DMD's address in the DMD settings (ZeDMD WiFi) — give your DMD a fixed IP so it doesn't change; 3. tick “Native Recalbox mode” on the DMD's web page and reboot.",
+      "s5d.p5": "Hi-scores and RetroAchievements: features of the Recalbox 11 Patreon alpha (11.0-patron-1.1). Screens simulated after Recalbox 11's layout.",
+      "cap.native1": "System and game marquee",
+      "cap.native2": "Visual Pinball table",
+      "cap.native3": "Top scores",
+      "cap.native4": "RetroAchievements unlock",
+      "alt.native": "Simulated 128×32 panel screen.",
       "cap.marqueehiscore": "Marquee + Hi-Score", "cap.infosjeu": "Game info", "cap.shuffle": "Fast scroll", "cap.challenge": "RB Challenge",
       "s5b.eyebrow": "Visual Pinball", "s5b.h2": "Your virtual pinball tables show up on the DMD too", "s5b.p": "Launch a Visual Pinball table from your Recalbox: the DMD shows the table's screen live, like a real pinball display — then goes back to its usual marquee by itself when the game ends. No reboot, enabled with a single switch in the panel's web page. Colorized (Serum) tables show in color; the others keep the classic monochrome look.", "cap.vpinballcolor": "Colorized table (Serum) — AC/DC, idle then in play", "cap.vpinballmono": "Classic monochrome look — Indiana Jones Pinball Adventure, idle then in play",
       "s6.eyebrow": "Assembly",
@@ -765,12 +817,24 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "s5c.eyebrow": "Temas de Recalbox",
       "new.label": "Novedad",
       "s5c.h2": "Adopta el tema de tu Recalbox",
-      "s5c.p": "Cambia de tema en Recalbox: el DMD muestra los logos de tus consolas con el estilo del tema activo — Midnight, CRT Color, Neoretro… 11 temas listos para usar, incluidos los temas oficiales de Recalbox, textos de logos FR/EN/ES cuando el tema los ofrece, el idioma y la región de tu Recalbox seguidos en directo, una casilla en la página web del panel para activar o no el seguimiento, y la caja de herramientas PC solo instala los temas que eliges. ¿Y tus propios temas? Los temas creados por usuarios también se convierten, con nuestro motor de conversión propio, directamente desde tu Recalbox: aparecen en el DMD como los demás. (Render simulado a partir de los logos reales.) Compatible con Recalbox 11: los logos se reducen como lo hace Recalbox 11 en su propio DMD (letras sin deformar, detalles conservados), con los logos de Recalbox TV, Recalbox Online y Volante.",
+      "s5c.p": "Cambia de tema en Recalbox: el DMD muestra los logos de tus consolas con el estilo del tema activo — Midnight, CRT Color, Neoretro… 11 temas listos para usar, incluidos los temas oficiales de Recalbox, textos de logos FR/EN/ES cuando el tema los ofrece, el idioma y la región de tu Recalbox seguidos en directo, una casilla en la página web del panel para activar o no el seguimiento, y la caja de herramientas PC solo instala los temas que eliges. ¿Y tus propios temas? Los temas creados por usuarios también se convierten, con nuestro motor de conversión propio, directamente desde tu Recalbox: aparecen en el DMD como los demás. (Render simulado a partir de los logos reales.)",
       "cap.themedefault": "Logo por defecto",
       "cap.thememidnight": "Tema Midnight",
       "cap.themecrt": "Tema CRT Color",
       "cap.themeneoretro": "Tema Neoretro",
       "alt.themepanel": "Logo de Super Nintendo en el panel LED (render simulado a partir de los logos reales).",
+      "s5d.eyebrow": "Recalbox 11",
+      "s5d.h2": "Listo para Recalbox 11: el modo nativo del firmware",
+      "s5d.p1": "Recalbox 11 sabe manejar por sí mismo una pantalla DMD, ZeDMD por USB o Wi-Fi incluido. El firmware del panel sabe conectarse a él: marca «Modo Recalbox nativo» en la página web del panel y tu DMD se comporta como un ZeDMD WiFi — Recalbox decide todo lo que se muestra.",
+      "s5d.p2": "Lo que Recalbox 11 muestra en él: el marquee del sistema y del juego seleccionados (logo, GIF animado o PNG); la pantalla de las mesas de Visual Pinball, gracias al DMD externo admitido; las mejores puntuaciones de los juegos de arcade MAME, FBNeo y Neo Geo, en páginas de tres, con la tabla de origen del juego verificada por RecalBoxDMD cuando no hay ninguna puntuación guardada; y los logros de RetroAchievements (insignia, título, puntos, progreso, pantalla de maestría).",
+      "s5d.p3": "Una sola casilla, en los dos sentidos. El modo nativo sustituye las funciones propias del firmware; si prefieres conservarlas — playlist de espera en GIF, reloj con temas, fichas de información de los juegos, RB Challenge, comandos por scripts — desmarca simplemente la misma casilla: todo vuelve como lo habías configurado.",
+      "s5d.p4": "Para activarlo: 1. flashea el firmware con modo nativo; 2. en Recalbox, indica la dirección del DMD en los ajustes DMD (ZeDMD WiFi) — dale una IP fija a tu DMD para que no cambie; 3. marca «Modo Recalbox nativo» en la página web del DMD y reinicia.",
+      "s5d.p5": "Hi-scores y RetroAchievements: funciones de la Recalbox 11 alfa Patreon (11.0-patron-1.1). Pantallas simuladas según el diseño de Recalbox 11.",
+      "cap.native1": "Marquee del sistema y del juego",
+      "cap.native2": "Mesa de Visual Pinball",
+      "cap.native3": "Mejores puntuaciones",
+      "cap.native4": "Logro de RetroAchievements",
+      "alt.native": "Pantalla simulada del panel 128×32.",
       "cap.marqueehiscore": "Marquee + Hi-Score", "cap.infosjeu": "Ficha del juego", "cap.shuffle": "Navegación rápida", "cap.challenge": "Challenge RB",
       "s5b.eyebrow": "Visual Pinball", "s5b.h2": "Tus mesas de pinball virtual también se muestran en el DMD", "s5b.p": "Lanza una mesa de Visual Pinball desde tu Recalbox: el DMD muestra en directo la pantalla de la mesa, como un verdadero display de pinball — y vuelve solo a su marquee habitual al terminar la partida. Sin reinicio, se activa con un simple interruptor en la página web del panel. Las mesas coloreadas (Serum) se ven en color; las demás conservan el aspecto monocromo clásico.", "cap.vpinballcolor": "Mesa coloreada (Serum) — AC/DC, en reposo y en juego", "cap.vpinballmono": "Aspecto monocromo clásico — Indiana Jones Pinball Adventure, en reposo y en juego",
       "s6.eyebrow": "Montaje",

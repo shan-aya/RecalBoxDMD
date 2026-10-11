@@ -115,6 +115,7 @@ It is a fork of [Jamyz's RetroBoxLED](https://github.com/Jamyz/RetroBoxLED), reb
 - 🔁 **Recalbox-version aware scraping** — automatically targets the right `gamelist.xml` tag and media folder for Recalbox 10.x / 9.x / legacy, with a built-in "how to scrape" guide.
 
 <p align="center"><img src="medias/marketing/plaquette_6_themes_recalbox_en.png" alt="Announcement: the DMD follows your Recalbox theme" width="720"></p>
+<p align="center"><img src="medias/marketing/plaquette_7_recalbox11_natif_en.png" alt="Announcement: Recalbox 11 native mode" width="720"></p>
 
 ---
 

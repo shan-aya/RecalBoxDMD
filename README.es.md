@@ -115,6 +115,7 @@ Es un fork de [RetroBoxLED de Jamyz](https://github.com/Jamyz/RetroBoxLED), reco
 - 🔁 **Scraping consciente de la versión de Recalbox** — apunta automáticamente a la etiqueta correcta de `gamelist.xml` y a la carpeta de medios adecuada para Recalbox 10.x / 9.x / legacy, con una guía de «cómo hacer el scrape» integrada.
 
 <p align="center"><img src="medias/marketing/plaquette_6_themes_recalbox_es.png" alt="Anuncio: el DMD sigue el tema de tu Recalbox" width="720"></p>
+<p align="center"><img src="medias/marketing/plaquette_7_recalbox11_natif_es.png" alt="Anuncio: Recalbox 11, modo nativo" width="720"></p>
 
 ---
 
