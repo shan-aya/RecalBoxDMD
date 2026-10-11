@@ -4,7 +4,14 @@
 # au DMD dans VPinballX-configgen.ini, au demarrage d'EmulationStation et
 # apres chaque fin de partie.
 # ============================================
-# Version actuelle : v2
+# Version actuelle : v3
+#
+# v3 - 2026-10-11 - safe-modify - MODE RECALBOX NATIF / « external DMD : zedmd » : la configuration Visual Pinball de Recalbox 11 (vpinballGenerator.py, lue sur RB2 en
+#   11.0-patron-1.1) n'ecrit que Enable=1 et ZeDMD=1 pour « zedmd » (ZeDMD USB, auto-detecte) : elle NE TRANSMET PAS l'adresse WiFi (dmd.zedmd.wifi n'est lu que par
+#   EmulationStation pour la marquee) et ne nettoie jamais ZeDMDWiFiAddr (une adresse perimee reste : constate le 2026-10-11, .142 au lieu de .52). Tant que Recalbox ne le
+#   fait pas, ce script le fait a sa place : si recalbox.conf contient pinball.externaldmd=zedmd ET dmd.zedmd.wifi=<IPv4>, il force [Plugin.DMDUtil] ZeDMDWiFiEnabled=1 et
+#   ZeDMDWiFiAddr=<dmd.zedmd.wifi> (le reglage de Recalbox fait foi : l'utilisateur ne saisit l'adresse qu'a UN endroit). Ce mode est INDEPENDANT du firmware du DMD (pas
+#   besoin de vpinball_dmd=1). Sinon, comportement v2 inchange.
 #
 # v2 - 2026-09-20 - safe-modify - Le script n'est ACTIF que si l'option "Mode
 #   Pinball (VPX)" est cochee sur le DMD (demande utilisateur : cocher l'option
@@ -95,8 +102,40 @@ feat_state() {
     return 0
 }
 
+# v3 -- adresse du ZeDMD WiFi que RECALBOX utilise deja pour la marquee, quand « external DMD : zedmd » est choisi pour Visual Pinball ; vide sinon
+RBCONF="${VPX_RBCONF:-/recalbox/share/system/recalbox.conf}"
+rb_zedmd_addr() {
+    # recalbox.conf ecrit « cle = valeur » (espaces autour du =, constate sur RB2) ou « cle=valeur » : les deux formes sont lues
+    ext=$(sed -n 's/^pinball\.externaldmd[[:space:]]*=[[:space:]]*\(.*\)$/\1/p' "$RBCONF" 2>/dev/null | tail -n1 | tr -d '\r \t')
+    [ "$ext" = "zedmd" ] || return 1
+    a=$(sed -n 's/^dmd\.zedmd\.wifi[[:space:]]*=[[:space:]]*\(.*\)$/\1/p' "$RBCONF" 2>/dev/null | tail -n1 | tr -d '\r \t')
+    is_ipv4 "$a" || return 1
+    echo "$a"
+}
+
+# attend la sortie de VPX (jamais d'ecriture pendant qu'une table tourne) ; renvoie 1 si VPX tourne encore apres 3 min
+wait_vpx_exit() {
+    n=0
+    while vpx_running; do
+        n=$((n + 1)); [ $n -gt 90 ] && return 1
+        sleep 2
+    done
+    sleep 2
+    return 0
+}
+
 run_check() {
     [ -f "$DISABLE" ] && return 0
+    # v3 -- le reglage de Recalbox fait foi (voir l'en-tete) : actif meme sans l'option Pinball du DMD
+    rbip=$(rb_zedmd_addr)
+    if [ -n "$rbip" ]; then
+        [ -f "$INI" ] || return 0
+        wait_vpx_exit || { log "VPX toujours en cours apres 3 min : controle abandonne"; return 0; }
+        [ -f "$INI.bak-dmd-autoconfig" ] || cp -p "$INI" "$INI.bak-dmd-autoconfig" 2>/dev/null
+        ensure "Plugin.DMDUtil" "ZeDMDWiFiEnabled" "1"
+        ensure "Plugin.DMDUtil" "ZeDMDWiFiAddr" "$rbip"
+        return 0
+    fi
     # SCRIPT INACTIF tant que l'option du DMD n'est pas cochee : aucune ecriture dans les fichiers de Recalbox
     feat_state; fs=$?
     [ $fs -eq 2 ] && return 3            # reglages du DMD pas encore recus : on attend

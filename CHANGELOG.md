@@ -8,6 +8,14 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-11 (2) — Firmware v2.61: Recalbox 11 native mode, Visual Pinball over ZeDMD WiFi (scripts bundle 5)
+
+- **Native Recalbox mode** (new box in the panel's web page, own section under *Display*). Recalbox 11 can drive a DMD by itself: tick the box and the panel behaves like a **ZeDMD WiFi** — Recalbox decides everything that is shown (system and game marquee, Visual Pinball tables, and, in the Recalbox 11 Patreon alpha, hi-scores and RetroAchievements). Untick it and every firmware feature comes back exactly as you had set it (idle playlist, clock, game info, RB Challenge, script commands). Enter the DMD's address in Recalbox's DMD settings (*ZeDMD WiFi*).
+- **Visual Pinball on the DMD in native mode.** Recalbox's own Visual Pinball configuration does not pass the ZeDMD WiFi address to the emulator; the script `dmd_vpx_config` (v3, **scripts bundle 5 — run Mode 9 of the toolkit once**) now copies Recalbox's `dmd.zedmd.wifi` setting into it when *external DMD: zedmd* is chosen in Visual Pinball's options in Recalbox. Measured: ~100 images per second from a table.
+- **Last image kept.** In native mode the panel redisplays the last image shown while browsing when it restarts (it is not saved during a game).
+- **Fixes found while testing on hardware:** reception of the ZeDMD stream could freeze (replaced by a plain socket: switching between marquee and table is now immediate); the panel no longer enters configuration mode when the browser merely *prefetches* the address you are typing; the Wi-Fi page fills in the static IP, gateway, mask and DNS from the current connection and refuses an incomplete static IP (it caused *IP CFG ERR* at reboot); the web page shows its message on the panel again and restores the image afterwards.
+- Also in this build: the experimental *ES RetroAchievements alerts* option (normal mode, off by default).
+
 ## 2026-10-11 — PC Toolkit build 11469: Recalbox 11 compatibility, sharper and more faithful logos
 
 - **Logos reduced like Recalbox 11 does on its own DMD (render 21).** Recalbox 11 can drive a DMD natively: EmulationStation rasterizes each logo straight to the size of the screen, with exact anti-aliasing. The toolkit now reduces logos the same way (exact area) instead of forcing every LED fully on or fully off: letters are no longer deformed, small text and details keep their grey levels. The whole logo package (11 themes) and the default images were rebuilt.

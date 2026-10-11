@@ -8,6 +8,14 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-11 (2) — Firmware v2.61 : mode Recalbox natif, Visual Pinball via ZeDMD WiFi (lot de scripts 5)
+
+- **Mode Recalbox natif** (nouvelle case dans la page web du panneau, section propre sous *Affichage*). Recalbox 11 sait piloter un DMD lui-même : cochez la case et le panneau se comporte comme un **ZeDMD WiFi** — Recalbox décide de tout ce qui s'affiche (marquee du système et du jeu, tables Visual Pinball et, dans l'alpha Patreon de Recalbox 11, hi-scores et RetroAchievements). Décochez : toutes les fonctions du firmware reviennent exactement comme vous les aviez réglées (playlist de veille, horloge, fiches infos, RB Challenge, commandes des scripts). Renseignez l'adresse du DMD dans les réglages DMD de Recalbox (*ZeDMD WiFi*).
+- **Visual Pinball sur le DMD en mode natif.** La configuration de Visual Pinball de Recalbox ne transmet pas l'adresse du ZeDMD WiFi à l'émulateur ; le script `dmd_vpx_config` (v3, **lot de scripts 5 — lancez une fois le Mode 9 de la boîte à outils**) recopie désormais le réglage `dmd.zedmd.wifi` de Recalbox quand *external DMD : zedmd* est choisi dans les options de Visual Pinball de Recalbox. Mesuré : environ 100 images par seconde depuis une table.
+- **Dernière image conservée.** En mode natif, le panneau réaffiche au redémarrage la dernière image vue pendant la navigation (elle n'est pas sauvegardée pendant une partie).
+- **Corrections trouvées en test sur matériel :** la réception du flux ZeDMD pouvait se figer (remplacée par un socket classique : le passage marquee ↔ table est immédiat) ; le panneau n'entre plus en mode configuration quand le navigateur ne fait que *précharger* l'adresse que vous tapez ; la page Wi-Fi remplit l'IP fixe, la passerelle, le masque et les DNS depuis la connexion actuelle et refuse une IP fixe incomplète (elle provoquait *IP CFG ERR* au redémarrage) ; la page web affiche de nouveau son message sur le panneau et restaure l'image ensuite.
+- Aussi dans cette version : l'option expérimentale *Alertes RetroAchievements d'ES* (mode normal, désactivée par défaut).
+
 ## 2026-10-11 — Boîte à outils PC, build 11469 : compatibilité Recalbox 11, logos plus nets et plus fidèles
 
 - **Logos réduits comme le fait Recalbox 11 sur son propre DMD (rendu 21).** Recalbox 11 sait piloter un DMD nativement : EmulationStation rastérise chaque logo directement à la taille de l'écran, avec un anti-aliasing exact. La boîte à outils réduit maintenant les logos de la même façon (aire exacte) au lieu de forcer chaque LED à tout ou rien : les lettres ne sont plus déformées, les petits textes et les détails gardent leurs niveaux de gris. Tout le paquet de logos (11 thèmes) et les images par défaut ont été reconstruits.

@@ -6,7 +6,11 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v8
+# Version actuelle : v9
+#
+# v9 - 2026-10-04 - safe-modify - FENETRE RA (prototype, branche dev/recalbox-native-mode ; SCRIPTS_BUNDLE 2) : si l'option « Alertes RetroAchievements d'ES » du DMD est cochee (FEATURES ra_window=1), le succes
+#   debloque n'est plus envoye en texte (CMD=score SUCCES|...) mais ouvre une FENETRE de 8 s (« CMD=ra_window ARG=8000 ») pendant laquelle le DMD affiche l'alerte rendue par EmulationStation (badge + titre +
+#   points, via libdmdutil / ZeDMD-WiFi). Sinon : comportement v8 inchange. Seul « Awarding achievement » est detecte (la maitrise d'un jeu n'a pas encore de ligne de journal identifiee).
 #
 # v8 - 2026-09-23 - safe-modify - Nettoyage MQTT (demande utilisateur) : MQTT
 #   n'existe plus cote DMD depuis RecalBox_DMD.ino v209. Retires :
@@ -154,8 +158,13 @@ while IFS= read -r line; do
             name=$(printf '%s' "$name" | tr -d '\r')
             [ -z "$name" ] && continue
             if feat_enabled "ra_ingame"; then
-                echo "$(date '+%H:%M:%S') ACHIEVEMENT $name" >> "$LOG"
-                send_udp "CMD=score ARG=SUCCES|${name}"
+                if feat_enabled "ra_window"; then
+                    echo "$(date '+%H:%M:%S') ACHIEVEMENT $name (fenetre RA 8 s, alerte rendue par ES)" >> "$LOG"
+                    send_udp "CMD=ra_window ARG=8000"
+                else
+                    echo "$(date '+%H:%M:%S') ACHIEVEMENT $name" >> "$LOG"
+                    send_udp "CMD=score ARG=SUCCES|${name}"
+                fi
             else
                 echo "$(date '+%H:%M:%S') ACHIEVEMENT $name (ignore, ra_ingame desactive)" >> "$LOG"
             fi
