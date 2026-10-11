@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-11 — Caja de herramientas PC, build 11469: compatibilidad con Recalbox 11, logos más nítidos y fieles
+
+- **Logos reducidos como lo hace Recalbox 11 en su propio DMD (render 21).** Recalbox 11 puede manejar un DMD de forma nativa: EmulationStation rasteriza cada logo directamente al tamaño de la pantalla, con un anti-aliasing exacto. La caja de herramientas reduce ahora los logos igual (área exacta) en lugar de forzar cada LED a todo o nada: las letras ya no se deforman, los textos pequeños y los detalles conservan sus niveles de gris. Se reconstruyeron todo el paquete de logos (11 temas) y las imágenes por defecto.
+- **Contornos oscuros que siguen oscuros.** En *Multi-game compilation*, *Board game*, *Rhythm & music*, *Platformer* y *Platform shooter* el contorno es azul oscuro, violeta o marrón, no negro; se aclaraba hasta parecerse a las letras. Ahora queda casi negro y las letras destacan.
+- **Tres logos que faltaban.** *recalboxtv*, *online* (Recalbox Online) y *wheel* (volante), presentes en la Recalbox 11.0-patron-1.1 pero no en el archivo de la 11.0-patron-1, forman ahora parte de la caja de herramientas y del paquete (también como imágenes por defecto).
+
 ## 2026-10-11 — Caja de herramientas PC, build 11369: texto fino legible, logos de Recalbox 11, alternativa para GitLab
 
 - **Los trazos finos ya no se cortan en rayitas (render 19).** Los trazos más finos que media LED (texto fino como *TECHNOLOGIES*, *MULTIPLE ARCADE MACHINE EMULATOR*, *PlayStation Portable*, contornos como la elipse de PC Engine) se engrosan un poco antes de la reducción. Medido en 311 logos: **88 LED aisladas encendidas de más antes, 16 ahora**. Los trazos gruesos y las superficies no se tocan.

@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-11 — PC Toolkit build 11469: Recalbox 11 compatibility, sharper and more faithful logos
+
+- **Logos reduced like Recalbox 11 does on its own DMD (render 21).** Recalbox 11 can drive a DMD natively: EmulationStation rasterizes each logo straight to the size of the screen, with exact anti-aliasing. The toolkit now reduces logos the same way (exact area) instead of forcing every LED fully on or fully off: letters are no longer deformed, small text and details keep their grey levels. The whole logo package (11 themes) and the default images were rebuilt.
+- **Dark outlines kept dark.** In *Multi-game compilation*, *Board game*, *Rhythm & music*, *Platformer* and *Platform shooter* the outline is dark blue, purple or brown, not black; it was lightened until it matched the letters. It now stays almost black, so the letters stand out.
+- **Three logos that were missing.** *recalboxtv*, *online* (Recalbox Online) and *wheel* (steering wheel), present in Recalbox 11.0-patron-1.1 but not in the archive of 11.0-patron-1, are now part of the toolkit and of the package (also as default images).
+
 ## 2026-10-11 — PC Toolkit build 11369: thin text readable, Recalbox 11 logos, GitLab fallback
 
 - **Thin strokes no longer broken into dashes (render 19).** Strokes thinner than about half an LED (fine text such as *TECHNOLOGIES*, *MULTIPLE ARCADE MACHINE EMULATOR*, *PlayStation Portable*, outlines such as the PC Engine ellipse) are thickened a little before the reduction. Measured on 311 logos: **88 stray lit LEDs before, 16 now**. Big strokes and solid shapes are untouched.

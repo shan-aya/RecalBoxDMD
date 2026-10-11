@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-11 — Boîte à outils PC, build 11469 : compatibilité Recalbox 11, logos plus nets et plus fidèles
+
+- **Logos réduits comme le fait Recalbox 11 sur son propre DMD (rendu 21).** Recalbox 11 sait piloter un DMD nativement : EmulationStation rastérise chaque logo directement à la taille de l'écran, avec un anti-aliasing exact. La boîte à outils réduit maintenant les logos de la même façon (aire exacte) au lieu de forcer chaque LED à tout ou rien : les lettres ne sont plus déformées, les petits textes et les détails gardent leurs niveaux de gris. Tout le paquet de logos (11 thèmes) et les images par défaut ont été reconstruits.
+- **Contours sombres restés sombres.** Dans *Multi-game compilation*, *Board game*, *Rhythm & music*, *Platformer* et *Platform shooter*, le contour est bleu foncé, violet ou brun, pas noir ; il était éclairci jusqu'à ressembler aux lettres. Il reste maintenant presque noir, les lettres se détachent.
+- **Trois logos qui manquaient.** *recalboxtv*, *online* (Recalbox Online) et *wheel* (volant), présents dans la Recalbox 11.0-patron-1.1 mais pas dans l'archive de la 11.0-patron-1, font maintenant partie de la boîte à outils et du paquet (aussi en images par défaut).
+
 ## 2026-10-11 — Boîte à outils PC, build 11369 : texte fin lisible, logos Recalbox 11, repli GitLab
 
 - **Les traits fins ne sont plus coupés en tirets (rendu 19).** Les traits plus fins qu'environ une demi-LED (texte fin comme *TECHNOLOGIES*, *MULTIPLE ARCADE MACHINE EMULATOR*, *PlayStation Portable*, contours comme l'ellipse de PC Engine) sont légèrement épaissis avant la réduction. Mesuré sur 311 logos : **88 LED isolées allumées en trop avant, 16 maintenant**. Les gros traits et les aplats ne sont pas touchés.
