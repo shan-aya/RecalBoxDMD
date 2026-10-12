@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-12 — Firmware v2.64 : choix des thèmes d'horloge du tirage aléatoire
+
+- **Horloge : thèmes admis au tirage.** Quand le thème est *Aléatoire*, la page Horloge affiche 10 cases à cocher (une par thème) : l'horloge ne tire que parmi les thèmes cochés (au moins un). Un thème fixe reste inchangé ; par défaut tous les thèmes sont admis.
+- **Pas deux fois le même thème d'affilée.** Le tirage mémorise désormais le dernier thème d'une apparition de l'horloge à la suivante (la règle ne jouait pas entre deux apparitions successives).
+
 ## 2026-10-11 (2) — Firmware v2.61 : mode Recalbox natif, Visual Pinball via ZeDMD WiFi (lot de scripts 5)
 
 - **Mode Recalbox natif** (nouvelle case dans la page web du panneau, section propre sous *Affichage*). Recalbox 11 sait piloter un DMD lui-même : cochez la case et le panneau se comporte comme un **ZeDMD WiFi** — Recalbox décide de tout ce qui s'affiche (marquee du système et du jeu, tables Visual Pinball et, dans l'alpha Patreon de Recalbox 11, hi-scores et RetroAchievements). Décochez : toutes les fonctions du firmware reviennent exactement comme vous les aviez réglées (playlist de veille, horloge, fiches infos, RB Challenge, commandes des scripts). Renseignez l'adresse du DMD dans les réglages DMD de Recalbox (*ZeDMD WiFi*).

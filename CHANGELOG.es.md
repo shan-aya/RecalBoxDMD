@@ -8,6 +8,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-12 — Firmware v2.64: elección de los temas de reloj del sorteo aleatorio
+
+- **Reloj: temas admitidos en el sorteo.** Cuando el tema es *Aleatorio*, la página Reloj muestra 10 casillas (una por tema): el reloj solo sortea entre los temas marcados (al menos uno). Un tema fijo no cambia; por defecto se admiten todos.
+- **Nunca el mismo tema dos veces seguidas.** El sorteo recuerda ahora el último tema de una aparición del reloj a la siguiente (la regla no se aplicaba entre dos apariciones sucesivas).
+
 ## 2026-10-11 (2) — Firmware v2.61: modo Recalbox nativo, Visual Pinball por ZeDMD WiFi (lote de scripts 5)
 
 - **Modo Recalbox nativo** (nueva casilla en la página web del panel, sección propia bajo *Pantalla*). Recalbox 11 sabe manejar un DMD por sí mismo: marca la casilla y el panel se comporta como un **ZeDMD WiFi** — Recalbox decide todo lo que se muestra (marquee del sistema y del juego, mesas de Visual Pinball y, en la alfa Patreon de Recalbox 11, hi-scores y RetroAchievements). Desmárcala: todas las funciones del firmware vuelven exactamente como las habías configurado (playlist de espera, reloj, fichas de información, RB Challenge, comandos de scripts). Indica la dirección del DMD en los ajustes DMD de Recalbox (*ZeDMD WiFi*).

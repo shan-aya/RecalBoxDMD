@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-12 — Firmware v2.64: choose which clock themes the random draw may pick
+
+- **Clock: themes allowed in the draw.** When the theme is *Random*, the Clock page shows 10 tick boxes (one per theme): the clock only draws among the ticked themes (at least one). A fixed theme is unchanged; by default every theme is allowed.
+- **Never the same theme twice in a row.** The draw now remembers the last theme from one clock appearance to the next (the rule did not apply between two successive appearances).
+
 ## 2026-10-11 (2) — Firmware v2.61: Recalbox 11 native mode, Visual Pinball over ZeDMD WiFi (scripts bundle 5)
 
 - **Native Recalbox mode** (new box in the panel's web page, own section under *Display*). Recalbox 11 can drive a DMD by itself: tick the box and the panel behaves like a **ZeDMD WiFi** — Recalbox decides everything that is shown (system and game marquee, Visual Pinball tables, and, in the Recalbox 11 Patreon alpha, hi-scores and RetroAchievements). Untick it and every firmware feature comes back exactly as you had set it (idle playlist, clock, game info, RB Challenge, script commands). Enter the DMD's address in Recalbox's DMD settings (*ZeDMD WiFi*).
