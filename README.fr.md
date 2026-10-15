@@ -830,6 +830,7 @@ Pour les gels, la corruption d'affichage, les boucles de configuration WiFi, ou 
 - **Pack de 600 GIFs** : **eLLuiGi** / [RpiTeaM](https://rpiteam.carrd.co/) — échantillon gratuit de leur collection de GIFs rétro
 - **Manifeste Hi-Score** : converti depuis le format communautaire **hi2txt-xml**, construit autour du projet `hiscore.dat` de MAME — 4 087 jeux couverts
 - **Matériel & guide de montage** : [Mortaca — DMDos Board](https://www.mortaca.com/) / [dmdos.net](https://www.dmdos.net/)
+- **Carte fille DMDos, boutique française** : [Benfactory.fr](https://benfactory.fr/produit/dmdos/) — kits carte + ESP32 (code promo `retrobat10`)
 - **Boîtier 3D** : Janibol — [Retromojones](https://www.youtube.com/@retromojones)
 - **Communauté** : [Recalbox](https://www.recalbox.com/)
 - **Développement** : écrit avec l'assistance de [Claude](https://www.anthropic.com/claude) (Anthropic) — code assisté par IA sur l'ensemble du firmware et de la boîte à outils PC

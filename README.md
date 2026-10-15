@@ -829,6 +829,7 @@ For freezes, display corruption, WiFi setup loops, or a DMD that seems to lose s
 - **600-GIF pack**: **eLLuiGi** / [RpiTeaM](https://rpiteam.carrd.co/) — free sample of their curated retro GIF collection
 - **Hi-Score manifest**: converted from the community **hi2txt-xml** format built around MAME's own `hiscore.dat` project — 4,087 games covered
 - **Hardware & assembly guide**: [Mortaca — DMDos Board](https://www.mortaca.com/) / [dmdos.net](https://www.dmdos.net/)
+- **DMDos daughter board, French shop**: [Benfactory.fr](https://benfactory.fr/produit/dmdos/) — board + ESP32 kits (promo code `retrobat10`)
 - **3D frame**: Janibol — [Retromojones](https://www.youtube.com/@retromojones)
 - **Community**: [Recalbox](https://www.recalbox.com/)
 - **Development**: written with the assistance of [Claude](https://www.anthropic.com/claude) (Anthropic) — AI-assisted coding throughout the firmware and PC toolkit

@@ -830,6 +830,7 @@ Para congelamientos, corrupción de pantalla, bucles en la configuración WiFi, 
 - **Pack de 600 GIFs**: **eLLuiGi** / [RpiTeaM](https://rpiteam.carrd.co/) — muestra gratuita de su colección de GIFs retro
 - **Manifiesto Hi-Score**: convertido desde el formato comunitario **hi2txt-xml**, construido en torno al proyecto `hiscore.dat` de MAME — 4087 juegos cubiertos
 - **Hardware y guía de montaje**: [Mortaca — DMDos Board](https://www.mortaca.com/) / [dmdos.net](https://www.dmdos.net/)
+- **Placa DMDos, tienda francesa**: [Benfactory.fr](https://benfactory.fr/produit/dmdos/) — kits placa + ESP32 (código promocional `retrobat10`)
 - **Marco 3D**: Janibol — [Retromojones](https://www.youtube.com/@retromojones)
 - **Comunidad**: [Recalbox](https://www.recalbox.com/)
 - **Desarrollo**: escrito con la asistencia de [Claude](https://www.anthropic.com/claude) (Anthropic) — código asistido por IA en todo el firmware y la caja de herramientas de PC
