@@ -396,6 +396,24 @@
     .grid2{ grid-template-columns:1fr; }
   }
 footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{color:var(--amber);text-decoration:none;border-bottom:1px dotted currentColor}footer.outro .support a:hover{opacity:.8}
+
+  /* ---- v3 : deux colonnes (playlist de GIF | widgets) ---- */
+  .page{max-width:1180px;}
+  .narrow{max-width:640px;margin:0 auto;}
+  .duo{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start;margin:8px 0 12px;}
+  .col{background:var(--panel-alt);border:1px solid var(--line);border-radius:14px;padding:4px 22px 22px;}
+  .col .feat{padding-top:18px;}
+  .coltitle{margin:20px 0 0;font-size:22px;letter-spacing:.02em;color:var(--led-white);}
+  .col-gif .coltitle{color:var(--led-blue);} .col-wid .coltitle{color:var(--amber);}
+  .grid1{display:grid;grid-template-columns:1fr;gap:10px;margin-top:14px;} .grid1 .shot{margin-top:0;} .grid1 .shot img{image-rendering:pixelated;}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px;}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px;}
+  .grid3 .shot,.grid4 .shot{margin-top:0;} .grid2 .shot img,.grid3 .shot img,.grid4 .shot img{image-rendering:pixelated;}
+  .bul{margin:10px 0 0;padding-left:18px;line-height:1.55;color:var(--led-white);} .bul li{margin:8px 0;}
+  .wide-sec{max-width:760px;margin:0 auto;}
+  .shops{margin:18px auto 0;max-width:760px;text-align:center;line-height:1.6;} .shops a{color:var(--led-blue);}
+  @media (max-width:900px){ .duo{grid-template-columns:1fr;} .grid4{grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:520px){ .grid3{grid-template-columns:repeat(2,1fr);} }
 </style>
 </head>
 <body>
@@ -410,6 +428,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
     </div>
   </div>
 
+  <div class="narrow">
   <header class="hero">
     <div class="brand" data-i18n="brand">Panneau LED · Pixel Art</div>
     <h1><span class="raw">Recal</span><span class="v">BoxDMD</span></h1>
@@ -425,6 +444,20 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
 
   <div class="divider" data-i18n="divider1">Ce qu'il fait chez vous, au quotidien</div>
 
+  </div>
+
+  <div class="wide-sec">
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--led-green)" data-i18n="mix.eyebrow"></span>
+    <h2 data-i18n="mix.h2"></h2>
+    <p data-i18n="mix.p"></p>
+    <div class="chips"><span class="chip" data-i18n="mix.c1"></span><span class="chip" data-i18n="mix.c2"></span><span class="chip" data-i18n="mix.c3"></span><span class="chip" data-i18n="mix.c4"></span></div>
+  </section>
+  </div>
+
+  <div class="duo">
+    <div class="col col-gif">
+      <h3 class="coltitle" data-i18n="col.gif">🎬 Playlist de GIF</h3>
   <section class="feat">
     <span class="eyebrow" style="color:var(--led-blue)" data-i18n="s1.eyebrow">Mode attente</span>
     <h2 data-i18n="s1.h2">Des centaines d'animations rétro, en boucle</h2>
@@ -483,6 +516,59 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
     <p class="cap" data-i18n="cap.clock">Choix du thème, couleur, intervalle et durée — en direct depuis le téléphone</p>
   </section>
 
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--led-blue)" data-i18n="w5.eyebrow"></span>
+    <h2 data-i18n="w5.h2"></h2>
+    <p data-i18n="w5.p"></p>
+    <div class="grid2"><figure class="shot glow-b"><img src="media/widgets/clk_plasma.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-b"><img src="media/widgets/clk_life.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-b"><img src="media/widgets/clk_stars.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-b"><img src="media/widgets/clk_rain.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-b"><img src="media/widgets/clk_lava.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure></div>
+  </section>
+
+    </div>
+    <div class="col col-wid">
+      <h3 class="coltitle" data-i18n="col.wid">🧩 Widgets &amp; écrans vivants</h3>
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--led-blue)" data-i18n="w1.eyebrow"></span>
+    <h2 data-i18n="w1.h2"></h2>
+    <p data-i18n="w1.p"></p>
+    <div class="grid1"><figure class="shot glow-b"><img src="media/widgets/fr/date.png" data-img="date" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-b"><img src="media/widgets/fr/weather.png" data-img="weather" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-b"><img src="media/widgets/fr/ephemeris.png" data-img="ephemeris" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-b"><img src="media/widgets/fr/countdown.png" data-img="countdown" data-i18n-alt="w.alt" alt="" loading="lazy"></figure></div><p class="cap" data-i18n="w1.cap"></p>
+  </section>
+<section class="feat">
+    <span class="eyebrow" style="color:var(--amber)" data-i18n="w2.eyebrow"></span>
+    <h2 data-i18n="w2.h2"></h2>
+    <p data-i18n="w2.p"></p>
+    <div class="grid2"><figure class="shot glow-a"><img src="media/widgets/fr/wx_clear.png" data-img="wx_clear" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-a"><img src="media/widgets/fr/wx_part.png" data-img="wx_part" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-a"><img src="media/widgets/fr/wx_night.png" data-img="wx_night" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-a"><img src="media/widgets/fr/wx_rain.png" data-img="wx_rain" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-a"><img src="media/widgets/fr/wx_snow.png" data-img="wx_snow" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-a"><img src="media/widgets/fr/wx_storm.png" data-img="wx_storm" data-i18n-alt="w.alt" alt="" loading="lazy"></figure></div>
+  </section>
+<section class="feat">
+    <span class="eyebrow" style="color:var(--led-green)" data-i18n="w3.eyebrow"></span>
+    <h2 data-i18n="w3.h2"></h2>
+    <p data-i18n="w3.p"></p>
+    <div class="grid1"><figure class="shot glow-g"><img src="media/widgets/fr/qcm_question.png" data-img="qcm_question" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-g"><img src="media/widgets/fr/qcm_answer.png" data-img="qcm_answer" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-g"><img src="media/widgets/fr/quote_famous.png" data-img="quote_famous" data-i18n-alt="w.alt" alt="" loading="lazy"></figure></div><div class="chips"><span class="chip" data-i18n="w3.c1"></span><span class="chip" data-i18n="w3.c2"></span><span class="chip" data-i18n="w3.c3"></span><span class="chip" data-i18n="w3.c4"></span></div><p class="cap" data-i18n="w3.p2"></p>
+  </section>
+<section class="feat">
+    <span class="eyebrow" style="color:var(--led-red)" data-i18n="w4.eyebrow"></span>
+    <h2 data-i18n="w4.h2"></h2>
+    <p data-i18n="w4.p"></p>
+    <div class="grid2"><figure class="shot glow-r"><img src="media/widgets/amb_plasma.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-r"><img src="media/widgets/amb_rain.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-r"><img src="media/widgets/amb_stars.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-r"><img src="media/widgets/amb_life.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-r"><img src="media/widgets/amb_liquid.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-r"><img src="media/widgets/amb_sand1.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-r"><img src="media/widgets/amb_sand2.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-r"><img src="media/widgets/amb_lava.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure></div>
+  </section>
+<section class="feat">
+    <span class="eyebrow" style="color:var(--led-green)" data-i18n="w6.eyebrow"></span>
+    <h2 data-i18n="w6.h2"></h2>
+    <p data-i18n="w6.p"></p>
+    <div class="grid1"><figure class="shot glow-g"><img src="media/widgets/fr/rb_challenge_top.png" data-img="rb_challenge_top" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-g"><img src="media/widgets/fr/rb_challenge_me.png" data-img="rb_challenge_me" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-g"><img src="media/widgets/fr/rb_rewards_1.png" data-img="rb_rewards_1" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-g"><img src="media/widgets/fr/rb_health.png" data-img="rb_health" data-i18n-alt="w.alt" alt="" loading="lazy"></figure></div>
+  </section>
+    </div>
+  </div>
+
+  <div class="wide-sec">
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--amber)" data-i18n="all.eyebrow"></span>
+    <h2 data-i18n="all.h2"></h2>
+    <p data-i18n="all.p"></p>
+    <ul class="bul"><li data-i18n="all.l1"></li><li data-i18n="all.l2"></li><li data-i18n="all.l3"></li><li data-i18n="all.l4"></li></ul>
+  </section>
+  </div>
+
+  <div class="narrow">
   <div class="divider pivot" data-i18n="divider2">Un bonus pour les joueurs</div>
 
   <section class="feat">
@@ -587,6 +673,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
     <figure class="shot glow-w">
       <img src="media/hardware.png" data-i18n-alt="alt.hardware" alt="Matériel nécessaire au montage de RecalBoxDMD : panneaux LED, carte de connexion et microcontrôleur.">
     </figure>
+    <p class="shops" data-i18n="s6.shops"></p>
   </section>
 
   <section class="feat">
@@ -610,6 +697,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
     </div>
     <p class="support"><a href="https://buymeacoffee.com/shan_aya" target="_blank" rel="noopener" data-i18n="support.label">☕ Soutenir le projet</a></p>
   </footer>
+  </div>
 
 </div>
 
@@ -622,7 +710,49 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "fw.updated": "Dernier firmware :",
       "fw.version": "Version",
       "brand": "Panneau LED · Pixel Art",
-      "tag": "Un cadre lumineux autonome qui anime votre intérieur — des centaines de GIFs rétro en rotation, une horloge qui change d'habillage. Connectez-le en WiFi à n'importe quelle Recalbox et il devient aussi son marquee numérique.",
+      "col.gif": "🎬 Playlist de GIF",
+      "col.wid": "🧩 Widgets &amp; écrans vivants",
+      "w.alt": "Rendu simulé du panneau LED 128×32.",
+      "mix.eyebrow": "Deux univers, un panneau",
+      "mix.h2": "Playlist de GIF + widgets : mélangez-les à volonté",
+      "mix.p": "Le panneau sait jouer vos GIFs <strong>et</strong> afficher des écrans vivants — et vous décidez du dosage, depuis la page web : chaque widget est désactivé, <strong>à la place de l'horloge</strong> ou <strong>en plus d'elle</strong>, avec sa propre durée ; ils passent tous les N GIFs ou toutes les N minutes, dans l'ordre ou au hasard.",
+      "mix.c1": "Playlist seule",
+      "mix.c2": "Widgets entre les GIFs",
+      "mix.c3": "Widgets seuls, sans GIF",
+      "mix.c4": "Tout ce qui est entre les deux",
+      "w1.eyebrow": "Widgets",
+      "w1.h2": "Date, météo, éphéméride, compte à rebours",
+      "w1.p": "Une carte de calendrier (dimanches et fériés en couleur), la météo avec flèches min/max, lever/coucher du soleil et phase de la lune, les jours qui restent avant vos événements. Tout est posé sur un ciel vivant.",
+      "w1.cap": "Rendus simulés du panneau 128×32",
+      "w2.eyebrow": "Météo",
+      "w2.h2": "Un ciel qui suit le temps et l'heure",
+      "w2.p": "Le fond suit le <strong>vrai lever et coucher du soleil</strong> de votre lieu et la météo en direct : soleil animé, lune et étoiles, nuages, pluie, neige, orage.",
+      "w3.eyebrow": "Citations &amp; quiz",
+      "w3.h2": "Lire, rire, apprendre — et créer vos propres thèmes",
+      "w3.p": "Un thème = un fichier texte, une citation par ligne. Quatre formats : texte seul, « texte | auteur », « question ? | réponse » (devinette, blague) et le <strong>quiz à 3 choix</strong> (décompte, bonne réponse qui clignote puis reste). <strong>Créez, modifiez ou importez vos thèmes</strong> depuis la page web, ajoutez un fond illustré par thème, et choisissez ceux qui passent.",
+      "w3.c1": "Biscuits chinois",
+      "w3.c2": "Citations célèbres",
+      "w3.c3": "Quiz rétro-gaming",
+      "w3.c4": "Blagues &amp; devinettes",
+      "w4.eyebrow": "Ambiances",
+      "w4.h2": "8 ambiances, aux couleurs de votre choix",
+      "w4.p": "Plasma, pluie, étoiles, jeu de la vie, liquide, sable, sable 2 (couches de deux couleurs) et lampe à lave : du mouvement à l'état pur, pendant la durée que vous fixez.",
+      "w5.eyebrow": "Nouvelles horloges",
+      "w5.h2": "5 horloges animées",
+      "w5.p": "L'heure en grand sur Plasma, Life, Stars, Rain ou Lava — en plus des 10 habillages pixel-art.",
+      "w6.eyebrow": "Recalbox",
+      "w6.h2": "Trois widgets alimentés par votre Recalbox",
+      "w6.p": "<strong>Challenge</strong> en cours (jours restants, top 3 avec ▲▼, votre rang et vos GG), <strong>récompenses</strong> à gagner, et la <strong>santé</strong> de la machine (température, alimentation, horloge, réseau, disque, mémoire). Un petit script installé sur la Recalbox suffit.",
+      "all.eyebrow": "Nouveau pour tout le monde",
+      "all.h2": "Plusieurs Recalbox, un bouton, des mises à jour sûres",
+      "all.p": "En plus des widgets :",
+      "all.l1": "🔁 <strong>Plusieurs Recalbox, un seul DMD</strong> — listez jusqu'à 4 IP : quand la Recalbox active est éteinte, le DMD bascule seul sur la suivante qui répond.",
+      "all.l2": "🔘 <strong>Bouton physique</strong> (GPIO 21) — appui court, double, long, très long : chacun lié à l'action de votre choix.",
+      "all.l3": "⬆️ <strong>Mises à jour depuis GitHub</strong> directement dans la boîte à outils PC.",
+      "all.l4": "🛡️ <strong>Configuration plus sûre</strong> — écritures atomiques de la carte SD, protection contre l'enregistrement d'une page vide.",
+      "w3.p2": "<strong>15 thèmes prêts à installer</strong> (citations célèbres, biscuits chinois, blagues, devinettes, quiz) en français, anglais et espagnol, avec le <strong>Mode 15</strong> de la boîte à outils.",
+      "s6.shops": "🛒 <strong>Où l'acheter</strong> — 🇫🇷 <strong>France</strong> : <a href='https://benfactory.fr/produit/dmdos/' target='_blank' rel='noopener'>Benfactory.fr</a> (carte fille DMDos + ESP32, code promo <strong>retrobat10</strong> : −10 %) · 🇪🇸 <strong>Espagne</strong> : <a href='https://www.dmdos.net/' target='_blank' rel='noopener'>dmdos.net</a>",
+      "tag": "Un cadre lumineux autonome qui anime votre intérieur — des GIFs rétro en rotation, des widgets vivants (météo, date, citations, ambiances…), une horloge qui change d'habillage. Connectez-le en WiFi à n'importe quelle Recalbox et il devient aussi son marquee numérique.",
       "divider1": "Ce qu'il fait chez vous, au quotidien",
       "s1.eyebrow": "Mode attente",
       "s1.h2": "Des centaines d'animations rétro, en boucle",
@@ -701,7 +831,49 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "fw.updated": "Latest firmware:",
       "fw.version": "Version",
       "brand": "LED Panel · Pixel Art",
-      "tag": "A self-contained glowing frame for your room — hundreds of retro GIFs on rotation, a clock that changes its look. Connect it over WiFi to any Recalbox and it doubles as a digital marquee.",
+      "col.gif": "🎬 GIF playlist",
+      "col.wid": "🧩 Widgets &amp; live screens",
+      "w.alt": "Simulated render of the 128×32 LED panel.",
+      "mix.eyebrow": "Two worlds, one panel",
+      "mix.h2": "GIF playlist + widgets: mix them as you like",
+      "mix.p": "The panel plays your GIFs <strong>and</strong> shows live screens — and you set the blend from the web page: each widget is off, <strong>in place of the clock</strong> or <strong>on top of it</strong>, with its own duration; they appear every N GIFs or every N minutes, in order or at random.",
+      "mix.c1": "Playlist only",
+      "mix.c2": "Widgets between GIFs",
+      "mix.c3": "Widgets only, no GIF",
+      "mix.c4": "Anything in between",
+      "w1.eyebrow": "Widgets",
+      "w1.h2": "Date, weather, ephemeris, countdown",
+      "w1.p": "A calendar card (Sundays and holidays in colour), the weather with min/max arrows, sunrise/sunset and moon phase, the days left before your events. Everything sits on a living sky.",
+      "w1.cap": "Simulated renders of the 128×32 panel",
+      "w2.eyebrow": "Weather",
+      "w2.h2": "A sky that follows the weather and the time",
+      "w2.p": "The background follows the <strong>real sunrise and sunset</strong> of your location and the live weather: animated sun, moon and stars, clouds, rain, snow, storm.",
+      "w3.eyebrow": "Quotes &amp; quizzes",
+      "w3.h2": "Read, laugh, learn — and create your own themes",
+      "w3.p": "A theme = a text file, one quote per line. Four formats: plain text, “text | author”, “question ? | answer” (riddle, joke) and the <strong>3-choice quiz</strong> (countdown, right answer blinks then stays). <strong>Create, edit or import your own themes</strong> from the web page, add an illustrated background per theme, and choose which ones play.",
+      "w3.c1": "Fortune cookies",
+      "w3.c2": "Famous quotes",
+      "w3.c3": "Retro-gaming quiz",
+      "w3.c4": "Jokes &amp; riddles",
+      "w4.eyebrow": "Ambiences",
+      "w4.h2": "8 ambiences, in the colours you choose",
+      "w4.p": "Plasma, rain, stars, Game of Life, liquid, sand, sand 2 (two-colour layers) and lava lamp: pure motion, for as long as you decide.",
+      "w5.eyebrow": "New clocks",
+      "w5.h2": "5 animated clocks",
+      "w5.p": "The time in big digits over Plasma, Life, Stars, Rain or Lava — on top of the 10 pixel-art themes.",
+      "w6.eyebrow": "Recalbox",
+      "w6.h2": "Three widgets fed by your Recalbox",
+      "w6.p": "The current <strong>challenge</strong> (days left, top 3 with ▲▼, your rank and GGs), <strong>rewards</strong> to win, and the machine's <strong>health</strong> (temperature, power, clock, network, disk, memory). A small script on the Recalbox is all it takes.",
+      "all.eyebrow": "New for everything",
+      "all.h2": "Several Recalbox, a button, safer updates",
+      "all.p": "On top of widgets:",
+      "all.l1": "🔁 <strong>Several Recalbox, one DMD</strong> — list up to 4 IPs: when the active Recalbox is off, the DMD switches by itself to the next one that answers.",
+      "all.l2": "🔘 <strong>Physical button</strong> (GPIO 21) — short, double, long, very long press: each tied to the action you choose.",
+      "all.l3": "⬆️ <strong>Updates from GitHub</strong> straight from the PC Toolkit.",
+      "all.l4": "🛡️ <strong>Safer configuration</strong> — atomic SD-card writes, protection against saving an empty page.",
+      "w3.p2": "<strong>15 ready-made themes</strong> (famous quotes, fortune cookies, jokes, riddles, quiz) in French, English and Spanish, installed with the toolkit's <strong>Mode 15</strong>.",
+      "s6.shops": "🛒 <strong>Where to buy</strong> — 🇫🇷 <strong>France</strong>: <a href='https://benfactory.fr/produit/dmdos/' target='_blank' rel='noopener'>Benfactory.fr</a> (DMDos daughter board + ESP32, promo code <strong>retrobat10</strong>: −10%) · 🇪🇸 <strong>Spain</strong>: <a href='https://www.dmdos.net/' target='_blank' rel='noopener'>dmdos.net</a>",
+      "tag": "A standalone glowing frame that brings your room to life — retro GIFs in rotation, live widgets (weather, date, quotes, ambiences…), a clock that changes outfits. Connect it over WiFi to any Recalbox and it also becomes its digital marquee.",
       "divider1": "What it does at home, every day",
       "s1.eyebrow": "Attract mode",
       "s1.h2": "Hundreds of retro animations, on loop",
@@ -780,7 +952,49 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "fw.updated": "Último firmware:",
       "fw.version": "Versión",
       "brand": "Panel LED · Pixel Art",
-      "tag": "Un marco luminoso autónomo para tu casa — cientos de GIFs retro en rotación, un reloj que cambia de decorado. Conéctalo por WiFi a cualquier Recalbox y se convierte también en su marquee digital.",
+      "col.gif": "🎬 Lista de GIF",
+      "col.wid": "🧩 Widgets y pantallas vivas",
+      "w.alt": "Render simulado del panel LED 128×32.",
+      "mix.eyebrow": "Dos mundos, un panel",
+      "mix.h2": "Lista de GIF + widgets: mézclalos a tu gusto",
+      "mix.p": "El panel reproduce tus GIFs <strong>y</strong> muestra pantallas vivas — y tú decides la mezcla desde la página web: cada widget está desactivado, <strong>en lugar del reloj</strong> o <strong>además de él</strong>, con su propia duración; aparecen cada N GIF o cada N minutos, en orden o al azar.",
+      "mix.c1": "Solo lista",
+      "mix.c2": "Widgets entre GIFs",
+      "mix.c3": "Solo widgets, sin GIF",
+      "mix.c4": "Todo lo intermedio",
+      "w1.eyebrow": "Widgets",
+      "w1.h2": "Fecha, tiempo, efemérides, cuenta atrás",
+      "w1.p": "Una tarjeta de calendario (domingos y festivos en color), el tiempo con flechas mín/máx, salida y puesta del sol y fase de la luna, los días que faltan para tus eventos. Todo sobre un cielo vivo.",
+      "w1.cap": "Renders simulados del panel 128×32",
+      "w2.eyebrow": "Tiempo",
+      "w2.h2": "Un cielo que sigue el tiempo y la hora",
+      "w2.p": "El fondo sigue el <strong>amanecer y atardecer reales</strong> de tu lugar y el tiempo en directo: sol animado, luna y estrellas, nubes, lluvia, nieve, tormenta.",
+      "w3.eyebrow": "Citas y quiz",
+      "w3.h2": "Leer, reír, aprender — y crear tus propios temas",
+      "w3.p": "Un tema = un archivo de texto, una cita por línea. Cuatro formatos: texto solo, «texto | autor», «pregunta ? | respuesta» (adivinanza, chiste) y el <strong>quiz de 3 opciones</strong> (cuenta atrás, la respuesta correcta parpadea y se queda). <strong>Crea, edita o importa tus temas</strong> desde la página web, añade un fondo ilustrado por tema y elige cuáles se reproducen.",
+      "w3.c1": "Galletas de la fortuna",
+      "w3.c2": "Citas célebres",
+      "w3.c3": "Quiz retro-gaming",
+      "w3.c4": "Chistes y adivinanzas",
+      "w4.eyebrow": "Ambientes",
+      "w4.h2": "8 ambientes, con los colores que elijas",
+      "w4.p": "Plasma, lluvia, estrellas, juego de la vida, líquido, arena, arena 2 (capas de dos colores) y lámpara de lava: movimiento puro, el tiempo que decidas.",
+      "w5.eyebrow": "Nuevos relojes",
+      "w5.h2": "5 relojes animados",
+      "w5.p": "La hora en grande sobre Plasma, Life, Stars, Rain o Lava — además de los 10 temas pixel-art.",
+      "w6.eyebrow": "Recalbox",
+      "w6.h2": "Tres widgets alimentados por tu Recalbox",
+      "w6.p": "El <strong>desafío</strong> en curso (días restantes, top 3 con ▲▼, tu puesto y tus GG), las <strong>recompensas</strong> por ganar y la <strong>salud</strong> de la máquina (temperatura, alimentación, reloj, red, disco, memoria). Basta un pequeño script en la Recalbox.",
+      "all.eyebrow": "Nuevo para todo",
+      "all.h2": "Varias Recalbox, un botón, actualizaciones seguras",
+      "all.p": "Además de los widgets:",
+      "all.l1": "🔁 <strong>Varias Recalbox, un solo DMD</strong> — lista hasta 4 IP: cuando la Recalbox activa se apaga, el DMD cambia solo a la siguiente que responde.",
+      "all.l2": "🔘 <strong>Botón físico</strong> (GPIO 21) — pulsación corta, doble, larga, muy larga: cada una ligada a la acción que elijas.",
+      "all.l3": "⬆️ <strong>Actualizaciones desde GitHub</strong> directamente en la caja de herramientas de PC.",
+      "all.l4": "🛡️ <strong>Configuración más segura</strong> — escrituras atómicas de la tarjeta SD, protección contra guardar una página vacía.",
+      "w3.p2": "<strong>15 temas listos para instalar</strong> (citas célebres, galletas de la fortuna, chistes, adivinanzas, quiz) en francés, inglés y español, con el <strong>Modo 15</strong> de la caja de herramientas.",
+      "s6.shops": "🛒 <strong>Dónde comprar</strong> — 🇫🇷 <strong>Francia</strong>: <a href='https://benfactory.fr/produit/dmdos/' target='_blank' rel='noopener'>Benfactory.fr</a> (placa DMDos + ESP32, código promocional <strong>retrobat10</strong>: −10 %) · 🇪🇸 <strong>España</strong>: <a href='https://www.dmdos.net/' target='_blank' rel='noopener'>dmdos.net</a>",
+      "tag": "Un marco luminoso autónomo que da vida a tu casa — GIFs retro en rotación, widgets vivos (tiempo, fecha, citas, ambientes…), un reloj que cambia de aspecto. Conéctalo por WiFi a cualquier Recalbox y también se convierte en su marquesina digital.",
       "divider1": "Lo que hace en casa, cada día",
       "s1.eyebrow": "Modo espera",
       "s1.h2": "Cientos de animaciones retro, en bucle",
@@ -893,6 +1107,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       var val = translations[lang][key];
       if (val !== undefined) el.setAttribute("alt", val);
     });
+    document.querySelectorAll("img[data-img]").forEach(function(el){ el.setAttribute("src", "media/widgets/" + lang + "/" + el.getAttribute("data-img") + ".png"); });
     document.querySelectorAll(".langswitch button").forEach(function(b){
       b.setAttribute("aria-pressed", b.getAttribute("data-lang") === lang ? "true" : "false");
     });

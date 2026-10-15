@@ -1,4 +1,4 @@
-# RecalBoxDMD — RawEdition <img alt="Firmware: v3.50" src="https://img.shields.io/badge/firmware-v3.50-blueviolet.svg"> <img alt="Herramienta PC: v12072" src="https://img.shields.io/badge/herramienta%20PC-v12072-blueviolet.svg">
+# RecalBoxDMD — RawEdition <img alt="Firmware: v3.28" src="https://img.shields.io/badge/firmware-v3.28-blueviolet.svg"> <img alt="Herramienta PC: v11469" src="https://img.shields.io/badge/herramienta%20PC-v11469-blueviolet.svg">
 
 **Un verdadero marquee LED para tu mueble arcade Recalbox — visualización instantánea, incluso con un fullset MAME de 30 000 juegos.**
 
@@ -49,7 +49,7 @@
 RawEdition v2.0 era un marquee: un logo o un GIF por juego. **Ahora son dos mundos en el mismo panel — y los mezclas a tu gusto:**
 
 - 🎬 **Lista de GIF** — tus marquees, tu modo attract de 600 GIF, los overlays en juego (todo lo que ya conoces).
-- 🧩 **Widgets** — una nueva familia de pantallas vivas y animadas: **reloj, fecha, efemérides, cuenta atrás, ambientes, tiempo, estadísticas, citas y quiz, y tres widgets Recalbox** (desafío, recompensas, salud), todos sobre un cielo que sigue el sol real y el tiempo.
+- 🧩 **Widgets** — una nueva familia de pantallas vivas y animadas: **reloj, fecha, efemérides, cuenta atrás, ambientes, tiempo, citas y quiz, y tres widgets Recalbox** (desafío, recompensas, salud), todos sobre un cielo que sigue el sol real y el tiempo.
 
 ### 🔀 Mézclalos a tu gusto
 
@@ -128,10 +128,9 @@ Cada pantalla se dibuja sobre un **cielo que sigue el amanecer/atardecer real de
 - 🌦️ **Tiempo** — temperatura, flechas mín/máx, los nombres largos de lugar se desplazan de ida y vuelta.
 - 🌅 **Efemérides** — salida, puesta, duración del día y **fase de la luna**.
 - ⏳ **Cuenta atrás** — días que faltan para tus eventos (Navidad, cumpleaños…).
-- 📊 **Estadísticas Recalbox** — partidas de hoy / totales, juego y sistema más jugados.
 - 💬 **Citas y quiz** — los temas que elijas, **fondos ilustrados** para los quiz, la respuesta correcta parpadea y se queda en pantalla.
 
-<p><img src="medias/widgets/es/date.png" width="215" alt="date"> <img src="medias/widgets/es/weather.png" width="215" alt="weather"> <img src="medias/widgets/es/ephemeris.png" width="215" alt="ephemeris"> <img src="medias/widgets/es/countdown.png" width="215" alt="countdown"> <img src="medias/widgets/es/stats.png" width="215" alt="stats"> <img src="medias/widgets/es/quote.png" width="215" alt="quote"></p>
+<p><img src="medias/widgets/es/date.png" width="215" alt="date"> <img src="medias/widgets/es/weather.png" width="215" alt="weather"> <img src="medias/widgets/es/ephemeris.png" width="215" alt="ephemeris"> <img src="medias/widgets/es/countdown.png" width="215" alt="countdown"> <img src="medias/widgets/es/quote.png" width="215" alt="quote"></p>
 
 - 🌀 **8 ambientes** — plasma, lluvia, estrellas, juego de la vida, líquido, arena, **arena 2** (capas de dos colores) y **lámpara de lava**; los colores los eliges tú.
 

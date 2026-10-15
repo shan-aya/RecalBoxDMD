@@ -1,4 +1,4 @@
-# RecalBoxDMD — RawEdition <img alt="Firmware : v3.50" src="https://img.shields.io/badge/firmware-v3.50-blueviolet.svg"> <img alt="Outil PC : v12072" src="https://img.shields.io/badge/outil%20PC-v12072-blueviolet.svg">
+# RecalBoxDMD — RawEdition <img alt="Firmware : v2.64" src="https://img.shields.io/badge/firmware-v3.28-blueviolet.svg"> <img alt="Outil PC : v11469" src="https://img.shields.io/badge/outil%20PC-v11469-blueviolet.svg">
 
 **Un vrai panneau marquee lumineux pour votre borne d'arcade Recalbox — affichage instantané, même avec un fullset MAME de 30 000 jeux.**
 
@@ -49,7 +49,7 @@
 RawEdition v2.0 était un marquee : un logo ou un GIF par jeu. **C'est maintenant deux univers sur le même panneau — que vous mélangez à volonté :**
 
 - 🎬 **Playlist de GIF** — vos marquees, votre mode attract de 600 GIF, les overlays en jeu (tout ce que vous connaissez déjà).
-- 🧩 **Widgets** — une nouvelle famille d'écrans vivants et animés : **horloge, date, éphéméride, compte à rebours, ambiances, météo, statistiques, citations et quiz, et trois widgets Recalbox** (challenge, récompenses, santé), tous sur un ciel qui suit le vrai soleil et la météo.
+- 🧩 **Widgets** — une nouvelle famille d'écrans vivants et animés : **horloge, date, éphéméride, compte à rebours, ambiances, météo, citations et quiz, et trois widgets Recalbox** (challenge, récompenses, santé), tous sur un ciel qui suit le vrai soleil et la météo.
 
 ### 🔀 Mélangez-les à volonté
 
@@ -128,10 +128,9 @@ Chaque écran est dessiné sur un **ciel qui suit le vrai lever/coucher du solei
 - 🌦️ **Météo** — température, flèches min/max, les noms de lieu trop longs défilent en va-et-vient.
 - 🌅 **Éphéméride** — lever, coucher, durée du jour et **phase de la lune**.
 - ⏳ **Compte à rebours** — jours restants avant vos événements (Noël, anniversaires…).
-- 📊 **Stats Recalbox** — parties lancées aujourd'hui / au total, jeu et système les plus joués.
 - 💬 **Citations &amp; quiz** — les thèmes de votre choix, **fonds illustrés** pour les quiz, la bonne réponse clignote puis reste affichée.
 
-<p><img src="medias/widgets/fr/date.png" width="215" alt="date"> <img src="medias/widgets/fr/weather.png" width="215" alt="weather"> <img src="medias/widgets/fr/ephemeris.png" width="215" alt="ephemeris"> <img src="medias/widgets/fr/countdown.png" width="215" alt="countdown"> <img src="medias/widgets/fr/stats.png" width="215" alt="stats"> <img src="medias/widgets/fr/quote.png" width="215" alt="quote"></p>
+<p><img src="medias/widgets/fr/date.png" width="215" alt="date"> <img src="medias/widgets/fr/weather.png" width="215" alt="weather"> <img src="medias/widgets/fr/ephemeris.png" width="215" alt="ephemeris"> <img src="medias/widgets/fr/countdown.png" width="215" alt="countdown"> <img src="medias/widgets/fr/quote.png" width="215" alt="quote"></p>
 
 - 🌀 **8 ambiances** — plasma, pluie, étoiles, jeu de la vie, liquide, sable, **sable 2** (couches de deux couleurs) et **lampe à lave** ; les couleurs sont à vous.
 

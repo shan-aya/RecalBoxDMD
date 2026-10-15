@@ -1,4 +1,4 @@
-# RecalBoxDMD — RawEdition <img alt="Firmware: v3.50" src="https://img.shields.io/badge/firmware-v3.50-blueviolet.svg"> <img alt="PC Toolkit: v12072" src="https://img.shields.io/badge/PC%20Toolkit-v12072-blueviolet.svg">
+# RecalBoxDMD — RawEdition <img alt="Firmware: v3.28" src="https://img.shields.io/badge/firmware-v3.28-blueviolet.svg"> <img alt="PC Toolkit: v11469" src="https://img.shields.io/badge/PC%20Toolkit-v11469-blueviolet.svg">
 
 **A real LED marquee for your Recalbox arcade cabinet — instant display, even with a 30,000-game MAME fullset.**
 
@@ -49,7 +49,7 @@
 RawEdition v2.0 was a marquee: a logo or a GIF per game. **It is now two worlds in one panel — and you mix them as you like:**
 
 - 🎬 **GIF playlist** — your marquees, your 600-GIF attract mode, the in-game overlays (everything you already know).
-- 🧩 **Widgets** — a new family of live, animated screens: **clock, date, ephemeris, countdown, ambiances, weather, statistics, quotes & quizzes, and three Recalbox widgets** (challenge, rewards, health), all on a sky that follows the real sun and the weather.
+- 🧩 **Widgets** — a new family of live, animated screens: **clock, date, ephemeris, countdown, ambiances, weather, quotes & quizzes, and three Recalbox widgets** (challenge, rewards, health), all on a sky that follows the real sun and the weather.
 
 ### 🔀 Mix them at will
 
@@ -128,10 +128,9 @@ Every screen is drawn on a **sky that follows the real sunrise/sunset of your lo
 - 🌦️ **Weather** — temperature, min/max arrows, long place names scroll back and forth.
 - 🌅 **Ephemeris** — sunrise, sunset, day length and the **moon phase**.
 - ⏳ **Countdown** — days left before your own events (Christmas, birthdays…).
-- 📊 **Recalbox stats** — games launched today / in total, most played game and system.
 - 💬 **Quotes &amp; quizzes** — themes of your choice, **illustrated backgrounds** for quizzes, the right answer blinks then stays on screen.
 
-<p><img src="medias/widgets/en/date.png" width="215" alt="date"> <img src="medias/widgets/en/weather.png" width="215" alt="weather"> <img src="medias/widgets/en/ephemeris.png" width="215" alt="ephemeris"> <img src="medias/widgets/en/countdown.png" width="215" alt="countdown"> <img src="medias/widgets/en/stats.png" width="215" alt="stats"> <img src="medias/widgets/en/quote.png" width="215" alt="quote"></p>
+<p><img src="medias/widgets/en/date.png" width="215" alt="date"> <img src="medias/widgets/en/weather.png" width="215" alt="weather"> <img src="medias/widgets/en/ephemeris.png" width="215" alt="ephemeris"> <img src="medias/widgets/en/countdown.png" width="215" alt="countdown"> <img src="medias/widgets/en/quote.png" width="215" alt="quote"></p>
 
 - 🌀 **8 ambiances** — plasma, rain, stars, Game of Life, liquid, sand, **sand 2** (two-colour layers) and a **lava lamp**; colours are yours to choose.
 
