@@ -8,6 +8,13 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-15 — Caja de herramientas PC, build 12072: temas de citas (Modo 15), varias Recalbox, nuevos nombres de archivo
+
+- **Modo 15 — temas de citas listos para usar** (francés, inglés, español): 15 temas de 50 entradas publicados en GitHub, listados con su estado en la tarjeta SD (por instalar / al día / actualización disponible / modificado por usted), instalados a petición con verificación de la suma de control; un archivo modificado se guarda antes de ser reemplazado y no se borra nada. El **Modo 1** lo ofrece con una vista previa de cada tema; la caja de herramientas avisa al abrirse de las nuevas revisiones del paquete.
+- Los Modos 1 y 9 aceptan **varias Recalbox** (hasta 4) para el cambio automático del firmware 3.x.
+- Ayuda integrada actualizada (Modos 1 y 15, FR/EN/ES); las ventanas del Modo 14 y de elección de actualización eran ilegibles en tema oscuro (corregido).
+- Archivos de release renombrados `RecalBoxDMD_Toolkit_<build>_Setup.exe` / `_Portable.exe` / `_Source.zip`; los binarios del firmware se publican sin versión en el nombre (`binaries/RecalBoxDMD_app.bin`, `RecalBoxDMD_merged.bin`).
+
 ## 2026-10-15 — Firmware v3.50: widgets, ambientes, nuevos relojes, varias Recalbox, página Ajustes, botón físico
 
 **Añadido**

@@ -8,6 +8,13 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-15 — Boîte à outils PC, build 12072 : thèmes de citations (Mode 15), plusieurs Recalbox, nouveaux noms de fichiers
+
+- **Mode 15 — thèmes de citations prêts à l'emploi** (français, anglais, espagnol) : 15 thèmes de 50 entrées publiés sur GitHub, listés avec leur état sur votre carte SD (à installer / à jour / mise à jour disponible / modifié par vous), installés à la demande avec vérification de la somme de contrôle ; un fichier modifié est sauvegardé avant d'être remplacé et rien n'est supprimé. Le **Mode 1** le propose avec un aperçu de chaque thème ; la boîte à outils annonce au lancement les nouvelles révisions du paquet.
+- Les Modes 1 et 9 acceptent **plusieurs Recalbox** (jusqu'à 4) pour la bascule automatique du firmware 3.x.
+- Aide intégrée mise à jour (Modes 1 et 15, FR/EN/ES) ; les fenêtres du Mode 14 et du choix de mise à jour étaient illisibles en thème sombre (corrigé).
+- Fichiers de release renommés `RecalBoxDMD_Toolkit_<build>_Setup.exe` / `_Portable.exe` / `_Source.zip` ; les binaires du firmware sont publiés sans version dans leur nom (`binaries/RecalBoxDMD_app.bin`, `RecalBoxDMD_merged.bin`).
+
 ## 2026-10-15 — Firmware v3.50 : widgets, ambiances, nouvelles horloges, plusieurs Recalbox, page Réglages, bouton physique
 
 **Ajouté**

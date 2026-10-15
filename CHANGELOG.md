@@ -8,6 +8,13 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-15 — PC toolkit, build 12072: quote themes (Mode 15), several Recalbox, new asset names
+
+- **Mode 15 — ready-made quote themes** (French, English, Spanish): 15 themes of 50 entries published on GitHub, listed with their state on your SD card (to install / up to date / update available / modified by you), installed on demand with a checksum check; an edited file is backed up before being replaced and nothing is deleted. **Mode 1** offers it with a preview of each theme; the toolkit announces new revisions of the pack at launch.
+- Modes 1 and 9 accept **several Recalbox** (up to 4) for the firmware 3.x automatic switch.
+- Built-in help updated (Modes 1 and 15, FR/EN/ES); the Mode 14 and update-choice windows were unreadable in the dark theme (fixed).
+- Release assets renamed `RecalBoxDMD_Toolkit_<build>_Setup.exe` / `_Portable.exe` / `_Source.zip`; firmware binaries are now published without a version in their name (`binaries/RecalBoxDMD_app.bin`, `RecalBoxDMD_merged.bin`).
+
 ## 2026-10-15 — Firmware v3.50: widgets, ambiances, new clocks, several Recalbox, Settings page, physical button
 
 **Added**
