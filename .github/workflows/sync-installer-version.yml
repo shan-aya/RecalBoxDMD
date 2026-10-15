@@ -4,17 +4,19 @@ name: Sync firmware version
 # generee a la compilation a partir de FW_VERSION_NUM) puis recopiee dans :
 #   - docs/install/manifest.json  (page d'installation + page d'accueil)
 #   - la cle "scripts" du manifeste = SCRIPTS_BUNDLE de dmd_udp_resync.py (numero d'ensemble des scripts Recalbox)
-#   - les cles "app_sha256" / "app_size" du manifeste = empreinte SHA-256 et taille de binaries/RecalBoxDMD_v2.0_app.bin
+#   - les cles "app_sha256" / "app_size" du manifeste = empreinte SHA-256 et taille de binaries/RecalBoxDMD_app.bin
 #     (firmware 2.44+ : le DMD telecharge lui-meme ce fichier et refuse de l'installer si la taille ou l'empreinte ne correspondent pas)
 #   - le badge "firmware-vM.mm" des trois README
+# binaries/RecalBoxDMD_v2.0_app.bin = copie HISTORIQUE de RecalBoxDMD_app.bin (les DMD en firmware 2.44-2.64 la telechargent a cette adresse) : le workflow echoue si elle differe.
 # Plus aucun numero a changer a la main a chaque publication. Binaire sans marqueur (firmware <= 2.35) : rien n'est modifie.
 
 on:
   push:
     branches: [main]
     paths:
-      - "binaries/RecalBoxDMD_v2.0_merged.bin"
-      - "binaries/RecalBoxDMD_v2.0_app.bin"
+      - "binaries/RecalBoxDMD_merged.bin"
+      - "binaries/RecalBoxDMD_app.bin"
+      - "binaries/RecalBoxDMD_v2.0_app.bin"   # copie HISTORIQUE (meme contenu) : adresse codee en dur dans les firmwares 2.44 a 2.64
       - "tools/recalbox_scripts/dmd_helpers/dmd_udp_resync.py"
   workflow_dispatch:
 
@@ -50,7 +52,7 @@ jobs:
         shell: python
         run: |
           import os, re, sys
-          data = open("binaries/RecalBoxDMD_v2.0_merged.bin", "rb").read()
+          data = open("binaries/RecalBoxDMD_merged.bin", "rb").read()
           found = set(re.findall(rb"RBDMD_FWVER=([0-9]\.[0-9]{2});", data))
           if len(found) != 1:
               print(f"::warning::marqueur de version absent ou ambigu ({sorted(found)}) - rien a synchroniser")
@@ -79,8 +81,8 @@ jobs:
         shell: python
         run: |
           import hashlib, re, sys
-          app = open("binaries/RecalBoxDMD_v2.0_app.bin", "rb").read()
-          merged = open("binaries/RecalBoxDMD_v2.0_merged.bin", "rb").read()
+          app = open("binaries/RecalBoxDMD_app.bin", "rb").read()
+          merged = open("binaries/RecalBoxDMD_merged.bin", "rb").read()
           mark = re.compile(rb"RBDMD_FWVER=([0-9]\.[0-9]{2});")
           va, vm = set(mark.findall(app)), set(mark.findall(merged))
           if va != vm or len(va) != 1:
@@ -99,6 +101,19 @@ jobs:
           if new != raw:
               open("docs/install/manifest.json", "wb").write(new)
           print("app.bin :", size.decode(), "octets, sha256", sha.decode())
+
+      - name: Check the legacy v2.0 copy is identical to RecalBoxDMD_app.bin (Wi-Fi updates of firmware 2.44-2.64)
+        shell: python
+        run: |
+          import os, sys
+          p = "binaries/RecalBoxDMD_v2.0_app.bin"
+          if not os.path.exists(p):
+              print("::error::binaries/RecalBoxDMD_v2.0_app.bin absent : les DMD en firmware 2.44-2.64 ne pourraient plus se mettre a jour")
+              sys.exit(1)
+          if open(p, "rb").read() != open("binaries/RecalBoxDMD_app.bin", "rb").read():
+              print("::error::binaries/RecalBoxDMD_v2.0_app.bin differe de RecalBoxDMD_app.bin : recopier RecalBoxDMD_app.bin sous l'ancien nom")
+              sys.exit(1)
+          print("copie v2.0 identique a RecalBoxDMD_app.bin")
 
       - name: Commit if changed
         run: |

@@ -4,6 +4,17 @@
 
 Tu utilises déjà RecalBoxDMD (firmware v13 "Raw565 Edition", n'importe quelle version de la boîte à outils PC) ? Voici ce qui change vraiment et ce qu'il y a à faire — la plupart est optionnel, et rien sur ta carte SD ou ta config Recalbox n'a besoin de changer.
 
+## Passer au firmware v3.50 (widgets)
+
+1. **Flashez le nouveau firmware** (Web Installer, ou **Mode 14** / bouton *Mettre à jour (Wi-Fi)* si vous êtes déjà en 2.44 ou plus). Votre `config.ini` et la carte SD sont conservés ; les nouvelles clés (`recalbox_ips`, `[BUTTON]`, `[WIDGETS]`) sont créées au premier enregistrement.
+2. **Les widgets n'exigent rien d'autre** — ouvrez la page *Widgets*, activez ceux que vous voulez, renseignez votre **lieu** (bouton *Lieu*) pour le ciel, l'éphéméride et la météo, puis utilisez **Aperçu**.
+3. **Widgets Recalbox** (challenge, récompenses, santé) : relancez le **Mode 9** de la boîte à outils PC pour que `dmd_rbwidgets` soit installé sur votre Recalbox (et redémarrez-la quand c'est proposé). Les données apparaissent en moins de 2 minutes.
+4. **Les fonds des citations et des widgets Recalbox** sont écrits sur la carte SD par le firmware à la première utilisation s'ils manquent ; vos propres fichiers ne sont jamais écrasés.
+5. **Plusieurs Recalbox** : sur la page *Wi-Fi*, saisissez toutes les IP séparées par des virgules et gardez *Cible = Automatique* ; lancez le Mode 9 une fois par Recalbox (la boîte à outils accepte la liste).
+6. **Bouton physique** (facultatif) : câblez-le entre GPIO 21 et GND, puis choisissez les actions dans la page *Bouton*.
+7. **Où sont passés mes réglages ?** Luminosité, démarrage silencieux, mode Pinball, alertes RetroAchievements, mode natif et bouton de mise à jour du firmware sont maintenant sur la page **⚙ Réglages** (deuxième entrée du menu) ; la page d'accueil ne fait que lister les pages. Un bandeau en haut de chaque page vous prévient quand un firmware ou un lot de scripts Recalbox plus récent est disponible (pour les scripts : téléchargez la boîte à outils PC et lancez le Mode 9).
+7. Si vous aviez remarqué que le **mode widgets seuls ou le déclencheur oubliaient leur valeur après un redémarrage**, c'était un bug corrigé dans cette version : réglez-les une dernière fois et enregistrez.
+
 ## 1. Mets à jour la boîte à outils PC
 
 Récupère la dernière version depuis la [page Releases](https://github.com/shan-aya/RecalBoxDMD/releases) et installe-la par-dessus l'ancienne (ou remplace le `.exe` portable). Tes réglages (thème, langue, IP Recalbox, image de repli enregistrée...) sont conservés automatiquement — ils vivent dans un `RecalBoxDMD_prefs.json` séparé, non touché par la mise à jour.

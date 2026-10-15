@@ -8,6 +8,36 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-15 — Firmware v3.50 : widgets, ambiances, nouvelles horloges, plusieurs Recalbox, page Réglages, bouton physique
+
+**Ajouté**
+- **Widgets** (page *Widgets*) : date, éphéméride, compte à rebours, météo, ambiance (8 styles), citations et quiz, et trois widgets Recalbox (challenge, récompenses, santé), mélangés à la playlist de GIF — *désactivé / à la place de l'horloge / en plus*, déclencheur tous les N GIF ou N minutes, ou **widgets seuls** (aucun GIF). Un bouton **Aperçu** joue n'importe quel widget tout de suite.
+- **Ciel** qui suit le vrai lever/coucher du soleil de votre lieu et la météo en direct derrière les widgets date, météo, éphéméride et compte à rebours.
+- **5 nouvelles horloges animées** : Plasma, Life, Stars, Rain, Lava.
+- **Citations et quiz** : 4 formats de ligne dont un quiz à 3 choix (décompte, bonne réponse qui reste affichée), création / modification / import / suppression des thèmes depuis la page web, fonds illustrés (embarqués dans le firmware, écrits sur la SD s'ils manquent).
+- **Widgets Recalbox** alimentés par `dmd_rbwidgets` (script Recalbox, UDP `CMD=rbw` toutes les 2 min), chacun avec un fond illustré ; récompenses 8 s par page, durées par défaut 15 / **30** / 15 s.
+- **Plusieurs Recalbox, un seul DMD** : jusqu'à 4 IP (`recalbox_ips`, `recalbox_target`), bascule automatique sur la première qui répond, paquets de l'autre Recalbox listée ignorés ; Modes 1 et 9 de la boîte à outils PC acceptent plusieurs IP.
+- **Bouton physique** (GPIO 21) : appui court / double / long / très long, chacun lié à une action depuis la page *Bouton*.
+- **Page ⚙ Réglages** (juste après *Accueil* dans le menu) : luminosité, démarrage silencieux, mode Pinball, alertes RetroAchievements, mode Recalbox natif et version du firmware avec son bouton *Mettre à jour* (OTA), sortis de la page d'accueil — qui devient un **menu seul**.
+- **Bandeau de mise à jour en haut de chaque page** : un firmware plus récent (lien vers *Réglages*) et / ou un **lot de scripts Recalbox** plus récent (lien vers la boîte à outils PC, qui les installe : Mode 9) sont annoncés quelle que soit la page ouverte. Vérifié par votre navigateur — le DMD n'a besoin d'aucun accès Internet — au plus toutes les 6 heures.
+- **Quiz** : une réponse longue passe désormais sur **2 lignes** au lieu d'être coupée.
+- **Thèmes de citations prêts à l'emploi** (**Mode 15** de la boîte à outils) : 15 thèmes de 50 entrées — citations célèbres, biscuit chinois, blagues, devinettes, quiz rétrogaming — en **français, anglais et espagnol**, publiés sur GitHub (`widgets/quotes/`). Le Mode 15 les liste avec leur état sur votre carte SD (à installer / à jour / mise à jour disponible / modifié par vous), installe ceux que vous cochez (somme de contrôle vérifiée, un fichier que vous avez modifié est sauvegardé avant d'être remplacé, rien n'est jamais supprimé), et la boîte à outils prévient au lancement quand une nouvelle révision est publiée. Le **Mode 1** le propose aussi, avec un aperçu de chaque thème.
+
+**Modifié**
+- Les pages web sont envoyées avec un délai d'absence de progrès borné (2 s) au lieu de figer la boucle principale jusqu'à 19 s sur un client lent.
+- Le widget *Statistiques* est retiré.
+- Les pages web partagent leur style, l'aide, les traductions et une file d'attente des requêtes via deux fichiers mis en cache (`/cfg.css`, `/cfg.js`) : pages plus légères de 20 à 60 % et le navigateur interroge le DMD **une requête à la fois**.
+- Une page web demandée pendant un widget ou l'horloge **les arrête d'abord et libère leur mémoire, puis est servie** — le mode web config décharge ce qu'il peut avant d'ouvrir une page.
+- Les listes de dossiers et de playlists se chargent **environ 16 fois plus vite** (noms lus directement dans le répertoire de la SD).
+- Le raccourci *Continuer* de la page d'accueil est supprimé.
+
+**Corrigé**
+- **Fiabilité de `config.ini`** : écritures atomiques avec réparation au démarrage ; sauvegardes vérifiées avant de répondre *OK* ; champs Wi-Fi / playlist vides refusés ; réglages Wi-Fi appliqués seulement par une page *Wi-Fi* chargée (des brouillons périmés du navigateur pouvaient couper le Wi-Fi et l'IP fixe) ; **le mode widgets seuls, le déclencheur, l'ordre et le nombre d'extras n'étaient jamais écrits** dans `config.ini` et revenaient aux valeurs par défaut à chaque redémarrage.
+- Widgets à ciel sautés (« ciel impossible (tas) ») après une sauvegarde : l'allocation retente avec des bandes plus fines.
+- **« Impossible de charger la configuration » et enregistrements qui n'aboutissaient pas** : la mémoire statique avait dépassé un seuil (≈ 90 Ko) avec les ambiances liquide / sable, après quoi le serveur web ne pouvait plus émettre. Les tampons des widgets ne sont plus alloués que pendant l'affichage d'un widget (mémoire statique 98 → 88 Ko) et libérés à l'ouverture de la config web.
+- **Gel du Wi-Fi lors d'une rafale de chargements de pages** (une page était servie depuis un widget en cours avec trop peu de mémoire libre).
+- La pile de la tâche principale passe à 12 Ko (8 Ko débordaient pendant les widgets), et les connexions inactives du navigateur sont abandonnées après 0,6 s au lieu de 5 s.
+
 ## 2026-10-12 — Firmware v2.64 : choix des thèmes d'horloge du tirage aléatoire
 
 - **Horloge : thèmes admis au tirage.** Quand le thème est *Aléatoire*, la page Horloge affiche 10 cases à cocher (une par thème) : l'horloge ne tire que parmi les thèmes cochés (au moins un). Un thème fixe reste inchangé ; par défaut tous les thèmes sont admis.

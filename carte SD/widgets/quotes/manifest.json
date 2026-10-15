@@ -1,0 +1,228 @@
+{
+ "pack": "quotes",
+ "rev": 1,
+ "themes": [
+  {
+   "lang": "fr",
+   "name": "citations-celebres",
+   "kind": "quote",
+   "title": "Citations célèbres",
+   "lines": 50,
+   "size": 3176,
+   "bg": "citations-celebres",
+   "sample": "Je pense, donc je suis. | Descartes",
+   "sha256": "7719187f6c26f493c62ff548b5128ebe7f5ad1bee72b799c8b1bc7725cdb076f",
+   "file": "fr/citations-celebres.txt"
+  },
+  {
+   "lang": "fr",
+   "name": "biscuit-chinois",
+   "kind": "cookie",
+   "title": "Biscuit chinois",
+   "lines": 50,
+   "size": 2859,
+   "bg": "biscuit-chinois",
+   "sample": "Un petit pas aujourd'hui vaut mieux qu'un grand projet demain.",
+   "sha256": "bfeb3c279e4c00ad2a15c0c6068bae9b2006e5881177f8154ed6fbd158a2220e",
+   "file": "fr/biscuit-chinois.txt"
+  },
+  {
+   "lang": "fr",
+   "name": "blagues",
+   "kind": "joke",
+   "title": "Blagues",
+   "lines": 50,
+   "size": 4270,
+   "bg": "blagues",
+   "sample": "Pourquoi les manettes sont-elles de bonnes conseillères ? | Elles ont toujours la bonne touche.",
+   "sha256": "38b33b137f11333f86b85a3be429b1ba92477b3248c8733c1b390dd58a7826cb",
+   "file": "fr/blagues.txt"
+  },
+  {
+   "lang": "fr",
+   "name": "devinettes",
+   "kind": "riddle",
+   "title": "Devinettes",
+   "lines": 50,
+   "size": 3793,
+   "bg": "devinettes",
+   "sample": "Qu'est-ce qui monte et descend sans jamais bouger ? | L'escalier.",
+   "sha256": "b38fd65cf6c557bbb5240b32e628fa7d02adbf60b2d645105954198ee39b1abd",
+   "file": "fr/devinettes.txt"
+  },
+  {
+   "lang": "fr",
+   "name": "quiz-retrogaming",
+   "kind": "quiz",
+   "title": "Quiz rétrogaming",
+   "lines": 50,
+   "size": 4153,
+   "bg": "quiz-retrogaming",
+   "sample": "Quelle société a créé Pac-Man ? | ATARI / SEGA / NAMCO | 3",
+   "sha256": "e4060ce66c72c5bda8f60cfb7977b38c604923619b33d5bf6aec0fb136993dd5",
+   "file": "fr/quiz-retrogaming.txt"
+  },
+  {
+   "lang": "en",
+   "name": "famous-quotes",
+   "kind": "quote",
+   "title": "Famous quotes",
+   "lines": 50,
+   "size": 3011,
+   "bg": "citations-celebres",
+   "sample": "I think, therefore I am. | Descartes",
+   "sha256": "6b94267fd5a136e5a4e8ee33d4f27489a594f5a6c6f7341aed7f986905430f1a",
+   "file": "en/famous-quotes.txt"
+  },
+  {
+   "lang": "en",
+   "name": "fortune-cookie",
+   "kind": "cookie",
+   "title": "Fortune cookie",
+   "lines": 50,
+   "size": 2547,
+   "bg": "biscuit-chinois",
+   "sample": "A small step today beats a big plan tomorrow.",
+   "sha256": "269bf1969982221ed46426d05956f91c5024684ad38680f1d257a176393300cf",
+   "file": "en/fortune-cookie.txt"
+  },
+  {
+   "lang": "en",
+   "name": "jokes",
+   "kind": "joke",
+   "title": "Jokes",
+   "lines": 50,
+   "size": 3670,
+   "bg": "blagues",
+   "sample": "Why are game controllers such good advisors? | They always have the right touch.",
+   "sha256": "74dea06ade492dd28d0bcc6d6a5fcfd8f4d1a5fa275a416709d7b2f6500ecd24",
+   "file": "en/jokes.txt"
+  },
+  {
+   "lang": "en",
+   "name": "riddles",
+   "kind": "riddle",
+   "title": "Riddles",
+   "lines": 50,
+   "size": 3120,
+   "bg": "devinettes",
+   "sample": "What goes up and down without ever moving? | A staircase.",
+   "sha256": "2d9d2134c69df8a847fc4e461490704488b4a3ddc78a4a0727430bd0ea30443e",
+   "file": "en/riddles.txt"
+  },
+  {
+   "lang": "en",
+   "name": "retro-quiz",
+   "kind": "quiz",
+   "title": "Retro gaming quiz",
+   "lines": 50,
+   "size": 3837,
+   "bg": "quiz-retrogaming",
+   "sample": "Which company created Pac-Man? | ATARI / SEGA / NAMCO | 3",
+   "sha256": "11e4981b350b54c621f02ba52c2b6f4cae325ba2443c35d8947325249d104828",
+   "file": "en/retro-quiz.txt"
+  },
+  {
+   "lang": "es",
+   "name": "citas-celebres",
+   "kind": "quote",
+   "title": "Citas célebres",
+   "lines": 50,
+   "size": 2932,
+   "bg": "citations-celebres",
+   "sample": "Pienso, luego existo. | Descartes",
+   "sha256": "2f78aa57960c76521c2a37086a1597b18812280922e63f2fe9a07cc5b64f7236",
+   "file": "es/citas-celebres.txt"
+  },
+  {
+   "lang": "es",
+   "name": "galleta-fortuna",
+   "kind": "cookie",
+   "title": "Galleta de la fortuna",
+   "lines": 50,
+   "size": 2566,
+   "bg": "biscuit-chinois",
+   "sample": "Un pequeño paso hoy vale más que un gran proyecto mañana.",
+   "sha256": "26e5d960b0a99d265269f2ce26735069d63e3232058ab1b267e0a4eec93d6edd",
+   "file": "es/galleta-fortuna.txt"
+  },
+  {
+   "lang": "es",
+   "name": "chistes",
+   "kind": "joke",
+   "title": "Chistes",
+   "lines": 50,
+   "size": 3872,
+   "bg": "blagues",
+   "sample": "Por qué los mandos son buenos consejeros? | Siempre tienen buen tacto.",
+   "sha256": "0ef31d9e4d63f6500ddd3724220cdeae85e5381a1038c4753481a122d0e9bed0",
+   "file": "es/chistes.txt"
+  },
+  {
+   "lang": "es",
+   "name": "adivinanzas",
+   "kind": "riddle",
+   "title": "Adivinanzas",
+   "lines": 50,
+   "size": 3210,
+   "bg": "devinettes",
+   "sample": "Qué sube y baja sin moverse nunca? | La escalera.",
+   "sha256": "807b080611d37428871f365c4dce02b5ec163c684793bf019983684ae2b9b621",
+   "file": "es/adivinanzas.txt"
+  },
+  {
+   "lang": "es",
+   "name": "quiz-retrogaming",
+   "kind": "quiz",
+   "title": "Quiz de retrogaming",
+   "lines": 50,
+   "size": 3889,
+   "bg": "quiz-retrogaming",
+   "sample": "Qué empresa creó Pac-Man? | ATARI / SEGA / NAMCO | 3",
+   "sha256": "7597a775e5470d1180a3f7636f863daa24dd49e5246c6fc2af3e6c3fa0c4f957",
+   "file": "es/quiz-retrogaming.txt"
+  }
+ ],
+ "backgrounds": [
+  {
+   "file": "bg/biscuit-chinois.raw565",
+   "size": 8192,
+   "sha256": "9835fedece1d844fede315da7b31d4c7205794787afd9ee44f66c9b99729ac29"
+  },
+  {
+   "file": "bg/blagues.raw565",
+   "size": 8192,
+   "sha256": "e5077f24d20b1ac3f1c32b58e9eb1023b93459924a69529655265ad5fd8ef434"
+  },
+  {
+   "file": "bg/blagues.col",
+   "size": 35,
+   "sha256": "b16f2f9557bd2532596447ba96081b3194d8a3963938ce68991ffc4a77b9e2c2"
+  },
+  {
+   "file": "bg/citations-celebres.raw565",
+   "size": 8192,
+   "sha256": "682246ffccffbe77d60cc9adfd281e9bde3abf764928d04e253dd867e412585d"
+  },
+  {
+   "file": "bg/citations-celebres.col",
+   "size": 35,
+   "sha256": "30dd974dabc5939e61a660a419263695e6c632c2fa12e59617560a6c306e1329"
+  },
+  {
+   "file": "bg/devinettes.raw565",
+   "size": 8192,
+   "sha256": "47b0b67aadfd277c6ae013496108801b432f03c0104068ba7220ae739dbbe303"
+  },
+  {
+   "file": "bg/devinettes.col",
+   "size": 36,
+   "sha256": "80d76766e376c645f5e9612a87af0cc7db18c6e948ae6b589594b9e5688856b2"
+  },
+  {
+   "file": "bg/quiz-retrogaming.raw565",
+   "size": 8192,
+   "sha256": "ce490a2f07792dde0dc5d3aa48434de73342a2fb28705443658842dbeb63ad73"
+  }
+ ]
+}

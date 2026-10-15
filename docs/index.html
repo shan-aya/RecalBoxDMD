@@ -912,7 +912,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
   }
   apply(saved);
 
-  fetch("https://api.github.com/repos/shan-aya/RecalBoxDMD/commits?path=binaries/RecalBoxDMD_v2.0_merged.bin&per_page=1")
+  fetch("https://api.github.com/repos/shan-aya/RecalBoxDMD/commits?path=binaries/RecalBoxDMD_merged.bin&per_page=1")
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(data){
       if (data && data.length && data[0].commit && data[0].commit.committer) {

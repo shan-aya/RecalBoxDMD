@@ -4,6 +4,17 @@
 
 Already running RecalBoxDMD (firmware v13 "Raw565 Edition", any PC Toolkit)? Here's what actually changes and what you need to do — most of it is optional, and nothing about your SD card or Recalbox setup needs to change.
 
+## Moving to firmware v3.50 (widgets)
+
+1. **Flash the new firmware** (Web Installer, or **Mode 14** / the *Update now* button if you already run 2.44 or later). Your `config.ini` and SD card are kept; the new keys (`recalbox_ips`, `[BUTTON]`, `[WIDGETS]`) are created on the first save.
+2. **Widgets need nothing else** — open the *Widgets* page, switch the ones you want on, set your **location** (*Location* button) for the sky, ephemeris and weather, then use **Preview**.
+3. **Recalbox widgets** (challenge, rewards, health): re-run **Mode 9** of the PC Toolkit so that `dmd_rbwidgets` is installed on your Recalbox (and restart it when offered). Data appears within 2 minutes.
+4. **Quote & Recalbox-widget backgrounds** are written to the SD card by the firmware on first use if missing; your own files are never overwritten.
+5. **Several Recalbox**: on the *Wi-Fi* page enter all the IPs separated by commas and keep *Target = Automatic*; run Mode 9 once per Recalbox (the Toolkit accepts the list).
+6. Optional **physical button**: wire it between GPIO 21 and GND, then pick the actions on the *Button* page.
+7. **Where did my settings go?** Brightness, silent boot, Pinball mode, RetroAchievements alerts, native mode and the firmware update button are now on the **⚙ Settings** page (second entry of the menu); the Home page only lists the pages. A banner at the top of every page tells you when a newer firmware or a newer Recalbox-scripts bundle is available (for the scripts: download the PC Toolkit and run Mode 9).
+7. If you noticed that **widgets-only mode or the trigger forgot their value after a reboot**, that was a bug fixed in this version: set them once more and save.
+
 ## 1. Update the PC Toolkit
 
 Grab the latest release from the [Releases page](https://github.com/shan-aya/RecalBoxDMD/releases) and install it over the old one (or replace the portable `.exe`). Your settings (theme, language, Recalbox IP, saved fallback image...) carry over automatically — they live in a separate `RecalBoxDMD_prefs.json`, untouched by the update.

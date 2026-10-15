@@ -10,7 +10,7 @@
       "chipFamily": "ESP32",
       "parts": [
         {
-          "path": "https://raw.githubusercontent.com/shan-aya/RecalBoxDMD/main/binaries/RecalBoxDMD_v2.0_merged.bin",
+          "path": "https://raw.githubusercontent.com/shan-aya/RecalBoxDMD/main/binaries/RecalBoxDMD_merged.bin",
           "offset": 0
         }
       ]

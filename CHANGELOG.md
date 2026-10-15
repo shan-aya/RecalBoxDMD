@@ -8,6 +8,36 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-15 — Firmware v3.50: widgets, ambiances, new clocks, several Recalbox, Settings page, physical button
+
+**Added**
+- **Widgets** (page *Widgets*): date, ephemeris, countdown, weather, ambiance (8 styles), quotes & quizzes and three Recalbox widgets (challenge, rewards, health), mixed with the GIF playlist — *off / in place of the clock / in addition*, trigger every N GIFs or N minutes, or **widgets only** (no GIF). A **Preview** button plays any widget at once.
+- **Sky** that follows the real sunrise/sunset of your location and the live weather behind the date, weather, ephemeris and countdown widgets.
+- **5 new animated clocks**: Plasma, Life, Stars, Rain, Lava.
+- **Quotes & quizzes**: 4 line formats incl. a 3-choice quiz (countdown, right answer stays on screen), create / edit / import / delete themes from the web page, illustrated backgrounds (embedded in the firmware, written to the SD card if missing).
+- **Recalbox widgets** fed by `dmd_rbwidgets` (Recalbox script, UDP `CMD=rbw` every 2 min), each with an illustrated background; rewards stay 8 s per page, default durations 15 / **30** / 15 s.
+- **Several Recalbox, one DMD**: up to 4 IPs (`recalbox_ips`, `recalbox_target`), automatic switch to the first that answers, packets from the other listed Recalbox ignored; PC Toolkit Modes 1 and 9 take several IPs.
+- **Physical button** (GPIO 21): short / double / long / very-long press, each mapped to an action from the *Button* page.
+- **⚙ Settings page** (right after *Home* in the menu): brightness, silent boot, Pinball mode, RetroAchievements alerts, native Recalbox mode and the firmware version with its *Update now* (OTA) button, moved out of the home page — which is now a **pure menu**.
+- **Update banner at the top of every page**: a newer firmware (link to *Settings*) and / or a newer **Recalbox-scripts bundle** (link to the PC Toolkit, which installs them: Mode 9) are announced whichever page you open. Checked by your browser — the DMD needs no Internet access — at most every 6 hours.
+- **Quiz**: a long answer now wraps over **2 lines** instead of being cut.
+- **Ready-made quote themes** (toolkit **Mode 15**): 15 themes of 50 entries — famous quotes, fortune cookie, jokes, riddles, retro-gaming quiz — in **French, English and Spanish**, published on GitHub (`widgets/quotes/`). Mode 15 lists them with their state on your SD card (to install / up to date / update available / modified by you), installs the ones you tick (checksum verified, a file you edited is backed up before being replaced, nothing is ever deleted), and the toolkit tells you at launch when a new revision is published. **Mode 1** now offers it with a preview of each theme.
+
+**Changed**
+- Web pages are sent with a bounded stall delay (2 s) instead of freezing the main loop for up to 19 s on a slow client.
+- The *Statistics* widget was removed.
+- The web pages share their style, help, translations and a request queue through two cached files (`/cfg.css`, `/cfg.js`): pages are 20–60 % lighter and the browser asks the DMD **one request at a time**.
+- A web page requested while a widget or the clock is running **stops it first and frees its memory, then is served** — the web config mode unloads what it can before opening a page.
+- Folder and playlist lists load **about 16× faster** (names read straight from the SD directory).
+- The *Continue* shortcut of the home page was removed.
+
+**Fixed**
+- **`config.ini` reliability**: atomic writes with boot-time repair; saves verified before answering *OK*; empty Wi-Fi / playlist fields refused; Wi-Fi settings applied only by a loaded *Wi-Fi* page (stale browser drafts could switch Wi-Fi and the static IP off); **widgets-only mode, trigger, order and extras count were never written** to `config.ini` and came back to defaults at each reboot.
+- Sky widgets skipped with « sky impossible (heap) » after a save: the allocation now retries with thinner bands.
+- **« Unable to load the configuration » and saves that never completed**: static memory had grown past a threshold (≈ 90 KB) with the liquid / sand ambiances, after which the web server could no longer send. Widget buffers are now allocated only while a widget runs (static memory 98 → 88 KB) and freed when the web config opens.
+- **Wi-Fi freezing under a burst of page loads** (a page was served from inside a running widget with too little free memory).
+- The main task stack is now 12 KB (8 KB overflowed during widgets), and idle browser connections are dropped after 0.6 s instead of 5 s.
+
 ## 2026-10-12 — Firmware v2.64: choose which clock themes the random draw may pick
 
 - **Clock: themes allowed in the draw.** When the theme is *Random*, the Clock page shows 10 tick boxes (one per theme): the clock only draws among the ticked themes (at least one). A fixed theme is unchanged; by default every theme is allowed.

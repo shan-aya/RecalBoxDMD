@@ -231,7 +231,7 @@ def update_dmd_ip_cache(ip):
         log(f"ERREUR ecriture {DMD_IP_CACHE_PATH}: {e}")
 
 
-SCRIPTS_BUNDLE = 5   # v15 -- dmd_vpx_config v3 : ecrit l'adresse ZeDMD WiFi de Recalbox (dmd.zedmd.wifi) dans la config Visual Pinball (4 -> 5) ; v14 -- fusion mode natif / fenetre RA : dmd_achievement v9 (3 -> 4) ; a incrementer a chaque modification d'un script publie
+SCRIPTS_BUNDLE = 6   # v16 -- nouveaux scripts dmd_rbwidgets (widgets Recalbox challenge / recompenses / sante, UDP CMD=rbw ; firmware 3.50) (5 -> 6) ; v15 -- dmd_vpx_config v3 : ecrit l'adresse ZeDMD WiFi de Recalbox (dmd.zedmd.wifi) dans la config Visual Pinball (4 -> 5) ; v14 -- fusion mode natif / fenetre RA : dmd_achievement v9 (3 -> 4) ; a incrementer a chaque modification d'un script publie
 THEME_PACKET_GAP_S = 0.5   # v9 -- ecart entre CMD=themeopt et CMD=theme
 DEFAULT_THEME_FOLDER = "recalbox-next"   # valeur par defaut de emulationstation.theme.folder dans Recalbox 9/10/11
 

@@ -4,6 +4,17 @@
 
 ¿Ya usas RecalBoxDMD (firmware v13 "Raw565 Edition", cualquier versión de la caja de herramientas de PC)? Esto es lo que realmente cambia y lo que hay que hacer — la mayor parte es opcional, y nada de tu tarjeta SD ni de tu configuración de Recalbox necesita cambiar.
 
+## Pasar al firmware v3.50 (widgets)
+
+1. **Flashea el nuevo firmware** (Web Installer, o **Modo 14** / botón *Actualizar (Wi-Fi)* si ya tienes 2.44 o superior). Tu `config.ini` y la tarjeta SD se conservan; las claves nuevas (`recalbox_ips`, `[BUTTON]`, `[WIDGETS]`) se crean al primer guardado.
+2. **Los widgets no necesitan nada más** — abre la página *Widgets*, activa los que quieras, indica tu **lugar** (botón *Lugar*) para el cielo, las efemérides y el tiempo, y usa **Vista previa**.
+3. **Widgets Recalbox** (desafío, recompensas, salud): vuelve a ejecutar el **Modo 9** de la caja de herramientas de PC para que `dmd_rbwidgets` quede instalado en tu Recalbox (y reiníciala cuando se ofrezca). Los datos aparecen en menos de 2 minutos.
+4. **Los fondos de las citas y de los widgets Recalbox** los escribe el firmware en la tarjeta SD al primer uso si faltan; tus propios archivos nunca se sobrescriben.
+5. **Varias Recalbox**: en la página *Wi-Fi* introduce todas las IP separadas por comas y deja *Destino = Automático*; ejecuta el Modo 9 una vez por Recalbox (la caja de herramientas acepta la lista).
+6. **Botón físico** (opcional): cablealo entre GPIO 21 y GND y elige las acciones en la página *Botón*.
+7. **¿Dónde están mis ajustes?** Brillo, arranque silencioso, modo Pinball, alertas RetroAchievements, modo nativo y botón de actualización del firmware están ahora en la página **⚙ Ajustes** (segunda entrada del menú); la página de inicio solo lista las páginas. Un banner en la parte superior de cada página te avisa cuando hay un firmware o un lote de scripts de Recalbox más reciente (para los scripts: descarga la caja de herramientas de PC y ejecuta el Modo 9).
+7. Si notaste que el **modo solo widgets o el disparador olvidaban su valor tras reiniciar**, era un error corregido en esta versión: ajústalos una vez más y guarda.
+
 ## 1. Actualiza la caja de herramientas de PC
 
 Descarga la última versión desde la [página de Releases](https://github.com/shan-aya/RecalBoxDMD/releases) e instálala sobre la anterior (o reemplaza el `.exe` portable). Tus ajustes (tema, idioma, IP de Recalbox, imagen de repliegue guardada...) se conservan automáticamente — viven en un `RecalBoxDMD_prefs.json` aparte, que la actualización no toca.

@@ -8,6 +8,36 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-15 — Firmware v3.50: widgets, ambientes, nuevos relojes, varias Recalbox, página Ajustes, botón físico
+
+**Añadido**
+- **Widgets** (página *Widgets*): fecha, efemérides, cuenta atrás, tiempo, ambiente (8 estilos), citas y quiz, y tres widgets Recalbox (desafío, recompensas, salud), mezclados con la lista de GIF — *desactivado / en lugar del reloj / además*, disparador cada N GIF o N minutos, o **solo widgets** (ningún GIF). Un botón **Vista previa** reproduce cualquier widget al instante.
+- **Cielo** que sigue el amanecer/atardecer real de tu lugar y el tiempo en directo tras los widgets fecha, tiempo, efemérides y cuenta atrás.
+- **5 nuevos relojes animados**: Plasma, Life, Stars, Rain, Lava.
+- **Citas y quiz**: 4 formatos de línea incluido un quiz de 3 opciones (cuenta atrás, la respuesta correcta se queda en pantalla), crear / editar / importar / borrar temas desde la web, fondos ilustrados (integrados en el firmware, escritos en la SD si faltan).
+- **Widgets Recalbox** alimentados por `dmd_rbwidgets` (script de Recalbox, UDP `CMD=rbw` cada 2 min), cada uno con un fondo ilustrado; recompensas 8 s por página, duraciones por defecto 15 / **30** / 15 s.
+- **Varias Recalbox, un solo DMD**: hasta 4 IP (`recalbox_ips`, `recalbox_target`), cambio automático a la primera que responde, paquetes de la otra Recalbox de la lista ignorados; los Modos 1 y 9 de la caja de herramientas aceptan varias IP.
+- **Botón físico** (GPIO 21): pulsación corta / doble / larga / muy larga, cada una ligada a una acción desde la página *Botón*.
+- **Página ⚙ Ajustes** (justo después de *Inicio* en el menú): brillo, arranque silencioso, modo Pinball, alertas RetroAchievements, modo Recalbox nativo y versión del firmware con su botón *Actualizar* (OTA), sacados de la página de inicio — que pasa a ser un **menú sin más**.
+- **Banner de actualización en la parte superior de cada página**: un firmware más reciente (enlace a *Ajustes*) y / o un **lote de scripts de Recalbox** más reciente (enlace a la caja de herramientas de PC, que los instala: Modo 9) se anuncian en cualquier página que abras. Lo comprueba tu navegador — el DMD no necesita acceso a Internet — como máximo cada 6 horas.
+- **Quiz**: una respuesta larga pasa ahora a **2 líneas** en lugar de cortarse.
+- **Temas de citas listos para usar** (**Modo 15** de la caja de herramientas): 15 temas de 50 entradas — citas célebres, galleta de la fortuna, chistes, adivinanzas, quiz de retrogaming — en **francés, inglés y español**, publicados en GitHub (`widgets/quotes/`). El Modo 15 los lista con su estado en la tarjeta SD (por instalar / al día / actualización disponible / modificado por usted), instala los que marque (suma de control verificada, un archivo que usted haya editado se guarda antes de ser reemplazado, nunca se borra nada), y la caja de herramientas avisa al abrirse cuando se publica una nueva revisión. El **Modo 1** también lo ofrece, con una vista previa de cada tema.
+
+**Cambiado**
+- Las páginas web se envían con un retraso sin progreso acotado (2 s) en lugar de congelar el bucle principal hasta 19 s con un cliente lento.
+- Se eliminó el widget *Estadísticas*.
+- Las páginas web comparten su estilo, la ayuda, las traducciones y una cola de peticiones mediante dos archivos en caché (`/cfg.css`, `/cfg.js`): páginas entre un 20 y un 60 % más ligeras y el navegador pide al DMD **una petición cada vez**.
+- Una página web pedida mientras corre un widget o el reloj **los detiene primero y libera su memoria, y luego se sirve** — el modo web config descarga lo que puede antes de abrir una página.
+- Las listas de carpetas y de playlists cargan **unas 16 veces más rápido** (nombres leídos directamente del directorio de la SD).
+- Se eliminó el atajo *Continuar* de la página de inicio.
+
+**Corregido**
+- **Fiabilidad de `config.ini`**: escrituras atómicas con reparación al arrancar; guardados verificados antes de responder *OK*; campos Wi-Fi / lista vacíos rechazados; ajustes Wi-Fi aplicados solo por una página *Wi-Fi* cargada (borradores caducados del navegador podían apagar el Wi-Fi y la IP fija); **el modo solo widgets, el disparador, el orden y el número de extras nunca se escribían** en `config.ini` y volvían a los valores por defecto en cada reinicio.
+- Widgets con cielo omitidos («cielo imposible (heap)») tras un guardado: la asignación reintenta con bandas más finas.
+- **«No se pudo cargar la configuración» y guardados que no terminaban**: la memoria estática había superado un umbral (≈ 90 KB) con los ambientes líquido / arena, tras lo cual el servidor web ya no podía enviar. Los búferes de los widgets solo se reservan mientras corre un widget (memoria estática 98 → 88 KB) y se liberan al abrir la config web.
+- **Congelación del Wi-Fi ante una ráfaga de cargas de página** (se servía una página desde dentro de un widget en curso con muy poca memoria libre).
+- La pila de la tarea principal pasa a 12 KB (8 KB se desbordaban durante los widgets), y las conexiones inactivas del navegador se descartan a los 0,6 s en lugar de 5 s.
+
 ## 2026-10-12 — Firmware v2.64: elección de los temas de reloj del sorteo aleatorio
 
 - **Reloj: temas admitidos en el sorteo.** Cuando el tema es *Aleatorio*, la página Reloj muestra 10 casillas (una por tema): el reloj solo sortea entre los temas marcados (al menos uno). Un tema fijo no cambia; por defecto se admiten todos.
