@@ -672,7 +672,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
     <p data-i18n="s6.p">Deux modules LED, une carte de connexion, un microcontrôleur — un tournevis suffit, environ 5 minutes de montage.</p>
     <p class="shops" data-i18n="s6.shops"></p>
     <figure class="shot glow-w">
-      <img src="media/hardware.png" data-i18n-alt="alt.hardware" alt="Matériel nécessaire au montage de RecalBoxDMD : panneaux LED, carte de connexion et microcontrôleur.">
+      <img src="media/hardware.png" data-hw="1" data-i18n-alt="alt.hardware" alt="Matériel nécessaire au montage de RecalBoxDMD : panneaux LED, carte de connexion et microcontrôleur.">
     </figure>
   </section>
 
@@ -1108,6 +1108,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       if (val !== undefined) el.setAttribute("alt", val);
     });
     document.querySelectorAll("img[data-img]").forEach(function(el){ el.setAttribute("src", "media/widgets/" + lang + "/" + el.getAttribute("data-img") + ".png"); });
+    document.querySelectorAll("img[data-hw]").forEach(function(el){ el.setAttribute("src", lang === "fr" ? "media/hardware.png" : "media/hardware_" + lang + ".png"); });
     document.querySelectorAll(".langswitch button").forEach(function(b){
       b.setAttribute("aria-pressed", b.getAttribute("data-lang") === lang ? "true" : "false");
     });

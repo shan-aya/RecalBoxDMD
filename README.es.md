@@ -333,7 +333,7 @@ A continuación: [monta el hardware](#hardware) y [flashea el firmware](#firmwar
 | ⚡ Fuente de alimentación | 5V 4A+ | ~10 € |
 
 <p align="center">
-  <img src="medias/marketing/plaquette_5_materiel_montage.png" alt="Hardware y montaje" width="720">
+  <img src="medias/marketing/plaquette_5_materiel_montage_es.png" alt="Hardware y montaje" width="720">
 </p>
 
 El montaje físico (paneles + placa DMDos + ESP32 + microSD) es idéntico al descrito en el sitio oficial **[dmdos.net](https://www.dmdos.net/)** de Mortaca — realmente rápido, sin soldadura, sin más herramienta que un destornillador:

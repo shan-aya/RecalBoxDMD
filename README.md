@@ -333,7 +333,7 @@ Next: [assemble the hardware](#hardware) and [flash the firmware](#firmware--com
 | ⚡ Power supply | 5V 4A+ | ~$10 |
 
 <p align="center">
-  <img src="medias/marketing/plaquette_5_materiel_montage.png" alt="Hardware and assembly" width="720">
+  <img src="medias/marketing/plaquette_5_materiel_montage_en.png" alt="Hardware and assembly" width="720">
 </p>
 
 The physical build (panels + DMDos Board + ESP32 + microSD) is identical to the one described on the official **[dmdos.net](https://www.dmdos.net/)** site by Mortaca — genuinely quick, no soldering, no tools beyond a screwdriver:
