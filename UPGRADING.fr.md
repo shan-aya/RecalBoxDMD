@@ -1,4 +1,4 @@
-# Mettre à jour depuis une version antérieure (v13 → v2.0)
+# Mettre à jour depuis une version antérieure (v13 → v3.x)
 
 [🇬🇧 English](UPGRADING.md) · 🇫🇷 **Français** · [🇪🇸 Español](UPGRADING.es.md)
 
@@ -21,7 +21,7 @@ Récupère la dernière version depuis la [page Releases](https://github.com/sha
 
 ## 2. Flashe le nouveau firmware
 
-Comme d'habitude — le [Web Installer en un clic](https://shan-aya.github.io/RecalBoxDMD/) (Chrome/Edge) flashe la v2.0 par USB en environ une minute. Pas besoin de cocher "Effacer l'appareil" — un reflash normal conserve ton `config.ini` et tout ce qui est déjà sur la carte SD, y compris le champ `recalbox_ip`, qui identifie désormais le correspondant UDP au lieu du broker MQTT ; rien à changer de ce côté.
+Comme d'habitude — le [Web Installer en un clic](https://shan-aya.github.io/RecalBoxDMD/) (Chrome/Edge) flashe la v3.x par USB en environ une minute. Pas besoin de cocher "Effacer l'appareil" — un reflash normal conserve ton `config.ini` et tout ce qui est déjà sur la carte SD, y compris le champ `recalbox_ip`, qui identifie désormais le correspondant UDP au lieu du broker MQTT ; rien à changer de ce côté.
 
 ## 3. Réinstalle les scripts Recalbox — obligatoire
 

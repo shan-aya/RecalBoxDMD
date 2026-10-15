@@ -1,4 +1,4 @@
-# Upgrading from an earlier version (v13 → v2.0)
+# Upgrading from an earlier version (v13 → v3.x)
 
 🇬🇧 **English** · [🇫🇷 Français](UPGRADING.fr.md) · [🇪🇸 Español](UPGRADING.es.md)
 
@@ -21,7 +21,7 @@ Grab the latest release from the [Releases page](https://github.com/shan-aya/Rec
 
 ## 2. Flash the new firmware
 
-Same as always — the [one-click Web Installer](https://shan-aya.github.io/RecalBoxDMD/) (Chrome/Edge) flashes v2.0 over USB in about a minute. No need to tick "Erase device" — a normal reflash preserves your `config.ini` and everything already on the SD card, including the `recalbox_ip` field, which now identifies the UDP peer instead of the MQTT broker; nothing to change there.
+Same as always — the [one-click Web Installer](https://shan-aya.github.io/RecalBoxDMD/) (Chrome/Edge) flashes v3.x over USB in about a minute. No need to tick "Erase device" — a normal reflash preserves your `config.ini` and everything already on the SD card, including the `recalbox_ip` field, which now identifies the UDP peer instead of the MQTT broker; nothing to change there.
 
 ## 3. Reinstall the Recalbox userscripts — required
 
