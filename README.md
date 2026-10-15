@@ -319,6 +319,11 @@ Next: [assemble the hardware](#hardware) and [flash the firmware](#firmware--com
 
 ## Hardware
 
+🛒 **Where to buy the DMDos board** :
+
+- <img src="medias/flags/fr.png" width="22" alt="France"> **France** — [Benfactory.fr](https://benfactory.fr/produit/dmdos/) · DMDos daughter board + ESP32 · promo code **`retrobat10`** (−10 %)
+- <img src="medias/flags/es.png" width="22" alt="Spain"> **Spain** — [Mortaca Store](https://www.mortaca.com/) · board, guide and news on [dmdos.net](https://www.dmdos.net/)
+
 | Component | Reference | Approx. price |
 |-----------|-----------|---------------|
 | 🧠 Microcontroller | ESP32 DevKit V1 USB‑C (38 pins) | ~$5 |
@@ -350,7 +355,7 @@ The physical build (panels + DMDos Board + ESP32 + microSD) is identical to the 
 
 > ⚠️ The DMDos website offers its own separate firmware/OS. **Do not flash the DMDos firmware** if you want to run RecalBoxDMD — only the **hardware** (panels, board, frame) and the **assembly guide** are reused; the firmware and SD card content come from this repository.
 
-3D-printable frame by **Janibol** ([Retromojones](https://www.youtube.com/@retromojones)) on [Thingiverse](https://www.thingiverse.com/thing:6704880). Up-to-date purchase links: 🇫🇷 **France**: [Benfactory.fr](https://benfactory.fr/produit/dmdos/) — DMDos daughter board + ESP32, promo code **`retrobat10`** (−10%) · 🇪🇸 **Spain**: [dmdos.net](https://www.dmdos.net/).
+3D-printable frame by **Janibol** ([Retromojones](https://www.youtube.com/@retromojones)) on [Thingiverse](https://www.thingiverse.com/thing:6704880). Where to buy: see the list at the top of this section.
 
 ---
 

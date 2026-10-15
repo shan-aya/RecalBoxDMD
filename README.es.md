@@ -319,6 +319,11 @@ A continuación: [monta el hardware](#hardware) y [flashea el firmware](#firmwar
 
 ## Hardware
 
+🛒 **Dónde comprar la placa DMDos** :
+
+- <img src="medias/flags/es.png" width="22" alt="España"> **España** — [Mortaca Store](https://www.mortaca.com/) · placa, guía y novedades en [dmdos.net](https://www.dmdos.net/)
+- <img src="medias/flags/fr.png" width="22" alt="Francia"> **Francia** — [Benfactory.fr](https://benfactory.fr/produit/dmdos/) · placa DMDos + ESP32 · código promocional **`retrobat10`** (−10 %)
+
 | Componente | Referencia | Precio aprox. |
 |-----------|-----------|----------------|
 | 🧠 Microcontrolador | ESP32 DevKit V1 USB-C (38 pines) | ~5 € |
@@ -350,7 +355,7 @@ El montaje físico (paneles + placa DMDos + ESP32 + microSD) es idéntico al des
 
 > ⚠️ El sitio web de DMDos ofrece su propio firmware/sistema operativo, independiente. **No flashees el firmware de DMDos** si quieres usar RecalBoxDMD — solo se reutilizan el **hardware** (paneles, placa, marco) y la **guía de montaje**; el firmware y el contenido de la tarjeta SD provienen de este repositorio.
 
-Marco imprimible en 3D por **Janibol** ([Retromojones](https://www.youtube.com/@retromojones)) en [Thingiverse](https://www.thingiverse.com/thing:6704880). Enlaces de compra actualizados: 🇫🇷 **Francia**: [Benfactory.fr](https://benfactory.fr/produit/dmdos/) — placa DMDos + ESP32, código promocional **`retrobat10`** (−10 %) · 🇪🇸 **España**: [dmdos.net](https://www.dmdos.net/).
+Marco imprimible en 3D por **Janibol** ([Retromojones](https://www.youtube.com/@retromojones)) en [Thingiverse](https://www.thingiverse.com/thing:6704880). Dónde comprar: véase la lista al principio de esta sección.
 
 ---
 

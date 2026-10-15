@@ -319,6 +319,11 @@ Ensuite : [assemblez le matériel](#matériel) et [flashez le firmware](#firmwar
 
 ## Matériel
 
+🛒 **Où acheter la carte DMDos** :
+
+- <img src="medias/flags/fr.png" width="22" alt="France"> **France** — [Benfactory.fr](https://benfactory.fr/produit/dmdos/) · carte fille DMDos + ESP32 · code promo **`retrobat10`** (−10 %)
+- <img src="medias/flags/es.png" width="22" alt="Espagne"> **Espagne** — [Mortaca Store](https://www.mortaca.com/) · carte, guide et actualités sur [dmdos.net](https://www.dmdos.net/)
+
 | Composant | Référence | Prix indicatif |
 |-----------|-----------|----------------|
 | 🧠 Microcontrôleur | ESP32 DevKit V1 USB-C (38 broches) | ~5 € |
@@ -350,7 +355,7 @@ Le montage physique (panneaux + carte DMDos + ESP32 + microSD) est identique à 
 
 > ⚠️ Le site DMDos propose son propre firmware/OS, distinct. **Ne flashez pas le firmware DMDos** si vous voulez utiliser RecalBoxDMD — seuls le **matériel** (panneaux, carte, boîtier) et le **guide de montage** sont réutilisés ; le firmware et le contenu de la carte SD viennent de ce dépôt.
 
-Boîtier imprimable en 3D par **Janibol** ([Retromojones](https://www.youtube.com/@retromojones)) sur [Thingiverse](https://www.thingiverse.com/thing:6704880). Liens d'achat à jour : 🇫🇷 **France** : [Benfactory.fr](https://benfactory.fr/produit/dmdos/) — carte fille DMDos + ESP32, code promo **`retrobat10`** (−10 %) · 🇪🇸 **Espagne** : [dmdos.net](https://www.dmdos.net/).
+Boîtier imprimable en 3D par **Janibol** ([Retromojones](https://www.youtube.com/@retromojones)) sur [Thingiverse](https://www.thingiverse.com/thing:6704880). Où acheter : voir la liste en haut de cette section.
 
 ---
 
