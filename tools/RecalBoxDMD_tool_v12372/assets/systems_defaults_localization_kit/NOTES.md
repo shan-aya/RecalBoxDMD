@@ -1,0 +1,7 @@
+# Notes internes -- PAS a coller dans GPT (voir PROMPTS.md pour les prompts)
+
+Usage : colle TOUT `PROMPTS.md` UNE SEULE FOIS au debut d'un chat neuf (pas d'image dans ce premier message). Ensuite, pour chaque image, envoie un nouveau message avec UNIQUEMENT cette image jointe (pas de texte necessaire) -- GPT lit le texte anglais visible dessus, le cherche dans la table du premier message, et applique la regle. Toujours 1 seule image par message. Enregistre chaque resultat sous `incoming_fr/<stem>.png` (voir PROMPTS_INDEX.md pour savoir quelle image correspond a quel nom de sortie), puis lance `python tools/raw565_compose_batch.py`.
+
+**24 fichiers deja faits, absents de PROMPTS.md** (texte identique a l'original copie tel quel, ou visuel FR fait a la main des le depart) :
+
+- allgames, favorites, genre-action, genre-actionbattleroyale, genre-actionbeatemup, genre-actionfighting, genre-actionfirstpersonshooter, genre-actionplatformer, genre-actionplatformshooter, genre-actionshootemup, genre-adventure, genre-adventurerealtime3d, genre-adventuresurvivalhorror, genre-casino, genre-puzzleandlogic, genre-rpg, genre-rpgdungeoncrawler, genre-rpgjapanese, genre-rpgmmo, genre-simulation, genre-sports, genre-strategyautobattler, lastplayed, ports

@@ -8,6 +8,19 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-15 — Firmware v3.52 y caja de herramientas PC build 12372: instalación nueva, widgets por defecto, lista ⇄ fondo
+
+**Firmware v3.52**
+- **Instalación nueva corregida.** Un `config.ini` ausente ahora se crea (la página AP decía « OK » y daba vueltas sin escribir nada); se muestra un error claro si la tarjeta SD falta o está protegida; la lista de redes Wi-Fi ya no sale vacía a la primera.
+- **Primer arranque.** La configuración web siempre es obligatoria. Ajustes propuestos si no hay lista ni widget: **solo widgets + reloj aleatorio** (duraciones: reloj 60 s, fecha 10, efemérides 15, cuenta atrás 10, tiempo 15).
+- **Regla de arranque.** Tras el primer arranque, la configuración web solo se impone si no hay nada que mostrar: *solo widgets* sin widget, o *lista de GIFs* sin lista. La IP de Recalbox ya no es obligatoria.
+- **Lista ⇄ fondo.** Elegir una lista pone el fondo en *Lista de GIFs*; elegir *Solo widgets* deselecciona la lista (se recuerda); volver a lista la reactiva (el DMD se reinicia para cargarla). *Solo widgets* se rechaza si no hay ningún widget seleccionado.
+- **Los submenús conservan sus ajustes.** Lugar, eventos, colores del reloj y widgets guardan los cambios sin guardar; **un solo Guardar, desde cualquier página, guarda todo**.
+- La vista previa del tiempo / efemérides sin lugar propone elegir uno; pulsar un color desactiva *Auto*; la vista previa del brillo ya no cambia el ajuste guardado; la página Wi-Fi indica *MQTT/UDP*; la ventana de ayuda de la primera conexión se ha reescrito.
+
+**Caja de herramientas PC build 12372**
+- **Vistas previas al pasar el ratón** en el menú *Download from GitHub* (Modos 2, 11, 13, 15); el **Modo 15 informa** de lo copiado; el botón **Salir** ya no sale de la zona visible en la pestaña Avanzado; ayuda integrada al día.
+
 ## 2026-10-15 — Caja de herramientas PC, build 12072: temas de citas (Modo 15), varias Recalbox, nuevos nombres de archivo
 
 - **Modo 15 — temas de citas listos para usar** (francés, inglés, español): 15 temas de 50 entradas publicados en GitHub, listados con su estado en la tarjeta SD (por instalar / al día / actualización disponible / modificado por usted), instalados a petición con verificación de la suma de control; un archivo modificado se guarda antes de ser reemplazado y no se borra nada. El **Modo 1** lo ofrece con una vista previa de cada tema; la caja de herramientas avisa al abrirse de las nuevas revisiones del paquete.

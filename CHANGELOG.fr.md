@@ -8,6 +8,19 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-15 — Firmware v3.52 et boîte à outils PC build 12372 : installation neuve, widgets par défaut, playlist ⇄ fond
+
+**Firmware v3.52**
+- **Installation neuve corrigée.** Un `config.ini` absent est maintenant créé (la page AP annonçait « OK » et bouclait sans rien écrire) ; une erreur claire s'affiche si la carte SD est absente ou protégée ; la liste des réseaux Wi-Fi n'est plus vide au premier appui.
+- **Premier démarrage.** La configuration web est toujours imposée. Réglages proposés quand ni playlist ni widget n'est défini : **widgets seuls + horloge aléatoire** (durées : horloge 60 s, date 10, éphéméride 15, compte à rebours 10, météo 15).
+- **Règle de démarrage.** Après le premier démarrage, la configuration web n'est imposée que s'il n'y a rien à afficher : *widgets seuls* sans widget, ou *playlist de GIFs* sans playlist. L'IP Recalbox n'est plus exigée.
+- **Playlist ⇄ fond.** Choisir une playlist passe le fond sur *Playlist de GIFs* ; choisir *Widgets seuls* désélectionne la playlist (mémorisée) ; repasser en playlist la réactive (le DMD redémarre pour la charger). *Widgets seuls* est refusé si aucun widget n'est sélectionné.
+- **Les sous-menus gardent vos réglages.** Lieu, événements, couleurs d'horloge et widgets conservent les modifications non enregistrées ; **un seul Enregistrer, de n'importe quelle page, enregistre tout**.
+- L'aperçu météo / éphéméride sans lieu propose d'en choisir un ; cliquer sur une couleur désactive *Auto* ; l'aperçu de luminosité ne modifie plus le réglage enregistré ; la page Wi-Fi indique *MQTT/UDP* ; la fenêtre d'aide de première connexion est réécrite.
+
+**Boîte à outils PC build 12372**
+- **Aperçus au survol** dans le menu *Download from GitHub* (Modes 2, 11, 13, 15) ; le **Mode 15 indique** ce qu'il a copié ; le bouton **Quitter** ne sort plus de la zone d'affichage dans l'onglet Avancé ; aide intégrée à jour.
+
 ## 2026-10-15 — Boîte à outils PC, build 12072 : thèmes de citations (Mode 15), plusieurs Recalbox, nouveaux noms de fichiers
 
 - **Mode 15 — thèmes de citations prêts à l'emploi** (français, anglais, espagnol) : 15 thèmes de 50 entrées publiés sur GitHub, listés avec leur état sur votre carte SD (à installer / à jour / mise à jour disponible / modifié par vous), installés à la demande avec vérification de la somme de contrôle ; un fichier modifié est sauvegardé avant d'être remplacé et rien n'est supprimé. Le **Mode 1** le propose avec un aperçu de chaque thème ; la boîte à outils annonce au lancement les nouvelles révisions du paquet.

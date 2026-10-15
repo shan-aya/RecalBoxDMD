@@ -8,6 +8,19 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-15 — Firmware v3.52 and PC toolkit build 12372: fresh install, widgets by default, playlist ⇄ background
+
+**Firmware v3.52**
+- **Fresh install fixed.** A missing `config.ini` is now created (the AP page used to say "OK" and loop forever without writing anything); a clear error is shown if the SD card is missing or read-only; the Wi-Fi network list is no longer empty on the first press.
+- **First start.** The web configuration is always required. Defaults proposed when no playlist and no widget is set: **widgets only + random clock** (durations: clock 60 s, date 10, ephemeris 15, countdown 10, weather 15).
+- **Boot rule.** After the first start the web configuration is forced only when there is nothing to display: *widgets only* with no widget, or *GIF playlist* with no playlist. The Recalbox IP is no longer required.
+- **Playlist ⇄ background.** Choosing a playlist switches the background to *GIF playlist*; choosing *Widgets only* deselects the playlist (remembered); switching back reactivates it (the DMD restarts to load it). *Widgets only* is refused when no widget is selected.
+- **Sub-menus keep your settings.** Place, events, clock colours and widgets keep unsaved changes; **one Save from any page saves everything**.
+- Weather / ephemeris preview without a place offers to choose one; clicking a colour turns *Auto* off; the brightness preview no longer changes the saved setting; the Wi-Fi page says *MQTT/UDP*; the first-connection help window is rewritten.
+
+**PC toolkit build 12372**
+- **Hover previews** in the *Download from GitHub* menu (Modes 2, 11, 13, 15); **Mode 15 reports** what it copied; the **Quit button** is no longer pushed out of view in the Advanced tab; built-in help updated.
+
 ## 2026-10-15 — PC toolkit, build 12072: quote themes (Mode 15), several Recalbox, new asset names
 
 - **Mode 15 — ready-made quote themes** (French, English, Spanish): 15 themes of 50 entries published on GitHub, listed with their state on your SD card (to install / up to date / update available / modified by you), installed on demand with a checksum check; an edited file is backed up before being replaced and nothing is deleted. **Mode 1** offers it with a preview of each theme; the toolkit announces new revisions of the pack at launch.
