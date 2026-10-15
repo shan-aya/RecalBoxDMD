@@ -124,7 +124,7 @@
     border-radius:3px;
     border:1px solid var(--line);
   }
-  /* Pastille « Nouveauté » : UNE SEULE sur toute la page (voir le commentaire dans le HTML) */
+  /* Pastille « Nouveauté » : uniquement sur les sections de la derniere publication (voir le commentaire dans le HTML) */
   .newtag{
     display:inline-block;
     margin-left:10px;
@@ -405,10 +405,10 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
   .col .feat{padding-top:18px;}
   .coltitle{margin:20px 0 0;font-size:22px;letter-spacing:.02em;color:var(--led-white);}
   .col-gif .coltitle{color:var(--led-blue);} .col-wid .coltitle{color:var(--amber);}
-  .grid1{display:grid;grid-template-columns:1fr;gap:10px;margin-top:14px;} .grid1 .shot{margin-top:0;} .grid1 .shot img{image-rendering:pixelated;}
+  .grid1{display:grid;grid-template-columns:1fr;gap:10px;margin-top:14px;} .grid1 .shot{margin-top:0;} .grid1 .shot img{image-rendering:auto;}
   .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px;}
   .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px;}
-  .grid3 .shot,.grid4 .shot{margin-top:0;} .grid2 .shot img,.grid3 .shot img,.grid4 .shot img{image-rendering:pixelated;}
+  .grid3 .shot,.grid4 .shot{margin-top:0;} .grid2 .shot img,.grid3 .shot img,.grid4 .shot img{image-rendering:auto;}
   .bul{margin:10px 0 0;padding-left:18px;line-height:1.55;color:var(--led-white);} .bul li{margin:8px 0;}
   .wide-sec{max-width:760px;margin:0 auto;}
   .shops{margin:18px auto 0;max-width:760px;text-align:center;line-height:1.6;} .shops a{color:var(--led-blue);}
@@ -525,7 +525,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
 
     </div>
     <div class="col col-wid">
-      <h3 class="coltitle" data-i18n="col.wid">🧩 Widgets &amp; écrans vivants</h3>
+      <h3 class="coltitle"><span data-i18n="col.wid">🧩 Widgets &amp; écrans vivants</span><span class="newtag" data-i18n="new.label">Nouveauté</span></h3>
   <section class="feat">
     <span class="eyebrow" style="color:var(--led-blue)" data-i18n="w1.eyebrow"></span>
     <h2 data-i18n="w1.h2"></h2>
@@ -561,7 +561,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
 
   <div class="wide-sec">
   <section class="feat">
-    <span class="eyebrow" style="color:var(--amber)" data-i18n="all.eyebrow"></span>
+    <span class="eyebrow" style="color:var(--amber)" data-i18n="all.eyebrow"></span><span class="newtag" data-i18n="new.label">Nouveauté</span>
     <h2 data-i18n="all.h2"></h2>
     <p data-i18n="all.p"></p>
     <ul class="bul"><li data-i18n="all.l1"></li><li data-i18n="all.l2"></li><li data-i18n="all.l3"></li><li data-i18n="all.l4"></li></ul>
@@ -596,7 +596,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
   </section>
 
   <section class="feat">
-    <span class="eyebrow" style="color:var(--amber)" data-i18n="s5c.eyebrow">Thèmes Recalbox</span><!-- NOUVEAUTE : un seul badge « newtag » sur toute la page. A la publication de la prochaine fonctionnalite : SUPPRIMER cette pastille et la recopier a cote de l'eyebrow de la nouvelle section. -->
+    <span class="eyebrow" style="color:var(--amber)" data-i18n="s5c.eyebrow">Thèmes Recalbox</span><!-- NOUVEAUTE : badges « newtag » sur les sections de la derniere publication (colonne Widgets, Nouveau pour tout le monde). A la prochaine publication : les SUPPRIMER et les recopier sur la nouvelle section. -->
     <h2 data-i18n="s5c.h2">Il adopte le thème de votre Recalbox</h2>
     <p data-i18n="s5c.p">Changez de thème dans Recalbox : le DMD affiche les logos de vos consoles dans le style du thème actif — Midnight, CRT Color, Neoretro… 11 thèmes prêts à l'emploi, dont les thèmes officiels de Recalbox, textes FR/EN/ES quand le thème les propose, la langue et la région de votre Recalbox suivies en direct, une case dans la page web du panneau pour activer ou non le suivi, et la boîte à outils PC n'installe que les thèmes que vous choisissez. Et vos thèmes à vous ? Les thèmes créés par les utilisateurs sont eux aussi convertis, par notre moteur de conversion maison, directement depuis votre Recalbox : ils apparaissent sur le DMD comme les autres. (Rendu simulé à partir des vrais logos.)</p>
     <div class="grid2">
@@ -620,7 +620,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
   </section>
 
   <section class="feat">
-    <span class="eyebrow" style="color:var(--led-green, var(--amber))" data-i18n="s5d.eyebrow">Recalbox 11</span><span class="newtag" data-i18n="new.label">Nouveauté</span>
+    <span class="eyebrow" style="color:var(--led-green, var(--amber))" data-i18n="s5d.eyebrow">Recalbox 11</span>
     <h2 data-i18n="s5d.h2">Prêt pour Recalbox 11 : le mode natif du firmware</h2>
     <p data-i18n="s5d.p1">Recalbox vous laisse choisir le firmware qui pilote le DMD, et RecalBoxDMD vous laisse aussi le choix : ses propres fonctionnalités, ou l'affichage par défaut de Recalbox. Recalbox 11 sait piloter lui-même un afficheur DMD, ZeDMD en USB ou en Wi-Fi compris. Le firmware du panneau sait s'y brancher : cochez « Mode Recalbox natif » dans la page web du panneau, et votre DMD se comporte comme un ZeDMD WiFi — c'est Recalbox qui décide de tout ce qui s'affiche.</p>
     <div class="grid2">
