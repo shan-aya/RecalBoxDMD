@@ -43,7 +43,7 @@ jobs:
               print("::warning::SCRIPTS_BUNDLE introuvable dans dmd_udp_resync.py - manifeste inchange")
               sys.exit(0)
           raw = open("docs/install/manifest.json", "rb").read()
-          new, n = re.subn(rb'("scripts"\s*:\s*)\d+', rb"\g<1>" + m.group(1), raw)
+          new, n = re.subn(rb'("scripts"\s*:\s*)\d+', rb"\g<1>" + mt, raw)
           if n != 1:
               print(f"::error::manifest.json : {n} occurrence(s) de la cle scripts (1 attendue)")
               sys.exit(1)
@@ -136,10 +136,11 @@ jobs:
               sys.exit(0)
           raw = open("docs/install/manifest.json", "rb").read()
           nl = b"\r\n" if b"\r\n" in raw else b"\n"
+          mt = m.group(1).encode()   # le tag est une chaine : les motifs ci-dessous sont des octets
           if b'"toolkit"' in raw:
-              new, n = re.subn(rb'("toolkit"\s*:\s*)\d+', rb"\g<1>" + m.group(1), raw)
+              new, n = re.subn(rb'("toolkit"\s*:\s*)\d+', rb"\g<1>" + mt, raw)
           else:
-              new, n = re.subn(rb'("scripts"\s*:\s*\d+,)', rb"\g<1>" + nl + b'  "toolkit": ' + m.group(1) + b",", raw)
+              new, n = re.subn(rb'("scripts"\s*:\s*\d+,)', rb"\g<1>" + nl + b'  "toolkit": ' + mt + b",", raw)
           if n != 1:
               print(f"::error::manifest.json : {n} occurrence(s) pour la cle toolkit (1 attendue)")
               sys.exit(1)
