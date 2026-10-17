@@ -18,6 +18,8 @@ on:
       - "binaries/RecalBoxDMD_app.bin"
       - "binaries/RecalBoxDMD_v2.0_app.bin"   # copie HISTORIQUE (meme contenu) : adresse codee en dur dans les firmwares 2.44 a 2.64
       - "tools/recalbox_scripts/dmd_helpers/dmd_udp_resync.py"
+  release:
+    types: [published]   # nouvelle release du toolkit : la cle "toolkit" du manifeste est mise a jour (avis affiche par les pages web du DMD)
   workflow_dispatch:
 
 permissions:
@@ -28,6 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main   # evenement release : sans cela le checkout serait en tete detachee (sur le tag) et le push echouerait
 
       - name: Sync the scripts bundle number into the manifest
         shell: python
@@ -114,6 +118,34 @@ jobs:
               print("::error::binaries/RecalBoxDMD_v2.0_app.bin differe de RecalBoxDMD_app.bin : recopier RecalBoxDMD_app.bin sous l'ancien nom")
               sys.exit(1)
           print("copie v2.0 identique a RecalBoxDMD_app.bin")
+
+      - name: Record the latest PC toolkit build in the manifest (notice shown by the DMD web pages)
+        shell: python
+        run: |
+          import json, re, sys, urllib.request
+          req = urllib.request.Request("https://api.github.com/repos/${{ github.repository }}/releases/latest",
+                                       headers={"Accept": "application/vnd.github+json", "Authorization": "Bearer ${{ secrets.GITHUB_TOKEN }}", "User-Agent": "sync-installer-version"})
+          try:
+              tag = str(json.load(urllib.request.urlopen(req, timeout=30)).get("tag_name", ""))
+          except Exception as e:
+              print(f"::warning::derniere release illisible ({e}) - cle toolkit inchangee")
+              sys.exit(0)
+          m = re.search(r"_v(\d+)$", tag)
+          if not m:
+              print(f"::warning::tag de release inattendu ({tag}) - cle toolkit inchangee")
+              sys.exit(0)
+          raw = open("docs/install/manifest.json", "rb").read()
+          nl = b"\r\n" if b"\r\n" in raw else b"\n"
+          if b'"toolkit"' in raw:
+              new, n = re.subn(rb'("toolkit"\s*:\s*)\d+', rb"\g<1>" + m.group(1), raw)
+          else:
+              new, n = re.subn(rb'("scripts"\s*:\s*\d+,)', rb"\g<1>" + nl + b'  "toolkit": ' + m.group(1) + b",", raw)
+          if n != 1:
+              print(f"::error::manifest.json : {n} occurrence(s) pour la cle toolkit (1 attendue)")
+              sys.exit(1)
+          if new != raw:
+              open("docs/install/manifest.json", "wb").write(new)
+          print("dernier toolkit publie : build", m.group(1).decode())
 
       - name: Commit if changed
         run: |

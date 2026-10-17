@@ -8,6 +8,17 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-17 — Firmware v3.53 et boîte à outils PC build 12472 : 10 événements de compte à rebours, avis de mise à jour avec notes de version
+
+**Firmware v3.53**
+- **Compte à rebours : 10 événements** (au lieu de 5), chacun avec une case **Actif** pour le mettre en veille sans l'effacer, et des noms jusqu'à 40 caractères : un nom de plus de 14 caractères défile désormais dans le widget. Une ligne incomplète (nom sans date, date sans nom, année hors 2000–2100) déclenche une alerte au lieu d'être ignorée en silence.
+- **Corrigé — le fond ne suivait pas la playlist.** Choisir une playlist pouvait laisser le fond sur *Widgets seuls* quand une page *Widgets* restait ouverte dans un autre onglet (elle effaçait le choix). Une page n'écrit plus que ce qu'elle a elle-même modifié.
+- **Corrigé — même température pour tous les lieux dans l'aperçu météo.** Les valeurs météo gardées n'étaient pas liées à leur lieu, et l'aperçu utilisait le lieu enregistré au lieu de celui saisi dans la page *Lieu*. Les deux sont corrigés.
+- **Accueil et Réglages.** Une page d'accueil ouverte en tapant l'adresse met maintenant le DMD en mode configuration (la requête spéculative du navigateur était ignorée et l'appel qui suivait utilisait la mauvaise méthode). L'accueil reçoit *Enreg. & Redémarrer* et *Reprendre DMD* ; les Réglages reçoivent *Reprendre DMD*.
+- **Avis de mise à jour.** Les avis firmware et scripts ont un lien **Notes de version** ; en le survolant, une bulle affiche les dernières entrées du changelog. Les pages web affichent aussi un avis (à fermer) quand un toolkit PC plus récent est publié.
+
+**Boîte à outils PC build 12472**
+- Tous les avis de mise à jour (toolkit, firmware, scripts Recalbox, thèmes de citations) passent maintenant par une seule fenêtre à boutons nommés, avec un lien **Notes de version** et les dernières entrées du changelog dans une bulle au survol. Aide intégrée mise à jour.
 ## 2026-10-15 — Firmware v3.52 et boîte à outils PC build 12372 : installation neuve, widgets par défaut, playlist ⇄ fond
 
 **Firmware v3.52**

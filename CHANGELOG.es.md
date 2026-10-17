@@ -8,6 +8,17 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-17 — Firmware v3.53 y caja de herramientas del PC build 12472: 10 eventos de cuenta atrás, avisos de actualización con notas de versión
+
+**Firmware v3.53**
+- **Cuenta atrás: 10 eventos** (en lugar de 5), cada uno con una casilla **Activo** para ponerlo en pausa sin borrarlo, y nombres de hasta 40 caracteres: un nombre de más de 14 caracteres se desplaza ahora en el widget. Una fila incompleta (nombre sin fecha, fecha sin nombre, año fuera de 2000–2100) muestra una alerta en lugar de ignorarse en silencio.
+- **Corregido — el fondo no seguía a la playlist.** Elegir una playlist podía dejar el fondo en *Solo widgets* si había otra página *Widgets* abierta en otra pestaña (borraba la elección). Una página solo escribe ahora lo que ha cambiado ella misma.
+- **Corregido — la misma temperatura para todos los lugares en la vista previa del tiempo.** Los valores guardados no estaban ligados a su lugar, y la vista previa usaba el lugar guardado en vez del escrito en la página *Lugar*. Ambos corregidos.
+- **Inicio y Ajustes.** Una página de inicio abierta escribiendo la dirección pone ahora el DMD en modo configuración (la petición especulativa del navegador se ignoraba y la llamada posterior usaba el método equivocado). El inicio recibe *Guardar y reiniciar* y *Reanudar DMD*; los Ajustes reciben *Reanudar DMD*.
+- **Avisos de actualización.** Los avisos de firmware y scripts tienen un enlace **Notas de versión**; al pasar el ratón por encima, una burbuja muestra las últimas entradas del changelog. Las páginas web muestran también un aviso (cerrable) cuando se publica un toolkit del PC más reciente.
+
+**Caja de herramientas del PC build 12472**
+- Todos los avisos de actualización (toolkit, firmware, scripts de Recalbox, temas de citas) usan ahora una sola ventana con botones con nombre, un enlace **Notas de versión** y las últimas entradas del changelog en una burbuja al pasar el ratón. Ayuda integrada actualizada.
 ## 2026-10-15 — Firmware v3.52 y caja de herramientas PC build 12372: instalación nueva, widgets por defecto, lista ⇄ fondo
 
 **Firmware v3.52**

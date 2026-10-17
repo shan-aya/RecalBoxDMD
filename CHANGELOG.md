@@ -8,6 +8,17 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-17 — Firmware v3.53 and PC toolkit build 12472: 10 countdown events, update notices with release notes
+
+**Firmware v3.53**
+- **Countdown: 10 events** (instead of 5), each with an **Active** tick to pause it without deleting it, and names up to 40 characters: a name longer than 14 characters now scrolls in the widget. An incomplete row (name without date, date without name, year outside 2000–2100) raises an alert instead of being silently ignored.
+- **Fixed — the background did not follow the playlist.** Choosing a playlist could leave the background on *Widgets only* when a *Widgets* page was still open in another tab (it erased the choice). A page now only writes what it changed itself.
+- **Fixed — same temperature for every place in the weather preview.** The kept weather values were not tied to their place, and the preview used the saved place instead of the one typed on the *Place* page. Both fixed.
+- **Home and Settings.** A Home page opened by typing the address now puts the DMD in configuration mode (the browser's speculative request was ignored and the follow-up call used the wrong method). The Home page gets *Save & Restart* and *Resume DMD*; Settings gets *Resume DMD*.
+- **Update notices.** Firmware and scripts notices have a **Release notes** link; hover it to read the latest changelog entries in a bubble. The web pages also show a dismissible notice when a newer PC toolkit build is published.
+
+**PC toolkit build 12472**
+- All update notices (toolkit, firmware, Recalbox scripts, quote themes) now use one window with named buttons, a **Release notes** link and the latest changelog entries in a bubble on hover. Built-in help updated.
 ## 2026-10-15 — Firmware v3.52 and PC toolkit build 12372: fresh install, widgets by default, playlist ⇄ background
 
 **Firmware v3.52**
