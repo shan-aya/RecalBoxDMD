@@ -146,7 +146,7 @@ jobs:
               sys.exit(1)
           if new != raw:
               open("docs/install/manifest.json", "wb").write(new)
-          print("dernier toolkit publie : build", m.group(1).decode())
+          print("dernier toolkit publie : build", m.group(1))
 
       - name: Commit if changed
         run: |
