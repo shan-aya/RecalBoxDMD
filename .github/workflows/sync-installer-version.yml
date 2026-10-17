@@ -43,7 +43,7 @@ jobs:
               print("::warning::SCRIPTS_BUNDLE introuvable dans dmd_udp_resync.py - manifeste inchange")
               sys.exit(0)
           raw = open("docs/install/manifest.json", "rb").read()
-          new, n = re.subn(rb'("scripts"\s*:\s*)\d+', rb"\g<1>" + mt, raw)
+          new, n = re.subn(rb'("scripts"\s*:\s*)\d+', rb"\g<1>" + m.group(1), raw)
           if n != 1:
               print(f"::error::manifest.json : {n} occurrence(s) de la cle scripts (1 attendue)")
               sys.exit(1)
