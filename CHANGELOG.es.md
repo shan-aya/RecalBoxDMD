@@ -8,6 +8,10 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-18 (2) — Firmware v3.56: insignia « Actualización » en el botón Ajustes
+
+**Firmware v3.56**
+- **Insignia « ⬆ Actualización ».** Cuando se publica un firmware o un lote de scripts de Recalbox más reciente, aparece ahora una insignia naranja en el botón **Ajustes** de la página de inicio y en el enlace Ajustes del menú de cada página (en francés, inglés o español), además de la barra de avisos. La barra conserva su comprobación cada 5 minutos de la v3.55.
 ## 2026-10-18 — Firmware v3.55: los avisos de actualización aparecen enseguida en todas las páginas
 
 **Firmware v3.55**

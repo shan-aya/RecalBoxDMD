@@ -8,6 +8,10 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-18 (2) — Firmware v3.56 : pastille « Mise à jour » sur le bouton Réglages
+
+**Firmware v3.56**
+- **Pastille « ⬆ Mise à jour ».** Quand un firmware ou un lot de scripts Recalbox plus récent est publié, une pastille orange s'affiche maintenant sur le bouton **Réglages** de la page d'accueil et sur le lien Réglages du menu de chaque page (en français, anglais ou espagnol), en plus de la barre d'avis. La barre garde sa vérification toutes les 5 minutes de la v3.55.
 ## 2026-10-18 — Firmware v3.55 : les avis de mise à jour apparaissent tout de suite sur toutes les pages
 
 **Firmware v3.55**

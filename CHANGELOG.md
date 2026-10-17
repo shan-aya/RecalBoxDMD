@@ -8,6 +8,10 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-18 (2) — Firmware v3.56: "Update" badge on the Settings button
+
+**Firmware v3.56**
+- **"⬆ Update" badge.** When a newer firmware or Recalbox script bundle is published, an orange badge now appears on the **Settings** button of the Home page and on the Settings link of every page's menu (in French, English or Spanish), in addition to the update bar. It does not depend on how recently the page checked: the bar still has its 5-minute check from v3.55.
 ## 2026-10-18 — Firmware v3.55: update notices appear on every page right away
 
 **Firmware v3.55**
