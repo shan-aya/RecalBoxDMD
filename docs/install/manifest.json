@@ -1,9 +1,9 @@
 {
   "name": "RecalBoxDMD — RawEdition",
-  "version": "3.53",
+  "version": "3.54",
   "scripts": 6,
-  "app_sha256": "9410295c684a87d66fc3dbd9eb921b75e5d651fb49f81a920ba03d3c68355d4b",
-  "app_size": 1836960,
+  "app_sha256": "d56fead691fc03ba83311da84f5fea25553b71166a2e471e35cb1fe06b002449",
+  "app_size": 1836896,
   "toolkit": 12472,
   "new_install_prompt_erase": true,
   "builds": [
