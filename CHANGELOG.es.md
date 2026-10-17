@@ -8,6 +8,10 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-18 — Firmware v3.55: los avisos de actualización aparecen enseguida en todas las páginas
+
+**Firmware v3.55**
+- **Corregido — sin aviso de actualización en la página de inicio.** La barra de avisos mostrada en todas las páginas (firmware, scripts de Recalbox, toolkit del PC más reciente) solo releía la versión publicada cada 6 horas: un nuevo firmware se anunciaba en la página de *Ajustes* (que comprueba cada vez) pero no en las demás. La barra vuelve a comprobar ahora cada 5 minutos.
 ## 2026-10-17 (2) — Firmware v3.54 y caja de herramientas del PC build 12572: los avisos de actualización ya no piden un Modo 9
 
 **Firmware v3.54**

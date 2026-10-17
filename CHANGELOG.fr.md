@@ -8,6 +8,10 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-18 — Firmware v3.55 : les avis de mise à jour apparaissent tout de suite sur toutes les pages
+
+**Firmware v3.55**
+- **Corrigé — pas d'alerte de mise à jour sur la page d'accueil.** La barre d'avis affichée sur toutes les pages (firmware, scripts Recalbox, toolkit PC plus récent) ne relisait la version publiée que toutes les 6 heures : un nouveau firmware était annoncé sur la page *Réglages* (qui vérifie à chaque fois) mais pas sur les autres. La barre revérifie maintenant toutes les 5 minutes.
 ## 2026-10-17 (2) — Firmware v3.54 et boîte à outils PC build 12572 : les avis de mise à jour ne demandent plus de Mode 9
 
 **Firmware v3.54**

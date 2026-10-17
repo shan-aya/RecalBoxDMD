@@ -8,6 +8,10 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-18 — Firmware v3.55: update notices appear on every page right away
+
+**Firmware v3.55**
+- **Fixed — no update alert on the Home page.** The update bar shown on every page (firmware, Recalbox scripts, newer PC toolkit) only re-read the published version every 6 hours, so a new firmware was announced on the *Settings* page (which checks every time) but not on the others. The bar now re-checks every 5 minutes.
 ## 2026-10-17 (2) — Firmware v3.54 and PC toolkit build 12572: update notices no longer ask for a Mode 9
 
 **Firmware v3.54**
