@@ -8,6 +8,13 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-17 (2) — Firmware v3.54 y caja de herramientas del PC build 12572: los avisos de actualización ya no piden un Modo 9
+
+**Firmware v3.54**
+- El aviso de actualización del firmware (página *Ajustes*) ya no pide ejecutar un **Modo 9** tras cada actualización — los scripts de Recalbox no cambian con cada firmware. La indicación del Modo 9 solo aparece en el aviso de **scripts de Recalbox**, mostrado cuando se publica un nuevo lote de scripts. Ese aviso es ahora independiente del aviso de firmware (antes se ocultaba mientras se anunciaba un firmware más reciente).
+
+**Caja de herramientas del PC build 12572**
+- El mismo cambio en la ventana de avisos del toolkit: la frase « haz también un Modo 9 » ya no se añade a cada aviso de firmware; solo la lleva el aviso de scripts.
 ## 2026-10-17 — Firmware v3.53 y caja de herramientas del PC build 12472: 10 eventos de cuenta atrás, avisos de actualización con notas de versión
 
 **Firmware v3.53**

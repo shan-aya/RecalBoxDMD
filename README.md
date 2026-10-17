@@ -1,4 +1,4 @@
-# RecalBoxDMD — RawEdition <img alt="Firmware: v3.53" src="https://img.shields.io/badge/firmware-v3.53-blueviolet.svg"> <img alt="PC Toolkit: v12472" src="https://img.shields.io/badge/PC%20Toolkit-v12472-blueviolet.svg">
+# RecalBoxDMD — RawEdition <img alt="Firmware: v3.53" src="https://img.shields.io/badge/firmware-v3.53-blueviolet.svg"> <img alt="PC Toolkit: v12572" src="https://img.shields.io/badge/PC%20Toolkit-v12572-blueviolet.svg">
 
 **A real LED marquee for your Recalbox arcade cabinet — instant display, even with a 30,000-game MAME fullset.**
 

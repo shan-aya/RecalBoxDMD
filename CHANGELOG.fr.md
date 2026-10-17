@@ -8,6 +8,13 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-17 (2) — Firmware v3.54 et boîte à outils PC build 12572 : les avis de mise à jour ne demandent plus de Mode 9
+
+**Firmware v3.54**
+- L'avis de mise à jour du firmware (page *Réglages*) ne demande plus de lancer un **Mode 9** après chaque mise à jour — les scripts Recalbox ne changent pas à chaque firmware. La consigne Mode 9 n'apparaît plus que dans l'avis **scripts Recalbox**, affiché quand un nouveau lot de scripts est publié. Cet avis est désormais indépendant de l'avis firmware (il était masqué tant qu'un firmware plus récent était annoncé).
+
+**Boîte à outils PC build 12572**
+- Même changement dans la fenêtre d'avis du toolkit : la phrase « faites aussi un Mode 9 » n'est plus ajoutée à chaque avis firmware ; seul l'avis scripts la porte.
 ## 2026-10-17 — Firmware v3.53 et boîte à outils PC build 12472 : 10 événements de compte à rebours, avis de mise à jour avec notes de version
 
 **Firmware v3.53**

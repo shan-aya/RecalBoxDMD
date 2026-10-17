@@ -8,6 +8,13 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-17 (2) — Firmware v3.54 and PC toolkit build 12572: update notices no longer ask for a Mode 9
+
+**Firmware v3.54**
+- The firmware update notice (*Settings* page) no longer tells you to run a **Mode 9** after each update — the Recalbox scripts do not change with every firmware. The Mode 9 instruction now only appears in the **Recalbox scripts** notice, shown when a newer script bundle is published. That notice is now independent of the firmware notice (it used to be hidden while a newer firmware was announced).
+
+**PC toolkit build 12572**
+- Same change in the toolkit's update window: the "also run a Mode 9" sentence is no longer added to every firmware notice; only the scripts notice carries it.
 ## 2026-10-17 — Firmware v3.53 and PC toolkit build 12472: 10 countdown events, update notices with release notes
 
 **Firmware v3.53**
