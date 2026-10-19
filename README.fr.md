@@ -44,7 +44,7 @@
 
 ## 🎬 Les nouveautés depuis RawEdition v2.64
 
-- 👉 **[Aperçu visuel (page interactive)](https://shan-aya.github.io/RecalBoxDMD/promo/rawedition_infographic_fr.html)**
+- 👉 **[Aperçu visuel (page interactive)](https://shan-aya.github.io/RecalBoxDMD/)**
 
 RawEdition v2.0 était un marquee : un logo ou un GIF par jeu. **C'est maintenant deux univers sur le même panneau — que vous mélangez à volonté :**
 
