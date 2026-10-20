@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-20 — Firmware v3.58: bigger overlay messages of identical size, "RecalBox connected" blinks
+
+**Firmware v3.58**
+- **Overlay messages.** Every message drawn over the picture (RecalBox connected, offline, no Wi-Fi, RetroAchievements alerts…) now has the same size in French, English and Spanish, as large as the panel allows (reduced only if a language would overflow).
+- **"RecalBox connected".** The message stays 5 seconds over the default image, **blinking**, then the logo stays alone.
+- **Default settings.** **Pinball mode (VPX)** and **RetroAchievements alerts** are ticked by default, like the Raspberry Pi version (a `config.ini` without the key = enabled; `feat_vpinball_dmd=0` / `feat_ra_window=0` turns them off).
 ## 2026-10-18 (2) — Firmware v3.56: "Update" badge on the Settings button
 
 **Firmware v3.56**
