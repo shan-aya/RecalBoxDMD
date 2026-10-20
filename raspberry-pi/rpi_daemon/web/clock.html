@@ -1,0 +1,285 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RecalBox DMD - Horloge</title>
+<link rel="stylesheet" href="/cfg.css?h=42c26368">
+<link rel="icon" href="data:,">
+<script src="/cfg.js?h=813f74a2" onerror="try{if(!sessionStorage.cfgR){sessionStorage.cfgR=1;location.reload();}}catch(e){}"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
+.btn-row{display:flex;gap:10px;justify-content:center;margin:18px 0;flex-wrap:wrap}
+.btn{padding:12px 20px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
+.btn-resume{background:#2d6a4f;color:#fff}
+body{position:relative}
+#pageLoadingOverlay{position:fixed;inset:0;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px;font-weight:600;z-index:99999;text-align:center;padding:20px;gap:14px}
+#pageLoadingOverlay .pgspin{width:34px;height:34px;border:4px solid #333;border-top-color:#8ab4f8;border-radius:50%;animation:pgspin .8s linear infinite}
+@keyframes pgspin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="pageLoadingOverlay"><div class="pgspin"></div><div data-i18n="loading_text">Chargement en cours...</div></div>
+<select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<span id="helpLink" onclick="showHelpModal()" data-i18n="help_link">Aide</span>
+<div id="helpBackdrop" class="help-backdrop" onclick="if(event.target===this)closeHelpModal()">
+<div class="help-box">
+<button class="help-close" onclick="closeHelpModal()">&times;</button>
+<h2 data-i18n="help_title">Bienvenue</h2>
+<p data-i18n="help_intro"></p>
+<h3 data-i18n="help_checklist_title"></h3>
+<ul>
+<li data-i18n="help_check_ip"></li>
+<li data-i18n="help_check_playlist"></li>
+<li data-i18n="help_check_wifi"></li>
+</ul>
+<p id="helpUrlReminder"></p>
+<h3 data-i18n="help_features_title"></h3>
+<ul>
+<li data-i18n="help_feat_playlists"></li>
+<li data-i18n="help_feat_clock"></li>
+<li data-i18n="help_feat_display"></li>
+<li data-i18n="help_feat_network"></li>
+</ul>
+</div>
+</div>
+<div class="topnav">
+<a href="/" onclick="showPageLoadingOverlay()" data-i18n="nav_home">&#x1F3E0; Accueil</a>
+<a href="/config/settings" onclick="showPageLoadingOverlay()" data-i18n="nav_settings">&#x2699; R&eacute;glages</a>
+<a href="/config/basic" onclick="showPageLoadingOverlay()" data-i18n="nav_basic">&#x1F4A1; Affichage</a>
+<a href="/config/playlist" onclick="showPageLoadingOverlay()" data-i18n="nav_playlist">&#x1F4BF; Playlist</a>
+<a href="/config/network" onclick="showPageLoadingOverlay()" data-i18n="nav_network">&#x1F4F6; Wi-Fi</a>
+<a href="/config/widgets" onclick="showPageLoadingOverlay()" data-i18n="nav_deco">&#x2728; Widgets &amp; Horloge</a>
+<a href="/config/media" onclick="showPageLoadingOverlay()" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
+<a href="/config/button" onclick="showPageLoadingOverlay()" data-i18n="nav_button">&#x1F518; Bouton</a>
+</div>
+<h1 data-i18n="h1">Horloge</h1>
+<form id="clockForm" onsubmit="saveConfig(event)">
+<div class="section">
+<div class="row"><label for="clock_theme" data-i18n="lbl_theme">Th&egrave;me</label>
+<select id="clock_theme" onchange="onClockThemeChanged(this.value)">
+<option value="-1" data-i18n="opt_random">Al&eacute;atoire</option>
+<option value="0" data-i18n="opt_mario">Mario</option><option value="1" data-i18n="opt_tetris">Tetris</option>
+<option value="2" data-i18n="opt_pacman">Pac-Man</option><option value="3" data-i18n="opt_spaceinv">Space Invaders</option>
+<option value="4" data-i18n="opt_pong">Pong</option><option value="5" data-i18n="opt_neon">Neon</option>
+<option value="6" data-i18n="opt_matrix">Matrix</option><option value="7" data-i18n="opt_fire">Fire</option>
+<option value="8" data-i18n="opt_rainbow">Rainbow</option><option value="9" data-i18n="opt_level11">Level 1-1</option><option value="10" data-i18n="opt_plasma">Plasma</option><option value="11" data-i18n="opt_life">Vie</option><option value="12" data-i18n="opt_stars">&Eacute;toiles</option><option value="13" data-i18n="opt_rain">Pluie</option><option value="14" data-i18n="opt_lava">Lava lamp</option>
+</select>
+<div class="hint" data-i18n="hint_theme_live">&#x1F4A1; Aper&ccedil;u affich&eacute; en direct sur l'&eacute;cran DMD tant que cette page est ouverte.</div>
+</div>
+<div class="row" id="clockMaskRow" style="display:none"><label data-i18n="lbl_mask">Th&egrave;mes du tirage</label>
+<div id="clockMaskBox" style="flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:8px 10px"></div>
+<input id="clock_themes_mask" type="hidden" value="32767">
+<div class="hint" data-i18n="hint_mask">Cochez les th&egrave;mes que le tirage al&eacute;atoire peut choisir (au moins un).</div>
+</div>
+<div class="row" id="clkColRow" style="display:none"><label data-i18n="lbl_colors">Couleurs</label><span id="cc_aw" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#aaa"><span data-i18n="cc_anim">Animation</span><input id="cc_a" type="color" style="flex:0 0 46px;min-width:0;height:34px;padding:2px"></span><span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#aaa;margin-left:8px"><span data-i18n="cc_digit">Chiffres</span><input id="cc_d" type="color" style="flex:0 0 46px;min-width:0;height:34px;padding:2px"></span><button type="button" class="btn btn-del" id="cc_auto" style="margin-left:8px;padding:8px 12px">AUTO</button><button type="button" class="btn btn-del" id="cc_raz" style="margin-left:6px;padding:8px 12px">RAZ</button><div class="hint" data-i18n="hint_cc">Appliqu&eacute; en direct sur le DMD. AUTO = couleurs al&eacute;atoires lisibles ; RAZ = couleurs d'origine.</div></div>
+</div>
+</div>
+<div class="btn-row">
+<button type="submit" class="btn btn-save" data-i18n="btn_save">&#x1F4BE; Enregistrer</button>
+<a class="btn btn-del" href="/config/widgets" onclick="showPageLoadingOverlay()" style="text-decoration:none" data-i18n="back_w">Retour aux widgets</a>
+<a class="btn btn-del" href="/config/clockcolors" onclick="showPageLoadingOverlay()" style="text-decoration:none" data-i18n="colors_btn">Couleurs</a>
+<button type="button" class="btn btn-del" onclick="doReboot()" data-i18n="btn_reboot">&#x1F504; Red&eacute;marrer</button>
+<button type="button" class="btn btn-resume" onclick="dmdResume()" data-i18n="btn_resume">&#x25B6; Reprendre DMD</button>
+</div>
+</form>
+<div id="msg" class="msg"></div>
+<script>
+const HELP_I18N=window.CFG_HELP;
+const PAGE_I18N={
+fr:{title:'RecalBox DMD - Horloge',h1:'Horloge',lbl_enabled:'Activée',lbl_theme:'Thème',lbl_mask:'Thèmes du tirage',hint_mask:'Cochez les thèmes que le tirage aléatoire peut choisir (au moins un).',hint_theme_live:'&#x1F4A1; Aperçu affiché en direct sur l\'écran DMD tant que cette page est ouverte.',lbl_colors:'Couleurs',cc_anim:'Animation',cc_digit:'Chiffres',hint_cc:'Appliqué en direct sur le DMD. AUTO = couleurs aléatoires lisibles ; RAZ = couleurs d\'origine.',lbl_neon_color:'Couleur Neon',lbl_custom:'Personnalisée',hint_neon:'Thème Neon uniquement',lbl_interval_gifs:'Intervalle (GIFs)',lbl_interval_min:'Intervalle (min)',hint_interval_min:'0 = désactivé. Préférez l\'intervalle en nombre de GIFs ci-dessus : un compteur de GIFs ne peut pas dériver, contrairement à un minuteur.',lbl_duration:'Durée (sec)',hint_duration:'Durée d\'affichage de l\'horloge avant de reprendre les GIFs.',lbl_tz:'Fuseau horaire',opt_random:'Aléatoire',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_plasma:'Plasma',opt_life:'Vie',opt_stars:'Étoiles',opt_rain:'Pluie',opt_lava:'Lava lamp',opt_tz_ce:'France / Espagne / Allemagne / Italie',opt_tz_uk:'Angleterre (UK) / Portugal',opt_tz_usa_e:'USA - Est (New York)',opt_tz_usa_c:'USA - Centre (Chicago)',opt_tz_usa_m:'USA - Montagnes (Denver)',opt_tz_usa_p:'USA - Pacifique (Los Angeles)',opt_tz_ee:'Grèce / Roumanie / Finlande',back_w:'Retour aux widgets',colors_btn:'Couleurs',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',...HELP_I18N.fr},
+en:{title:'RecalBox DMD - Clock',h1:'Clock',lbl_enabled:'Enabled',lbl_theme:'Theme',lbl_mask:'Random draw themes',hint_mask:'Tick the themes the random draw may pick (at least one).',hint_theme_live:'&#x1F4A1; Live preview shown directly on the DMD screen while this page is open.',lbl_colors:'Colors',cc_anim:'Animation',cc_digit:'Digits',hint_cc:'Applied live on the DMD. AUTO = random readable colors; RAZ = original colors.',lbl_neon_color:'Neon color',lbl_custom:'Custom',hint_neon:'Neon theme only',lbl_interval_gifs:'Interval (GIFs)',lbl_interval_min:'Interval (min)',hint_interval_min:'0 = disabled. Prefer the GIF-count interval above: a GIF counter cannot drift, unlike a timer.',lbl_duration:'Duration (sec)',hint_duration:'How long the clock stays displayed before resuming GIFs.',lbl_tz:'Timezone',opt_random:'Random',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_plasma:'Plasma',opt_life:'Life',opt_stars:'Stars',opt_rain:'Rain',opt_lava:'Lava lamp',opt_tz_ce:'France / Spain / Germany / Italy',opt_tz_uk:'England (UK) / Portugal',opt_tz_usa_e:'USA - East (New York)',opt_tz_usa_c:'USA - Central (Chicago)',opt_tz_usa_m:'USA - Mountain (Denver)',opt_tz_usa_p:'USA - Pacific (Los Angeles)',opt_tz_ee:'Greece / Romania / Finland',back_w:'Back to widgets',colors_btn:'Colors',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',...HELP_I18N.en},
+es:{title:'RecalBox DMD - Reloj',h1:'Reloj',lbl_enabled:'Activado',lbl_theme:'Tema',lbl_mask:'Temas del sorteo',hint_mask:'Marque los temas que el sorteo aleatorio puede elegir (al menos uno).',hint_theme_live:'&#x1F4A1; Vista previa mostrada en directo en la pantalla DMD mientras esta página esté abierta.',lbl_colors:'Colores',cc_anim:'Animación',cc_digit:'Dígitos',hint_cc:'Se aplica en directo en el DMD. AUTO = colores aleatorios legibles; RAZ = colores originales.',lbl_neon_color:'Color Neon',lbl_custom:'Personalizado',hint_neon:'Solo tema Neon',lbl_interval_gifs:'Intervalo (GIFs)',lbl_interval_min:'Intervalo (min)',hint_interval_min:'0 = desactivado. Prefiera el intervalo en número de GIFs de arriba: un contador de GIFs no puede desviarse, a diferencia de un temporizador.',lbl_duration:'Duración (seg)',hint_duration:'Duración de la visualización del reloj antes de reanudar los GIFs.',lbl_tz:'Zona horaria',opt_random:'Aleatorio',opt_mario:'Mario',opt_tetris:'Tetris',opt_pacman:'Pac-Man',opt_spaceinv:'Space Invaders',opt_pong:'Pong',opt_neon:'Neon',opt_matrix:'Matrix',opt_fire:'Fire',opt_rainbow:'Rainbow',opt_level11:'Level 1-1',opt_plasma:'Plasma',opt_life:'Vida',opt_stars:'Estrellas',opt_rain:'Lluvia',opt_lava:'Lava lamp',opt_tz_ce:'Francia / España / Alemania / Italia',opt_tz_uk:'Inglaterra (UK) / Portugal',opt_tz_usa_e:'EE.UU. - Este (Nueva York)',opt_tz_usa_c:'EE.UU. - Centro (Chicago)',opt_tz_usa_m:'EE.UU. - Montañas (Denver)',opt_tz_usa_p:'EE.UU. - Pacífico (Los Ángeles)',opt_tz_ee:'Grecia / Rumanía / Finlandia',back_w:'Volver a los widgets',colors_btn:'Colores',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',...HELP_I18N.es}
+};
+let currentLang='fr';
+// Overlay "Chargement en cours..." (2026-08-05, demande utilisateur :
+// ~3s d'attente sur mobile avant affichage, impression de plantage/envie
+// de F5). Present des le tout premier octet du <body> (avant tout script)
+// donc visible des que le navigateur commence a peindre la page, meme si
+// le reste du transfert (page + donnees /lang, /load) prend encore du
+// temps -- masque via hidePageLoadingOverlay(), appelee en toute fin de
+// la chaine de bootstrap (succes ET echec, voir .finally() plus bas).
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
+function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
+function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||(window.CFG_I18N&&CFG_I18N[currentLang]&&CFG_I18N[currentLang][k])||PAGE_I18N.fr[k]||(window.CFG_I18N&&CFG_I18N.fr&&CFG_I18N.fr[k])||k;}
+function applyLang(backendLang){
+  const stored=localStorage.getItem('dmd_lang');
+  if(stored&&PAGE_I18N[stored]){currentLang=stored;}
+  else if(backendLang&&PAGE_I18N[backendLang]){currentLang=backendLang;}
+  else{const nav=(navigator.language||'').substring(0,2);currentLang=PAGE_I18N[nav]?nav:'fr';}
+  document.documentElement.lang=currentLang;
+  document.title=tr('title');
+  const savedTheme=document.getElementById('clock_theme').value;
+  document.querySelectorAll('[data-i18n]').forEach(function(el){el.innerHTML=tr(el.dataset.i18n);});
+  document.getElementById('clock_theme').value=savedTheme;
+  document.getElementById('langSelect').value=currentLang;
+}
+function setLang(code){
+  localStorage.setItem('dmd_lang',code);
+  applyLang();
+  fetch('/save-language',{method:'POST',body:'language='+code,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});
+}
+let _formDirty=false;
+// v69 -- brouillon PARTAGE : tous les reglages modifies sur n'importe quelle page restent en attente (localStorage) et sont envoyes ENSEMBLE par n'importe quel bouton
+// Enregistrer / Enreg. & Redemarrer, de n'importe quelle page. Pour QUITTER (Reprendre DMD / Redemarrer) avec des reglages non enregistres, une boite de dialogue le signale et
+// propose Enregistrer / Quitter quand meme (confirmLeave). Aucune alerte ailleurs : naviguer entre les pages ou fermer l'onglet reste libre.
+const DMD_DRAFT_KEYS=['dmd_draft_home','dmd_draft_basic','dmd_draft_playlist','dmd_draft_network','dmd_draft_clock','dmd_draft_widgets'];
+function anyDraft(){try{return DMD_DRAFT_KEYS.some(function(k){return localStorage.getItem(k)!==null;});}catch(e){return false;}}
+function allBody(own){const p=new URLSearchParams();DMD_DRAFT_KEYS.forEach(function(k){try{const raw=localStorage.getItem(k);if(!raw)return;const o=JSON.parse(raw);Object.keys(o).forEach(function(id){const v=o[id];if((v===''&&!/^(clk_anim_|clk_digit_|deco_ev_)/.test(id))||v===undefined||v===null)return;if(/^(wifi_|bluetooth_)/.test(id))return;p.set(id,(typeof v==='boolean')?(v?'1':'0'):String(v));});}catch(e){}});if(own)own.forEach(function(v,k){p.set(k,v);});return p;}
+function clearAllDrafts(){DMD_DRAFT_KEYS.forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});}
+// Boite de dialogue de SORTIE (Reprendre DMD / Redemarrer) : s'il reste des reglages non enregistres, elle l'indique et propose Enregistrer / Quitter quand meme (+ Annuler pour rester). Rien ne s'affiche sinon.
+let _leaveBox=null;
+function saveAllNow(){if(typeof saveConfig==='function')return Promise.resolve(saveConfig());const f=(typeof queuedFetch==='function')?queuedFetch:fetch;return f('/save',{method:'POST',body:allBody(null),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(function(r){return r.text();}).then(function(x){if(x.includes('OK'))clearAllDrafts();}).catch(function(){});}
+function confirmLeave(proceed){
+  if(!anyDraft()){proceed(false);return;}
+  const T={fr:{m:"Des modifications ne sont pas enregistrées.",s:"Enregistrer",q:"Quitter quand même",c:"Annuler"},en:{m:"Some changes are not saved.",s:"Save",q:"Leave anyway",c:"Cancel"},es:{m:"Hay cambios sin guardar.",s:"Guardar",q:"Salir de todos modos",c:"Cancelar"}};
+  const L=T[document.documentElement.lang]||T.fr;
+  if(_leaveBox){_leaveBox.remove();_leaveBox=null;}
+  const ov=document.createElement('div');ov.style.cssText='position:fixed;left:0;top:0;right:0;bottom:0;z-index:100;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px';
+  const bx=document.createElement('div');bx.style.cssText='background:#1a1a2e;color:#fff;border:2px solid #ffd146;border-radius:10px;padding:18px 20px;max-width:420px;width:100%;text-align:center;font-size:15px';
+  const mt=document.createElement('div');mt.textContent=L.m;mt.style.cssText='margin-bottom:14px;font-weight:bold';bx.appendChild(mt);
+  const row=document.createElement('div');row.style.cssText='display:flex;gap:10px;justify-content:center;flex-wrap:wrap';
+  const close=function(){ov.remove();_leaveBox=null;};
+  const mk=function(txt,css,fn){const x=document.createElement('button');x.type='button';x.textContent=txt;x.style.cssText='cursor:pointer;border-radius:6px;padding:8px 14px;font-size:14px;'+css;x.onclick=fn;row.appendChild(x);return x;};
+  mk(L.s,'border:0;background:#ffd146;color:#1a1a2e;font-weight:bold',function(){close();saveAllNow().then(function(){if(!anyDraft())proceed(false);});});
+  mk(L.q,'border:1px solid #fff;background:transparent;color:#fff',function(){close();clearAllDrafts();if(typeof _formDirty!=='undefined')_formDirty=false;proceed(true);});
+  mk(L.c,'border:0;background:transparent;color:#aaa;text-decoration:underline',close);
+  bx.appendChild(row);ov.appendChild(bx);document.body.appendChild(ov);_leaveBox=ov;
+}
+function stripAccents(s){return s.normalize('NFD').replace(new RegExp('['+String.fromCharCode(768)+'-'+String.fromCharCode(879)+']','g'),'').replace(/[^ -~]/g,'?');}
+function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(txt),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}
+function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
+function serialize(){const p=new URLSearchParams({clock_theme:document.getElementById('clock_theme').value,clock_themes_mask:document.getElementById('clock_themes_mask').value});const n=CS[5]||{a:'',d:''};p.set('clock_neon_color_enabled',n.d?'1':'0');p.set('clock_neon_color',n.d||'#ff2878');for(let s=0;s<5;s++){const c=CS[10+s]||{a:'',d:''};p.set('clk_anim_'+s,c.a);p.set('clk_digit_'+s,c.d);}return p;}
+// Brouillon localStorage -- voir le commentaire complet sur la page BASIC
+// (correctif "reglages perdus si on change de page", 2026-08-05).
+const DRAFT_KEY='dmd_draft_clock';
+const DRAFT_FIELDS=['clock_theme','clock_themes_mask'];
+function loadDraft(){try{const raw=localStorage.getItem(DRAFT_KEY);return raw?JSON.parse(raw):null;}catch(e){return null;}}
+function saveDraft(){const o={};DRAFT_FIELDS.forEach(id=>{const el=document.getElementById(id);if(!el)return;o[id]=(el.type==='checkbox')?el.checked:el.value;});localStorage.setItem(DRAFT_KEY,JSON.stringify(o));}
+// v72 -- apercu en direct du theme horloge sur le DMD physique, immediat a
+// la selection (pas de bouton dedie). Independant du brouillon localStorage
+// ci-dessus et du bouton "Sauvegarder" -- affichage uniquement, /config.ini
+// n'est jamais touche par cet appel.
+// v80 -- themes admis au tirage « Aleatoire » : 10 cases (une par option 0..9 du
+// <select>, libelles repris tels quels donc deja traduits), valeur cumulee dans
+// le champ cache #clock_themes_mask (bit i = theme i). La derniere case cochee
+// ne peut pas etre decochee. Ligne visible seulement si Theme = Aleatoire.
+function clockMaskValue(){let m=0;document.querySelectorAll('#clockMaskBox input').forEach(c=>{if(c.checked)m|=(1<<Number(c.dataset.bit));});return m;}
+function syncClockMask(ev){
+  let m=clockMaskValue();
+  if(!m&&ev&&ev.target){ev.target.checked=true;m=clockMaskValue();}
+  document.getElementById('clock_themes_mask').value=String(m||32767);
+}
+function buildClockMask(mask){
+  const box=document.getElementById('clockMaskBox');
+  const sel=document.getElementById('clock_theme');
+  let m=Number(mask);if(m===16383)m=32767;if(!(m>0&&m<=32767))m=32767;
+  box.innerHTML='';
+  for(let i=0;i<15;i++){
+    const opt=sel.querySelector('option[value="'+i+'"]');
+    const lb=document.createElement('label');
+    lb.style.cssText='flex:0 0 auto;font-size:14px;display:flex;align-items:center;gap:8px;cursor:pointer';
+    const cb=document.createElement('input');
+    cb.type='checkbox';cb.dataset.bit=String(i);cb.checked=!!(m&(1<<i));
+    cb.style.cssText='flex:0 0 18px;width:18px;height:18px;min-width:0;margin:0;padding:0';
+    cb.addEventListener('input',syncClockMask);
+    const sp=document.createElement('span');sp.textContent=opt?opt.textContent:String(i);
+    lb.appendChild(cb);lb.appendChild(sp);box.appendChild(lb);
+  }
+  document.getElementById('clock_themes_mask').value=String(m);
+}
+function showClockMask(){document.getElementById('clockMaskRow').style.display=(document.getElementById('clock_theme').value==='-1')?'':'none';ccShow();}
+// Couleurs du theme previsualise : Neon = chiffres ; Plasma / Vie / Etoiles / Pluie = animation + chiffres. Meme etat serveur que la page Couleurs (/clock-color puis /load), applique en direct.
+const CD={5:{s:-1,a:null,d:'#ff2878'},10:{s:0,a:'#ff40a0',d:'#ffffff'},11:{s:1,a:'#00be3c',d:'#ffffff'},12:{s:2,a:'#ffffff',d:'#ffe678'},13:{s:3,a:'#00c828',d:'#c8ffc8'},14:{s:4,a:'#ff6e00',d:'#ffffff'}};let CS={};
+function ccLoad(d){const h=function(v){return(v&&v[0]==='#')?v:'';};CS[5]={a:'',d:d.clock_neon_color_enabled==='1'?h(d.clock_neon_color):''};for(let s=0;s<5;s++)CS[10+s]={a:h(d['clk_anim_'+s]),d:h(d['clk_digit_'+s])};}
+function ccShow(){const t=document.getElementById('clock_theme').value,c=CD[t],r=document.getElementById('clkColRow');if(!c||!CS[t]){r.style.display='none';return;}r.style.display='';document.getElementById('cc_aw').style.display=c.a===null?'none':'';document.getElementById('cc_a').value=CS[t].a||c.a||'#ffffff';document.getElementById('cc_d').value=CS[t].d||c.d;}
+let _ccT=0;function ccPush(){const t=document.getElementById('clock_theme').value,c=CD[t],s=CS[t];if(!c||!s)return;clearTimeout(_ccT);_ccT=setTimeout(function(){const b=new URLSearchParams(c.s<0?{n:s.d}:{slot:c.s,a:s.a,d:s.d});fetch('/clock-color',{method:'POST',body:b,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(function(){return fetch('/clock-preview',{method:'POST',body:'theme='+t,headers:{'Content-Type':'application/x-www-form-urlencoded'}});}).catch(function(){});_formDirty=true;},150);}
+function ccIn(){const t=document.getElementById('clock_theme').value,c=CD[t];if(!c)return;CS[t]={a:c.a===null?'':document.getElementById('cc_a').value,d:document.getElementById('cc_d').value};ccPush();}
+function hx(h,s,l){h=((h%360)+360)%360;s/=100;l/=100;const k=function(n){return(n+h/30)%12;},a=s*Math.min(l,1-l),f=function(n){const v=l-a*Math.max(-1,Math.min(k(n)-3,9-k(n),1));return('0'+Math.round(255*v).toString(16)).slice(-2);};return'#'+f(0)+f(8)+f(4);}
+function ccAuto(){const t=document.getElementById('clock_theme').value,c=CD[t];if(!c)return;const h=Math.random()*360;if(c.a===null)CS[t]={a:'',d:hx(h,100,58)};else{const dk=Math.random()<.5;CS[t]={a:hx(h,88,dk?30:42),d:hx(h+150+Math.random()*60,92,dk?88:84)};}ccShow();ccPush();}
+function ccRaz(){const t=document.getElementById('clock_theme').value;if(!CD[t])return;CS[t]={a:'',d:''};ccShow();ccPush();}
+document.addEventListener('DOMContentLoaded',function(){document.getElementById('cc_a').oninput=ccIn;document.getElementById('cc_d').oninput=ccIn;document.getElementById('cc_auto').onclick=ccAuto;document.getElementById('cc_raz').onclick=ccRaz;});
+function onClockThemeChanged(theme){
+  showClockMask();
+  // v73 -- BUG REEL corrige (demande utilisateur) : "Aleatoire" (-1)
+  // declenchait quand meme un apercu (un theme tire au sort etait affiche),
+  // alors qu'un seul theme previsualise n'a pas de sens pour un reglage qui
+  // doit justement varier a chaque rotation. La garde "!== '-1'" existait
+  // deja pour l'apercu AUTOMATIQUE a l'ouverture de page (v58) mais pas ici,
+  // dans le gestionnaire de selection MANUELLE -- desormais coherente aux
+  // deux endroits.
+  if(theme==='-1'){fetch('/clock-preview',{method:'POST',body:'theme=stop',headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});return;}   // v88 -- Aleatoire : ferme l'apercu en cours, retour a l'ecran de config
+  fetch('/clock-preview',{method:'POST',body:'theme='+encodeURIComponent(theme),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});
+}
+// Arret de l'apercu en quittant la page (Basic/Network/Media sont des pages
+// separees, pas des onglets JS -- un vrai dechargement de page a donc lieu
+// a chaque navigation). navigator.sendBeacon() (pas fetch) est le seul
+// moyen fiable d'envoyer une requete PENDANT le dechargement ; le Blob type
+// "application/x-www-form-urlencoded" est necessaire pour que
+// webServer->hasArg("theme") le reconnaisse cote firmware (un sendBeacon
+// avec une simple string finit en text/plain, non reconnu comme formulaire
+// par WebServer). Pas de filet de securite additionnel (choix utilisateur) :
+// si sendBeacon echoue (fermeture brutale du navigateur), l'apercu reste
+// affiche jusqu'au prochain evenement MQTT ou reboot.
+function stopClockPreview(){
+  try{navigator.sendBeacon('/clock-preview',new Blob(['theme=stop'],{type:'application/x-www-form-urlencoded'}));}catch(e){}
+}
+window.addEventListener('pagehide',stopClockPreview);
+window.addEventListener('beforeunload',stopClockPreview);
+function clearDraft(){localStorage.removeItem(DRAFT_KEY);}
+function checkEssentialFields(){return fetch('/load').then(r=>r.json()).then(d=>{const missing=[];if(!d.wifi_ssid)missing.push(tr('essential_wifi'));if(d.deco_bg!=='1'&&!d.playlist)missing.push(tr('essential_playlist'));if(d.deco_bg!=='1'&&!d.recalbox_ip)missing.push(tr('essential_ip'));if(!missing.length)return true;return confirm(tr('msg_essential_missing').replace('{fields}',missing.join(', ')));}).catch(()=>true);}
+function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:allBody(serialize()),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK')){_formDirty=false;clearAllDrafts();}}).catch(()=>showMsg(tr('msg_net_error'),false));}
+function doReboot(skipConfirm){checkEssentialFields().then(ok=>{if(!ok)return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;confirmLeave(function(){showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});});});}
+// skipConfirm=true (2026-07-29) : "Enreg. & Redemarrer" a deja un intitule
+// explicite -- redemander confirmation juste apres la sauvegarde est
+// redondant, contrairement au bouton "Redemarrer" seul.
+function saveAndReboot(){saveConfig().then(()=>setTimeout(()=>doReboot(true),400));}
+function dmdResume(){checkEssentialFields().then(ok=>{if(!ok)return;confirmLeave(function(discarded){fetch('/dmd-resume',{method:'POST'}).then(()=>{showMsgLocal(tr('msg_dmd_resumed'),true);if(discarded)setTimeout(()=>location.reload(),1200);}).catch(()=>showMsg(tr('msg_net_error'),false));});});}
+// Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29) : aucun
+// moyen fiable de distinguer une vraie fermeture d'onglet/navigateur d'un
+// simple rafraichissement de page (habitude trop ancree pour l'utilisateur,
+// faux positifs trop frequents -- ni le JS ni le serveur ne peuvent
+// distinguer les deux cas, une connexion qui se ferme se ressemble dans
+// tous les cas).
+// v64 -- BUG REEL corrige, voir le commentaire complet dans WEB_CONFIG_HTML
+// (page Affichage) -- meme fix duplique ici (gel reseau du DMD => fetch qui
+// ne resout ni ne rejette jamais, .catch() existant inutile dans ce cas).
+// C'est cette page precisement qui a revele le bug (champs Horloge vides,
+// clock_interval/clock_duration restes a 0 en config.ini faute d'avoir pu
+// etre corriges via un formulaire jamais rempli).
+function fetchTimeout(u,o,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);return fetch(u,Object.assign({},o,{signal:c.signal})).finally(()=>clearTimeout(t));}
+function fetchLoadRetry(){return fetchTimeout('/load',{},45000).catch(()=>fetchTimeout('/load',{},45000)).then(r=>r.json());}
+function loadConfig(){const draft=loadDraft();fetchLoadRetry().then(d=>{
+  // v113 -- BUG REEL corrige : une chaine VIDE laissee dans le brouillon
+  // (ex. un champ nombre momentanement vide pendant une frappe, sauvegarde
+  // par saveDraft() a CHAQUE evenement 'input') passait le test
+  // "!==undefined" et ecrasait donc silencieusement la vraie valeur
+  // sauvegardee cote serveur a chaque rechargement de page -- observe en
+  // reel sur clock_interval/clock_duration (champs vides a l'ouverture,
+  // PUIS ecrits a 0 dans config.ini par la sauvegarde suivante, symptome
+  // "les champs sont a zero apres F5"). Une chaine vide est desormais
+  // traitee comme "pas de brouillon pour ce champ" -- ne change rien pour
+  // les cases a cocher (false !== '').
+  const g=(k,dv)=>(draft&&draft[k]!==undefined&&draft[k]!=='')?draft[k]:dv;
+  document.getElementById('clock_theme').value=g('clock_theme',d.clock_theme||'0');
+  buildClockMask(g('clock_themes_mask',d.clock_themes_mask||'32767'));
+  showClockMask();
+  ccLoad(d);
+  if(draft)_formDirty=true; // reboot/reprise doivent quand meme avertir : la config.ini reelle n'a pas ce brouillon
+  // v58 -- demande utilisateur : preview immediat du theme deja
+  // preselectionne (config sauvegardee ou brouillon ci-dessus) a
+  // l'ouverture de la page, sans avoir a re-cliquer dessus -- SAUF si
+  // "Aleatoire" (-1) est preselectionne (rien de pertinent a previsualiser
+  // pour un tirage non encore effectue).
+  const initialTheme=document.getElementById('clock_theme').value;
+  if(initialTheme!=='-1') onClockThemeChanged(initialTheme);
+  
+}).catch(()=>showMsg(tr('msg_load_error'),false));}
+fetchTimeout('/lang',{},45000).then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}loadConfig();}).catch(()=>{applyLang();loadConfig();}).finally(hidePageLoadingOverlay);
+document.getElementById('clockForm').addEventListener('input',()=>{_formDirty=true;saveDraft();});
+</script>
+<script src="/native.js"></script>
+</body>
+</html>

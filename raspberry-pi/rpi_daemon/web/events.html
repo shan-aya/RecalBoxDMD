@@ -1,0 +1,126 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RecalBox DMD - Événements</title>
+<link rel="stylesheet" href="/cfg.css?h=42c26368">
+<link rel="icon" href="data:,">
+<script src="/cfg.js?h=813f74a2" onerror="try{if(!sessionStorage.cfgR){sessionStorage.cfgR=1;location.reload();}}catch(e){}"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
+.btn-row{display:flex;gap:10px;justify-content:center;margin:18px 0;flex-wrap:wrap}
+.btn{padding:12px 20px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
+.btn-resume{background:#2d6a4f;color:#fff}
+body{position:relative}
+#pageLoadingOverlay{position:fixed;inset:0;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px;font-weight:600;z-index:99999;text-align:center;padding:20px;gap:14px}
+#pageLoadingOverlay .pgspin{width:34px;height:34px;border:4px solid #333;border-top-color:#8ab4f8;border-radius:50%;animation:pgspin .8s linear infinite}
+@keyframes pgspin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="pageLoadingOverlay"><div class="pgspin"></div><div data-i18n="loading">Chargement en cours...</div></div>
+<select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<div class="topnav">
+<a href="/" onclick="showPageLoadingOverlay()" data-i18n="nav_home">&#x1F3E0; Accueil</a>
+<a href="/config/settings" onclick="showPageLoadingOverlay()" data-i18n="nav_settings">&#x2699; R&eacute;glages</a>
+<a href="/config/basic" onclick="showPageLoadingOverlay()" data-i18n="nav_basic">&#x1F4A1; Affichage</a>
+<a href="/config/playlist" onclick="showPageLoadingOverlay()" data-i18n="nav_playlist">&#x1F4BF; Playlist</a>
+<a href="/config/network" onclick="showPageLoadingOverlay()" data-i18n="nav_network">&#x1F4F6; Wi-Fi</a>
+<a href="/config/widgets" onclick="showPageLoadingOverlay()" data-i18n="nav_deco">&#x2728; Widgets &amp; Horloge</a>
+<a href="/config/media" onclick="showPageLoadingOverlay()" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
+<a href="/config/button" onclick="showPageLoadingOverlay()" data-i18n="nav_button">&#x1F518; Bouton</a>
+</div>
+<h1 data-i18n="h1">Événements</h1>
+<div class="section"><p style="font-size:14px;line-height:1.5" data-i18n="intro"></p>
+<div class="row"><label data-i18n="pre_lbl">Prédéfini</label><select id="pre"></select><button type="button" class="btn btn-del" style="margin-left:6px;padding:8px 12px" onclick="addPre()" data-i18n="pre_add">Ajouter</button></div>
+</div>
+<div class="section" id="evbox"></div>
+<div class="btn-row">
+<button type="button" class="btn btn-save" onclick="saveEv()" data-i18n="save">Enregistrer</button>
+<a class="btn btn-del" href="/config/widgets" onclick="showPageLoadingOverlay()" style="text-decoration:none" data-i18n="back">Retour</a>
+<button type="button" class="btn btn-resume" onclick="resumeDmd()" data-i18n="resume">Reprendre DMD</button>
+</div>
+<div id="msg" class="msg"></div>
+<script>
+const PAGE_I18N={
+fr:{title:'RecalBox DMD - Événements',h1:'Événements',intro:'Jusqu\'à 10 événements pour le compte à rebours : le DMD affiche celui qui arrive le plus tôt (« J-12 », « DEMAIN », « AUJOURD\'HUI »). « Chaque année » le répète à la même date (anniversaire, Noël…). Décochez « Actif » pour mettre un événement en veille sans l\'effacer. Un nom de plus de 14 caractères défile.',lbl_name:'Nom',lbl_date:'Date',lbl_yearly:'Chaque année',lbl_on:'Actif',ev_bad:'Événement n°{n} incomplet : il faut un nom ET une date complète (année entre 2000 et 2100). Rien n\'a été enregistré.',ph_name:'NOM (14 car. sans défilement)',pre_lbl:'Date prédéfinie',pre_add:'Ajouter',pre_full:'Aucune ligne libre : videz-en une.',grp_fr:'France',grp_en:'Royaume-Uni / États-Unis',grp_es:'Espagne',back:'Retour aux widgets',load_err:'Impossible de charger la config'},
+en:{title:'RecalBox DMD - Events',h1:'Events',intro:'Up to 10 events for the countdown: the DMD shows the soonest one (« 12 DAYS », « TOMORROW », « TODAY »). « Every year » repeats it on the same date (birthday, Christmas…). Untick « Active » to pause an event without deleting it. A name longer than 14 characters scrolls.',lbl_name:'Name',lbl_date:'Date',lbl_yearly:'Every year',lbl_on:'Active',ev_bad:'Event no. {n} is incomplete: it needs a name AND a full date (year between 2000 and 2100). Nothing was saved.',ph_name:'NAME (14 chars, no scrolling)',pre_lbl:'Preset date',pre_add:'Add',pre_full:'No free row: clear one.',grp_fr:'France',grp_en:'United Kingdom / USA',grp_es:'Spain',back:'Back to widgets',load_err:'Unable to load config'},
+es:{title:'RecalBox DMD - Eventos',h1:'Eventos',intro:'Hasta 10 eventos para la cuenta atrás: el DMD muestra el más próximo (« 12 DIAS », « MANANA », « HOY »). « Cada año » lo repite en la misma fecha (cumpleaños, Navidad…). Desmarque « Activo » para pausar un evento sin borrarlo. Un nombre de más de 14 caracteres se desplaza.',lbl_name:'Nombre',lbl_date:'Fecha',lbl_yearly:'Cada año',lbl_on:'Activo',ev_bad:'El evento n.º {n} está incompleto: necesita un nombre Y una fecha completa (año entre 2000 y 2100). No se guardó nada.',ph_name:'NOMBRE (14 car. sin desplazamiento)',pre_lbl:'Fecha predefinida',pre_add:'Añadir',pre_full:'Ninguna fila libre: vacíe una.',grp_fr:'Francia',grp_en:'Reino Unido / EE.UU.',grp_es:'España',back:'Volver a los widgets',load_err:'No se pudo cargar la configuración'}
+};
+const N=10;
+let currentLang='fr',E=[];
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
+function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
+function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||(window.CFG_I18N&&CFG_I18N[currentLang]&&CFG_I18N[currentLang][k])||PAGE_I18N.fr[k]||(window.CFG_I18N&&CFG_I18N.fr&&CFG_I18N.fr[k])||k;}
+function $(i){return document.getElementById(i);}
+function stripAccents(s){return s.normalize('NFD').replace(new RegExp('['+String.fromCharCode(768)+'-'+String.fromCharCode(879)+']','g'),'').replace(/[^ -~]/g,'?');}
+function msgLocal(t,ok){const el=$('msg');el.textContent=t;el.className='msg '+(ok?'ok':'err');el.style.display='block';clearTimeout(window._mt);window._mt=setTimeout(()=>{el.style.display='none';},4000);}
+function msg(t,ok){msgLocal(t,ok);fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(t),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}
+function build(){
+  const box=$('evbox');box.innerHTML='';
+  for(let i=0;i<N;i++){
+    const r=document.createElement('div');r.className='row';r.style.flexWrap='wrap';
+    const n=document.createElement('input');n.type='text';n.maxLength=40;n.placeholder=tr('ph_name');n.value=E[i].n;n.style.minWidth='140px';n.oninput=n.onchange=function(){E[i].n=n.value;};r.appendChild(n);
+    const d=document.createElement('input');d.type='date';d.value=E[i].d;d.style.cssText='margin-left:6px;min-width:140px';d.oninput=d.onchange=function(){E[i].d=d.value;};r.appendChild(d);
+    const l=document.createElement('label');l.style.cssText='flex:0 0 auto;margin-left:8px;display:inline-flex;align-items:center;gap:4px;color:#eee';
+    const c=document.createElement('input');c.type='checkbox';c.checked=E[i].y;c.style.cssText='flex:0 0 18px;width:18px;height:18px;min-width:0';c.onchange=function(){E[i].y=c.checked;};
+    l.appendChild(c);l.appendChild(document.createTextNode(tr('lbl_yearly')));r.appendChild(l);
+    const l2=document.createElement('label');l2.style.cssText=l.style.cssText.replace('margin-left:8px','margin-right:8px');   /* « Actif » a GAUCHE du champ nom */
+    const c2=document.createElement('input');c2.type='checkbox';c2.checked=E[i].a;c2.style.cssText=c.style.cssText;c2.onchange=function(){E[i].a=c2.checked;};
+    l2.appendChild(c2);l2.appendChild(document.createTextNode(tr('lbl_on')));r.insertBefore(l2,r.firstChild);
+    box.appendChild(r);
+  }
+}
+const PRESETS={"fr":[["JOUR DE L'AN",1,1],["SAINT-VALENTIN",2,14],["FETE TRAVAIL",5,1],["VICTOIRE 1945",5,8],["FETE MUSIQUE",6,21],["FETE NATIONALE",7,14],["ASSOMPTION",8,15],["HALLOWEEN",10,31],["TOUSSAINT",11,1],["ARMISTICE",11,11],["ST NICOLAS",12,6],["NOEL",12,25],["ST SYLVESTRE",12,31]],"en":[["NEW YEAR",1,1],["VALENTINES",2,14],["ST PATRICKS",3,17],["INDEPENDENCE",7,4],["HALLOWEEN",10,31],["BONFIRE NIGHT",11,5],["CHRISTMAS EVE",12,24],["CHRISTMAS",12,25],["BOXING DAY",12,26],["NEW YEARS EVE",12,31]],"es":[["ANO NUEVO",1,1],["REYES MAGOS",1,6],["SAN VALENTIN",2,14],["DIA TRABAJO",5,1],["ASUNCION",8,15],["HISPANIDAD",10,12],["TODOS SANTOS",11,1],["CONSTITUCION",12,6],["INMACULADA",12,8],["NOCHEBUENA",12,24],["NAVIDAD",12,25],["NOCHEVIEJA",12,31]]};
+function buildPre(){
+  const s=$('pre');s.innerHTML='';
+  [currentLang,'fr','en','es'].filter(function(g,i,a){return a.indexOf(g)===i;}).forEach(function(g){
+    const og=document.createElement('optgroup');og.label=tr('grp_'+g);
+    PRESETS[g].forEach(function(p,i){const o=document.createElement('option');o.value=g+':'+i;o.textContent=p[0]+' ('+(p[2]<10?'0':'')+p[2]+'/'+(p[1]<10?'0':'')+p[1]+')';og.appendChild(o);});
+    s.appendChild(og);
+  });
+}
+function addPre(){
+  const v=$('pre').value.split(':'),p=PRESETS[v[0]][Number(v[1])];
+  let i=0;while(i<N&&(E[i].n||E[i].d))i++;
+  if(i>=N){msgLocal(tr('pre_full'),false);return;}
+  const now=new Date(),y0=now.getFullYear();
+  let y=y0;const cand=new Date(y,p[1]-1,p[2]);const today=new Date(y0,now.getMonth(),now.getDate());if(cand<today)y=y0+1;
+  E[i]={n:p[0],d:y+'-'+(p[1]<10?'0':'')+p[1]+'-'+(p[2]<10?'0':'')+p[2],y:true,a:true};
+  build();
+}
+function render(){document.documentElement.lang=currentLang;document.title=tr('title');document.querySelectorAll('[data-i18n]').forEach(function(el){el.innerHTML=tr(el.dataset.i18n);});$('langSelect').value=currentLang;build();buildPre();}
+function applyLang(backend){
+  const s=localStorage.getItem('dmd_lang');
+  if(s&&PAGE_I18N[s])currentLang=s;else if(backend&&PAGE_I18N[backend])currentLang=backend;else{const n=(navigator.language||'').substring(0,2);currentLang=PAGE_I18N[n]?n:'fr';}
+  render();
+}
+function setLang(c){localStorage.setItem('dmd_lang',c);applyLang();fetch('/save-language',{method:'POST',body:'language='+c,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});}
+function evStr(e){const nm=stripAccents(e.n).toUpperCase().replace(/[|"\\]/g,' ').trim().substring(0,40);return (nm&&e.d)?(nm+'|'+e.d+'|'+(e.y?'1':'0')+'|'+(e.a?'1':'0')):'';}
+function evP(s){const p=String(s).split('|');return (p.length>=3)?{n:p[0]||'',d:p[1]||'',y:p[2]==='1',a:p[3]!=='0'}:{n:'',d:'',y:false,a:true};}
+var Ebase=[],_evLoaded=false;
+function evDraft(){if(!_evLoaded)return;const o={},del=[];E.forEach(function(e,i){const s=evStr(e),k='deco_ev_'+(i+1);if(s!==Ebase[i])o[k]=s;else del.push(k);});wdPatch(o,del);}   /* v352 : brouillon partage */
+['input','change','click'].forEach(function(ev){document.addEventListener(ev,function(){setTimeout(evDraft,0);});});
+function saveEv(){
+  for(let i=0;i<N;i++){const e=E[i],nm=(e.n||'').trim(),y=parseInt((e.d||'').substring(0,4),10);if((nm&&!e.d)||(!nm&&e.d)||(e.d&&!(y>=2000&&y<=2100))){const t=tr('ev_bad').replace('{n}',i+1);msgLocal(t,false);alert(t);return;}}   /* v353 : une ligne incomplete (nom sans date, date sans nom, annee hors 2000-2100) etait ignoree en silence */
+  msg(tr('saving'),true);
+  const p=new URLSearchParams();
+  E.forEach(function(e,i){p.set('deco_ev_'+(i+1),evStr(e));});
+  fetch('/save',{method:'POST',body:wdBodyAll(p),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(x=>{const ok=x.includes('OK');msg(ok?tr('saving'):x,ok);if(ok){wdClearAll();Ebase=E.map(evStr);}}).catch(()=>msgLocal(tr('save_err'),false));
+}
+function resumeDmd(){fetch('/dmd-resume',{method:'POST'}).then(()=>msgLocal(tr('resumed'),true)).catch(()=>msgLocal(tr('save_err'),false));}
+function fetchTimeout(u,o,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);return fetch(u,Object.assign({},o,{signal:c.signal})).finally(()=>clearTimeout(t));}
+function loadConfig(){return fetchTimeout('/load',{},45000).catch(()=>fetchTimeout('/load',{},45000)).then(r=>r.json()).then(d=>{
+  E=[];for(let i=1;i<=N;i++)E.push(evP(d['deco_ev_'+i]||''));
+  Ebase=E.map(evStr);const dr=wdGet();for(let i=1;i<=N;i++){const k='deco_ev_'+i;if(dr[k]!==undefined)E[i-1]=evP(dr[k]);}   /* v352 : saisies non enregistrees restaurees */
+  _evLoaded=true;build();
+}).catch(()=>msgLocal(tr('load_err'),false));}
+for(let i=0;i<N;i++)E.push({n:'',d:'',y:false,a:true});
+fetchTimeout('/lang',{},45000).then(r=>r.json()).then(d=>{applyLang(d.language);return loadConfig();}).catch(()=>{applyLang();return loadConfig();}).finally(hidePageLoadingOverlay);
+</script>
+<script src="/native.js"></script>
+</body>
+</html>

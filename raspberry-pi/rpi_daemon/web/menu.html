@@ -1,0 +1,106 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RecalBox DMD</title>
+<link rel="stylesheet" href="/cfg.css?h=42c26368">
+<link rel="icon" href="data:,">
+<script src="/cfg.js?h=813f74a2" onerror="try{if(!sessionStorage.cfgR){sessionStorage.cfgR=1;location.reload();}}catch(e){}"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
+.logo-wrap{text-align:center;margin:4px 0 10px}
+.logo-wrap img{max-width:100%;height:auto;border-radius:8px}
+.tagline{text-align:center;color:#aaa;font-size:13px;margin:0 0 14px}
+.menu{display:grid;gap:10px}
+.btn-row{display:flex;gap:10px;justify-content:center;margin:14px 0 4px;flex-wrap:wrap}
+.hbtn{padding:12px 20px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
+.btn{display:block;padding:12px 14px;border-radius:8px;background:#0f3460;color:#eee;font-weight:600;text-decoration:none;text-align:center}
+.btn:hover{background:#16478a}
+.small{font-size:12px;color:#9ca3af;margin-top:10px;text-align:center}
+h2{color:#8ab4f8;font-size:15px;margin:0 0 10px;border-left:3px solid #8ab4f8;padding-left:8px}
+body{position:relative}
+#pageLoadingOverlay{position:fixed;inset:0;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px;font-weight:600;z-index:99999;text-align:center;padding:20px;gap:14px}
+#pageLoadingOverlay .pgspin{width:34px;height:34px;border:4px solid #333;border-top-color:#8ab4f8;border-radius:50%;animation:pgspin .8s linear infinite}
+@keyframes pgspin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="pageLoadingOverlay"><div class="pgspin"></div><div data-i18n="loading_text">Chargement en cours...</div></div>
+<select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<span id="helpLink" onclick="showHelpModal()" data-i18n="help_link">Aide</span>
+<div id="helpBackdrop" class="help-backdrop" onclick="if(event.target===this)closeHelpModal()">
+<div class="help-box">
+<button class="help-close" onclick="closeHelpModal()">&times;</button>
+<h2 data-i18n="help_title">Bienvenue</h2>
+<p data-i18n="help_intro"></p>
+<h3 data-i18n="help_checklist_title"></h3>
+<ul>
+<li data-i18n="help_check_ip"></li>
+<li data-i18n="help_check_playlist"></li>
+<li data-i18n="help_check_wifi"></li>
+</ul>
+<p id="helpUrlReminder"></p>
+<h3 data-i18n="help_features_title"></h3>
+<ul>
+<li data-i18n="help_feat_playlists"></li>
+<li data-i18n="help_feat_clock"></li>
+<li data-i18n="help_feat_display"></li>
+<li data-i18n="help_feat_network"></li>
+</ul>
+</div>
+</div>
+<div class="logo-wrap"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQQAAAC4CAMAAAAyqWKCAAAAYFBMVEX///8U//n+/v77+/vr6+tw6Nz7lJ/9ixTNqaFwkZSUTlJXOy9EOjk6KSXpEBDmDQ17Dg45Hx45Dg4RUlQPKiodFhYZDxAKEREVBgULBgYFBAQCAwMBAQE4AAAAAAEAAAAgLdlgAAAQH0lEQVR42u2di3aiOhSGU2A0QGhF5RZief+3PPuSQECwdk5nIdW91rRgtWvy9d+X3IjoXtaJF4IXhBeEF4QXhBeEF4QXhBeEH4fw+YIAZvqL9mkhtLNAngmCMaf4zE03XZVtn8K3IbRta6r47cRiMCaWqe7aJ3SH89vb2RgWQhzLuNo4hW9C+DSn07k6gRA6pNB2WYwUim1TEN/MCdXb21sM3nCuOD4qGSugcN50XPiuEtrTKX5DA0WgGFKZdmdQQ7ZlCt+PCS14wxuSOEG721iqtgAIEBfM80CAv/75LT5XZ1QCxkUMCjKOm6fKDq2BuNjakiljAunZPFeKNB0mBywXEAIRaJ+uYkQIZ5cS24w00JrnK5v1+K41T6gEjI7jdhvwjudSgrlcasuia5JE5WXzdEo4fIAdLh1VzcmOLAEWz1MsGUMMwJBCDwEt227/4bt9hwOq4IIkaqybkl1S5ipNEoRgnkQJNTDA7xf8bjoNnkCv57td8SQQDDYeFaBREXBb7nYKUqRu1W7XPBOExoUG8AYQQO5iw7NkB4JwoSoBlaA7EECBSjAQG56nF6khImoXE3SX7nZcPSKEtnui7ADpgbODRi+AEiHNwC3Sp4FgKdg6YVQmqKeB0EIiIBkcagoBOqMSAa1onwJCP+FW12Y04dIUucrpDea3Q0AEhVKqwFCoTS8NvDVFBj+YTs/9OggggzKWkRAijGLsLMHIEhq0Wqs4CuEHkUw2Ogsj7h5ESJCACPCLkEOfsVX8Ov0gUpscZBJ3dh51DBqglgZBGCCGoqgarZWEV+wPQtBDvEUK4j5f0FKELAKyIES3QBPD60ACXt8iBXFfPAAGYmRBMP5OF47Cb4TQdrFjAJIfWo3mcQkthe0V0OIeBir0feHKkEwQJgXEhwBDxubGmMSdAYFbK6IEksQECN/G8NYqAmmEQrYbCwviDiEkzhlCobrBNXoGURxHItNQNhGt7TmE+Do7NhG7PoYA1bYqCMeRQMJSBRUq6FR2pJIgiBpjfhUE7YRALQclJH5OYHU0oIEo65qY8yVKQf8mCFAYR4HVP5QFAEFRdeB5gzJNA04SSRctwkC2v0UJLRoModk6MVJVVcEfWMM3FfVaAHfAnlUEGpAqi+2bwTno41uH4P6WHAhHRdCoeILGJzFWjpF27w4pV2xnnadYZqAkWsYih6Z6M46lnycD6kFGIjbYl8BbUEeGn43VNiiI5QqJ44AKub2UCSUsX4X1anJcK4ShLDody661URTey33LcBuDbmI5MULjoHmqr5i97DCulygEdDoCH8g4WEC0lPhpITeRK8WiEALSdTzURlAdh8q0UEOPi2goEguulKS0snGfC8JNLPMUS9UBNz5Sfv8xYCWE076DSChBBL1EAIJCl9lIxbDkDhj/gwAW5o1DoCwKOe07YPpMMmx0X0ti3oTSKcDvm1VC2xUhVwB60l8aFUrTfrRfSxviKKItLPIUC96gsAKGnsIEQiBEMNuZFpOhBQnVEv+ODUhhSQn0VyxhTiGaZoKFMYVpzxKUUERUNultQjDYdvbnJhK3xlOWhllEpB1J/fhZUixVSgFH9v8BgTPMFsaZxGKC5GGyawhYLlzZ1WBT1HCtsQl/EIsJUkQwx/T3SsDVO9o51QYh2AQZ44yjvgqMYTxjYRBcQ2B/iB5/RZdYGkyi5AbLkSYQQpHM/ZrJwCNAaBGCwmzy+ElSLCdILnPG0y5UAPB4iWduiHX0NtP1SXKDEGA/S+/Lk7knRDM3ctYaau4IQv9pSBRmcxC8BImTT0HoM1hIeLD9w6dgcwJnmeDh/UEs9SA5v1P97DFYbA9OU/lDboqVkIVbSJJz7mBsgqTrqh9svsWAcEXDJI3E9Ioz+ptIkuJGghx8I6B/4Av61gQFDkfSW4XzgD5JthuDAMtT/d4fTkmzxL/aEg0LeiR3pcLhwxRe1IP7g1hMkH3+g6FVuJcwqHSVGyeZsqO3wrjk8M5yC/4gFhJkNHqxyO7e4VPQKrbB6Jc9+Ap4MZsgodCLVeZZkd1rRVHQF7YMC+qHLxrF0hDrzf6RZ+Ft86qG7UDACVjBU8s/YkE/4rghCJQgg68FcK/Z7tRjJ0kxGxJ+2B49KIi/CAnftkcPCi8ILwgvCC8ILwgvCC8I/wQC9h1EeHsB+EsJvx8CrmFM4jBOEnmr2P7dEGjVZgHdo5mVTNuHMPQCg5nL/gpap3UWwTL/OAhn3k2/6PfHBFJC1rnR2N+kBN7phhb0V+Hci4GDkMy9B2Ze8OtGIUT9ICGsbS/KsiqLKpZwhS+VKsqqEgwupYVgGvqJlKX9nMJfIXHJ3wZWLs1DwNX7Ma3vDmmHgyzxHl6U/Aenr3TvlKD620ri6LwKYUE4jTzLx5+JW4AAG+Al+zMs5IVt4gTF4II+8nHIibB1HPZ7ySEmRBpvDc5PK2NgeTiuBu8KudmYEMFzEiTGe5g9ajU/dDGSsA6BIUS46ymO8U1x20J2aFuEwLcFfgbWMIoYJyCKeLMQpFudQauZae+CJL3zgzixMFAoAusOBTGxt22MrVchXKoEd89FG3WHCMQueflqDJc0qyIjd6XwCi7hC8zOKdgJ526ldFcx/wq4z6In7zuEW68Yp5MNc2Wk2yw/uuV32F/xFBXjqxf5gvCC8ILwgvAkEIKfhxBsUAk/bhtTAu7UED9uwbbWJ+BG8fjHTW1s9dq/+e+aza1y1z9u7euAvO51SuALwgvCC8ILwvdOSyB7KWFlRCtDgJqkyHOY6GvWFMP6SpD07Guc6Lt+CGLbVviYL5jbMp9fqWWrEIzuHwC+gwffNjMN4dP46By6pZOIPu8429fcdKs1IcCDCXaeyfGBKQZO4judmMFbrJeakO73CVre/v3TKlaEgA828yHskpEWWjyg1LerMymNrhud7NkOt0RwPIAdwepHg6DLZDc22e+q/vw0upfBm3OJ8TZtOGhkP1iSpulx6QmIh3drx8eCAFvqd7jawTZfoijksJMOHlrwNrXxmZSmqdP92A7XfXargvePdziL4P390DTaPBQEWvHBENyFOzQFTuGL//z587bsEKY77qeWpMfruPDx7hsey3CFQawXFQte3IQK4JUvIwjxG7xkKfyBy6kWdJHury2ZRo3DATUw5mAeRwmmgKUfPoTIgwCbk7HlVgt/eh5VD6nc7/EjrvVAkCDk5VQHHxMG7x+HQz0WzIru0OFKB246rmfgK/tE09bEDAbbPlyNIKAPScegv/ZPIQIdQPKEZg++wEQuj6EEOFENlz3ZpmeZg9C/QcVJbJsuSTGRD6F3JkkCkD6EwZqPDwmLzHYWwscO9JLgDeTLR4AA29J3KruCIJOcD5OpzvxThIBrXsIxBGNK60PY9J1dPyknEDSsuY56CEQklKyFg59H1oOQ7OgvLEfugKcI4QljcEytUokHwSrh3FcCn4o/RA3HdVTuund3eLKNFDbaYMM59Ej2j4eBsBulSOlOXGQIsQ+BhGLrZ/7f56niN1DDfSB+7OXQi39+aHjklttiungcCF6t6Gj0ECgecnagBXMuXbbca9rvFyDsa+8pB5kVkcQkkcQ2uDCE7uEg+GdvOgh/RnWCK5x6CGk6D2GfuGnP40G5H2BaSO3NpiB45hWPPQSqE2yKhJ0nA4S9lYL5eE8XIEBg1JuD4JmNCbY4cHXCLhyu97araA7vh0UI7+5Qs01CqAYIvuGa2wkE6DtCVuSEQIf/ggMRBCgVPqhiMusXS/8DAnx6v2wDBKiPuDSgUvGDNmVQhnRHAf92CIaU8I6jTtxoCwFfpNvHgSCTf6mEj7G5HsSjQUg+7WhzJv8NhL7jNDUYZTLrd6Uz6jVolfBoSrIblc3/C4Lp3WHZvKJx1ZElKXNY0JVj07UuFXlHMYLQX5y+AeG4GQg40IpTDaYtIXQVdvzdVf7VGScc4pODEPc0fhUE2lqlSjp4FGDgUFiewYmc/RgjjSm2RpMOzu0pnoWQp1uG0MBho6nKS93AWfWqgC5ygw8t+/RnXiqccDm5lhONqmVGqaVQmz4SHDcHwZQ59m5UDufPAoSsaOCFNM0at8brDKbZM+AC4gRpwRtvRgqHY6PTg+0xNPdAGFKF14cSqwUEajxvmMLvOd/nZUujxNUZldCazxYuHI1qeEpua1JuLjxamhretPqYcmdqgGBHFS/1DI8HgAAnEKM7sNnvMIeEksADaonB6QzN5gt4vqPGi8r7DXWNE/o8q5tQWvxkHfRnwh8O7gxsywM6DMbxWB9CW3oQsPEDBJQCuMCJKfD3U0+jcu5ijmme1/aI57rGgAqhNT0kpTecfsEGX2CY5XK85rE6BE0QmEKaWgr4FSBoFIJtvDOPBkfGushx8hFkY+oMYgnjgA3ctfbqsfpA7aYRFqwcL/CY7frCPA6rQ2gYQs8gVVYNAKEx1xA8Gtp6E34qP9ZNeczpou004kj92RfTi8SQbzCP+mMy3LwOhJYg9BRQEil7BULQ+haECmNGfSQI0Pjj0eGoS74qhwn+epiOZx48kwsztB/H1UeWtA+hN4ZQNHAE3y0I+EztHgJYanHkecZXpXah80IQCMqUR/O5MgSYVYeS+ZoCZkxYxVXdhgArUtAHbOOdZY4BigIzBZAiBsfjpdY1X18whpiGLtdWQts05RAURhDywkI4L0KAYmEGwmAAQXtCgPZeao+HfflSDzP0YpVuA7rDvBLugqDr2xDKhuVmW45N7i96HsdhguJxIZwXIeivIVDc8CAcr3GgFlaGAE9pwWdBz4QEOMOeIZwXITQEIZtnkAEEbN4CBA9HL4V1YgJDyOchoBKWpIAvVxVDyG9AgAB4B4TaPASEbEYIX0DAn0JyyZekkBMECJ4A4fIFBL0uBAwKUwrZdyAAhSxbgFBA8/Q9EGxZtUpM0JpyJEHIroTQQzgveEOFT3m6CQGkQBC+codGrxoYyR/GFDIfQvG3EDILARj0EPIlCPWKEIyDMFCgJ9bkxRjCeYYBQeh1NA8B+pJsRIBsAQL7w2oxgdphKVjzGFh/OF8z+A6EsnQMLAX/em0IfVAoKMhbBMSgh1BcURgYoD8sQMgcBHQHCp+9Hb1LW0zXvMh3PQgVU+j/mxaBZeCkcJ4wsBAqmx6yGQa4kaamoGAhZPmVOQj1ihBanwKRsN9hHxDYiMIw0jYwsGH1mkLGcfEGhGyQAiqB8oNYa+sTRYWBgmNAEJoxBN+Ygc2wVxSsV5XUvGbiDvhD9jsrhZUhUJK8olA6BssUKh8CSyGbMBhDKHwGSCFnChYCFFVmNQgUFZrKp1A6BrjNvpqnwC9raqDTeo8h6xmQN1jGEwheUChXhmCjAlHwzTFYgGAZWBUVA4U+yeZcbjGEuvSkQK6QTyHwHhCx4o7IZorBMsADKKsZDJWDoEct9AiMhODczY8JV0pYFQJKQVv/L71gAPKkUzh1NcVQDQwmFDxjt7IM7FuKfDZFUkXV6FWVAG21EEamae+fp4WpsVC4hVcUisIXgpPC8fgFhP8A7kK1Ey30vv0AAAAASUVORK5CYII=" alt="RecalBox"></div>
+<div class="tagline" data-i18n="tagline">Configuration DMD</div>
+<div class="section">
+<div class="menu">
+<a class="btn" href="/config/settings" onclick="showPageLoadingOverlay()" data-i18n="menu_settings">&#x2699; R&eacute;glages</a>
+<a class="btn" href="/config/basic" onclick="showPageLoadingOverlay()" data-i18n="menu_basic">&#x1F4A1; Affichage</a>
+<a class="btn" href="/config/playlist" onclick="showPageLoadingOverlay()" data-i18n="menu_playlist">&#x1F4BF; Playlist</a>
+<a class="btn" href="/config/network" onclick="showPageLoadingOverlay()" data-i18n="menu_network">&#x1F4F6; Wi-Fi</a>
+<a class="btn" href="/config/widgets" onclick="showPageLoadingOverlay()" data-i18n="menu_deco">&#x2728; Widgets &amp; Horloge</a>
+<a class="btn" href="/config/media" onclick="showPageLoadingOverlay()" data-i18n="menu_media">&#x1F4BF; M&eacute;dias</a>
+<a class="btn" href="/config/button" onclick="showPageLoadingOverlay()" data-i18n="menu_button">&#x1F518; Bouton</a>
+</div>
+<div class="small" data-i18n="small_hint">Page fractionn&eacute;e pour un chargement rapide et fiable sur ESP32.</div>
+<div class="btn-row">
+<button type="button" class="hbtn btn-save" onclick="cfgSaveReboot()" data-i18n="btn_save_reboot">&#x1F504; Enreg. &amp; Red&eacute;marrer</button>
+<button type="button" class="hbtn" style="background:#2d6a4f;color:#fff" onclick="cfgResume()" data-i18n="btn_resume">&#x25B6; Reprendre DMD</button>
+</div>
+<div id="msg" class="msg"></div>
+</div>
+<script>
+const HELP_I18N=window.CFG_HELP;
+const MENU_I18N={
+fr:{menu_settings:'&#x2699; Réglages',title:'RecalBox DMD',tagline:'Configuration DMD',menu_basic:'&#x1F4A1; Affichage',menu_playlist:'&#x1F4BF; Playlist',menu_network:'&#x1F4F6; Wi-Fi',menu_deco:'&#x2728; Widgets &amp; Horloge',menu_media:'&#x1F4BF; Médias',menu_button:'&#x1F518; Bouton',small_hint:'Page fractionnée pour un chargement rapide et fiable sur ESP32.',...HELP_I18N.fr},
+en:{menu_settings:'&#x2699; Settings',title:'RecalBox DMD',tagline:'DMD Configuration',menu_basic:'&#x1F4A1; Display',menu_playlist:'&#x1F4BF; Playlist',menu_network:'&#x1F4F6; Wi-Fi',menu_deco:'&#x2728; Widgets &amp; Clock',menu_media:'&#x1F4BF; Media',menu_button:'&#x1F518; Button',small_hint:'Split page for fast, reliable loading on ESP32.',...HELP_I18N.en},
+es:{menu_settings:'&#x2699; Ajustes',title:'RecalBox DMD',tagline:'Configuración DMD',menu_basic:'&#x1F4A1; Pantalla',menu_playlist:'&#x1F4BF; Playlist',menu_network:'&#x1F4F6; Wi-Fi',menu_deco:'&#x2728; Widgets y Reloj',menu_media:'&#x1F4BF; Medios',menu_button:'&#x1F518; Botón',small_hint:'Página dividida para una carga rápida y fiable en ESP32.',...HELP_I18N.es}
+};
+let currentLang='fr';
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
+function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
+function tr(k){return (MENU_I18N[currentLang]&&MENU_I18N[currentLang][k])||(window.CFG_I18N&&CFG_I18N[currentLang]&&CFG_I18N[currentLang][k])||MENU_I18N.fr[k]||(window.CFG_I18N&&CFG_I18N.fr&&CFG_I18N.fr[k])||k;}
+function applyLang(backendLang){
+  const stored=localStorage.getItem('dmd_lang');
+  if(stored&&MENU_I18N[stored]){currentLang=stored;}
+  else if(backendLang&&MENU_I18N[backendLang]){currentLang=backendLang;}
+  else{const nav=(navigator.language||'').substring(0,2);currentLang=MENU_I18N[nav]?nav:'fr';}
+  document.documentElement.lang=currentLang;
+  document.title=tr('title');
+  document.querySelectorAll('[data-i18n]').forEach(function(el){el.innerHTML=tr(el.dataset.i18n);});
+  document.getElementById('langSelect').value=currentLang;
+}
+function setLang(code){
+  localStorage.setItem('dmd_lang',code);
+  applyLang();
+  fetch('/save-language',{method:'POST',body:'language='+code,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});
+}
+function showMsgLocal(t,ok){var el=document.getElementById('msg');el.textContent=t;el.className='msg '+(ok?'ok':'err');el.style.display='block';setTimeout(function(){el.style.display='none';},5000);}
+// /load : lu par cfg.js au passage (version du firmware -> avis de mise a jour affiche en haut de CHAQUE page, accueil comprise)
+fetch('/lang').then(function(r){return r.json();}).then(function(d){applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}}).catch(function(){applyLang();}).then(function(){return fetch('/load');}).catch(function(){}).finally(hidePageLoadingOverlay);
+</script>
+<script src="/native.js"></script>
+</body>
+</html>

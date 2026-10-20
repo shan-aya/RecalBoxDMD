@@ -1,0 +1,126 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RecalBox DMD - Couleurs des horloges</title>
+<link rel="stylesheet" href="/cfg.css?h=42c26368">
+<link rel="icon" href="data:,">
+<script src="/cfg.js?h=813f74a2" onerror="try{if(!sessionStorage.cfgR){sessionStorage.cfgR=1;location.reload();}}catch(e){}"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
+.btn-row{display:flex;gap:10px;justify-content:center;margin:18px 0;flex-wrap:wrap}
+.btn{padding:12px 20px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
+.btn-resume{background:#2d6a4f;color:#fff}
+body{position:relative}
+#pageLoadingOverlay{position:fixed;inset:0;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px;font-weight:600;z-index:99999;text-align:center;padding:20px;gap:14px}
+#pageLoadingOverlay .pgspin{width:34px;height:34px;border:4px solid #333;border-top-color:#8ab4f8;border-radius:50%;animation:pgspin .8s linear infinite}
+@keyframes pgspin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="pageLoadingOverlay"><div class="pgspin"></div><div data-i18n="loading">Chargement en cours...</div></div>
+<select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<div class="topnav">
+<a href="/" onclick="showPageLoadingOverlay()" data-i18n="nav_home">&#x1F3E0; Accueil</a>
+<a href="/config/settings" onclick="showPageLoadingOverlay()" data-i18n="nav_settings">&#x2699; R&eacute;glages</a>
+<a href="/config/basic" onclick="showPageLoadingOverlay()" data-i18n="nav_basic">&#x1F4A1; Affichage</a>
+<a href="/config/playlist" onclick="showPageLoadingOverlay()" data-i18n="nav_playlist">&#x1F4BF; Playlist</a>
+<a href="/config/network" onclick="showPageLoadingOverlay()" data-i18n="nav_network">&#x1F4F6; Wi-Fi</a>
+<a href="/config/widgets" onclick="showPageLoadingOverlay()" data-i18n="nav_deco">&#x2728; Widgets &amp; Horloge</a>
+<a href="/config/media" onclick="showPageLoadingOverlay()" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
+<a href="/config/button" onclick="showPageLoadingOverlay()" data-i18n="nav_button">&#x1F518; Bouton</a>
+</div>
+<h1 data-i18n="h1">Couleurs des horloges</h1>
+<div class="section"><p style="font-size:14px;line-height:1.5" data-i18n="intro"></p></div>
+<div class="section" id="rows"></div>
+<div class="btn-row">
+<button type="button" class="btn btn-save" onclick="saveC()" data-i18n="save">Enregistrer</button>
+<a class="btn btn-del" href="/config/clock" onclick="showPageLoadingOverlay()" style="text-decoration:none" data-i18n="back">Retour</a>
+<button type="button" class="btn btn-resume" onclick="resumeDmd()" data-i18n="resume">Reprendre DMD</button>
+</div>
+<div id="msg" class="msg"></div>
+<script>
+const PAGE_I18N={
+fr:{title:'RecalBox DMD - Couleurs des horloges',h1:'Couleurs des horloges',intro:'Pour chaque thème : couleur de l\'animation de fond et couleur des chiffres. « Auto » garde les couleurs d\'origine. Le DMD affiche le thème en direct pendant que vous changez les couleurs ; « Enregistrer » les conserve.',th_theme:'Thème',th_anim:'Animation',th_digit:'Chiffres',auto:'Auto',prev:'Aperçu',na:'-',t5:'Néon (chiffres ; les deux-points prennent la couleur complémentaire)',t10:'Plasma',t11:'Vie',t12:'Étoiles',t13:'Pluie',t14:'Lava lamp (animation = cire)',back:'Retour à l\'horloge',load_err:'Impossible de charger la config'},
+en:{title:'RecalBox DMD - Clock colors',h1:'Clock colors',intro:'For each theme: background animation color and digit color. « Auto » keeps the original colors. The DMD shows the theme live while you change colors; « Save » keeps them.',th_theme:'Theme',th_anim:'Animation',th_digit:'Digits',auto:'Auto',prev:'Preview',na:'-',t5:'Neon (digits; the colon takes the complementary color)',t10:'Plasma',t11:'Life',t12:'Stars',t13:'Rain',t14:'Lava lamp (animation = wax)',back:'Back to the clock',load_err:'Unable to load config'},
+es:{title:'RecalBox DMD - Colores del reloj',h1:'Colores del reloj',intro:'Para cada tema: color de la animación de fondo y color de los dígitos. « Auto » conserva los colores originales. El DMD muestra el tema en directo mientras cambia los colores; « Guardar » los conserva.',th_theme:'Tema',th_anim:'Animación',th_digit:'Dígitos',auto:'Auto',prev:'Vista previa',na:'-',t5:'Neón (dígitos; los dos puntos toman el color complementario)',t10:'Plasma',t11:'Vida',t12:'Estrellas',t13:'Lluvia',t14:'Lava lamp (animación = cera)',back:'Volver al reloj',load_err:'No se pudo cargar la configuración'}
+};
+// id du theme, emplacement (slot 0..3 pour les themes ambiants, -1 = Neon), couleurs d'origine proposees dans les selecteurs
+const ROWS=[{id:5,slot:-1,a:null,d:'#ff2878'},{id:10,slot:0,a:'#ff40a0',d:'#ffffff'},{id:11,slot:1,a:'#00be3c',d:'#ffffff'},{id:12,slot:2,a:'#ffffff',d:'#ffe678'},{id:13,slot:3,a:'#00c828',d:'#c8ffc8'},{id:14,slot:4,a:'#ff6e00',d:'#ffffff'}];
+let currentLang='fr',S=[],loaded=false;
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
+function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
+function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||(window.CFG_I18N&&CFG_I18N[currentLang]&&CFG_I18N[currentLang][k])||PAGE_I18N.fr[k]||(window.CFG_I18N&&CFG_I18N.fr&&CFG_I18N.fr[k])||k;}
+function $(i){return document.getElementById(i);}
+function stripAccents(s){return s.normalize('NFD').replace(new RegExp('['+String.fromCharCode(768)+'-'+String.fromCharCode(879)+']','g'),'').replace(/[^ -~]/g,'?');}
+function msgLocal(t,ok){const el=$('msg');el.textContent=t;el.className='msg '+(ok?'ok':'err');el.style.display='block';clearTimeout(window._mt);window._mt=setTimeout(()=>{el.style.display='none';},4000);}
+function msg(t,ok){msgLocal(t,ok);fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(t),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}
+function post(u,p){return fetch(u,{method:'POST',body:new URLSearchParams(p),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});}
+function push(i){const r=ROWS[i],s=S[i];
+  if(r.slot<0)post('/clock-color',{n:s.dOn?s.d:''});
+  else post('/clock-color',{slot:r.slot,a:s.aOn?s.a:'',d:s.dOn?s.d:''});}
+function preview(i){post('/clock-preview',{theme:String(ROWS[i].id)});}
+function live(i){push(i);if(!S[i].shown){S[i].shown=true;S.forEach(function(x,k){if(k!==i)x.shown=false;});}
+  setTimeout(function(){preview(i);},120);}
+function build(){
+  const box=$('rows');box.innerHTML='';
+  ROWS.forEach(function(r,i){
+    const s=S[i];
+    const row=document.createElement('div');row.className='row';row.style.cssText='flex-wrap:wrap;gap:6px';
+    const nm=document.createElement('div');nm.style.cssText='flex:1 1 100%;font-size:14px;color:#ffd146';nm.textContent=tr('t'+r.id);row.appendChild(nm);
+    function pick(lbl,on,col,defC,setOn,setCol){
+      const wrap=document.createElement('label');wrap.style.cssText='display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;margin-right:12px;color:#eee';
+      const t=document.createElement('span');t.textContent=lbl;t.style.cssText='font-size:13px;color:#aaa;min-width:70px';wrap.appendChild(t);
+      const cb=document.createElement('input');cb.type='checkbox';cb.checked=!on;cb.style.cssText='flex:0 0 18px;width:18px;height:18px;min-width:0';
+      const ci=document.createElement('input');ci.type='color';ci.value=col||defC;ci.style.cssText='flex:0 0 46px;min-width:0;height:30px;padding:2px;opacity:'+(on?'1':'.45');
+      cb.onchange=function(){setOn(!cb.checked);ci.style.opacity=cb.checked?'.45':'1';live(i);};
+      const autoOff=function(){if(cb.checked){cb.checked=false;setOn(true);ci.style.opacity='1';}};   /* v352 : cliquer sur une couleur desactive le mode « Auto » */
+      ci.addEventListener('click',function(){autoOff();live(i);});
+      ci.oninput=function(){autoOff();setCol(ci.value);live(i);};
+      const au=document.createElement('span');au.textContent=tr('auto');au.style.cssText='font-size:12px;color:#aaa';
+      wrap.appendChild(cb);wrap.appendChild(au);wrap.appendChild(ci);return wrap;}
+    if(r.a!==null)row.appendChild(pick(tr('th_anim'),s.aOn,s.a,r.a,function(v){s.aOn=v;},function(v){s.a=v;}));
+    row.appendChild(pick(tr('th_digit'),s.dOn,s.d,r.d,function(v){s.dOn=v;},function(v){s.d=v;}));
+    const pv=document.createElement('button');pv.type='button';pv.className='btn btn-del';pv.style.cssText='padding:6px 12px;margin-left:auto';pv.textContent=tr('prev');pv.onclick=function(){push(i);preview(i);};row.appendChild(pv);
+    box.appendChild(row);
+  });
+}
+function render(){document.documentElement.lang=currentLang;document.title=tr('title');document.querySelectorAll('[data-i18n]').forEach(function(el){el.innerHTML=tr(el.dataset.i18n);});$('langSelect').value=currentLang;if(loaded)build();}
+function applyLang(backend){
+  const s=localStorage.getItem('dmd_lang');
+  if(s&&PAGE_I18N[s])currentLang=s;else if(backend&&PAGE_I18N[backend])currentLang=backend;else{const n=(navigator.language||'').substring(0,2);currentLang=PAGE_I18N[n]?n:'fr';}
+  render();
+}
+function setLang(c){localStorage.setItem('dmd_lang',c);applyLang();fetch('/save-language',{method:'POST',body:'language='+c,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});}
+function cMap(){const p=new URLSearchParams();ROWS.forEach(function(r,i){const s=S[i];
+    if(r.slot<0){p.set('clock_neon_color_enabled',s.dOn?'1':'0');p.set('clock_neon_color',s.d||r.d);}
+    else{p.set('clk_anim_'+r.slot,s.aOn?s.a:'');p.set('clk_digit_'+r.slot,s.dOn?s.d:'');}});return p;}
+var Cbase={},_cLoaded=false;
+function cDraft(){if(!_cLoaded)return;const o={},del=[];cMap().forEach(function(v,k){if(v!==Cbase[k])o[k]=v;else del.push(k);});wdPatch(o,del);}   /* v352 : brouillon partage */
+['input','change','click'].forEach(function(ev){document.addEventListener(ev,function(){setTimeout(cDraft,0);});});
+function saveC(){
+  msg(tr('saving'),true);
+  const p=cMap();
+  fetch('/save',{method:'POST',body:wdBodyAll(p),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(x=>{const ok=x.includes('OK');msg(ok?tr('saving'):x,ok);if(ok)wdClearAll();}).catch(()=>msgLocal(tr('save_err'),false));
+}
+function resumeDmd(){fetch('/dmd-resume',{method:'POST'}).then(()=>msgLocal(tr('resumed'),true)).catch(()=>msgLocal(tr('save_err'),false));}
+function stopPrev(){try{navigator.sendBeacon('/clock-preview',new Blob(['theme=stop'],{type:'application/x-www-form-urlencoded'}));}catch(e){}}
+window.addEventListener('pagehide',stopPrev);
+function fetchTimeout(u,o,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);return fetch(u,Object.assign({},o,{signal:c.signal})).finally(()=>clearTimeout(t));}
+function loadConfig(){return fetchTimeout('/load',{},45000).catch(()=>fetchTimeout('/load',{},45000)).then(r=>r.json()).then(d=>{
+  S=ROWS.map(function(r){
+    if(r.slot<0)return{aOn:false,a:'',dOn:d.clock_neon_color_enabled==='1',d:(d.clock_neon_color&&d.clock_neon_color[0]==='#')?d.clock_neon_color:r.d};
+    const a=d['clk_anim_'+r.slot]||'',g=d['clk_digit_'+r.slot]||'';
+    return{aOn:a!=='',a:a||r.a||'#ffffff',dOn:g!=='',d:g||r.d};});
+  Cbase={};cMap().forEach(function(v,k){Cbase[k]=v;});const dr=wdGet();   /* v352 : saisies non enregistrees restaurees */
+  ROWS.forEach(function(r,i){const s=S[i];if(r.slot<0){if(dr.clock_neon_color_enabled!==undefined)s.dOn=dr.clock_neon_color_enabled==='1';if(dr.clock_neon_color)s.d=dr.clock_neon_color;}else{const a=dr['clk_anim_'+r.slot],g=dr['clk_digit_'+r.slot];if(a!==undefined){s.aOn=a!=='';if(a)s.a=a;}if(g!==undefined){s.dOn=g!=='';if(g)s.d=g;}}});
+  _cLoaded=true;loaded=true;build();
+}).catch(()=>msgLocal(tr('load_err'),false));}
+fetchTimeout('/lang',{},45000).then(r=>r.json()).then(d=>{applyLang(d.language);return loadConfig();}).catch(()=>{applyLang();return loadConfig();}).finally(hidePageLoadingOverlay);
+</script>
+<script src="/native.js"></script>
+</body>
+</html>

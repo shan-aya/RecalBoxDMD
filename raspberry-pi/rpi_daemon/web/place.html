@@ -1,0 +1,116 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RecalBox DMD - Lieu</title>
+<link rel="stylesheet" href="/cfg.css?h=42c26368">
+<link rel="icon" href="data:,">
+<script src="/cfg.js?h=813f74a2" onerror="try{if(!sessionStorage.cfgR){sessionStorage.cfgR=1;location.reload();}}catch(e){}"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
+.btn-row{display:flex;gap:10px;justify-content:center;margin:18px 0;flex-wrap:wrap}
+.btn{padding:12px 20px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
+.btn-resume{background:#2d6a4f;color:#fff}
+body{position:relative}
+#pageLoadingOverlay{position:fixed;inset:0;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px;font-weight:600;z-index:99999;text-align:center;padding:20px;gap:14px}
+#pageLoadingOverlay .pgspin{width:34px;height:34px;border:4px solid #333;border-top-color:#8ab4f8;border-radius:50%;animation:pgspin .8s linear infinite}
+@keyframes pgspin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="pageLoadingOverlay"><div class="pgspin"></div><div data-i18n="loading">Chargement en cours...</div></div>
+<select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<div class="topnav">
+<a href="/" onclick="showPageLoadingOverlay()" data-i18n="nav_home">&#x1F3E0; Accueil</a>
+<a href="/config/settings" onclick="showPageLoadingOverlay()" data-i18n="nav_settings">&#x2699; R&eacute;glages</a>
+<a href="/config/basic" onclick="showPageLoadingOverlay()" data-i18n="nav_basic">&#x1F4A1; Affichage</a>
+<a href="/config/playlist" onclick="showPageLoadingOverlay()" data-i18n="nav_playlist">&#x1F4BF; Playlist</a>
+<a href="/config/network" onclick="showPageLoadingOverlay()" data-i18n="nav_network">&#x1F4F6; Wi-Fi</a>
+<a href="/config/widgets" onclick="showPageLoadingOverlay()" data-i18n="nav_deco">&#x2728; Widgets &amp; Horloge</a>
+<a href="/config/media" onclick="showPageLoadingOverlay()" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
+<a href="/config/button" onclick="showPageLoadingOverlay()" data-i18n="nav_button">&#x1F518; Bouton</a>
+</div>
+<h1 data-i18n="h1">Lieu</h1>
+<div class="section">
+<p style="font-size:14px;line-height:1.5" data-i18n="intro"></p>
+<div class="row"><input id="q" type="text" style="min-width:160px" onkeydown="if(event.key==='Enter'){event.preventDefault();doSearch();}"><button type="button" class="btn btn-del" style="margin-left:6px;padding:8px 12px" onclick="doSearch()" data-i18n="search">Rechercher</button></div>
+<div id="res"></div>
+</div>
+<div class="section">
+<div class="row"><label for="deco_place" data-i18n="lbl_place">Nom</label><input id="deco_place" type="text" maxlength="24"></div>
+<div class="row"><label for="deco_lat" data-i18n="lbl_lat">Latitude</label><input id="deco_lat" type="number" step="0.0001" min="-90" max="90"></div>
+<div class="row"><label for="deco_lon" data-i18n="lbl_lon">Longitude</label><input id="deco_lon" type="number" step="0.0001" min="-180" max="180"></div>
+<div class="row"><label for="clock_tz" data-i18n="lbl_tz">Fuseau horaire</label><select id="clock_tz"></select><div class="hint" data-i18n="hint_tz"></div></div>
+</div>
+<div class="btn-row">
+<button type="button" class="btn btn-save" onclick="savePlace()" data-i18n="save">Enregistrer</button>
+<a class="btn btn-del" href="/config/widgets" onclick="showPageLoadingOverlay()" style="text-decoration:none" data-i18n="back">Retour</a>
+<button type="button" class="btn btn-resume" onclick="resumeDmd()" data-i18n="resume">Reprendre DMD</button>
+</div>
+<div id="msg" class="msg"></div>
+<script>
+const PAGE_I18N={
+fr:{title:'RecalBox DMD - Lieu',h1:'Lieu',intro:'Position utilisée par l\'éphéméride (lever et coucher du soleil, lune). Cherchez une ville ou un code postal : la recherche est faite par votre navigateur (Internet requis) ; le DMD ne garde que le nom, la latitude et la longitude.',q_ph:'Ville ou code postal',search:'Rechercher',none:'Aucun résultat',offline:'Recherche impossible (Internet ?)',lbl_place:'Nom affiché',lbl_lat:'Latitude',lbl_lon:'Longitude',lbl_tz:'Fuseau horaire',hint_tz:'Utilisé aussi par l\'horloge et la date.',tz_unknown:'Fuseau non reconnu : vérifiez la liste.',back:'Retour aux widgets',load_err:'Impossible de charger la config'},
+en:{title:'RecalBox DMD - Place',h1:'Place',intro:'Position used by the ephemeris (sunrise, sunset, moon). Search a city or postal code: the search is made by your browser (Internet required); the DMD only keeps the name, latitude and longitude.',q_ph:'City or postal code',search:'Search',none:'No result',offline:'Search impossible (Internet?)',lbl_place:'Displayed name',lbl_lat:'Latitude',lbl_lon:'Longitude',lbl_tz:'Time zone',hint_tz:'Also used by the clock and the date.',tz_unknown:'Time zone not recognized: check the list.',back:'Back to widgets',load_err:'Unable to load config'},
+es:{title:'RecalBox DMD - Lugar',h1:'Lugar',intro:'Posición usada por las efemérides (amanecer, atardecer, luna). Busque una ciudad o un código postal: la búsqueda la hace su navegador (requiere Internet); el DMD solo guarda el nombre, la latitud y la longitud.',q_ph:'Ciudad o código postal',search:'Buscar',none:'Sin resultados',offline:'Búsqueda imposible (¿Internet?)',lbl_place:'Nombre mostrado',lbl_lat:'Latitud',lbl_lon:'Longitud',lbl_tz:'Zona horaria',hint_tz:'También la usan el reloj y la fecha.',tz_unknown:'Zona horaria no reconocida: compruebe la lista.',back:'Volver a los widgets',load_err:'No se pudo cargar la configuración'}
+};
+const TZS=[['CET-1CEST,M3.5.0,M10.5.0/3', 'France / Espagne / Allemagne / Italie', 'France / Spain / Germany / Italy', 'Francia / España / Alemania / Italia'], ['GMT0BST,M3.5.0/1,M10.5.0', 'Angleterre (UK) / Portugal', 'England (UK) / Portugal', 'Inglaterra (UK) / Portugal'], ['EET-2EEST,M3.5.0/3,M10.5.0/4', 'Grèce / Roumanie / Finlande', 'Greece / Romania / Finland', 'Grecia / Rumanía / Finlandia'], ['EST5EDT,M3.2.0,M11.1.0', 'USA - Est (New York)', 'USA - East (New York)', 'EE.UU. - Este (Nueva York)'], ['CST6CDT,M3.2.0,M11.1.0', 'USA - Centre (Chicago)', 'USA - Central (Chicago)', 'EE.UU. - Centro (Chicago)'], ['MST7MDT,M3.2.0,M11.1.0', 'USA - Montagnes (Denver)', 'USA - Mountain (Denver)', 'EE.UU. - Montañas (Denver)'], ['PST8PDT,M3.2.0,M11.1.0', 'USA - Pacifique (Los Angeles)', 'USA - Pacific (Los Angeles)', 'EE.UU. - Pacífico (Los Ángeles)'], ['UTC5', 'UTC-5', 'UTC-5', 'UTC-5'], ['UTC4', 'UTC-4', 'UTC-4', 'UTC-4'], ['UTC3', 'UTC-3', 'UTC-3', 'UTC-3'], ['UTC2', 'UTC-2', 'UTC-2', 'UTC-2'], ['UTC1', 'UTC-1', 'UTC-1', 'UTC-1'], ['UTC0', 'UTC+0', 'UTC+0', 'UTC+0'], ['UTC-1', 'UTC+1', 'UTC+1', 'UTC+1'], ['UTC-2', 'UTC+2', 'UTC+2', 'UTC+2'], ['UTC-3', 'UTC+3', 'UTC+3', 'UTC+3'], ['UTC-4', 'UTC+4', 'UTC+4', 'UTC+4'], ['UTC-5', 'UTC+5', 'UTC+5', 'UTC+5']];
+const TZMAP={'Europe/Paris':0,'Europe/Berlin':0,'Europe/Madrid':0,'Europe/Rome':0,'Europe/Brussels':0,'Europe/Amsterdam':0,'Europe/Zurich':0,'Europe/Vienna':0,'Europe/Luxembourg':0,'Europe/Monaco':0,'Europe/Prague':0,'Europe/Warsaw':0,'Europe/Stockholm':0,'Europe/Oslo':0,'Europe/Copenhagen':0,'Europe/London':1,'Europe/Lisbon':1,'Europe/Dublin':1,'Europe/Athens':2,'Europe/Bucharest':2,'Europe/Helsinki':2,'America/New_York':3,'America/Toronto':3,'America/Chicago':4,'America/Denver':5,'America/Los_Angeles':6};
+let currentLang='fr';
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
+function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
+function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||(window.CFG_I18N&&CFG_I18N[currentLang]&&CFG_I18N[currentLang][k])||PAGE_I18N.fr[k]||(window.CFG_I18N&&CFG_I18N.fr&&CFG_I18N.fr[k])||k;}
+function $(i){return document.getElementById(i);}
+function stripAccents(s){return s.normalize('NFD').replace(new RegExp('['+String.fromCharCode(768)+'-'+String.fromCharCode(879)+']','g'),'').replace(/[^ -~]/g,'?');}
+function msgLocal(t,ok){const el=$('msg');el.textContent=t;el.className='msg '+(ok?'ok':'err');el.style.display='block';clearTimeout(window._mt);window._mt=setTimeout(()=>{el.style.display='none';},4000);}
+function msg(t,ok){msgLocal(t,ok);fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(t),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}
+function buildTz(){const s=$('clock_tz'),prev=s.value;s.innerHTML='';const li={fr:1,en:2,es:3}[currentLang]||1;TZS.forEach(function(z){const o=document.createElement('option');o.value=z[0];o.textContent=z[li];s.appendChild(o);});if(prev)s.value=prev;}
+function render(){
+  document.documentElement.lang=currentLang;document.title=tr('title');
+  document.querySelectorAll('[data-i18n]').forEach(function(el){el.innerHTML=tr(el.dataset.i18n);});
+  $('langSelect').value=currentLang;$('q').placeholder=tr('q_ph');buildTz();
+}
+function applyLang(backend){
+  const s=localStorage.getItem('dmd_lang');
+  if(s&&PAGE_I18N[s])currentLang=s;else if(backend&&PAGE_I18N[backend])currentLang=backend;else{const n=(navigator.language||'').substring(0,2);currentLang=PAGE_I18N[n]?n:'fr';}
+  render();
+}
+function setLang(c){localStorage.setItem('dmd_lang',c);applyLang();fetch('/save-language',{method:'POST',body:'language='+c,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});}
+function pick(r){
+  $('deco_place').value=stripAccents(r.name).toUpperCase().substring(0,24);
+  $('deco_lat').value=Number(r.latitude).toFixed(4);$('deco_lon').value=Number(r.longitude).toFixed(4);
+  const k=TZMAP[r.timezone];
+  if(k!==undefined)$('clock_tz').value=TZS[k][0];else msgLocal(tr('tz_unknown'),false);
+  $('res').innerHTML='';placeDraft();
+}
+var PK=['deco_place','deco_lat','deco_lon','clock_tz'];
+function placeDraft(){const o={};PK.forEach(function(k){o[k]=$(k).value;});wdPatch(o);}   /* v352 : brouillon partage */
+['input','change'].forEach(function(ev){document.addEventListener(ev,function(e){if(e.target&&PK.indexOf(e.target.id)>=0)placeDraft();});});
+function doSearch(){
+  const q=$('q').value.trim();if(!q)return;const res=$('res');res.innerHTML='';
+  fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(q)+'&count=8&language='+currentLang+'&format=json').then(r=>r.json()).then(function(d){
+    const L=d.results||[];if(!L.length){res.textContent=tr('none');return;}
+    L.forEach(function(r){const b=document.createElement('button');b.type='button';b.className='btn btn-del';b.style.cssText='display:block;width:100%;text-align:left;margin:4px 0;padding:8px 10px;font-weight:normal';
+      b.textContent=r.name+(r.admin1?', '+r.admin1:'')+' ('+(r.country_code||'')+')'+((r.postcodes&&r.postcodes.length)?' '+r.postcodes[0]:'');b.onclick=function(){pick(r);};res.appendChild(b);});
+  }).catch(function(){res.textContent=tr('offline');});
+}
+function savePlace(){
+  msg(tr('saving'),true);
+  const p=new URLSearchParams({deco_place:$('deco_place').value,deco_lat:$('deco_lat').value,deco_lon:$('deco_lon').value,clock_tz:$('clock_tz').value});
+  fetch('/save',{method:'POST',body:wdBodyAll(p),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(x=>{const ok=x.includes('OK');msg(ok?tr('saving'):x,ok);if(ok)wdClearAll();}).catch(()=>msgLocal(tr('save_err'),false));
+}
+function resumeDmd(){fetch('/dmd-resume',{method:'POST'}).then(()=>msgLocal(tr('resumed'),true)).catch(()=>msgLocal(tr('save_err'),false));}
+function fetchTimeout(u,o,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);return fetch(u,Object.assign({},o,{signal:c.signal})).finally(()=>clearTimeout(t));}
+function loadConfig(){return fetchTimeout('/load',{},45000).catch(()=>fetchTimeout('/load',{},45000)).then(r=>r.json()).then(d=>{
+  $('deco_place').value=d.deco_place||'';$('deco_lat').value=d.deco_lat||'';$('deco_lon').value=d.deco_lon||'';
+  if(d.clock_tz)$('clock_tz').value=d.clock_tz;
+  const dr=wdGet();PK.forEach(function(k){if(dr[k]!==undefined&&dr[k]!=='')$(k).value=dr[k];});   /* v352 : saisies non enregistrees restaurees */
+}).catch(()=>msgLocal(tr('load_err'),false));}
+fetchTimeout('/lang',{},45000).then(r=>r.json()).then(d=>{applyLang(d.language);return loadConfig();}).catch(()=>{applyLang();return loadConfig();}).finally(hidePageLoadingOverlay);
+</script>
+<script src="/native.js"></script>
+</body>
+</html>

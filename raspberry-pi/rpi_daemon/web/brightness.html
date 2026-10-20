@@ -1,0 +1,191 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RecalBox DMD - Luminosit&eacute;</title>
+<link rel="stylesheet" href="/cfg.css?h=42c26368">
+<link rel="icon" href="data:,">
+<script src="/cfg.js?h=813f74a2" onerror="try{if(!sessionStorage.cfgR){sessionStorage.cfgR=1;location.reload();}}catch(e){}"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
+.btn-row{display:flex;gap:10px;justify-content:center;margin:18px 0;flex-wrap:wrap}
+.btn{padding:12px 20px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
+.btn-resume{background:#2d6a4f;color:#fff}
+body{position:relative}
+#pageLoadingOverlay{position:fixed;inset:0;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px;font-weight:600;z-index:99999;text-align:center;padding:20px;gap:14px}
+#pageLoadingOverlay .pgspin{width:34px;height:34px;border:4px solid #333;border-top-color:#8ab4f8;border-radius:50%;animation:pgspin .8s linear infinite}
+@keyframes pgspin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="pageLoadingOverlay"><div class="pgspin"></div><div data-i18n="loading_text">Chargement en cours...</div></div>
+<select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<span id="helpLink" onclick="showHelpModal()" data-i18n="help_link">Aide</span>
+<div id="helpBackdrop" class="help-backdrop" onclick="if(event.target===this)closeHelpModal()">
+<div class="help-box">
+<button class="help-close" onclick="closeHelpModal()">&times;</button>
+<h2 data-i18n="help_title">Bienvenue</h2>
+<p data-i18n="help_intro"></p>
+<h3 data-i18n="help_checklist_title"></h3>
+<ul>
+<li data-i18n="help_check_ip"></li>
+<li data-i18n="help_check_playlist"></li>
+<li data-i18n="help_check_wifi"></li>
+</ul>
+<p id="helpUrlReminder"></p>
+<h3 data-i18n="help_features_title"></h3>
+<ul>
+<li data-i18n="help_feat_playlists"></li>
+<li data-i18n="help_feat_clock"></li>
+<li data-i18n="help_feat_display"></li>
+<li data-i18n="help_feat_network"></li>
+</ul>
+</div>
+</div>
+<div class="topnav">
+<a href="/" onclick="showPageLoadingOverlay()" data-i18n="nav_home">&#x1F3E0; Accueil</a>
+<a href="/config/settings" onclick="showPageLoadingOverlay()" data-i18n="nav_settings">&#x2699; R&eacute;glages</a>
+<a href="/config/basic" onclick="showPageLoadingOverlay()" data-i18n="nav_basic">&#x1F4A1; Affichage</a>
+<a href="/config/playlist" onclick="showPageLoadingOverlay()" data-i18n="nav_playlist">&#x1F4BF; Playlist</a>
+<a href="/config/network" onclick="showPageLoadingOverlay()" data-i18n="nav_network">&#x1F4F6; Wi-Fi</a>
+<a href="/config/widgets" onclick="showPageLoadingOverlay()" data-i18n="nav_deco">&#x2728; Widgets &amp; Horloge</a>
+<a href="/config/media" onclick="showPageLoadingOverlay()" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
+<a href="/config/button" onclick="showPageLoadingOverlay()" data-i18n="nav_button">&#x1F518; Bouton</a>
+</div>
+<h1 data-i18n="h1">Planificateur de luminosit&eacute;</h1>
+<div class="hint" data-i18n="intro" style="margin:8px 0"></div>
+<form id="bsForm" onsubmit="saveConfig(event)">
+<div class="section">
+<div id="bsRows"></div>
+<div id="bsEmpty" class="hint" data-i18n="empty" style="margin:8px 0"></div>
+<div class="btn-row"><button type="button" class="btn btn-resume" id="bsAdd" onclick="addSlot()" data-i18n="add">+ Ajouter une plage</button></div>
+<div id="bsState" class="hint"></div>
+</div>
+<div class="btn-row">
+<button type="submit" class="btn btn-save" data-i18n="btn_save">&#x1F4BE; Enregistrer</button>
+<a class="btn btn-del" href="/config/settings" onclick="showPageLoadingOverlay()" data-i18n="back" style="text-decoration:none">&larr; R&eacute;glages</a>
+<button type="button" class="btn btn-resume" onclick="dmdResume()" data-i18n="btn_resume">&#x25B6; Reprendre DMD</button>
+</div>
+</form>
+<div id="msg" class="msg"></div>
+<script>
+const HELP_I18N=window.CFG_HELP;
+const PAGE_I18N={
+fr:{title:'RecalBox DMD - Luminosité',h1:'Planificateur de luminosité',intro:'Chaque plage s\'applique à partir de son heure, jusqu\'à la plage suivante (la dernière court jusqu\'à la première du lendemain). 0 % éteint l\'écran. L\'heure est celle du fuseau réglé dans Horloge. Un réglage manuel de la luminosité reste valable jusqu\'à la plage suivante.',empty:'Aucune plage : la luminosité reste celle de la page Réglages.',add:'+ Ajouter une plage',back:'← Réglages',on:'Planificateur activé.',off:'Planificateur désactivé : cochez « Activer » dans Réglages.',max:'24 plages au maximum.',dup:'Deux plages ont la même heure.',off0:'éteint',...HELP_I18N.fr},
+en:{title:'RecalBox DMD - Brightness',h1:'Brightness scheduler',intro:'Each slot applies from its time until the next slot (the last one runs until the first of the next day). 0 % turns the screen off. Time uses the timezone set in Clock. A manual brightness change stays until the next slot.',empty:'No slot: brightness stays as set in Settings.',add:'+ Add a slot',back:'← Settings',on:'Scheduler enabled.',off:'Scheduler disabled: tick “Enable” in Settings.',max:'24 slots maximum.',dup:'Two slots have the same time.',off0:'off',...HELP_I18N.en},
+es:{title:'RecalBox DMD - Brillo',h1:'Programador de brillo',intro:'Cada tramo se aplica desde su hora hasta el siguiente (el último dura hasta el primero del día siguiente). 0 % apaga la pantalla. La hora usa la zona horaria de Reloj. Un cambio manual de brillo dura hasta el siguiente tramo.',empty:'Ningún tramo: el brillo es el de Ajustes.',add:'+ Añadir un tramo',back:'← Ajustes',on:'Programador activado.',off:'Programador desactivado: marque « Activar » en Ajustes.',max:'24 tramos como máximo.',dup:'Dos tramos tienen la misma hora.',off0:'apagado',...HELP_I18N.es}
+};
+
+let currentLang='fr';
+// Overlay "Chargement en cours..." (2026-08-05, demande utilisateur :
+// ~3s d'attente sur mobile avant affichage, impression de plantage/envie
+// de F5). Present des le tout premier octet du <body> (avant tout script)
+// donc visible des que le navigateur commence a peindre la page, meme si
+// le reste du transfert (page + donnees /lang, /load) prend encore du
+// temps -- masque via hidePageLoadingOverlay(), appelee en toute fin de
+// la chaine de bootstrap (succes ET echec, voir .finally() plus bas).
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
+function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
+function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||(window.CFG_I18N&&CFG_I18N[currentLang]&&CFG_I18N[currentLang][k])||PAGE_I18N.fr[k]||(window.CFG_I18N&&CFG_I18N.fr&&CFG_I18N.fr[k])||k;}
+function applyLang(backendLang){
+  const stored=localStorage.getItem('dmd_lang');
+  if(stored&&PAGE_I18N[stored]){currentLang=stored;}
+  else if(backendLang&&PAGE_I18N[backendLang]){currentLang=backendLang;}
+  else{const nav=(navigator.language||'').substring(0,2);currentLang=PAGE_I18N[nav]?nav:'fr';}
+  document.documentElement.lang=currentLang;
+  document.title=tr('title');
+  document.querySelectorAll('[data-i18n]').forEach(function(el){el.innerHTML=tr(el.dataset.i18n);});
+  renderRows();
+  document.getElementById('langSelect').value=currentLang;
+}
+function setLang(code){
+  localStorage.setItem('dmd_lang',code);
+  applyLang();
+  fetch('/save-language',{method:'POST',body:'language='+code,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});
+}
+let _formDirty=false;
+// v69 -- brouillon PARTAGE : tous les reglages modifies sur n'importe quelle page restent en attente (localStorage) et sont envoyes ENSEMBLE par n'importe quel bouton
+// Enregistrer / Enreg. & Redemarrer, de n'importe quelle page. Pour QUITTER (Reprendre DMD / Redemarrer) avec des reglages non enregistres, une boite de dialogue le signale et
+// propose Enregistrer / Quitter quand meme (confirmLeave). Aucune alerte ailleurs : naviguer entre les pages ou fermer l'onglet reste libre.
+const DMD_DRAFT_KEYS=['dmd_draft_home','dmd_draft_basic','dmd_draft_playlist','dmd_draft_network','dmd_draft_clock','dmd_draft_widgets'];
+function anyDraft(){try{return DMD_DRAFT_KEYS.some(function(k){return localStorage.getItem(k)!==null;});}catch(e){return false;}}
+function allBody(own){const p=new URLSearchParams();DMD_DRAFT_KEYS.forEach(function(k){try{const raw=localStorage.getItem(k);if(!raw)return;const o=JSON.parse(raw);Object.keys(o).forEach(function(id){const v=o[id];if((v===''&&!/^(clk_anim_|clk_digit_|deco_ev_)/.test(id))||v===undefined||v===null)return;if(/^(wifi_|bluetooth_)/.test(id))return;p.set(id,(typeof v==='boolean')?(v?'1':'0'):String(v));});}catch(e){}});if(own)own.forEach(function(v,k){p.set(k,v);});return p;}
+function clearAllDrafts(){DMD_DRAFT_KEYS.forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});}
+// Boite de dialogue de SORTIE (Reprendre DMD / Redemarrer) : s'il reste des reglages non enregistres, elle l'indique et propose Enregistrer / Quitter quand meme (+ Annuler pour rester). Rien ne s'affiche sinon.
+let _leaveBox=null;
+function saveAllNow(){if(typeof saveConfig==='function')return Promise.resolve(saveConfig());const f=(typeof queuedFetch==='function')?queuedFetch:fetch;return f('/save',{method:'POST',body:allBody(null),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(function(r){return r.text();}).then(function(x){if(x.includes('OK'))clearAllDrafts();}).catch(function(){});}
+function confirmLeave(proceed){
+  if(!anyDraft()){proceed(false);return;}
+  const T={fr:{m:"Des modifications ne sont pas enregistrées.",s:"Enregistrer",q:"Quitter quand même",c:"Annuler"},en:{m:"Some changes are not saved.",s:"Save",q:"Leave anyway",c:"Cancel"},es:{m:"Hay cambios sin guardar.",s:"Guardar",q:"Salir de todos modos",c:"Cancelar"}};
+  const L=T[document.documentElement.lang]||T.fr;
+  if(_leaveBox){_leaveBox.remove();_leaveBox=null;}
+  const ov=document.createElement('div');ov.style.cssText='position:fixed;left:0;top:0;right:0;bottom:0;z-index:100;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px';
+  const bx=document.createElement('div');bx.style.cssText='background:#1a1a2e;color:#fff;border:2px solid #ffd146;border-radius:10px;padding:18px 20px;max-width:420px;width:100%;text-align:center;font-size:15px';
+  const mt=document.createElement('div');mt.textContent=L.m;mt.style.cssText='margin-bottom:14px;font-weight:bold';bx.appendChild(mt);
+  const row=document.createElement('div');row.style.cssText='display:flex;gap:10px;justify-content:center;flex-wrap:wrap';
+  const close=function(){ov.remove();_leaveBox=null;};
+  const mk=function(txt,css,fn){const x=document.createElement('button');x.type='button';x.textContent=txt;x.style.cssText='cursor:pointer;border-radius:6px;padding:8px 14px;font-size:14px;'+css;x.onclick=fn;row.appendChild(x);return x;};
+  mk(L.s,'border:0;background:#ffd146;color:#1a1a2e;font-weight:bold',function(){close();saveAllNow().then(function(){if(!anyDraft())proceed(false);});});
+  mk(L.q,'border:1px solid #fff;background:transparent;color:#fff',function(){close();clearAllDrafts();if(typeof _formDirty!=='undefined')_formDirty=false;proceed(true);});
+  mk(L.c,'border:0;background:transparent;color:#aaa;text-decoration:underline',close);
+  bx.appendChild(row);ov.appendChild(bx);document.body.appendChild(ov);_leaveBox=ov;
+}
+function stripAccents(s){return s.normalize('NFD').replace(new RegExp('['+String.fromCharCode(768)+'-'+String.fromCharCode(879)+']','g'),'').replace(/[^ -~]/g,'?');}
+function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(txt),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}
+function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
+let SLOTS=[];
+function renderRows(){
+  const box=document.getElementById('bsRows');if(!box)return;box.innerHTML='';
+  SLOTS.forEach(function(s,i){
+    const r=document.createElement('div');r.className='row';
+    const ti=document.createElement('input');ti.type='time';ti.value=s.t;ti.style.maxWidth='120px';ti.onchange=function(){s.t=ti.value||s.t;_formDirty=true;};
+    const rg=document.createElement('input');rg.type='range';rg.min=0;rg.max=100;rg.value=s.p;rg.style.flex='1';
+    const v=document.createElement('span');v.style.cssText='min-width:64px;text-align:right;color:#ffd146';v.textContent=s.p===0?tr('off0'):s.p+' %';
+    rg.oninput=function(){s.p=Number(rg.value);v.textContent=s.p===0?tr('off0'):s.p+' %';_formDirty=true;};
+    const x=document.createElement('button');x.type='button';x.className='btn btn-del';x.style.padding='6px 10px';x.innerHTML='&times;';x.onclick=function(){SLOTS.splice(i,1);_formDirty=true;renderRows();};
+    r.appendChild(ti);r.appendChild(rg);r.appendChild(v);r.appendChild(x);box.appendChild(r);
+  });
+  document.getElementById('bsEmpty').style.display=SLOTS.length?'none':'';
+  document.getElementById('bsAdd').style.display=SLOTS.length>=24?'none':'';
+}
+function addSlot(){if(SLOTS.length>=24){showMsgLocal(tr('max'),false);return;}
+  const used=SLOTS.map(function(s){return s.t;});let h=8;while(h<32&&used.indexOf(('0'+(h%24)).slice(-2)+':00')>=0)h++;
+  SLOTS.push({t:('0'+(h%24)).slice(-2)+':00',p:100});_formDirty=true;renderRows();}
+function parseSlots(s){const o=[];(s||'').split(',').forEach(function(x){const m=/^(\d\d):(\d\d)=(\d+)$/.exec(x.trim());if(m)o.push({t:m[1]+':'+m[2],p:Math.min(100,Number(m[3]))});});o.sort(function(a,b){return a.t<b.t?-1:1;});return o;}
+function serialize(){const seen={};let dup=false;SLOTS.forEach(function(s){if(seen[s.t])dup=true;seen[s.t]=1;});if(dup){showMsgLocal(tr('dup'),false);}
+  const st=SLOTS.slice().sort(function(a,b){return a.t<b.t?-1:1;}).map(function(s){return s.t+'='+s.p;}).join(',');return new URLSearchParams({bright_sched:st});}
+function checkEssentialFields(){return fetch('/load').then(r=>r.json()).then(d=>{const missing=[];if(!d.wifi_ssid)missing.push(tr('essential_wifi'));if(d.deco_bg!=='1'&&!d.playlist)missing.push(tr('essential_playlist'));if(d.deco_bg!=='1'&&!d.recalbox_ip)missing.push(tr('essential_ip'));if(!missing.length)return true;return confirm(tr('msg_essential_missing').replace('{fields}',missing.join(', ')));}).catch(()=>true);}
+function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:allBody(serialize()),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK')){_formDirty=false;clearAllDrafts();}}).catch(()=>showMsg(tr('msg_net_error'),false));}
+function doReboot(skipConfirm){checkEssentialFields().then(ok=>{if(!ok)return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;confirmLeave(function(){showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});});});}
+// skipConfirm=true (2026-07-29) : "Enreg. & Redemarrer" a deja un intitule
+// explicite -- redemander confirmation juste apres la sauvegarde est
+// redondant, contrairement au bouton "Redemarrer" seul.
+function saveAndReboot(){saveConfig().then(()=>setTimeout(()=>doReboot(true),400));}
+function dmdResume(){checkEssentialFields().then(ok=>{if(!ok)return;confirmLeave(function(discarded){fetch('/dmd-resume',{method:'POST'}).then(()=>{showMsgLocal(tr('msg_dmd_resumed'),true);if(discarded)setTimeout(()=>location.reload(),1200);}).catch(()=>showMsg(tr('msg_net_error'),false));});});}
+// Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29) : aucun
+// moyen fiable de distinguer une vraie fermeture d'onglet/navigateur d'un
+// simple rafraichissement de page (habitude trop ancree pour l'utilisateur,
+// faux positifs trop frequents -- ni le JS ni le serveur ne peuvent
+// distinguer les deux cas, une connexion qui se ferme se ressemble dans
+// tous les cas).
+// v64 -- BUG REEL corrige, voir le commentaire complet dans WEB_CONFIG_HTML
+// (page Affichage) -- meme fix duplique ici (gel reseau du DMD => fetch qui
+// ne resout ni ne rejette jamais, .catch() existant inutile dans ce cas).
+// C'est cette page precisement qui a revele le bug (champs Horloge vides,
+// clock_interval/clock_duration restes a 0 en config.ini faute d'avoir pu
+// etre corriges via un formulaire jamais rempli).
+function fetchTimeout(u,o,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);return fetch(u,Object.assign({},o,{signal:c.signal})).finally(()=>clearTimeout(t));}
+function fetchLoadRetry(){return fetchTimeout('/load',{},45000).catch(()=>fetchTimeout('/load',{},45000)).then(r=>r.json());}
+function loadConfig(){fetchLoadRetry().then(d=>{
+  SLOTS=parseSlots(d.bright_sched);renderRows();
+  document.getElementById('bsState').textContent=d.bright_sched_on==='1'?tr('on'):tr('off');
+}).catch(()=>showMsg(tr('msg_load_error'),false));}
+fetchTimeout('/lang',{},45000).then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}loadConfig();}).catch(()=>{applyLang();loadConfig();}).finally(hidePageLoadingOverlay);
+document.getElementById('bsForm').addEventListener('input',()=>{_formDirty=true;});
+</script>
+<script src="/native.js"></script>
+</body>
+</html>

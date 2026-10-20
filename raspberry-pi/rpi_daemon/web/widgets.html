@@ -1,0 +1,216 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RecalBox DMD - Widgets & Horloge</title>
+<link rel="stylesheet" href="/cfg.css?h=42c26368">
+<link rel="icon" href="data:,">
+<script src="/cfg.js?h=813f74a2" onerror="try{if(!sessionStorage.cfgR){sessionStorage.cfgR=1;location.reload();}}catch(e){}"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
+.wrow select,.wrow input[type=number]{height:34px;padding:0 10px;font-size:13px;min-width:0;box-sizing:border-box}
+.wsel{flex:0 0 150px!important}
+.wnum{flex:0 0 64px!important;margin-left:8px}
+.wact{flex:1 1 200px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-left:8px}
+.wb{height:34px;padding:0 12px;display:inline-flex;align-items:center;font-size:13px;font-weight:bold;text-decoration:none;border-radius:6px;border:1px solid #555;background:#555;color:#fff;cursor:pointer;box-sizing:border-box;white-space:nowrap}
+.wcol{display:none;flex-wrap:nowrap;gap:6px;align-items:center;justify-content:space-between;align-self:flex-end;width:150px;margin:0;white-space:nowrap}
+.acol{display:flex;flex-direction:column;align-items:flex-start;gap:8px;flex:none;width:150px}
+.acol .wsel{flex:none!important;width:150px}
+.wcol .cl{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#aaa;white-space:nowrap}
+.wcol .wb{height:34px;padding:0 10px;font-size:12px;justify-content:center}
+.wcol input[type=color]{flex:none!important;width:38px;min-width:0!important;height:34px;padding:2px;margin:0}
+.wrow.top{align-items:flex-start}
+.wamb select{flex:none!important;width:150px}
+.wgap{height:1px;background:#2a3b66;margin:18px 0 20px}
+.btn-row{display:flex;gap:10px;justify-content:center;margin:18px 0;flex-wrap:wrap}
+.btn{padding:12px 20px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
+.btn-resume{background:#2d6a4f;color:#fff}
+body{position:relative}
+#pageLoadingOverlay{position:fixed;inset:0;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px;font-weight:600;z-index:99999;text-align:center;padding:20px;gap:14px}
+#pageLoadingOverlay .pgspin{width:34px;height:34px;border:4px solid #333;border-top-color:#8ab4f8;border-radius:50%;animation:pgspin .8s linear infinite}
+@keyframes pgspin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="pageLoadingOverlay"><div class="pgspin"></div><div data-i18n="loading">Chargement en cours...</div></div>
+<select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<div class="topnav">
+<a href="/" onclick="showPageLoadingOverlay()" data-i18n="nav_home">&#x1F3E0; Accueil</a>
+<a href="/config/settings" onclick="showPageLoadingOverlay()" data-i18n="nav_settings">&#x2699; R&eacute;glages</a>
+<a href="/config/basic" onclick="showPageLoadingOverlay()" data-i18n="nav_basic">&#x1F4A1; Affichage</a>
+<a href="/config/playlist" onclick="showPageLoadingOverlay()" data-i18n="nav_playlist">&#x1F4BF; Playlist</a>
+<a href="/config/network" onclick="showPageLoadingOverlay()" data-i18n="nav_network">&#x1F4F6; Wi-Fi</a>
+<a href="/config/widgets" onclick="showPageLoadingOverlay()" class="active" data-i18n="nav_deco">&#x2728; Widgets &amp; Horloge</a>
+<a href="/config/media" onclick="showPageLoadingOverlay()" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
+<a href="/config/button" onclick="showPageLoadingOverlay()" data-i18n="nav_button">&#x1F518; Bouton</a>
+</div>
+<h1 data-i18n="h1">Widgets &amp; Horloge</h1>
+<div class="section">
+<p style="font-size:14px;line-height:1.5" data-i18n="intro"></p>
+</div>
+<div class="section">
+<div class="row"><label data-i18n="lbl_bg">Fond</label><select id="deco_bg"></select><div class="hint" data-i18n="hint_bg"></div></div>
+<div class="row" id="rowT"><label data-i18n="lbl_trig">Déclencheur</label><select id="deco_trigger"></select></div>
+<div class="row" id="rowG"><label for="clock_interval" data-i18n="lbl_every_gifs">GIFs</label><input id="clock_interval" type="number" min="1" max="999"></div>
+<div class="row" id="rowM"><label for="clock_interval_min" data-i18n="lbl_every_min">min</label><input id="clock_interval_min" type="number" min="1" max="999"></div>
+</div>
+<div class="section" id="wbox"></div>
+<div class="section"><button type="button" class="btn btn-del" id="defDurBt" data-i18n="defdur">Durées par défaut</button></div>
+<div class="section">
+<div class="row"><label data-i18n="lbl_main">Créneau principal</label><select id="deco_main_order"></select><div class="hint" data-i18n="hint_main"></div></div>
+<div class="row"><label data-i18n="lbl_add">En plus de</label><select id="deco_add_mode"></select><input id="deco_add_count" type="number" min="1" max="10" style="flex:0 0 70px;min-width:0"><div class="hint" data-i18n="hint_add"></div></div>
+</div>
+<div class="section">
+<div class="row"><label data-i18n="cyc">Cycle</label><span id="cyc"></span></div>
+<div class="row"><label data-i18n="seq_main">Créneau principal</label><span id="seq1"></span></div>
+<div class="row"><label data-i18n="seq_add">Puis</label><span id="seq2"></span></div>
+</div>
+<div class="btn-row">
+<button type="button" class="btn btn-save" onclick="saveDeco()" data-i18n="save">Enregistrer</button>
+<button type="button" class="btn btn-resume" onclick="resumeDmd()" data-i18n="resume">Reprendre DMD</button>
+</div>
+<div id="msg" class="msg"></div>
+<script>
+const PAGE_I18N={
+fr:{title:'RecalBox DMD - Widgets & Horloge',h1:'Widgets &amp; Horloge',intro:'Le DMD joue une séquence à chaque déclenchement du cycle : un créneau principal (un seul élément parmi ceux réglés « à la place de »), puis les éléments réglés « en plus de ». L\'horloge est un widget comme les autres.',lbl_bg:'Fond',need_place:'Aucun lieu n\'est renseigné : l\'aperçu de la météo et de l\'éphéméride en a besoin. Choisir un lieu maintenant ?',draft_restored:'Sélections non enregistrées restaurées — pensez à enregistrer.',need_widget:'Fond « Widgets seuls » : sélectionnez au moins un widget (ou l\'horloge) avant d\'enregistrer — rien n\'a été enregistré.',rb_restart:'Playlist réactivée : redémarrage pour la charger…',no_pl:'Fond « Playlist de GIFs » activé, mais aucune playlist n\'est sélectionnée : choisissez-en une dans la page Playlist.',bg0:'Playlist de GIFs',bg1:'Widgets seuls (sans playlist)',hint_bg:'Widgets seuls : plus aucun GIF n\'est lu, les widgets s\'enchaînent en continu (le déclencheur est ignoré) et la playlist en cours est désélectionnée — elle est mémorisée et réactivée quand vous repassez à « Playlist de GIFs ». Les jeux, scores et alertes de la Recalbox restent prioritaires.',cont:'enchaînement continu, sans playlist',lbl_trig:'Déclencheur du cycle',tg0:'Nombre de GIFs',tg1:'Temps écoulé',lbl_every_gifs:'Tous les (GIFs)',lbl_every_min:'Toutes les (minutes)',cyc:'Cycle',every_gifs:'tous les {n} GIFs',every_min:'toutes les {n} min',inactive:'aucun élément actif : le cycle est arrêté',seq_main:'Créneau principal',seq_add:'Puis',clock:'Horloge',sec:'s',w0:'Horloge',w0d:'Thème, tirage aléatoire des thèmes, couleur Neon, fuseau horaire.',w1:'Date',w1d:'Jour, mois, numéro de semaine, jours fériés (français).',w2:'Éphéméride',w2d:'Lever et coucher du soleil, durée du jour, phase de la lune. Demande une position (bouton Lieu).',place_btn:'Lieu',w7:'Citations',w7d:'Une citation ou devinette par passage, en défilement vertical, tirée d\'un thème (fichier texte). La durée = nombre de citations affichées d\'affilée (1 par défaut). Thèmes : bouton Citations.',q_all:'Tous les thèmes',quotes_btn:'Citations',q_hint:'Aucun thème coché = tous les thèmes. Plusieurs thèmes cochés : tirage au hasard entre eux.',q_n:'{n} thèmes',qn:'cit.',qdur:'Nombre de citations',defdur:'Durées par défaut',defdur_done:'Durées par défaut rétablies (pensez à enregistrer).',w8:'Recalbox : challenge',w8d:'Challenge en cours : jours restants, classement (top 3 et mouvements), votre rang et vos GG. Données envoyées par la Recalbox.',w9:'Recalbox : récompenses',w9d:'Récompenses à gagner dans le challenge en cours (icône, nom, condition).',w10:'Recalbox : santé',w10d:'Voyants température, alimentation, horloge, réseau, disque, mémoire et chiffres clés de la Recalbox.',w6:'Statistiques Recalbox',w6d:'Parties lancées aujourd\'hui et au total, jeu et système les plus joués (comptés par le DMD depuis son installation).',stats_reset:'Remettre à zéro',stats_confirm:'Effacer toutes les statistiques ?',stats_done:'Statistiques effacées',w3:'Compte à rebours',w3d:'Jours restants avant l\'événement le plus proche (bouton Événements).',w4:'Ambiance',w4d:'Animation décorative : plasma, pluie, étoiles, jeu de la vie, liquide ou sable (l\'aperçu utilise le style affiché).',ev_btn:'Événements',amb0:'Aléatoire',amb1:'Plasma',amb2:'Pluie',amb3:'Étoiles',amb4:'Vie',amb5:'Liquide',amb6:'Sable',amb7:'Sable 2 (strates)',amb8:'Lava lamp',lv_col:'Couleur',lv_col1:'Couleur 1',lv_col2:'Couleur 2',lv_oil:'Huile',lv_wax:'Cire',lv_auto:'Auto',w5:'Météo',w5d:'Température, mini/maxi et ciel (Open-Meteo, Internet requis). Position et nom : bouton Lieu.',m0:'Désactivé',m1:'À la place de',m2:'En plus de',dur:'Durée (s)',prev:'Aperçu',choose_clock:'Choix d\'horloge',lbl_main:'Créneau principal',mo0:'Aléatoire',mo1:'Dans l\'ordre (tourniquet)',hint_main:'Un seul élément par apparition du cycle, parmi ceux réglés « à la place de ».',lbl_add:'Éléments « en plus de »',am0:'Tous, dans l\'ordre',am1:'Aléatoire',hint_add:'En mode aléatoire : nombre d\'éléments affichés à chaque apparition, tirés parmi ceux réglés « en plus de ».',rr:'dans l\'ordre',rnd:'{n} au hasard parmi',load_err:'Impossible de charger la config'},
+en:{title:'RecalBox DMD - Widgets & Horloge',h1:'Widgets &amp; Horloge',intro:'The DMD plays a sequence each time the cycle fires: a main slot (a single item among those set « instead of »), then the items set « in addition to ». The clock is a widget like the others.',lbl_bg:'Background',need_place:'No place is set: the weather and ephemeris previews need one. Choose a place now?',draft_restored:'Unsaved selections restored — remember to save.',need_widget:'Background “Widgets only”: select at least one widget (or the clock) before saving — nothing was saved.',rb_restart:'Playlist reactivated: restarting to load it…',no_pl:'Background set to “GIF playlist”, but no playlist is selected: pick one on the Playlist page.',bg0:'GIF playlist',bg1:'Widgets only (no playlist)',hint_bg:'Widgets only: no GIF is played any more, widgets run back to back (the trigger is ignored) and the current playlist is deselected — it is remembered and reactivated when you switch back to “GIF playlist”. Recalbox games, scores and alerts still take priority.',cont:'continuous, no playlist',lbl_trig:'Cycle trigger',tg0:'Number of GIFs',tg1:'Elapsed time',lbl_every_gifs:'Every (GIFs)',lbl_every_min:'Every (minutes)',cyc:'Cycle',every_gifs:'every {n} GIFs',every_min:'every {n} min',inactive:'no active item: the cycle is stopped',seq_main:'Main slot',seq_add:'Then',clock:'Clock',sec:'s',w0:'Clock',w0d:'Theme, random theme draw, Neon color, time zone.',w1:'Date',w1d:'Day, month, week number, public holidays (French).',w2:'Ephemeris',w2d:'Sunrise and sunset, day length, moon phase. Needs a position (Place button).',place_btn:'Place',w7:'Quotes',w7d:'One quote or riddle per run, scrolling vertically, drawn from a theme (text file). The duration = number of quotes shown in a row (1 by default). Themes: Quotes button.',q_all:'All themes',quotes_btn:'Quotes',q_hint:'No theme ticked = all themes. Several ticked: random draw among them.',q_n:'{n} themes',qn:'quotes',qdur:'Number of quotes',defdur:'Default durations',defdur_done:'Default durations restored (remember to save).',w8:'Recalbox: challenge',w8d:'Current challenge: days left, leaderboard (top 3 and moves), your rank and GGs. Data sent by the Recalbox.',w9:'Recalbox: rewards',w9d:'Rewards to win in the current challenge (icon, name, condition).',w10:'Recalbox: health',w10d:'Temperature, power, clock, network, disk and memory lights plus key figures of the Recalbox.',w6:'Recalbox stats',w6d:'Games started today and in total, most played game and system (counted by the DMD since its installation).',stats_reset:'Reset',stats_confirm:'Erase all statistics?',stats_done:'Statistics erased',w3:'Countdown',w3d:'Days left before the nearest event (Events button).',w4:'Ambience',w4d:'Decorative animation: plasma, rain, stars, game of life, liquid or sand (the preview uses the displayed style).',ev_btn:'Events',amb0:'Random',amb1:'Plasma',amb2:'Rain',amb3:'Stars',amb4:'Life',amb5:'Liquid',amb6:'Sand',amb7:'Sand 2 (layers)',amb8:'Lava lamp',lv_col:'Color',lv_col1:'Color 1',lv_col2:'Color 2',lv_oil:'Oil',lv_wax:'Wax',lv_auto:'Auto',w5:'Weather',w5d:'Temperature, min/max and sky (Open-Meteo, Internet required). Position and name: Place button.',m0:'Disabled',m1:'Instead of',m2:'In addition to',dur:'Duration (s)',prev:'Preview',choose_clock:'Clock settings',lbl_main:'Main slot',mo0:'Random',mo1:'In order (round robin)',hint_main:'One item per cycle appearance, among those set « instead of ».',lbl_add:'« In addition to » items',am0:'All, in order',am1:'Random',hint_add:'In random mode: how many items are shown each time, drawn among those set « in addition to ».',rr:'in order',rnd:'{n} random among',load_err:'Unable to load config'},
+es:{title:'RecalBox DMD - Widgets & Horloge',h1:'Widgets &amp; Horloge',intro:'El DMD reproduce una secuencia cada vez que se activa el ciclo: un espacio principal (un solo elemento entre los marcados « en lugar de »), y después los marcados « además de ». El reloj es un widget como los demás.',lbl_bg:'Fondo',need_place:'No hay ningún lugar definido: la vista previa del tiempo y de las efemérides lo necesita. ¿Elegir un lugar ahora?',draft_restored:'Selecciones sin guardar restauradas — recuerde guardar.',need_widget:'Fondo « Solo widgets »: seleccione al menos un widget (o el reloj) antes de guardar — no se guardó nada.',rb_restart:'Lista reactivada: reiniciando para cargarla…',no_pl:'Fondo « Lista de GIFs » activado, pero no hay lista seleccionada: elija una en la página Lista.',bg0:'Lista de GIFs',bg1:'Solo widgets (sin lista)',hint_bg:'Solo widgets: ya no se reproduce ningún GIF, los widgets se encadenan sin parar (el disparador se ignora) y la lista actual se deselecciona — se recuerda y se reactiva al volver a « Lista de GIFs ». Los juegos, puntuaciones y alertas de Recalbox siguen siendo prioritarios.',cont:'continuo, sin lista',lbl_trig:'Disparador del ciclo',tg0:'Número de GIFs',tg1:'Tiempo transcurrido',lbl_every_gifs:'Cada (GIFs)',lbl_every_min:'Cada (minutos)',cyc:'Ciclo',every_gifs:'cada {n} GIFs',every_min:'cada {n} min',inactive:'ningún elemento activo: el ciclo está parado',seq_main:'Espacio principal',seq_add:'Luego',clock:'Reloj',sec:'s',w0:'Reloj',w0d:'Tema, sorteo aleatorio de temas, color Neon, zona horaria.',w1:'Fecha',w1d:'Día, mes, número de semana, festivos (franceses).',w2:'Efemérides',w2d:'Amanecer y atardecer, duración del día, fase de la luna. Requiere una posición (botón Lugar).',place_btn:'Lugar',w7:'Citas',w7d:'Una cita o adivinanza por pasada, con desplazamiento vertical, de un tema (archivo de texto). La duración = número de citas mostradas seguidas (1 por defecto). Temas: botón Citas.',q_all:'Todos los temas',quotes_btn:'Citas',q_hint:'Ningún tema marcado = todos. Varios marcados: sorteo al azar entre ellos.',q_n:'{n} temas',qn:'citas',qdur:'Número de citas',defdur:'Duraciones por defecto',defdur_done:'Duraciones por defecto restauradas (no olvide guardar).',w8:'Recalbox: desafío',w8d:'Desafío en curso: días restantes, clasificación (top 3 y movimientos), su puesto y sus GG. Datos enviados por la Recalbox.',w9:'Recalbox: recompensas',w9d:'Recompensas por ganar en el desafío en curso (icono, nombre, condición).',w10:'Recalbox: salud',w10d:'Luces de temperatura, alimentación, reloj, red, disco y memoria, y cifras clave de la Recalbox.',w6:'Estadísticas Recalbox',w6d:'Partidas iniciadas hoy y en total, juego y sistema más jugados (contadas por el DMD desde su instalación).',stats_reset:'Poner a cero',stats_confirm:'¿Borrar todas las estadísticas?',stats_done:'Estadísticas borradas',w3:'Cuenta atrás',w3d:'Días que faltan para el evento más próximo (botón Eventos).',w4:'Ambiente',w4d:'Animación decorativa: plasma, lluvia, estrellas, juego de la vida, líquido o arena (la vista previa usa el estilo mostrado).',ev_btn:'Eventos',amb0:'Aleatorio',amb1:'Plasma',amb2:'Lluvia',amb3:'Estrellas',amb4:'Vida',amb5:'Líquido',amb6:'Arena',amb7:'Arena 2 (estratos)',amb8:'Lava lamp',lv_col:'Color',lv_col1:'Color 1',lv_col2:'Color 2',lv_oil:'Aceite',lv_wax:'Cera',lv_auto:'Auto',w5:'Tiempo',w5d:'Temperatura, mín/máx y cielo (Open-Meteo, requiere Internet). Posición y nombre: botón Lugar.',m0:'Desactivado',m1:'En lugar de',m2:'Además de',dur:'Duración (s)',prev:'Vista previa',choose_clock:'Ajustes del reloj',lbl_main:'Espacio principal',mo0:'Aleatorio',mo1:'En orden (rotación)',hint_main:'Un solo elemento por aparición del ciclo, entre los marcados « en lugar de ».',lbl_add:'Elementos « además de »',am0:'Todos, en orden',am1:'Aleatorio',hint_add:'En modo aleatorio: cuántos elementos se muestran cada vez, sorteados entre los marcados « además de ».',rr:'en orden',rnd:'{n} al azar entre',load_err:'No se pudo cargar la configuración'}
+};
+const WIDGETS=[0,1,2,3,5,4,7,8,9,10],DEFD=[60,10,15,10,60,15,8,1,15,30,15];   // durees par defaut (s) ; citations : nombre de citations   // identifiants (0 = horloge ; voir DECO_ITEM_COUNT dans le firmware)
+const AMBC={1:['lv_col'],2:['lv_col'],3:['lv_col'],4:['lv_col'],5:['lv_col'],7:['lv_col1','lv_col2'],8:['lv_oil','lv_wax']};
+function ambKeys(n){return String(n)==='8'?['deco_lava_oil','deco_lava_wax']:['deco_amb_ca_'+n,'deco_amb_cb_'+n];}
+const GK={deco_lava_oil:'',deco_lava_wax:'',deco_bg:'0',deco_qtheme:'',deco_amb:'0',deco_trigger:'0',clock_interval:'10',clock_interval_min:'5',deco_main_order:'0',deco_add_mode:'0',deco_add_count:'1'};
+for(let n=1;n<8;n++){GK['deco_amb_ca_'+n]='';GK['deco_amb_cb_'+n]='';}
+for(let n=1;n<8;n++){GK['deco_amb_ca_'+n]='';GK['deco_amb_cb_'+n]='';}
+let currentLang='fr',D=null,V={},QT=[];
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
+function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
+function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||(window.CFG_I18N&&CFG_I18N[currentLang]&&CFG_I18N[currentLang][k])||PAGE_I18N.fr[k]||(window.CFG_I18N&&CFG_I18N.fr&&CFG_I18N.fr[k])||k;}
+function stripAccents(s){return s.normalize('NFD').replace(new RegExp('['+String.fromCharCode(768)+'-'+String.fromCharCode(879)+']','g'),'').replace(/[^ -~]/g,'?');}
+function msgLocal(t,ok){const el=document.getElementById('msg');el.textContent=t;el.className='msg '+(ok?'ok':'err');el.style.display='block';clearTimeout(window._mt);window._mt=setTimeout(()=>{el.style.display='none';},4000);}
+function msg(t,ok){msgLocal(t,ok);fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(t),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}
+function fillSel(id,pre,n){const s=document.getElementById(id);s.innerHTML='';for(let k=0;k<n;k++){const o=document.createElement('option');o.value=k;o.textContent=tr(pre+k);s.appendChild(o);}s.value=V[id]||'0';s.onchange=function(){V[id]=s.value;glob();sum();};}
+function bindNum(id){const e=document.getElementById(id);e.value=V[id]||GK[id];e.oninput=function(){V[id]=e.value;sum();};}
+function glob(){
+  document.getElementById('deco_add_count').style.display=(V.deco_add_mode==='1')?'':'none';
+  const wo=(V.deco_bg==='1');document.getElementById('rowT').style.display=wo?'none':'';   // widgets seuls : plus de declencheur (enchainement continu)
+  document.getElementById('rowG').style.display=(wo||V.deco_trigger==='1')?'none':'';
+  document.getElementById('rowM').style.display=(!wo&&V.deco_trigger==='1')?'':'none';
+}
+const AMBD={1:['#ff40a0'],2:['#00c828'],3:['#ffffff'],4:['#00be3c'],5:['#0078ff'],7:['#f5f5f5','#3c3c46'],8:['#081450','#ff6e00']};   // couleurs d'origine (distinctes quand il y en a deux)
+function hx(h,s,l){h=((h%360)+360)%360;s/=100;l/=100;const k=function(n){return(n+h/30)%12;},a=s*Math.min(l,1-l),f=function(n){const v=l-a*Math.max(-1,Math.min(k(n)-3,9-k(n),1));return('0'+Math.round(255*v).toString(16)).slice(-2);};return'#'+f(0)+f(8)+f(4);}
+function colRow(cd){   // couleurs de l'ambiance choisie, sur UNE ligne : pastilles (couleur choisie ou d'origine) + AUTO (tirage lisible pour toutes) + RAZ (couleurs d'origine)
+  cd.innerHTML='';const st=V.deco_amb||'0',spec=AMBC[st];if(!spec){cd.style.display='none';return;}
+  cd.style.display='flex';const ks=ambKeys(st),df=AMBD[st]||['#ff6e00','#3c3c46'],cis=[],n=spec.length;
+  spec.forEach(function(lbl,i){const key=ks[i];const l=document.createElement('span');l.className='cl';l.appendChild(document.createTextNode(tr(lbl)));
+    const ci=document.createElement('input');ci.type='color';ci.value=V[key]||df[i]||df[0];ci.oninput=function(){V[key]=ci.value;};l.appendChild(ci);cd.appendChild(l);cis.push(ci);});
+  const bA=document.createElement('button');bA.type='button';bA.className='wb';bA.textContent='AUTO';
+  bA.onclick=function(){const h=Math.random()*360;let c;if(n===1)c=[hx(h,88,52)];else if(st==='8')c=[hx(h,80,Math.random()*8+16),hx(h+120+Math.random()*80,92,56)];else{const dk=Math.random()<.5;c=[hx(h,85,dk?85:28),hx(h+120+Math.random()*80,90,dk?28:82)];}
+    spec.forEach(function(lbl,i){V[ks[i]]=c[i];cis[i].value=c[i];});};
+  const bR=document.createElement('button');bR.type='button';bR.className='wb';bR.textContent='RAZ';
+  bR.onclick=function(){spec.forEach(function(lbl,i){V[ks[i]]='';cis[i].value=df[i]||df[0];});};
+  cd.appendChild(bA);cd.appendChild(bR);
+}function fitCols(){   // la ligne de couleurs va du bord gauche du champ duree au bord droit de la liste des styles (mesure reelle : largeur des boutons variable selon la langue)
+  const cd=document.querySelector('.wcol'),num=document.getElementById('deco_dur_4'),sel=document.getElementById('deco_amb');
+  if(!cd||!num||!sel||cd.style.display==='none')return;
+  const W=sel.getBoundingClientRect().right-num.getBoundingClientRect().left;cd.style.width=(W>200?W:200)+'px';
+}
+window.addEventListener('resize',fitCols);
+function wBtn(tag,txt,href){const e=document.createElement(tag);e.className='wb';e.textContent=txt;if(tag==='a'){e.href=href;e.onclick=showPageLoadingOverlay;}else e.type='button';return e;}
+function buildRows(){
+  fillSel('deco_bg','bg',2);fillSel('deco_trigger','tg',2);fillSel('deco_main_order','mo',2);fillSel('deco_add_mode','am',2);
+  bindNum('clock_interval');bindNum('clock_interval_min');bindNum('deco_add_count');
+  glob();
+  const box=document.getElementById('wbox');box.innerHTML='';
+  WIDGETS.forEach(function(id){
+    const r=document.createElement('div');r.className='row wrow';
+    const l=document.createElement('label');l.textContent=tr('w'+id);r.appendChild(l);
+    const s=document.createElement('select');s.id='deco_mode_'+id;s.className='wsel';
+    [0,1,2].forEach(function(k){const o=document.createElement('option');o.value=k;o.textContent=tr('m'+k);s.appendChild(o);});
+    s.value=V['deco_mode_'+id]||'0';s.onchange=function(){V[s.id]=s.value;sum();};r.appendChild(s);
+    const n=document.createElement('input');n.type='number';n.id='deco_dur_'+id;n.className='wnum';n.min=1;n.max=(id===7?10:120);n.title=tr(id===7?'qdur':'dur');
+    n.value=V['deco_dur_'+id]||DEFD[id];n.oninput=function(){V[n.id]=n.value;sum();};r.appendChild(n);
+    const ac=document.createElement('div');ac.className='wact';r.appendChild(ac);
+    let cd=null;
+    if(id===0)ac.appendChild(wBtn('a',tr('choose_clock'),'/config/clock'));
+    else{const p=wBtn('button',tr('prev'));p.onclick=function(){if((id===2||id===5)&&!placeOk()){placeAsk();return;}const ak=ambKeys(V.deco_amb||'0');fetch('/clock-preview',{method:'POST',body:'theme=w'+id+':'+(V.deco_amb||'0')+':'+(V['deco_dur_'+id]||DEFD[id])+':'+(V.deco_qtheme||'')+':'+(V[ak[0]]||'-')+':'+(V[ak[1]]||'-')+'@'+PLL(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});};ac.appendChild(p);}
+    if(id===3)ac.appendChild(wBtn('a',tr('ev_btn'),'/config/events'));
+    if(id===2||id===5)ac.appendChild(wBtn('a',tr('place_btn'),'/config/place'));
+    if(id===6){const q=wBtn('button',tr('stats_reset'));q.onclick=function(){if(confirm(tr('stats_confirm')))fetch('/stats-reset',{method:'POST'}).then(function(){msgLocal(tr('stats_done'),true);}).catch(function(){msgLocal(tr('save_err'),false);});};ac.appendChild(q);}
+    if(id===7){r.classList.add('top');const grp=document.createElement('div');grp.style.cssText='display:inline-flex;flex-direction:column;align-items:stretch;gap:6px';const r1=document.createElement('div');r1.style.cssText='display:flex;gap:6px';const pv=ac.lastChild;if(pv)r1.appendChild(pv);r1.appendChild(wBtn('a',tr('quotes_btn'),'/config/quotes'));grp.appendChild(r1);
+      const qb=document.createElement('details');qb.style.cssText='position:relative;width:100%';
+      const qs=document.createElement('summary');qs.className='wb';qs.style.cssText='list-style:none;background:#222;font-weight:normal;width:100%;justify-content:space-between';
+      const qd=document.createElement('div');qd.style.cssText='position:absolute;z-index:5;top:100%;left:0;margin-top:2px;min-width:100%;display:flex;flex-direction:column;gap:3px;max-height:220px;overflow:auto;background:#222;border:1px solid #555;border-radius:6px;padding:6px 10px;white-space:nowrap';
+      const sel=(V.deco_qtheme||'').split(',').filter(Boolean);
+      const qsum=function(){const k=qd.querySelectorAll('input:checked');qs.textContent=(k.length===0?tr('q_all'):(k.length===1?k[0].dataset.n:tr('q_n').replace('{n}',k.length)))+'  \u25BE';};
+      QT.forEach(function(nm){const lb=document.createElement('label');lb.style.cssText='flex:0 0 auto;display:flex;align-items:center;gap:5px;font-size:11px;line-height:14px;color:#eee;margin:0;padding:0';
+        const cb=document.createElement('input');cb.type='checkbox';cb.dataset.n=nm;cb.checked=sel.indexOf(nm)>=0;cb.style.cssText='flex:0 0 12px;width:12px;height:12px;min-width:0;margin:0;padding:0';
+        cb.onchange=function(){V.deco_qtheme=Array.from(qd.querySelectorAll('input:checked')).map(function(e){return e.dataset.n;}).join(',');qsum();};
+        lb.appendChild(cb);lb.appendChild(document.createTextNode(nm));qd.appendChild(lb);});
+      qb.appendChild(qs);qb.appendChild(qd);qsum();grp.appendChild(qb);ac.appendChild(grp);}
+    if(id===4){const a=document.createElement('select');a.id='deco_amb';a.className='wsel';for(let k=0;k<9;k++){const o=document.createElement('option');o.value=k;o.textContent=tr('amb'+k);a.appendChild(o);}a.value=V.deco_amb||'0';const acol=document.createElement('div');acol.className='acol';acol.appendChild(a);   // liste des styles a sa place d'origine ; les couleurs + AUTO / RAZ juste dessous, alignees sur son bord gauche
+      cd=document.createElement('div');cd.className='wcol';acol.appendChild(cd);ac.appendChild(acol);r.classList.add('top');ac.style.alignItems='flex-start';a.onchange=function(){V.deco_amb=a.value;colRow(cd);fitCols();};}
+    if(cd)colRow(cd);
+    const h=document.createElement('div');h.className='hint';h.textContent=tr('w'+id+'d');r.appendChild(h);
+    box.appendChild(r);
+    if(id===4)fitCols();
+    if(id===5||id===4){const g=document.createElement('div');g.className='wgap';box.appendChild(g);}   // sections : apres Meteo et apres Ambiance
+  });
+}function defDur(){WIDGETS.forEach(function(id){V['deco_dur_'+id]=String(DEFD[id]);const e=document.getElementById('deco_dur_'+id);if(e)e.value=DEFD[id];});sum();msgLocal(tr('defdur_done'),true);}
+function sum(){
+  const main=[],add=[];
+  WIDGETS.forEach(function(id){const m=V['deco_mode_'+id],d=V['deco_dur_'+id]||DEFD[id];const e=tr('w'+id)+' ('+d+(id===7?' '+tr('qn'):tr('sec'))+')';if(m==='1')main.push(e);else if(m==='2')add.push(e);});
+  const act=main.length||add.length;
+  document.getElementById('cyc').textContent=!act?tr('inactive'):(V.deco_bg==='1'?tr('cont'):V.deco_trigger==='1'?tr('every_min').replace('{n}',V.clock_interval_min||'?'):tr('every_gifs').replace('{n}',V.clock_interval||'?'));
+  document.getElementById('seq1').textContent=main.length?main.join(' / ')+(V.deco_main_order==='1'?' ('+tr('rr')+')':''):'-';
+  document.getElementById('seq2').textContent=add.length?((V.deco_add_mode==='1'?tr('rnd').replace('{n}',Math.min(Number(V.deco_add_count)||1,add.length))+' ':'')+add.join(' + ')):'-';
+}
+function render(){
+  document.documentElement.lang=currentLang;document.title=tr('title');
+  document.querySelectorAll('[data-i18n]').forEach(function(el){el.innerHTML=tr(el.dataset.i18n);});
+  document.getElementById('langSelect').value=currentLang;
+  buildRows();sum();document.getElementById('defDurBt').onclick=defDur;
+}
+function applyLang(backend){
+  const s=localStorage.getItem('dmd_lang');
+  if(s&&PAGE_I18N[s])currentLang=s;else if(backend&&PAGE_I18N[backend])currentLang=backend;else{const n=(navigator.language||'').substring(0,2);currentLang=PAGE_I18N[n]?n:'fr';}
+  render();
+}
+function setLang(c){localStorage.setItem('dmd_lang',c);applyLang();fetch('/save-language',{method:'POST',body:'language='+c,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});}
+var _wLoaded=false,Vbase={};
+function loadDraftW(){const d=wdGet();return Object.keys(d).length?d:null;}
+var Vseen={};   /* v353 : seules les cles changees PAR CETTE PAGE sont ecrites/effacees dans le brouillon (un onglet ouvert n'ecrase plus les choix faits ailleurs) */
+function syncFromDraftW(){const dr=wdGet();Object.keys(V).forEach(function(k){if(V[k]===Vseen[k]){const n=dr[k]!==undefined?dr[k]:Vbase[k];if(V[k]!==n)V[k]=Vseen[k]=n;}});}
+function saveDraftW(){if(!_wLoaded)return;const o={},del=[];Object.keys(V).forEach(function(k){if(V[k]===Vseen[k])return;if(V[k]!==Vbase[k])o[k]=V[k];else del.push(k);Vseen[k]=V[k];});wdPatch(o,del);}
+['change','input','click'].forEach(function(ev){document.addEventListener(ev,function(){setTimeout(saveDraftW,0);});});
+window.addEventListener('storage',function(e){if(e.key==='dmd_draft_widgets'&&_wLoaded){syncFromDraftW();render();}});
+function placeOk(){const d=D||{};const la=Number(V.deco_lat!==undefined?V.deco_lat:d.deco_lat)||0,lo=Number(V.deco_lon!==undefined?V.deco_lon:d.deco_lon)||0;return !(la===0&&lo===0);}
+function PLL(){const d=D||{};return (V.deco_lat!==undefined?V.deco_lat:d.deco_lat||0)+','+(V.deco_lon!==undefined?V.deco_lon:d.deco_lon||0);}
+function placeAsk(){if(confirm(tr('need_place'))){showPageLoadingOverlay();location.href='/config/place';}}
+function saveDeco(){
+  if(V.deco_bg==='1'&&!WIDGETS.some(function(id){return (V['deco_mode_'+id]||'0')!=='0';})){msgLocal(tr('need_widget'),false);alert(tr('need_widget'));return;}
+  syncFromDraftW();   // v353 : reprend le brouillon le plus recent pour les cles que cette page n'a pas changees
+  msg(tr('saving'),true);   // meme affichage que les autres pages : « Enregistrement... » sur le DMD des le clic
+  const p=new URLSearchParams();
+  WIDGETS.forEach(function(id){p.set('deco_mode_'+id,V['deco_mode_'+id]||'0');p.set('deco_dur_'+id,V['deco_dur_'+id]||'8');});
+  Object.keys(GK).forEach(function(k){p.set(k,V[k]||GK[k]);});
+  if(!(Number(p.get('clock_interval'))>=1))p.set('clock_interval','10');
+  if(!(Number(p.get('clock_interval_min'))>=1))p.set('clock_interval_min','5');
+  fetch('/save',{method:'POST',body:wdBodyAll(p),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(x=>{const ok=x.includes('OK');msg(ok?tr('saving'):x,ok);if(ok){wdClearAll();}if(ok&&x.includes('RESTORED')){msg(tr('rb_restart'),true);setTimeout(function(){fetch('/reboot').catch(function(){});},900);}else if(ok&&x.includes('NOPLAYLIST')){msgLocal(tr('no_pl'),false);}}).catch(()=>msgLocal(tr('save_err'),false));
+}
+function resumeDmd(){fetch('/dmd-resume',{method:'POST'}).then(()=>msgLocal(tr('resumed'),true)).catch(()=>msgLocal(tr('save_err'),false));}
+function loadQT(){fetch('/quotes-list?lang='+currentLang).then(r=>r.json()).then(function(L){QT=L.map(function(x){return x.n;});buildRows();}).catch(function(){});}
+function fetchTimeout(u,o,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);return fetch(u,Object.assign({},o,{signal:c.signal})).finally(()=>clearTimeout(t));}
+function loadConfig(){return fetchTimeout('/load',{},45000).catch(()=>fetchTimeout('/load',{},45000)).then(r=>r.json()).then(d=>{D=d;
+  WIDGETS.forEach(function(id){V['deco_mode_'+id]=d['deco_mode_'+id]||'0';V['deco_dur_'+id]=d['deco_dur_'+id]||'8';});
+  Object.keys(GK).forEach(function(k){let v=d[k];if(v===undefined||v==='')v=GK[k];if((k==='clock_interval'||k==='clock_interval_min')&&!(Number(v)>=1))v=GK[k];V[k]=v;});
+  Vbase=Object.assign({},V);const dr=loadDraftW();let drw=false;if(dr){Object.keys(dr).forEach(function(k){if(dr[k]!==undefined&&dr[k]!==null&&dr[k]!==''){if(/^(deco_|clock_interval)/.test(k)&&V[k]!==dr[k])drw=true;V[k]=dr[k];}});}   /* v352 : selections non enregistrees restaurees (Widgets + Lieu + Evenements + Couleurs) */
+  Vseen=Object.assign({},V);_wLoaded=true;render();loadQT();if(drw)msgLocal(tr('draft_restored'),true);}).catch(()=>msgLocal(tr('load_err'),false));}
+fetchTimeout('/lang',{},45000).then(r=>r.json()).then(d=>{applyLang(d.language);return loadConfig();}).catch(()=>{applyLang();return loadConfig();}).finally(hidePageLoadingOverlay);
+</script>
+<script src="/native.js"></script>
+</body>
+</html>

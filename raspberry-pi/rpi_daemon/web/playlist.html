@@ -1,0 +1,381 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RecalBox DMD - Playlist</title>
+<link rel="stylesheet" href="/cfg.css?h=42c26368">
+<link rel="icon" href="data:,">
+<script src="/cfg.js?h=813f74a2" onerror="try{if(!sessionStorage.cfgR){sessionStorage.cfgR=1;location.reload();}}catch(e){}"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
+body.gen-busy .topnav a{pointer-events:none;opacity:.4}
+h2{color:#8ab4f8;font-size:15px;margin:0 0 10px;border-left:3px solid #8ab4f8;padding-left:8px}
+.btn-row{display:flex;gap:10px;justify-content:center;margin:18px 0;flex-wrap:wrap}
+.btn{padding:12px 20px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
+.btn-resume{background:#2d6a4f;color:#fff}
+.btn-gen{background:#2d6a4f;color:#fff}
+.desc{font-size:12px;color:#aaa;margin-bottom:8px}
+.dirs{margin:8px 0;max-height:220px;overflow-y:auto}
+.dirs label{display:flex;align-items:center;gap:8px;font-size:14px;padding:3px 0}
+.dirs label span.name{flex:1}
+.mini-row{display:flex;gap:8px;margin-bottom:8px}
+.mini-btn{padding:4px 10px;border:none;border-radius:4px;background:#1a6b9e;color:#fff;font-size:11px;cursor:pointer}
+body{position:relative}
+#pageLoadingOverlay{position:fixed;inset:0;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px;font-weight:600;z-index:99999;text-align:center;padding:20px;gap:14px}
+#pageLoadingOverlay .pgspin{width:34px;height:34px;border:4px solid #333;border-top-color:#8ab4f8;border-radius:50%;animation:pgspin .8s linear infinite}
+@keyframes pgspin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="pageLoadingOverlay"><div class="pgspin"></div><div data-i18n="loading_text">Chargement en cours...</div></div>
+<select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<span id="helpLink" onclick="showHelpModal()" data-i18n="help_link">Aide</span>
+<div id="helpBackdrop" class="help-backdrop" onclick="if(event.target===this)closeHelpModal()">
+<div class="help-box">
+<button class="help-close" onclick="closeHelpModal()">&times;</button>
+<h2 data-i18n="help_title">Bienvenue</h2>
+<p data-i18n="help_intro"></p>
+<h3 data-i18n="help_checklist_title"></h3>
+<ul>
+<li data-i18n="help_check_ip"></li>
+<li data-i18n="help_check_playlist"></li>
+<li data-i18n="help_check_wifi"></li>
+</ul>
+<p id="helpUrlReminder"></p>
+<h3 data-i18n="help_features_title"></h3>
+<ul>
+<li data-i18n="help_feat_playlists"></li>
+<li data-i18n="help_feat_clock"></li>
+<li data-i18n="help_feat_display"></li>
+<li data-i18n="help_feat_network"></li>
+</ul>
+</div>
+</div>
+<div class="topnav">
+<a href="/" onclick="showPageLoadingOverlay()" data-i18n="nav_home">&#x1F3E0; Accueil</a>
+<a href="/config/settings" onclick="showPageLoadingOverlay()" data-i18n="nav_settings">&#x2699; R&eacute;glages</a>
+<a href="/config/basic" onclick="showPageLoadingOverlay()" data-i18n="nav_basic">&#x1F4A1; Affichage</a>
+<a href="/config/playlist" onclick="showPageLoadingOverlay()" class="active" data-i18n="nav_playlist">&#x1F4BF; Playlist</a>
+<a href="/config/network" onclick="showPageLoadingOverlay()" data-i18n="nav_network">&#x1F4F6; Wi-Fi</a>
+<a href="/config/widgets" onclick="showPageLoadingOverlay()" data-i18n="nav_deco">&#x2728; Widgets &amp; Horloge</a>
+<a href="/config/media" onclick="showPageLoadingOverlay()" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
+<a href="/config/button" onclick="showPageLoadingOverlay()" data-i18n="nav_button">&#x1F518; Bouton</a>
+</div>
+<h1 data-i18n="h1">Playlist</h1>
+<form id="playlistForm" onsubmit="saveConfig(event)">
+<div class="section">
+<h2 data-i18n="sec_playlist">&#x1F4BF; Playlist</h2>
+<div class="row"><label for="playlist" data-i18n="lbl_playlist_file">Playlist par d&eacute;faut</label><select id="playlist"></select><div class="hint" data-i18n="hint_playlist_bg"></div></div>
+<div class="row"><label data-i18n="lbl_random">Lecture al&eacute;atoire</label><input id="random" type="checkbox"></div>
+</div>
+<div class="section">
+<h2 data-i18n="sec_manage_playlists">&#x2699; Gestion des playlists</h2>
+<div class="desc" data-i18n="desc_gen_playlist">Cochez des dossiers pour g&eacute;n&eacute;rer une nouvelle playlist.</div>
+<div class="mini-row">
+<button type="button" class="mini-btn" onclick="selectAllGenDirs(true)" data-i18n="btn_select_all">Tout s&eacute;lectionner</button>
+<button type="button" class="mini-btn" onclick="selectAllGenDirs(false)" data-i18n="btn_select_none">Rien s&eacute;lectionner</button>
+</div>
+<div id="genDirList" class="dirs"></div>
+<div class="row"><label for="loadPlaylistSelect" data-i18n="lbl_load_playlist">Modifier une playlist existante</label><select id="loadPlaylistSelect" onchange="loadPlaylistForEdit()"><option value="">---</option></select></div>
+<div class="row"><label for="playlistName" data-i18n="lbl_playlist_name">Nom playlist</label><input id="playlistName" data-i18n-placeholder="placeholder_playlist_name" placeholder="ex: MaPlaylist"></div>
+<div class="btn-row"><button type="button" class="btn btn-gen" onclick="generatePlaylist()" data-i18n="btn_gen_playlist">&#x2699; G&eacute;n&eacute;rer playlist</button><button type="button" class="btn btn-del" id="genStopBtn" style="display:none" onclick="stopGeneratePlaylist()" data-i18n="btn_stop_gen">&#x23F9; Arr&ecirc;ter</button></div>
+<div class="row"><label for="deletePlaylistSelect" data-i18n="lbl_delete_playlist">Supprimer</label><select id="deletePlaylistSelect"></select></div>
+<div class="btn-row"><button type="button" class="btn btn-del" onclick="deletePlaylist()" data-i18n="btn_delete_playlist">&#x1F5D1; Supprimer playlist</button></div>
+</div>
+<div class="btn-row">
+<button type="submit" class="btn btn-save" data-i18n="btn_save">&#x1F4BE; Enregistrer</button>
+<button type="button" class="btn btn-reboot" onclick="saveAndReboot()" data-i18n="btn_save_reboot">&#x1F504; Enreg. &amp; Red&eacute;marrer</button>
+<button type="button" class="btn btn-del" onclick="doReboot()" data-i18n="btn_reboot">&#x1F504; Red&eacute;marrer</button>
+<button type="button" class="btn btn-resume" onclick="dmdResume()" data-i18n="btn_resume">&#x25B6; Reprendre DMD</button>
+</div>
+</form>
+<div id="msg" class="msg"></div>
+<script>
+const HELP_I18N={
+fr:{help_link:'Aide',help_title:'Bienvenue sur la configuration du DMD',help_intro:'Voici ce qu\'il reste à vérifier avant de sauvegarder, et un résumé de ce que permet cette interface.',help_checklist_title:'À vérifier avant de sauvegarder',help_check_ip:'IP Recalbox renseignée (page Wi-Fi)',help_check_playlist:'Playlist par défaut renseignée (page Playlist)',help_check_wifi:'Le Wi-Fi est déjà validé à ce stade — inutile d\'y retoucher, sauf si vous voulez le changer',help_url_reminder:'Cette page reste accessible à tout moment en tapant l\'IP du DMD dans un navigateur — actuellement {ip}',help_features_title:'Ce que permet cette interface',help_feat_playlists:'GIFs (page Médias) : ajouter des GIFs sur la carte SD (upload direct depuis le navigateur, création de dossiers) — les playlists qui référencent un dossier modifié sont mises à jour automatiquement',help_feat_clock:'Horloge (page Horloge) : thème, couleur néon, intervalle et durée d\'affichage, fuseau horaire',help_feat_display:'Affichage (page Affichage) : luminosité, démarrage silencieux, hi-score/infos/RetroAchievements. Playlist (cette page) : sélection de la playlist par défaut, création/suppression de playlists à partir des dossiers de GIFs',help_feat_network:'Réseau (page Wi-Fi) : IP Recalbox (connexion MQTT/UDP), Wi-Fi (réseau, mot de passe, IP statique)'},
+en:{help_link:'Help',help_title:'Welcome to the DMD configuration',help_intro:'Here is what\'s left to check before saving, and a summary of what this interface lets you do.',help_checklist_title:'To check before saving',help_check_ip:'Recalbox IP filled in (Wi-Fi page)',help_check_playlist:'Default playlist filled in (Playlist page)',help_check_wifi:'Wi-Fi is already validated at this stage — no need to touch it again, unless you want to change it',help_url_reminder:'This page stays accessible at any time by typing the DMD\'s IP in a browser — currently {ip}',help_features_title:'What this interface lets you do',help_feat_playlists:'GIFs (Media page): add GIFs to the SD card (direct upload from the browser, folder creation) — playlists referencing a modified folder are updated automatically',help_feat_clock:'Clock (Clock page): theme, custom neon color, display interval and duration, time zone',help_feat_display:'Display (Display page): brightness, silent boot, hi-score/info/RetroAchievements. Playlist (this page): default playlist selection, creating/deleting playlists from GIF folders',help_feat_network:'Network (Wi-Fi page): Recalbox IP (MQTT/UDP connection), Wi-Fi (network, password, static IP)'},
+es:{help_link:'Ayuda',help_title:'Bienvenido a la configuración del DMD',help_intro:'Esto es lo que falta comprobar antes de guardar, y un resumen de lo que permite esta interfaz.',help_checklist_title:'A comprobar antes de guardar',help_check_ip:'IP de Recalbox indicada (página Wi-Fi)',help_check_playlist:'Playlist por defecto indicada (página Playlist)',help_check_wifi:'El Wi-Fi ya está validado en esta etapa — no hace falta tocarlo, salvo que quiera cambiarlo',help_url_reminder:'Esta página sigue accesible en cualquier momento escribiendo la IP del DMD en un navegador — actualmente {ip}',help_features_title:'Qué permite esta interfaz',help_feat_playlists:'GIFs (página Medios): añadir GIFs a la tarjeta SD (subida directa desde el navegador, creación de carpetas) — las playlists que referencian una carpeta modificada se actualizan automáticamente',help_feat_clock:'Reloj (página Reloj): tema, color neón personalizado, intervalo y duración de visualización, zona horaria',help_feat_display:'Pantalla (página Pantalla): brillo, arranque silencioso, hi-score/info/RetroAchievements. Playlist (esta página): selección de la playlist por defecto, creación/eliminación de playlists a partir de las carpetas de GIFs',help_feat_network:'Red (página Wi-Fi): IP de Recalbox (conexión MQTT/UDP), Wi-Fi (red, contraseña, IP estática)'}
+};
+function showHelpModal(){
+  document.getElementById('helpBackdrop').classList.add('show');
+  const p=document.getElementById('helpUrlReminder');
+  if(p) p.textContent=((HELP_I18N[currentLang]&&HELP_I18N[currentLang].help_url_reminder)||HELP_I18N.fr.help_url_reminder).replace('{ip}',window.location.host);
+}
+function closeHelpModal(){document.getElementById('helpBackdrop').classList.remove('show');}
+const PAGE_I18N={
+fr:{title:'RecalBox DMD - Playlist',h1:'Playlist',sec_playlist:'&#x1F4BF; Playlist',lbl_playlist_file:'Playlist par défaut',hint_playlist_bg:'Choisir une playlist active automatiquement le fond « Playlist de GIFs » (page Widgets).',lbl_random:'Lecture aléatoire',lbl_delete_playlist:'Supprimer',btn_delete_playlist:'&#x1F5D1; Supprimer playlist',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',msg_select_playlist:'Sélectionnez une playlist à supprimer',msg_confirm_delete:'Supprimer ${0} ?',msg_confirm_delete_default:'ATTENTION : ${0} est actuellement la playlist par defaut ! La supprimer peut empecher le DMD de demarrer normalement. Continuer ?',msg_deleting:'Suppression...',sec_manage_playlists:'&#x2699; Gestion des playlists',desc_gen_playlist:'Cochez des dossiers pour générer une nouvelle playlist. &#x26A0;&#xFE0F; La création n\'est performante que sur des dossiers avec un nombre limité de fichiers. Pour des playlists contenant des dossiers conséquents, passez par l\'utilitaire RecalboxDMD_tool sur PC.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',lbl_playlist_name:'Nom playlist',placeholder_playlist_name:'ex: MaPlaylist',btn_gen_playlist:'&#x2699; Générer playlist',msg_no_playlist_name:'Donnez un nom à la playlist',msg_select_folder:'Choisissez au moins un dossier',msg_generating:'Generation...',lbl_load_playlist:'Modifier une playlist existante',msg_scanning:'Analyse',msg_gen_busy:'Generation deja en cours ailleurs',msg_gen_start_error:'Impossible de demarrer la generation',msg_gen_leave_warning:'Une generation de playlist est en cours. Quitter la page ?',btn_stop_gen:'&#x23F9; Arreter',msg_confirm_stop_gen:'Arreter la generation ? La playlist en cours de creation sera supprimee.',msg_stopping_gen:'Arret playlist en cours, veuillez patienter...',msg_stop_gen_failed:'Echec de la demande d\'arret (reseau) -- reessayez',...HELP_I18N.fr},
+en:{title:'RecalBox DMD - Playlist',h1:'Playlist',sec_playlist:'&#x1F4BF; Playlist',lbl_playlist_file:'Default playlist',hint_playlist_bg:'Choosing a playlist automatically sets the background to “GIF playlist” (Widgets page).',lbl_random:'Random playback',lbl_delete_playlist:'Delete',btn_delete_playlist:'&#x1F5D1; Delete playlist',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_select_playlist:'Select a playlist to delete',msg_confirm_delete:'Delete ${0}?',msg_confirm_delete_default:'WARNING: ${0} is currently the default playlist! Deleting it may prevent the DMD from starting normally. Continue?',msg_deleting:'Deleting...',sec_manage_playlists:'&#x2699; Playlist management',desc_gen_playlist:'Check folders to generate a new playlist. &#x26A0;&#xFE0F; Generation is only fast on folders with a limited number of files. For playlists covering large folders, use the RecalboxDMD_tool utility on PC instead.',btn_select_all:'Select all',btn_select_none:'Select none',lbl_playlist_name:'Playlist name',placeholder_playlist_name:'e.g. MyPlaylist',btn_gen_playlist:'&#x2699; Generate playlist',msg_no_playlist_name:'Please name the playlist',msg_select_folder:'Select at least one folder',msg_generating:'Generating...',lbl_load_playlist:'Edit an existing playlist',msg_scanning:'Scanning',msg_gen_busy:'A generation is already running',msg_gen_start_error:'Could not start generation',msg_gen_leave_warning:'A playlist generation is in progress. Leave the page?',btn_stop_gen:'&#x23F9; Stop',msg_confirm_stop_gen:'Stop generation? The playlist being created will be deleted.',msg_stopping_gen:'Stopping playlist generation, please wait...',msg_stop_gen_failed:'Stop request failed (network) -- please retry',...HELP_I18N.en},
+es:{title:'RecalBox DMD - Playlist',h1:'Playlist',sec_playlist:'&#x1F4BF; Lista',lbl_playlist_file:'Lista predeterminada',hint_playlist_bg:'Elegir una lista activa automáticamente el fondo « Lista de GIFs » (página Widgets).',lbl_random:'Reproducción aleatoria',lbl_delete_playlist:'Eliminar',btn_delete_playlist:'&#x1F5D1; Eliminar lista',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_select_playlist:'Selecciona una lista para eliminar',msg_confirm_delete:'¿Eliminar ${0}?',msg_confirm_delete_default:'ATENCIÓN: ¡${0} es actualmente la lista predeterminada! Eliminarla puede impedir que el DMD arranque normalmente. ¿Continuar?',msg_deleting:'Eliminando...',sec_manage_playlists:'&#x2699; Gestión de listas',desc_gen_playlist:'Marque las carpetas para generar una nueva lista. &#x26A0;&#xFE0F; La creación solo es rápida en carpetas con un número limitado de archivos. Para listas con carpetas voluminosas, use la utilidad RecalboxDMD_tool en el PC.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',lbl_playlist_name:'Nombre de la lista',placeholder_playlist_name:'ej: MiLista',btn_gen_playlist:'&#x2699; Generar lista',msg_no_playlist_name:'Póngale un nombre a la lista',msg_select_folder:'Elija al menos una carpeta',msg_generating:'Generando...',lbl_load_playlist:'Editar una lista existente',msg_scanning:'Analizando',msg_gen_busy:'Ya hay una generación en curso',msg_gen_start_error:'No se pudo iniciar la generación',msg_gen_leave_warning:'Hay una generación de lista en curso. ¿Salir de la página?',btn_stop_gen:'&#x23F9; Detener',msg_confirm_stop_gen:'¿Detener la generación? La lista en creación se eliminará.',msg_stopping_gen:'Deteniendo la generación de la lista, espere...',...HELP_I18N.es}
+};
+let currentLang='fr';
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
+function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
+let _plNameAutoFilled=false; // suivi de la suggestion auto de nom (voir updatePlaylistNameSuggestion())
+function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||(window.CFG_I18N&&CFG_I18N[currentLang]&&CFG_I18N[currentLang][k])||PAGE_I18N.fr[k]||(window.CFG_I18N&&CFG_I18N.fr&&CFG_I18N.fr[k])||k;}
+function trTpl(k,v){return tr(k).replace('${0}',v);}
+function applyLang(backendLang){
+  const stored=localStorage.getItem('dmd_lang');
+  if(stored&&PAGE_I18N[stored]){currentLang=stored;}
+  else if(backendLang&&PAGE_I18N[backendLang]){currentLang=backendLang;}
+  else{const nav=(navigator.language||'').substring(0,2);currentLang=PAGE_I18N[nav]?nav:'fr';}
+  document.documentElement.lang=currentLang;
+  document.title=tr('title');
+  document.querySelectorAll('[data-i18n]').forEach(function(el){el.innerHTML=tr(el.dataset.i18n);});
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el){el.placeholder=tr(el.dataset.i18nPlaceholder);});
+  document.getElementById('langSelect').value=currentLang;
+}
+function setLang(code){
+  localStorage.setItem('dmd_lang',code);
+  applyLang();
+  fetch('/save-language',{method:'POST',body:'language='+code,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});
+}
+let _formDirty=false;
+// v69 -- brouillon PARTAGE : tous les reglages modifies sur n'importe quelle page restent en attente (localStorage) et sont envoyes ENSEMBLE par n'importe quel bouton
+// Enregistrer / Enreg. & Redemarrer, de n'importe quelle page. Pour QUITTER (Reprendre DMD / Redemarrer) avec des reglages non enregistres, une boite de dialogue le signale et
+// propose Enregistrer / Quitter quand meme (confirmLeave). Aucune alerte ailleurs : naviguer entre les pages ou fermer l'onglet reste libre.
+const DMD_DRAFT_KEYS=['dmd_draft_home','dmd_draft_basic','dmd_draft_playlist','dmd_draft_network','dmd_draft_clock','dmd_draft_widgets'];
+function anyDraft(){try{return DMD_DRAFT_KEYS.some(function(k){return localStorage.getItem(k)!==null;});}catch(e){return false;}}
+function allBody(own){const p=new URLSearchParams();DMD_DRAFT_KEYS.forEach(function(k){try{const raw=localStorage.getItem(k);if(!raw)return;const o=JSON.parse(raw);Object.keys(o).forEach(function(id){const v=o[id];if((v===''&&!/^(clk_anim_|clk_digit_|deco_ev_)/.test(id))||v===undefined||v===null)return;if(/^(wifi_|bluetooth_)/.test(id))return;p.set(id,(typeof v==='boolean')?(v?'1':'0'):String(v));});}catch(e){}});if(own)own.forEach(function(v,k){p.set(k,v);});return p;}
+function clearAllDrafts(){DMD_DRAFT_KEYS.forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});}
+// Boite de dialogue de SORTIE (Reprendre DMD / Redemarrer) : s'il reste des reglages non enregistres, elle l'indique et propose Enregistrer / Quitter quand meme (+ Annuler pour rester). Rien ne s'affiche sinon.
+let _leaveBox=null;
+function saveAllNow(){if(typeof saveConfig==='function')return Promise.resolve(saveConfig());const f=(typeof queuedFetch==='function')?queuedFetch:fetch;return f('/save',{method:'POST',body:allBody(null),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(function(r){return r.text();}).then(function(x){if(x.includes('OK'))clearAllDrafts();}).catch(function(){});}
+function confirmLeave(proceed){
+  if(!anyDraft()){proceed(false);return;}
+  const T={fr:{m:"Des modifications ne sont pas enregistrées.",s:"Enregistrer",q:"Quitter quand même",c:"Annuler"},en:{m:"Some changes are not saved.",s:"Save",q:"Leave anyway",c:"Cancel"},es:{m:"Hay cambios sin guardar.",s:"Guardar",q:"Salir de todos modos",c:"Cancelar"}};
+  const L=T[document.documentElement.lang]||T.fr;
+  if(_leaveBox){_leaveBox.remove();_leaveBox=null;}
+  const ov=document.createElement('div');ov.style.cssText='position:fixed;left:0;top:0;right:0;bottom:0;z-index:100;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px';
+  const bx=document.createElement('div');bx.style.cssText='background:#1a1a2e;color:#fff;border:2px solid #ffd146;border-radius:10px;padding:18px 20px;max-width:420px;width:100%;text-align:center;font-size:15px';
+  const mt=document.createElement('div');mt.textContent=L.m;mt.style.cssText='margin-bottom:14px;font-weight:bold';bx.appendChild(mt);
+  const row=document.createElement('div');row.style.cssText='display:flex;gap:10px;justify-content:center;flex-wrap:wrap';
+  const close=function(){ov.remove();_leaveBox=null;};
+  const mk=function(txt,css,fn){const x=document.createElement('button');x.type='button';x.textContent=txt;x.style.cssText='cursor:pointer;border-radius:6px;padding:8px 14px;font-size:14px;'+css;x.onclick=fn;row.appendChild(x);return x;};
+  mk(L.s,'border:0;background:#ffd146;color:#1a1a2e;font-weight:bold',function(){close();saveAllNow().then(function(){if(!anyDraft())proceed(false);});});
+  mk(L.q,'border:1px solid #fff;background:transparent;color:#fff',function(){close();clearAllDrafts();if(typeof _formDirty!=='undefined')_formDirty=false;proceed(true);});
+  mk(L.c,'border:0;background:transparent;color:#aaa;text-decoration:underline',close);
+  bx.appendChild(row);ov.appendChild(bx);document.body.appendChild(ov);_leaveBox=ov;
+}
+function stripAccents(s){return s.normalize('NFD').replace(new RegExp('['+String.fromCharCode(768)+'-'+String.fromCharCode(879)+']','g'),'').replace(/[^ -~]/g,'?');}
+function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(txt),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}
+function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
+function serialize(){return new URLSearchParams({playlist:document.getElementById('playlist').value,random:document.getElementById('random').checked?'1':'0'});}
+const DRAFT_KEY='dmd_draft_playlist';
+const DRAFT_FIELDS=['playlist','random'];
+function loadDraft(){try{const raw=localStorage.getItem(DRAFT_KEY);return raw?JSON.parse(raw):null;}catch(e){return null;}}
+function saveDraft(){const o={};DRAFT_FIELDS.forEach(id=>{const el=document.getElementById(id);if(!el)return;o[id]=(el.type==='checkbox')?el.checked:el.value;});localStorage.setItem(DRAFT_KEY,JSON.stringify(o));}
+function clearDraft(){localStorage.removeItem(DRAFT_KEY);}
+function checkEssentialFields(){return fetch('/load').then(r=>r.json()).then(d=>{const missing=[];if(!d.wifi_ssid)missing.push(tr('essential_wifi'));if(d.deco_bg!=='1'&&!d.playlist)missing.push(tr('essential_playlist'));if(d.deco_bg!=='1'&&!d.recalbox_ip)missing.push(tr('essential_ip'));if(!missing.length)return true;return confirm(tr('msg_essential_missing').replace('{fields}',missing.join(', ')));}).catch(()=>true);}
+function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:allBody(serialize()),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK')){_formDirty=false;clearAllDrafts();}}).catch(()=>showMsg(tr('msg_net_error'),false));}
+function doReboot(skipConfirm){checkEssentialFields().then(ok=>{if(!ok)return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;confirmLeave(function(){showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});});});}
+function saveAndReboot(){saveConfig().then(()=>setTimeout(()=>doReboot(true),400));}
+function dmdResume(){checkEssentialFields().then(ok=>{if(!ok)return;confirmLeave(function(discarded){fetch('/dmd-resume',{method:'POST'}).then(()=>{showMsgLocal(tr('msg_dmd_resumed'),true);if(discarded)setTimeout(()=>location.reload(),1200);}).catch(()=>showMsg(tr('msg_net_error'),false));});});}
+async function fillPlaylists(selVal){
+  for(let attempt=0;attempt<5;attempt++){
+    try{
+      const pl=await(await fetch('/lsplaylists')).json();
+      const sel=document.getElementById('playlist');const del=document.getElementById('deletePlaylistSelect');const load=document.getElementById('loadPlaylistSelect');
+      sel.innerHTML='';del.innerHTML='';load.innerHTML='';
+      const opt=document.createElement('option');opt.value='';opt.textContent='---';sel.appendChild(opt);
+      const opt2=document.createElement('option');opt2.value='';opt2.textContent='---';del.appendChild(opt2);
+      const opt3=document.createElement('option');opt3.value='';opt3.textContent='---';load.appendChild(opt3);
+      pl.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;if(p===selVal)o.selected=true;sel.appendChild(o);const o2=document.createElement('option');o2.value=p;o2.textContent=p;del.appendChild(o2);const o3=document.createElement('option');o3.value=p;o3.textContent=p;load.appendChild(o3);});
+      return;
+    }catch(e){ if(attempt<4) await new Promise(r=>setTimeout(r,500)); }
+  }
+}
+function deletePlaylist(){const name=document.getElementById('deletePlaylistSelect').value;if(!name){showMsg(tr('msg_select_playlist'),false);return;}
+  const isDefault=document.getElementById('playlist').value===name;
+  if(isDefault){if(!confirm(trTpl('msg_confirm_delete_default',name)))return;}
+  else if(!confirm(trTpl('msg_confirm_delete',name)))return;
+  showMsgLocal(tr('msg_deleting'),true);
+  fetch('/delete-playlist',{method:'POST',body:new URLSearchParams({name:name}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t,t.includes('OK'));fillPlaylists('');}).catch(()=>showMsg(tr('msg_net_error'),false));}
+function readDirsCache(){
+  try{
+    const raw=sessionStorage.getItem('dmd_gifdirs_cache');
+    return raw?JSON.parse(raw):null;
+  }catch(e){return null;}
+}
+function writeDirsCache(dirs){
+  try{sessionStorage.setItem('dmd_gifdirs_cache',JSON.stringify(dirs));}catch(e){}
+}
+function renderGenDirs(dirs){
+  const list=document.getElementById('genDirList');
+  const sorted=dirs.slice().sort((a,b)=>{
+    const na=(a&&typeof a==='object')?a.name:a;
+    const nb=(b&&typeof b==='object')?b.name:b;
+    return na.localeCompare(nb);
+  });
+  list.innerHTML='';
+  sorted.forEach(d=>{
+    const name=(d&&typeof d==='object')?d.name:d;
+    const row=document.createElement('label');
+    row.innerHTML='<input type="checkbox" value="'+name+'"><span class="name">&#x1F4C1; '+name+'</span>';
+    list.appendChild(row);
+  });
+}
+async function loadGenDirs(){
+  const cached=readDirsCache();
+  if(cached&&cached.length)renderGenDirs(cached);
+  for(let attempt=0;attempt<5;attempt++){
+    if(attempt>0)await new Promise(r=>setTimeout(r,500));
+    try{
+      const dirs=await(await fetch('/lsgifdirs')).json();
+      if(!dirs.length&&attempt<4)continue;
+      renderGenDirs(dirs);
+      writeDirsCache(dirs);
+      return;
+    }catch(e){}
+  }
+}
+function selectAllGenDirs(v){document.querySelectorAll('#genDirList input').forEach(i=>i.checked=v);updatePlaylistNameSuggestion();}
+function updatePlaylistNameSuggestion(){
+  if(document.getElementById('loadPlaylistSelect').value)return;
+  const checked=[].slice.call(document.querySelectorAll('#genDirList input:checked'));
+  const nameEl=document.getElementById('playlistName');
+  if(checked.length===1){
+    if(_plNameAutoFilled||nameEl.value==='') { nameEl.value=checked[0].value; _plNameAutoFilled=true; }
+  } else if(_plNameAutoFilled){
+    nameEl.value=''; _plNameAutoFilled=false;
+  }
+}
+document.getElementById('genDirList').addEventListener('change',function(e){if(e.target&&e.target.type==='checkbox')updatePlaylistNameSuggestion();});
+document.getElementById('playlistName').addEventListener('focus',function(){if(_plNameAutoFilled){this.value='';_plNameAutoFilled=false;}});
+function loadPlaylistForEdit(){
+  const raw=document.getElementById('loadPlaylistSelect').value;
+  if(!raw){
+    selectAllGenDirs(false);
+    document.getElementById('playlistName').value='';
+    _plNameAutoFilled=false;
+    return;
+  }
+  const name=raw.replace(/\.txt$/i,'');
+  _plNameAutoFilled=false;
+  document.getElementById('playlistName').value=name;
+  fetch('/playlist-dirs?name='+encodeURIComponent(name)).then(r=>r.json()).then(dirs=>{
+    document.querySelectorAll('#genDirList input[type=checkbox]').forEach(c=>{c.checked=dirs.indexOf(c.value)>=0;});
+  }).catch(()=>showMsg(tr('msg_net_error'),false));
+}
+function setPageBusy(busy){document.querySelectorAll('button,input,select').forEach(e=>{if(e.id!=='genStopBtn')e.disabled=busy;});document.body.classList.toggle('gen-busy',busy);
+  document.getElementById('genStopBtn').style.display=busy?'inline-block':'none';
+  if(busy)document.getElementById('genStopBtn').disabled=false;
+  _pageBusy=busy; refreshBeforeUnload();
+}
+let _pageBusy=false;
+function refreshBeforeUnload(){
+  window.onbeforeunload = _pageBusy ? function(){return tr('msg_gen_leave_warning');} : null;
+}
+let _stopRequestPending=false;
+async function stopGeneratePlaylist(){
+  if(!confirm(tr('msg_confirm_stop_gen')))return;
+  const msgEl=document.getElementById('msg');
+  if(window._msgTimer)clearTimeout(window._msgTimer);
+  msgEl.className='msg ok';msgEl.style.display='block';msgEl.textContent=tr('msg_stopping_gen');
+  document.getElementById('genStopBtn').disabled=true;
+  _stopRequestPending=true;
+  let ok=false;
+  for(let attempt=0;attempt<3&&!ok;attempt++){
+    if(attempt>0)await new Promise(r=>setTimeout(r,500));
+    try{const r=await fetch('/generate-playlist-stop',{method:'POST'});ok=r.ok;}catch(e){ok=false;}
+  }
+  _stopRequestPending=false;
+  if(!ok){
+    msgEl.className='msg err';
+    msgEl.textContent=tr('msg_stop_gen_failed');
+    document.getElementById('genStopBtn').disabled=false;
+  }
+}
+async function generatePlaylist(){
+  const name=document.getElementById('playlistName').value.trim();
+  const dirs=[].slice.call(document.querySelectorAll('#genDirList input:checked')).map(i=>i.value).join(',');
+  if(!name){showMsg(tr('msg_no_playlist_name'),false);return;}
+  if(!dirs){showMsg(tr('msg_select_folder'),false);return;}
+  setPageBusy(true);
+  const msgEl=document.getElementById('msg');
+  if(window._msgTimer)clearTimeout(window._msgTimer);
+  msgEl.className='msg ok';msgEl.style.display='block';msgEl.textContent=tr('msg_generating');
+  function finishGen(resultText,ok){
+    msgEl.textContent=resultText||tr('msg_gen_start_error');
+    msgEl.className='msg '+(ok?'ok':'err');
+    if(window._msgTimer)clearTimeout(window._msgTimer);
+    window._msgTimer=setTimeout(()=>{msgEl.style.display='none';},5000);
+    fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(resultText||''),color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});
+    document.getElementById('playlistName').value='';
+    fillPlaylists('');
+  }
+  let started=false;
+  try{
+    const r=await fetch('/generate-playlist',{method:'POST',body:new URLSearchParams({name:name,dirs:dirs}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+    const t=await r.text();
+    started=t.includes('STARTED');
+    if(!started){
+      if(r.ok&&t.startsWith('OK')){
+        finishGen(t,true);
+        setPageBusy(false);
+        return;
+      }
+      msgEl.textContent=(r.status===409)?tr('msg_gen_busy'):t;msgEl.className='msg err';
+      if(window._msgTimer)clearTimeout(window._msgTimer);
+      window._msgTimer=setTimeout(()=>{msgEl.style.display='none';},5000);
+    }
+  }catch(e){
+    try{
+      const st=await(await fetch('/generate-playlist-status')).json();
+      started=!!st.active;
+    }catch(e2){started=false;}
+    if(!started){
+      msgEl.textContent=tr('msg_net_error');msgEl.className='msg err';
+      if(window._msgTimer)clearTimeout(window._msgTimer);
+      window._msgTimer=setTimeout(()=>{msgEl.style.display='none';},5000);
+    }
+  }
+  if(!started){setPageBusy(false);return;}
+  while(true){
+    await new Promise(res=>setTimeout(res,700));
+    if(_stopRequestPending)continue;
+    let st;
+    try{
+      const ctrl=new AbortController();
+      const abortTimer=setTimeout(()=>ctrl.abort(),25000);
+      st=await(await fetch('/generate-playlist-status',{signal:ctrl.signal})).json();
+      clearTimeout(abortTimer);
+    }catch(e){continue;}
+    if(!st.active){
+      finishGen(st.result,st.done);
+      break;
+    }
+    msgEl.textContent=tr('msg_scanning')+': '+st.dir+' ('+st.dirIdx+'/'+st.totalDirs+') - '+st.curDirGifs+' GIFs ('+st.gifs+' total)';
+  }
+  setPageBusy(false);
+}
+// v64 -- BUG REEL corrige, voir le commentaire complet dans WEB_CONFIG_HTML
+// (page Affichage) -- meme fix duplique ici (gel reseau du DMD => fetch qui
+// ne resout ni ne rejette jamais, .catch() existant inutile dans ce cas).
+function fetchTimeout(u,o,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);return fetch(u,Object.assign({},o,{signal:c.signal})).finally(()=>clearTimeout(t));}
+function fetchLoadRetry(){return fetchTimeout('/load',{},45000).catch(()=>fetchTimeout('/load',{},45000)).then(r=>r.json());}
+function loadConfig(){const draft=loadDraft();return fetchLoadRetry().then(d=>{
+  // v113 -- BUG REEL corrige : une chaine VIDE laissee dans le brouillon
+  // (ex. un champ nombre momentanement vide pendant une frappe, sauvegarde
+  // par saveDraft() a CHAQUE evenement 'input') passait le test
+  // "!==undefined" et ecrasait donc silencieusement la vraie valeur
+  // sauvegardee cote serveur a chaque rechargement de page -- observe en
+  // reel sur clock_interval/clock_duration (champs vides a l'ouverture,
+  // PUIS ecrits a 0 dans config.ini par la sauvegarde suivante, symptome
+  // "les champs sont a zero apres F5"). Une chaine vide est desormais
+  // traitee comme "pas de brouillon pour ce champ" -- ne change rien pour
+  // les cases a cocher (false !== '').
+  const g=(k,dv)=>(draft&&draft[k]!==undefined&&draft[k]!=='')?draft[k]:dv;
+  fillPlaylists((wdGet().deco_bg==='1')?'':g('playlist',d.playlist||''));   /* v352 : fond « widgets seuls » en attente = aucune playlist */
+  document.getElementById('random').checked=g('random',d.random==='1');
+  if(draft)_formDirty=true;
+}).catch(()=>showMsg(tr('msg_load_error'),false));}
+fetchTimeout('/lang',{},45000).then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}return loadConfig();}).catch(()=>{applyLang();return loadConfig();}).then(loadGenDirs).finally(hidePageLoadingOverlay);
+document.getElementById('playlistForm').addEventListener('input',()=>{_formDirty=true;saveDraft();});
+document.getElementById('playlist').addEventListener('change',function(){if(this.value)wdPatch({deco_bg:'0'});});   /* v352 : choisir une playlist = fond « playlist de GIFs » */
+</script>
+<script src="/native.js"></script>
+</body>
+</html>

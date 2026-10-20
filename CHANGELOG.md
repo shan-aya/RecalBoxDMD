@@ -8,6 +8,17 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-20 — Raspberry Pi version (daemon pi-v3.58)
+
+**Raspberry Pi**
+- **The DMD on a Raspberry Pi 3B** (validated) with two P5 panels: same protocol, same Recalbox scripts, same SD card, same web pages, widgets, logo themes, clock, scores, Pinball mode and Recalbox native mode as the ESP32. C++ daemon under **GPL-2.0+** (linked with rpi-rgb-led-matrix), sources in `raspberry-pi/`, binary and payload in the `pi-v3.58` release. Pi 4 / 400 / CM4 / Pi 2: `gpio_slowdown` is set automatically from the model, **untested**. See [RASPBERRY-PI.md](RASPBERRY-PI.md).
+
+**PC toolkit build 12675**
+- **Raspberry Pi target**: all-in-one **Mode 1** from a blank card, **Mode 16** (prepare the card, replaces Raspberry Pi Imager), **Mode 17** (install / update). The Pi software is downloaded from GitHub (SHA-256 checked).
+- **Mode 18 — Text cards only**: regenerates only the text cards of games without a picture. Games without a logo get a text card (clean style on a dark background); non-games are excluded.
+- **Conversion faithful to the original**: pixel-perfect, falling back to the exact scale when the integer divisor shrinks the logo by more than 3 %. Unreadable scrapes are repaired or reported.
+- Recalbox profile **"11.x-10.x"** (formerly "10.x"). Warning before conversion: the description shown on the DMD is in the language of the Recalbox scrape. **Refresh** buttons for SD card detection, an SD copy panel that is no longer cropped, a Stop button for the copy, and a popup for serious errors.
+
 ## 2026-10-20 — Firmware v3.58: bigger overlay messages of identical size, "RecalBox connected" blinks
 
 **Firmware v3.58**

@@ -1,0 +1,297 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RecalBox DMD - R&eacute;glages</title>
+<link rel="stylesheet" href="/cfg.css?h=42c26368">
+<link rel="icon" href="data:,">
+<script src="/cfg.js?h=813f74a2" onerror="try{if(!sessionStorage.cfgR){sessionStorage.cfgR=1;location.reload();}}catch(e){}"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
+.fwbox{text-align:center;color:#9ca3af;font-size:13px;margin:-6px 0 12px}
+.fwbox b{color:#ffd146}
+.otabtn{margin:8px 6px 4px 0;padding:8px 14px;border-radius:6px;border:1px solid #ffd146;background:#ffd146;color:#1b1b1b;font-weight:bold;cursor:pointer}
+.otabtn:disabled{opacity:.6;cursor:default}
+.fwnew{margin-top:6px;padding:8px 10px;border-radius:6px;background:#3a2410;border:1px solid #7a4a12;color:#ffcf8a}
+.fwnew a{color:#ffd146;font-weight:700}
+.btn{display:block;padding:12px 14px;border-radius:8px;background:#0f3460;color:#eee;font-weight:600;text-decoration:none;text-align:center}
+.btn:hover{background:#16478a}
+.small{font-size:12px;color:#9ca3af;margin-top:10px;text-align:center}
+h2{color:#8ab4f8;font-size:15px;margin:0 0 10px;border-left:3px solid #8ab4f8;padding-left:8px}
+.row input{flex:1;min-width:120px;padding:8px 10px;border:1px solid #333;border-radius:4px;background:#0f3460;color:#eee;font-size:14px}
+.featinfo{flex:0 0 20px;width:20px;height:20px;border-radius:50%;background:#0f3460;color:#8ab4f8;text-align:center;line-height:20px;font-size:13px;font-weight:bold;cursor:pointer;margin-left:8px;margin-right:8px}
+#featInfoBackdrop{pointer-events:none}
+#featInfoBackdrop .help-box{pointer-events:auto}
+.btn-row{display:flex;gap:10px;justify-content:center;margin:14px 0 4px;flex-wrap:wrap}
+.hbtn{padding:12px 20px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
+.desc{font-size:12px;color:#aaa;margin-bottom:8px}
+body{position:relative}
+#pageLoadingOverlay{position:fixed;inset:0;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px;font-weight:600;z-index:99999;text-align:center;padding:20px;gap:14px}
+#pageLoadingOverlay .pgspin{width:34px;height:34px;border:4px solid #333;border-top-color:#8ab4f8;border-radius:50%;animation:pgspin .8s linear infinite}
+@keyframes pgspin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="otaPop" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:100000;background:#b00020;color:#fff;align-items:center;justify-content:center;text-align:center;font-weight:700;font-size:24px;line-height:1.4;padding:24px"><div id="otaPopTxt"></div></div>
+<div id="pageLoadingOverlay"><div class="pgspin"></div><div data-i18n="loading_text">Chargement en cours...</div></div>
+<select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<span id="helpLink" onclick="showHelpModal()" data-i18n="help_link">Aide</span>
+<div id="helpBackdrop" class="help-backdrop" onclick="if(event.target===this)closeHelpModal()">
+<div class="help-box">
+<button class="help-close" onclick="closeHelpModal()">&times;</button>
+<h2 data-i18n="help_title">Bienvenue</h2>
+<p data-i18n="help_intro"></p>
+<h3 data-i18n="help_checklist_title"></h3>
+<ul>
+<li data-i18n="help_check_ip"></li>
+<li data-i18n="help_check_playlist"></li>
+<li data-i18n="help_check_wifi"></li>
+</ul>
+<p id="helpUrlReminder"></p>
+<h3 data-i18n="help_features_title"></h3>
+<ul>
+<li data-i18n="help_feat_playlists"></li>
+<li data-i18n="help_feat_clock"></li>
+<li data-i18n="help_feat_display"></li>
+<li data-i18n="help_feat_network"></li>
+</ul>
+</div>
+</div>
+<div class="topnav">
+<a href="/" onclick="showPageLoadingOverlay()" data-i18n="nav_home">&#x1F3E0; Accueil</a>
+<a href="/config/settings" onclick="showPageLoadingOverlay()" class="active" data-i18n="nav_settings">&#x2699; R&eacute;glages</a>
+<a href="/config/basic" onclick="showPageLoadingOverlay()" data-i18n="nav_basic">&#x1F4A1; Affichage</a>
+<a href="/config/playlist" onclick="showPageLoadingOverlay()" data-i18n="nav_playlist">&#x1F4BF; Playlist</a>
+<a href="/config/network" onclick="showPageLoadingOverlay()" data-i18n="nav_network">&#x1F4F6; Wi-Fi</a>
+<a href="/config/widgets" onclick="showPageLoadingOverlay()" data-i18n="nav_deco">&#x2728; Widgets &amp; Horloge</a>
+<a href="/config/media" onclick="showPageLoadingOverlay()" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
+<a href="/config/button" onclick="showPageLoadingOverlay()" data-i18n="nav_button">&#x1F518; Bouton</a>
+</div>
+<h1 data-i18n="h1">R&eacute;glages</h1>
+<div class="fwbox"><span data-i18n="fw_label">Firmware</span> <b id="fwCur"></b><div id="fwNew" class="fwnew" style="display:none"></div><div id="scrNew" class="fwnew" style="display:none"></div></div>
+<div class="section">
+<h2 data-i18n="sec_display">&#x1F4A1; Affichage</h2>
+<div class="row"><label for="brightness" data-i18n="lbl_brightness">Luminosit&eacute; (%)</label><input id="brightness" type="range" min="0" max="100" value="50" oninput="onBrightnessInput(this)" onchange="sendBrightness(this.value,true)"><span id="bval" style="margin-left:8px;color:#ffd146;min-width:24px">50</span></div>
+<div class="desc" data-i18n="desc_brightness_live" style="text-align:center;margin-left:150px;margin-top:-4px">&#x1F4A1; Aper&ccedil;u appliqu&eacute; en direct sur l'&eacute;cran DMD.</div>
+<div class="row"><label data-i18n="bs_label">Planificateur</label><span class="featinfo" style="visibility:hidden">?</span><input id="bright_sched_on" type="checkbox"><a class="hbtn" href="/config/brightness" onclick="showPageLoadingOverlay()" data-i18n="bs_open" style="background:#0f3460;color:#eee;text-decoration:none;margin-left:14px">Configurer</a></div>
+<div class="row"><label data-i18n="lbl_silent_boot">D&eacute;marrage silencieux</label><span class="featinfo" onmouseenter="showFeatInfo('silent_boot')" onmouseleave="closeFeatInfo()">?</span><input id="silent_boot" type="checkbox"></div>
+<!-- Option Pinball (VPX) : SANS redemarrage du DMD au lancement d'une table (mode en place, depuis firmware v217) ; seul l'activation de l'option demande un redemarrage (setupVpinballDmd() ne s'execute qu'au boot). Sortie : fin de partie (endgame) ou 5 s sans image. v230 : cocher l'option = AUTORISE le script Recalbox dmd_vpx_config a modifier VPinballX-configgen.ini (la bulle "?" l'annonce en FR/EN/ES) ; l'etat est envoye a la Recalbox dans FEATURES (vpinball_dmd=0|1). -->
+<div class="row"><label data-i18n="lbl_vpinball">Mode Pinball (VPX)</label><span class="featinfo" onmouseenter="showFeatInfo('vpinball')" onmouseleave="closeFeatInfo()">?</span><input id="feat_vpinball_dmd" type="checkbox"></div>
+<!-- v72 : fenetre RA (prototype) : les alertes RetroAchievements rendues par EmulationStation (badge + titre) s'affichent sur le DMD en mode normal. Redemarrage requis. -->
+<div class="row"><label data-i18n="lbl_ra_window">Alertes RetroAchievements d'ES</label><span class="featinfo" onmouseenter="showFeatInfo('ra_window')" onmouseleave="closeFeatInfo()">?</span><input id="feat_ra_window" type="checkbox"></div>
+</div>
+<!-- v66 / v75 : Mode Recalbox natif (redemarrage requis), dans sa PROPRE section : il desactive TOUTES les fonctions du firmware, l'ecran est pilote par la Recalbox seule. Les autres cases gardent leur valeur (grisees, jamais decochees). -->
+<div class="section" id="nativeSection">
+<h2 data-i18n="sec_native">&#x1F5A5; Mode Recalbox natif</h2>
+<div class="row"><label data-i18n="lbl_native">Mode Recalbox natif</label><span class="featinfo" onmouseenter="showFeatInfo('native')" onmouseleave="closeFeatInfo()">?</span><input id="recalbox_native_mode" type="checkbox"></div>
+</div>
+<div class="btn-row">
+<button type="button" class="hbtn btn-save" onclick="saveDisplay(false)" data-i18n="btn_save">&#x1F4BE; Enregistrer</button>
+<button type="button" class="hbtn btn-reboot" onclick="saveDisplay(true)" data-i18n="btn_save_reboot">&#x1F504; Enreg. &amp; Red&eacute;marrer</button>
+<button type="button" class="hbtn" style="background:#2d6a4f;color:#fff" onclick="cfgResume()" data-i18n="btn_resume">&#x25B6; Reprendre DMD</button>
+</div>
+<div id="featInfoBackdrop" class="help-backdrop">
+<div class="help-box" onmouseenter="cancelCloseFeatInfo()" onmouseleave="closeFeatInfo()">
+<button class="help-close" onclick="closeFeatInfo()">&times;</button>
+<h2 id="featInfoTitle"></h2>
+<p id="featInfoBody" style="white-space:pre-line"></p>
+</div>
+</div>
+<div id="msg" class="msg"></div>
+<script>
+const HELP_I18N=window.CFG_HELP;
+const MENU_I18N={
+fr:{title:'RecalBox DMD - Réglages',h1:'Réglages',sec_display:'&#x1F4A1; Affichage',lbl_brightness:'Luminosité (%)',desc_brightness_live:'&#x1F4A1; Aperçu appliqué en direct sur l\'écran DMD.',lbl_silent_boot:'Démarrage silencieux',lbl_vpinball:'Mode Pinball (VPX)',lbl_ra_window:'Alertes RetroAchievements d\'ES (expérimental)',sec_native:'&#x1F5A5; Mode Recalbox natif',lbl_native:'Mode Recalbox natif',confirm_native:'Le mode Recalbox natif DESACTIVE toutes les fonctions de ce firmware (playlist, hi-scores, infos, RetroAchievements, horloge, commandes des scripts) : l\'ecran sera pilote uniquement par la Recalbox. Seuls la page web, le WiFi et la mise a jour restent actifs. Redemarrage necessaire pour appliquer. Continuer ?',msg_saved:'Enregistré',msg_rebooting:'Redémarrage...',fw_label:'Firmware',fw_new:'&#x2B06; Nouvelle version disponible : v{v}',fw_upd:'Mettre à jour',fw_usb:'ou par USB (Web Installer)',fw_ota_btn:'Mettre à jour maintenant (Wi-Fi)',ota_running:'Mise à jour en cours (environ 2 min). L\'écran du DMD s\'éteint un moment : ne coupez pas l\'alimentation.',ota_popup:'ÉCRAN DU DMD ÉTEINT<br><br>NE PAS DÉBRANCHER<br><br>Mise à jour en cours…',ota_ok:'Mis à jour en v{v}. La page se recharge…',ota_uptodate:'Le DMD est déjà à jour.',ota_fail:'Échec de la mise à jour ({e}). Le DMD a gardé son ancien firmware.',ota_timeout:'Le DMD ne répond plus après 6 minutes. Vérifiez-le (alimentation, Wi-Fi) avant de réessayer.',scr_new:'&#x2B06; Scripts Recalbox à mettre à jour : lancez l\'application RecalBoxDMD_toolkit sur PC et faites un Mode 9, puis redémarrez la Recalbox.',scr_dl:'Télécharger RecalBoxDMD_toolkit',...HELP_I18N.fr},
+en:{title:'RecalBox DMD - Settings',h1:'Settings',sec_display:'&#x1F4A1; Display',lbl_brightness:'Brightness (%)',desc_brightness_live:'&#x1F4A1; Live preview applied directly on the DMD screen.',lbl_silent_boot:'Silent boot',lbl_vpinball:'Pinball mode (VPX)',lbl_ra_window:'ES RetroAchievements alerts (experimental)',sec_native:'&#x1F5A5; Native Recalbox mode',lbl_native:'Native Recalbox mode',confirm_native:'Native Recalbox mode DISABLES every feature of this firmware (playlist, high scores, info screens, RetroAchievements, clock, script commands): the screen will be driven by Recalbox only. Only the web page, WiFi and updates stay active. A reboot is needed to apply. Continue?',msg_saved:'Saved',msg_rebooting:'Rebooting...',fw_label:'Firmware',fw_new:'&#x2B06; New version available: v{v}',fw_upd:'Update',fw_usb:'or via USB (Web Installer)',fw_ota_btn:'Update now (Wi-Fi)',ota_running:'Update in progress (about 2 min). The DMD screen goes dark for a while: do not unplug the power.',ota_popup:'DMD SCREEN OFF<br><br>DO NOT UNPLUG<br><br>Update in progress…',ota_ok:'Updated to v{v}. Reloading the page…',ota_uptodate:'The DMD is already up to date.',ota_fail:'Update failed ({e}). The DMD kept its previous firmware.',ota_timeout:'The DMD has not answered for 6 minutes. Check it (power, Wi-Fi) before trying again.',scr_new:'&#x2B06; Recalbox scripts need updating: run the RecalBoxDMD_toolkit application on PC and do a Mode 9, then restart the Recalbox.',scr_dl:'Download RecalBoxDMD_toolkit',...HELP_I18N.en},
+es:{title:'RecalBox DMD - Ajustes',h1:'Ajustes',sec_display:'&#x1F4A1; Pantalla',lbl_brightness:'Brillo (%)',desc_brightness_live:'&#x1F4A1; Vista previa aplicada en directo en la pantalla DMD.',lbl_silent_boot:'Arranque silencioso',lbl_vpinball:'Modo Pinball (VPX)',lbl_ra_window:'Alertas RetroAchievements de ES (experimental)',sec_native:'&#x1F5A5; Modo Recalbox nativo',lbl_native:'Modo Recalbox nativo',confirm_native:'El modo Recalbox nativo DESACTIVA todas las funciones de este firmware (playlist, puntuaciones, informacion, RetroAchievements, reloj, comandos de scripts): la pantalla sera controlada solo por Recalbox. Solo siguen activos la pagina web, el WiFi y las actualizaciones. Hace falta reiniciar. Continuar?',msg_saved:'Guardado',msg_rebooting:'Reiniciando...',fw_label:'Firmware',fw_new:'&#x2B06; Nueva versión disponible: v{v}',fw_upd:'Actualizar',fw_usb:'o por USB (Web Installer)',fw_ota_btn:'Actualizar ahora (Wi-Fi)',ota_running:'Actualización en curso (unos 2 min). La pantalla del DMD se apaga un rato: no corte la alimentación.',ota_popup:'PANTALLA DEL DMD APAGADA<br><br>NO DESENCHUFAR<br><br>Actualización en curso…',ota_ok:'Actualizado a v{v}. Recargando la página…',ota_uptodate:'El DMD ya está actualizado.',ota_fail:'Error en la actualización ({e}). El DMD conserva su firmware anterior.',ota_timeout:'El DMD no responde desde hace 6 minutos. Revíselo (alimentación, Wi-Fi) antes de reintentar.',scr_new:'&#x2B06; Hay que actualizar los scripts de Recalbox: ejecute la aplicación RecalBoxDMD_toolkit en el PC y haga un Modo 9, luego reinicie la Recalbox.',scr_dl:'Descargar RecalBoxDMD_toolkit',...HELP_I18N.es}
+};
+let currentLang='fr';
+// Overlay "Chargement en cours..." (2026-08-05, demande utilisateur :
+// ~3s d'attente sur mobile avant affichage, impression de plantage/envie
+// de F5). Present des le tout premier octet du <body> (avant tout script)
+// donc visible des que le navigateur commence a peindre la page, meme si
+// le reste du transfert (page + donnees /lang, /load) prend encore du
+// temps -- masque via hidePageLoadingOverlay(), appelee en toute fin de
+// la chaine de bootstrap (succes ET echec, voir .finally() plus bas).
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
+function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
+function tr(k){return (MENU_I18N[currentLang]&&MENU_I18N[currentLang][k])||(window.CFG_I18N&&CFG_I18N[currentLang]&&CFG_I18N[currentLang][k])||MENU_I18N.fr[k]||(window.CFG_I18N&&CFG_I18N.fr&&CFG_I18N.fr[k])||k;}
+function applyLang(backendLang){
+  const stored=localStorage.getItem('dmd_lang');
+  if(stored&&MENU_I18N[stored]){currentLang=stored;}
+  else if(backendLang&&MENU_I18N[backendLang]){currentLang=backendLang;}
+  else{const nav=(navigator.language||'').substring(0,2);currentLang=MENU_I18N[nav]?nav:'fr';}
+  document.documentElement.lang=currentLang;
+  document.title=tr('title');
+  document.querySelectorAll('[data-i18n]').forEach(function(el){el.innerHTML=tr(el.dataset.i18n);});
+  document.getElementById('langSelect').value=currentLang;
+  renderFw();
+}
+function setLang(code){
+  localStorage.setItem('dmd_lang',code);
+  applyLang();
+  fetch('/save-language',{method:'POST',body:'language='+code,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});
+}
+// v69 -- brouillon PARTAGE : tous les reglages modifies sur n'importe quelle page restent en attente (localStorage) et sont envoyes ENSEMBLE par n'importe quel bouton
+// Enregistrer / Enreg. & Redemarrer, de n'importe quelle page. Pour QUITTER (Reprendre DMD / Redemarrer) avec des reglages non enregistres, une boite de dialogue le signale et
+// propose Enregistrer / Quitter quand meme (confirmLeave). Aucune alerte ailleurs : naviguer entre les pages ou fermer l'onglet reste libre.
+const DMD_DRAFT_KEYS=['dmd_draft_home','dmd_draft_basic','dmd_draft_playlist','dmd_draft_network','dmd_draft_clock','dmd_draft_widgets'];
+function anyDraft(){try{return DMD_DRAFT_KEYS.some(function(k){return localStorage.getItem(k)!==null;});}catch(e){return false;}}
+function allBody(own){const p=new URLSearchParams();DMD_DRAFT_KEYS.forEach(function(k){try{const raw=localStorage.getItem(k);if(!raw)return;const o=JSON.parse(raw);Object.keys(o).forEach(function(id){const v=o[id];if((v===''&&!/^(clk_anim_|clk_digit_|deco_ev_)/.test(id))||v===undefined||v===null)return;if(/^(wifi_|bluetooth_)/.test(id))return;p.set(id,(typeof v==='boolean')?(v?'1':'0'):String(v));});}catch(e){}});if(own)own.forEach(function(v,k){p.set(k,v);});return p;}
+function clearAllDrafts(){DMD_DRAFT_KEYS.forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});}
+// Boite de dialogue de SORTIE (Reprendre DMD / Redemarrer) : s'il reste des reglages non enregistres, elle l'indique et propose Enregistrer / Quitter quand meme (+ Annuler pour rester). Rien ne s'affiche sinon.
+let _leaveBox=null;
+function saveAllNow(){if(typeof saveConfig==='function')return Promise.resolve(saveConfig());const f=(typeof queuedFetch==='function')?queuedFetch:fetch;return f('/save',{method:'POST',body:allBody(null),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(function(r){return r.text();}).then(function(x){if(x.includes('OK'))clearAllDrafts();}).catch(function(){});}
+function confirmLeave(proceed){
+  if(!anyDraft()){proceed(false);return;}
+  const T={fr:{m:"Des modifications ne sont pas enregistrées.",s:"Enregistrer",q:"Quitter quand même",c:"Annuler"},en:{m:"Some changes are not saved.",s:"Save",q:"Leave anyway",c:"Cancel"},es:{m:"Hay cambios sin guardar.",s:"Guardar",q:"Salir de todos modos",c:"Cancelar"}};
+  const L=T[document.documentElement.lang]||T.fr;
+  if(_leaveBox){_leaveBox.remove();_leaveBox=null;}
+  const ov=document.createElement('div');ov.style.cssText='position:fixed;left:0;top:0;right:0;bottom:0;z-index:100;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px';
+  const bx=document.createElement('div');bx.style.cssText='background:#1a1a2e;color:#fff;border:2px solid #ffd146;border-radius:10px;padding:18px 20px;max-width:420px;width:100%;text-align:center;font-size:15px';
+  const mt=document.createElement('div');mt.textContent=L.m;mt.style.cssText='margin-bottom:14px;font-weight:bold';bx.appendChild(mt);
+  const row=document.createElement('div');row.style.cssText='display:flex;gap:10px;justify-content:center;flex-wrap:wrap';
+  const close=function(){ov.remove();_leaveBox=null;};
+  const mk=function(txt,css,fn){const x=document.createElement('button');x.type='button';x.textContent=txt;x.style.cssText='cursor:pointer;border-radius:6px;padding:8px 14px;font-size:14px;'+css;x.onclick=fn;row.appendChild(x);return x;};
+  mk(L.s,'border:0;background:#ffd146;color:#1a1a2e;font-weight:bold',function(){close();saveAllNow().then(function(){if(!anyDraft())proceed(false);});});
+  mk(L.q,'border:1px solid #fff;background:transparent;color:#fff',function(){close();clearAllDrafts();if(typeof _formDirty!=='undefined')_formDirty=false;proceed(true);});
+  mk(L.c,'border:0;background:transparent;color:#aaa;text-decoration:underline',close);
+  bx.appendChild(row);ov.appendChild(bx);document.body.appendChild(ov);_leaveBox=ov;
+}
+const HOME_DRAFT_KEY='dmd_draft_home';
+function saveHomeDraft(){try{localStorage.setItem(HOME_DRAFT_KEY,JSON.stringify({brightness:document.getElementById('brightness').value,info:document.getElementById('silent_boot').checked?'0':'1',feat_vpinball_dmd:document.getElementById('feat_vpinball_dmd').checked?'1':'0',recalbox_native_mode:(document.getElementById('recalbox_native_mode')||{}).checked?'1':'0',feat_ra_window:(document.getElementById('feat_ra_window')||{}).checked?'1':'0',bright_sched_on:(document.getElementById('bright_sched_on')||{}).checked?'1':'0'}));}catch(e){}}
+function loadHomeDraft(){try{const raw=localStorage.getItem(HOME_DRAFT_KEY);return raw?JSON.parse(raw):null;}catch(e){return null;}}
+// Cadre "Affichage" (luminosite / demarrage silencieux / mode pinball) --
+// copie depuis la page /config/basic (voir ses fonctions du meme nom).
+const HOME_INFO_I18N={
+fr:{
+  silent_boot:{t:'Demarrage silencieux',b:'Active : au demarrage, le DMD affiche uniquement le titre/logo, sans details techniques. Desactive (par defaut) : affiche aussi l\'adresse IP detectee, la synchronisation de l\'heure, etc. -- utile pour diagnostiquer un probleme de connexion au demarrage.'},
+  ra_window:{t:'Alertes RetroAchievements d\'ES',b:'Active : quand un succes RetroAchievements est debloque, l\'alerte rendue par EmulationStation (icone du succes, titre, points) s\'affiche sur ce DMD, pendant que les autres fonctions du DMD (playlist, logos, hi-scores...) continuent de fonctionner. Necessite une Recalbox dont EmulationStation sait piloter un DMD (dmd.zedmd.wifi = IP de ce DMD) et le script dmd_achievement. Le reste du temps, les images d\'EmulationStation sont ignorees. Compatible avec le mode Pinball : le flux n\'est alors accepte que pendant une partie vpinball annoncee par la Recalbox. Redemarrage necessaire. Experimental.'},
+  native:{t:'Mode Recalbox natif',b:'Active : le DMD n\'execute plus AUCUNE de ses fonctions (playlist, hi-scores, infos, RetroAchievements, horloge, scripts) et devient un simple afficheur pilote par la Recalbox elle-meme (EmulationStation / libdmdutil, protocole ZeDMD-WiFi). Seuls la page web, le WiFi et la mise a jour restent actifs. Redemarrage necessaire. Pour revenir au mode normal : decochez puis redemarrez.'},
+  vpinball:{t:'Mode Pinball (VPX)',b:'Active : le DMD affiche en direct l\'ecran DMD des tables Visual Pinball (VPX) lancees depuis Recalbox, comme un ZeDMD-WiFi (a declarer cote Recalbox : plugin DMDUtil, ZeDMDWiFiAddr = IP de ce DMD).\n\nAucun redemarrage du DMD au lancement d\'une table : l\'image de la table s\'affiche directement, et le DMD reprend son fonctionnement normal tout seul a la fin de la partie (ou environ 5 s apres l\'arret de l\'image). Pendant la table, la playlist et les ecrans Recalbox sont suspendus. Desactive (par defaut) : aucun changement de comportement. Effet au prochain redemarrage du DMD (bouton Enreg. & Redemarrer).\n\nATTENTION : cocher cette option autorise un script de la Recalbox a MODIFIER automatiquement le fichier de configuration de Visual Pinball (VPinballX-configgen.ini : plugins DMDUtil/ZeDMD WiFi et AlphaDMD), au demarrage de la Recalbox et apres chaque partie. Decochee, le script est inactif et aucun fichier de la Recalbox n\'est touche.'}
+},
+en:{
+  silent_boot:{t:'Silent boot',b:'Enabled: on startup, the DMD shows only the title/logo, no technical details. Disabled (default): also shows the detected IP address, time sync, etc. -- useful to diagnose a connection issue at startup.'},
+  ra_window:{t:'ES RetroAchievements alerts',b:'Enabled: when a RetroAchievements achievement is unlocked, the alert rendered by EmulationStation (achievement icon, title, points) is shown on this DMD while the other DMD features (playlist, logos, high scores...) keep working. Needs a Recalbox whose EmulationStation can drive a DMD (dmd.zedmd.wifi = this DMD\'s IP) and the dmd_achievement script. The rest of the time, EmulationStation\'s images are ignored. Works together with Pinball mode: the stream is then only accepted during a vpinball game announced by the Recalbox. A reboot is needed. Experimental.'},
+  native:{t:'Native Recalbox mode',b:'Enabled: the DMD runs NONE of its own features (playlist, high scores, info screens, RetroAchievements, clock, scripts) and becomes a plain display driven by Recalbox itself (EmulationStation / libdmdutil, ZeDMD-WiFi protocol). Only the web page, WiFi and updates stay active. A reboot is needed. To go back to normal mode: untick, then reboot.'},
+  vpinball:{t:'Pinball mode (VPX)',b:'Enabled: the DMD shows the live DMD screen of Visual Pinball (VPX) tables launched from Recalbox, like a ZeDMD-WiFi (set up on the Recalbox side: DMDUtil plugin, ZeDMDWiFiAddr = this DMD\'s IP).\n\nNo DMD reboot when a table starts: the table image is shown right away, and the DMD goes back to normal operation by itself when the game ends (or about 5 s after the table stops sending frames). While a table is running, the playlist and Recalbox screens are suspended. Disabled (default): no change in behavior. Takes effect at the next DMD reboot (Save & Reboot button).\n\nWARNING: ticking this option allows a Recalbox script to AUTOMATICALLY MODIFY the Visual Pinball configuration file (VPinballX-configgen.ini: DMDUtil/ZeDMD WiFi and AlphaDMD plugins), at Recalbox startup and after each game. Unticked, the script does nothing and no Recalbox file is touched.'}
+},
+es:{
+  silent_boot:{t:'Inicio silencioso',b:'Activado: al arrancar, el DMD muestra solo el titulo/logo, sin detalles tecnicos. Desactivado (por defecto): tambien muestra la IP detectada, la sincronizacion horaria, etc. -- util para diagnosticar un problema de conexion al arrancar.'},
+  ra_window:{t:'Alertas RetroAchievements de ES',b:'Activado: cuando se desbloquea un logro de RetroAchievements, la alerta dibujada por EmulationStation (icono del logro, titulo, puntos) se muestra en este DMD mientras las demas funciones del DMD (playlist, logos, hi-scores...) siguen funcionando. Requiere una Recalbox cuyo EmulationStation sepa controlar un DMD (dmd.zedmd.wifi = IP de este DMD) y el script dmd_achievement. El resto del tiempo se ignoran las imagenes de EmulationStation. Compatible con el modo Pinball: el flujo solo se acepta durante una partida de vpinball anunciada por Recalbox. Hace falta reiniciar. Experimental.'},
+  native:{t:'Modo Recalbox nativo',b:'Activado: el DMD no ejecuta NINGUNA de sus funciones (playlist, puntuaciones, informacion, RetroAchievements, reloj, scripts) y pasa a ser una simple pantalla controlada por la propia Recalbox (EmulationStation / libdmdutil, protocolo ZeDMD-WiFi). Solo siguen activos la pagina web, el WiFi y las actualizaciones. Hace falta reiniciar. Para volver al modo normal: desmarque y reinicie.'},
+  vpinball:{t:'Modo Pinball (VPX)',b:'Activado: el DMD muestra en directo la pantalla DMD de las mesas de Visual Pinball (VPX) lanzadas desde Recalbox, como un ZeDMD-WiFi (a configurar en Recalbox: plugin DMDUtil, ZeDMDWiFiAddr = IP de este DMD).\n\nSin reinicio del DMD al lanzar una mesa: la imagen de la mesa se muestra directamente, y el DMD vuelve solo al funcionamiento normal al terminar la partida (o unos 5 s despues de que la mesa deje de enviar imagen). Mientras corre una mesa, la playlist y las pantallas de Recalbox quedan suspendidas. Desactivado (por defecto): sin cambios de comportamiento. Efecto en el proximo reinicio del DMD (boton Guardar y reiniciar).\n\nATENCION: marcar esta opcion permite que un script de la Recalbox MODIFIQUE automaticamente el archivo de configuracion de Visual Pinball (VPinballX-configgen.ini: plugins DMDUtil/ZeDMD WiFi y AlphaDMD), al arrancar la Recalbox y despues de cada partida. Sin marcar, el script no hace nada y no se toca ningun archivo de la Recalbox.'}
+}
+};
+let _featInfoCloseTimer=null;
+function showFeatInfo(key){
+  if(_featInfoCloseTimer){clearTimeout(_featInfoCloseTimer);_featInfoCloseTimer=null;}
+  const d=(HOME_INFO_I18N[currentLang]&&HOME_INFO_I18N[currentLang][key])||HOME_INFO_I18N.fr[key];
+  if(!d)return;
+  document.getElementById('featInfoTitle').textContent=d.t;
+  document.getElementById('featInfoBody').textContent=d.b;
+  document.getElementById('featInfoBackdrop').classList.add('show');
+}
+function closeFeatInfo(){
+  if(_featInfoCloseTimer)clearTimeout(_featInfoCloseTimer);
+  _featInfoCloseTimer=setTimeout(function(){document.getElementById('featInfoBackdrop').classList.remove('show');},200);
+}
+function cancelCloseFeatInfo(){if(_featInfoCloseTimer){clearTimeout(_featInfoCloseTimer);_featInfoCloseTimer=null;}}
+function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(function(){el.style.display='none';},5000);}
+function stripAccents(s){return s.normalize('NFD').replace(new RegExp('['+String.fromCharCode(768)+'-'+String.fromCharCode(879)+']','g'),'').replace(/[^ -~]/g,'?');}
+// Comme showMsg() des autres pages : affiche AUSSI le message sur la 2e ligne du DMD (/dmd-pause).
+function showMsg(txt,ok){showMsgLocal(txt,ok);fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(txt),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});}
+let _brightnessLastSentMs=0;
+function sendBrightness(val,force){
+  const now=Date.now();
+  if(!force&&(now-_brightnessLastSentMs)<120)return;
+  _brightnessLastSentMs=now;
+  fetch('/set-brightness',{method:'POST',body:new URLSearchParams({value:val}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});
+}
+function onBrightnessInput(el){document.getElementById('bval').textContent=el.value;sendBrightness(el.value,false);}
+function fetchTimeout(u,o,ms){const c=new AbortController();const t=setTimeout(function(){c.abort();},ms);return fetch(u,Object.assign({},o,{signal:c.signal})).finally(function(){clearTimeout(t);});}
+let _fwCur='',_fwLatest='',_fwChecked=false,_scrCur='',_scrLatest='',_rbAge=0,_otaBusy=false;
+// v72 -- mise a jour OTA : le DMD redemarre en mode mise a jour (ecran eteint ~1 min), telecharge depuis GitHub, redemarre ; la page attend son retour et lit ota_last.
+function otaPop(on){var p=document.getElementById('otaPop');if(!p)return;if(on){document.getElementById('otaPopTxt').innerHTML=tr('ota_popup');p.style.display='flex';}else{p.style.display='none';}}
+function startOta(){
+  var b=document.getElementById('otaBtn'),st=document.getElementById('otaState');
+  if(!b||_otaBusy)return;
+  _otaBusy=true;b.disabled=true;st.textContent=tr('ota_running');otaPop(true);
+  fetch('/ota/start',{method:'POST'}).catch(function(){});
+  var t0=Date.now();
+  function done(txt){_otaBusy=false;otaPop(false);st.textContent=txt;}
+  function poll(){
+    setTimeout(function(){
+      if(Date.now()-t0>360000){done(tr('ota_timeout'));b.disabled=false;return;}
+      fetchTimeout('/load?_='+Date.now(),{cache:'no-store'},4000).then(function(r){return r.json();}).then(function(d){
+        var o=String(d.ota_last||'');
+        if(o===''||o==='en-cours'){poll();return;}
+        if(o.indexOf('ok:deja')===0){done(tr('ota_uptodate'));return;}
+        if(o.indexOf('ok:')===0){done(tr('ota_ok').replace('{v}',o.substring(3)));setTimeout(function(){location.reload();},4000);return;}
+        done(tr('ota_fail').replace('{e}',o.replace(/^echec:/,'')));b.disabled=false;
+      }).catch(poll);
+    },3000);
+  }
+  poll();
+}
+function vnum(s){var m=/^(\d+)\.(\d+)$/.exec(s||'');return m?parseInt(m[1],10)*100+parseInt(m[2],10):0;}
+function renderFw(){
+  var cur=document.getElementById('fwCur'),nw=document.getElementById('fwNew');
+  if(!cur||!nw)return;
+  cur.textContent=_fwCur?('v'+_fwCur):'';
+  var sn=document.getElementById('scrNew');
+  var fwNewer=vnum(_fwCur)>0&&vnum(_fwLatest)>vnum(_fwCur);
+  if(_otaBusy)return;
+  if(fwNewer){nw.innerHTML=tr('fw_new').replace('{v}',_fwLatest)+'<br><button type="button" id="otaBtn" class="otabtn" onclick="startOta()">'+tr('fw_ota_btn')+'</button><a href="https://shan-aya.github.io/RecalBoxDMD/install/" target="_blank" rel="noopener">'+tr('fw_usb')+'</a><div id="otaState"></div>'+'<br>'+cfgNotes();nw.style.display='block';}
+  else{nw.style.display='none';}
+  // scripts Recalbox : version annoncee par dmd_udp_resync (vide = anciens scripts si la Recalbox parle depuis >= 90 s, sinon inconnue -> pas d'avis) ; avis independant du firmware (la consigne Mode 9 n'apparait que si les scripts publies sont plus recents)
+  var latest=parseInt(_scrLatest,10)||0,have=_scrCur!==''?parseInt(_scrCur,10):(_rbAge>=90?0:-1);
+  if(sn){if(latest>0&&have>=0&&have<latest){sn.innerHTML=tr('scr_new')+' &ndash; <a href="https://github.com/shan-aya/RecalBoxDMD/releases/latest" target="_blank" rel="noopener">'+tr('scr_dl')+'</a> &ndash; '+cfgNotes();sn.style.display='block';}else{sn.style.display='none';}}
+}
+// Verification faite par le navigateur (le DMD n'a pas besoin d'Internet) ; hors ligne / erreur : silence.
+function checkFwOnline(){
+  if(_fwChecked||!_fwCur)return;
+  _fwChecked=true;
+  fetchTimeout('https://shan-aya.github.io/RecalBoxDMD/install/manifest.json',{cache:'no-store'},6000).then(function(r){return r.json();}).then(function(m){_fwLatest=String((m&&m.version)||'');_scrLatest=String((m&&m.scripts)||'');renderFw();}).catch(function(){});
+}
+function loadDisplay(){
+  return fetchTimeout('/load',{},45000).catch(function(){return fetchTimeout('/load',{},45000);}).then(function(r){return r.json();}).then(function(d){
+    const hd=loadHomeDraft();
+    const hv=function(k,dv){return (hd&&hd[k]!==undefined&&hd[k]!=='')?hd[k]:dv;};
+    const b=Math.max(0,Math.min(100,parseInt(hv('brightness',d.brightness||50),10)));
+    document.getElementById('brightness').value=b;
+    document.getElementById('bval').textContent=b;
+    document.getElementById('silent_boot').checked=(hv('info',d.info)==='0');
+    document.getElementById('bright_sched_on').checked=(hv('bright_sched_on',d.bright_sched_on)==='1');
+    document.getElementById('feat_vpinball_dmd').checked=(hv('feat_vpinball_dmd',d.feat_vpinball_dmd)==='1');
+    document.getElementById('recalbox_native_mode').checked=(hv('recalbox_native_mode',d.recalbox_native_mode)==='1');window._nativeInit=(d.recalbox_native_mode==='1');
+    document.getElementById('feat_ra_window').checked=(hv('feat_ra_window',d.feat_ra_window)==='1');
+    _fwCur=String(d.fw_version||'');_scrCur=String(d.scripts_bundle||'');_rbAge=parseInt(d.rb_age||'0',10)||0;renderFw();checkFwOnline();
+  }).catch(function(){showMsgLocal(tr('msg_net_error'),false);});
+}
+function saveDisplay(reboot){
+  const nativeEl=document.getElementById('recalbox_native_mode');
+  if(nativeEl.checked&&!window._nativeInit&&!confirm(tr('confirm_native'))){nativeEl.checked=false;return Promise.resolve();}
+  showMsg(tr('msg_saving'),true);
+  const body=allBody(new URLSearchParams({brightness:document.getElementById('brightness').value,info:document.getElementById('silent_boot').checked?'0':'1',feat_vpinball_dmd:document.getElementById('feat_vpinball_dmd').checked?'1':'0',recalbox_native_mode:nativeEl.checked?'1':'0',feat_ra_window:document.getElementById('feat_ra_window').checked?'1':'0',bright_sched_on:document.getElementById('bright_sched_on').checked?'1':'0'}));
+  return fetch('/save',{method:'POST',body:body,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(function(r){return r.text();}).then(function(t){
+    if(!t.includes('OK')){showMsg(t,false);return;}
+    clearAllDrafts();
+    window._nativeInit=nativeEl.checked;
+    if(reboot){showMsg(tr('msg_rebooting'),true);setTimeout(function(){fetch('/reboot').catch(function(){});},400);}
+    else{showMsg(tr('msg_saved'),true);setTimeout(function(){fetch('/dmd-resume',{method:'POST'}).catch(function(){});},3000);}
+  }).catch(function(){showMsg(tr('msg_net_error'),false);});
+}
+['brightness','silent_boot','feat_vpinball_dmd','recalbox_native_mode','feat_ra_window','bright_sched_on'].forEach(function(id){var el=document.getElementById(id);if(el){el.addEventListener(id==='brightness'?'input':'change',saveHomeDraft);}});
+fetch('/lang').then(function(r){return r.json();}).then(function(d){applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}}).catch(function(){applyLang();}).then(loadDisplay).finally(hidePageLoadingOverlay);
+// Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29) :
+// aucun moyen fiable de distinguer une vraie fermeture d'un simple
+// rafraichissement de page (habitude trop ancree pour l'utilisateur, faux
+// positifs trop frequents).
+</script>
+<script src="/native.js"></script>
+</body>
+</html>

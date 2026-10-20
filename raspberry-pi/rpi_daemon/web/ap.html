@@ -1,0 +1,121 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RecalBox DMD</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:500px;margin:auto;display:flex;flex-direction:column;min-height:100vh;justify-content:center;position:relative}
+h1{color:#ffd146;text-align:center;margin:16px 0;font-size:22px}
+.section{background:#16213e;border-radius:8px;padding:24px;margin:12px 0}
+.row{display:flex;flex-direction:column;margin:12px 0}
+.row label{font-size:14px;color:#aaa;margin-bottom:4px}
+.row input,.row select{padding:10px 12px;border:1px solid #555;border-radius:6px;background:#0f3460;color:#eee;font-size:16px}
+.row input:focus,.row select:focus{outline:2px solid #ffd146}
+.row select{width:100%}
+.pwd-row{display:flex;gap:8px;align-items:center}
+.pwd-row input{flex:1}
+.pwd-toggle{background:none;border:none;color:#888;font-size:20px;cursor:pointer;padding:4px 8px}
+.pwd-toggle:hover{color:#ffd146}
+.btn-row{text-align:center;margin:20px 0}
+.btn{padding:14px 40px;border:none;border-radius:6px;font-size:18px;font-weight:bold;cursor:pointer;background:#ffd146;color:#1a1a2e;width:100%}
+.btn:hover{background:#ffe070}
+.btn-scan{background:#1a6b9e;color:#fff;font-size:14px;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;margin-top:4px;width:100%}
+.btn-scan:hover{background:#2880b8}
+.hint{font-size:13px;color:#888;text-align:center;margin:8px 0 4px;line-height:1.5}
+.msg{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:999;padding:14px 24px;border-radius:8px;display:none;font-weight:bold;text-align:center;font-size:16px;box-shadow:0 4px 16px rgba(0,0,0,.6);max-width:90%}
+.msg-ok{background:#2d6a4f;color:#d8f3dc;border:2px solid #52b788}
+.msg-err{background:#6b0f0f;color:#ffcccc;border:2px solid #e63946}
+#langSelect{position:absolute;top:10px;right:10px;width:auto;padding:6px 8px;font-size:13px}
+#pageLoadingOverlay{position:fixed;inset:0;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px;font-weight:600;z-index:99999;text-align:center;padding:20px;gap:14px}
+#pageLoadingOverlay .pgspin{width:34px;height:34px;border:4px solid #333;border-top-color:#8ab4f8;border-radius:50%;animation:pgspin .8s linear infinite}
+@keyframes pgspin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="pageLoadingOverlay"><div class="pgspin"></div><div data-i18n="loading_text">Chargement en cours...</div></div>
+<select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<h1 data-i18n="h1">&#x1F4E1; Configuration WiFi</h1>
+<div class="hint" data-i18n="hint">Connectez-vous au r&eacute;seau <b>RecalBox-DMD-Config</b> puis s&eacute;lectionnez votre WiFi.</div>
+<div id="msg" class="msg"></div>
+<div class="section">
+<div class="row"><label data-i18n="lbl_wifi">R&eacute;seau WiFi</label>
+<select id="wifi_ssid" style="width:100%"><option value="" data-i18n="scan_wait">-- Scan en cours... --</option></select>
+<button class="btn-scan" onclick="scanWiFi()" data-i18n="btn_scan">&#x1F50D; Scanner les r&eacute;seaux</button>
+<input type="text" id="wifi_ssid_text" data-i18n-placeholder="ph_manual" placeholder="Ou saisir le nom manuellement" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #555;border-radius:4px;background:#0f3460;color:#eee;font-size:14px">
+</div>
+<div class="row"><label data-i18n="lbl_pwd">Mot de passe</label>
+<div class="pwd-row"><input type="password" id="wifi_password" data-i18n-placeholder="ph_pwd" placeholder="Mot de passe WiFi"><button class="pwd-toggle" id="pwdToggle" onclick="togglePwd()">&#x1F441;</button></div>
+</div>
+<div class="row"><label data-i18n="lbl_static_ip">IP statique (optionnel)</label><input type="text" id="wifi_static_ip" data-i18n-placeholder="ph_static_ip" placeholder="Laisser vide pour DHCP"></div>
+<div class="btn-row"><button class="btn" onclick="saveWiFi()" data-i18n="btn_save">&#x1F504; Sauvegarder &amp; Red&eacute;marrer</button></div>
+</div>
+<script>
+// ============= I18N (page AP -- premier boot / mode secours WiFi) =============
+const AP_I18N={
+fr:{title:'RecalBox DMD',h1:'&#x1F4E1; Configuration WiFi',hint:'Connectez-vous au réseau <b>RecalBox-DMD-Config</b> puis sélectionnez votre WiFi.',lbl_wifi:'Réseau WiFi',scan_wait:'-- Scan en cours... --',btn_scan:'&#x1F50D; Scanner les réseaux',ph_manual:'Ou saisir le nom manuellement',lbl_pwd:'Mot de passe',ph_pwd:'Mot de passe WiFi',lbl_static_ip:'IP statique (optionnel)',ph_static_ip:'Laisser vide pour DHCP',btn_save:'&#x1F504; Sauvegarder &amp; Redémarrer',sel_placeholder:'-- Sélectionnez --',no_networks:'Aucun réseau trouvé',scan_error:'Erreur scan',need_ssid:'Veuillez sélectionner ou saisir un réseau WiFi',saving:'Enregistrement...',restarting:'Redémarrage...',net_error:'Erreur réseau'},
+en:{title:'RecalBox DMD',h1:'&#x1F4E1; WiFi Setup',hint:'Connect to the <b>RecalBox-DMD-Config</b> network then select your WiFi.',lbl_wifi:'WiFi network',scan_wait:'-- Scanning... --',btn_scan:'&#x1F50D; Scan networks',ph_manual:'Or type the name manually',lbl_pwd:'Password',ph_pwd:'WiFi password',lbl_static_ip:'Static IP (optional)',ph_static_ip:'Leave empty for DHCP',btn_save:'&#x1F504; Save &amp; Restart',sel_placeholder:'-- Select --',no_networks:'No network found',scan_error:'Scan error',need_ssid:'Please select or type a WiFi network',saving:'Saving...',restarting:'Restarting...',net_error:'Network error'},
+es:{title:'RecalBox DMD',h1:'&#x1F4E1; Configuración WiFi',hint:'Conéctese a la red <b>RecalBox-DMD-Config</b> y luego seleccione su WiFi.',lbl_wifi:'Red WiFi',scan_wait:'-- Escaneando... --',btn_scan:'&#x1F50D; Escanear redes',ph_manual:'O escriba el nombre manualmente',lbl_pwd:'Contraseña',ph_pwd:'Contraseña WiFi',lbl_static_ip:'IP estática (opcional)',ph_static_ip:'Dejar vacío para DHCP',btn_save:'&#x1F504; Guardar y reiniciar',sel_placeholder:'-- Seleccione --',no_networks:'No se encontraron redes',scan_error:'Error de escaneo',need_ssid:'Seleccione o escriba una red WiFi',saving:'Guardando...',restarting:'Reiniciando...',net_error:'Error de red'}
+};
+let currentLang='fr';
+// Overlay "Chargement en cours..." (2026-08-05, demande utilisateur :
+// ~3s d'attente sur mobile avant affichage, impression de plantage/envie
+// de F5). Present des le tout premier octet du <body> (avant tout script)
+// donc visible des que le navigateur commence a peindre la page, meme si
+// le reste du transfert (page + donnees /lang, /load) prend encore du
+// temps -- masque via hidePageLoadingOverlay(), appelee en toute fin de
+// la chaine de bootstrap (succes ET echec, voir .finally() plus bas).
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
+function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
+function tr(k){return (AP_I18N[currentLang]&&AP_I18N[currentLang][k])||AP_I18N.fr[k]||k;}
+function applyLang(backendLang){
+  const stored=localStorage.getItem('dmd_lang');
+  if(stored&&AP_I18N[stored]){currentLang=stored;}
+  else if(backendLang&&AP_I18N[backendLang]){currentLang=backendLang;}
+  else{const nav=(navigator.language||'').substring(0,2);currentLang=AP_I18N[nav]?nav:'fr';}
+  document.documentElement.lang=currentLang;
+  document.title=tr('title');
+  document.querySelectorAll('[data-i18n]').forEach(function(el){el.innerHTML=tr(el.dataset.i18n);});
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el){el.placeholder=tr(el.dataset.i18nPlaceholder);});
+  document.getElementById('langSelect').value=currentLang;
+}
+function setLang(code){
+  localStorage.setItem('dmd_lang',code);
+  applyLang();
+  fetch('/save-language',{method:'POST',body:'language='+code,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});
+}
+// ============= END I18N =============
+function stripAccents(s){return s.normalize('NFD').replace(new RegExp('['+String.fromCharCode(768)+'-'+String.fromCharCode(879)+']','g'),'').replace(/[^ -~]/g,'?');}
+function showMsg(t,ok){var e=document.getElementById('msg');e.textContent=t;e.className='msg '+(ok?'msg-ok':'msg-err');e.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(function(){e.style.display='none';},5000);fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(t),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});}
+function togglePwd(){var p=document.getElementById('wifi_password');p.type=(p.type=='password'?'text':'password');}
+function scanWiFi(tries){
+  tries=tries||0;
+  var sel=document.getElementById('wifi_ssid');if(!tries)sel.innerHTML='<option value="">'+tr('scan_wait')+'</option>';
+  fetch('/scan-wifi').then(function(r){return r.json();}).then(function(nets){
+    if((!nets||!nets.length)&&tries<8){setTimeout(function(){scanWiFi(tries+1);},2500);return;} /* v351 : le scan asynchrone demarre a la 1re requete (liste vide) : on redemande */
+    sel.innerHTML='<option value="">'+tr('sel_placeholder')+'</option>';
+    if(nets&&nets.length) nets.forEach(function(n){sel.innerHTML+='<option value="'+n+'">'+n+'</option>';});
+    else sel.innerHTML='<option value="">'+tr('no_networks')+'</option>';
+  }).catch(function(){sel.innerHTML='<option value="">'+tr('scan_error')+'</option>';});
+}
+function saveWiFi(){
+  var sel=document.getElementById('wifi_ssid');
+  var txt=document.getElementById('wifi_ssid_text');
+  var ssid=sel.value||txt.value.trim();
+  if(!ssid){showMsg(tr('need_ssid'),false);return;}
+  var pwd=document.getElementById('wifi_password').value.trim();
+  var ip=document.getElementById('wifi_static_ip').value.trim();
+  var body='wifi_enabled=1&wifi_ssid='+encodeURIComponent(ssid)+'&wifi_password='+encodeURIComponent(pwd);
+  body+='&wifi_static_enabled='+(ip?1:0)+'&wifi_static_ip='+encodeURIComponent(ip);
+  showMsg(tr('saving'),true);
+  fetch('/save-ap',{method:'POST',body:body,headers:{'Content-Type':'application/x-www-form-urlencoded'}})
+    .then(function(r){return r.text();})
+    .then(function(t){if(t.includes('OK'))showMsg(tr('restarting'),true);else{showMsg(t,false);if(window._msgTimer)clearTimeout(window._msgTimer);}})
+    .catch(function(){showMsg(tr('net_error'),false);});
+}
+fetch('/lang').then(function(r){return r.json();}).then(function(d){applyLang(d.language);scanWiFi();}).catch(function(){applyLang();scanWiFi();}).finally(hidePageLoadingOverlay);
+</script>
+</body>
+</html>

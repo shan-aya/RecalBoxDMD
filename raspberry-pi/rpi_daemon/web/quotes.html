@@ -1,0 +1,110 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RecalBox DMD - Citations</title>
+<link rel="stylesheet" href="/cfg.css?h=42c26368">
+<link rel="icon" href="data:,">
+<script src="/cfg.js?h=813f74a2" onerror="try{if(!sessionStorage.cfgR){sessionStorage.cfgR=1;location.reload();}}catch(e){}"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
+.btn-row{display:flex;gap:10px;justify-content:center;margin:18px 0;flex-wrap:wrap}
+.btn{padding:12px 20px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
+.btn-resume{background:#2d6a4f;color:#fff}
+body{position:relative}
+#pageLoadingOverlay{position:fixed;inset:0;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px;font-weight:600;z-index:99999;text-align:center;padding:20px;gap:14px}
+#pageLoadingOverlay .pgspin{width:34px;height:34px;border:4px solid #333;border-top-color:#8ab4f8;border-radius:50%;animation:pgspin .8s linear infinite}
+@keyframes pgspin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="pageLoadingOverlay"><div class="pgspin"></div><div data-i18n="loading">Chargement en cours...</div></div>
+<select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<div class="topnav">
+<a href="/" onclick="showPageLoadingOverlay()" data-i18n="nav_home">&#x1F3E0; Accueil</a>
+<a href="/config/settings" onclick="showPageLoadingOverlay()" data-i18n="nav_settings">&#x2699; R&eacute;glages</a>
+<a href="/config/basic" onclick="showPageLoadingOverlay()" data-i18n="nav_basic">&#x1F4A1; Affichage</a>
+<a href="/config/playlist" onclick="showPageLoadingOverlay()" data-i18n="nav_playlist">&#x1F4BF; Playlist</a>
+<a href="/config/network" onclick="showPageLoadingOverlay()" data-i18n="nav_network">&#x1F4F6; Wi-Fi</a>
+<a href="/config/widgets" onclick="showPageLoadingOverlay()" data-i18n="nav_deco">&#x2728; Widgets &amp; Horloge</a>
+<a href="/config/media" onclick="showPageLoadingOverlay()" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
+<a href="/config/button" onclick="showPageLoadingOverlay()" data-i18n="nav_button">&#x1F518; Bouton</a>
+</div>
+<h1 data-i18n="h1">Citations</h1>
+<div class="section"><p style="font-size:14px;line-height:1.5" data-i18n="intro"></p></div>
+<div class="section">
+<div style="font-size:13px;color:#8ab4f8;margin-bottom:6px" data-i18n="lbl_themes">Thèmes</div>
+<div id="tlist"></div>
+<div class="btn-row" style="margin:10px 0 0"><button type="button" class="btn btn-del" onclick="restore()" data-i18n="btn_restore">Restaurer</button></div>
+</div>
+<div class="section">
+<div class="row"><label for="qname" data-i18n="lbl_name">Nom</label><input id="qname" type="text" maxlength="24" oninput="count()"></div>
+<div class="row"><label data-i18n="lbl_text">Citations</label><textarea id="qtext" rows="10" style="flex:1;min-width:200px;padding:8px 10px;border:1px solid #333;border-radius:4px;background:#0f3460;color:#eee;font-size:14px;font-family:inherit" oninput="count()"></textarea></div>
+<div class="row"><label></label><span id="qcount" style="font-size:12px;color:#aaa"></span><button type="button" class="btn btn-del" style="margin-left:auto;padding:8px 12px" onclick="$('qfile').click()" data-i18n="btn_import">Importer</button><button type="button" class="btn btn-save" style="margin-left:6px;padding:8px 12px" onclick="saveQ()" data-i18n="save">Enregistrer</button><input id="qfile" type="file" accept=".txt,text/plain" style="display:none" onchange="pickFile(event)"></div>
+</div>
+<div class="btn-row">
+<button type="button" class="btn btn-save" onclick="saveQ()" data-i18n="save">Enregistrer</button>
+<a class="btn btn-del" href="/config/widgets" onclick="showPageLoadingOverlay()" style="text-decoration:none" data-i18n="back">Retour</a>
+<button type="button" class="btn btn-resume" onclick="resumeDmd()" data-i18n="resume">Reprendre DMD</button>
+</div>
+<div id="msg" class="msg"></div>
+<script>
+const PAGE_I18N={
+fr:{title:'RecalBox DMD - Citations',h1:'Citations',intro:'Chaque thème est un fichier texte : une citation par ligne. « texte | auteur » affiche l\'auteur ; si le texte finit par « ? », la suite est une réponse révélée après une pause (devinette). Les accents sont convertis (la police n\'en a pas). Vous pouvez aussi déposer des fichiers .txt dans /widgets/quotes/<langue>/ sur la carte SD.',lbl_themes:'Thèmes de la langue',none:'Aucun thème.',edit:'Modifier',delb:'Supprimer',del_confirm:'Supprimer le thème « {n} » ?',lbl_name:'Nom du thème',ph_name:'ex. blagues',lbl_text:'Citations (une par ligne)',lines:'citation(s)',btn_import:'Importer un fichier .txt',btn_restore:'Restaurer les thèmes d\'origine',restore_confirm:'Réécrire les thèmes d\'origine (les fichiers du même nom seront remplacés) ?',need_name:'Donnez un nom au thème.',too_big:'Texte trop long (64 Ko maximum).',empty:'Aucune citation à enregistrer.',saved_ok:'Thème enregistré',back:'Retour aux widgets',load_err:'Impossible de charger'},
+en:{title:'RecalBox DMD - Quotes',h1:'Quotes',intro:'Each theme is a text file: one quote per line. « text | author » shows the author; if the text ends with « ? », the rest is an answer revealed after a pause (riddle). Accents are converted (the font has none). You can also drop .txt files into /widgets/quotes/<language>/ on the SD card.',lbl_themes:'Themes for this language',none:'No theme.',edit:'Edit',delb:'Delete',del_confirm:'Delete theme « {n} »?',lbl_name:'Theme name',ph_name:'e.g. jokes',lbl_text:'Quotes (one per line)',lines:'quote(s)',btn_import:'Import a .txt file',btn_restore:'Restore the original themes',restore_confirm:'Rewrite the original themes (files with the same name will be replaced)?',need_name:'Give the theme a name.',too_big:'Text too long (64 KB maximum).',empty:'No quote to save.',saved_ok:'Theme saved',back:'Back to widgets',load_err:'Unable to load'},
+es:{title:'RecalBox DMD - Citas',h1:'Citas',intro:'Cada tema es un archivo de texto: una cita por línea. « texto | autor » muestra el autor; si el texto termina en « ? », lo que sigue es una respuesta revelada tras una pausa (adivinanza). Los acentos se convierten (la fuente no los tiene). También puede copiar archivos .txt en /widgets/quotes/<idioma>/ de la tarjeta SD.',lbl_themes:'Temas del idioma',none:'Ningún tema.',edit:'Editar',delb:'Borrar',del_confirm:'¿Borrar el tema « {n} »?',lbl_name:'Nombre del tema',ph_name:'p. ej. chistes',lbl_text:'Citas (una por línea)',lines:'cita(s)',btn_import:'Importar un archivo .txt',btn_restore:'Restaurar los temas de origen',restore_confirm:'¿Reescribir los temas de origen (se reemplazarán los archivos del mismo nombre)?',need_name:'Dé un nombre al tema.',too_big:'Texto demasiado largo (64 KB máximo).',empty:'Ninguna cita que guardar.',saved_ok:'Tema guardado',back:'Volver a los widgets',load_err:'No se pudo cargar'}
+};
+let currentLang='fr';
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
+function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
+function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||(window.CFG_I18N&&CFG_I18N[currentLang]&&CFG_I18N[currentLang][k])||PAGE_I18N.fr[k]||(window.CFG_I18N&&CFG_I18N.fr&&CFG_I18N.fr[k])||k;}
+function $(i){return document.getElementById(i);}
+function stripAccents(s){return s.normalize('NFD').replace(new RegExp('['+String.fromCharCode(768)+'-'+String.fromCharCode(879)+']','g'),'').replace(/[^ -~]/g,'?');}
+function ascii(s){return stripAccents(s.replace(/[\u2018\u2019]/g,"'").replace(/[\u2013\u2014]/g,'-').replace(/[\u201C\u201D\u00AB\u00BB]/g,'"').replace(/\u0153/g,'oe').replace(/\u0152/g,'OE'));}
+function slug(s){return stripAccents(s).toLowerCase().replace(/[^a-z0-9_ -]/g,'').trim().replace(/ +/g,'-').substring(0,24);}
+function msgLocal(t,ok){const el=$('msg');el.textContent=t;el.className='msg '+(ok?'ok':'err');el.style.display='block';clearTimeout(window._mt);window._mt=setTimeout(()=>{el.style.display='none';},4000);}
+function msg(t,ok){msgLocal(t,ok);fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(t),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}
+function count(){const nm=slug($('qname').value);const n=$('qtext').value.split(/\r?\n/).filter(function(l){const x=l.trim();return x&&x[0]!=='#';}).length;$('qcount').textContent=n+' '+tr('lines')+(nm?' - '+nm:'');}
+function refresh(){
+  fetch('/quotes-list?lang='+currentLang).then(r=>r.json()).then(function(L){
+    const box=$('tlist');box.innerHTML='';
+    if(!L.length){box.textContent=tr('none');return;}
+    L.forEach(function(x){
+      const r=document.createElement('div');r.className='row';
+      const s=document.createElement('span');s.style.cssText='flex:1;font-size:14px';s.textContent=x.n+'  ('+Math.max(1,Math.round(x.s/1024))+' Ko)';r.appendChild(s);
+      const e=document.createElement('button');e.type='button';e.className='btn btn-del';e.style.cssText='padding:6px 10px;margin-left:6px';e.textContent=tr('edit');e.onclick=function(){edit(x.n);};r.appendChild(e);
+      const d=document.createElement('button');d.type='button';d.className='btn btn-reboot';d.style.cssText='padding:6px 10px;margin-left:6px';d.textContent=tr('delb');d.onclick=function(){del(x.n);};r.appendChild(d);
+      box.appendChild(r);
+    });
+  }).catch(function(){$('tlist').textContent=tr('load_err');});
+}
+function edit(n){fetch('/quotes-get?lang='+currentLang+'&name='+encodeURIComponent(n)).then(r=>r.text()).then(function(t){$('qname').value=n;$('qtext').value=t;count();window.scrollTo(0,document.body.scrollHeight);}).catch(function(){msgLocal(tr('load_err'),false);});}
+function del(n){if(!confirm(tr('del_confirm').replace('{n}',n)))return;fetch('/quotes-delete',{method:'POST',body:new URLSearchParams({lang:currentLang,name:n}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(refresh).catch(function(){msgLocal(tr('save_err'),false);});}
+function restore(){if(!confirm(tr('restore_confirm')))return;fetch('/quotes-restore',{method:'POST',body:new URLSearchParams({lang:currentLang}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(function(x){msgLocal(x.indexOf('OK')===0?tr('saved_ok'):x,x.indexOf('OK')===0);refresh();}).catch(function(){msgLocal(tr('save_err'),false);});}
+function pickFile(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(){$('qtext').value=r.result;if(!$('qname').value)$('qname').value=slug(f.name.replace(/\.txt$/i,''));count();};r.readAsText(f);ev.target.value='';}
+function saveQ(){
+  const name=slug($('qname').value);if(!name){msgLocal(tr('need_name'),false);return;}
+  const lines=$('qtext').value.split(/\r?\n/).map(function(l){return ascii(l).trim().substring(0,300);}).filter(function(l){return l.length>0;});
+  if(!lines.length){msgLocal(tr('empty'),false);return;}
+  const body=lines.join('\n')+'\n';if(body.length>65000){msgLocal(tr('too_big'),false);return;}
+  msg(tr('saving'),true);
+  const fd=new FormData();fd.append('kind','quote');fd.append('lang',currentLang);fd.append('dir',name);fd.append('file',new Blob([body],{type:'text/plain'}),name+'.txt');
+  fetch('/upload',{method:'POST',body:fd}).then(r=>r.json()).then(function(j){const ok=j&&j.ok>0;msg(ok?tr('saved_ok'):tr('save_err'),ok);$('qname').value=name;refresh();}).catch(function(){msgLocal(tr('save_err'),false);});
+}
+function resumeDmd(){fetch('/dmd-resume',{method:'POST'}).then(()=>msgLocal(tr('resumed'),true)).catch(()=>msgLocal(tr('save_err'),false));}
+function render(){document.documentElement.lang=currentLang;document.title=tr('title');document.querySelectorAll('[data-i18n]').forEach(function(el){el.innerHTML=tr(el.dataset.i18n);});$('langSelect').value=currentLang;$('qname').placeholder=tr('ph_name');count();refresh();}
+function applyLang(backend){
+  const s=localStorage.getItem('dmd_lang');
+  if(s&&PAGE_I18N[s])currentLang=s;else if(backend&&PAGE_I18N[backend])currentLang=backend;else{const n=(navigator.language||'').substring(0,2);currentLang=PAGE_I18N[n]?n:'fr';}
+  render();
+}
+function setLang(c){localStorage.setItem('dmd_lang',c);$('qname').value='';$('qtext').value='';applyLang();fetch('/save-language',{method:'POST',body:'language='+c,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});}
+function fetchTimeout(u,o,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);return fetch(u,Object.assign({},o,{signal:c.signal})).finally(()=>clearTimeout(t));}
+fetchTimeout('/lang',{},45000).then(r=>r.json()).then(d=>{applyLang(d.language);}).catch(()=>{applyLang();}).finally(hidePageLoadingOverlay);
+</script>
+<script src="/native.js"></script>
+</body>
+</html>

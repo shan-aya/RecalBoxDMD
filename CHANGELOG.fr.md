@@ -8,6 +8,17 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-20 — Version Raspberry Pi (démon pi-v3.58)
+
+**Raspberry Pi**
+- **Le DMD sur Raspberry Pi 3B** (validé) avec deux dalles P5 : même protocole, mêmes scripts Recalbox, même carte SD, mêmes pages web, widgets, thèmes de logos, horloge, scores, mode Pinball et mode natif Recalbox que l'ESP32. Démon C++ sous **GPL-2.0+** (lié à rpi-rgb-led-matrix), sources dans `raspberry-pi/`, binaire et charge utile dans la release `pi-v3.58`. Pi 4 / 400 / CM4 / Pi 2 : réglage automatique de `gpio_slowdown` selon le modèle, **non testé**. Voir [RASPBERRY-PI.fr.md](RASPBERRY-PI.fr.md).
+
+**Boîte à outils PC build 12675**
+- **Cible Raspberry Pi** : **Mode 1** tout-en-un depuis une carte vierge, **Mode 16** (préparer la carte, remplace Raspberry Pi Imager), **Mode 17** (installer / mettre à jour). Le logiciel du Pi est téléchargé depuis GitHub (SHA-256 vérifié).
+- **Mode 18 — Cartes texte seules** : régénère uniquement les cartes texte des jeux sans image. Les jeux sans logo reçoivent une carte texte (style sobre sur fond sombre) ; les non-jeux sont exclus.
+- **Conversion fidèle à l'original** : pixel-perfect, avec repli à l'échelle exacte quand le diviseur entier rapetisse le logo de plus de 3 %. Les scrapes illisibles sont réparés ou signalés.
+- Profil Recalbox **« 11.x-10.x »** (ex « 10.x »). Alerte avant conversion : la description affichée sur le DMD est dans la langue du scrape Recalbox. Boutons **Rafraîchir** pour la détection des cartes SD, panneau de copie SD qui n'est plus rogné, Stop de la copie, popup d'erreur grave.
+
 ## 2026-10-20 — Firmware v3.58 : messages en surimpression plus grands et de même taille, « RecalBox connectée » clignote
 
 **Firmware v3.58**

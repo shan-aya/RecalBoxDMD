@@ -1,0 +1,28 @@
+/* cfg.css -- feuille partagee des pages web config (genere par tools/web_shared_step1_css.py, DECISIONS.md 3.20) */
+.section{background:#16213e;border-radius:8px;padding:16px;margin:12px 0}
+.row{display:flex;flex-wrap:wrap;align-items:center;margin:10px 0}
+.row label{flex:0 0 150px;font-size:14px;color:#aaa}
+.row input[type=checkbox]{flex:0 0 20px;width:20px;height:20px;margin:0 8px 0 0}
+.btn-save{background:#ffd146;color:#1a1a2e}
+.btn-reboot{background:#e63946;color:#fff}
+.msg{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:999;padding:12px 20px;border-radius:8px;display:none;font-weight:bold;text-align:center;font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,.6)}
+.ok{background:#2d6a4f;color:#d8f3dc}
+.err{background:#6b0f0f;color:#ffcccc}
+#langSelect{position:absolute;top:10px;right:10px;width:auto;padding:6px 8px;font-size:13px;background:#16213e;color:#8ab4f8;border:1px solid #333;border-radius:4px}
+#helpLink{position:absolute;top:14px;right:75px;font-size:13px;color:#8ab4f8;text-decoration:underline;cursor:pointer}
+.help-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.help-backdrop.show{display:flex}
+.help-box{background:#16213e;border-radius:8px;padding:20px;max-width:520px;max-height:85vh;overflow-y:auto;position:relative;text-align:left}
+.help-box h2{color:#ffd146;font-size:16px;margin:0 22px 10px 0}
+.help-box h3{color:#8ab4f8;font-size:14px;margin:14px 0 6px}
+.help-box p{font-size:13px;line-height:1.5;margin:0 0 8px}
+.help-box ul{margin:0 0 8px 18px;font-size:13px;line-height:1.5}
+.help-close{position:absolute;top:10px;right:14px;background:none;border:none;color:#aaa;font-size:22px;cursor:pointer;line-height:1}
+h1{color:#ffd146;text-align:center;margin:8px 0 14px;font-size:22px;border-bottom:2px solid #ffd146;padding-bottom:8px}
+.topnav{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px;margin-top:28px}
+.topnav a{padding:8px 14px;border-radius:6px;background:#16213e;color:#8ab4f8;font-size:13px;font-weight:600;text-decoration:none}
+.topnav a.active{background:#8ab4f8;color:#1a1a2e}
+.row input,.row select{flex:1;min-width:120px;padding:8px 10px;border:1px solid #333;border-radius:4px;background:#0f3460;color:#eee;font-size:14px}
+.btn-del{background:#555;color:#fff}
+.row input[type=color]{flex:0 0 60px;padding:2px}
+.hint{flex:0 0 calc(100% - 150px);font-size:11px;color:#666;margin-top:2px;margin-left:150px}

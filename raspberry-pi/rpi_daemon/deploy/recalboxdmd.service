@@ -1,0 +1,29 @@
+[Unit]
+Description=RecalBox DMD (demon d'affichage Raspberry Pi)
+Documentation=file:///opt/recalboxdmd/README.md
+# Le demon gere lui-meme le Wi-Fi (NetworkManager) et son point d'acces de configuration : il n'attend PAS le reseau pour demarrer
+# (sans reseau, il affiche justement l'ecran de configuration).
+After=NetworkManager.service local-fs.target
+Wants=NetworkManager.service
+
+[Service]
+Type=simple
+# DMD_SD (dossier du contenu : config.ini, systems/, playlists/...) et DMD_OPTS : voir /etc/default/recalboxdmd
+Environment=DMD_SD=/opt/recalboxdmd/sd
+Environment=LD_LIBRARY_PATH=/opt/recalboxdmd/lib
+EnvironmentFile=-/etc/default/recalboxdmd
+ExecStart=/opt/recalboxdmd/bin/dmd_daemon --sd ${DMD_SD} --wifi $DMD_OPTS
+Restart=always
+RestartSec=2
+# 'reboot' (commande Recalbox, page web) : le demon se relance lui-meme par exec, le PID ne change pas
+KillSignal=SIGTERM
+TimeoutStopSec=15
+# le demon est le seul usage de la carte ; l'affichage prend lui-meme la priorite temps reel (sched_tune)
+LimitRTPRIO=infinity
+LimitMEMLOCK=infinity
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=recalboxdmd
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,284 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RecalBox DMD - Wi-Fi</title>
+<link rel="stylesheet" href="/cfg.css?h=42c26368">
+<link rel="icon" href="data:,">
+<script src="/cfg.js?h=813f74a2" onerror="try{if(!sessionStorage.cfgR){sessionStorage.cfgR=1;location.reload();}}catch(e){}"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
+h2{color:#8ab4f8;font-size:15px;margin:0 0 10px;border-left:3px solid #8ab4f8;padding-left:8px}
+.desc{font-size:12px;color:#aaa;margin-bottom:8px}
+.featinfo{flex:0 0 20px;width:20px;height:20px;border-radius:50%;background:#0f3460;color:#8ab4f8;text-align:center;line-height:20px;font-size:13px;font-weight:bold;cursor:pointer;margin-right:8px;display:inline-block}
+#featInfoBackdrop{pointer-events:none}
+#featInfoBackdrop .help-box{pointer-events:auto}
+.btn-row{display:flex;gap:10px;justify-content:center;margin:18px 0;flex-wrap:wrap}
+.btn{padding:12px 20px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
+.btn-resume{background:#2d6a4f;color:#fff}
+body{position:relative}
+#pageLoadingOverlay{position:fixed;inset:0;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px;font-weight:600;z-index:99999;text-align:center;padding:20px;gap:14px}
+#pageLoadingOverlay .pgspin{width:34px;height:34px;border:4px solid #333;border-top-color:#8ab4f8;border-radius:50%;animation:pgspin .8s linear infinite}
+@keyframes pgspin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="pageLoadingOverlay"><div class="pgspin"></div><div data-i18n="loading_text">Chargement en cours...</div></div>
+<select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<span id="helpLink" onclick="showHelpModal()" data-i18n="help_link">Aide</span>
+<div id="helpBackdrop" class="help-backdrop" onclick="if(event.target===this)closeHelpModal()">
+<div class="help-box">
+<button class="help-close" onclick="closeHelpModal()">&times;</button>
+<h2 data-i18n="help_title">Bienvenue</h2>
+<p data-i18n="help_intro"></p>
+<h3 data-i18n="help_checklist_title"></h3>
+<ul>
+<li data-i18n="help_check_ip"></li>
+<li data-i18n="help_check_playlist"></li>
+<li data-i18n="help_check_wifi"></li>
+</ul>
+<p id="helpUrlReminder"></p>
+<h3 data-i18n="help_features_title"></h3>
+<ul>
+<li data-i18n="help_feat_playlists"></li>
+<li data-i18n="help_feat_clock"></li>
+<li data-i18n="help_feat_display"></li>
+<li data-i18n="help_feat_network"></li>
+</ul>
+</div>
+</div>
+<div class="topnav">
+<a href="/" onclick="showPageLoadingOverlay()" data-i18n="nav_home">&#x1F3E0; Accueil</a>
+<a href="/config/settings" onclick="showPageLoadingOverlay()" data-i18n="nav_settings">&#x2699; R&eacute;glages</a>
+<a href="/config/basic" onclick="showPageLoadingOverlay()" data-i18n="nav_basic">&#x1F4A1; Affichage</a>
+<a href="/config/playlist" onclick="showPageLoadingOverlay()" data-i18n="nav_playlist">&#x1F4BF; Playlist</a>
+<a href="/config/network" onclick="showPageLoadingOverlay()" class="active" data-i18n="nav_network">&#x1F4F6; Wi-Fi</a>
+<a href="/config/widgets" onclick="showPageLoadingOverlay()" data-i18n="nav_deco">&#x2728; Widgets &amp; Horloge</a>
+<a href="/config/media" onclick="showPageLoadingOverlay()" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
+<a href="/config/button" onclick="showPageLoadingOverlay()" data-i18n="nav_button">&#x1F518; Bouton</a>
+</div>
+<h1 data-i18n="h1">Wi-Fi</h1>
+<form id="networkForm" onsubmit="saveConfig(event)">
+<div class="section">
+<h2 data-i18n="sec_wifi">&#x1F4F6; Wi-Fi</h2>
+<div class="row"><label data-i18n="lbl_enabled">Activ&eacute;</label><input id="wifi_enabled" type="checkbox"></div>
+<div class="row"><label for="wifi_ssid" data-i18n="lbl_network">R&eacute;seau</label><select id="wifi_ssid"><option value="" data-i18n="opt_scanning">-- Scan en cours... --</option></select></div>
+<div class="row"><label for="wifi_password" data-i18n="lbl_password">Mot de passe</label><input id="wifi_password" type="password"></div>
+<div class="row"><label data-i18n="lbl_static_ip">IP statique</label><input id="wifi_static_enabled" type="checkbox"></div>
+<div class="desc" data-i18n="desc_static_ip">&#x26A0;&#xFE0F; Ne cochez PAS cette case si votre routeur/box attribue d&eacute;j&agrave; une IP fixe au DMD (r&eacute;servation DHCP) -- le DHCP normal suffit dans ce cas. &Agrave; activer uniquement si vous configurez l'IP manuellement. Une IP/passerelle/masque incorrect peut rendre le DMD injoignable sur le r&eacute;seau ; en cas de probl&egrave;me, un mode de secours (point d'acc&egrave;s Wi-Fi) est pr&eacute;vu pour reconfigurer -- voir le manuel.</div>
+<div class="row"><label for="wifi_static_ip" data-i18n="lbl_fixed_ip">IP fixe</label><input id="wifi_static_ip"></div>
+<div class="row"><label for="wifi_gateway" data-i18n="lbl_gateway">Passerelle</label><input id="wifi_gateway"></div>
+<div class="row"><label for="wifi_subnet" data-i18n="lbl_subnet">Masque</label><input id="wifi_subnet"></div>
+<div class="row"><label for="wifi_dns1" data-i18n="lbl_dns1">DNS 1</label><input id="wifi_dns1"></div>
+<div class="row"><label for="wifi_dns2" data-i18n="lbl_dns2">DNS 2</label><input id="wifi_dns2"></div>
+</div>
+<div id="featInfoBackdrop" class="help-backdrop">
+<div class="help-box" onmouseenter="cancelCloseFeatInfo()" onmouseleave="closeFeatInfo()">
+<button class="help-close" onclick="closeFeatInfo()">&times;</button>
+<h2 id="featInfoTitle"></h2>
+<p id="featInfoBody" style="white-space:pre-line"></p>
+</div>
+</div>
+<div class="section">
+<h2 data-i18n="sec_mqtt">&#x1F310; MQTT</h2>
+<div class="row"><label for="recalbox_ip" data-i18n="lbl_mqtt_ip">IP Recalbox</label><input id="recalbox_ip" placeholder="192.168.0.35, 192.168.0.50"></div>
+<div class="row"><label for="recalbox_target" data-i18n="lbl_rb_target">Recalbox cible</label><select id="recalbox_target"><option value="0" data-i18n="rb_auto">Automatique</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+<div class="hint" id="rbActive"></div>
+</div>
+<div class="btn-row">
+<button type="submit" class="btn btn-save" data-i18n="btn_save">&#x1F4BE; Enregistrer</button>
+<button type="button" class="btn btn-reboot" onclick="saveAndReboot()" data-i18n="btn_save_reboot">&#x1F504; Enreg. &amp; Red&eacute;marrer</button>
+<button type="button" class="btn btn-del" onclick="doReboot()" data-i18n="btn_reboot">&#x1F504; Red&eacute;marrer</button>
+<button type="button" class="btn btn-resume" onclick="dmdResume()" data-i18n="btn_resume">&#x25B6; Reprendre DMD</button>
+</div>
+</form>
+<div id="msg" class="msg"></div>
+<script>
+const HELP_I18N=window.CFG_HELP;
+// v60 -- popup d'aide au survol pour Bluetooth, meme motif que la page
+// Affichage (voir web_config.h la-bas pour le raisonnement complet sur
+// pointer-events:none/le bug de clignotement corrige) -- ici un seul champ
+// (bt), pas besoin d'un objet FEAT_INFO_I18N complet.
+const BT_INFO_I18N={
+fr:{t:'Bluetooth',b:'Diffuse un port serie sans fil (Bluetooth Classic SPP) sous le nom choisi -- utile pour consulter les logs du DMD sans cable USB. Desactive par defaut : libere de la memoire (~60 Ko) utile au reste du firmware.'},
+en:{t:'Bluetooth',b:'Broadcasts a wireless serial port (Bluetooth Classic SPP) under the chosen name -- useful to view the DMD logs without a USB cable. Disabled by default: frees up memory (~60 KB) for the rest of the firmware.'},
+es:{t:'Bluetooth',b:'Difunde un puerto serie inalambrico (Bluetooth Classic SPP) con el nombre elegido -- util para consultar los logs del DMD sin cable USB. Desactivado por defecto: libera memoria (~60 KB) para el resto del firmware.'}
+};
+let _featInfoCloseTimer=null;
+function showFeatInfo(key){
+  if(_featInfoCloseTimer){clearTimeout(_featInfoCloseTimer);_featInfoCloseTimer=null;}
+  const d=BT_INFO_I18N[currentLang]||BT_INFO_I18N.fr;
+  document.getElementById('featInfoTitle').textContent=d.t;
+  document.getElementById('featInfoBody').textContent=d.b;
+  document.getElementById('featInfoBackdrop').classList.add('show');
+}
+function closeFeatInfo(){
+  if(_featInfoCloseTimer)clearTimeout(_featInfoCloseTimer);
+  _featInfoCloseTimer=setTimeout(()=>{document.getElementById('featInfoBackdrop').classList.remove('show');},200);
+}
+function cancelCloseFeatInfo(){if(_featInfoCloseTimer){clearTimeout(_featInfoCloseTimer);_featInfoCloseTimer=null;}}
+const PAGE_I18N={
+fr:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi',sec_wifi:'&#x1F4F6; Wi-Fi',sec_mqtt:'&#x1F310; MQTT/UDP',lbl_enabled:'Activé',lbl_network:'Réseau',lbl_password:'Mot de passe',lbl_static_ip:'IP statique',lbl_fixed_ip:'IP fixe',lbl_gateway:'Passerelle',lbl_subnet:'Masque',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_mqtt_ip:'IP Recalbox (une ou plusieurs, séparées par des virgules)',lbl_rb_target:'Recalbox cible',rb_auto:'Automatique (première joignable)',rb_active:'Recalbox active :',desc_static_ip:'&#x26A0;&#xFE0F; Ne cochez PAS cette case si votre routeur/box attribue déjà une IP fixe au DMD (réservation DHCP) -- le DHCP normal suffit dans ce cas. À activer uniquement si vous configurez l\'IP manuellement. Une IP/passerelle/masque incorrect peut rendre le DMD injoignable sur le réseau ; en cas de problème, un mode de secours (point d\'accès Wi-Fi) est prévu pour reconfigurer -- voir le manuel.',opt_scanning:'-- Scan en cours... --',opt_select:'-- Sélectionnez --',opt_scan_error:'Erreur scan',msg_confirm_reboot:'Redémarrer l\'ESP32 ?',msg_rebooting:'Redémarrage...',...HELP_I18N.fr},
+en:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi',sec_wifi:'&#x1F4F6; Wi-Fi',sec_mqtt:'&#x1F310; MQTT/UDP',lbl_enabled:'Enabled',lbl_network:'Network',lbl_password:'Password',lbl_static_ip:'Static IP',lbl_fixed_ip:'Fixed IP',lbl_gateway:'Gateway',lbl_subnet:'Subnet mask',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_mqtt_ip:'Recalbox IP (one or more, comma-separated)',lbl_rb_target:'Target Recalbox',rb_auto:'Automatic (first reachable)',rb_active:'Active Recalbox:',desc_static_ip:'&#x26A0;&#xFE0F; Do NOT check this box if your router/box already assigns a fixed IP to the DMD (DHCP reservation) -- normal DHCP is enough in that case. Only enable this if you are configuring the IP manually. An incorrect IP/gateway/subnet mask can make the DMD unreachable on the network; if that happens, a recovery mode (Wi-Fi access point) is provided to reconfigure it -- see the manual.',opt_scanning:'-- Scanning... --',opt_select:'-- Select --',opt_scan_error:'Scan error',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',...HELP_I18N.en},
+es:{title:'RecalBox DMD - Wi-Fi',h1:'Wi-Fi',sec_wifi:'&#x1F4F6; Wi-Fi',sec_mqtt:'&#x1F310; MQTT/UDP',lbl_enabled:'Activado',lbl_network:'Red',lbl_password:'Contraseña',lbl_static_ip:'IP estática',lbl_fixed_ip:'IP fija',lbl_gateway:'Puerta de enlace',lbl_subnet:'Máscara de subred',lbl_dns1:'DNS 1',lbl_dns2:'DNS 2',lbl_mqtt_ip:'IP de Recalbox (una o varias, separadas por comas)',lbl_rb_target:'Recalbox destino',rb_auto:'Automático (la primera accesible)',rb_active:'Recalbox activa:',desc_static_ip:'&#x26A0;&#xFE0F; NO marque esta casilla si su router/box ya asigna una IP fija al DMD (reserva DHCP) -- el DHCP normal es suficiente en ese caso. Actívelo solo si configura la IP manualmente. Una IP/puerta de enlace/máscara incorrecta puede dejar el DMD inaccesible en la red; en caso de problema, hay un modo de recuperación (punto de acceso Wi-Fi) previsto para reconfigurar -- ver el manual.',opt_scanning:'-- Escaneando... --',opt_select:'-- Seleccione --',opt_scan_error:'Error de escaneo',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',...HELP_I18N.es}
+};
+let currentLang='fr';
+// Overlay "Chargement en cours..." (2026-08-05, demande utilisateur :
+// ~3s d'attente sur mobile avant affichage, impression de plantage/envie
+// de F5). Present des le tout premier octet du <body> (avant tout script)
+// donc visible des que le navigateur commence a peindre la page, meme si
+// le reste du transfert (page + donnees /lang, /load) prend encore du
+// temps -- masque via hidePageLoadingOverlay(), appelee en toute fin de
+// la chaine de bootstrap (succes ET echec, voir .finally() plus bas).
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
+function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
+function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||(window.CFG_I18N&&CFG_I18N[currentLang]&&CFG_I18N[currentLang][k])||PAGE_I18N.fr[k]||(window.CFG_I18N&&CFG_I18N.fr&&CFG_I18N.fr[k])||k;}
+function applyLang(backendLang){
+  const stored=localStorage.getItem('dmd_lang');
+  if(stored&&PAGE_I18N[stored]){currentLang=stored;}
+  else if(backendLang&&PAGE_I18N[backendLang]){currentLang=backendLang;}
+  else{const nav=(navigator.language||'').substring(0,2);currentLang=PAGE_I18N[nav]?nav:'fr';}
+  document.documentElement.lang=currentLang;
+  document.title=tr('title');
+  document.querySelectorAll('[data-i18n]').forEach(function(el){el.innerHTML=tr(el.dataset.i18n);});
+  document.getElementById('langSelect').value=currentLang;
+}
+function setLang(code){
+  localStorage.setItem('dmd_lang',code);
+  applyLang();
+  fetch('/save-language',{method:'POST',body:'language='+code,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});
+}
+let savedSsid='';
+let _formDirty=false;
+// v69 -- brouillon PARTAGE : tous les reglages modifies sur n'importe quelle page restent en attente (localStorage) et sont envoyes ENSEMBLE par n'importe quel bouton
+// Enregistrer / Enreg. & Redemarrer, de n'importe quelle page. Pour QUITTER (Reprendre DMD / Redemarrer) avec des reglages non enregistres, une boite de dialogue le signale et
+// propose Enregistrer / Quitter quand meme (confirmLeave). Aucune alerte ailleurs : naviguer entre les pages ou fermer l'onglet reste libre.
+const DMD_DRAFT_KEYS=['dmd_draft_home','dmd_draft_basic','dmd_draft_playlist','dmd_draft_network','dmd_draft_clock','dmd_draft_widgets'];
+function anyDraft(){try{return DMD_DRAFT_KEYS.some(function(k){return localStorage.getItem(k)!==null;});}catch(e){return false;}}
+function allBody(own){const p=new URLSearchParams();DMD_DRAFT_KEYS.forEach(function(k){try{const raw=localStorage.getItem(k);if(!raw)return;const o=JSON.parse(raw);Object.keys(o).forEach(function(id){const v=o[id];if((v===''&&!/^(clk_anim_|clk_digit_|deco_ev_)/.test(id))||v===undefined||v===null)return;if(/^(wifi_|bluetooth_)/.test(id))return;p.set(id,(typeof v==='boolean')?(v?'1':'0'):String(v));});}catch(e){}});if(own)own.forEach(function(v,k){p.set(k,v);});return p;}
+function clearAllDrafts(){DMD_DRAFT_KEYS.forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});}
+// Boite de dialogue de SORTIE (Reprendre DMD / Redemarrer) : s'il reste des reglages non enregistres, elle l'indique et propose Enregistrer / Quitter quand meme (+ Annuler pour rester). Rien ne s'affiche sinon.
+let _leaveBox=null;
+function saveAllNow(){if(typeof saveConfig==='function')return Promise.resolve(saveConfig());const f=(typeof queuedFetch==='function')?queuedFetch:fetch;return f('/save',{method:'POST',body:allBody(null),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(function(r){return r.text();}).then(function(x){if(x.includes('OK'))clearAllDrafts();}).catch(function(){});}
+function confirmLeave(proceed){
+  if(!anyDraft()){proceed(false);return;}
+  const T={fr:{m:"Des modifications ne sont pas enregistrées.",s:"Enregistrer",q:"Quitter quand même",c:"Annuler"},en:{m:"Some changes are not saved.",s:"Save",q:"Leave anyway",c:"Cancel"},es:{m:"Hay cambios sin guardar.",s:"Guardar",q:"Salir de todos modos",c:"Cancelar"}};
+  const L=T[document.documentElement.lang]||T.fr;
+  if(_leaveBox){_leaveBox.remove();_leaveBox=null;}
+  const ov=document.createElement('div');ov.style.cssText='position:fixed;left:0;top:0;right:0;bottom:0;z-index:100;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px';
+  const bx=document.createElement('div');bx.style.cssText='background:#1a1a2e;color:#fff;border:2px solid #ffd146;border-radius:10px;padding:18px 20px;max-width:420px;width:100%;text-align:center;font-size:15px';
+  const mt=document.createElement('div');mt.textContent=L.m;mt.style.cssText='margin-bottom:14px;font-weight:bold';bx.appendChild(mt);
+  const row=document.createElement('div');row.style.cssText='display:flex;gap:10px;justify-content:center;flex-wrap:wrap';
+  const close=function(){ov.remove();_leaveBox=null;};
+  const mk=function(txt,css,fn){const x=document.createElement('button');x.type='button';x.textContent=txt;x.style.cssText='cursor:pointer;border-radius:6px;padding:8px 14px;font-size:14px;'+css;x.onclick=fn;row.appendChild(x);return x;};
+  mk(L.s,'border:0;background:#ffd146;color:#1a1a2e;font-weight:bold',function(){close();saveAllNow().then(function(){if(!anyDraft())proceed(false);});});
+  mk(L.q,'border:1px solid #fff;background:transparent;color:#fff',function(){close();clearAllDrafts();if(typeof _formDirty!=='undefined')_formDirty=false;proceed(true);});
+  mk(L.c,'border:0;background:transparent;color:#aaa;text-decoration:underline',close);
+  bx.appendChild(row);ov.appendChild(bx);document.body.appendChild(ov);_leaveBox=ov;
+}
+function stripAccents(s){return s.normalize('NFD').replace(new RegExp('['+String.fromCharCode(768)+'-'+String.fromCharCode(879)+']','g'),'').replace(/[^ -~]/g,'?');}
+function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(txt),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}
+function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
+function serialize(){return new URLSearchParams({wifi_enabled:document.getElementById('wifi_enabled').checked?'1':'0',wifi_ssid:document.getElementById('wifi_ssid').value,wifi_password:document.getElementById('wifi_password').value,wifi_static_enabled:document.getElementById('wifi_static_enabled').checked?'1':'0',wifi_static_ip:document.getElementById('wifi_static_ip').value,wifi_gateway:document.getElementById('wifi_gateway').value,wifi_subnet:document.getElementById('wifi_subnet').value,wifi_dns1:document.getElementById('wifi_dns1').value,wifi_dns2:document.getElementById('wifi_dns2').value,recalbox_ip:document.getElementById('recalbox_ip').value,recalbox_target:document.getElementById('recalbox_target').value});}
+// Brouillon localStorage -- voir le commentaire complet sur la page BASIC
+// (correctif "reglages perdus si on change de page", 2026-08-05).
+const DRAFT_KEY='dmd_draft_network';
+const DRAFT_FIELDS=['wifi_enabled','wifi_ssid','wifi_password','wifi_static_enabled','wifi_static_ip','wifi_gateway','wifi_subnet','wifi_dns1','wifi_dns2','recalbox_ip','recalbox_target'];
+function loadDraft(){try{const raw=localStorage.getItem(DRAFT_KEY);return raw?JSON.parse(raw):null;}catch(e){return null;}}
+function saveDraft(){const o={};DRAFT_FIELDS.forEach(id=>{const el=document.getElementById(id);if(!el)return;o[id]=(el.type==='checkbox')?el.checked:el.value;});localStorage.setItem(DRAFT_KEY,JSON.stringify(o));}
+function clearDraft(){localStorage.removeItem(DRAFT_KEY);}
+function checkEssentialFields(){return fetch('/load').then(r=>r.json()).then(d=>{const missing=[];if(!d.wifi_ssid)missing.push(tr('essential_wifi'));if(d.deco_bg!=='1'&&!d.playlist)missing.push(tr('essential_playlist'));if(d.deco_bg!=='1'&&!d.recalbox_ip)missing.push(tr('essential_ip'));if(!missing.length)return true;return confirm(tr('msg_essential_missing').replace('{fields}',missing.join(', ')));}).catch(()=>true);}
+function saveConfig(e){if(e&&e.preventDefault)e.preventDefault();showMsg(tr('msg_saving'),true);return fetch('/save',{method:'POST',body:allBody(serialize()),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(t=>{showMsg(t.includes('OK')?tr('msg_saving'):t,t.includes('OK'));if(t.includes('OK')){_formDirty=false;clearAllDrafts();}}).catch(()=>showMsg(tr('msg_net_error'),false));}
+function doReboot(skipConfirm){checkEssentialFields().then(ok=>{if(!ok)return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;confirmLeave(function(){showMsg(tr('msg_rebooting'),true);fetch('/reboot').catch(()=>{});});});}
+// skipConfirm=true (2026-07-29) : "Enreg. & Redemarrer" a deja un intitule
+// explicite -- redemander confirmation juste apres la sauvegarde est
+// redondant, contrairement au bouton "Redemarrer" seul.
+function saveAndReboot(){saveConfig().then(()=>setTimeout(()=>doReboot(true),400));}
+function dmdResume(){checkEssentialFields().then(ok=>{if(!ok)return;confirmLeave(function(discarded){fetch('/dmd-resume',{method:'POST'}).then(()=>{showMsgLocal(tr('msg_dmd_resumed'),true);if(discarded)setTimeout(()=>location.reload(),1200);}).catch(()=>showMsg(tr('msg_net_error'),false));});});}
+// Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29) : aucun
+// moyen fiable de distinguer une vraie fermeture d'onglet/navigateur d'un
+// simple rafraichissement de page (habitude trop ancree pour l'utilisateur,
+// faux positifs trop frequents -- ni le JS ni le serveur ne peuvent
+// distinguer les deux cas, une connexion qui se ferme se ressemble dans
+// tous les cas).
+// v77 -- IP statique : cocher la case pre-remplit IP / passerelle / masque / DNS depuis la connexion actuelle (detection), et l'enregistrement est refuse tant que IP, passerelle ou masque manque
+// (sinon le DMD affiche « IP CFG ERR » au redemarrage et retombe en DHCP -- retour utilisateur 2026-10-11 : rien n'indiquait qu'il fallait remplir les autres champs).
+(function(){
+  const M={fr:{static_need:'IP statique : renseignez aussi la passerelle et le masque (ou décochez la case).',static_filled:'Champs pré-remplis avec votre connexion actuelle : choisissez l\'IP fixe voulue (hors plage DHCP de la box) puis enregistrez.'},
+           en:{static_need:'Static IP: also fill in the gateway and the subnet mask (or untick the box).',static_filled:'Fields pre-filled from your current connection: pick the fixed IP you want (outside your router\'s DHCP range), then save.'},
+           es:{static_need:'IP estática: indica también la puerta de enlace y la máscara (o desmarca la casilla).',static_filled:'Campos rellenados con tu conexión actual: elige la IP fija que quieras (fuera del rango DHCP del router) y guarda.'}};
+  for(const l in M){PAGE_I18N[l]=Object.assign(PAGE_I18N[l]||{},M[l]);}
+  const el=id=>document.getElementById(id);
+  window.staticOk=function(){
+    if(!el('wifi_static_enabled').checked)return true;
+    if(el('wifi_static_ip').value.trim()&&el('wifi_gateway').value.trim()&&el('wifi_subnet').value.trim())return true;
+    showMsg(tr('static_need'),false);return false;
+  };
+  window.staticPrefill=function(notify){
+    if(!el('wifi_static_enabled').checked)return;
+    fetchLoadRetry().then(d=>{
+      let changed=false;
+      const put=(id,v)=>{if(v&&!el(id).value.trim()){el(id).value=v;changed=true;}};
+      put('wifi_static_ip',d.wifi_cur_ip);put('wifi_gateway',d.wifi_cur_gw);put('wifi_subnet',d.wifi_cur_mask);
+      put('wifi_dns1',d.wifi_cur_dns||d.wifi_cur_gw);
+      if(changed){_formDirty=true;saveDraft();if(notify)showMsg(tr('static_filled'),true);}
+      // la case ne reste cochee que si IP + passerelle + masque sont renseignes (detection impossible -> case decochee)
+      if(!(el('wifi_static_ip').value.trim()&&el('wifi_gateway').value.trim()&&el('wifi_subnet').value.trim())){el('wifi_static_enabled').checked=false;saveDraft();showMsg(tr('static_need'),false);}
+    }).catch(function(){el('wifi_static_enabled').checked=false;saveDraft();showMsg(tr('static_need'),false);});
+  };
+  el('wifi_static_enabled').addEventListener('change',function(){if(this.checked)staticPrefill(true);});
+  const _sc=saveConfig;saveConfig=function(e){if(!window.staticOk()){if(e&&e.preventDefault)e.preventDefault();return Promise.resolve();}return _sc(e);};
+  const _sar=saveAndReboot;saveAndReboot=function(){if(!window.staticOk())return;_sar();};
+})();
+function scanWiFi(tries){
+  tries=tries||0;
+  const sel=document.getElementById('wifi_ssid');
+  fetch('/scan-wifi').then(r=>r.json()).then(nets=>{
+    if((!nets||!nets.length)&&tries<8){setTimeout(function(){scanWiFi(tries+1);},2500);return;} /* v351 : 1re requete = scan asynchrone demarre, liste vide : on redemande */
+    sel.innerHTML='';
+    const opt=document.createElement('option');opt.value='';opt.textContent=tr('opt_select');sel.appendChild(opt);
+    let found=false;
+    nets.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;if(n===savedSsid){o.selected=true;found=true;}sel.appendChild(o);});
+    if(savedSsid&&!found){const o=new Option(savedSsid,savedSsid,true,true);sel.add(o);}
+  }).catch(()=>{sel.innerHTML='';const opt=document.createElement('option');opt.value=savedSsid;opt.textContent=savedSsid||tr('opt_scan_error');sel.appendChild(opt);});
+}
+// v64 -- BUG REEL corrige, voir le commentaire complet dans WEB_CONFIG_HTML
+// (page Affichage) -- meme fix duplique ici (gel reseau du DMD => fetch qui
+// ne resout ni ne rejette jamais, .catch() existant inutile dans ce cas).
+function fetchTimeout(u,o,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);return fetch(u,Object.assign({},o,{signal:c.signal})).finally(()=>clearTimeout(t));}
+function fetchLoadRetry(){return fetchTimeout('/load',{},45000).catch(()=>fetchTimeout('/load',{},45000)).then(r=>r.json());}
+function loadConfig(){const draft=loadDraft();fetchLoadRetry().then(d=>{
+  // v113 -- BUG REEL corrige : une chaine VIDE laissee dans le brouillon
+  // (ex. un champ nombre momentanement vide pendant une frappe, sauvegarde
+  // par saveDraft() a CHAQUE evenement 'input') passait le test
+  // "!==undefined" et ecrasait donc silencieusement la vraie valeur
+  // sauvegardee cote serveur a chaque rechargement de page -- observe en
+  // reel sur clock_interval/clock_duration (champs vides a l'ouverture,
+  // PUIS ecrits a 0 dans config.ini par la sauvegarde suivante, symptome
+  // "les champs sont a zero apres F5"). Une chaine vide est desormais
+  // traitee comme "pas de brouillon pour ce champ" -- ne change rien pour
+  // les cases a cocher (false !== '').
+  const g=(k,dv)=>(draft&&draft[k]!==undefined&&draft[k]!=='')?draft[k]:dv;
+  document.getElementById('wifi_enabled').checked=g('wifi_enabled',d.wifi_enabled==='1');
+  savedSsid=g('wifi_ssid',d.wifi_ssid||''); // scanWiFi() se charge de le (re)selectionner, meme si absent du scan (fallback deja en place)
+  document.getElementById('wifi_password').value=g('wifi_password',d.wifi_password||'');
+  document.getElementById('wifi_static_enabled').checked=g('wifi_static_enabled',d.wifi_static_enabled==='1');
+  document.getElementById('wifi_static_ip').value=g('wifi_static_ip',d.wifi_static_ip||'');
+  document.getElementById('wifi_gateway').value=g('wifi_gateway',d.wifi_gateway||'');
+  document.getElementById('wifi_subnet').value=g('wifi_subnet',d.wifi_subnet||'');
+  document.getElementById('wifi_dns1').value=g('wifi_dns1',d.wifi_dns1||'');
+  document.getElementById('wifi_dns2').value=g('wifi_dns2',d.wifi_dns2||'');
+  document.getElementById('recalbox_ip').value=g('recalbox_ip',d.recalbox_ip||'');document.getElementById('recalbox_target').value=g('recalbox_target',d.recalbox_target||'0');document.getElementById('rbActive').textContent=d.recalbox_active?(tr('rb_active')+' '+d.recalbox_active):'';
+  scanWiFi();
+  if(document.getElementById('wifi_static_enabled').checked&&(!document.getElementById('wifi_gateway').value||!document.getElementById('wifi_subnet').value))staticPrefill(false);   // v77 -- config incomplete deja enregistree : complete avec la detection
+  if(draft)_formDirty=true; // reboot/reprise doivent quand meme avertir : la config.ini reelle n'a pas ce brouillon
+}).catch(()=>showMsg(tr('msg_load_error'),false));}
+fetchTimeout('/lang',{},45000).then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}loadConfig();}).catch(()=>{applyLang();loadConfig();}).finally(hidePageLoadingOverlay);
+document.getElementById('networkForm').addEventListener('input',()=>{_formDirty=true;saveDraft();});
+</script>
+<script src="/native.js"></script>
+</body>
+</html>

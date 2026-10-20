@@ -1,0 +1,458 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RecalBox DMD - Médias</title>
+<link rel="stylesheet" href="/cfg.css?h=42c26368">
+<link rel="icon" href="data:,">
+<script src="/cfg.js?h=813f74a2" onerror="try{if(!sessionStorage.cfgR){sessionStorage.cfgR=1;location.reload();}}catch(e){}"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
+h2{color:#8ab4f8;font-size:15px;margin:0 0 10px;border-left:3px solid #8ab4f8;padding-left:8px}
+.desc{font-size:12px;color:#aaa;margin-bottom:8px}
+.dirs{margin:8px 0;max-height:220px;overflow-y:auto}
+.dirs label{display:flex;align-items:center;gap:8px;font-size:14px;padding:3px 0}
+.dirs label span.name{flex:1}
+.mini-row{display:flex;gap:8px;margin-bottom:8px}
+.mini-btn{padding:4px 10px;border:none;border-radius:4px;background:#1a6b9e;color:#fff;font-size:11px;cursor:pointer}
+.upload-row{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.upload-row select,.upload-row input{flex:1;min-width:110px;padding:8px 10px;border:1px solid #333;border-radius:4px;background:#0f3460;color:#eee;font-size:14px}
+.btn-row{display:flex;gap:10px;justify-content:center;margin:14px 0;flex-wrap:wrap}
+.btn{padding:10px 18px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
+.btn-upload{background:#1a6b9e;color:#fff}
+.btn-resume{background:#0f766e;color:#fff}
+.btn-stop{background:#c0392b;color:#fff}
+.progress{height:4px;background:#333;border-radius:2px;margin:8px 0;display:none}
+.progress-bar{height:4px;background:#52b788;border-radius:2px;width:0%}
+body{position:relative}
+#pageLoadingOverlay{position:fixed;inset:0;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px;font-weight:600;z-index:99999;text-align:center;padding:20px;gap:14px}
+#pageLoadingOverlay .pgspin{width:34px;height:34px;border:4px solid #333;border-top-color:#8ab4f8;border-radius:50%;animation:pgspin .8s linear infinite}
+@keyframes pgspin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="pageLoadingOverlay"><div class="pgspin"></div><div data-i18n="loading_text">Chargement en cours...</div></div>
+<select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<span id="helpLink" onclick="showHelpModal()" data-i18n="help_link">Aide</span>
+<div id="helpBackdrop" class="help-backdrop" onclick="if(event.target===this)closeHelpModal()">
+<div class="help-box">
+<button class="help-close" onclick="closeHelpModal()">&times;</button>
+<h2 data-i18n="help_title">Bienvenue</h2>
+<p data-i18n="help_intro"></p>
+<h3 data-i18n="help_checklist_title"></h3>
+<ul>
+<li data-i18n="help_check_ip"></li>
+<li data-i18n="help_check_playlist"></li>
+<li data-i18n="help_check_wifi"></li>
+</ul>
+<p id="helpUrlReminder"></p>
+<h3 data-i18n="help_features_title"></h3>
+<ul>
+<li data-i18n="help_feat_playlists"></li>
+<li data-i18n="help_feat_clock"></li>
+<li data-i18n="help_feat_display"></li>
+<li data-i18n="help_feat_network"></li>
+</ul>
+</div>
+</div>
+<div class="topnav">
+<a href="/" onclick="showPageLoadingOverlay()" data-i18n="nav_home">&#x1F3E0; Accueil</a>
+<a href="/config/settings" onclick="showPageLoadingOverlay()" data-i18n="nav_settings">&#x2699; R&eacute;glages</a>
+<a href="/config/basic" onclick="showPageLoadingOverlay()" data-i18n="nav_basic">&#x1F4A1; Affichage</a>
+<a href="/config/playlist" onclick="showPageLoadingOverlay()" data-i18n="nav_playlist">&#x1F4BF; Playlist</a>
+<a href="/config/network" onclick="showPageLoadingOverlay()" data-i18n="nav_network">&#x1F4F6; Wi-Fi</a>
+<a href="/config/widgets" onclick="showPageLoadingOverlay()" data-i18n="nav_deco">&#x2728; Widgets &amp; Horloge</a>
+<a href="/config/media" onclick="showPageLoadingOverlay()" class="active" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
+<a href="/config/button" onclick="showPageLoadingOverlay()" data-i18n="nav_button">&#x1F518; Bouton</a>
+</div>
+<h1 data-i18n="h1">M&eacute;dias</h1>
+<div class="section">
+<h2 data-i18n="sec_dirs">&#x1F4C1; Dossiers (/gifs/)</h2>
+<div class="desc" data-i18n="desc_dirs">Cochez des dossiers pour les supprimer.</div>
+<div class="mini-row">
+<button type="button" class="mini-btn" onclick="selectAllDirs(true)" data-i18n="btn_select_all">Tout s&eacute;lectionner</button>
+<button type="button" class="mini-btn" onclick="selectAllDirs(false)" data-i18n="btn_select_none">Rien s&eacute;lectionner</button>
+</div>
+<div id="dirList" class="dirs"></div>
+<div class="btn-row">
+<button type="button" class="btn btn-del" onclick="deleteSelected()" data-i18n="btn_delete_sel">&#x1F5D1; Supprimer la s&eacute;lection</button>
+</div>
+</div>
+<div class="section">
+<h2 data-i18n="sec_upload">&#x1F4E4; Envoi GIF</h2>
+<div class="desc" data-i18n="desc_upload">Ajoutez un fichier .gif directement depuis votre navigateur dans un dossier de /gifs/. Choisissez un dossier existant OU tapez un nouveau nom (cr&eacute;&eacute; automatiquement). &#x26A0;&#xFE0F; Pas fait pour transferer de nombreux fichiers (debit lent, risque d'erreur d'ecriture) -- reserve a l'ajout ponctuel de quelques fichiers. Pour un transfert consequent, passez par l'utilitaire RecalboxDMD_tool sur PC.</div>
+<div class="upload-row">
+<select id="uploadDir"></select>
+<input id="uploadDirCustom" data-i18n-placeholder="placeholder_upload_dir" placeholder="ou nouveau dossier...">
+</div>
+<div class="row"><label for="uploadFile" data-i18n="lbl_upload_file">Fichiers .gif</label><input id="uploadFile" type="file" accept=".gif" multiple></div>
+<div class="progress" id="uploadProgress"><div class="progress-bar" id="uploadProgressBar"></div></div>
+<div id="uploadFileList" style="margin:4px 0;font-size:12px;color:#aaa"></div>
+<div class="btn-row">
+<button type="button" class="btn btn-upload" onclick="uploadGif()" data-i18n="btn_upload">&#x1F4E4; Uploader</button>
+<button type="button" class="btn btn-stop" id="uploadStopBtn" onclick="stopUpload()" style="display:none" data-i18n="btn_stop">&#x23F9; Arr&ecirc;ter</button>
+</div>
+</div>
+<div class="btn-row">
+<button type="button" class="btn btn-resume" onclick="dmdResume()" data-i18n="btn_resume">&#x25B6; Reprendre DMD</button>
+</div>
+<div id="msg" class="msg"></div>
+<script>
+const HELP_I18N=window.CFG_HELP;
+const PAGE_I18N={
+fr:{title:'RecalBox DMD - Médias',h1:'Médias',sec_dirs:'&#x1F4C1; Dossiers (/gifs/)',desc_dirs:'Cochez des dossiers pour les supprimer.',btn_select_all:'Tout sélectionner',btn_select_none:'Rien sélectionner',btn_delete_sel:'&#x1F5D1; Supprimer la sélection',sec_upload:'&#x1F4E4; Envoi GIF',desc_upload:'Ajoutez un fichier .gif directement depuis votre navigateur dans un dossier de /gifs/. Choisissez un dossier existant OU tapez un nouveau nom (créé automatiquement). &#x26A0;&#xFE0F; Pas fait pour transférer de nombreux fichiers (débit lent, risque d\'erreur d\'écriture) -- réservé à l\'ajout ponctuel de quelques fichiers. Pour un transfert consequent, passez par l\'utilitaire RecalboxDMD_tool sur PC.',placeholder_upload_dir:'ou nouveau dossier...',lbl_upload_file:'Fichiers .gif',btn_upload:'&#x1F4E4; Uploader',btn_stop:'&#x23F9; Arrêter',net_error:'Erreur réseau',msg_deleting:'Suppression...',msg_select_folder:'Choisissez au moins un dossier',msg_confirm_delete_folders:'Supprimer ${0} ?',msg_specify_dir:'Précisez un dossier cible',msg_select_gif:'Choisissez un fichier GIF',msg_select_gif_files:'Choisissez des fichiers .gif',msg_preparing_folder:'Preparation du dossier...',msg_cannot_create_folder:'Impossible de creer le dossier: ${0}',msg_net_error_folder:'Erreur reseau (creation dossier)',msg_uploading:'Upload...',msg_attempt:'tentative ${0}/${1}',msg_stopped_by_user:'Arrete par l\'utilisateur (${0}/${1})',msg_upload_fail:'ECHEC',msg_failures:'Echecs: ${0}',msg_upload_result:'${0}/${1} fichier(s) uploade(s)',msg_upload_result_fail:' -- echecs: ${0}',msg_confirm_reboot:'Redemarrer l\'ESP32 ?',msg_rebooting:'Redemarrage...',msg_updating_playlists:'Mise a jour des playlists...',msg_confirm_reboot_playlists:'Dossiers supprimes, ${0} playlist(s) mise(s) a jour. La suppression d\'un dossier lie a des playlists necessite un redemarrage du DMD pour etre prise en compte. Redemarrer maintenant ?',msg_retrying_failed:'Nouvelle tentative pour ${0} fichier(s) en echec...',msg_final_attempt:'tentative finale ${0}/${1}',msg_preparing_upload:'Preparation de l\'upload...',msg_rebooting_upload:'Redemarrage du DMD pour preparer la copie de fichiers, veuillez patienter...',...HELP_I18N.fr},
+en:{title:'RecalBox DMD - Media',h1:'Media',sec_dirs:'&#x1F4C1; Folders (/gifs/)',desc_dirs:'Check folders to delete them.',btn_select_all:'Select all',btn_select_none:'Select none',btn_delete_sel:'&#x1F5D1; Delete selection',sec_upload:'&#x1F4E4; GIF Upload',desc_upload:'Add a .gif file directly from your browser into a folder in /gifs/. Choose an existing folder OR type a new name (created automatically). &#x26A0;&#xFE0F; Not designed for transferring many files (slow throughput, risk of write errors) -- meant for occasionally adding a few files. For a large transfer, use the RecalboxDMD_tool utility on PC instead.',placeholder_upload_dir:'or new folder...',lbl_upload_file:'.gif files',btn_upload:'&#x1F4E4; Upload',btn_stop:'&#x23F9; Stop',net_error:'Network error',msg_deleting:'Deleting...',msg_select_folder:'Select at least one folder',msg_confirm_delete_folders:'Delete ${0}?',msg_specify_dir:'Please specify a target folder',msg_select_gif:'Select a GIF file',msg_select_gif_files:'Select .gif files',msg_preparing_folder:'Preparing folder...',msg_cannot_create_folder:'Unable to create folder: ${0}',msg_net_error_folder:'Network error (folder creation)',msg_uploading:'Uploading...',msg_attempt:'attempt ${0}/${1}',msg_stopped_by_user:'Stopped by user (${0}/${1})',msg_upload_fail:'FAILED',msg_failures:'Failures: ${0}',msg_upload_result:'${0}/${1} file(s) uploaded',msg_upload_result_fail:' -- failures: ${0}',msg_confirm_reboot:'Reboot the ESP32?',msg_rebooting:'Rebooting...',msg_updating_playlists:'Updating playlists...',msg_confirm_reboot_playlists:'Folders deleted, ${0} playlist(s) updated. Deleting a folder linked to playlists requires a DMD reboot to take effect. Reboot now?',msg_retrying_failed:'Retrying ${0} failed file(s)...',msg_final_attempt:'final attempt ${0}/${1}',msg_preparing_upload:'Preparing upload...',msg_rebooting_upload:'Rebooting the DMD to prepare the file copy, please wait...',...HELP_I18N.en},
+es:{title:'RecalBox DMD - Medios',h1:'Medios',sec_dirs:'&#x1F4C1; Carpetas (/gifs/)',desc_dirs:'Marque las carpetas para eliminarlas.',btn_select_all:'Seleccionar todo',btn_select_none:'Deseleccionar todo',btn_delete_sel:'&#x1F5D1; Eliminar selección',sec_upload:'&#x1F4E4; Subir GIF',desc_upload:'Añada un archivo .gif desde su navegador a una carpeta en /gifs/. Elija una carpeta existente O escriba un nombre nuevo (se crea automáticamente). &#x26A0;&#xFE0F; No pensado para transferir muchos archivos (velocidad lenta, riesgo de error de escritura) -- reservado para añadir algunos archivos puntualmente. Para una transferencia importante, use la utilidad RecalboxDMD_tool en el PC.',placeholder_upload_dir:'o nueva carpeta...',lbl_upload_file:'Archivos .gif',btn_upload:'&#x1F4E4; Subir',btn_stop:'&#x23F9; Detener',net_error:'Error de red',msg_deleting:'Eliminando...',msg_select_folder:'Elija al menos una carpeta',msg_confirm_delete_folders:'¿Eliminar ${0}?',msg_specify_dir:'Especifique una carpeta destino',msg_select_gif:'Seleccione un archivo GIF',msg_select_gif_files:'Seleccione archivos .gif',msg_preparing_folder:'Preparando carpeta...',msg_cannot_create_folder:'No se pudo crear la carpeta: ${0}',msg_net_error_folder:'Error de red (creación de carpeta)',msg_uploading:'Subiendo...',msg_attempt:'intento ${0}/${1}',msg_stopped_by_user:'Detenido por el usuario (${0}/${1})',msg_upload_fail:'ERROR',msg_failures:'Errores: ${0}',msg_upload_result:'${0}/${1} archivo(s) subido(s)',msg_upload_result_fail:' -- errores: ${0}',msg_confirm_reboot:'¿Reiniciar el ESP32?',msg_rebooting:'Reiniciando...',msg_updating_playlists:'Actualizando listas...',msg_confirm_reboot_playlists:'Carpetas eliminadas, ${0} lista(s) de reproduccion actualizada(s). Eliminar una carpeta vinculada a listas requiere reiniciar el DMD para aplicarse. ¿Reiniciar ahora?',msg_retrying_failed:'Reintentando ${0} archivo(s) fallido(s)...',msg_final_attempt:'intento final ${0}/${1}',msg_preparing_upload:'Preparando la subida...',msg_rebooting_upload:'Reiniciando el DMD para preparar la copia de archivos, por favor espere...',...HELP_I18N.es}
+};
+let currentLang='fr';
+// Overlay "Chargement en cours..." (2026-08-05, demande utilisateur :
+// ~3s d'attente sur mobile avant affichage, impression de plantage/envie
+// de F5). Present des le tout premier octet du <body> (avant tout script)
+// donc visible des que le navigateur commence a peindre la page, meme si
+// le reste du transfert (page + donnees /lang, /load) prend encore du
+// temps -- masque via hidePageLoadingOverlay(), appelee en toute fin de
+// la chaine de bootstrap (succes ET echec, voir .finally() plus bas).
+// v69 -- brouillon PARTAGE : tous les reglages modifies sur n'importe quelle page restent en attente (localStorage) et sont envoyes ENSEMBLE par n'importe quel bouton
+// Enregistrer / Enreg. & Redemarrer, de n'importe quelle page. Pour QUITTER (Reprendre DMD / Redemarrer) avec des reglages non enregistres, une boite de dialogue le signale et
+// propose Enregistrer / Quitter quand meme (confirmLeave). Aucune alerte ailleurs : naviguer entre les pages ou fermer l'onglet reste libre.
+const DMD_DRAFT_KEYS=['dmd_draft_home','dmd_draft_basic','dmd_draft_playlist','dmd_draft_network','dmd_draft_clock','dmd_draft_widgets'];
+function anyDraft(){try{return DMD_DRAFT_KEYS.some(function(k){return localStorage.getItem(k)!==null;});}catch(e){return false;}}
+function allBody(own){const p=new URLSearchParams();DMD_DRAFT_KEYS.forEach(function(k){try{const raw=localStorage.getItem(k);if(!raw)return;const o=JSON.parse(raw);Object.keys(o).forEach(function(id){const v=o[id];if((v===''&&!/^(clk_anim_|clk_digit_|deco_ev_)/.test(id))||v===undefined||v===null)return;if(/^(wifi_|bluetooth_)/.test(id))return;p.set(id,(typeof v==='boolean')?(v?'1':'0'):String(v));});}catch(e){}});if(own)own.forEach(function(v,k){p.set(k,v);});return p;}
+function clearAllDrafts(){DMD_DRAFT_KEYS.forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});}
+// Boite de dialogue de SORTIE (Reprendre DMD / Redemarrer) : s'il reste des reglages non enregistres, elle l'indique et propose Enregistrer / Quitter quand meme (+ Annuler pour rester). Rien ne s'affiche sinon.
+let _leaveBox=null;
+function saveAllNow(){if(typeof saveConfig==='function')return Promise.resolve(saveConfig());const f=(typeof queuedFetch==='function')?queuedFetch:fetch;return f('/save',{method:'POST',body:allBody(null),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(function(r){return r.text();}).then(function(x){if(x.includes('OK'))clearAllDrafts();}).catch(function(){});}
+function confirmLeave(proceed){
+  if(!anyDraft()){proceed(false);return;}
+  const T={fr:{m:"Des modifications ne sont pas enregistrées.",s:"Enregistrer",q:"Quitter quand même",c:"Annuler"},en:{m:"Some changes are not saved.",s:"Save",q:"Leave anyway",c:"Cancel"},es:{m:"Hay cambios sin guardar.",s:"Guardar",q:"Salir de todos modos",c:"Cancelar"}};
+  const L=T[document.documentElement.lang]||T.fr;
+  if(_leaveBox){_leaveBox.remove();_leaveBox=null;}
+  const ov=document.createElement('div');ov.style.cssText='position:fixed;left:0;top:0;right:0;bottom:0;z-index:100;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px';
+  const bx=document.createElement('div');bx.style.cssText='background:#1a1a2e;color:#fff;border:2px solid #ffd146;border-radius:10px;padding:18px 20px;max-width:420px;width:100%;text-align:center;font-size:15px';
+  const mt=document.createElement('div');mt.textContent=L.m;mt.style.cssText='margin-bottom:14px;font-weight:bold';bx.appendChild(mt);
+  const row=document.createElement('div');row.style.cssText='display:flex;gap:10px;justify-content:center;flex-wrap:wrap';
+  const close=function(){ov.remove();_leaveBox=null;};
+  const mk=function(txt,css,fn){const x=document.createElement('button');x.type='button';x.textContent=txt;x.style.cssText='cursor:pointer;border-radius:6px;padding:8px 14px;font-size:14px;'+css;x.onclick=fn;row.appendChild(x);return x;};
+  mk(L.s,'border:0;background:#ffd146;color:#1a1a2e;font-weight:bold',function(){close();saveAllNow().then(function(){if(!anyDraft())proceed(false);});});
+  mk(L.q,'border:1px solid #fff;background:transparent;color:#fff',function(){close();clearAllDrafts();if(typeof _formDirty!=='undefined')_formDirty=false;proceed(true);});
+  mk(L.c,'border:0;background:transparent;color:#aaa;text-decoration:underline',close);
+  bx.appendChild(row);ov.appendChild(bx);document.body.appendChild(ov);_leaveBox=ov;
+}
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
+function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
+function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||(window.CFG_I18N&&CFG_I18N[currentLang]&&CFG_I18N[currentLang][k])||PAGE_I18N.fr[k]||(window.CFG_I18N&&CFG_I18N.fr&&CFG_I18N.fr[k])||k;}
+function trTpl(k){const args=[].slice.call(arguments,1);let s=tr(k);args.forEach((v,i)=>{s=s.split('${'+i+'}').join(v);});return s;}
+function applyLang(backendLang){
+  const stored=localStorage.getItem('dmd_lang');
+  if(stored&&PAGE_I18N[stored]){currentLang=stored;}
+  else if(backendLang&&PAGE_I18N[backendLang]){currentLang=backendLang;}
+  else{const nav=(navigator.language||'').substring(0,2);currentLang=PAGE_I18N[nav]?nav:'fr';}
+  document.documentElement.lang=currentLang;
+  document.title=tr('title');
+  document.querySelectorAll('[data-i18n]').forEach(function(el){el.innerHTML=tr(el.dataset.i18n);});
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el){el.placeholder=tr(el.dataset.i18nPlaceholder);});
+  document.getElementById('langSelect').value=currentLang;
+}
+function setLang(code){
+  localStorage.setItem('dmd_lang',code);
+  applyLang();
+  fetch('/save-language',{method:'POST',body:'language='+code,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});
+}
+function stripAccents(s){return s.normalize('NFD').replace(new RegExp('['+String.fromCharCode(768)+'-'+String.fromCharCode(879)+']','g'),'').replace(/[^ -~]/g,'?');}
+// File d'attente globale : l'ESP32 (WebServer mono-requete) ne traite
+// qu'une connexion a la fois. Plusieurs fetch() partis en parallele (ex.
+// les appels de chargement initial + un clic utilisateur pendant ce temps)
+// se faisaient concurrence sur la meme connexion -- confirme en test reel
+// comme net::ERR_INVALID_CHUNKED_ENCODING, meme sur des reponses courtes
+// servies depuis le cache. TOUS les fetch() de cette page passent
+// desormais par queuedFetch(), qui les serialise strictement.
+let _reqQueue=Promise.resolve();
+function queuedFetch(url,opts){
+  const p=_reqQueue.then(()=>fetch(url,opts));
+  _reqQueue=p.catch(()=>{});
+  return p;
+}
+function showMsg(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);queuedFetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(txt),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}
+function showMsgLocal(txt,ok){const el=document.getElementById('msg');el.textContent=txt;el.className='msg '+(ok?'ok':'err');el.style.display='block';if(window._msgTimer)clearTimeout(window._msgTimer);window._msgTimer=setTimeout(()=>{el.style.display='none';},5000);}
+function checkEssentialFields(){return queuedFetch('/load').then(r=>r.json()).then(d=>{const missing=[];if(!d.wifi_ssid)missing.push(tr('essential_wifi'));if(d.deco_bg!=='1'&&!d.playlist)missing.push(tr('essential_playlist'));if(d.deco_bg!=='1'&&!d.recalbox_ip)missing.push(tr('essential_ip'));if(!missing.length)return true;return confirm(tr('msg_essential_missing').replace('{fields}',missing.join(', ')));}).catch(()=>true);}
+function doReboot(skipConfirm){checkEssentialFields().then(ok=>{if(!ok)return;if(!skipConfirm&&!confirm(tr('msg_confirm_reboot')))return;confirmLeave(function(){showMsg(tr('msg_rebooting'),true);queuedFetch('/reboot').catch(()=>{});});});}
+function dmdResume(){checkEssentialFields().then(ok=>{if(!ok)return;confirmLeave(function(discarded){queuedFetch('/dmd-resume',{method:'POST'}).then(()=>showMsgLocal(tr('msg_dmd_resumed'),true)).catch(()=>showMsg(tr('net_error'),false));});});}
+// Reprise auto a la fermeture -- ESSAYEE puis RETIREE (2026-07-29, voir
+// page Affichage pour le detail) : aucun moyen fiable de distinguer une
+// vraie fermeture d'un simple rafraichissement de page.
+function selectAllDirs(v){document.querySelectorAll('#dirList input').forEach(i=>i.checked=v);}
+// v85 : plus de navigation dans un dossier (contenu individuel des GIF) ni
+// de statut cached/excluded -- decision utilisateur de retirer cette
+// fonctionnalite (voir changelog web_config.h). renderDirs() redevient une
+// simple liste de dossiers a cocher (creation/suppression/upload
+// uniquement).
+function renderDirs(dirs){
+  const list=document.getElementById('dirList');list.innerHTML='';
+  const sel=document.getElementById('uploadDir');sel.innerHTML='';
+  const opt=document.createElement('option');opt.value='';opt.textContent='---';sel.appendChild(opt);
+  dirs.forEach(d=>{
+    const name=(d&&typeof d==='object')?d.name:d;
+    const row=document.createElement('label');
+    row.innerHTML='<input type="checkbox" value="'+name+'"><span class="name">&#x1F4C1; '+name+'</span>';
+    list.appendChild(row);
+    const o=document.createElement('option');o.value=name;o.textContent=name;sel.appendChild(o);
+  });
+}
+// loadDirs() et loadUploadDirs() appelaient chacun /lsgifdirs
+// independamment (2 scans SD + 2 parsings JSON pour la MEME donnee a
+// chaque chargement de page/rafraichissement) -- fusionnes en un seul
+// fetch partage pour reduire la pression heap qui contribuait au crash
+// abort() observe en test reel apres plusieurs operations consecutives.
+// B (plan cache_master_gifs, retour test reel 2026-08-01) -- retry (5
+// tentatives, 500ms d'ecart), meme raison et meme pattern que loadGenDirs()
+// (page Affichage, deja corrige le 2026-07-29 pour EXACTEMENT ce probleme) :
+// un simple fetch().catch(()=>{}) laissait la liste MEDIA vide en silence,
+// sans retenter, des qu'une seule requete /lsgifdirs echouait au chargement
+// de la page -- necessitait un F5 manuel pour reessayer. Cette fonction
+// n'avait jamais recu le meme correctif que loadGenDirs() a l'epoque.
+// Cache sessionStorage PARTAGE avec la page Affichage (meme cle,
+// 'dmd_gifdirs_cache') -- demande utilisateur 2026-08-02 : le va-et-vient
+// frequent entre Affichage et MEDIA redemandait /lsgifdirs a chaque fois,
+// avec le risque d'echec reseau observe en test reel. Affiche IMMEDIATEMENT
+// le contenu en cache si present (aucune attente reseau), PUIS rafraichit
+// en arriere-plan et met a jour le cache -- la liste se corrige donc
+// silencieusement si elle avait change entre-temps (creation/suppression de
+// dossier), sans jamais bloquer l'affichage initial sur le reseau.
+function readDirsCache(){
+  try{
+    const raw=sessionStorage.getItem('dmd_gifdirs_cache');
+    return raw?JSON.parse(raw):null;
+  }catch(e){return null;}
+}
+function writeDirsCache(dirs){
+  try{sessionStorage.setItem('dmd_gifdirs_cache',JSON.stringify(dirs));}catch(e){}
+}
+async function loadDirs(){
+  const cached=readDirsCache();
+  if(cached&&cached.length)renderDirs(cached);
+  for(let attempt=0;attempt<5;attempt++){
+    if(attempt>0)await new Promise(r=>setTimeout(r,500));
+    try{
+      const dirs=await(await queuedFetch('/lsgifdirs')).json();
+      if(!dirs.length&&attempt<4)continue;
+      renderDirs(dirs);
+      writeDirsCache(dirs);
+      return;
+    }catch(e){}
+  }
+}
+function loadUploadDirs(){return Promise.resolve();} // conserve pour compatibilite des appels existants -- loadDirs() peuple desormais aussi #uploadDir
+function deleteSelected(){
+  const dirs=[].slice.call(document.querySelectorAll('#dirList input:checked')).map(i=>i.value);
+  if(!dirs.length){showMsg(tr('msg_select_folder'),false);return;}
+  if(!confirm(trTpl('msg_confirm_delete_folders',dirs.join(', '))))return;
+  showMsg(tr('msg_deleting'),true);
+  queuedFetch('/delete-folders',{method:'POST',body:new URLSearchParams({dirs:dirs.join(',')}),headers:{'Content-Type':'application/x-www-form-urlencoded'}})
+    .then(r=>r.text()).then(t=>{
+      // A.3 (plan cache_master_gifs) -- si la reponse indique qu'au moins une
+      // playlist a ete mise a jour (lignes mortes retirees), un redemarrage
+      // est necessaire pour que la session de lecture EN COURS (deja son
+      // cache playlist .idx charge en RAM) soit corrigee -- mais laisse a
+      // l'utilisateur le choix du moment (demande utilisateur 2026-08-02,
+      // popup oui/non plutot qu'un redemarrage automatique impose). confirm()
+      // est bloquant : empeche aussi toute autre action pendant que cette
+      // decision est en attente (demande utilisateur : "info web... pour
+      // eviter une action utilisateur inappropriee").
+      const m=t.match(/(\d+) playlist/);
+      if(m){
+        if(confirm(trTpl('msg_confirm_reboot_playlists',m[1]))){
+          doReboot(true);
+        } else {
+          showMsg(t,true);loadDirs();loadUploadDirs();
+        }
+      } else {
+        showMsg(t,t.includes('OK'));loadDirs();loadUploadDirs();
+      }
+    })
+    .catch(()=>showMsg(tr('net_error'),false));
+}
+async function uploadGif(){
+  const sel=document.getElementById('uploadDir');
+  const custom=document.getElementById('uploadDirCustom').value.trim();
+  const dir=custom||sel.value;
+  if(!dir){showMsg(tr('msg_specify_dir'),false);return;}
+  const fileInput=document.getElementById('uploadFile');
+  if(!fileInput.files.length){showMsg(tr('msg_select_gif'),false);return;}
+  const files=Array.from(fileInput.files).filter(f=>f.name.toLowerCase().endsWith('.gif'));
+  if(!files.length){showMsg(tr('msg_select_gif_files'),false);return;}
+  const msgEl=document.getElementById('msg');
+  // Pre-vol reboot cible (v44, demande explicite utilisateur) : declenche
+  // UNIQUEMENT au clic sur Uploader (pas a l'ouverture de la page MEDIA) --
+  // si la playlist tourne depuis un moment, le heap est plafonne par la
+  // fragmentation setvbuf(4096) accumulee au fil des GIFs ouverts (cf.
+  // memoire projet) et un reboot cible (playlist sautee au prochain boot)
+  // redonne le maximum de heap disponible AVANT le premier octet d'upload,
+  // plutot que d'echouer en cours de route. Reponse JSON {"reboot":bool} :
+  // si true, la reponse HTTP a deja ete envoyee cote serveur et le reboot
+  // reel survient dans l'instant qui suit (requestReboot, RecalBox_DMD.ino).
+  // IMPORTANT (bug corrige 2026-08-03, retour test reel "DMD bloque, aucun
+  // affichage") : ne JAMAIS faire location.reload() ici -- les fichiers
+  // selectionnes par l'utilisateur (variable `files` ci-dessus, objets File
+  // du navigateur) ne survivent PAS a une navigation/rechargement de page,
+  // l'upload etait donc silencieusement abandonne sans aucune indication.
+  // On attend juste (poll sur /lang, endpoint leger qui ne re-arme pas le
+  // mode config) que le serveur reponde de nouveau, PUIS on continue cette
+  // meme fonction avec les memes fichiers deja en memoire -- aucune perte de
+  // selection, aucun reclic necessaire.
+  msgEl.className='msg ok';msgEl.style.display='block';msgEl.textContent=tr('msg_preparing_upload');
+  try{
+    const pr=await queuedFetch('/prepare-upload',{method:'POST'});
+    const pd=await pr.json();
+    if(pd.reboot){
+      msgEl.textContent=tr('msg_rebooting_upload');
+      await new Promise(resolve=>{
+        function poll(){
+          fetch('/lang',{cache:'no-store'}).then(function(r){
+            if(r.ok) resolve(); else setTimeout(poll,1500);
+          }).catch(function(){setTimeout(poll,1500);});
+        }
+        setTimeout(poll,1500);
+      });
+      msgEl.textContent=tr('msg_preparing_upload');
+    }
+  }catch(e){/* pas de reponse ou probleme reseau ponctuel -- poursuivre normalement, le garde heap d'UPLOAD_FILE_START reste la derniere protection */}
+  _uploadStopRequested=false;
+  const stopBtn=document.getElementById('uploadStopBtn');stopBtn.style.display='inline-block';
+  const bar=document.getElementById('uploadProgress');bar.style.display='block';
+  const barInner=document.getElementById('uploadProgressBar');
+  const fileList=document.getElementById('uploadFileList');
+  msgEl.textContent=tr('msg_preparing_folder');
+  try{
+    const cr=await queuedFetch('/create-folder',{method:'POST',body:new URLSearchParams({dir:dir}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+    const ct=await cr.text();
+    if(!ct.includes('OK')){stopBtn.style.display='none';showMsg(trTpl('msg_cannot_create_folder',ct),false);return;}
+    // v92 -- ne rafraichir la liste des dossiers que si /create-folder en a
+    // reellement cree un NOUVEAU ("OK: cree") : pour un dossier deja
+    // existant ("OK: existant", cas le plus courant), la liste affichee
+    // depuis le chargement de la page est deja a jour -- ce fetch /lsgifdirs
+    // supplementaire n'apportait rien et ajoutait un cout heap par requete
+    // mesure en test reel (diagnostic v90).
+    if(ct.indexOf('cree')>=0){await loadDirs();await loadUploadDirs();}
+  }catch(e){stopBtn.style.display='none';showMsg(tr('msg_net_error_folder'),false);return;}
+  msgEl.textContent=tr('msg_uploading');
+  let okCount=0;const failed=[];const uploaded=[];
+  // B (plan fiabilisation upload, 2026-08-02) -- regroupement par paquets de
+  // 4 fichiers ESSAYE puis ABANDONNE (retour test reel) : ne reduisait pas
+  // la frequence du crash out-of-memory dans WebServer::_parseForm() (celui-
+  // ci se produit a CHAQUE fichier rencontre dans le corps multipart,
+  // regroupes ou non -- voir HTTP_UPLOAD_BUFLEN en tete de fichier pour la
+  // cause racine reelle et le correctif applique), pour une complexite/risque
+  // de regression superieurs (paquet plus gros = pression heap potentiellement
+  // accrue). Retour a l'envoi simple fichier par fichier -- reponse JSON du
+  // serveur ({ok,files:[{name,ok,err}]}) deja compatible avec un seul fichier
+  // par requete, aucun changement cote handleWebConfigUploadFile() necessaire.
+  // Detection d'echec plus rapide (2026-08-02, analyse .har navigateur) --
+  // sans ceci, un hoquet reseau/heap au milieu d'un transfert laisse le
+  // navigateur attendre le timeout TCP par defaut du systeme (15-70s+
+  // mesures dans le .har) avant meme de lancer une nouvelle tentative.
+  // AbortController a 12s ESSAYE PUIS REMONTE A 25s (retour test reel :
+  // 12s coupait des transferts LENTS MAIS QUI AURAIENT REUSSI -- observe
+  // jusqu'a ~11s pour un succes reel sous heap tendu, tres proche de
+  // l'ancienne limite -- plus court que le propre timeout serveur
+  // (webServer->client().setTimeout(15000) pendant l'upload), cette
+  // coupure prematuree cote client augmentait le nombre d'echecs par
+  // rapport au comportement d'origine (aucun timeout client du tout).
+  // 25s : marge confortable au-dessus des 15s serveur et des transferts
+  // lents deja observes, tout en restant nettement plus rapide que le
+  // pire cas mesure (72s) pour detecter un VRAI blocage. Factorisee
+  // (2026-08-02) pour etre reutilisee aussi par la passe de re-tentative
+  // finale ci-dessous.
+  async function uploadOneFile(file,label){
+    let ok=false;
+    for(let attempt=0;attempt<3&&!ok;attempt++){
+      if(attempt>0){
+        const attemptTxt=label+' - '+trTpl('msg_attempt',attempt+1,3);
+        fileList.textContent=attemptTxt;
+        try{await queuedFetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:attemptTxt,color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});}catch(e){}
+        await new Promise(r=>setTimeout(r,500));
+      }
+      const form=new FormData();form.append('dir',dir);form.append('file',file);
+      const ctrl=new AbortController();
+      const abortTimer=setTimeout(()=>ctrl.abort(),25000);
+      try{
+        const r=await queuedFetch('/upload',{method:'POST',body:form,signal:ctrl.signal});
+        const j=await r.json();
+        if(j&&j.files&&j.files[0]&&j.files[0].ok)ok=true;
+      }catch(e){}
+      clearTimeout(abortTimer);
+    }
+    return ok;
+  }
+  for(let i=0;i<files.length;i++){
+    if(_uploadStopRequested){fileList.textContent=trTpl('msg_stopped_by_user',i,files.length);break;}
+    const file=files[i];
+    const label=file.name+' ('+(i+1)+'/'+files.length+')';
+    barInner.style.width=Math.max(Math.round(((i+1)/files.length)*100),5)+'%';
+    fileList.textContent=label;
+    msgEl.textContent=tr('msg_uploading')+' '+file.name;
+    try{await queuedFetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:label,color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});}catch(e){}
+    const ok=await uploadOneFile(file,label);
+    if(ok){okCount++;uploaded.push(file.name);fileList.textContent=file.name+' OK ('+okCount+'/'+files.length+')';}
+    else {failed.push(file.name);fileList.textContent=file.name+' '+tr('msg_upload_fail');}
+  }
+  // Passe de re-tentative finale (demande utilisateur 2026-08-02, retour
+  // test reel sur un lot de 34 fichiers -- 13 echecs, concentres plutot en
+  // milieu/fin de lot, coherent avec une degradation progressive du tas au
+  // fil d'un long upload). Une pause de 1.5s puis une derniere serie de
+  // tentatives APRES la fin du lot principal laisse une chance au tas de se
+  // stabiliser un peu (plus de contention SD simultanee avec le reste du
+  // lot) avant de retenter uniquement les fichiers deja identifies en
+  // echec -- jamais un nouveau scan de /gifs/.
+  if (!_uploadStopRequested && failed.length) {
+    const retryList = failed.splice(0, failed.length);
+    msgEl.textContent = trTpl('msg_retrying_failed', retryList.length);
+    await new Promise(r=>setTimeout(r,1500));
+    for (let i = 0; i < retryList.length; i++) {
+      if (_uploadStopRequested) { failed.push(...retryList.slice(i)); break; }
+      const name = retryList[i];
+      const file = files.find(f=>f.name===name);
+      if (!file) { failed.push(name); continue; }
+      const label = name + ' (' + trTpl('msg_final_attempt', i+1, retryList.length) + ')';
+      fileList.textContent = label;
+      try{await queuedFetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:label,color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});}catch(e){}
+      const ok = await uploadOneFile(file, label);
+      if (ok) { okCount++; uploaded.push(file.name); } else { failed.push(name); }
+    }
+  }
+  stopBtn.style.display='none';
+  if(uploaded.length){
+    msgEl.textContent=tr('msg_updating_playlists');
+    try{await queuedFetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(tr('msg_updating_playlists')),color:'1'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});}catch(e){}
+    try{await queuedFetch('/add-to-playlists-batch',{method:'POST',body:new URLSearchParams({dir:dir,files:uploaded.join(',')}),headers:{'Content-Type':'application/x-www-form-urlencoded'}});}catch(e){}
+  }
+  fileList.textContent=failed.length?trTpl('msg_failures',failed.join(', ')):'';
+  document.getElementById('uploadDirCustom').value='';
+  // v92 -- retire le rafraichissement /lsgifdirs de fin d'upload : uploader
+  // des FICHIERS dans un dossier ne change jamais l'ENSEMBLE des noms de
+  // dossiers affiches (#dirList/#uploadDir) -- un dossier nouvellement cree
+  // est deja reflete par le rafraichissement conditionnel juste apres
+  // /create-folder ci-dessus. Ce fetch etait systematiquement inutile et
+  // ajoutait un cout heap par requete (diagnostic v90) -- c'est lui qui
+  // echouait "heap critique, liste vide" apres plusieurs tentatives d'upload
+  // ratees en test reel, faisant croire a une disparition de la liste.
+  const result=trTpl('msg_upload_result',okCount,files.length)+(failed.length?trTpl('msg_upload_result_fail',failed.join(', ')):'');
+  showMsg(result,failed.length===0);
+}
+function stopUpload(){_uploadStopRequested=true;}
+let _uploadStopRequested=false;
+// Sequence de chargement initial serialisee via queuedFetch() -- avant
+// v45, /lang + loadDirs() + loadPlaylists() + loadUploadDirs() partaient
+// TOUS en parallele au chargement de la page (4 requetes concurrentes sur
+// un serveur qui n'en traite qu'une a la fois), confirme en test reel
+// comme la cause de net::ERR_INVALID_CHUNKED_ENCODING des le premier clic
+// sur un dossier si l'utilisateur cliquait pendant que ce lot initial
+// etait encore en cours.
+queuedFetch('/lang').then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}}).catch(()=>{applyLang();}).finally(hidePageLoadingOverlay);
+loadDirs();loadUploadDirs();
+</script>
+<script src="/native.js"></script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+# config.ini initial (premier demarrage) -- le toolkit y ajoute le Wi-Fi, les adresses des Recalbox, la langue, etc.
+first_boot=1
+feat_vpinball_dmd=1
+feat_ra_window=1

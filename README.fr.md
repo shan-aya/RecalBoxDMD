@@ -4,6 +4,8 @@
 
 [🇬🇧 English](README.md) · 🇫🇷 **Français** · [🇪🇸 Español](README.es.md)
 
+> 🥧 **Nouveau : version Raspberry Pi** (Pi 3B validé) — mêmes scripts, même carte SD, installation en une fois depuis la boîte à outils. Voir **[RASPBERRY-PI.fr.md](RASPBERRY-PI.fr.md)** (démon sous GPL-2.0+).
+
 > ℹ️ Tu utilises déjà une version antérieure ? Voir **[UPGRADING.fr.md](UPGRADING.fr.md)** — ce qui change en v13 et la seule étape optionnelle (régénération du cache) pour en profiter pleinement.
 
 <p align="center">
