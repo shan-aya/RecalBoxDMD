@@ -525,7 +525,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
 
     </div>
     <div class="col col-wid">
-      <h3 class="coltitle"><span data-i18n="col.wid">🧩 Widgets &amp; écrans vivants</span><span class="newtag" data-i18n="new.label">Nouveauté</span></h3>
+      <h3 class="coltitle"><span data-i18n="col.wid">🧩 Widgets &amp; écrans vivants</span></h3>
   <section class="feat">
     <span class="eyebrow" style="color:var(--led-blue)" data-i18n="w1.eyebrow"></span>
     <h2 data-i18n="w1.h2"></h2>
@@ -561,10 +561,36 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
 
   <div class="wide-sec">
   <section class="feat">
-    <span class="eyebrow" style="color:var(--amber)" data-i18n="all.eyebrow"></span><span class="newtag" data-i18n="new.label">Nouveauté</span>
+    <span class="eyebrow" style="color:var(--amber)" data-i18n="all.eyebrow"></span>
     <h2 data-i18n="all.h2"></h2>
     <p data-i18n="all.p"></p>
     <ul class="bul"><li data-i18n="all.l1"></li><li data-i18n="all.l2"></li><li data-i18n="all.l3"></li><li data-i18n="all.l4"></li></ul>
+  </section>
+  </div>
+
+  <div class="wide-sec">
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--led-green, var(--led-blue))" data-i18n="pi.eyebrow"></span><span class="newtag" data-i18n="new.label">Nouveauté</span>
+    <h2 data-i18n="pi.h2"></h2>
+    <p data-i18n="pi.p"></p>
+    <ul class="bul"><li data-i18n="pi.l1"></li><li data-i18n="pi.l2"></li><li data-i18n="pi.l3"></li><li data-i18n="pi.l4"></li></ul>
+    <figure class="shot glow-g">
+      <img src="media/pi_fr.png" data-pi="1" data-i18n-alt="pi.alt" alt="" loading="lazy">
+    </figure>
+    <p class="vidcap"><a href="https://github.com/shan-aya/RecalBoxDMD/blob/main/RASPBERRY-PI.fr.md" data-pidoc="1" target="_blank" rel="noopener" data-i18n="pi.cta">Guide d'installation Raspberry Pi</a></p>
+  </section>
+
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--amber)" data-i18n="cards.eyebrow"></span><span class="newtag" data-i18n="new.label">Nouveauté</span>
+    <h2 data-i18n="cards.h2"></h2>
+    <p data-i18n="cards.p"></p>
+    <div class="grid2">
+      <figure class="shot glow-a"><img src="media/cards/card_1.png" data-i18n-alt="cards.alt" alt="" loading="lazy"></figure>
+      <figure class="shot glow-a"><img src="media/cards/card_2.png" data-i18n-alt="cards.alt" alt="" loading="lazy"></figure>
+      <figure class="shot glow-a"><img src="media/cards/card_3.png" data-i18n-alt="cards.alt" alt="" loading="lazy"></figure>
+      <figure class="shot glow-a"><img src="media/cards/card_4.png" data-i18n-alt="cards.alt" alt="" loading="lazy"></figure>
+    </div>
+    <ul class="bul"><li data-i18n="cards.l1"></li><li data-i18n="cards.l2"></li><li data-i18n="cards.l3"></li></ul>
   </section>
   </div>
 
@@ -596,7 +622,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
   </section>
 
   <section class="feat">
-    <span class="eyebrow" style="color:var(--amber)" data-i18n="s5c.eyebrow">Thèmes Recalbox</span><!-- NOUVEAUTE : badges « newtag » sur les sections de la derniere publication (colonne Widgets, Nouveau pour tout le monde). A la prochaine publication : les SUPPRIMER et les recopier sur la nouvelle section. -->
+    <span class="eyebrow" style="color:var(--amber)" data-i18n="s5c.eyebrow">Thèmes Recalbox</span><!-- NOUVEAUTE : badges « newtag » sur les sections de la derniere publication (Raspberry Pi, Jeux sans logo). A la prochaine publication : les SUPPRIMER et les recopier sur la nouvelle section. -->
     <h2 data-i18n="s5c.h2">Il adopte le thème de votre Recalbox</h2>
     <p data-i18n="s5c.p">Changez de thème dans Recalbox : le DMD affiche les logos de vos consoles dans le style du thème actif — Midnight, CRT Color, Neoretro… 11 thèmes prêts à l'emploi, dont les thèmes officiels de Recalbox, textes FR/EN/ES quand le thème les propose, la langue et la région de votre Recalbox suivies en direct, une case dans la page web du panneau pour activer ou non le suivi, et la boîte à outils PC n'installe que les thèmes que vous choisissez. Et vos thèmes à vous ? Les thèmes créés par les utilisateurs sont eux aussi convertis, par notre moteur de conversion maison, directement depuis votre Recalbox : ils apparaissent sur le DMD comme les autres. (Rendu simulé à partir des vrais logos.)</p>
     <div class="grid2">
@@ -812,6 +838,22 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "s6.eyebrow": "Montage",
       "s6.h2": "Un cadre qu'on assemble soi-même, sans souder",
       "s6.p": "Deux modules LED, une carte de connexion, un microcontrôleur — un tournevis suffit, environ 5 minutes de montage.",
+      "pi.eyebrow": "Raspberry Pi",
+      "pi.h2": "Le DMD fonctionne aussi sur Raspberry Pi",
+      "pi.p": "Un Raspberry Pi 3B et deux dalles P5 à la place de l'ESP32 : mêmes scripts Recalbox, même carte SD, mêmes pages de configuration, mêmes widgets, thèmes de logos, horloge, scores, mode Pinball et mode natif Recalbox. La boîte à outils PC prépare tout en une fois : le Mode 1 part d'une carte vierge (Raspberry Pi OS, Wi-Fi, logiciel du DMD, vos logos convertis) et rend une carte prête à insérer dans le Pi, sans Raspberry Pi Imager.",
+      "pi.l1": "Validé sur Raspberry Pi 3B ; Pi 4, Pi 2 et Zero 2 : prévus, non testés",
+      "pi.l2": "Installation en une fois depuis la boîte à outils PC (Mode 1, ou Modes 16 et 17)",
+      "pi.l3": "Logiciel libre sous licence GPL-2.0+ : binaire et sources sur GitHub",
+      "pi.l4": "Écran de configuration au premier démarrage, réseau de secours « RecalBox-DMD-Config »",
+      "pi.alt": "Plaquette : le DMD sur Raspberry Pi — une carte SD préparée en une fois, trois partitions, les mêmes fonctions que le DMD ESP32.",
+      "pi.cta": "Guide d'installation Raspberry Pi",
+      "cards.eyebrow": "Jeux sans logo",
+      "cards.h2": "Chaque jeu a son cadre, même sans logo",
+      "cards.p": "Quand un jeu n'a pas de logo dans votre scrape, la boîte à outils lui fabrique une carte texte avec son nom : titre nettoyé (région, version et parenthèses retirées), police rétro, couleurs et ombre, fond sombre pour rester lisible. Les non-jeux (BIOS, utilitaires…) sont exclus. (Rendu simulé à partir des vraies cartes.)",
+      "cards.l1": "Générées automatiquement par le Mode 1 ; le nouveau Mode 18 régénère uniquement ces cartes, sans refaire toute la conversion",
+      "cards.l2": "Mode 18 : jeux de la liste du Mode 8 (images manquantes) et jeux sans balise logo ; les cartes existantes sont remplacées",
+      "cards.l3": "Le reste de votre carte SD n'est jamais touché",
+      "cards.alt": "Carte texte d'un jeu sans logo, affichée sur le panneau LED (rendu simulé).",
       "ota.eyebrow": "Mises à jour",
       "ota.h2": "Plus besoin de brancher le DMD en USB pour le mettre à jour",
       "ota.p": "Une nouvelle version du firmware est publiée ? Un avis s'affiche dans la page web de configuration du panneau — depuis votre téléphone comme depuis votre PC — avec un bouton « Mettre à jour maintenant (Wi-Fi) ». Le DMD télécharge lui-même le firmware sur GitHub (environ 2 minutes, écran éteint pendant ce temps), contrôle sa taille et son empreinte SHA-256, et revient tout seul à la version précédente si quoi que ce soit se passe mal. La boîte à outils PC (Mode 14) fait la même chose en un clic, et la page web comme la boîte à outils vous signalent quand une nouvelle version existe. Seul le passage à la version 2.44 demande un dernier branchement USB, une fois pour toutes.",
@@ -933,6 +975,22 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "s6.eyebrow": "Assembly",
       "s6.h2": "A frame you build yourself, no soldering",
       "s6.p": "Two LED modules, a connector board, a microcontroller — a screwdriver is all it takes, about 5 minutes to put together.",
+      "pi.eyebrow": "Raspberry Pi",
+      "pi.h2": "The DMD also runs on a Raspberry Pi",
+      "pi.p": "A Raspberry Pi 3B and two P5 panels instead of the ESP32: same Recalbox scripts, same SD card, same configuration pages, same widgets, logo themes, clock, scores, Pinball mode and Recalbox native mode. The PC toolkit prepares everything in one go: Mode 1 starts from a blank card (Raspberry Pi OS, Wi-Fi, DMD software, your converted logos) and hands back a card ready to put in the Pi, without Raspberry Pi Imager.",
+      "pi.l1": "Validated on Raspberry Pi 3B; Pi 4, Pi 2 and Zero 2: planned, untested",
+      "pi.l2": "One-go install from the PC toolkit (Mode 1, or Modes 16 and 17)",
+      "pi.l3": "Free software under GPL-2.0+: binary and sources on GitHub",
+      "pi.l4": "Configuration screen on first boot, fallback network \"RecalBox-DMD-Config\"",
+      "pi.alt": "Flyer: the DMD on Raspberry Pi — one SD card prepared in one go, three partitions, the same features as the ESP32 DMD.",
+      "pi.cta": "Raspberry Pi installation guide",
+      "cards.eyebrow": "Games without a logo",
+      "cards.h2": "Every game gets its frame, even without a logo",
+      "cards.p": "When a game has no logo in your scrape, the toolkit makes it a text card with its name: cleaned-up title (region, version and brackets removed), retro font, colors and shadow, dark background to stay readable. Non-games (BIOS, utilities…) are excluded. (Simulated render from the real cards.)",
+      "cards.l1": "Generated automatically by Mode 1; the new Mode 18 regenerates only these cards, without redoing the whole conversion",
+      "cards.l2": "Mode 18: games from the Mode 8 list (missing images) and games with no logo tag; existing cards are replaced",
+      "cards.l3": "The rest of your SD card is never touched",
+      "cards.alt": "Text card of a game without a logo, shown on the LED panel (simulated render).",
       "ota.eyebrow": "Updates",
       "ota.h2": "No more USB cable to update the DMD",
       "ota.p": "A new firmware version is out? A notice appears on the panel's web configuration page — from your phone as well as from your PC — with an “Update now (Wi-Fi)” button. The DMD downloads the firmware from GitHub by itself (about 2 minutes, screen dark meanwhile), checks its size and SHA-256 fingerprint, and goes back to the previous version on its own if anything goes wrong. The PC Toolkit (Mode 14) does the same in one click, and both the web page and the Toolkit tell you when a new version exists. Only the move to version 2.44 needs one last USB connection, once and for all.",
@@ -1054,6 +1112,22 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "s6.eyebrow": "Montaje",
       "s6.h2": "Un marco que montas tú mismo, sin soldar",
       "s6.p": "Dos módulos LED, una placa de conexión, un microcontrolador — basta un destornillador, unos 5 minutos de montaje.",
+      "pi.eyebrow": "Raspberry Pi",
+      "pi.h2": "El DMD también funciona en Raspberry Pi",
+      "pi.p": "Una Raspberry Pi 3B y dos paneles P5 en lugar del ESP32: mismos scripts de Recalbox, misma tarjeta SD, mismas páginas de configuración, mismos widgets, temas de logos, reloj, puntuaciones, modo Pinball y modo nativo de Recalbox. La caja de herramientas del PC lo prepara todo de una vez: el Modo 1 parte de una tarjeta virgen (Raspberry Pi OS, Wi-Fi, software del DMD, tus logos convertidos) y devuelve una tarjeta lista para insertar en la Pi, sin Raspberry Pi Imager.",
+      "pi.l1": "Validado en Raspberry Pi 3B; Pi 4, Pi 2 y Zero 2: previstos, sin probar",
+      "pi.l2": "Instalación de una sola vez desde la caja de herramientas del PC (Modo 1, o Modos 16 y 17)",
+      "pi.l3": "Software libre bajo licencia GPL-2.0+: binario y fuentes en GitHub",
+      "pi.l4": "Pantalla de configuración en el primer arranque, red de rescate « RecalBox-DMD-Config »",
+      "pi.alt": "Cartel: el DMD en Raspberry Pi — una tarjeta SD preparada de una vez, tres particiones, las mismas funciones que el DMD ESP32.",
+      "pi.cta": "Guía de instalación Raspberry Pi",
+      "cards.eyebrow": "Juegos sin logo",
+      "cards.h2": "Cada juego tiene su marco, incluso sin logo",
+      "cards.p": "Cuando un juego no tiene logo en tu scrape, la caja de herramientas le crea una tarjeta de texto con su nombre: título limpio (sin región, versión ni paréntesis), fuente retro, colores y sombra, fondo oscuro para que se lea bien. Los no-juegos (BIOS, utilidades…) se excluyen. (Render simulado a partir de las tarjetas reales.)",
+      "cards.l1": "Generadas automáticamente por el Modo 1; el nuevo Modo 18 regenera solo estas tarjetas, sin rehacer toda la conversión",
+      "cards.l2": "Modo 18: juegos de la lista del Modo 8 (imágenes que faltan) y juegos sin etiqueta logo; las tarjetas existentes se reemplazan",
+      "cards.l3": "El resto de tu tarjeta SD nunca se toca",
+      "cards.alt": "Tarjeta de texto de un juego sin logo, mostrada en el panel LED (render simulado).",
       "ota.eyebrow": "Actualizaciones",
       "ota.h2": "Ya no hace falta conectar el DMD por USB para actualizarlo",
       "ota.p": "¿Hay una nueva versión del firmware? Aparece un aviso en la página web de configuración del panel — desde tu teléfono igual que desde tu PC — con un botón «Actualizar ahora (Wi-Fi)». El DMD descarga el firmware de GitHub él mismo (unos 2 minutos, pantalla apagada mientras tanto), comprueba su tamaño y su huella SHA-256, y vuelve solo a la versión anterior si algo sale mal. La caja de herramientas PC (Modo 14) hace lo mismo con un clic, y tanto la página web como la caja de herramientas te avisan cuando existe una versión nueva. Solo el paso a la versión 2.44 requiere una última conexión USB, una vez y para siempre.",
@@ -1109,6 +1183,8 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
     });
     document.querySelectorAll("img[data-img]").forEach(function(el){ el.setAttribute("src", "media/widgets/" + lang + "/" + el.getAttribute("data-img") + ".png"); });
     document.querySelectorAll("img[data-hw]").forEach(function(el){ el.setAttribute("src", lang === "fr" ? "media/hardware.png" : "media/hardware_" + lang + ".png"); });
+    document.querySelectorAll("img[data-pi]").forEach(function(el){ el.setAttribute("src", "media/pi_" + lang + ".png"); });
+    document.querySelectorAll("a[data-pidoc]").forEach(function(el){ el.setAttribute("href", "https://github.com/shan-aya/RecalBoxDMD/blob/main/RASPBERRY-PI" + (lang === "fr" ? ".fr" : lang === "es" ? ".es" : "") + ".md"); });
     document.querySelectorAll(".langswitch button").forEach(function(b){
       b.setAttribute("aria-pressed", b.getAttribute("data-lang") === lang ? "true" : "false");
     });
