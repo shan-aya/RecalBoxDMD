@@ -148,6 +148,31 @@ jobs:
               open("docs/install/manifest.json", "wb").write(new)
           print("dernier toolkit publie : build", m.group(1))
 
+      - name: Record the latest Raspberry Pi daemon version in the manifest (notice + update button of the Pi web pages)
+        shell: python
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          import os, re, sys
+          tag = os.environ.get("RELEASE_TAG", "")
+          m = re.fullmatch(r"pi-v(\d+\.\d+)", tag)
+          if not m:
+              print("pas une release du demon Raspberry Pi (", tag or "aucun tag", ") - cle pi inchangee")
+              sys.exit(0)
+          raw = open("docs/install/manifest.json", "rb").read()
+          nl = b"\r\n" if b"\r\n" in raw else b"\n"
+          val = b'"' + m.group(1).encode() + b'"'
+          if b'"pi"' in raw:
+              new, n = re.subn(rb'("pi"\s*:\s*)"[^"]*"', rb"\g<1>" + val, raw)
+          else:
+              new, n = re.subn(rb'("toolkit"\s*:\s*\d+,)', rb"\g<1>" + nl + b'  "pi": ' + val + b",", raw)
+          if n != 1:
+              print(f"::error::manifest.json : {n} occurrence(s) pour la cle pi (1 attendue)")
+              sys.exit(1)
+          if new != raw:
+              open("docs/install/manifest.json", "wb").write(new)
+          print("derniere version du demon Pi publiee :", m.group(1))
+
       - name: Commit if changed
         run: |
           if git diff --quiet; then
