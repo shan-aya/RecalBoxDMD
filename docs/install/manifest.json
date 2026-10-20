@@ -5,6 +5,7 @@
   "app_sha256": "663530dd12bb271ad6cf49507d9604bbad41e0a0e73cbd7aee9f157c3b9794d8",
   "app_size": 1849504,
   "toolkit": 12675,
+  "pi": "3.59",
   "new_install_prompt_erase": true,
   "builds": [
     {
