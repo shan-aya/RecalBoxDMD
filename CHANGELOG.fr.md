@@ -8,6 +8,10 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-20 (2) — Démon Raspberry Pi v3.59 : mise à jour depuis la page web
+
+**Raspberry Pi**
+- **Mise à jour du démon depuis la page web** (page *Réglages*) : avis quand une version plus récente est publiée (release `pi-v…`), bouton **Mettre à jour maintenant** ; téléchargement depuis GitHub, empreinte SHA-256 vérifiée, installation, redémarrage du service, **retour automatique à la version précédente** si le démarrage échoue. `config.ini` et le contenu de la carte ne sont jamais touchés. Un Pi en 3.58 passe une première fois en 3.59 par le Mode 17.
 ## 2026-10-20 — Version Raspberry Pi (démon pi-v3.58)
 
 **Raspberry Pi**

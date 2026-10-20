@@ -25,7 +25,8 @@ Los modos separados siguen disponibles: **Modo 16** (preparar una tarjeta, susti
 
 ## Actualizar
 
-- **Modo 17** de la caja de herramientas (lo más fácil), o
+- **Desde la página web del DMD (v3.59 y posteriores)**: la página **Ajustes** muestra un aviso cuando se publica una nueva versión del demonio, con un botón **Actualizar ahora**. La Pi descarga la última release `pi-v…` de GitHub, verifica su huella SHA-256, instala, reinicia el servicio y **vuelve sola a la versión anterior** si no arranca. El DMD muestra « Actualizando… » durante la operación (aproximadamente 1 minuto). Una Pi que siga en 3.58 pasa una primera vez a 3.59 con el Modo 17.
+- **Modo 17** de la caja de herramientas, o
 - a mano: descarga `RecalBoxDMD_pi_payload.zip` de la última release `pi-v…` y ejecuta `sudo bash install.sh` desde la carpeta descomprimida en la Pi.
 
 `config.ini` y el contenido de la tarjeta nunca se sobrescriben.
@@ -50,4 +51,3 @@ La carpeta [`raspberry-pi/rpi_daemon/`](raspberry-pi/rpi_daemon/) está bajo **G
 
 - Algunos LED defectuosos de los paneles siguen visibles sea cual sea el ajuste (hardware).
 - Modo nativo de Recalbox / Visual Pinball: validado con un simulador y a ojo en los paneles; sin campaña de pruebas prolongada.
-- Aún no existe OTA automático del demonio desde GitHub: actualización con el Modo 17 o a mano.

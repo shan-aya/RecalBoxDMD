@@ -25,7 +25,8 @@ The separate modes remain available: **Mode 16** (prepare a card, replaces Raspb
 
 ## Update
 
-- Toolkit **Mode 17** (easiest), or
+- **From the DMD web page (v3.59 and later)**: the **Settings** page shows a notice when a new daemon version is published, with an **Update now** button. The Pi downloads the latest `pi-v…` release from GitHub, checks its SHA-256, installs it, restarts the service and **rolls back by itself to the previous version** if it fails to start. The DMD shows "Updating…" meanwhile (about 1 minute). A Pi still on 3.58 goes to 3.59 once through Mode 17.
+- Toolkit **Mode 17**, or
 - by hand: get `RecalBoxDMD_pi_payload.zip` from the latest `pi-v…` release and run `sudo bash install.sh` from the unpacked folder on the Pi.
 
 `config.ini` and the card content are never overwritten.
@@ -50,4 +51,3 @@ The [`raspberry-pi/rpi_daemon/`](raspberry-pi/rpi_daemon/) folder is under **GPL
 
 - A few defective panel LEDs stay visible whatever the setting (hardware).
 - Recalbox native mode / Visual Pinball: validated with a simulator and by eye on the panels; no long test campaign.
-- There is no automatic daemon OTA from GitHub yet: update with Mode 17 or by hand.

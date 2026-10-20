@@ -8,6 +8,10 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-20 (2) — Demonio Raspberry Pi v3.59: actualización desde la página web
+
+**Raspberry Pi**
+- **Actualización del demonio desde la página web** (página *Ajustes*): aviso cuando se publica una versión más reciente (release `pi-v…`), botón **Actualizar ahora**; descarga desde GitHub, huella SHA-256 verificada, instalación, reinicio del servicio y **vuelta automática a la versión anterior** si no arranca. `config.ini` y el contenido de la tarjeta nunca se tocan. Una Pi en 3.58 pasa una primera vez a 3.59 con el Modo 17.
 ## 2026-10-20 — Versión Raspberry Pi (demonio pi-v3.58)
 
 **Raspberry Pi**

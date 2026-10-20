@@ -8,6 +8,10 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-20 (2) — Raspberry Pi daemon v3.59: update from the web page
+
+**Raspberry Pi**
+- **Daemon update from the web page** (*Settings* page): a notice when a newer version is published (`pi-v…` release), an **Update now** button; download from GitHub, SHA-256 checked, install, service restart, **automatic rollback to the previous version** if it fails to start. `config.ini` and the card content are never touched. A Pi on 3.58 goes to 3.59 once through Mode 17.
 ## 2026-10-20 — Raspberry Pi version (daemon pi-v3.58)
 
 **Raspberry Pi**
