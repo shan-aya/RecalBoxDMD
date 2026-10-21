@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-21 — Firmware v3.59: a missing button can no longer restart the DMD
+
+**Firmware v3.59**
+- **Fixed — restart loops on a DMD without a physical button.** An SD card copied from a DMD *with* a button (option on, very long press = restart) into a DMD *without* one looped on restarts: the floating button pin goes low during the "RecalBox connected" screen. The very long press now fires on **release**, the press state is cleared when the pin is stuck, and a **loop breaker** ignores the button for the whole boot that follows a button-triggered restart less than 5 minutes after boot. An OTA update is no longer cancelled by this false press.
+- **Web pages.** New home image, and a "© Shan_ayA 2026" credit with a "Buy me a coffee" link at the bottom of every page (under the intro image on the home page).
 ## 2026-10-20 (2) — Raspberry Pi daemon v3.59: update from the web page
 
 **Raspberry Pi**

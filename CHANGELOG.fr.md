@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-21 — Firmware v3.59 : un bouton absent ne peut plus faire redémarrer le DMD
+
+**Firmware v3.59**
+- **Corrigé — redémarrages en boucle sur un DMD sans bouton physique.** Une carte SD copiée d'un DMD *avec* bouton (option activée, appui très long = redémarrer) dans un DMD *sans* bouton bouclait au redémarrage : la broche du bouton, flottante, passe à l'état bas pendant l'écran « RecalBox connectée ». L'appui très long ne part plus qu'au **relâchement**, l'état d'appui est remis à zéro quand la broche est bloquée, et un **coupe-boucle** ignore le bouton pour tout le démarrage qui suit un redémarrage déclenché par le bouton moins de 5 minutes après le boot. Une mise à jour OTA n'est plus annulée par ce faux appui.
+- **Pages web.** Nouvelle image d'accueil, et mention « © Shan_ayA 2026 » avec un lien « Payez-moi un café » en bas de chaque page (sous l'image d'intro sur l'accueil).
 ## 2026-10-20 (2) — Démon Raspberry Pi v3.59 : mise à jour depuis la page web
 
 **Raspberry Pi**

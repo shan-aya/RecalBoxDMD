@@ -8,6 +8,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-21 — Firmware v3.59: un botón ausente ya no puede reiniciar el DMD
+
+**Firmware v3.59**
+- **Corregido — reinicios en bucle en un DMD sin botón físico.** Una tarjeta SD copiada de un DMD *con* botón (opción activada, pulsación muy larga = reiniciar) en un DMD *sin* botón entraba en bucle de reinicios: el pin del botón, flotante, pasa a nivel bajo durante la pantalla « RecalBox conectada ». La pulsación muy larga ahora se activa al **soltar**, el estado de pulsación se borra cuando el pin está bloqueado, y un **cortacircuitos** ignora el botón durante todo el arranque que sigue a un reinicio provocado por el botón menos de 5 minutos después del arranque. Una actualización OTA ya no se cancela por esta falsa pulsación.
+- **Páginas web.** Nueva imagen de inicio y la mención « © Shan_ayA 2026 » con un enlace « Invítame a un café » al pie de cada página (bajo la imagen de introducción en el inicio).
 ## 2026-10-20 (2) — Demonio Raspberry Pi v3.59: actualización desde la página web
 
 **Raspberry Pi**
