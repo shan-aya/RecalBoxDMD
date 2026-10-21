@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-21 (3) — PC toolkit build 12775: Shan_ayA logo and support link
+
+**PC toolkit build 12775**
+- The "GUI - Shan_ayA 2026" text at the bottom of the window is replaced by the **☕ Buy me a coffee** link (hover bubble, opens the Buy Me a Coffee page; FR/EN/ES) and the **Shan_ayA logo** is shown on the right, on top of the theme background. No other change from build 12675.
+
 ## 2026-10-21 (2) — Raspberry Pi daemon v3.60: missing button, page footer
 
 **Raspberry Pi**

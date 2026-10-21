@@ -8,6 +8,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-21 (3) — Caja de herramientas del PC build 12775: logo Shan_ayA y enlace de apoyo
+
+**Caja de herramientas del PC build 12775**
+- El texto « GUI - Shan_ayA 2026 » al pie de la ventana se sustituye por el enlace **☕ Invítame a un café** (globo al pasar el ratón, abre la página de Buy Me a Coffee; FR/EN/ES) y el **logo Shan_ayA** se muestra a la derecha, sobre el fondo del tema. Ningún otro cambio respecto al build 12675.
+
 ## 2026-10-21 (2) — Demonio Raspberry Pi v3.60: botón ausente, pie de página
 
 **Raspberry Pi**
