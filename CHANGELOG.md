@@ -13,6 +13,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 **PC toolkit build 12775**
 - The "GUI - Shan_ayA 2026" text at the bottom of the window is replaced by the **☕ Buy me a coffee** link (hover bubble, opens the Buy Me a Coffee page; FR/EN/ES) and the **Shan_ayA logo** is shown on the right, on top of the theme background. No other change from build 12675.
 
+## 2026-10-21 (3) — Firmware v3.60 and Raspberry Pi daemon v3.61: web pages
+
+**Firmware v3.60 · Raspberry Pi daemon v3.61**
+- **Web pages.** The notice banner (toolkit, firmware, scripts) now starts below the language selector and the Help link, which hid the end of it on narrow screens; the "Buy me a coffee" link underline is more spaced. No logic change (the daemon binary is identical to 3.60).
+
 ## 2026-10-21 (2) — Raspberry Pi daemon v3.60: missing button, page footer
 
 **Raspberry Pi**

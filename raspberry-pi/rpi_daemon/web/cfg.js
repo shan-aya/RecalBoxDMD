@@ -70,7 +70,7 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
     if (!items.length) return;
     var show = function () {
       if (document.getElementById('cfgFwBar') || !document.body) return;
-      var w = document.createElement('div'); w.id = 'cfgFwBar'; w.style.cssText = 'margin:0 0 10px';
+      var w = document.createElement('div'); w.id = 'cfgFwBar'; w.style.cssText = 'margin:46px 0 10px';   /* v359 : sous le selecteur de langue / le lien Aide (positionnes en haut a droite), qui masquaient la fin du bandeau */
       items.forEach(function (it) {
         var r = document.createElement('div'), a = document.createElement('a'), n = document.createElement('a');
         a.href = it.h; if (it.b) { a.target = '_blank'; a.rel = 'noopener'; } a.textContent = it.t; a.style.cssText = 'color:inherit;text-decoration:none';
@@ -220,7 +220,7 @@ if (window.CFG_I18N) {
     if (document.getElementById('cfgCredit') || !document.body) return;
     var d = document.createElement('div'); d.id = 'cfgCredit';
     d.style.cssText = 'text-align:center;margin:16px 0 8px;font:12px "Segoe UI",Tahoma,sans-serif;opacity:.85';
-    d.innerHTML = '&copy; Shan_ayA 2026 &middot; <a href="https://buymeacoffee.com/shan_aya" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">\u2615 <span id="cfgCoffee">' + TXT[lang()] + '</span></a>';
+    d.innerHTML = '&copy; Shan_ayA 2026 &middot; <a href="https://buymeacoffee.com/shan_aya" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;text-underline-offset:4px">\u2615 <span id="cfgCoffee">' + TXT[lang()] + '</span></a>';
     var logo = document.querySelector('.logo-wrap');
     if (logo && logo.parentNode) logo.parentNode.insertBefore(d, logo.nextSibling); else document.body.appendChild(d);
   }

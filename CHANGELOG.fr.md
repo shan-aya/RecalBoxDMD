@@ -13,6 +13,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 **Boîte à outils PC build 12775**
 - Le texte « GUI - Shan_ayA 2026 » en bas de la fenêtre est remplacé par le lien **☕ Payez-moi un café** (bulle au survol, ouvre la page Buy Me a Coffee ; FR/EN/ES) et le **logo Shan_ayA** s'affiche à droite, par-dessus le fond du thème. Aucun autre changement par rapport au build 12675.
 
+## 2026-10-21 (3) — Firmware v3.60 et démon Raspberry Pi v3.61 : pages web
+
+**Firmware v3.60 · Démon Raspberry Pi v3.61**
+- **Pages web.** Le bandeau d'avis (toolkit, firmware, scripts) commence désormais sous le sélecteur de langue et le lien Aide, qui en masquaient la fin sur écran étroit ; le soulignement du lien « Payez-moi un café » est plus aéré. Aucun changement de logique (le binaire du démon est identique à la 3.60).
+
 ## 2026-10-21 (2) — Démon Raspberry Pi v3.60 : bouton absent, pied de page
 
 **Raspberry Pi**

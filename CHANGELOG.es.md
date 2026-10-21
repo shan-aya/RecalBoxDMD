@@ -13,6 +13,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 **Caja de herramientas del PC build 12775**
 - El texto « GUI - Shan_ayA 2026 » al pie de la ventana se sustituye por el enlace **☕ Invítame a un café** (globo al pasar el ratón, abre la página de Buy Me a Coffee; FR/EN/ES) y el **logo Shan_ayA** se muestra a la derecha, sobre el fondo del tema. Ningún otro cambio respecto al build 12675.
 
+## 2026-10-21 (3) — Firmware v3.60 y demonio Raspberry Pi v3.61: páginas web
+
+**Firmware v3.60 · Demonio Raspberry Pi v3.61**
+- **Páginas web.** El aviso (toolkit, firmware, scripts) empieza ahora debajo del selector de idioma y del enlace Ayuda, que ocultaban su final en pantallas estrechas; el subrayado del enlace « Invítame a un café » es más espaciado. Sin cambios de lógica (el binario del demonio es idéntico al de la 3.60).
+
 ## 2026-10-21 (2) — Demonio Raspberry Pi v3.60: botón ausente, pie de página
 
 **Raspberry Pi**
