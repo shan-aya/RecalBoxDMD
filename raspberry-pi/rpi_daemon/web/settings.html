@@ -245,7 +245,7 @@ function renderFw(){
   var sn=document.getElementById('scrNew');
   var fwNewer=vnum(_fwCur)>0&&vnum(_fwLatest)>vnum(_fwCur);
   if(_otaBusy)return;
-  if(fwNewer){nw.innerHTML=tr('fw_new').replace('{v}',_fwLatest)+'<br><button type="button" id="otaBtn" class="otabtn" onclick="startOta()">'+tr('fw_ota_btn')+'</button><a href="https://shan-aya.github.io/RecalBoxDMD/install/" target="_blank" rel="noopener">'+tr('fw_usb')+'</a><div id="otaState"></div>'+'<br>'+cfgNotes();nw.style.display='block';}
+  if(fwNewer){nw.innerHTML=tr('fw_new').replace('{v}',_fwLatest)+'<br><button type="button" id="otaBtn" class="otabtn" onclick="startOta()">'+tr('fw_ota_btn')+'</button><div id="otaState"></div>'+'<br>'+cfgNotes();nw.style.display='block';}
   else{nw.style.display='none';}
   // scripts Recalbox : version annoncee par dmd_udp_resync (vide = anciens scripts si la Recalbox parle depuis >= 90 s, sinon inconnue -> pas d'avis) ; avis independant du firmware (la consigne Mode 9 n'apparait que si les scripts publies sont plus recents)
   var latest=parseInt(_scrLatest,10)||0,have=_scrCur!==''?parseInt(_scrCur,10):(_rbAge>=90?0:-1);
@@ -255,7 +255,7 @@ function renderFw(){
 function checkFwOnline(){
   if(_fwChecked||!_fwCur)return;
   _fwChecked=true;
-  fetchTimeout('https://shan-aya.github.io/RecalBoxDMD/install/manifest.json',{cache:'no-store'},6000).then(function(r){return r.json();}).then(function(m){_fwLatest=String((m&&m.version)||'');_scrLatest=String((m&&m.scripts)||'');renderFw();}).catch(function(){});
+  fetchTimeout('https://shan-aya.github.io/RecalBoxDMD/install/manifest.json',{cache:'no-store'},6000).then(function(r){return r.json();}).then(function(m){_fwLatest=String((m&&(m.pi||m.version))||'');_scrLatest=String((m&&m.scripts)||'');renderFw();}).catch(function(){});
 }
 function loadDisplay(){
   return fetchTimeout('/load',{},45000).catch(function(){return fetchTimeout('/load',{},45000);}).then(function(r){return r.json();}).then(function(d){

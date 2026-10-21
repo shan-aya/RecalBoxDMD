@@ -90,7 +90,7 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
     if (latest && now - t < 5 * 60 * 1000) { updBar(d, latest, scr, tk); return; }
     var c = new AbortController(), to = setTimeout(function () { c.abort(); }, 6000);
     of('https://shan-aya.github.io/RecalBoxDMD/install/manifest.json', { cache: 'no-store', signal: c.signal }).then(function (r) { return r.json(); }).then(function (m) {
-      latest = String((m && m.version) || ''); scr = String((m && m.scripts) || ''); tk = String((m && m.toolkit) || '');
+      latest = String((m && (m.pi || m.version)) || ''); scr = String((m && m.scripts) || ''); tk = String((m && m.toolkit) || '');
       try { localStorage.setItem(FWK, latest); localStorage.setItem(SCK, scr); localStorage.setItem(TKK, tk); localStorage.setItem(FWT, String(now)); } catch (e) {}
       updBar(d, latest, scr, tk);
     }).catch(function () { if (latest) updBar(d, latest, scr, tk); }).then(function () { clearTimeout(to); });
@@ -211,3 +211,19 @@ if (window.CFG_I18N) {
   CFG_I18N.es.bs_label = 'Programador de brillo'; CFG_I18N.es.bs_open = 'Configurar';
 }
 
+/* v359 -- mention d'auteur + lien « Payez-moi un cafe » en bas de TOUTES les pages (sous l'image d'intro sur l'accueil, qui a .logo-wrap). Langue = dmd_lang, mise a jour au changement de langue. */
+(function () {
+  var TXT = { fr: 'Payez-moi un caf\u00e9', en: 'Buy me a coffee', es: 'Inv\u00edtame a un caf\u00e9' };
+  function lang() { var l = ''; try { l = (localStorage.getItem('dmd_lang') || '').substring(0, 2); } catch (e) {} if (!TXT[l]) l = (document.documentElement.lang || 'fr').substring(0, 2); return TXT[l] ? l : 'fr'; }
+  function upd() { var s = document.getElementById('cfgCoffee'); if (s) s.textContent = TXT[lang()]; }
+  function build() {
+    if (document.getElementById('cfgCredit') || !document.body) return;
+    var d = document.createElement('div'); d.id = 'cfgCredit';
+    d.style.cssText = 'text-align:center;margin:16px 0 8px;font:12px "Segoe UI",Tahoma,sans-serif;opacity:.85';
+    d.innerHTML = '&copy; Shan_ayA 2026 &middot; <a href="https://buymeacoffee.com/shan_aya" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">\u2615 <span id="cfgCoffee">' + TXT[lang()] + '</span></a>';
+    var logo = document.querySelector('.logo-wrap');
+    if (logo && logo.parentNode) logo.parentNode.insertBefore(d, logo.nextSibling); else document.body.appendChild(d);
+  }
+  document.addEventListener('change', function (e) { if (e.target && e.target.id === 'langSelect') setTimeout(upd, 0); });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build); else build();
+})();

@@ -8,6 +8,13 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-21 (2) — Raspberry Pi daemon v3.60: missing button, page footer
+
+**Raspberry Pi**
+- **Missing button or false press.** Same fix as firmware 3.59: the very long press fires on release only, and "restart" and "Wi-Fi recovery" actions coming from the button are ignored during the first 5 minutes after the daemon starts.
+- **Web pages.** New home image, and a "© Shan_ayA 2026" credit with a "Buy me a coffee" link at the bottom of every page.
+- The sources in the `raspberry-pi/` folder match this version exactly (they also include the web-page update added in 3.59).
+
 ## 2026-10-21 — Firmware v3.59: a missing button can no longer restart the DMD
 
 **Firmware v3.59**

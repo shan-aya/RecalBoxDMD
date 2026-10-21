@@ -83,6 +83,10 @@ if MISSING="$(LD_LIBRARY_PATH="$PREFIX/lib" ldd "$PREFIX/bin/dmd_daemon" 2>/dev/
 fi
 install -m 0644 "$HERE/recalboxdmd.service" /etc/systemd/system/recalboxdmd.service
 [ -f "$HERE/README.md" ] && install -m 0644 "$HERE/README.md" "$PREFIX/README.md"
+# mise a jour depuis la page web (bouton « Mettre a jour ») : script + numero de version installee (compare a la derniere release pi-v...)
+[ -f "$HERE/dmd_update.py" ] && install -m 0755 "$HERE/dmd_update.py" "$PREFIX/bin/dmd_update.py"
+PIV="$HERE/PI_VERSION"; [ -f "$PIV" ] || PIV="$HERE/../PI_VERSION"     # charge utile : a cote d'install.sh ; sources (--build) : a la racine de rpi_daemon
+[ -f "$PIV" ] && install -m 0644 "$PIV" "$PREFIX/PI_VERSION"
 [ -f /etc/default/recalboxdmd ] || cat > /etc/default/recalboxdmd <<EOF
 # Reglages du service recalboxdmd (voir l'unite systemd)
 DMD_SD=$SD

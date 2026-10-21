@@ -86,6 +86,25 @@ bool readFile(const std::string &path, std::string &out) {
 // sortie d'une commande fixe (nmcli / ip) : voir netutil.h
 std::string runCmd(const std::string &cmd) { return runShell(cmd); }
 std::string b01(bool v) { return v ? "1" : "0"; }
+// dossier d'installation (<exe>/..) : /opt/recalboxdmd ; vide si l'executable n'est pas dans une installation (lancement a la main)
+std::string installPrefix() {
+  char buf[4096];
+  const ssize_t n = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+  if (n <= 0) return "";
+  std::string p(buf, (size_t)n);
+  const size_t a = p.rfind('/');
+  if (a == std::string::npos || a == 0) return "";
+  p = p.substr(0, a);                                  // .../bin
+  const size_t b = p.rfind('/');
+  if (b == std::string::npos) return "";
+  return p.substr(0, b);                               // ...
+}
+std::string readSmall(const std::string &path) {
+  std::ifstream f(path);
+  std::string s((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  while (!s.empty() && (s.back() == '\n' || s.back() == '\r' || s.back() == ' ')) s.pop_back();
+  return s;
+}
 int clampi(int v, int lo, int hi) { return std::max(lo, std::min(hi, v)); }
 std::string trimStr(const std::string &s) { return trim(s); }
 }  // namespace
@@ -163,12 +182,14 @@ WebReply WebConfig::load() {
   add("feat_clip_follow", fb("feat_clip_follow", true));
   add("feat_theme_follow", fb("feat_theme_follow", true));
   add("feat_lang_priority", b01(s("feat_lang_priority", "0") == "1"));
-  add("fw_version", "");  // vide : la page n'affiche pas d'avis « nouvelle version du firmware » (le Pi ne se met pas a jour comme l'ESP32)
+  // version du demon (fichier PI_VERSION de l'installation, meme format M.mm que le firmware) : la page la compare a la cle « pi » du manifeste GitHub.
+  // Vide (lancement a la main, installation sans ce fichier) : pas d'avis de mise a jour.
+  add("fw_version", installPrefix().empty() ? "" : readSmall(installPrefix() + "/PI_VERSION"));
   {
     std::lock_guard<std::mutex> lk(eng_.themeControl().m);
     add("scripts_bundle", eng_.themeControl().scriptVer);
   }
-  add("ota_last", s("ota_last"));
+  add("ota_last", installPrefix().empty() ? s("ota_last") : readSmall(installPrefix() + "/ota_last"));  // ecrit par dmd_update.py : en-cours / ok:<version> / ok:deja ... / echec:<raison>
   const uint64_t first = udp_.firstPacketMs();
   add("rb_age", std::to_string(first ? (unsigned long)((nowMs() - first) / 1000UL) : 0UL));
   add("wifi_enabled", fb("wifi_enabled", true));
@@ -729,7 +750,34 @@ void WebConfig::registerRoutes() {
   web_.any("/nstat", [this](const WebRequest &) { return nstat(); });
   web_.any("/handshake", [this](const WebRequest &r) { return handshake(r); });
   // reseau et mise a jour : geres par le systeme du Pi, sans objet ici
-  web_.post("/ota/start", [](const WebRequest &) { WebReply r; r.status = 501; r.body = "ERR: mise a jour par la page web non disponible sur Raspberry Pi"; return r; });
+  // mise a jour du demon depuis la derniere release GitHub « pi-v... » : dmd_update.py tourne DETACHE du service (systemd-run) car le service est redemarre
+  web_.post("/ota/start", [this](const WebRequest &) {
+    WebReply r;
+    const std::string prefix = installPrefix();
+    const std::string script = prefix + "/bin/dmd_update.py";
+    if (prefix.empty() || access(script.c_str(), X_OK) != 0) {
+      r.status = 501;
+      r.body = "ERR: mise a jour indisponible (dmd_update.py absent de l'installation)";
+      return r;
+    }
+    {
+      std::ofstream st(prefix + "/ota_last", std::ios::trunc);
+      st << "en-cours\n";
+    }
+    int rc = -1;
+    runArgs({"systemd-run", "--no-block", "--collect", "--unit=recalboxdmd-update", script}, 15000, &rc);
+    if (rc != 0) {  // deja en cours (unite existante) ou systemd-run indisponible
+      std::ofstream st(prefix + "/ota_last", std::ios::trunc);
+      st << "echec:lancement impossible (mise a jour deja en cours ?)\n";
+      r.status = 500;
+      r.body = "ERR: lancement impossible";
+      return r;
+    }
+    logf("WEB", "mise a jour du demon lancee (dmd_update.py)");
+    eng_.runOnMain([&] { eng_.webPause("Mise a jour...", 0xFFE0); });
+    r.body = "OK";
+    return r;
+  });
   web_.any("/scan-wifi", [this](const WebRequest &) {  // reseaux Wi-Fi visibles (NetworkManager), dedoublonnes par nom, signal decroissant
     if (wifi_ && wifi_->apActive()) {  // point d'acces ouvert : le scan est impossible, on sert la liste prise AVANT son ouverture
       std::string j = "[";

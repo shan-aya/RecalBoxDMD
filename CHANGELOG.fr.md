@@ -8,6 +8,13 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-21 (2) — Démon Raspberry Pi v3.60 : bouton absent, pied de page
+
+**Raspberry Pi**
+- **Bouton absent ou faux appui.** Même correction que le firmware 3.59 : l'appui très long ne part qu'au relâchement, et les actions « redémarrer » et « secours Wi-Fi » venues du bouton sont ignorées dans les 5 minutes qui suivent le démarrage du démon.
+- **Pages web.** Nouvelle image d'accueil, et mention « © Shan_ayA 2026 » avec un lien « Payez-moi un café » en bas de chaque page.
+- Les sources du dossier `raspberry-pi/` correspondent exactement à cette version (elles incluent aussi la mise à jour depuis la page web, ajoutée en 3.59).
+
 ## 2026-10-21 — Firmware v3.59 : un bouton absent ne peut plus faire redémarrer le DMD
 
 **Firmware v3.59**

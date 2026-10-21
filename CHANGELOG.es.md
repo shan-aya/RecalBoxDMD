@@ -8,6 +8,13 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-21 (2) — Demonio Raspberry Pi v3.60: botón ausente, pie de página
+
+**Raspberry Pi**
+- **Botón ausente o falsa pulsación.** Misma corrección que el firmware 3.59: la pulsación muy larga se activa solo al soltar, y las acciones « reiniciar » y « rescate Wi-Fi » provenientes del botón se ignoran durante los 5 primeros minutos tras el arranque del demonio.
+- **Páginas web.** Nueva imagen de inicio y la mención « © Shan_ayA 2026 » con un enlace « Invítame a un café » al pie de cada página.
+- Las fuentes de la carpeta `raspberry-pi/` corresponden exactamente a esta versión (incluyen también la actualización desde la página web añadida en la 3.59).
+
 ## 2026-10-21 — Firmware v3.59: un botón ausente ya no puede reiniciar el DMD
 
 **Firmware v3.59**

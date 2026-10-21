@@ -114,9 +114,19 @@ void Button::loop() {
   };
   // etat de l'automate (memes noms que pollPhysicalButton)
   unsigned long highSince = 0, lowSince = 0, rawSince = 0, pressAt = 0, releaseAt = 0;
-  bool stable = false, raw = false, vlongFired = false;
+  bool stable = false, raw = false;
   int clicks = 0;
   unsigned long lastOpenTry = 0;
+  const unsigned long bootMs = ms();
+  // COUPE-BOUCLE (comme le firmware ESP32 v359) : une action « redemarrer » (10) ou « secours Wi-Fi » (9) venue du bouton moins de 5 min apres le demarrage du demon
+  // est presque toujours un faux appui (broche flottante) : ignoree et journalisee, pour qu'un bouton absent ne puisse jamais faire boucler le demon.
+  auto guarded = [&](int act) {
+    if ((act == 9 || act == 10) && ms() - bootMs < 300000UL) {
+      logf("BTN", "action %d ignoree (moins de 5 min apres le demarrage : appui suspect)", act);
+      return;
+    }
+    run_(act);
+  };
   while (!stop_) {
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
     if (!enabled_.load()) {
@@ -176,33 +186,30 @@ void Button::loop() {
       stable = r;
       if (stable) {
         pressAt = now;
-        vlongFired = false;
-      } else if (!vlongFired) {
+      } else {
         const unsigned long held = now - pressAt;
-        if (held >= (unsigned long)longMs_.load()) {
+        if (held >= (unsigned long)vlongMs_.load()) {  // appui « tres long » au RELACHEMENT (jamais pendant que la broche est tenue basse : une broche bloquee ne declenche rien)
           clicks = 0;
-          run_(actLong_.load());
+          guarded(actVLong_.load());
+        } else if (held >= (unsigned long)longMs_.load()) {
+          clicks = 0;
+          guarded(actLong_.load());
         } else {
           clicks++;
           releaseAt = now;
           if (actDouble_.load() == 0) {  // pas d'action « double » : l'appui court part tout de suite
             clicks = 0;
-            run_(actShort_.load());
+            guarded(actShort_.load());
           } else if (clicks >= 2) {
             clicks = 0;
-            run_(actDouble_.load());
+            guarded(actDouble_.load());
           }
         }
       }
     }
-    if (stable && !vlongFired && now - pressAt >= (unsigned long)vlongMs_.load()) {
-      vlongFired = true;
-      clicks = 0;
-      run_(actVLong_.load());
-    }
     if (!stable && clicks == 1 && now - releaseAt >= 350) {
       clicks = 0;
-      run_(actShort_.load());
+      guarded(actShort_.load());
     }
   }
 }
