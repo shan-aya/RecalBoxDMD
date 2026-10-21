@@ -1,3 +1,5 @@
+<p align="center"><img src="medias/branding/shan_aya_logo.png" width="260" alt="Shan_ayA logo"></p>
+
 <h1 align="center">RecalBoxDMD — RawEdition</h1>
 
 <p align="center">
