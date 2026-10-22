@@ -8,6 +8,13 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-22 — Firmware v3.65: boot animation and status messages
+
+**Firmware v3.65**
+- **Boot animation.** At power-on the panel plays a short animation of the **Shan_ayA logo** (the name orbits around the eye, the pupil follows it); the title appears over it for 2.5 s, then the animation runs 2 more seconds before the normal boot goes on. Nothing to install by hand: on the first boot of this firmware, if a WiFi is configured, the DMD **downloads the animation itself** from GitHub (a few seconds with the panel off; checked by SHA-256 and exact size; 2 attempts at most). Mode 1 of the PC toolkit also copies it onto a new SD card (`gifs/_boot/`). Without the file, the classic title is shown exactly as before.
+- **Status messages.** The smileys of "Recalbox connected" and "offline" are gone; the French alert "Pas de wifi / ni Recalbox" now reads **"ni wifi / ni recalbox"**; the lines are centred on the letters themselves (a 2-pixel offset on "ni wifi" disappears).
+- **Reliability.** A web upload now reports an error when the SD card cuts a write short, instead of answering "OK" with a truncated file; a new `GET /boot-anim` returns the size and checksum of the animation.
+
 ## 2026-10-21 (3) — PC toolkit build 12775: Shan_ayA logo and support link
 
 **PC toolkit build 12775**

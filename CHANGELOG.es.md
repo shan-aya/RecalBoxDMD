@@ -8,6 +8,13 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-22 — Firmware v3.65: animación de arranque y mensajes de estado
+
+**Firmware v3.65**
+- **Animación de arranque.** Al encender, el panel reproduce una breve animación del **logotipo Shan_ayA** (el nombre gira alrededor del ojo, la pupila lo sigue); el título aparece encima durante 2,5 s y luego la animación continúa 2 s más antes del arranque normal. No hay nada que instalar a mano: en el primer arranque de este firmware, si hay una WiFi configurada, el DMD **descarga él mismo la animación** desde GitHub (unos segundos, con el panel apagado; comprobación SHA-256 y tamaño exacto; 2 intentos como máximo). El Modo 1 de la caja de herramientas PC también la copia en una tarjeta SD nueva (`gifs/_boot/`). Sin el archivo, se muestra el título clásico exactamente como antes.
+- **Mensajes de estado.** Desaparecen los emoticonos de « Recalbox conectada » y « offline »; la alerta francesa « Pas de wifi / ni Recalbox » pasa a **« ni wifi / ni recalbox »**; las líneas se centran sobre las letras mismas (desaparece un desfase de 2 píxeles en « ni wifi »).
+- **Fiabilidad.** Un envío por la página web ahora indica un error cuando la tarjeta SD corta una escritura, en lugar de responder « OK » con un archivo truncado; nueva ruta `GET /boot-anim` que devuelve el tamaño y la huella de la animación.
+
 ## 2026-10-21 (3) — Caja de herramientas del PC build 12775: logo Shan_ayA y enlace de apoyo
 
 **Caja de herramientas del PC build 12775**

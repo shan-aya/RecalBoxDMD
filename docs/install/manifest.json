@@ -6,6 +6,9 @@
   "app_size": 1862048,
   "toolkit": 12775,
   "pi": "3.61",
+  "boot_anim_ver": 1,
+  "boot_anim_size": 819200,
+  "boot_anim_sha256": "0297477442a0fc5edb52df31ec738f8631691b543f3d4a223d9de29a484801c1",
   "new_install_prompt_erase": true,
   "builds": [
     {
