@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-22 (4) — PC toolkit build 12876: boot animations in Mode 1
+
+**PC toolkit build 12876**
+- **Mode 1 copies the boot animations** onto the SD card (`gifs/_boot/`): the default Shan_ayA one and the five holiday ones (Halloween, Christmas, New Year, Valentine's Day, Easter), downloaded from GitHub and checked (size and checksum) after the copy. Best-effort: if GitHub cannot be reached the pipeline goes on and the DMD downloads them by itself (firmware v3.67). Not done for a Raspberry Pi card. No other change from build 12775.
+
 ## 2026-10-22 (3) — Firmware v3.67: seasonal boot animations
 
 **Firmware v3.67**

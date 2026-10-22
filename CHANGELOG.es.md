@@ -8,6 +8,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-22 (4) — Caja de herramientas del PC build 12876: animaciones de arranque en el Modo 1
+
+**Caja de herramientas del PC build 12876**
+- **El Modo 1 copia las animaciones de arranque** en la tarjeta SD (`gifs/_boot/`): la de por defecto Shan_ayA y las cinco de fiesta (Halloween, Navidad, Año Nuevo, San Valentín, Pascua), descargadas de GitHub y comprobadas (tamaño y huella) tras la copia. En la medida de lo posible: si GitHub no está accesible, el proceso continúa y el DMD las descarga él mismo (firmware v3.67). No para una tarjeta de Raspberry Pi. Ningún otro cambio respecto al build 12775.
+
 ## 2026-10-22 (3) — Firmware v3.67: animaciones de arranque de temporada
 
 **Firmware v3.67**

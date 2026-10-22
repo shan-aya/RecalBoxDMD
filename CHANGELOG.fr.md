@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-22 (4) — Boîte à outils PC build 12876 : animations de démarrage dans le Mode 1
+
+**Boîte à outils PC build 12876**
+- **Le Mode 1 copie les animations de démarrage** sur la carte SD (`gifs/_boot/`) : celle par défaut Shan_ayA et les cinq de fête (Halloween, Noël, Nouvel An, Saint-Valentin, Pâques), téléchargées depuis GitHub et vérifiées (taille et empreinte) après la copie. Au mieux : si GitHub est inaccessible, le pipeline continue et le DMD les télécharge lui-même (firmware v3.67). Pas pour une carte de Raspberry Pi. Aucun autre changement par rapport au build 12775.
+
 ## 2026-10-22 (3) — Firmware v3.67 : animations de démarrage saisonnières
 
 **Firmware v3.67**
