@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-22 (3) — Firmware v3.67 : animations de démarrage saisonnières
+
+**Firmware v3.67**
+- **Animations de démarrage saisonnières.** Autour de chaque fête, le DMD joue une version thématique de l'animation de démarrage Shan_ayA (nouvelles couleurs, décors, et une pupille en forme de cœur pour la Saint-Valentin), puis revient au logo par défaut. **Halloween** (15 oct. – 2 nov. : orange, pupille en fente, chauves-souris), **Noël** (10 – 26 déc. : rouge, neige), **Nouvel An** (27 déc. – 3 janv. : or, confettis et étoiles), **Saint-Valentin** (7 – 14 févr. : rose, cœurs) et **Pâques** (de 7 jours avant au lendemain du dimanche de Pâques, calculé chaque année : œufs). Les fenêtres entourent la date, ce n'est pas seulement le jour même.
+- **Rien à régler.** Le DMD mémorise la date à chaque synchronisation de l'heure (il n'a pas d'horloge à l'allumage) et télécharge lui-même les fichiers saisonniers, en une fois, à partir de 21 jours avant une fête (2 essais par jour, silencieux si GitHub est inaccessible). Si un fichier manque, l'animation par défaut est jouée. L'animation ne se joue qu'à l'allumage : un DMD allumé en continu change au redémarrage suivant. Le Mode 1 de la boîte à outils PC copie aussi les fichiers saisonniers sur une carte SD neuve.
+- **Page web.** Nouvelles routes de diagnostic : `GET /boot-season?d=AAAAMMJJ` (quelle animation serait jouée à cette date) et `GET /boot-anim?s=<fête>`.
 ## 2026-10-22 (2) — Firmware v3.66 : un redémarrage n'annule plus la mise à jour
 
 **Firmware v3.66**

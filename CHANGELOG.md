@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-22 (3) — Firmware v3.67: seasonal boot animations
+
+**Firmware v3.67**
+- **Seasonal boot animations.** Around each holiday the DMD plays a themed version of the Shan_ayA boot animation (new colours, decorations, and a heart-shaped pupil for Valentine's Day), then returns to the default logo. **Halloween** (15 Oct – 2 Nov: orange, slit pupil, bats), **Christmas** (10 – 26 Dec: red, snow), **New Year** (27 Dec – 3 Jan: gold, confetti and stars), **Valentine's Day** (7 – 14 Feb: pink, hearts) and **Easter** (from 7 days before to the day after Easter Sunday, computed every year: eggs). The windows surround the date, they are not just the day itself.
+- **Nothing to set up.** The DMD remembers the date at each time synchronisation (it has no clock at power-on) and downloads the seasonal files by itself, in one go, from 21 days before a holiday (2 attempts a day, silent if GitHub cannot be reached). If a file is missing the default animation plays. The animation only plays at power-on: a DMD left on continuously switches at its next restart. Mode 1 of the PC toolkit also copies the seasonal files onto a new SD card.
+- **Web page.** New diagnostic routes: `GET /boot-season?d=YYYYMMDD` (which animation would play on that date) and `GET /boot-anim?s=<holiday>`.
 ## 2026-10-22 (2) — Firmware v3.66: a restart no longer cancels the update
 
 **Firmware v3.66**
