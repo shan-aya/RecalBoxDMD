@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-22 (2) — Firmware v3.66: un reinicio ya no cancela la actualización
+
+**Firmware v3.66**
+- **Corregido — una actualización OTA cancelada por un reinicio.** Tras una actualización, la nueva versión quedaba « por verificar » durante 60 segundos, y cualquier reinicio en ese plazo (el botón « Guardar y reiniciar » de la página web, una pulsación del botón, un comando de la Recalbox) devolvía la versión anterior. Un reinicio **voluntario** ahora valida la nueva versión en cuanto el DMD lleva al menos 20 segundos funcionando. Los fallos reales al arrancar siguen protegidos: se mantiene la vuelta automática a la versión anterior.
+- **Resultado de la actualización honesto.** Si funciona una versión más antigua mientras la última actualización anunciaba una más reciente, la página muestra ahora un fallo explícito (« versión más antigua en servicio ») en lugar de un falso « correcto ». Este segundo punto solo actúa a partir de un DMD que ya esté en 3.66.
+
 ## 2026-10-22 — Firmware v3.65: animación de arranque y mensajes de estado
 
 **Firmware v3.65**

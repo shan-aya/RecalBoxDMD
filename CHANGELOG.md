@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-22 (2) — Firmware v3.66: a restart no longer cancels the update
+
+**Firmware v3.66**
+- **Fixed — an OTA update cancelled by a restart.** After an update, the new version stayed "to be verified" for 60 seconds, and any restart within that delay (the web page's "Save & Restart" button, a button press, a Recalbox command) brought the old version back. A **deliberate** restart now validates the new version as soon as the DMD has been running for at least 20 seconds. Real crashes at startup stay protected: the automatic return to the previous version is kept.
+- **Honest update result.** If an older version is running while the last update announced a newer one, the page now shows an explicit failure ("older version in service") instead of a false "succeeded". This second point only applies from a DMD already on 3.66.
+
 ## 2026-10-22 — Firmware v3.65: boot animation and status messages
 
 **Firmware v3.65**

@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-22 (2) — Firmware v3.66 : un redémarrage n'annule plus la mise à jour
+
+**Firmware v3.66**
+- **Corrigé — une mise à jour OTA annulée par un redémarrage.** Après une mise à jour, la nouvelle version restait « à vérifier » pendant 60 secondes, et tout redémarrage dans ce délai (bouton « Enreg. & Redémarrer » de la page web, appui sur le bouton, commande de la Recalbox) ramenait l'ancienne version. Un redémarrage **volontaire** valide maintenant la nouvelle version dès que le DMD fonctionne depuis au moins 20 secondes. Les vrais plantages au démarrage restent protégés : le retour automatique à l'ancienne version est conservé.
+- **Résultat de la mise à jour honnête.** Si une ancienne version est en service alors que la dernière mise à jour annonçait une version plus récente, la page affiche désormais un échec explicite (« version plus ancienne en service ») au lieu d'un faux « réussi ». Ce second point ne joue qu'à partir d'un DMD déjà en 3.66.
+
 ## 2026-10-22 — Firmware v3.65 : animation de démarrage et messages d'état
 
 **Firmware v3.65**
