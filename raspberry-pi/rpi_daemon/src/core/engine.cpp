@@ -4,7 +4,9 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <random>
+#include <sstream>
 
 #include "log.h"
 #include "brightsched.h"
@@ -697,8 +699,31 @@ uint16_t dimRgb565(uint16_t p) {
 }
 OvText trConnectedFor(const std::string &lang) {
   OvText t;
-  t.l1 = "RecalBox :)";
+  t.l1 = "RecalBox";   // v365 du firmware : plus de smiley
   t.l2 = lang == "en" ? "connected" : lang == "es" ? "conectada" : "connectee";
+  return t;
+}
+// v365 du firmware -- CENTRAGE SUR L'ENCRE : certains glyphes laissent 1 ou 2 colonnes vides a leur bord (« i », « l »...) ; table copiee du firmware (colonnes vides gauche = quartet haut, droite = quartet bas)
+static const uint8_t kGlyphBlank[95] = {   // colonnes vides a GAUCHE (quartet haut) et a DROITE (quartet bas) de chaque glyphe 5x7, ' ' (32) a '~' (126), tirees de glcdfont.c
+  0x00, 0x22, 0x11, 0x00, 0x00, 0x00, 0x00, 0x11, 0x11, 0x11, 0x00, 0x00, 0x11, 0x00, 0x21, 0x00,
+  0x00, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x12, 0x10, 0x00, 0x10, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x10, 0x00, 0x00,
+  0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x11, 0x01, 0x01, 0x11, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x11, 0x22, 0x11, 0x00
+};
+uint8_t glyphBlank(unsigned char c) { return (c >= 32 && c <= 126) ? kGlyphBlank[c - 32] : 0; }
+OvText trDisconnectedFor(const std::string &lang) {
+  OvText t;
+  t.l1 = "RecalBox";
+  t.l2 = lang == "en" ? "offline" : lang == "es" ? "offline" : "hors ligne";
+  return t;
+}
+OvText trNoWifiFor(const std::string &lang) {
+  OvText t;
+  if (lang == "en") { t.l1 = "No wifi"; t.l2 = "No Recalbox"; }
+  else if (lang == "es") { t.l1 = "Sin wifi"; t.l2 = "ni Recalbox"; }
+  else { t.l1 = "ni wifi"; t.l2 = "ni recalbox"; }
   return t;
 }
 int overlaySize(OvText (*fn)(const std::string &)) {
@@ -716,7 +741,9 @@ void drawOverlayText(Display &d, const OvText &t, uint16_t color, int size) {
   for (int i = 0; i < 2; i++) {
     const std::string &s = *lines[i];
     const int n = (int)s.size();
-    int x = (DMD_W - (n * adv - (adv - glyphW))) / 2;
+    const int blankL = n ? (glyphBlank((unsigned char)s[0]) >> 4) : 0, blankR = n ? (glyphBlank((unsigned char)s[n - 1]) & 15) : 0;
+    const int inkW = (n - 1) * adv + (5 - blankL - blankR) * size;
+    int x = (DMD_W - inkW) / 2 - blankL * size;
     if (x < 0) x = 0;
     const int y = y0 + 1 + i * lineH;
     // 2 passes : TOUS les contours d'abord, puis les lettres (le contour du caractere suivant ne doit pas manger le bord du precedent : pas de 11 px)
@@ -731,7 +758,9 @@ void drawOverlayText(Display &d, const OvText &t, uint16_t color, int size) {
 }
 }  // namespace
 
-void Engine::drawConnectedFrame(bool visible) {
+void Engine::drawConnectedFrame(bool visible) { drawOverlayFrame(visible, 0); }
+
+void Engine::drawOverlayFrame(bool visible, int kind) {
   if (!visible) {  // temps « eteint » du clignotement et fin des 5 s : l'image de secours seule
     drawDefaultRaw565Cached();
     return;
@@ -741,7 +770,103 @@ void Engine::drawConnectedFrame(bool visible) {
   d_.drawRGBBitmap(0, 0, dim.data(), DMD_W, DMD_H);
   std::string lang = cfg_.get("language");
   if (lang != "en" && lang != "es") lang = "fr";
-  drawOverlayText(d_, trConnectedFor(lang), Display::color565(0, 255, 0), overlaySize(trConnectedFor));
+  OvText (*fn)(const std::string &) = kind == 1 ? trNoWifiFor : kind == 2 ? trDisconnectedFor : trConnectedFor;
+  const uint16_t color = kind == 1 ? Display::color565(255, 0, 0) : kind == 2 ? Display::color565(255, 140, 0) : Display::color565(0, 255, 0);
+  drawOverlayText(d_, fn(lang), color, overlaySize(fn));
+}
+
+void Engine::showNoWifiAlert() {
+  if (mode_ == Mode::ZEDMD) { noWifiPending_ = false; return; }  // flux natif / Pinball en cours : pas d'alerte par-dessus
+  if (mode_ == Mode::CLOCK) abortDeco();
+  closeGifAll();
+  gifOpened_ = false;
+  displayedMaskSys_.clear();
+  d_.clearScreen();
+  const bool ok = ensureDefaultRaw565Cached();
+  mode_ = ok ? Mode::PNG : Mode::BLACK;
+  currentPngPath_ = DEFAULT_RAW565_PATH;
+  pngDrawn_ = ok;
+  if (ok) drawOverlayFrame(true, 1);
+  d_.show();
+  noWifiActive_ = true;
+  noWifiVisible_ = true;
+  noWifiBlinkMs_ = nowMs();
+  noWifiUntilMs_ = nowMs() + 5000;
+  noWifiPending_ = false;
+  logf("WIFI", "No wifi, No Recalbox -- alerte affichee");
+}
+
+void Engine::showDisconnectedAlert() {
+  if (mode_ == Mode::ZEDMD) { discPending_ = false; return; }  // la Recalbox, chargee par VPX, repond parfois tard aux PING
+  if (mode_ == Mode::CLOCK) abortDeco();
+  closeGifAll();
+  gifOpened_ = false;
+  displayedMaskSys_.clear();
+  d_.clearScreen();
+  const bool ok = ensureDefaultRaw565Cached();
+  mode_ = ok ? Mode::PNG : Mode::BLACK;
+  currentPngPath_ = DEFAULT_RAW565_PATH;
+  pngDrawn_ = ok;
+  if (ok) drawOverlayFrame(true, 2);
+  d_.show();
+  discActive_ = true;
+  discVisible_ = true;
+  discBlinkMs_ = nowMs();
+  discUntilMs_ = nowMs() + 5000;
+  discPending_ = false;
+  logf("CMD", "RecalBox non connectee -- alerte affichee");
+}
+
+void Engine::clearAlerts() {
+  noWifiActive_ = noWifiPending_ = discActive_ = discPending_ = false;
+}
+
+void Engine::tickAlerts(uint64_t now) {
+  static const uint64_t bootMs = now;  // la surveillance du reseau attend 15 s apres le demarrage (NetworkManager et 1re connexion Wi-Fi)
+  // « ni wifi / ni recalbox » : plus de route par defaut (Wi-Fi ou Ethernet) pendant >= 1 s ; 3 alertes au plus, la 2e et la 3e a 20 s d'intervalle (firmware : WiFi.status())
+  if (now - lastNetPollMs_ >= 1000) {
+    lastNetPollMs_ = now;
+    bool up = false;
+    std::ifstream rf("/proc/net/route");
+    std::string line;
+    std::getline(rf, line);
+    while (std::getline(rf, line)) {
+      std::istringstream ls(line);
+      std::string ifc, dest, gw, flags;
+      ls >> ifc >> dest >> gw >> flags;
+      if (dest == "00000000" && (std::strtoul(flags.c_str(), nullptr, 16) & 3) == 3) { up = true; break; }
+    }
+    netUp_ = up;
+  }
+  if (!netUp_) {
+    if (wifiDownSinceMs_ == 0) wifiDownSinceMs_ = now;
+    if (!configActive_ && wifiAlertCount_ < 3 && now - bootMs >= 15000) {
+      const uint64_t down = now - wifiDownSinceMs_;
+      const bool due = (wifiAlertCount_ == 0 && down >= 1000) || (wifiAlertCount_ > 0 && down >= (uint64_t)wifiAlertCount_ * 20000ULL);
+      if (due) { noWifiPending_ = true; wifiAlertCount_++; }
+    }
+  } else {
+    wifiDownSinceMs_ = 0;
+    wifiAlertCount_ = 0;
+  }
+  // une demande en attente s'affiche des que rien d'important ne joue (hors playlist : tout de suite ; en playlist : entre deux GIF, voir tick())
+  if (noWifiPending_ && mode_ != Mode::PLAYLIST && !configActive_) showNoWifiAlert();
+  if (discPending_ && mode_ != Mode::PLAYLIST && !configActive_) showDisconnectedAlert();
+  const bool still = mode_ == Mode::PNG && pngDrawn_ && currentPngPath_ == DEFAULT_RAW565_PATH && !configActive_;
+  if (noWifiActive_ && still) {  // clignotement (400 ms) puis, au bout de 5 s, reprise de la playlist
+    if (now - noWifiBlinkMs_ > 400) { noWifiBlinkMs_ = now; noWifiVisible_ = !noWifiVisible_; drawOverlayFrame(noWifiVisible_, 1); d_.show(); }
+    if (now >= noWifiUntilMs_) { noWifiActive_ = false; logf("WIFI", "No wifi, No Recalbox -- delai ecoule, reprise playlist"); resumePlaylist(); d_.show(); }
+  }
+  if (discActive_ && still) {
+    if (now - discBlinkMs_ > 400) { discBlinkMs_ = now; discVisible_ = !discVisible_; drawOverlayFrame(discVisible_, 2); d_.show(); }
+    if (now >= discUntilMs_) {
+      discActive_ = false;
+      discForced_ = true;  // ce passage en playlist est force par la coupure : resynchronisation au prochain PONG
+      logf("CMD", "RecalBox non connectee -- delai ecoule, reprise playlist");
+      resumePlaylist();
+      d_.show();
+    }
+  }
 }
 
 void Engine::onRecalboxConnected() {
@@ -1051,6 +1176,7 @@ void Engine::handle(const std::string &cmd, const std::string &arg) {
     startClockPreview(arg);
     return;
   }
+  if (cmd == "stop" || cmd == "default" || cmd == "system" || cmd == "resumesys" || cmd == "game" || cmd == "score" || cmd == "startclip") clearAlerts();  // un vrai contenu reprend la main
   if (cmd == "stop") cmdStop();
   else if (cmd == "default") cmdDefault();
   else if (cmd == "system" || cmd == "resumesys") cmdSystem(arg);
@@ -1414,6 +1540,7 @@ void Engine::tick() {
   pumpRbw();  // donnees des widgets Recalbox recues par UDP
   if (mode_ == Mode::ZEDMD) {
     // mode natif : un message de la page web ne suspend le flux d'ES que 15 s (nativeOverlayMs du firmware), puis l'image d'ES revient
+    noWifiPending_ = discPending_ = noWifiActive_ = discActive_ = false;  // pas d'alerte par-dessus le flux natif / Pinball
     if (configActive_ && zed_.native()) tickConfigScroll(nowMs());
     if (configActive_ && zed_.native() && ((cfgSubSetMs_ != 0 && nowMs() - cfgSubSetMs_ > 15000) || (infoUntilMs_ != 0 && nowMs() >= infoUntilMs_))) {
       infoUntilMs_ = 0;
@@ -1437,6 +1564,7 @@ void Engine::tick() {
       d_.show();
     }
   }
+  tickAlerts(nowMs());
   if (requestNextGif_) {
     requestNextGif_ = false;
     openNextGif();
@@ -1456,6 +1584,9 @@ void Engine::tick() {
       const bool frameOk = playFrame(false, &fd);
       d_.show();
       if (!frameOk) {  // animation terminee : la suivante (sans attendre le delai de la derniere image)
+        // alertes en attente : affichees ENTRE deux GIF (jamais au milieu d'une animation), puis la playlist reprend a l'expiration
+        if (noWifiPending_ && !configActive_) { showNoWifiAlert(); break; }
+        if (discPending_ && !configActive_) { showDisconnectedAlert(); break; }
         // cycle du decor : declencheur = nombre de GIF OU temps ecoule, evalue ENTRE deux GIF (jamais au milieu d'une animation)
         const bool decoOn = decoAnyActive();
         const bool trigTime = (deco_.trig == 1 && deco_.minutes > 0);

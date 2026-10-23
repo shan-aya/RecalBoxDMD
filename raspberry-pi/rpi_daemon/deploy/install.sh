@@ -115,6 +115,18 @@ if [ ! -f "$SD/config.ini" ]; then
 else
   echo "config.ini existant conserve"
 fi
+# animations de demarrage (logo Shan_ayA + une par fete, 800 Ko chacune) : livrees avec la charge utile (installation ET mise a jour depuis GitHub), copiees seulement si absentes ou differentes ;
+# pas de telechargement par le demon (contrairement a l'ESP32) : le Pi les recoit toujours avec sa mise a jour
+if [ -d "$HERE/boot_anim" ] && { [ -z "$MEDIA" ] || mountpoint -q "$SD"; }; then
+  install -d "$SD/gifs/_boot"
+  for f in "$HERE"/boot_anim/*.raw565pack; do
+    [ -f "$f" ] || continue
+    b="$(basename "$f")"
+    cmp -s "$f" "$SD/gifs/_boot/$b" 2>/dev/null || { cp -f "$f" "$SD/gifs/_boot/$b" && echo "animation de demarrage : $b"; }
+  done
+elif [ -d "$HERE/boot_anim" ]; then
+  echo "(partition media pas encore montee : animations de demarrage copiees a la prochaine mise a jour)"
+fi
 
 # le dossier de contenu appartient a l'utilisateur qui lance sudo (le toolkit y copie les fichiers par SFTP, sans etre root)
 # (PAS sur une partition FAT32 / exFAT : chown n'y a aucun effet, l'acces vient des options de montage, et le parcours recursif de dizaines de milliers de fichiers bloquait l'installation

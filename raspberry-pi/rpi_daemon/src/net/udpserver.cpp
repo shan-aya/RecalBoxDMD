@@ -143,6 +143,7 @@ void UdpServer::drainOnce() {
     if (m == "PONG") {  // reponse a notre PING : jamais un « CMD= », consommee ici
       { std::lock_guard<std::mutex> lk(rbMu_); rbProbing_ = false; }
       lastPongMs_ = lastSeenMs_.load();
+      pongEvent_ = true;
       if (resendFeaturesOnPong_.exchange(false)) {
         connectedEvent_ = true;
         sendFeatures();
@@ -383,6 +384,7 @@ void UdpServer::tickPresence(uint64_t now) {
     sendPing();
     if (!missed) {
       consecutiveMissed_ = 0;
+      discAlertCount_ = 0;  // un futur episode redeclenchera ses 3 affichages depuis le debut
     } else {
       consecutiveMissed_++;
       size_t n;
@@ -395,6 +397,10 @@ void UdpServer::tickPresence(uint64_t now) {
       if (n > 1 && target == 0) rbProbeOthers();  // l'active ne repond pas : sonder les autres Recalbox de la liste
       resendFeaturesOnPong_ = true;
       logf("UDPCHK", "ping rate (consecutif=%d)", consecutiveMissed_);
+      if (consecutiveMissed_ >= 2 && discAlertCount_ < 3 && alertGate_ && alertGate_()) {  // v200 du firmware : un ping isole perdu ne prouve rien, 2 rates de suite oui
+        discEvent_ = true;
+        discAlertCount_++;
+      }
     }
   }
 }

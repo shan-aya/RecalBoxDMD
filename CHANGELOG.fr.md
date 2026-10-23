@@ -8,6 +8,18 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-23 — Firmware v3.82 et démon Raspberry Pi v3.62 : liquide en bac, Sable 2, lava lamp, démarrage et alertes sur le Pi
+
+**Firmware v3.82** (de la v3.68 à la v3.82)
+- **Liquide dans un bac.** Le liquide est maintenant posé dans un bac (sol et deux parois, de la largeur de la dalle) sur une barre triangulaire au centre bas : le bac **bascule** à l'inclinaison maximale du liquide, avec une durée de phase tirée au démarrage (5 à 10 s) et une **vitesse tirée à chaque bascule** (angle maximal atteint puis pause, ou bascule interrompue avant). Les vagues frappent les parois et projettent des **éclaboussures** (jusqu'à 48 gouttes, d'autant plus nombreuses et vives que le front est rapide) pour les liquides fluides ; les liquides épais (sirop, cire, miel) **adhèrent** aux parois (ménisque, film qui s'écoule lentement).
+- **Sable 2 refait** (comme une vraie machine à sable). Réserve hors écran, strates fines à quatre tons, une couleur lourde qui tombe en amas et une légère qui dérive en nuage (poids propre à chaque couleur et à chaque brèche), courant latéral propre à chaque brèche, brèches à durée de vie aléatoire (jusqu'à 6 en même temps), glissement des strates quand une couche lourde se pose sur une légère ; la dalle se remplit à environ 80 %.
+- **Lava lamp à point chaud.** La chaleur part d'un point chaud au centre du fond et diffuse vers les bords : le centre s'anime d'abord, puis l'activité gagne les côtés, avec un halo de chaleur dans l'huile.
+
+**Démon Raspberry Pi v3.62**
+- **Mêmes ambiances que le DMD ESP32** : Sable 2, liquide en bac, lava lamp à point chaud (code identique, repris automatiquement du firmware).
+- **Animation de démarrage et saisons.** Le Pi joue la même animation Shan_ayA que le DMD, et sa version de fête (Halloween, Noël, Nouvel An, Saint-Valentin, Pâques) selon la date. Elle est livrée avec la mise à jour du démon : rien à télécharger ni à régler. Routes `GET /boot-anim` et `GET /boot-season`, et envoi possible par le Mode 19.
+- **Alertes d'état identiques au DMD** : « ni wifi / ni recalbox » (plus de réseau) et « RecalBox hors ligne » (deux PING sans réponse de suite), 5 s clignotantes puis reprise de la playlist ; « RecalBox connectée » sans smiley, centrée sur l'encre des lettres.
+
 ## 2026-10-22 (4) — Boîte à outils PC build 12876 : animations de démarrage dans le Mode 1
 
 **Boîte à outils PC build 12876**

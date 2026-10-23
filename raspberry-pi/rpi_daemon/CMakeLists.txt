@@ -31,6 +31,7 @@ add_library(dmd_core STATIC
   src/media/playlist.cpp
   src/media/themelogos.cpp
   src/ui/score.cpp
+  src/ui/bootanim.cpp
   src/ui/clock.cpp
   src/ui/widgets.cpp
   src/net/udpserver.cpp

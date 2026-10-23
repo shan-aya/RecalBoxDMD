@@ -1,9 +1,10 @@
 // ============================================================================
-// GENERE par tools/port_clock_ambient.py depuis RecalBox_DMD.ino (FW_VERSION_NUM 356, lignes 11817-12129).
+// GENERE par tools/port_clock_ambient.py depuis RecalBox_DMD.ino (FW_VERSION_NUM 382, lignes 12105-12449).
 // NE PAS EDITER A LA MAIN : relancer le script. Themes d'horloge animes : Plasma, Life, Stars, Rain, Lava.
 // ============================================================================
 struct LavaBlob { float x, y, vx, vy, r, T, ax; bool att, alive; };   // v309 : r = taille (masse ~ r^2), fusions et reapparitions
-struct LavaSt { LavaBlob b[7]; uint8_t oil[3], wax[3]; float pool, budT; };
+struct LavaSt { LavaBlob b[7]; uint8_t oil[3], wax[3]; float pool, budT; float F[8][32]; };   // v382 : F = champ de temperature de l'huile (cellules de 4 x 4 px, rangee 0 = haut)
+static_assert(sizeof(LavaSt) <= 2048, "LavaSt depasse s_amb.sand");
 struct LavaBall { float x, y, R, R2; };
 
 struct AmbRain { int16_t head[128]; uint8_t len[128], spd[128]; };
@@ -114,34 +115,61 @@ static LavaBall *s_lvBalls = nullptr; static int s_lvN = 0;   // v339 : alloue a
 static void lavaInit(void *Lv, const uint8_t *oil, const uint8_t *wax)   // void * : l'IDE Arduino genere les prototypes avant les structures
 {
   LavaSt *L = (LavaSt *)Lv;
-  memcpy(L->oil, oil, 3); memcpy(L->wax, wax, 3); L->pool = 0; L->budT = 0;
+  memcpy(L->oil, oil, 3); memcpy(L->wax, wax, 3); L->pool = 0; L->budT = 0; memset(L->F, 0, sizeof(L->F));
   for (int i = 0; i < 7; i++) { LavaBlob &b = L->b[i]; b.r = random(22, 64) / 10.0f; b.ax = 10.0f + i * 18.0f + random(-30, 30) / 10.0f; b.x = b.ax; b.y = 29.0f; b.vx = 0; b.vy = 0; b.T = random(2, 15) / 100.0f; b.att = true; b.alive = true; }
 }
 // v309 -- MASSE : la taille r d'un blob (masse ~ r^2) change : deux blobs libres qui se touchent FUSIONNENT (masses additionnees, quantite de mouvement et temperature moyennees) ;
 // un gros blob MONTE plus lentement (portance / traînee ~ r^-0,8) mais REDESCEND plus vite (poids ~ r^0,8) ; un blob qui retombe dans le bassin s'y FOND (le bassin grossit) ;
 // de nouveaux petits blobs naissent ensuite du bassin chaud (le bassin maigrit d'autant).
+// v382 -- POINT CHAUD : au lieu d'une temperature uniforme, un champ 2D (32 x 8 cellules de 4 px) : une resistance chauffante au centre du fond injecte de la chaleur (gaussienne de ~14 px) ;
+// la chaleur diffuse vers les bords et vers le haut (2 pas de diffusion par image), l'huile perd un peu de chaleur partout et davantage a la surface. Le centre chauffe donc bien avant les bords.
+static void lavaField(void *Lv)
+{
+  LavaSt *L = (LavaSt *)Lv; float N[8][32];
+  for (int s = 0; s < 2; s++) {
+    for (int j = 0; j < 8; j++) for (int i = 0; i < 32; i++) {
+      const float c = L->F[j][i], l = L->F[j][i > 0 ? i - 1 : 0], r = L->F[j][i < 31 ? i + 1 : 31], u = L->F[j > 0 ? j - 1 : 0][i], d = L->F[j < 7 ? j + 1 : 7][i];
+      float v = c + 0.18f * (l + r + u + d - 4.0f * c) - 0.0006f * c;
+      if (j == 0) v -= 0.005f * c;
+      if (j == 7) { const float e = (i - 15.5f) / 3.5f; v += 0.03f * expf(-e * e); }
+      N[j][i] = v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v);
+    }
+    memcpy(L->F, N, sizeof(N));
+  }
+}
+static float lavaTemp(const void *Lv, float x, float y)   // temperature locale (0..1), interpolation bilineaire
+{
+  const LavaSt *L = (const LavaSt *)Lv;
+  float fx = x * 0.25f - 0.5f, fy = y * 0.25f - 0.5f;
+  if (fx < 0.0f) fx = 0.0f; if (fx > 30.999f) fx = 30.999f; if (fy < 0.0f) fy = 0.0f; if (fy > 6.999f) fy = 6.999f;
+  const int i = (int)fx, j = (int)fy; const float a = fx - i, b = fy - j;
+  return (L->F[j][i] * (1.0f - a) + L->F[j][i + 1] * a) * (1.0f - b) + (L->F[j + 1][i] * (1.0f - a) + L->F[j + 1][i + 1] * a) * b;
+}
 static void lavaStep(void *Lv, float tg, float t)
 {
   LavaSt *L = (LavaSt *)Lv;
-  const float Lmax = 8.0f + 20.0f * tg;
-  const float act = (tg - 0.15f) / 0.5f < 0.0f ? 0.0f : ((tg - 0.15f) / 0.5f > 1.0f ? 1.0f : (tg - 0.15f) / 0.5f);   // huile froide = cire figee, fonte progressive
+  (void)tg;   // v382 : la temperature n'est plus globale : champ local lavaField()
+  lavaField(L);
   for (int i = 0; i < 7; i++) {
     LavaBlob &b = L->b[i]; if (!b.alive) continue;
+    const float tl = lavaTemp(L, b.att ? b.ax : b.x, b.att ? 30.0f : b.y);   // v382 : temperature LOCALE (ancrage dans le bassin pour une excroissance, position du blob sinon)
+    const float Lmax = 8.0f + 20.0f * tl;
+    const float act = (tl - 0.15f) / 0.5f < 0.0f ? 0.0f : ((tl - 0.15f) / 0.5f > 1.0f ? 1.0f : (tl - 0.15f) / 0.5f);   // huile froide = cire figee, fonte progressive
     const float rr = b.r / 4.0f, inv = 1.0f / rr, up = powf(rr, -0.8f), down = powf(rr, 0.8f);
-    if (b.y > 24.0f) b.T += 0.010f * (0.1f + tg) * (0.2f + tg) * inv; else if (b.y < 9.0f) b.T -= 0.014f * inv; else b.T -= 0.0012f * inv;   // chauffe en bas, refroidit en haut : un gros blob a plus d'inertie thermique
+    if (b.y > 24.0f) b.T += 0.010f * (0.1f + tl) * (0.2f + tl) * inv; else if (b.y < 9.0f) b.T -= 0.014f * inv; else b.T -= 0.0012f * inv;   // chauffe en bas, refroidit en haut : un gros blob a plus d'inertie thermique
     if (b.T > 1) b.T = 1; if (b.T < 0) b.T = 0;
-    const float bf = b.T - 0.45f, K = 0.0066f * (0.4f + 1.1f * tg) * act;
+    const float bf = b.T - 0.45f, K = 0.0066f * (0.4f + 1.1f * tl) * act;
     float ay = (bf > 0) ? -bf * K * up : -bf * 0.35f * K * down;   // montee : plus lente si gros ; descente : plus rapide si gros
     float ax = 0.0025f * sinf(0.35f * t + i * 1.7f) * act;
     if (b.att) {   // excroissance : rappel elastique vers l'ancrage dans le bassin
       const float dx = b.ax - b.x, dy = 33.0f - b.y, d = sqrtf(dx * dx + dy * dy) + 1e-3f, st = d - 3.0f;
       if (st > 0) { ax += 0.00034f * st * dx / d; ay += 0.00034f * st * dy / d; }
-      if (d > Lmax || (b.T > 0.9f && tg > 0.45f && d > 7.0f && random(0, 1000) < 2)) b.att = false;       // la queue se pince : le blob se detache
+      if (d > Lmax || (b.T > 0.9f && tl > 0.45f && d > 7.0f && random(0, 1000) < 2)) b.att = false;       // la queue se pince : le blob se detache
     } else {
       for (int j = 0; j < 7; j++) if (j != i && L->b[j].alive && !L->b[j].att) { const LavaBlob &o = L->b[j]; const float dx = o.x - b.x, dy = o.y - b.y, d = sqrtf(dx * dx + dy * dy) + 1e-3f; if (d < 11.0f) { ax += 0.0004f * dx / d; ay += 0.0004f * dy / d; } }
       if (b.y > 27.5f && b.vy >= 0) { L->pool += b.r * b.r * 0.06f; if (L->pool > 3.5f) L->pool = 3.5f; b.alive = false; continue; }   // retombe : se FOND dans le bassin (qui grossit)
     }
-    const float dmp = 0.82f + 0.14f * tg;   // cire froide = tres visqueuse (amortissement fort), plus fluide en chauffant
+    const float dmp = 0.82f + 0.14f * tl;   // cire froide = tres visqueuse (amortissement fort), plus fluide en chauffant
     b.vx = (b.vx + ax) * dmp; b.vy = (b.vy + ay) * dmp; b.x += b.vx; b.y += b.vy;
     if (b.x < 4) { b.x = 4; b.vx = fabsf(b.vx) * 0.5f; } else if (b.x > 124) { b.x = 124; b.vx = -fabsf(b.vx) * 0.5f; }
     if (b.y < 3) { b.y = 3; b.vy = fabsf(b.vy) * 0.3f; } else if (b.y > 30) { b.y = 30; b.vy = -fabsf(b.vy) * 0.3f; }
@@ -156,10 +184,11 @@ static void lavaStep(void *Lv, float tg, float t)
       p.r = sqrtf(m); if (p.r > 9.0f) p.r = 9.0f; q.alive = false;
     }
   }
-  if (tg > 0.25f && --L->budT <= 0) {   // naissance d'un petit blob depuis le bassin chaud (toutes les 6 a 15 s)
+  if (--L->budT <= 0) {   // naissance d'un petit blob depuis le bassin CHAUD (toutes les 6 a 15 s) : seulement la ou le bassin est assez chaud (v382 : pres du point chaud d'abord)
     L->budT = (float)random(200, 500);
-    for (int i = 0; i < 7; i++) if (!L->b[i].alive) {
-      LavaBlob &b = L->b[i]; b.r = random(22, 40) / 10.0f; b.ax = (float)random(10, 118); b.x = b.ax; b.y = 29.0f; b.vx = 0; b.vy = 0; b.T = random(10, 30) / 100.0f; b.att = true; b.alive = true;
+    float bx = -1.0f; for (int k = 0; k < 10; k++) { const float cx = (float)random(10, 118); if (lavaTemp(L, cx, 30.0f) > 0.3f) { bx = cx; break; } }
+    if (bx >= 0.0f) for (int i = 0; i < 7; i++) if (!L->b[i].alive) {
+      LavaBlob &b = L->b[i]; b.r = random(22, 40) / 10.0f; b.ax = bx; b.x = b.ax; b.y = 29.0f; b.vx = 0; b.vy = 0; b.T = random(10, 30) / 100.0f; b.att = true; b.alive = true;
       L->pool -= b.r * b.r * 0.06f; if (L->pool < 0) L->pool = 0; break;
     }
   }
@@ -167,13 +196,15 @@ static void lavaStep(void *Lv, float tg, float t)
 static void lavaBuild(const void *Lv, float tg, float t)
 {
   const LavaSt *L = (const LavaSt *)Lv;
+  (void)tg;
   if (!s_lvBalls) s_lvBalls = (LavaBall *)malloc(170 * sizeof(LavaBall));
   s_lvN = 0; if (!s_lvBalls) return;   // pas de tas : champ vide plutot qu'un plantage
-  for (int xk = 0; xk <= 128; xk += 10) lavaAdd((float)xk, 34.2f - 1.2f * tg * sinf(0.7f * t + xk * 0.15f), 7.0f + L->pool * 0.5f);   // bassin de cire (ondule quand il chauffe)
+  for (int xk = 0; xk <= 128; xk += 10) lavaAdd((float)xk, 34.2f - 1.2f * lavaTemp(L, (float)xk, 30.0f) * sinf(0.7f * t + xk * 0.15f), 7.0f + L->pool * 0.5f);   // bassin de cire (ondule quand il chauffe)
   for (int i = 0; i < 7; i++) {
     const LavaBlob &b = L->b[i]; if (!b.alive) continue;
-    { const float rr = b.r * (0.95f + 0.25f * tg), vs = sqrtf(b.vx * b.vx + b.vy * b.vy);   // v306c : blobs DEFORMABLES : tete + 2 lobes qui tournent lentement, etirement le long du mouvement, respiration
-      const float br = 1.0f + 0.16f * sinf(t * 0.6f + i * 2.1f) * (0.3f + tg), ang = t * 0.28f + i * 1.9f, lob = rr * (0.45f + 0.35f * tg);
+    const float tl = lavaTemp(L, b.x, b.y), ta = lavaTemp(L, b.ax, 30.0f);   // v382 : temperature locale du blob / de son ancrage
+    { const float rr = b.r * (0.95f + 0.25f * tl), vs = sqrtf(b.vx * b.vx + b.vy * b.vy);   // v306c : blobs DEFORMABLES : tete + 2 lobes qui tournent lentement, etirement le long du mouvement, respiration
+      const float br = 1.0f + 0.16f * sinf(t * 0.6f + i * 2.1f) * (0.3f + tl), ang = t * 0.28f + i * 1.9f, lob = rr * (0.45f + 0.35f * tl);
       lavaAdd(b.x, b.y, rr * br); lavaAdd(b.x, b.y, rr * br);
       lavaAdd(b.x + cosf(ang) * lob, b.y + sinf(ang) * lob * 0.8f, rr * 0.62f); lavaAdd(b.x - cosf(ang * 0.8f + 1.0f) * lob, b.y - sinf(ang * 0.8f + 1.0f) * lob * 0.8f, rr * 0.55f);
       if (!b.att && vs > 0.015f) { const float k = (vs * 55.0f > rr * 1.4f) ? rr * 1.4f : vs * 55.0f; lavaAdd(b.x - b.vx / vs * k, b.y - b.vy / vs * k, rr * 0.7f); lavaAdd(b.x + b.vx / vs * k * 0.5f, b.y + b.vy / vs * k * 0.5f, rr * 0.6f); } }
@@ -181,7 +212,7 @@ static void lavaBuild(const void *Lv, float tg, float t)
     const float dx = b.x - b.ax, dy = b.y - 33.0f, d = sqrtf(dx * dx + dy * dy);
     if (d <= 5.0f) continue;
     int n = (int)(d / 3.0f); if (n > 9) n = 9;
-    const float pinch = 1.0f - 0.30f * (d / (8.0f + 20.0f * tg) > 1.0f ? 1.0f : d / (8.0f + 20.0f * tg));
+    const float pinch = 1.0f - 0.30f * (d / (8.0f + 20.0f * ta) > 1.0f ? 1.0f : d / (8.0f + 20.0f * ta));
     for (int k = 1; k <= n; k++) {   // perles de la queue : plus fines vers le milieu, ondulantes
       const float u = k / (n + 1.0f);
       lavaAdd(b.ax + dx * u + sinf(u * 3.14159f) * 1.2f * sinf(t * 0.9f + i), 33.0f + dy * u, b.r * (0.42f + 0.40f * (1.0f - u)) * pinch);
@@ -201,11 +232,13 @@ static void lavaRow(int y, uint8_t *lv)   // champ de la ligne y (x 0..127) -> l
   }
   for (int x = 0; x < 128; x++) { const int v = (int)(f[x] * 100.0f); lv[x] = (uint8_t)(v > 255 ? 255 : v); }
 }
-static uint16_t lavaColor(const void *Lv, int y, int f)
+static uint16_t lavaColor(const void *Lv, int x, int y, int f)
 {
   const LavaSt *L = (const LavaSt *)Lv;
   const int ok = 30 + (y * 55) / 31;   // huile : degrade, sombre en haut, plus lumineux en bas (%)
   int r = L->oil[0] * ok / 100, g = L->oil[1] * ok / 100, b = L->oil[2] * ok / 100;
+  { const int hg = (int)(L->F[y >> 2][x >> 2] * 28.0f);   // v382 : halo de chaleur : l'huile chaude tire vers la couleur de la cire (28 % au maximum)
+    r += (L->wax[0] - r) * hg / 100; g += (L->wax[1] - g) * hg / 100; b += (L->wax[2] - b) * hg / 100; }
   if (f >= 32) {
     const int a = (f < 44) ? (f - 32) * 100 / 12 : 100;                  // bord anticrenele
     int t = (f > 44) ? ((f - 44) > 100 ? 100 : (f - 44)) : 0;            // coeur 0..100
@@ -303,7 +336,7 @@ static void decoClockAmbient(int kind, int h, int m, unsigned long ms)
     LavaSt *LL = (LavaSt *)st; const float t = (ms - lavaT0) / 1000.0f, tg = (t < 6.0f) ? 0.0f : ((t - 6.0f) > 40.0f ? 1.0f : (t - 6.0f) / 40.0f);
     lavaStep(LL, tg, t); lavaBuild(LL, tg, t);
     uint8_t lv[128];
-    for (int y = 0; y < 32; y++) { lavaRow(y, lv); for (int x = 0; x < 128; x++) clkPx(x, y, lavaColor(LL, y, lv[x])); }
+    for (int y = 0; y < 32; y++) { lavaRow(y, lv); for (int x = 0; x < 128; x++) clkPx(x, y, lavaColor(LL, x, y, lv[x])); }
   } else {   // pluie : traînees vertes derriere les chiffres
     if (ms - lastStep < 45) return; lastStep = ms; static unsigned tick = 0; tick++;
     for (int x = 0; x < 128; x++) {

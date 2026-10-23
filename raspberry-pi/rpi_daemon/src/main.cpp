@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "backend_png.h"
+#include "bootanim.h"
 #include "commandqueue.h"
 #include "config.h"
 #include "display.h"
@@ -56,7 +57,7 @@ int main(int argc, char **argv) {
   std::string webDir;  // pages de la configuration web (tools/port_web_assets.py) ; defaut : ../web a cote de l'executable
   bool noPanel = false;
   bool manageWifi = false;  // --wifi : garde-fous reseau (NetworkManager, point d'acces de configuration) ; le service systemd le passe, un lancement a la main non
-  bool rxTrace = false, noSchedTune = false;
+  bool rxTrace = false, noSchedTune = false, noBootAnim = false;
   std::string pngOut;  // --png-out FICHIER : sans dalles, ecrit l'image courante (zoom 4) a chaque affichage (tests)
 
 #ifdef WITH_HZELLER
@@ -85,6 +86,7 @@ int main(int argc, char **argv) {
     else if (!std::strcmp(argv[i], "--wifi")) manageWifi = true;
     else if (!std::strcmp(argv[i], "--rx-trace")) rxTrace = true;
     else if (!std::strcmp(argv[i], "--no-sched-tune")) noSchedTune = true;
+    else if (!std::strcmp(argv[i], "--no-boot-anim")) noBootAnim = true;
     else if (!std::strcmp(argv[i], "--png-out")) { pngOut = next(); noPanel = true; }
     else {
       std::fprintf(stderr, "option inconnue : %s\n", argv[i]);
@@ -121,6 +123,28 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  if (!noBootAnim) {  // animation de demarrage (6,5 s) : avant les caches, comme sur l'ESP32 ; luminosite du config.ini
+    std::string edition = "Pi Edition";
+    {
+      const size_t cut = exePath.find_last_of('/');  // <prefixe>/bin/dmd_daemon -> <prefixe>/PI_VERSION
+      const size_t cut2 = cut == std::string::npos ? cut : exePath.find_last_of('/', cut - 1);
+      if (cut2 != std::string::npos) {
+        std::FILE *pv = std::fopen((exePath.substr(0, cut2) + "/PI_VERSION").c_str(), "r");
+        if (pv) {
+          char vb[16] = {0};
+          if (std::fgets(vb, sizeof(vb), pv)) {
+            std::string v(vb);
+            while (!v.empty() && (v.back() == '\n' || v.back() == '\r' || v.back() == ' ')) v.pop_back();
+            if (!v.empty()) edition += " v" + v;
+          }
+          std::fclose(pv);
+        }
+      }
+    }
+    display.setBrightness8(cfg.brightness8());
+    playBootAnimation(display, fs, cfg, edition, [] { return g_stop != 0; });
+  }
+
   Engine engine(fs, display, cfg);
   engine.begin();
   engine.start();
@@ -137,6 +161,7 @@ int main(int argc, char **argv) {
     engine.pumpRbw();
   });
   udp.setRxTrace(rxTrace);
+  udp.setAlertGate([&engine] { return engine.mode() != Mode::PLAYLIST && !engine.configOpen(); });  // « hors ligne » : jamais pendant la playlist ni la page de configuration
   if (!udp.start(udpPort, helloPort)) logf("BOOT", "ATTENTION : serveur UDP indisponible, le DMD ne recevra aucune commande");
 
   // flux ZeDMD-WiFi (UDP 3333) + decouverte HTTP /handshake (EmulationStation / Visual Pinball)
@@ -187,6 +212,14 @@ int main(int argc, char **argv) {
     udp.tickPresence(now);
     if (engine.takeHelloRequest()) udp.sendHello();  // fin d'un flux ZeDMD : la Recalbox renvoie l'etat (webDmdResume)
     if (udp.takeConnectedEvent()) engine.onRecalboxConnected();  // « RecalBox connectee » 5 s sur l'image de secours, puis le logo seul
+    if (udp.takeDisconnectedEvent()) engine.onRecalboxDisconnected();  // « RecalBox hors ligne » : 5 s clignotants, puis la playlist reprend
+    if (udp.takePongEvent() && engine.takeDiscForcedPlaylist()) {  // la coupure est terminee : si la playlist a ete FORCEE par elle, resynchronisation de l'etat reel (HELLO)
+      const Mode m = engine.mode();
+      if (m == Mode::PLAYLIST || m == Mode::PNG || m == Mode::BLACK) {
+        logf("CMD", "RecalBox reconnectee (pong recu) -- resync etat reel demande");
+        udp.sendHello();
+      }
+    }
 
     // filet : Recalbox muette depuis 60 s alors qu'on affiche autre chose que la playlist -> reprise de la playlist
     const uint64_t seen = udp.lastPacketMs();

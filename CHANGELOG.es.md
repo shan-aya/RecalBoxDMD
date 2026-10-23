@@ -8,6 +8,18 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-23 — Firmware v3.82 y demonio Raspberry Pi v3.62: líquido en una cubeta, Arena 2, lámpara de lava, arranque y alertas en la Pi
+
+**Firmware v3.82** (de la v3.68 a la v3.82)
+- **Líquido en una cubeta.** El líquido está ahora en una cubeta (suelo y dos paredes, del ancho del panel) sobre una barra triangular en el centro inferior: la cubeta **bascula** hasta el ángulo máximo del líquido, con una duración de fase elegida al arrancar (5 a 10 s) y una **velocidad elegida en cada balanceo** (ángulo máximo alcanzado y pausa, o balanceo interrumpido antes). Las olas golpean las paredes y lanzan **salpicaduras** (hasta 48 gotas, más numerosas y vivas cuanto más rápido es el frente) en los líquidos fluidos; los líquidos espesos (jarabe, cera, miel) se **adhieren** a las paredes (menisco, película que se escurre despacio).
+- **Arena 2 rehecha** (como un cuadro de arena de verdad). Reserva fuera de pantalla, capas finas de cuatro tonos, un color pesado que cae en grumos y uno ligero que deriva como una nube (peso propio de cada color y de cada abertura), corriente lateral propia de cada abertura, aberturas con vida aleatoria (hasta 6 a la vez) y capas que se deslizan cuando una capa pesada se posa sobre una ligera; el panel se llena hasta cerca del 80 %.
+- **Lámpara de lava con punto caliente.** El calor parte de un punto caliente en el centro del fondo y se difunde hacia los bordes: primero se anima el centro y luego la actividad llega a los lados, con un halo de calor en el aceite.
+
+**Demonio Raspberry Pi v3.62**
+- **Las mismas ambientaciones que el DMD ESP32**: Arena 2, líquido en una cubeta, lámpara de lava con punto caliente (código idéntico, tomado automáticamente del firmware).
+- **Animación de arranque y temporadas.** La Pi reproduce la misma animación Shan_ayA que el DMD, y su versión festiva (Halloween, Navidad, Año Nuevo, San Valentín, Pascua) según la fecha. Se entrega con la actualización del demonio: nada que descargar ni configurar. Rutas `GET /boot-anim` y `GET /boot-season`, y el Modo 19 también puede enviarla.
+- **Las mismas alertas de estado que el DMD**: « ni wifi / ni recalbox » (sin red) y « RecalBox sin conexión » (dos PING seguidos sin respuesta), parpadeantes 5 s y luego vuelta a la lista; « RecalBox conectada » sin el emoticono, centrada sobre la tinta de las letras.
+
 ## 2026-10-22 (4) — Caja de herramientas del PC build 12876: animaciones de arranque en el Modo 1
 
 **Caja de herramientas del PC build 12876**

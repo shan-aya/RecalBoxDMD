@@ -27,8 +27,9 @@ def find(prefix, start=0):
 
 # 1) structures de la lave (declarees plus haut dans le .ino)
 s_lava = find("struct LavaBlob")
-struct_lines = lines[s_lava:s_lava + 3]
-assert struct_lines[2].startswith("struct LavaBall"), "structures Lava* inattendues"
+s_ball = find("struct LavaBall", s_lava)
+struct_lines = lines[s_lava:s_ball + 1]   # LavaBlob, LavaSt (+ static_assert depuis v382), LavaBall
+assert 3 <= len(struct_lines) <= 6 and struct_lines[-1].startswith("struct LavaBall"), "structures Lava* inattendues"
 
 # 2) le bloc des themes d'horloge ambiants : de « struct AmbRain » jusqu'a juste avant clockThemeName()
 a = find("struct AmbRain")

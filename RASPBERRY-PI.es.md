@@ -31,6 +31,8 @@ Los modos separados siguen disponibles: **Modo 16** (preparar una tarjeta, susti
 
 `config.ini` y el contenido de la tarjeta nunca se sobrescriben.
 
+**Animaciones de arranque (v3.62)**: el demonio reproduce la animación Shan_ayA al arrancar, y su versión festiva en torno a Halloween, Navidad, Año Nuevo, San Valentín y Pascua. Los seis archivos (`gifs/_boot/` de la tarjeta de contenido) se entregan con la actualización del demonio y se copian solo si faltan o cambian; el Modo 19 de la caja de herramientas también puede enviarlos.
+
 ## Compilarlo uno mismo
 
 El demonio está en [`raspberry-pi/rpi_daemon/`](raspberry-pi/rpi_daemon/) (C++17, CMake). Se enlaza con [rpi-rgb-led-matrix](https://github.com/hzeller/rpi-rgb-led-matrix) de Henner Zeller:

@@ -1,8 +1,8 @@
 // ============================================================================
-// GENERE par tools/port_widgets.py depuis RecalBox_DMD.ino (FW_VERSION_NUM 356).
+// GENERE par tools/port_widgets.py depuis RecalBox_DMD.ino (FW_VERSION_NUM 382).
 // NE PAS EDITER A LA MAIN : relancer le script. Widgets du decor (voir l'en-tete du script).
 // ============================================================================
-// ---- donnees des widgets Recalbox (CMD=rbw) et leur analyse (firmware, lignes 5340-5386) ----
+// ---- donnees des widgets Recalbox (CMD=rbw) et leur analyse (firmware, lignes 5369-5415) ----
 struct RbwData {
   bool ch, hl; uint8_t nTop, nRw;
   char chName[32]; int days, rank, ggs;
@@ -51,7 +51,7 @@ static void rbwParse(const String &arg)
   }
 }
 
-// ---- date + ephemeride (firmware, lignes 13022-13171) ----
+// ---- date + ephemeride (firmware, lignes 13383-13532) ----
 static int decoIsoWeek(const struct tm &t)
 {
   const int y = t.tm_year + 1900;
@@ -203,7 +203,7 @@ static bool decoDrawEphemeris()
   return true;
 }
 
-// ---- compte a rebours : calcul de l'evenement (firmware, lignes 13191-13223) ----
+// ---- compte a rebours : calcul de l'evenement (firmware, lignes 13552-13584) ----
 static long decoJdn(int y, int m, int d)   // jours depuis 1970-01-01 (Howard Hinnant)
 {
   y -= (m <= 2);
@@ -238,7 +238,7 @@ static bool decoPickEvent(int &idx, long &days, int &ey, int &em, int &ed)
 }
 
 
-// ---- ambiances (firmware, lignes 13307-13784) ----
+// ---- ambiances (firmware, lignes 13668-14263) ----
 // -- Ambiances : plasma, pluie, etoiles, vie (aucune allocation dynamique : tampons statiques) --
 static bool decoAmbPlasma(unsigned long durMs, bool preview)
 {
@@ -357,116 +357,178 @@ static const LiquidType LQT[6] = {
   {"mercure",       {215, 225, 235}, 0.001f,  0.010f, 0.010f,   1.20f,   8, 12,     100, 300,                 0, 20,       8, 13,      true}};
 static bool decoAmbLiquid(unsigned long durMs, bool preview)
 {
-  const int W = 128, H = 32, SUB = 6, ND = 10;
-  // v339 -- tableaux sur le TAS pendant le widget seulement (3 Ko de statique permanent en moins : au-dela de ~90 Ko de statique l'envoi TCP du serveur web echoue, DECISIONS.md 3.20)
-  struct LiqBuf { float h[W], hn[W], q[W - 1], r[W], rv[W]; int16_t topq[W]; float dpx[ND], dpy[ND], dvx[ND], dvy[ND]; bool dal[ND]; int16_t dox[ND], doy[ND]; };
+  // v377 -- LIQUIDE DANS UN BAC : le bac (sol + deux parois) est pose sur une barre triangulaire dont la pointe est au centre bas de la dalle ; il BASCULE autour de ce pivot,
+  // toujours a l'inclinaison maximale du type de liquide, a une vitesse tiree au hasard a chaque bascule. Le liquide (meme physique qu'avant, dans le repere du bac) reste
+  // horizontal a l'ecran ; sa surface et l'impact sur les parois restent visibles. Rendu par inversion : chaque pixel de l'ecran est converti dans le repere du bac.
+  const int W = 128, H = 32, NW = 124, SUB = 6, ND = 48;   // v379 : 48 gouttelettes (10 avant) pour les grosses eclaboussures   // v378 : bac = largeur de la dalle moins l'epaisseur des deux parois (2 x 2 px)
+  const float PX = 64.0f, PY = 26.5f, FL = 2.0f, WT = 2.0f, WH = 42.0f;
+  struct LiqBuf { float h[NW], hn[NW], q[NW - 1], r[NW], rv[NW], sf[NW]; float dpx[ND], dpy[ND], dvx[ND], dvy[ND]; bool dal[ND]; };
   LiqBuf *lb = (LiqBuf *)malloc(sizeof(LiqBuf));
   if (!lb) { Serial.println("[DECO] liquide : tas insuffisant, widget saute"); return true; }
-  struct LiqFree { void *p; ~LiqFree() { free(p); } } lbFree = { lb };   // liberation automatique a TOUTE sortie de la fonction
-  float (&h)[W] = lb->h; float (&hn)[W] = lb->hn; float (&q)[W - 1] = lb->q; float (&r)[W] = lb->r; float (&rv)[W] = lb->rv; int16_t (&topq)[W] = lb->topq;
-  float (&dpx)[ND] = lb->dpx; float (&dpy)[ND] = lb->dpy; float (&dvx)[ND] = lb->dvx; float (&dvy)[ND] = lb->dvy; bool (&dal)[ND] = lb->dal; int16_t (&dox)[ND] = lb->dox; int16_t (&doy)[ND] = lb->doy;
+  struct LiqFree { void *p; ~LiqFree() { free(p); } } lbFree = { lb };
+  float (&h)[NW] = lb->h; float (&hn)[NW] = lb->hn; float (&q)[NW - 1] = lb->q; float (&r)[NW] = lb->r; float (&rv)[NW] = lb->rv; float (&sf)[NW] = lb->sf;
+  float (&dpx)[ND] = lb->dpx; float (&dpy)[ND] = lb->dpy; float (&dvx)[ND] = lb->dvx; float (&dvy)[ND] = lb->dvy; bool (&dal)[ND] = lb->dal;
   static int s_lastLq = -1;
   int ti; do { ti = (int)random(0, 6); } while (ti == s_lastLq); s_lastLq = ti;
   const LiquidType &L = LQT[ti];
-  const float jit = random(85, 120) / 100.0f;                         // petite variation de viscosite d'un lancement a l'autre, pour un meme type
-  const float hm = (float)random(L.dMin, L.dMax + 1);                 // quantite de liquide : profondeur moyenne de la nappe (px)
-  const float amp = random(L.ampMin * 10, L.ampMax * 10 + 1) / 10.0f * (float)M_PI / 180.0f;   // inclinaison maximale de ce type
+  const float jit = random(85, 120) / 100.0f;
+  const float hm = (float)random(L.dMin, L.dMax + 1);
+  float ampDeg = random(L.ampMin * 10, L.ampMax * 10 + 1) / 10.0f; if (ampDeg > 16.0f) ampDeg = 16.0f;
+  const float amp = ampDeg * (float)M_PI / 180.0f;
+  const unsigned long phMs = (unsigned long)random(5000, 10001);   // v379 : DUREE DE PHASE fixee au demarrage (5 a 10 s), la meme pour toutes les bascules
+  const float adh = L.drops ? 0.0f : fminf(1.0f, 0.4f + L.drag * 1.5f);   // v379 : ADHERENCE aux parois des liquides peu fluides (sirop 0,5 / cire 0,8 / miel 1)
+  float wetH[2] = {0, 0};   // hauteur du film laisse sur chaque paroi
   const float dt = 1.0f / SUB, g = 0.40f, drag = L.drag * jit, nu = L.nu * jit, rdamp = L.rdamp, rk = 0.30f, rexc = L.rexc;
-  uint8_t oc[3] = {L.rgb[0], L.rgb[1], L.rgb[2]}; if (decoAmbCol[5][0] >= 0) { oc[0] = (decoAmbCol[5][0] >> 16) & 255; oc[1] = (decoAmbCol[5][0] >> 8) & 255; oc[2] = decoAmbCol[5][0] & 255; }   // v311 : couleur choisie (la physique du type reste)
-  Serial.println(String("[DECO] liquide : ") + L.name + ", profondeur " + String(hm, 0) + " px, inclinaison max " + String(amp * 57.2958f, 1) + " deg, heap=" + String(ESP.getFreeHeap()));
-  for (int i = 0; i < W; i++) { h[i] = hm; r[i] = 0; rv[i] = 0; topq[i] = H * 8; }
-  for (int i = 0; i < W - 1; i++) q[i] = 0;
-  for (int i = 0; i < ND; i++) { dal[i] = false; dox[i] = -1; }
+  uint8_t oc[3] = {L.rgb[0], L.rgb[1], L.rgb[2]};
+  if (decoAmbCol[5][0] >= 0) { oc[0] = (decoAmbCol[5][0] >> 16) & 255; oc[1] = (decoAmbCol[5][0] >> 8) & 255; oc[2] = decoAmbCol[5][0] & 255; }
+  Serial.println(String("[DECO] liquide (bac) : ") + L.name + ", profondeur " + String(hm, 0) + " px, bascule max " + String(ampDeg, 1) + " deg, phase " + String(phMs / 1000.0f, 1) + " s, heap=" + String(ESP.getFreeHeap()));
+  for (int i = 0; i < NW; i++) { h[i] = hm; r[i] = 0; rv[i] = 0; sf[i] = hm; }
+  for (int i = 0; i < NW - 1; i++) q[i] = 0;
+  for (int i = 0; i < ND; i++) dal[i] = false;
   display->clearScreen();
-  float th = 0, tgt = amp, spd = 0.01f; int hold = 0, cdL = 0, cdR = 0;
-  auto pix = [&](int x, int y) -> uint16_t {   // couleur d'un pixel selon la surface de la colonne
-    const int nt = topq[x]; if (nt >= H * 8) return 0;
-    const float top = nt / 8.0f; const int ys = (int)top;
-    if (y < ys) return 0;
-    const float cov = (y == ys) ? (float)(ys + 1) - top : 1.0f;
-    const float k = 1.0f - 0.35f * (float)y / (H - 1);
-    float rr = oc[0] * k, gg = oc[1] * k, bb = oc[2] * k;
-    if (y == ys) { rr = rr * 0.55f + 255 * 0.45f; gg = gg * 0.55f + 255 * 0.45f; bb = bb * 0.55f + 255 * 0.45f; }   // lisere clair a l'interface
-    return display->color565((uint8_t)(rr * cov), (uint8_t)(gg * cov), (uint8_t)(bb * cov));
-  };
+  const float wR = 95, wG = 105, wB = 130, hR = 160, hG = 170, hB = 200;   // bac : couleur de base et liseré clair cote interieur
+  const uint16_t triC = display->color565(70, 55, 40);
   const uint16_t dropC = display->color565(min(255, oc[0] + 110), min(255, oc[1] + 110), 255);
+  float th = 0, tgt = random(0, 2) ? amp : -amp, spd = random(4, 101) / 10000.0f; int cdL = 0, cdR = 0;
+  unsigned long phT0 = millis();
   const unsigned long t0 = millis(); unsigned long last = 0;
   while (millis() - t0 < durMs) {
     if (decoStop(preview)) return false;
     if (millis() - last < 33) { delay(2); continue; }
     last = millis();
-    if (fabsf(th - tgt) < 0.0001f) {   // cible atteinte : pause (propre au type), puis nouvelle inclinaison (de l'autre cote le plus souvent, 15 a 100 % du maximum, vitesse propre au type)
-      if (--hold <= 0) { const float sg = (random(0, 100) < 80) ? (tgt > 0 ? -1.0f : 1.0f) : (tgt > 0 ? 1.0f : -1.0f); tgt = sg * amp * random(15, 101) / 100.0f; spd = random(L.spdMin, L.spdMax + 1) / 10000.0f; hold = (int)random(L.holdMin, L.holdMax + 1); }
-    } else {
+    // bascule : chaque phase dure EXACTEMENT phMs ; a chaque phase le sens s'inverse et la vitesse est tiree au hasard (tres lente = bascule interrompue avant le maximum,
+    // rapide = maximum atteint puis pause jusqu'a la fin de la phase) ; la phase suivante repart de l'angle atteint
+    if (millis() - phT0 >= phMs) { tgt = -tgt; spd = random(4, 101) / 10000.0f; phT0 = millis(); }
+    if (fabsf(th - tgt) >= 0.0001f) {
       const float dd = tgt - th; float ma = fabsf(dd * 0.06f);
       if (ma > spd) ma = spd; else if (ma < 0.25f * spd) ma = 0.25f * spd;
       if (ma >= fabsf(dd)) th = tgt; else th += (dd > 0 ? ma : -ma);
     }
-    const float gx = sinf(th), gy = cosf(th);
+    const float cs = cosf(th), sn = sinf(th);
+    const float gx = sn, gy = cs;
     for (int s = 0; s < SUB; s++) {
-      for (int i = 0; i < W - 1; i++) {
+      for (int i = 0; i < NW - 1; i++) {
         const float hf = (h[i] + h[i + 1]) * 0.5f;
         float qq = q[i] + dt * (-gy * g * hf * (h[i + 1] - h[i]) + g * gx * hf) - dt * drag * q[i];
         if (qq > 0) { const float m = 0.4f * h[i] / dt; if (qq > m) qq = m; } else { const float m = -0.4f * h[i + 1] / dt; if (qq < m) qq = m; }
+        if (adh > 0.0f && (i < 4 || i > NW - 6)) qq *= 1.0f - 0.12f * adh;   // v379 : le liquide visqueux colle aux parois
         q[i] = qq;
       }
-      for (int i = 0; i < W; i++) {
-        const float ql = i > 0 ? q[i - 1] : 0.0f, qr = i < W - 1 ? q[i] : 0.0f;
+      for (int i = 0; i < NW; i++) {
+        const float ql = i > 0 ? q[i - 1] : 0.0f, qr = i < NW - 1 ? q[i] : 0.0f;
         h[i] += dt * (ql - qr);
       }
-      for (int i = 0; i < W; i++) {
-        const float a = i > 0 ? h[i - 1] : h[i], b = i < W - 1 ? h[i + 1] : h[i];
+      for (int i = 0; i < NW; i++) {
+        const float a = i > 0 ? h[i - 1] : h[i], b = i < NW - 1 ? h[i + 1] : h[i];
         float nl = nu + 0.4f * fabsf(b - a); if (nl > 2.0f) nl = 2.0f;
         float v = h[i] + nl * dt * (a - 2 * h[i] + b);
-        hn[i] = v < 0 ? 0 : (v > 31.0f ? 31.0f : v);
+        hn[i] = v < 0 ? 0 : (v > WH - 2.0f ? WH - 2.0f : v);
       }
       memcpy(h, hn, sizeof(h));
     }
-    // ondelettes de surface : equation d'onde amortie ; excitation par l'ecoulement local et les fronts, impulsion forte aux parois
-    for (int x = 0; x < W; x++) {
-      const float qa = fabsf(q[x < W - 1 ? x : W - 2]), gr = fabsf((x < W - 1 ? h[x + 1] : h[x]) - (x > 0 ? h[x - 1] : h[x]));
+    // ondelettes de surface : equation d'onde amortie, excitee par l'ecoulement et les fronts, impulsion forte aux parois
+    for (int x = 0; x < NW; x++) {
+      const float qa = fabsf(q[x < NW - 1 ? x : NW - 2]), gr = fabsf((x < NW - 1 ? h[x + 1] : h[x]) - (x > 0 ? h[x - 1] : h[x]));
       if (h[x] > 0.5f) rv[x] += random(-1000, 1001) / 1000.0f * rexc * (0.02f + 0.02f * qa + 0.08f * gr);
     }
     for (int it = 0; it < 2; it++) {
-      for (int x = 0; x < W; x++) {
-        const float a = x > 0 ? r[x - 1] : r[x], b = x < W - 1 ? r[x + 1] : r[x];
+      for (int x = 0; x < NW; x++) {
+        const float a = x > 0 ? r[x - 1] : r[x], b = x < NW - 1 ? r[x + 1] : r[x];
         rv[x] += rk * (a + b - 2 * r[x]) - rdamp * rv[x] - 0.02f * r[x];
       }
-      for (int x = 0; x < W; x++) { r[x] += rv[x]; if (r[x] > 2.5f) r[x] = 2.5f; else if (r[x] < -2.5f) r[x] = -2.5f; }
+      for (int x = 0; x < NW; x++) { r[x] += rv[x]; if (r[x] > 2.5f) r[x] = 2.5f; else if (r[x] < -2.5f) r[x] = -2.5f; }
     }
-    // impacts sur les parois : choc dans les ondelettes, et gerbe de gouttelettes pour les liquides fluides
-    if (cdL > 0) cdL--; if (cdR > 0) cdR--;
-    const float qL = q[0], qR = q[W - 2];
+    // impacts sur les parois du bac : choc dans les ondelettes, gerbe de gouttelettes pour les liquides fluides (lancees dans le repere du bac, retombent a l'ecran)
+    if (cdL > 0) cdL--;
+    if (cdR > 0) cdR--;
+    const float qL = q[0], qR = q[NW - 2];
     for (int side = 0; side < 2; side++) {
-      const float qi = side ? qR : -qL;   // flux dirige vers la paroi
+      const float qi = side ? qR : -qL;
       int &cd = side ? cdR : cdL;
-      if (qi > 2.5f && cd == 0) {
-        cd = 6; const int x0 = side ? W - 2 : 1, n = 2 + (int)(qi * 0.35f);
-        if (L.drops) for (int k = 0; k < n && k < 5; k++) {
-          for (int d = 0; d < ND; d++) if (!dal[d]) {
-            dal[d] = true; dpx[d] = (float)x0; dpy[d] = H - h[x0] - 1.0f;
-            dvx[d] = (side ? -1.0f : 1.0f) * random(10, 70) / 100.0f; dvy[d] = -(0.9f + random(0, 100) / 100.0f * (0.25f * qi + 0.6f)); dox[d] = -1; break;
+      if (qi > 1.2f && cd == 0) {   // v381 : seuil 2,5 -> 1,2 (les bascules lentes tirees au hasard ne donnaient presque jamais d'impact)
+        cd = 4;
+        if (L.drops) {
+          int n = 4 + (int)(qi * 4.0f); if (n > ND) n = ND;
+          const float sp = 0.8f + 0.25f * qi;
+          for (int k = 0; k < n; k++) {
+            for (int d = 0; d < ND; d++) if (!dal[d]) {
+              const int xs = side ? NW - 2 - (int)random(0, 4) : 1 + (int)random(0, 4);
+              const float u0 = xs + 0.5f - NW * 0.5f, v0 = h[xs] + random(0, 100) / 100.0f * 2.0f;
+              const float vxs = (side ? -1.0f : 1.0f) * (0.3f + random(0, 100) / 100.0f * 0.9f) * sp * 0.8f, vys = (0.35f + random(0, 100) / 100.0f) * sp;   // v381 : lancees dans le repere de l'ECRAN (vers le haut et vers l'interieur), pas dans celui du bac penche (elles partaient hors de la dalle)
+              dal[d] = true; dpx[d] = PX + u0 * cs + v0 * sn; dpy[d] = PY - (-u0 * sn + v0 * cs);
+              dvx[d] = vxs; dvy[d] = -vys; break;
+            }
           }
         }
-        for (int k = 0; k < 4; k++) rv[side ? W - 1 - k : k] += 0.35f * rexc * (4 - k) / 4.0f * qi * 0.2f;
+        for (int k = 0; k < 4; k++) rv[side ? NW - 1 - k : k] += 0.35f * rexc * (4 - k) / 4.0f * qi * 0.2f;
       }
     }
-    // dessin : colonnes dont la surface a bouge (surface = nappe + ondelettes)
-    for (int i = 0; i < ND; i++) if (dox[i] >= 0) { display->drawPixel(dox[i], doy[i], pix(dox[i], doy[i])); dox[i] = -1; }   // efface les gouttes (la colonne est redessinee juste apres si besoin)
-    for (int x = 0; x < W; x++) {
-      const float surf = h[x] + (h[x] > 0.4f ? r[x] : 0.0f);
-      const int nt = (surf < 0.15f) ? H * 8 : (int)lroundf((H - surf) * 8.0f);
-      if (nt == topq[x]) continue;
-      const int ot = topq[x];
-      const int ya = ((nt < ot ? nt : ot) >> 3) - 1, yb = ((nt > ot ? nt : ot) >> 3) + 1;
-      topq[x] = nt;
-      for (int y = (ya < 0 ? 0 : ya); y <= yb && y < H; y++) display->drawPixel(x, y, pix(x, y));
+    // surface de chaque colonne du bac = nappe + ondelettes
+    for (int x = 0; x < NW; x++) sf[x] = (h[x] > 0.15f) ? h[x] + (h[x] > 0.4f ? r[x] : 0.0f) : 0.0f;
+    if (adh > 0.0f) {   // v379 : menisque (le liquide remonte contre la paroi) puis film laisse sur la paroi, qui ne s'ecoule que lentement
+      static const float MEN[3] = {2.0f, 1.2f, 0.6f};
+      for (int k = 0; k < 3; k++) { if (sf[k] > 0.4f) sf[k] += adh * MEN[k]; if (sf[NW - 1 - k] > 0.4f) sf[NW - 1 - k] += adh * MEN[k]; }
+      const float lv[2] = {sf[0], sf[NW - 1]};
+      for (int sd = 0; sd < 2; sd++) {
+        if (lv[sd] > wetH[sd]) wetH[sd] = lv[sd];
+        else { wetH[sd] -= 0.004f + 0.05f * (1.0f - adh); if (wetH[sd] < lv[sd]) wetH[sd] = lv[sd]; }
+      }
     }
-    for (int i = 0; i < ND; i++) if (dal[i]) {   // gouttelettes : trajectoire balistique, reabsorbees par la nappe
+    // dessin complet : chaque pixel de l'ecran est converti dans le repere du bac (rotation inverse autour du pivot)
+    for (int y = 0; y < H; y++) {
+      const float dy = PY - (y + 0.5f);
+      for (int x = 0; x < W; x++) {
+        const float dx = (x + 0.5f) - PX;
+        const float u = dx * cs - dy * sn, v = dx * sn + dy * cs;
+        const float fu = u + NW * 0.5f;
+        uint16_t col = 0;
+        // v378 : contour du bac LISSE (couverture de chaque pixel par le rectangle exterieur moins le rectangle interieur, calculee dans le repere du bac)
+        float cin = fu < NW - fu ? fu : NW - fu; if (v < cin) cin = v;
+        float cout = (fu + WT) < (NW + WT - fu) ? (fu + WT) : (NW + WT - fu); if (v + FL < cout) cout = v + FL; if (WH - v < cout) cout = WH - v;
+        const float covIn = cin <= -0.5f ? 0.0f : (cin >= 0.5f ? 1.0f : cin + 0.5f);
+        const float covOut = cout <= -0.5f ? 0.0f : (cout >= 0.5f ? 1.0f : cout + 0.5f);
+        float rr = 0, gg = 0, bb = 0;
+        if (covIn > 0.0f) {
+          float fi = fu - 0.5f; if (fi < 0) fi = 0; if (fi > NW - 1.001f) fi = NW - 1.001f;
+          const int i0 = (int)fi; const float tt = fi - i0, hs = sf[i0] + (sf[i0 + 1] - sf[i0]) * tt;
+          const float d = hs - v;
+          if (hs > 0.15f && d > -0.5f) {
+            const float cov = d > 0.5f ? 1.0f : d + 0.5f;
+            float dep = d / 22.0f; if (dep > 1.0f) dep = 1.0f;
+            const float k = 1.0f - 0.35f * dep;
+            rr = oc[0] * k; gg = oc[1] * k; bb = oc[2] * k;
+            if (d < 1.0f) { rr = rr * 0.55f + 255 * 0.45f; gg = gg * 0.55f + 255 * 0.45f; bb = bb * 0.55f + 255 * 0.45f; }
+            rr *= cov; gg *= cov; bb *= cov;
+          }
+          rr *= covIn; gg *= covIn; bb *= covIn;
+        }
+        const float wc = covOut * (1.0f - covIn);
+        if (wc > 0.0f) {
+          float hi = 1.2f + cin; if (hi < 0) hi = 0; if (hi > 1) hi = 1;
+          float wr = wR + (hR - wR) * hi, wg = wG + (hG - wG) * hi, wb = wB + (hB - wB) * hi;
+          if (adh > 0.0f && v > 0.0f && cin > -1.2f) {   // film de liquide colle a la paroi (jusqu'a la hauteur mouillee)
+            const int sd = (fu < NW * 0.5f) ? 0 : 1;
+            if (v < wetH[sd]) { const float fa = adh * 0.75f * (1.0f - 0.5f * v / (wetH[sd] + 0.001f)); wr += (oc[0] - wr) * fa; wg += (oc[1] - wg) * fa; wb += (oc[2] - wb) * fa; }
+          }
+          rr += wr * wc; gg += wg * wc; bb += wb * wc;
+        }
+        if (rr > 255) rr = 255;
+        if (gg > 255) gg = 255;
+        if (bb > 255) bb = 255;
+        col = display->color565((uint8_t)rr, (uint8_t)gg, (uint8_t)bb);
+        if (col == 0 && dy < 0 && fabsf(dx) <= -dy * 0.6f) col = triC;
+        display->drawPixel(x, y, col);
+      }
+    }
+    // gouttelettes : trajectoire balistique a l'ecran, reabsorbees par la nappe, perdues contre une paroi ou hors de l'ecran
+    for (int i = 0; i < ND; i++) if (dal[i]) {
       dvy[i] += 0.16f; dpx[i] += dvx[i]; dpy[i] += dvy[i];
-      const int gx2 = (int)lroundf(dpx[i]), gy2 = (int)lroundf(dpy[i]);
-      if (gx2 < 0 || gx2 >= W || gy2 >= H || (dvy[i] > 0 && gy2 >= topq[gx2] / 8 - 0)) { dal[i] = false; if (gx2 >= 0 && gx2 < W) rv[gx2] += 0.25f * rexc; continue; }
-      if (gy2 >= 0) { dox[i] = gx2; doy[i] = gy2; display->drawPixel(gx2, gy2, dropC); }
+      if (dpx[i] < -40 || dpx[i] >= W + 40 || dpy[i] >= H + 8) { dal[i] = false; continue; }   // v380 : les gouttes peuvent naitre hors de la dalle (paroi basse du bac) et y rentrer
+      const float ddx = dpx[i] - PX, ddy = PY - dpy[i];
+      const float u = ddx * cs - ddy * sn, v = ddx * sn + ddy * cs, fu = u + NW * 0.5f;
+      if (fu < 1 || fu >= NW - 1) { dal[i] = false; continue; }
+      if (v < 0 || (dvy[i] > 0 && v < sf[(int)fu])) { dal[i] = false; rv[(int)fu] += 0.25f * rexc; continue; }   // v380 : reabsorbee seulement en retombant
+      if (dpy[i] >= 0 && dpx[i] >= 0 && dpx[i] < W) display->drawPixel((int)dpx[i], (int)dpy[i], dropC);
     }
   }
   return true;
@@ -541,39 +603,64 @@ static bool decoAmbSand2(unsigned long durMs, bool preview)
   static const uint8_t PAIR[6][2][3] = {{{245, 245, 245}, {60, 60, 70}}, {{0, 80, 255}, {255, 30, 30}}, {{255, 220, 0}, {130, 0, 200}},
                                         {{0, 200, 70}, {255, 0, 140}}, {{0, 220, 255}, {255, 110, 0}}, {{255, 255, 255}, {0, 90, 255}}};   // paires TRES contrastees
   uint16_t col[5]; col[0] = 0;
-  int SY = 37, ng = 1, xgs[GMAX], blk[GMAX], quiet = 0, nMoves = 0; bool dead[GMAX], lifted = false; unsigned frame = 0, hold = 0;
+  int SY = 37, ng = 1, xgs[GMAX], blk[GMAX], quiet = 0, nMoves = 0; bool dead[GMAX], lifted = false, done = false; unsigned frame = 0, hold = 0;
   unsigned long cycleT0 = 0, liftT = 0; bool cycleOpen = true;
-  uint8_t hgt[128], near[128], hp[128], slideP[128]; bool isGap[128]; float curPh = 0, curSp = 0.03f;   // v306 : irregularite : probabilite de glissement PAR COLONNE (sable plus ou moins collant) et courant lateral lent dans l'eau
+  unsigned gcnt[GMAX] = {0}; int cbase = 0; unsigned gAge[GMAX] = {0}, gLife[GMAX] = {0}; bool hv[GMAX][5] = {{false}}; float gPh[GMAX] = {0}, gSp[GMAX] = {0}, curK[GMAX] = {0};   // v372 : poids PAR COULEUR ET PAR BRECHE (hv, true = lourd / amas)   // v371 : courant lateral et phase des nuages PROPRES a chaque breche   // v369 : grains passes par chaque breche (la couleur d'un grain est decidee a la breche)
+  uint8_t bandCol[200], hgt[128], near[128], hp[128], slideP[128]; bool isGap[128]; float curPh = 0, curSp = 0.03f;   // v306 : irregularite : probabilite de glissement PAR COLONNE (sable plus ou moins collant) et courant lateral lent dans l'eau
   auto dr = [&](int x, int gy, int c) { if (gy >= 32) display->drawPixel(x, gy - 32, c ? col[c] : 0); };
+  auto coneCol = [&](int xg) -> int {   // v369 : couche de couleur suivante du cone de CETTE breche : la hauteur d'un cone croit comme sqrt(grains) -> bandes fines et regulieres qui suivent la pente (chevrons)
+    int k = 0; for (int j = 0; j < ng; j++) if (xgs[j] == xg) { k = j; break; }
+    int lv = cbase + (int)sqrtf((float)(gcnt[k]++)); if (lv > 199) lv = 199; return bandCol[lv];
+  };
   auto recomputeNear = [&]() {   // breche ACTIVE la plus proche de chaque colonne (255 = aucune)
     for (int x = 0; x < W; x++) { int b = 255, bd = 999; for (int k = 0; k < ng; k++) if (!dead[k]) { const int dd = abs(x - xgs[k]); if (dd < bd) { bd = dd; b = k; } } near[x] = (uint8_t)b; }
   };
-  auto addGaps = [&](int n) {   // ouvre jusqu'a n breches ailleurs : pas a moins de 24 px d'une autre, et sans cone sous l'etagere
-    for (int a = 0; a < n && ng < GMAX; a++) for (int tries = 0; tries < 30; tries++) {
-      const int c = (int)random(8, 120); bool ok = (get(c, SY) == 0 && get(c, SY + 1) == 0 && get(c, SY - 1) != 0);
-      for (int j = 0; j < ng && ok; j++) if (abs(c - xgs[j]) < 24) ok = false;
-      if (ok) { xgs[ng] = c; blk[ng] = 0; dead[ng] = false; isGap[c] = true; ng++; break; }
+  auto addGaps = [&](int n) {   // v375 : ouvre jusqu'a n breches ailleurs (pas a moins de 16 px d'une autre, sans cone sous l'etagere), 6 ACTIVES AU MAXIMUM ; reutilise l'emplacement d'une breche terminee
+    for (int a = 0; a < n; a++) {
+      int active = 0, slot = -1; for (int j = 0; j < ng; j++) { if (!dead[j]) active++; else if (slot < 0) slot = j; }
+      if (active >= 6) break;
+      if (slot < 0) { if (ng >= GMAX) break; slot = ng; }
+      for (int tries = 0; tries < 40; tries++) {
+        const int c = (int)random(8, 120); bool ok = (get(c, SY) == 0 && get(c, SY + 1) == 0 && get(c, SY - 1) != 0);
+        for (int j = 0; j < ng && ok; j++) if (j != slot && abs(c - xgs[j]) < 16) ok = false;
+        if (ok) {
+          if (slot < ng) isGap[xgs[slot]] = false; else ng++;
+          xgs[slot] = c; blk[slot] = 0; dead[slot] = false; isGap[c] = true; gAge[slot] = 0; gLife[slot] = (unsigned)random(300, 1201);   // duree de vie aleatoire : 10 a 40 s environ
+          { const bool r = random(0, 2); hv[slot][1] = r; hv[slot][2] = !r; hv[slot][3] = random(0, 2); hv[slot][4] = random(0, 2); }
+          gPh[slot] = random(0, 628) / 100.0f; gSp[slot] = (random(0, 2) ? 1 : -1) * random(50, 101) / 100.0f; /* courant constant pendant la vie de la breche */
+          break;
+        }
+      }
     }
     recomputeNear();
   };
   auto newReserve = [&]() {
     const uint8_t (*pl)[3] = PAIR[random(0, 6)];   // DEUX couleurs seulement, tranchees
     col[1] = decoAmbCol[7][0] >= 0 ? display->color565((decoAmbCol[7][0] >> 16) & 255, (decoAmbCol[7][0] >> 8) & 255, decoAmbCol[7][0] & 255) : display->color565(pl[0][0], pl[0][1], pl[0][2]);   // v311 : couleurs choisies
-    col[2] = decoAmbCol[7][1] >= 0 ? display->color565((decoAmbCol[7][1] >> 16) & 255, (decoAmbCol[7][1] >> 8) & 255, decoAmbCol[7][1] & 255) : display->color565(pl[1][0], pl[1][1], pl[1][2]); col[3] = col[1]; col[4] = col[2];
-    const int vis = (int)random(5, 8); SY = 32 + vis;
+    col[2] = decoAmbCol[7][1] >= 0 ? display->color565((decoAmbCol[7][1] >> 16) & 255, (decoAmbCol[7][1] >> 8) & 255, decoAmbCol[7][1] & 255) : display->color565(pl[1][0], pl[1][1], pl[1][2]); { const int r1 = (col[1] >> 11) & 31, g1 = (col[1] >> 5) & 63, b1 = col[1] & 31, r2 = (col[2] >> 11) & 31, g2 = (col[2] >> 5) & 63, b2 = col[2] & 31;   // v368 : 2 tons de plus : melange (liseré) et teinte claire
+      col[3] = (uint16_t)((((r1 + r2) / 2) << 11) | (((g1 + g2) / 2) << 5) | ((b1 + b2) / 2));
+      col[4] = (uint16_t)((((r1 + 31) / 2) << 11) | (((g1 + 63) / 2) << 5) | ((b1 + 31) / 2)); }
+    SY = 30;   // v371 : etagere 2 rangees au-dessus de l'ecran (les pointes des cones peuvent depasser le bord haut sans boucher) ; v370 : reserve HORS ECRAN (au-dessus du DMD) : les filets sortent par le bord haut de la dalle
     for (int x = 0; x < W; x++) isGap[x] = false;
     memset(g, 0, W * GH / 2);
-    const int T = 32;   // v306 : reserve de 32 rangees x 128 = 4096 grains = EXACTEMENT le nombre de pixels de la dalle (remplissage final visee : 100 %)
+    { int k = 0, cc = (int)random(1, 3); while (k < 200) {   // v368 : STRATES FINES, d'epaisseur irreguliere (ton principal 3-7 rangees, contraste 2-4, liseres de 1-2) comme dans la vraie machine a sable
+        const int r = random(0, 100); const int tone = (r < 45) ? 1 : (r < 70) ? 2 : (r < 88) ? 3 : 4; cc = tone == cc ? ((tone % 4) + 1) : tone;
+        const int th = (cc == 1) ? (int)random(4, 10) : (cc == 2) ? (int)random(3, 7) : (int)random(1, 3);
+        for (int j = 0; j < th && k < 200; j++) bandCol[k++] = (uint8_t)cc; } }
+    const int T = 27;   // v371 : reserve calibree 27 x 128 = 3456 grains = 84 % de la dalle (v370 : 13 rangees = 40 %, trop de vide) : une fois TOUT tombe il reste du vide en haut ; v306 : 32 rangees
+    // : reserve de 32 rangees x 128 = 4096 grains = EXACTEMENT le nombre de pixels de la dalle (remplissage final visee : 100 %)
     const float p1 = random(0, 628) / 100.0f, p2 = random(0, 628) / 100.0f, a1 = random(20, 45) / 10.0f, a2 = random(5, 12) / 10.0f, bt = random(80, 150) / 10.0f; const int off = (int)random(0, 4);
     for (int gy = SY - T; gy < SY; gy++) for (int x = 0; x < W; x++) {   // zones : bandes de 8 a 15 lignes, frontieres ondulees douces
       const float v = gy + a1 * sinf(x * 0.045f + p1) + a2 * sinf(x * 0.13f + p2) + 40.0f;
-      const int c = 1 + ((int)(v / bt) + off) % 2;
+      int vi = (int)v; if (vi < 0) vi = 0; if (vi > 199) vi = 199;
+      const int c = bandCol[vi];
       put(x, gy, c); dr(x, gy, c);
     }
     { const float q1 = random(0, 628) / 100.0f, q2 = random(0, 628) / 100.0f; for (int x = 0; x < W; x++) slideP[x] = (uint8_t)(25 + 60 * (0.5f + 0.25f * sinf(x * 0.06f + q1) + 0.25f * sinf(x * 0.17f + q2))); }
     curPh = random(0, 628) / 100.0f; curSp = random(15, 40) / 1000.0f;
-    ng = 0; lifted = false; quiet = 0; hold = 0; cycleT0 = millis(); addGaps(1);
-    const int extra = (int)random(0, 3);   // de 1 a 3 breches au depart
+    for (int j = 0; j < GMAX; j++) gcnt[j] = 0; cbase = (int)random(0, 60);
+    ng = 0; lifted = false; done = false; quiet = 0; hold = 0; cycleT0 = millis(); addGaps(1);
+    const int extra = (int)random(2, 4);   // v371 : de 3 a 4 breches au depart
     addGaps(extra);
   };
   display->clearScreen();
@@ -593,7 +680,7 @@ static bool decoAmbSand2(unsigned long durMs, bool preview)
       continue;
     }
     nMoves = 0;
-    if (!lifted) {
+    if (!lifted && !done) {
       // 1) derive en pente douce : le grain de surface glisse d'une colonne vers la breche active la plus proche si la colonne voisine (cote breche) est plus basse
       for (int x = 0; x < W; x++) { int t = 0; while (t < SY && get(x, t) == 0) t++; hgt[x] = (uint8_t)(SY - t); }
       for (int d = 1; d < 128; d++) for (int k = 0; k < ng; k++) for (int side = 0; side < 2; side++) {
@@ -610,7 +697,8 @@ static bool decoAmbSand2(unsigned long durMs, bool preview)
       }
     }
     // 2) chute / eboulement ; sous l'etagere seules les breches sont franchissables (jusqu'a ce que l'etagere soit levee)
-    const float cur = sinf(frame * curSp + curPh);   // courant lateral lent (-1..1) : fait deriver le filet, le cone n'est plus centre ni regulier
+    for (int k = 0; k < ng; k++) curK[k] = gSp[k];   // v374 : constant (v373 : sinus + amplitude modulee = grains legers repartis de part et d'autre du cone, pyramides)   // v371 : un courant par breche (sens et periode differents : plus de symetrie)
+    const float cur = 0;   // courant lateral lent (-1..1) : fait deriver le filet, le cone n'est plus centre ni regulier
     const int passes = lifted ? 2 : 1;
     for (int pass = 0; pass < passes; pass++) {
       const bool ltr = ((frame + pass) & 1);
@@ -624,17 +712,43 @@ static bool decoAmbSand2(unsigned long durMs, bool preview)
           const int dd = random(0, 2) ? 1 : -1; bool moved = false;
           for (int k = 0; k < 2 && !moved; k++) {
             const int tx = x + (k ? -dd : dd);
-            if (tx >= 0 && tx < W && get(tx, y + 1) == 0 && (!cross || isGap[tx])) { nx = tx; moved = true; }
+            if (tx >= 0 && tx < W && get(tx, y + 1) == 0 && (!cross || isGap[tx]) && (lifted || slideP[x] >= 20 || ny + 2 >= GH || get(tx, y + 2) == 0)) { nx = tx; moved = true; }   // v369 : colonne collante = pente plus raide (cones irreguliers)
           }
           if (!moved) continue;
-          { const int dxs = nx - x; for (int r = 0; r < 4; r++) {   // le grain peut continuer a rouler sur la pente (eboulis, pente irreguliere)
-              if (random(0, 100) >= 45) break; const int tx2 = nx + dxs; if (tx2 < 0 || tx2 >= W || ny + 1 >= GH || get(nx, ny + 1) == 0 || get(tx2, ny + 1) != 0) break; nx = tx2; ny++; } }
-        } else if (water) {   // chute libre dans l'eau : vitesse reduite et balancement lateral (le grain « plane » en descendant)
-          if (random(0, 100) >= 60) continue;
-          { const int r = random(0, 100); int dir = 0; if (r < 35) dir = random(0, 2) ? 1 : -1; else if (r < 35 + (int)(30 * fabsf(cur))) dir = cur > 0 ? 1 : -1;
+          { const int dxs = nx - x; for (int r = 0; r < 6; r++) {   // le grain peut continuer a rouler sur la pente (eboulis, pente irreguliere)
+              if (random(0, 100) >= 50) break; const int tx2 = nx + dxs; if (tx2 < 0 || tx2 >= W || ny + 1 >= GH || get(nx, ny + 1) == 0 || get(tx2, ny + 1) != 0) break; nx = tx2; ny++; } }
+        } else if (water) {   // chute libre : couleur LEGERE (grains seuls : lente, tres sensible au courant de sa breche = nuage) ou LOURDE (amas : plus rapide, presque verticale) ; poids propre a chaque couleur et a chaque breche, donc une strate se comporte d'un bloc
+          const int kk = (near[x] == 255) ? 0 : near[x]; const float cu = curK[kk];
+          const bool heavy = hv[kk][c];
+          if (random(0, 100) >= (heavy ? 30 : 18)) continue;   // v373 : chute plus lente (v372 : 58 / 40)
+          { const int r = random(0, 100); int dir = 0; const int base = heavy ? 3 : 25, sens = heavy ? 30 : 95;   // v373 : derive nettement plus forte (v372 : 1/6 et 12/55) : le filet balaie une zone, collines arrondies
+            if (r < base) dir = random(0, 2) ? 1 : -1; else if (r < base + (int)(sens * fabsf(cu))) dir = cu > 0 ? 1 : -1;
             if (dir) { const int tx = x + dir; if (tx >= 0 && tx < W && get(tx, y + 1) == 0 && get(tx, y) == 0 && (!cross || isGap[tx])) nx = tx; } }
         }
-        put(x, y, 0); dr(x, y, 0); put(nx, ny, c); dr(nx, ny, c); nMoves++;
+        const int c2 = c;   // v372 : la couleur vient de la reserve (plus de recoloration a la breche)   // v369 : passage de la breche = recoloration
+        put(x, y, 0); dr(x, y, 0); put(nx, ny, c2); dr(nx, ny, c2); nMoves++;
+      }
+    }
+    if (!lifted) {   // v376 : GLISSEMENT DE STRATE : un grain LOURD pose sur un grain LEGER entraine une plaque de 1 a 3 grains vers le bas de la pente (gravite), l'ordre des couleurs est conserve
+      for (int x = 0; x < W; x++) { int h = 0; while (h < GH && get(x, GH - 1 - h) != 0) h++; hp[x] = (uint8_t)h; }
+      for (int x = 0; x < W; x++) {
+        if (hp[x] < 3 || random(0, 100) >= 12) continue;
+        const int ty0 = GH - hp[x], kk = (near[x] == 255) ? 0 : near[x];
+        if (ty0 < SY + 1) continue;
+        if (!hv[kk][get(x, ty0)] || hv[kk][get(x, ty0 + 1)]) continue;
+        const int nslab = 1 + (int)random(0, 3);
+        int bestE = -1, bestDrop = 0;
+        for (int sg = 0; sg < 2; sg++) {
+          const int d = sg ? 1 : -1; int e = x, st = 0;
+          while (st < 40) { const int n2 = e + d; if (n2 < 0 || n2 >= W || hp[n2] >= hp[e]) break; e = n2; st++; }
+          const int drop = (int)hp[x] - (int)hp[e]; if (e != x && drop >= 2 && drop > bestDrop) { bestDrop = drop; bestE = e; }
+        }
+        if (bestE < 0) continue;
+        int n = nslab < bestDrop / 2 ? nslab : bestDrop / 2; if (n < 1) continue;
+        int cs[3];
+        for (int s = 0; s < n; s++) { const int sy = GH - hp[x]; cs[s] = get(x, sy); put(x, sy, 0); dr(x, sy, 0); hp[x]--; }
+        for (int s = n - 1; s >= 0; s--) { const int ty = GH - 1 - hp[bestE]; if (ty < 0) break; put(bestE, ty, cs[s]); dr(bestE, ty, cs[s]); hp[bestE]++; }
+        nMoves++;
       }
     }
     if (lifted) {   // 3) nivellement : le grain de sommet d'une colonne DESCEND la pente (jusqu'au minimum local, 48 colonnes max) si la chute est >= 2 : les pyramides se resorbent, le sable s'etale en paysage plein
@@ -654,18 +768,22 @@ static bool decoAmbSand2(unsigned long durMs, bool preview)
       }
     }    // 4) fin de cycle : breche bouchee par son cone -> morte (+ 0 a 3 nouvelles breches) ; plus aucune active (ou reserve vide) -> l'etagere LEVE : toute la reserve s'effondre
     //    sur les cones puis se nivelle ; quand plus rien ne bouge : paysage plein (mesure du remplissage), pause, balayage
-    if (!lifted) {
-      bool changed = false;
+    if (!done) {
+      bool changed = false; int deaths = 0;
       for (int k = 0; k < ng; k++) {
         if (dead[k]) continue;
         const int xg = xgs[k];
         if (get(xg, SY + 1) != 0 && xg > 0 && xg < W - 1 && get(xg - 1, SY + 2) != 0 && get(xg, SY + 2) != 0 && get(xg + 1, SY + 2) != 0) blk[k]++; else blk[k] = 0;
-        if (blk[k] > 50) { dead[k] = true; changed = true; }
+        if (blk[k] > 50) { dead[k] = true; changed = true; deaths++; }   // bouchee par son cone
+        else if (++gAge[k] > gLife[k]) { dead[k] = true; isGap[xg] = false; changed = true; deaths++; }   // v375 : fin de vie (duree aleatoire)
       }
-      if (changed) { recomputeNear(); addGaps((int)random(0, 4)); }
+      if (changed) { recomputeNear(); for (int d = 0; d < deaths; d++) addGaps((int)random(0, 4));   // v375 : 0 a 3 nouvelles breches a chaque breche terminee
+        int al = 0; for (int k = 0; k < ng; k++) if (!dead[k]) al++;
+        int rest = 0; for (int x = 0; x < W; x++) rest += hgt[x];
+        if (al == 0 && rest > 40) addGaps(1); }   // jamais sans breche tant qu'il reste du sable
       int alive = 0; for (int k = 0; k < ng; k++) if (!dead[k]) alive++;
       int left = 0; for (int x = 0; x < W; x++) left += hgt[x];
-      if (alive == 0 || left <= 40) { lifted = true; quiet = 0; liftT = millis(); }
+      if (alive == 0 || left <= 40) { done = true; quiet = 0; liftT = millis(); }   // v370 : reserve vidée : PAS d'effondrement, on laisse seulement finir de tomber
     } else {
       quiet = (nMoves == 0) ? quiet + 1 : 0;
       if (quiet >= 20 || millis() - liftT > 90000UL) {
@@ -699,7 +817,7 @@ static bool decoAmbLava(unsigned long durMs, bool preview)
     last = millis();
     const float t = (millis() - t0) / 1000.0f, tg = (t >= ramp || ramp < 0.5f) ? 1.0f : ((t / ramp < 0.1f) ? 0.0f : (t / ramp - 0.1f) / 0.9f);   // v306 : depart a FROID (0 %), puis chauffe progressive
     lavaStep(L, tg, t); lavaBuild(L, tg, t);
-    for (int y = 0; y < 32; y++) { lavaRow(y, lv); for (int x = 0; x < 128; x++) display->drawPixel(x, y, lavaColor(L, y, lv[x])); }
+    for (int y = 0; y < 32; y++) { lavaRow(y, lv); for (int x = 0; x < 128; x++) display->drawPixel(x, y, lavaColor(L, x, y, lv[x])); }
   }
   return true;
 }static const char *decoAmbName(int s) { return s == 1 ? "plasma" : s == 2 ? "pluie" : s == 3 ? "etoiles" : s == 4 ? "vie" : s == 5 ? "liquide" : s == 6 ? "sable" : s == 7 ? "sable2" : "lava"; }
@@ -718,7 +836,7 @@ static bool decoRunAmbiance(bool preview)
 }
 
 
-// ---- meteo : donnees, requete Open-Meteo, classes (firmware, lignes 13788-13851) ----
+// ---- meteo : donnees, requete Open-Meteo, classes (firmware, lignes 14267-14330) ----
 struct DecoWx { bool valid; float temp, tmax, tmin; int code; bool day; unsigned long fetchedMs; float lat, lon; };   // v353 : lat/lon = lieu des valeurs gardees
 static DecoWx s_wx = {false, 0, 0, 0, 0, true, 0, 0, 0};
 static unsigned long s_wxLastTry = 0; static bool s_wxTried = false;
@@ -784,7 +902,7 @@ static int decoWxClass(int code)
 }
 
 
-// ---- ciel anime : degrades, astres, nuages, pluie (firmware, lignes 14444-14545) ----
+// ---- ciel anime : degrades, astres, nuages, pluie (firmware, lignes 14923-15024) ----
 struct SkyKey { float h; uint8_t t[3], b[3]; };
 static const SkyKey SKYK[9] = {{0.0f, {5, 8, 30}, {14, 20, 50}}, {4.5f, {5, 8, 30}, {14, 20, 50}}, {6.5f, {40, 50, 110}, {230, 120, 70}}, {9.0f, {50, 120, 220}, {140, 200, 250}},
   {14.0f, {30, 110, 230}, {120, 190, 245}}, {18.0f, {30, 110, 230}, {120, 190, 245}}, {19.8f, {50, 40, 110}, {240, 110, 60}}, {21.5f, {5, 8, 30}, {14, 20, 50}}, {24.0f, {5, 8, 30}, {14, 20, 50}}};
@@ -888,7 +1006,7 @@ static void skyTextWin(Adafruit_GFX &g, int x0, int x1, int off, int y, uint16_t
 // de 8 Ko d'avant echouait -> retour a l'ancien affichage sans ciel (constate par l'utilisateur). Une bande de 2 Ko suffit. L'avant-plan est redessine une fois par bande :
 // tout etat qui avance (particules...) ne doit evoluer que pendant la bande 0 (g_skyPass == 0).
 
-// ---- avant-plans : meteo, date, compte a rebours, ephemeride (firmware, lignes 14604-14773) ----
+// ---- avant-plans : meteo, date, compte a rebours, ephemeride (firmware, lignes 15083-15252) ----
 static int decoSkyClass() { return (s_wx.valid && (millis() - s_wx.fetchedMs) <= 3UL * 3600UL * 1000UL) ? decoWxClass(s_wx.code) : 0; }
 
 // ---- widget METEO sur le ciel ----
@@ -1060,7 +1178,7 @@ static void skyEphFg(Adafruit_GFX &g, int f, void *ctx)
   }
 }
 
-// ---- avant-plans des widgets Recalbox : challenge, recompenses, sante (firmware, lignes 14807-14903) ----
+// ---- avant-plans des widgets Recalbox : challenge, recompenses, sante (firmware, lignes 15286-15382) ----
 // ---- v315 : widgets RECALBOX (8 challenge, 9 recompenses, 10 sante) sur le ciel ----
 // decalage (px) d'un texte trop long dans une fenetre : pause, defilement, pause, retour
 static int rbwPing(int f, int over)
@@ -1159,7 +1277,7 @@ static void skyRbwHlFg(Adafruit_GFX &g, int f, void *ctx)
   skyText(g, 86, 24, 1, g_rbw.hs[4] > '0' ? display->color565(255, 150, 60) : ct, b);
 }
 
-// ---- citations : themes d'origine embarques (firmware, lignes 13969-14032) ----
+// ---- citations : themes d'origine embarques (firmware, lignes 14448-14511) ----
 // Themes d'origine embarques (copies sur la SD par decoQuotesRestore()). Contenu d'ESSAI : le jeu complet suit apres relecture.
 static const char QT_FR_BISCUIT[] PROGMEM =
   "Un petit pas aujourd'hui vaut mieux qu'un grand projet demain.\n"
@@ -1225,7 +1343,7 @@ static const char QT_ES_CELEBRES[] PROGMEM =
   "La libertad, Sancho, es uno de los mas preciosos dones que a los hombres dieron los cielos; con ella no pueden igualarse los tesoros que encierra la tierra ni el mar encubre. | Miguel de Cervantes, Don Quijote\n"
   "Que toda la vida es sueno, y los suenos, suenos son. | Calderon de la Barca, La vida es sueno\n";
 
-// ---- citations : etat, table des themes (firmware, lignes 14033-14046) ----
+// ---- citations : etat, table des themes (firmware, lignes 14512-14525) ----
 char g_quoteThemeName[26] = "";   // v304 -- theme de citations tire (choix du fond d'image)
 const uint16_t *g_qBg = nullptr;   // fond de la citation en cours (nullptr = noir)
 uint16_t g_qCq = 0, g_qCa = 0xFFFF, g_qShCol = 0; bool g_qShadow = true, g_qOutline = false; uint8_t g_qDim = 55; int g_qX0 = 0, g_qX1 = 128, g_qY0 = 0, g_qY1 = 32;   // v312 : + fenetre verticale (evite les bordures claires du fond)   // v308 : fenetre de texte propre au fond (ex. devinettes : seulement la partie jaune)   // v306d : ombre (couleur) et luminosite du fond (% ; 55 par defaut : les fonds clairs nuisaient a la lisibilite)   // v305 -- couleurs du texte (question / reponse) et ombre portee, propres au fond (fichier <fond>.col)
@@ -1241,7 +1359,7 @@ static const DecoQuoteSet DECO_QUOTE_SETS[] = {
 static bool decoQuoteLangOk(const String &l) { return l == "fr" || l == "en" || l == "es"; }
 
 
-// ---- citations : UTF-8 -> ASCII (firmware, lignes 14096-14114) ----
+// ---- citations : UTF-8 -> ASCII (firmware, lignes 14575-14593) ----
 // UTF-8 -> ASCII (la police n'a pas d'accents) : sur place.
 static void decoAscii(char *s)
 {
@@ -1262,14 +1380,14 @@ static void decoAscii(char *s)
 }
 
 
-// ---- citations : vitesse de defilement (firmware, lignes 14156-14160) ----
+// ---- citations : vitesse de defilement (firmware, lignes 14635-14639) ----
 // Affichage : defilement vertical d'un texte (+ suite). POLICE ET STYLE DE L'ECRAN DESCRIPTION DES JEUX (drawScoreScreen) :
 // TomThumb 3x5, tout en MAJUSCULES, or (255,200,0), lignes CENTREES (avances reelles tomThumbCharAdvance()), pas de ligne de 8 px
 // (4 lignes dans 32 px). Le texte est dessine UNE fois dans un GFXcanvas1 (1 bit) puis une fenetre de 32 lignes est recopiee point a
 // point a chaque image (voir v282). La suite (auteur / reponse) est en blanc.
 #define QUOTE_STEP_MS 100   // 1 pixel toutes les 100 ms (~10 px/s, ~1 s par ligne) : a ajuster apres essai sur la dalle
 
-// ---- QCM : decoupe de texte TomThumb (firmware, lignes 14161-14189) ----
+// ---- QCM : decoupe de texte TomThumb (firmware, lignes 14640-14668) ----
 // ============ v287 -- QCM (quiz a choix multiples) ============
 // Decoupe un texte en <= maxLines lignes de <= maxPx pixels (avances TomThumb), retourne le nombre de lignes, ou -1 si ca ne tient pas.
 static int decoWrapTT(const char *t, char (*lines)[40], uint8_t *widths, int maxLines, int maxPx)
@@ -1300,7 +1418,7 @@ static int decoTTWidth(const char *s) { int w = 0; for (; *s; s++) w += tomThumb
 // Aucun fichier = fond noir comme avant. Le fond est lu UNE fois par citation dans le tampon raw565FullBuf (8 Ko, deja alloue par drawRaw565) ; texte avec ombre portee.
 // ==================================================================
 
-// ---- citations : fond, texte, QCM, defilement (firmware, lignes 14231-14426) ----
+// ---- citations : fond, texte, QCM, defilement (firmware, lignes 14710-14905) ----
 static void decoQuoteBgLoadImpl();
 static void decoQuoteBgLoad() { decoQuoteBgLoadImpl(); Serial.println(String("[DECO] fond citation : theme=") + g_quoteThemeName + (g_qBg ? " -> fond charge" : " -> aucun fond (noir)") + ", heap=" + String(ESP.getMaxAllocHeap())); }
 static void decoQuoteBgLoadImpl()

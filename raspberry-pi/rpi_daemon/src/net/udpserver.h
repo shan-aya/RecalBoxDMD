@@ -8,6 +8,7 @@
 #pragma once
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -38,6 +39,10 @@ class UdpServer {
   uint64_t firstPacketMs() const { return firstSeenMs_.load(); }
   // la Recalbox vient de repondre pour la 1re fois (apres le demarrage ou une coupure) : la boucle principale affiche « RecalBox connectee » (5 s)
   bool takeConnectedEvent() { return connectedEvent_.exchange(false); }
+  // « RecalBox hors ligne » : 2 cycles de PING sans PONG de suite (firmware v200), 3 alertes au plus par episode ; `gate` = l'ecran peut-il l'afficher (hors playlist, page de configuration fermee)
+  void setAlertGate(std::function<bool()> gate) { alertGate_ = std::move(gate); }
+  bool takeDisconnectedEvent() { return discEvent_.exchange(false); }
+  bool takePongEvent() { return pongEvent_.exchange(false); }  // un PONG vient d'arriver (resynchronisation apres une coupure)
   void sendHello();
   void sendPing();
   void sendFeatures();
@@ -69,6 +74,9 @@ class UdpServer {
   std::atomic<uint64_t> lastPongMs_{0};
   std::atomic<bool> resendFeaturesOnPong_{true};
   std::atomic<bool> connectedEvent_{false};
+  std::atomic<bool> discEvent_{false}, pongEvent_{false};
+  std::function<bool()> alertGate_;
+  int discAlertCount_ = 0;
   uint64_t startMs_ = 0, lastPingMs_ = 0;
   bool bootHelloSent_ = false;
   // multi-Recalbox (jusqu'a 4) : seule l'ACTIVE commande le DMD ; le PONG d'une autre (sonde) la rend active si l'active ne repond plus

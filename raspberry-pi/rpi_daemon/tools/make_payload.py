@@ -24,6 +24,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--out", required=True)
 ap.add_argument("--binary")
 ap.add_argument("--reuse", help="charge utile precedente dont on reprend bin/ et lib/ (quand le Pi de build n'est pas joignable)")
+ap.add_argument("--boot-anim", help="dossier des animations de demarrage (boot_anim.raw565pack + 5 fetes + manifest.json, depot public : binaries/boot_anim) : copiees dans <sortie>/boot_anim/")
 ap.add_argument("--host", default="dmdpi.local")
 ap.add_argument("--user", default="pi")
 ap.add_argument("--password-env", default="PI_PW")
@@ -57,6 +58,14 @@ else:
     s.close()
     c.close()
 shutil.copytree(rpi / "web", out / "web")
+if a.boot_anim:
+    (out / "boot_anim").mkdir()
+    for f in sorted(Path(a.boot_anim).glob("*.raw565pack")) + [Path(a.boot_anim) / "manifest.json"]:
+        if f.exists():
+            shutil.copy2(f, out / "boot_anim" / f.name)
+    print("animations de demarrage :", sum(1 for _ in (out / "boot_anim").glob("*.raw565pack")), "fichiers")
+else:
+    print("ATTENTION : charge utile SANS animations de demarrage (--boot-anim)")
 for f in ("install.sh", "firstrun.sh", "check_media.sh", "dmd_update.py", "recalboxdmd.service", "config.ini.seed"):
     shutil.copy2(rpi / "deploy" / f, out / f)
 for f in ("LICENSE", "LICENSE.md", "PI_VERSION"):

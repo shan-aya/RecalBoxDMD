@@ -8,6 +8,18 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-23 — Firmware v3.82 and Raspberry Pi daemon v3.62: liquid in a tank, Sand 2, lava lamp, boot animation and alerts on the Pi
+
+**Firmware v3.82** (v3.68 to v3.82)
+- **Liquid in a tank.** The liquid now sits in a tank (floor and two walls, as wide as the panel) on a triangular bar at the bottom centre: the tank **rocks** to the liquid's maximum angle, with a phase length drawn at start-up (5 to 10 s) and a **speed drawn at each swing** (maximum angle reached then a pause, or a swing cut short). Waves hit the walls and throw **splashes** (up to 48 drops, more numerous and livelier the faster the front) for fluid liquids; thick liquids (syrup, wax, honey) **cling** to the walls (meniscus, slowly draining film).
+- **Sand 2 redone** (like a real sand-art frame). Off-screen reserve, fine four-tone layers, a heavy colour that falls in clumps and a light one that drifts like a cloud (weight set per colour and per gap), a lateral current specific to each gap, gaps with a random lifetime (up to 6 at once), and layers that slide when a heavy layer lands on a light one; the panel fills to about 80%.
+- **Lava lamp with a hot spot.** Heat starts at a hot spot at the centre of the bottom and spreads outwards: the centre comes alive first, then the activity reaches the sides, with a heat glow in the oil.
+
+**Raspberry Pi daemon v3.62**
+- **Same ambiances as the ESP32 DMD**: Sand 2, liquid in a tank, lava lamp with a hot spot (identical code, taken automatically from the firmware).
+- **Boot animation and seasons.** The Pi plays the same Shan_ayA animation as the DMD, and its holiday version (Halloween, Christmas, New Year, Valentine's Day, Easter) depending on the date. It ships with the daemon update: nothing to download or set. `GET /boot-anim` and `GET /boot-season` routes, and Mode 19 can send it too.
+- **Same status alerts as the DMD**: "no wifi / no recalbox" (network down) and "RecalBox offline" (two PINGs in a row unanswered), blinking for 5 s then back to the playlist; "RecalBox connected" without the smiley, centred on the ink of the letters.
+
 ## 2026-10-22 (4) — PC toolkit build 12876: boot animations in Mode 1
 
 **PC toolkit build 12876**

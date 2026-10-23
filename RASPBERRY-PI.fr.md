@@ -31,6 +31,8 @@ Les modes séparés restent disponibles : **Mode 16** (préparer une carte, remp
 
 La configuration (`config.ini`) et le contenu de la carte ne sont jamais écrasés.
 
+**Animations de démarrage (v3.62)** : le démon joue l'animation Shan_ayA au démarrage, et sa version de fête autour d'Halloween, Noël, Nouvel An, Saint-Valentin et Pâques. Les six fichiers (`gifs/_boot/` de la carte de contenu) sont livrés avec la mise à jour du démon, copiés seulement s'ils manquent ou changent ; le Mode 19 de la boîte à outils peut aussi les envoyer.
+
 ## Compiler soi-même
 
 Le démon est dans [`raspberry-pi/rpi_daemon/`](raspberry-pi/rpi_daemon/) (C++17, CMake). Il se lie à [rpi-rgb-led-matrix](https://github.com/hzeller/rpi-rgb-led-matrix) de Henner Zeller :

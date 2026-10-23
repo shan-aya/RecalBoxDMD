@@ -31,6 +31,8 @@ The separate modes remain available: **Mode 16** (prepare a card, replaces Raspb
 
 `config.ini` and the card content are never overwritten.
 
+**Boot animations (v3.62)**: the daemon plays the Shan_ayA animation at start-up, and its holiday version around Halloween, Christmas, New Year, Valentine's Day and Easter. The six files (`gifs/_boot/` of the content card) ship with the daemon update and are copied only when missing or changed; the toolkit's Mode 19 can also send them.
+
 ## Build it yourself
 
 The daemon is in [`raspberry-pi/rpi_daemon/`](raspberry-pi/rpi_daemon/) (C++17, CMake). It links against Henner Zeller's [rpi-rgb-led-matrix](https://github.com/hzeller/rpi-rgb-led-matrix):

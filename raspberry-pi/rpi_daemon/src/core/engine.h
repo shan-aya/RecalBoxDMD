@@ -95,6 +95,9 @@ class Engine {
   void buttonAction(int a);                               // bouton physique (action 1..11), appelee dans la boucle principale (jalon 7)
   void setReloadHook(std::function<void()> fn) { reloadHook_ = std::move(fn); }  // appelee apres chaque reloadConfig() (le bouton relit BTN_*)
   void onRecalboxConnected();                             // 1re reponse de la Recalbox : image de secours + « RecalBox connectee » 5 s, puis le logo seul jusqu'a une instruction
+  void onRecalboxDisconnected() { discPending_ = true; }  // PING sans PONG 2 cycles de suite : « RecalBox hors ligne » des que l'ecran le permet (voir UdpServer)
+  bool configOpen() const { return configActive_; }
+  bool takeDiscForcedPlaylist() { const bool f = discForced_; discForced_ = false; return f; }  // le passage en playlist a ete force par une coupure : resync a la reconnexion
   void showFirstBootScreen();                             // « Page de configuration » + adresse (ou attente du reseau) : premier demarrage
   void setConfigTitle(const std::string &t) { cfgMainMsg_ = t.empty() ? std::string("WEB DMD CONFIG") : t; }  // titre (ligne 1) de l'ecran de configuration, ex. « INSTALLATION »
   void webPage(const std::string &url);                   // une page est servie : « WEB DMD CONFIG » + adresse (triggerWebConfigModeSoft)
@@ -197,6 +200,15 @@ class Engine {
   uint64_t connectedBlinkMs_ = 0;                         // dernier clignotement du message (toutes les 400 ms)
   bool connectedVisible_ = true;
   void drawConnectedFrame(bool visible);                  // image de secours (assombrie + message si visible, sinon l'image seule)
+  // alertes « ni wifi / ni recalbox » et « RecalBox hors ligne » : memes regles que le firmware (demande en attente, 5 s clignotantes sur l'image de secours, puis reprise de la playlist)
+  bool noWifiPending_ = false, noWifiActive_ = false, noWifiVisible_ = true, discPending_ = false, discActive_ = false, discVisible_ = true, discForced_ = false, netUp_ = true;
+  uint64_t noWifiUntilMs_ = 0, noWifiBlinkMs_ = 0, discUntilMs_ = 0, discBlinkMs_ = 0, wifiDownSinceMs_ = 0, lastNetPollMs_ = 0;
+  int wifiAlertCount_ = 0;
+  void drawOverlayFrame(bool visible, int kind);          // kind 0 = connectee (vert), 1 = ni wifi / ni recalbox (rouge), 2 = hors ligne (orange)
+  void showNoWifiAlert();
+  void showDisconnectedAlert();
+  void clearAlerts();                                     // un vrai contenu prend la main : plus rien a afficher ni en attente
+  void tickAlerts(uint64_t now);
 
   // animation courante
   bool gifOpened_ = false;

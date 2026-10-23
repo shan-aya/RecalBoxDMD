@@ -14,6 +14,7 @@
 #include <sstream>
 #include <thread>
 
+#include "boot_seasons.h"
 #include "log.h"
 #include "webconfig.h"
 
@@ -387,6 +388,46 @@ void WebConfig::registerMediaRoutes() {
     }
     if (results.empty()) return text(400, "ERR: aucun fichier recu");
     return json("{\"ok\":" + std::to_string(okCount) + ",\"files\":[" + results + "]}");
+  });
+
+  // GET /boot-anim[?s=<fete>] : taille + empreinte FNV-1a des images entieres (meme contrat que le firmware, v362 / v367) : le toolkit verifie ainsi la copie apres l'envoi
+  // {"size":0} = fichier absent. ?s= : fichier d'une fete (halloween, noel, nouvelan, valentin, paques) au lieu de l'animation par defaut.
+  web_.get("/boot-anim", [this](const WebRequest &r) {
+    std::string path = "/gifs/_boot/boot_anim.raw565pack";
+    if (r.has("s")) {
+      const std::string s = r.arg("s");
+      bool known = false;
+      for (int i = 0; i < BOOT_SEASON_COUNT; i++)
+        if (s == kBootSeasons[i].name) known = true;
+      if (!known) return text(400, "ERR: fete inconnue");
+      path = "/gifs/_boot/boot_" + s + ".raw565pack";
+    }
+    std::vector<uint8_t> data;
+    if (!fs_.readAll(path, data)) return json("{\"size\":0}");
+    const size_t FB = 128 * 32 * 2, whole = (data.size() / FB) * FB;
+    uint32_t h = 2166136261u;
+    for (size_t i = 0; i < whole; i++) {
+      h ^= data[i];
+      h *= 16777619u;
+    }
+    char out[112];
+    std::snprintf(out, sizeof(out), "{\"size\":%u,\"frames\":%u,\"fnv\":\"%08x\"}", (unsigned)data.size(), (unsigned)(data.size() / FB), (unsigned)h);
+    return json(out);
+  });
+  // GET /boot-season?d=AAAAMMJJ : quelle animation serait jouee a cette date, et quels fichiers saisonniers sont attendus (fonction pure : essais des fenetres de fetes)
+  web_.get("/boot-season", [](const WebRequest &r) {
+    const uint32_t d = (uint32_t)std::strtoul(r.arg("d").c_str(), nullptr, 10);
+    const int si = bsSeasonAt(d);
+    const uint8_t want = bsWantedMask(d);
+    std::string out = "{\"d\":" + std::to_string(d) + ",\"fete\":\"" + (si >= 0 ? std::string(kBootSeasons[si].name) : std::string()) + "\",\"telecharger\":[";
+    bool first = true;
+    for (int i = 0; i < BOOT_SEASON_COUNT; i++)
+      if (want & (1u << i)) {
+        if (!first) out += ",";
+        out += std::string("\"") + kBootSeasons[i].name + "\"";
+        first = false;
+      }
+    return json(out + "]}");
   });
 
   // suppression de dossiers de GIF, puis nettoyage des playlists qui les referencaient
