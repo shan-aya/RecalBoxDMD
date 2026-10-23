@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-23 (2) — PC toolkit build 12977: Mode 19, boot animations over Wi-Fi
+
+**PC toolkit build 12977**
+- **New Mode 19 — Boot animations (Wi-Fi)** ("DMD FIRMWARE" category): sends the default Shan_ayA animation and the five holiday ones to the DMD over Wi-Fi, **ESP32 or Raspberry Pi**, downloaded from GitHub. Each file is checked (size and checksum) after sending; those the DMD already has are not sent again; a button restarts the DMD to see the animation. Holiday animations need ESP32 firmware 3.67 or later (Raspberry Pi 3.62 or later).
+- The animations now have their own `boot_anim/` folder on GitHub (`binaries/` stays reserved for the firmware; the old copy is kept for firmwares 3.63 to 3.82). Help updated. No other change from build 12876.
+
 ## 2026-10-23 — Firmware v3.82 and Raspberry Pi daemon v3.62: liquid in a tank, Sand 2, lava lamp, boot animation and alerts on the Pi
 
 **Firmware v3.82** (v3.68 to v3.82)

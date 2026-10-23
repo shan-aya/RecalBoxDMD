@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-23 (2) — Boîte à outils PC build 12977 : Mode 19, animations de démarrage par Wi-Fi
+
+**Boîte à outils PC build 12977**
+- **Nouveau Mode 19 — Animations de démarrage (Wi-Fi)** (catégorie « FIRMWARE DU DMD ») : envoie par Wi-Fi au DMD, **ESP32 ou Raspberry Pi**, l'animation par défaut Shan_ayA et les cinq animations de fête, téléchargées depuis GitHub. Chaque fichier est vérifié (taille et empreinte) après l'envoi ; ceux que le DMD possède déjà ne sont pas renvoyés ; un bouton redémarre le DMD pour voir l'animation. Les animations de fête demandent un firmware ESP32 3.67 ou plus (Raspberry Pi 3.62 ou plus).
+- Les animations ont maintenant leur propre dossier `boot_anim/` sur GitHub (`binaries/` reste réservé au firmware ; l'ancienne copie est conservée pour les firmwares 3.63 à 3.82). Aide mise à jour. Aucun autre changement par rapport au build 12876.
+
 ## 2026-10-23 — Firmware v3.82 et démon Raspberry Pi v3.62 : liquide en bac, Sable 2, lava lamp, démarrage et alertes sur le Pi
 
 **Firmware v3.82** (de la v3.68 à la v3.82)
