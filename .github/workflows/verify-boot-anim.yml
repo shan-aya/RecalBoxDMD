@@ -1,0 +1,42 @@
+name: Verify boot animations
+
+# Les animations de demarrage (boot_anim/ et sa copie historique binaries/boot_anim/) ne doivent changer QUE de facon coherente :
+# chaque fichier doit correspondre a manifest.json (taille + SHA-256) et les deux dossiers doivent rester identiques.
+on:
+  push:
+    paths:
+      - 'boot_anim/**'
+      - 'binaries/boot_anim/**'
+  pull_request:
+    paths:
+      - 'boot_anim/**'
+      - 'binaries/boot_anim/**'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verifier les empreintes et la copie historique
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, pathlib, sys
+          ok = True
+          for folder in ("boot_anim", "binaries/boot_anim"):
+              d = pathlib.Path(folder)
+              man = json.loads((d / "manifest.json").read_text(encoding="utf-8"))
+              for name, e in man["files"].items():
+                  data = (d / e["file"]).read_bytes()
+                  good = len(data) == int(e["bytes"]) and hashlib.sha256(data).hexdigest() == e["sha256"].lower()
+                  print(("OK     " if good else "ECART  ") + f"{folder}/{e['file']}")
+                  ok &= good
+          a, b = pathlib.Path("boot_anim"), pathlib.Path("binaries/boot_anim")
+          for f in sorted(a.glob("*")):
+              if f.name == "README.md":
+                  continue
+              same = (b / f.name).exists() and (b / f.name).read_bytes() == f.read_bytes()
+              print(("IDENTIQUE " if same else "DIFFERENT  ") + f.name)
+              ok &= same
+          sys.exit(0 if ok else 1)
+          PY

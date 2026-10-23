@@ -1,0 +1,35 @@
+{
+    "frames":  100,
+    "files":  {
+                  "boot_anim":  {
+                                    "sha256":  "0297477442a0fc5edb52df31ec738f8631691b543f3d4a223d9de29a484801c1",
+                                    "file":  "boot_anim.raw565pack",
+                                    "bytes":  819200
+                                },
+                  "boot_halloween":  {
+                                         "sha256":  "b21e53c2f11fdd0a7b0c9bc5672bd0cc1d6acc0580754cdeb166e99a40bf7a11",
+                                         "file":  "boot_halloween.raw565pack",
+                                         "bytes":  819200
+                                     },
+                  "boot_noel":  {
+                                    "sha256":  "a63c920aa36d80da745ccc5babc6680ff38565e133d3961e3b3cb276b4095397",
+                                    "file":  "boot_noel.raw565pack",
+                                    "bytes":  819200
+                                },
+                  "boot_nouvelan":  {
+                                        "sha256":  "97cffbde3496a43c05fa4ccfe52ad1d8205b6e6bef682a944dee3c84f28159a5",
+                                        "file":  "boot_nouvelan.raw565pack",
+                                        "bytes":  819200
+                                    },
+                  "boot_valentin":  {
+                                        "sha256":  "9aa6905222c903b59c905fedd6b08c7acf0a81dca1bb35c2741f32323190510b",
+                                        "file":  "boot_valentin.raw565pack",
+                                        "bytes":  819200
+                                    },
+                  "boot_paques":  {
+                                      "sha256":  "d02d923535bab490f0e03955ed16910a7e486c2e1b6a29566379a3eade56f0b4",
+                                      "file":  "boot_paques.raw565pack",
+                                      "bytes":  819200
+                                  }
+              }
+}
