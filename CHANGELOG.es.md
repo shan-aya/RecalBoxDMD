@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-25 — Firmware v3.87, demonio Raspberry Pi v3.65 y caja de herramientas 13277: enlace de descarga en los avisos de actualización
+
+**Firmware v3.87 · Demonio Raspberry Pi v3.65 · Caja de herramientas del PC build 13277**
+- **Página web del DMD (ESP32 y Pi)**: los avisos « scripts de Recalbox » y « caja de herramientas del PC » tienen ahora un enlace **« Descargar el toolkit »** junto a « Notas de versión » (página de la última versión), traducido como el resto del aviso.
+- **Caja de herramientas**: el aviso de nueva versión muestra también **« Descargar la última versión »**, junto a « Notas de versión » y « GitHub ».
+
 ## 2026-10-24 (3) — Firmware v3.86, demonio Raspberry Pi v3.64 y caja de herramientas 13177: modo Recalbox nativo, Visual Pinball en la Pi
 
 **Firmware v3.86 · Demonio Raspberry Pi v3.64 · Caja de herramientas del PC build 13177**

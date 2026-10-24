@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-25 — Firmware v3.87, démon Raspberry Pi v3.65 et boîte à outils 13277 : lien de téléchargement dans les avis de mise à jour
+
+**Firmware v3.87 · Démon Raspberry Pi v3.65 · Boîte à outils PC build 13277**
+- **Page web du DMD (ESP32 et Pi)** : les avis « scripts Recalbox » et « toolkit PC » ont maintenant un lien **« Télécharger le toolkit »** à côté de « Notes de version » (page de la dernière release), traduit comme le reste du bandeau.
+- **Boîte à outils** : l'avis de nouvelle version affiche aussi **« Télécharger la dernière version »**, à côté de « Notes de version » et « GitHub ».
+
 ## 2026-10-24 (3) — Firmware v3.86, démon Raspberry Pi v3.64 et boîte à outils 13177 : mode Recalbox natif, Visual Pinball sur le Pi
 
 **Firmware v3.86 · Démon Raspberry Pi v3.64 · Boîte à outils PC build 13177**

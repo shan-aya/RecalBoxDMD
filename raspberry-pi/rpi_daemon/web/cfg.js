@@ -22,6 +22,7 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
   var CL = { fr: ['Notes de version', '.fr'], en: ['Release notes', ''], es: ['Notas de versión', '.es'] };
   function clLang() { var l = (localStorage.getItem('dmd_lang') || document.documentElement.lang || 'fr').substring(0, 2); return CL[l] ? l : 'fr'; }
   function clUrl() { return 'https://github.com/shan-aya/RecalBoxDMD/blob/main/CHANGELOG' + CL[clLang()][1] + '.md'; }
+  var DL = { fr: 'Télécharger le toolkit', en: 'Download the toolkit', es: 'Descargar el toolkit' };   /* v387 : lien vers la derniere version du toolkit PC, a cote des notes de version (avis scripts / toolkit) */
   window.cfgNotes = function () { return '<a class="cfgcl" href="' + clUrl() + '" target="_blank" rel="noopener">' + CL[clLang()][0] + '</a>'; };
   /* survol : le TEXTE du changelog (dernieres entrees, mise en forme retiree) s'affiche dans une bulle ; lu une fois sur GitHub (raw) par le navigateur, hors ligne : silence */
   var clTxt = {}, clTip = null;
@@ -74,17 +75,19 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
       items.forEach(function (it) {
         var r = document.createElement('div'), a = document.createElement('a'), n = document.createElement('a');
         a.href = it.h; if (it.b) { a.target = '_blank'; a.rel = 'noopener'; } a.textContent = it.t; a.style.cssText = 'color:inherit;text-decoration:none';
-        n.href = clUrl(); n.target = '_blank'; n.rel = 'noopener'; n.className = 'cfgcl'; n.textContent = CL[clLang()][0]; n.style.cssText = 'color:inherit;text-decoration:underline;display:block;margin-top:3px';
+        n.href = clUrl(); n.target = '_blank'; n.rel = 'noopener'; n.className = 'cfgcl'; n.textContent = CL[clLang()][0]; n.style.cssText = 'color:inherit;text-decoration:underline';
+        var nr = document.createElement('div'); nr.style.cssText = 'margin-top:3px'; nr.appendChild(n);
+        if (it.b) { var dl = document.createElement('a'); dl.href = 'https://github.com/shan-aya/RecalBoxDMD/releases/latest'; dl.target = '_blank'; dl.rel = 'noopener'; dl.style.cssText = 'color:inherit;text-decoration:underline;margin-left:16px'; dl.textContent = DL[clLang()]; it.d = dl; nr.appendChild(dl); }
         r.style.cssText = 'text-align:center;background:#7a4a12;color:#ffcf8a;font:700 13px "Segoe UI",Tahoma,sans-serif;padding:8px 10px;margin:0 0 4px;border-radius:8px';
         it.a = a; it.n = n;   /* v384 : references gardees pour retraduire le bandeau quand la langue de la page change */
-        r.appendChild(a); r.appendChild(n); w.appendChild(r);
+        r.appendChild(a); r.appendChild(nr); w.appendChild(r);
         if (it.tk) { var x = document.createElement('span'); x.textContent = '\u2715'; x.title = 'OK'; x.style.cssText = 'float:left;cursor:pointer;padding:0 4px;margin:-2px 6px 0 0'; x.onclick = function () { try { localStorage.setItem(TKS, String(it.tk)); } catch (e) {} r.parentNode && r.parentNode.removeChild(r); }; r.insertBefore(x, r.firstChild); }
       });
       document.body.insertBefore(w, document.body.firstChild);
       /* v384 : le bandeau etait construit UNE fois dans la langue du chargement (souvent le francais avant que la page applique la langue du DMD) et ne suivait pas le selecteur de langue : il est retraduit a chaque changement de l'attribut lang de la page */
       var retr = function () {
         var l2 = 'fr'; try { l2 = (localStorage.getItem('dmd_lang') || document.documentElement.lang || 'fr').substring(0, 2); } catch (e) { l2 = (document.documentElement.lang || 'fr').substring(0, 2); } if (!TXT.fw[l2]) l2 = 'fr';
-        items.forEach(function (it) { if (!it.a) return; it.a.textContent = TXT[it.k][l2].replace('{v}', it.v).replace('{c}', it.c === undefined ? '' : it.c); it.n.textContent = CL[clLang()][0]; it.n.href = clUrl(); });
+        items.forEach(function (it) { if (!it.a) return; it.a.textContent = TXT[it.k][l2].replace('{v}', it.v).replace('{c}', it.c === undefined ? '' : it.c); it.n.textContent = CL[clLang()][0]; it.n.href = clUrl(); if (it.d) it.d.textContent = DL[clLang()]; });
       };
       retr();
       try { new MutationObserver(retr).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] }); } catch (e) {}

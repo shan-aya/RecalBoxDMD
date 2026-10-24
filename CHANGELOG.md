@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-25 — Firmware v3.87, Raspberry Pi daemon v3.65 and toolkit 13277: download link in the update notices
+
+**Firmware v3.87 · Raspberry Pi daemon v3.65 · PC toolkit build 13277**
+- **DMD web page (ESP32 and Pi)**: the "Recalbox scripts" and "PC toolkit" notices now have a **"Download the toolkit"** link next to "Release notes" (latest release page), translated like the rest of the banner.
+- **Toolkit**: the new-version notice also shows **"Download the latest version"**, next to "Release notes" and "GitHub".
+
 ## 2026-10-24 (3) — Firmware v3.86, Raspberry Pi daemon v3.64 and toolkit 13177: native Recalbox mode, Visual Pinball on the Pi
 
 **Firmware v3.86 · Raspberry Pi daemon v3.64 · PC toolkit build 13177**
