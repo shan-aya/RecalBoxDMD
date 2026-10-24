@@ -8,6 +8,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-24 (2) — Caja de herramientas del PC build 13077: textos traducidos
+
+**Caja de herramientas del PC build 13077**
+- **Tres textos que seguían en francés se traducen ahora** (francés, inglés, español): el diálogo de reintento tras un fallo de copia en la tarjeta SD, el mensaje de error al abrir la ayuda y el título de error de la ventana de temas. Ningún otro cambio respecto al build 12977.
+
 ## 2026-10-24 — Firmware v3.83 y demonio Raspberry Pi v3.63: zona horaria en « Ajustes del reloj », aviso de actualización traducido, animaciones protegidas
 
 **Firmware v3.83 · Demonio Raspberry Pi v3.63**

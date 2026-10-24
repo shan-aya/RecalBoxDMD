@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-24 (2) — Boîte à outils PC build 13077 : textes traduits
+
+**Boîte à outils PC build 13077**
+- **Trois textes encore écrits en français sont maintenant traduits** (français, anglais, espagnol) : le dialogue de nouvel essai après un échec de copie sur la carte SD, le message d'erreur d'ouverture de l'aide et le titre d'erreur de la fenêtre des thèmes. Aucun autre changement par rapport au build 12977.
+
 ## 2026-10-24 — Firmware v3.83 et démon Raspberry Pi v3.63 : fuseau horaire dans « Réglages horloge », avis de mise à jour traduit, animations protégées
 
 **Firmware v3.83 · Démon Raspberry Pi v3.63**

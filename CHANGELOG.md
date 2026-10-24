@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-24 (2) — PC toolkit build 13077: translated texts
+
+**PC toolkit build 13077**
+- **Three texts that were still written in French are now translated** (French, English, Spanish): the retry dialog after a failed copy to the SD card, the error message when the help cannot be opened, and the error title of the themes window. No other change from build 12977.
+
 ## 2026-10-24 — Firmware v3.83 and Raspberry Pi daemon v3.63: time zone in "Clock settings", translated update notice, protected boot animations
 
 **Firmware v3.83 · Raspberry Pi daemon v3.63**
