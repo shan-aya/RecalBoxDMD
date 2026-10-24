@@ -15,6 +15,7 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 - **Modo nativo (firmware): por fin se reproduce la animación de arranque festiva.** La fecha nunca se guardaba en este modo, así que no se detectaba ninguna fiesta; ahora sí (sincronización de la hora silenciosa). La animación festiva suena a partir del arranque siguiente al que guardó la fecha.
 - **Visual Pinball en la Pi (modo normal y modo nativo): las mesas se muestran.** Dos causas del lado de Recalbox, corregidas por el script `dmd_vpx_config` v4 (instalado por el Modo 9): la dirección del DMD en la configuración de VPX podía estar caducada, y Recalbox borraba la opción del plugin DMD en cada lanzamiento de mesa. El script toma la dirección de la opción ZeDMD de Recalbox (o del DMD que responde) y vuelve a poner la opción « DMD externo » en ZeDMD antes de cada lanzamiento; no toca nada si elegiste otra pantalla. El script `marquee` v55 avisa al DMD al apagar.
 - **Caja de herramientas: enlace « GitHub »** junto a « Notas de versión » en el aviso de actualización.
+- **Conviene saber — actualizar en modo Recalbox nativo.** Con un firmware 3.84 o anterior, la actualización desde la página web falla en modo nativo (`echec:heure`: la hora no se sincroniza). Desmarca *modo Recalbox nativo*, **Guardar y reiniciar**, lanza la actualización y vuelve a marcarlo. Desde la 3.85 (por tanto la 3.86), la actualización funciona directamente.
 
 ## 2026-10-24 (2) — Caja de herramientas del PC build 13077: textos traducidos
 

@@ -646,7 +646,9 @@ Mientras un juego se ejecuta de verdad (nunca en reposo / playlist), el panel al
 
 ### 🎮 Modo DMD nativo de Recalbox
 
-Con Recalbox 11, **EmulationStation puede manejar directamente el panel**, que se comporta entonces como un **ZeDMD-WiFi**. Activa *modo Recalbox nativo* en **Ajustes**.
+Con Recalbox 11, **EmulationStation puede manejar directamente el panel**, que se comporta entonces como un **ZeDMD-WiFi**. Activa *modo Recalbox nativo* en **Ajustes**. Cuando la Recalbox se apaga o deja de responder, el DMD vuelve solo a su lista de reproducción.
+
+> **Actualizar el firmware en modo nativo**: con un firmware **3.84 o anterior**, la actualización desde la página web falla (`echec:heure`: la hora no se sincroniza en este modo). Desmarca *modo Recalbox nativo*, **Guardar y reiniciar**, lanza la actualización y vuelve a marcarlo. Desde la 3.85, no hay que hacer nada.
 
 ### 🎯 Mesas de Visual Pinball (VPX)
 
@@ -662,7 +664,7 @@ El DMD habla el protocolo **ZeDMD-WiFi** (apretón de manos HTTP y luego imágen
    ZeDMDWiFiEnabled = 1
    ZeDMDWiFiAddr = 192.168.1.240
    ```
-   (`192.168.1.240` = **la IP de este DMD**; sin comentario al final de la línea.) **Automático con el Modo 9**: el script `dmd_vpx_config` escribe lo que falte en cada arranque y tras cada partida — nunca mientras corre una mesa, sin sobrescribir una IP que hayas indicado. **Marcar la opción es lo que lo autoriza**; para desactivarlo definitivamente, crea `/recalbox/share/userscripts/dmd_helpers/vpx_autoconfig.disabled` (registro: `/recalbox/share/system/logs/dmd_vpx_config.log`).
+   (`192.168.1.240` = **la IP de este DMD**; sin comentario al final de la línea.) **Automático con el Modo 9**: el script `dmd_vpx_config` (v4) escribe lo que falte en cada arranque, antes de cada lanzamiento y tras cada partida — nunca mientras corre una mesa. La dirección es la de la opción ZeDMD de Recalbox (`dmd.zedmd.wifi`) o, si no, la del DMD que responde (una dirección caducada se corrige); también vuelve a poner la opción « DMD externo » en ZeDMD antes de cada lanzamiento (Recalbox la borra si no), sin tocar otra pantalla que hayas elegido. **Marcar la opción es lo que lo autoriza**; para desactivarlo definitivamente, crea `/recalbox/share/userscripts/dmd_helpers/vpx_autoconfig.disabled` (registro: `/recalbox/share/system/logs/dmd_vpx_config.log`).
 3. **Scripts de Recalbox** (Modo 9): el DMD sale del modo Pinball al instante al terminar una partida.
 
 > ⚠️ Modifica este `.ini` **solo cuando no corra ninguna mesa**: VPX lo reescribe al cerrarse. Una actualización de Recalbox también puede reiniciarlo. Comprobación: `vpinball.log` debe contener `ZeDMD WiFi enabled, connected to <IP>`.

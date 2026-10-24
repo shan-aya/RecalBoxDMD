@@ -15,6 +15,7 @@ This is a curated summary of the project's internal version history (185+ firmwa
 - **Native mode (firmware): the festive boot animation finally plays.** The date was never stored in this mode, so no holiday was detected; it is now (silent time synchronisation). The festive animation plays from the boot that follows the one that stored the date.
 - **Visual Pinball on the Pi (normal and native mode): tables now display.** Two causes on the Recalbox side, fixed by the `dmd_vpx_config` script v4 (installed by Mode 9): the DMD address in VPX's configuration could be stale, and Recalbox cleared the DMD plugin option at every table launch. The script takes the address from Recalbox's ZeDMD option (or the DMD that answers) and sets the "external DMD" option back to ZeDMD before each launch; it leaves everything alone if you chose another display. The `marquee` script v55 warns the DMD on shutdown.
 - **Toolkit: "GitHub" link** next to "Release notes" in the update notice.
+- **Good to know — updating in native Recalbox mode.** With firmware 3.84 or older, updating from the web page fails in native mode (`echec:heure`: the clock is not synchronised). Untick *native Recalbox mode*, **Save & Restart**, run the update, then tick it again. From 3.85 (so 3.86) on, the update works directly.
 
 ## 2026-10-24 (2) — PC toolkit build 13077: translated texts
 
