@@ -8,6 +8,14 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-24 (3) — Firmware v3.86, Raspberry Pi daemon v3.64 and toolkit 13177: native Recalbox mode, Visual Pinball on the Pi
+
+**Firmware v3.86 · Raspberry Pi daemon v3.64 · PC toolkit build 13177**
+- **Native Recalbox mode: back to the playlist when the Recalbox shuts down or stops answering.** The screen used to stay on EmulationStation's last image. The DMD (ESP32 and Pi) now hands the screen back to the playlist when the Recalbox is switched off (a few seconds) or misses two PINGs in a row (about 30 s), and takes EmulationStation's stream back as soon as it returns.
+- **Native mode (firmware): the festive boot animation finally plays.** The date was never stored in this mode, so no holiday was detected; it is now (silent time synchronisation). The festive animation plays from the boot that follows the one that stored the date.
+- **Visual Pinball on the Pi (normal and native mode): tables now display.** Two causes on the Recalbox side, fixed by the `dmd_vpx_config` script v4 (installed by Mode 9): the DMD address in VPX's configuration could be stale, and Recalbox cleared the DMD plugin option at every table launch. The script takes the address from Recalbox's ZeDMD option (or the DMD that answers) and sets the "external DMD" option back to ZeDMD before each launch; it leaves everything alone if you chose another display. The `marquee` script v55 warns the DMD on shutdown.
+- **Toolkit: "GitHub" link** next to "Release notes" in the update notice.
+
 ## 2026-10-24 (2) — PC toolkit build 13077: translated texts
 
 **PC toolkit build 13077**

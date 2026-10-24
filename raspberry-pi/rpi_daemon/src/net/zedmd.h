@@ -58,6 +58,9 @@ class ZeDmd {
   // Messages de la page web en mode natif (jalon 6) : le flux continue d'etre decode dans la copie mais plus dessine.
   void setOverlay(bool on);
 
+  // Mode natif : la Recalbox s'eteint ou ne repond plus -> l'ecran revient a la playlist au prochain poll()
+  void requestRelease() { ctl_.releaseRequests++; }
+
  private:
   bool processPacket(const uint8_t *buf, int len, uint64_t now);
   void handleCommand(uint8_t command, const uint8_t *payload, uint16_t size, bool compressed);
@@ -87,7 +90,7 @@ class ZeDmd {
   uint64_t carryMs_ = 0;
 
   uint64_t lastPacketMs_ = 0, noEnterUntilMs_ = 0, lastStatsMs_ = 0;
-  uint32_t seenEnd_ = 0;
+  uint32_t seenEnd_ = 0, seenRelease_ = 0;
   bool raWindowActive_ = false;  // le mode a ete ouvert PAR la fenetre RA (donc refermé avec elle)
   uint32_t raDropped_ = 0;
   uint64_t raDroppedLogMs_ = 0;

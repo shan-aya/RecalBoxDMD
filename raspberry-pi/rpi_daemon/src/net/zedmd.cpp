@@ -397,6 +397,16 @@ ZeDmd::Event ZeDmd::poll(uint64_t now) {
       ev = Event::EXIT_RECALBOX;
     }
   }
+  const uint32_t rel = ctl_.releaseRequests.load();
+  if (rel != seenRelease_) {
+    seenRelease_ = rel;
+    if (native_ && active_) {
+      noEnterUntilMs_ = now + 5000;  // les dernieres images d'ES qui s'eteint ne doivent pas reprendre l'ecran
+      leave();
+      logf("ZEDMD", "Recalbox eteinte / hors ligne -- l'ecran revient a la playlist");
+      ev = Event::EXIT_RESUME;
+    }
+  }
   if (active_ && !native_) {
     const bool winOpen = (int64_t)(ctl_.raWindowUntilMs.load() - now) > 0;
     if (now - lastPacketMs_ > MODE_TIMEOUT_MS) {

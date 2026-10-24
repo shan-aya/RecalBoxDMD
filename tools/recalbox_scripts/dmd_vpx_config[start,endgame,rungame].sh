@@ -4,7 +4,12 @@
 # au DMD dans VPinballX-configgen.ini, au demarrage d'EmulationStation et
 # apres chaque fin de partie.
 # ============================================
-# Version actuelle : v3
+# Version actuelle : v4
+#
+# v4 (suite) - fichier renomme dmd_vpx_config[start,endgame,rungame].sh : a CHAQUE lancement de jeu, pose pinball.externaldmd=zedmd dans recalbox.conf (voir prelaunch()), sans quoi Recalbox efface DMDUtil Enable.
+#
+# v4 - 2026-10-24 - safe-modify - BUG REEL (Pi, RB2) : ZeDMDWiFiAddr perimee (.52, ancien ESP32) jamais corrigee -> VPinball n'affichait rien sur le Pi (.26). (1) mode « option Pinball du DMD » : l'adresse du DMD
+#   qui repond (/tmp/dmd_udp_ip) REMPLACE desormais une adresse deja saisie si elle differe ; (2) mode natif : dmd.zedmd.wifi (option ZeDMD de Recalbox) fait foi meme sans pinball.externaldmd=zedmd.
 #
 # v3 - 2026-10-11 - safe-modify - MODE RECALBOX NATIF / « external DMD : zedmd » : la configuration Visual Pinball de Recalbox 11 (vpinballGenerator.py, lue sur RB2 en
 #   11.0-patron-1.1) n'ecrit que Enable=1 et ZeDMD=1 pour « zedmd » (ZeDMD USB, auto-detecte) : elle NE TRANSMET PAS l'adresse WiFi (dmd.zedmd.wifi n'est lu que par
@@ -107,9 +112,9 @@ RBCONF="${VPX_RBCONF:-/recalbox/share/system/recalbox.conf}"
 rb_zedmd_addr() {
     # recalbox.conf ecrit « cle = valeur » (espaces autour du =, constate sur RB2) ou « cle=valeur » : les deux formes sont lues
     ext=$(sed -n 's/^pinball\.externaldmd[[:space:]]*=[[:space:]]*\(.*\)$/\1/p' "$RBCONF" 2>/dev/null | tail -n1 | tr -d '\r \t')
-    [ "$ext" = "zedmd" ] || return 1
     a=$(sed -n 's/^dmd\.zedmd\.wifi[[:space:]]*=[[:space:]]*\(.*\)$/\1/p' "$RBCONF" 2>/dev/null | tail -n1 | tr -d '\r \t')
     is_ipv4 "$a" || return 1
+    # v4 : l'adresse de l'option ZeDMD de Recalbox (dmd.zedmd.wifi) fait foi, avec ou sans « pinball.externaldmd=zedmd » (cle absente constatee sur RB2)
     echo "$a"
 }
 
@@ -152,24 +157,50 @@ run_check() {
 
     [ -f "$INI.bak-dmd-autoconfig" ] || cp -p "$INI" "$INI.bak-dmd-autoconfig" 2>/dev/null
 
-    # IP du DMD : celle deja saisie, sinon celle observee sur le reseau
-    ip=$(get_key "$INI" "Plugin.DMDUtil" "ZeDMDWiFiAddr")
+    # IP du DMD : v4 -- celle observee sur le reseau (le DMD qui repond a cette Recalbox) prime sur une adresse deja saisie, qui peut etre
+    # perimee (constate sur RB2 : .52 = ancien ESP32 alors que le DMD est un Pi en .26 -> VPX envoyait ses images dans le vide)
+    ip=$(tr -d '\r\n ' < "$IPFILE" 2>/dev/null)
     if ! is_ipv4 "$ip"; then
-        ip=$(tr -d '\r\n ' < "$IPFILE" 2>/dev/null)
+        ip=$(get_key "$INI" "Plugin.DMDUtil" "ZeDMDWiFiAddr")
         is_ipv4 "$ip" || ip=""
     fi
 
     ensure "Plugin.DMDUtil" "Enable" "1"
     ensure "Plugin.DMDUtil" "ZeDMDWiFiEnabled" "1"
     if [ -n "$ip" ]; then
-        cur=$(get_key "$INI" "Plugin.DMDUtil" "ZeDMDWiFiAddr")
-        is_ipv4 "$cur" || ensure "Plugin.DMDUtil" "ZeDMDWiFiAddr" "$ip"
+        ensure "Plugin.DMDUtil" "ZeDMDWiFiAddr" "$ip"
     else
         return 2                          # IP inconnue pour l'instant
     fi
     ensure "Plugin.AlphaDMD" "Enable" "1"
     return 0
 }
+
+# v4 -- AVANT CHAQUE LANCEMENT de jeu (evenement rungame, script non « permanent » = ES attend sa fin) : Recalbox genere VPinballX-configgen.ini a chaque lancement
+# et remet [Plugin.DMDUtil] Enable a vide sauf si pinball.externaldmd=zedmd (vpinballGenerator.py) : sans cela VPX n'envoie RIEN au DMD. On pose donc cette cle dans
+# recalbox.conf juste avant (ES peut la reecrire depuis sa memoire : d'ou le controle a CHAQUE lancement). Jamais si l'utilisateur a choisi autre chose (pixelcade, dmdserver...),
+# ni sans DMD concerne (option « Mode Pinball » cochee OU adresse dmd.zedmd.wifi renseignee). Rapide et sans attente : ES est bloque pendant ce temps.
+prelaunch() {
+    [ -f "$DISABLE" ] && return 0
+    [ -f "$RBCONF" ] || return 0
+    cur=$(sed -n 's/^pinball\.externaldmd[[:space:]]*=[[:space:]]*\(.*\)$/\1/p' "$RBCONF" 2>/dev/null | tail -n1 | tr -d '\r \t')
+    case "$cur" in ""|none) ;; *) return 0 ;; esac
+    a=$(rb_zedmd_addr)
+    feat_state; fs=$?
+    [ -z "$a" ] && [ $fs -ne 1 ] && return 0
+    [ -f "$RBCONF.bak-dmd-externaldmd" ] || cp -p "$RBCONF" "$RBCONF.bak-dmd-externaldmd" 2>/dev/null
+    tmp="$RBCONF.tmp.$$"
+    if grep -q '^pinball\.externaldmd' "$RBCONF"; then
+        sed 's/^pinball\.externaldmd[[:space:]]*=.*/pinball.externaldmd=zedmd/' "$RBCONF" > "$tmp"
+    else
+        { cat "$RBCONF"; [ -n "$(tail -c1 "$RBCONF")" ] && echo; echo "pinball.externaldmd=zedmd"; } > "$tmp"
+    fi
+    [ -s "$tmp" ] && cat "$tmp" > "$RBCONF"
+    rm -f "$tmp"
+    log "avant lancement : pinball.externaldmd '${cur}' -> 'zedmd' (sans cela Recalbox vide [Plugin.DMDUtil] Enable)"
+    return 0
+}
+if [ "$EVENT" = "rungame" ]; then prelaunch; exit 0; fi
 
 # --- point d'entree : tout le travail en arriere-plan, ES n'est jamais bloque ---
 if [ "$DMD_VPX_CONFIG_CHILD" != "1" ]; then

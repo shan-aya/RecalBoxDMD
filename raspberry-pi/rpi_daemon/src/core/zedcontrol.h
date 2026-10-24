@@ -9,5 +9,6 @@ struct ZedControl {
   std::atomic<bool> pinballContext{false};      // g_pinballContext : la Recalbox a annonce une partie vpinball (CMD=game ARG=vpinball/...)
   std::atomic<uint64_t> raWindowUntilMs{0};     // raWindowUntilMs : fin de la fenetre RetroAchievements (nowMs)
   std::atomic<uint32_t> endRequests{0};         // incremente a chaque CMD=vpinball_end
-  std::atomic<bool> nativeInGame{false};        // g_nativeInGame : « en jeu » (ingame 1) ; system / default = retour a la navigation
+  std::atomic<uint32_t> releaseRequests{0};     // CMD=rb_shutdown (extinction de la Recalbox) ou Recalbox hors ligne : le mode natif rend l'ecran a la playlist
+  std::atomic<bool> nativeInGame{false};       // g_nativeInGame : « en jeu » (ingame 1) ; system / default = retour a la navigation
 };

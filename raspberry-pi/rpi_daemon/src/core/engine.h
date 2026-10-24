@@ -95,7 +95,7 @@ class Engine {
   void buttonAction(int a);                               // bouton physique (action 1..11), appelee dans la boucle principale (jalon 7)
   void setReloadHook(std::function<void()> fn) { reloadHook_ = std::move(fn); }  // appelee apres chaque reloadConfig() (le bouton relit BTN_*)
   void onRecalboxConnected();                             // 1re reponse de la Recalbox : image de secours + « RecalBox connectee » 5 s, puis le logo seul jusqu'a une instruction
-  void onRecalboxDisconnected() { discPending_ = true; }  // PING sans PONG 2 cycles de suite : « RecalBox hors ligne » des que l'ecran le permet (voir UdpServer)
+  void onRecalboxDisconnected() { discPending_ = true; if (zed_.native()) zed_.requestRelease(); }  // en mode natif : l'ecran revient a la playlist ; PING sans PONG 2 cycles de suite : « RecalBox hors ligne » des que l'ecran le permet (voir UdpServer)
   bool configOpen() const { return configActive_; }
   bool takeDiscForcedPlaylist() { const bool f = discForced_; discForced_ = false; return f; }  // le passage en playlist a ete force par une coupure : resync a la reconnexion
   void showFirstBootScreen();                             // « Page de configuration » + adresse (ou attente du reseau) : premier demarrage

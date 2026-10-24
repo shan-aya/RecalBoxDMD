@@ -8,6 +8,14 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-24 (3) — Firmware v3.86, démon Raspberry Pi v3.64 et boîte à outils 13177 : mode Recalbox natif, Visual Pinball sur le Pi
+
+**Firmware v3.86 · Démon Raspberry Pi v3.64 · Boîte à outils PC build 13177**
+- **Mode Recalbox natif : retour à la playlist quand la Recalbox s'éteint ou ne répond plus.** Avant, l'écran restait sur la dernière image d'EmulationStation. Le DMD (ESP32 et Pi) rend maintenant l'écran à la playlist quand la Recalbox est éteinte (quelques secondes) ou ne répond plus à deux PING de suite (environ 30 s), et reprend le flux d'EmulationStation dès qu'il revient.
+- **Mode natif (firmware) : l'animation de démarrage de fête se joue enfin.** La date n'était jamais mémorisée dans ce mode, donc aucune fête n'était détectée ; elle l'est maintenant (synchronisation de l'heure silencieuse). L'animation de fête joue dès le démarrage suivant celui qui a mémorisé la date.
+- **Visual Pinball sur le Pi (mode normal et mode natif) : les tables s'affichent.** Deux causes côté Recalbox, corrigées par le script `dmd_vpx_config` v4 (installé par le Mode 9) : l'adresse du DMD dans la configuration de VPX pouvait être périmée, et Recalbox effaçait l'option du plugin DMD à chaque lancement de table. Le script prend l'adresse de l'option ZeDMD de Recalbox (ou du DMD qui répond) et remet l'option « DMD externe » sur ZeDMD avant chaque lancement ; il ne touche à rien si vous avez choisi un autre afficheur. Le script `marquee` v55 prévient le DMD à l'extinction.
+- **Boîte à outils : lien « GitHub »** à côté de « Notes de version » dans l'avis de mise à jour.
+
 ## 2026-10-24 (2) — Boîte à outils PC build 13077 : textes traduits
 
 **Boîte à outils PC build 13077**

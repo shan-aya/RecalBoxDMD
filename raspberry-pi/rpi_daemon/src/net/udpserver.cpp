@@ -217,6 +217,8 @@ void UdpServer::noteOnReceipt(const std::string &msg) {
         logf("RAWIN", pin ? "contexte vpinball ouvert (partie annoncee par la Recalbox)" : "contexte vpinball ferme");
       }
     }
+  } else if (cmd == "rb_shutdown") {  // marquee.sh a l'evenement shutdown : en mode natif l'ecran reste sinon sur la derniere image d'ES
+    zed_.releaseRequests++;
   } else if (cmd == "vpinball_end") {
     zed_.pinballContext = false;
     zed_.endRequests++;

@@ -37,6 +37,7 @@ LOG="/recalbox/share/system/logs/marquee_mqtt.log"
 DMD_UDP_IP_FALLBACK="192.168.0.51"
 DMD_UDP_IP_CACHE="/tmp/dmd_udp_ip"
 DMD_UDP_PORT=5005
+# v55 - 2026-10-24 - safe-modify - EXTINCTION (shutdown|reboot) : envoie aussi « rb_shutdown » (le Pi en mode natif rend l'ecran a la playlist immediatement). Non teste sur materiel.
 # v54 - 2026-10-06 - safe-modify - EXTINCTION PROPRE : nouvelle branche shutdown|reboot (retour playlist immediat, comme stop) -- voir son commentaire. NON TESTE SUR MATERIEL.
 # v53 - 2026-09-19 - safe-modify - Reglages "Veille Recalbox" de la page web
 # du DMD (demande utilisateur) : demo_follow / clip_follow dans le cache
@@ -1858,6 +1859,9 @@ while true; do
             LAST_ROM=""
             send_mqtt_retain "ingame" "0"
             send_mqtt_retain "default" "1"
+            # v55 -- Pi en mode Recalbox natif : « default » est ignore (l'ecran appartient au flux d'ES) et le DMD restait sur la derniere image ~45 s ; « rb_shutdown »
+            # lui dit de rendre l'ecran a la playlist tout de suite. Commande inconnue des anciens firmwares ESP32 : ignoree par eux (aucun effet).
+            send_mqtt_retain "rb_shutdown" "1"
             ;;
 
         sleep)
