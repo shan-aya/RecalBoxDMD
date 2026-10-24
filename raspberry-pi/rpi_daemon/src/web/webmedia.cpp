@@ -47,6 +47,15 @@ std::string baseName(std::string n) {
   return n;
 }
 bool langOk(const std::string &l) { return l == "fr" || l == "en" || l == "es"; }
+// /gifs/_boot/ (animations de demarrage) : dossier PROTEGE, comme sur le firmware v383 : masque dans la liste des dossiers, suppression refusee, et seuls les 6 fichiers d'animation connus
+// peuvent y etre envoyes (Mode 19 de la boite a outils).
+bool bootDirProtected(const std::string &d) { return toLower(trim(d)) == "_boot"; }
+bool bootAnimNameOk(const std::string &n) {
+  static const char *ok[] = {"boot_anim.raw565pack", "boot_halloween.raw565pack", "boot_noel.raw565pack", "boot_nouvelan.raw565pack", "boot_valentin.raw565pack", "boot_paques.raw565pack"};
+  for (const char *k : ok)
+    if (toLower(n) == k) return true;
+  return false;
+}
 std::string slug(const std::string &in) {  // minuscules, [a-z0-9_-], espaces -> '-', 24 car. max
   std::string o;
   for (size_t i = 0; i < in.size() && o.size() < 24; i++) {
@@ -129,7 +138,7 @@ void WebConfig::registerMediaRoutes() {
     if (gen_->active) return json("[]");
     std::vector<std::string> names;
     for (const std::string &n : fs_.list("/gifs"))
-      if (fs_.isDir("/gifs/" + n)) names.push_back(n);
+      if (fs_.isDir("/gifs/" + n) && !bootDirProtected(n)) names.push_back(n);
     std::sort(names.begin(), names.end());
     std::string j = "[";
     for (size_t i = 0; i < names.size(); i++) j += (i ? "," : "") + std::string("\"") + jsonEsc(names[i]) + "\"";
@@ -362,6 +371,7 @@ void WebConfig::registerMediaRoutes() {
         }
       } else {
         if (!safeName(dir) || !safeName(name)) err = "ERR: nom invalide";
+        else if (bootDirProtected(dir) && !bootAnimNameOk(name)) err = "ERR: dossier reserve aux animations de demarrage";
         else dirPath = "/gifs/" + dir;
       }
       if (err.empty()) {
@@ -437,7 +447,7 @@ void WebConfig::registerMediaRoutes() {
     int count = 0, fail = 0;
     std::vector<std::string> deleted;
     for (const std::string &d : splitCsv(r.arg("dirs"))) {
-      if (!safeName(d)) { fail++; continue; }
+      if (!safeName(d) || bootDirProtected(d)) { fail++; continue; }   // dossier des animations de demarrage : jamais supprime par la page
       const std::string p = "/gifs/" + d;
       if (!fs_.exists(p)) continue;
       std::error_code ec;

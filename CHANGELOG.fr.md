@@ -8,6 +8,13 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-24 — Firmware v3.83 et démon Raspberry Pi v3.63 : fuseau horaire dans « Réglages horloge », avis de mise à jour traduit, animations protégées
+
+**Firmware v3.83 · Démon Raspberry Pi v3.63**
+- **Fuseau horaire dans les réglages de l'horloge.** La page Horloge (ouverte par le bouton **« Réglages horloge »** de la page Widgets, anciennement « Choix d'horloge ») propose maintenant le fuseau horaire en première ligne ; c'est le même réglage que celui de la page Lieu.
+- **Avis de mise à jour traduit.** Le bandeau qui annonce une nouvelle version (firmware, scripts, boîte à outils) restait dans la langue du chargement de la page, souvent le français : il suit maintenant le sélecteur de langue.
+- **Animations de démarrage protégées.** Le dossier `gifs/_boot` est masqué de la liste des dossiers, la page web ne peut plus le supprimer, et seuls les six fichiers d'animation connus peuvent y être envoyés (Mode 19 de la boîte à outils). Les prochaines versions téléchargent leurs animations depuis le dossier `boot_anim/` du dépôt GitHub (`binaries/` reste réservé au firmware).
+
 ## 2026-10-23 (2) — Boîte à outils PC build 12977 : Mode 19, animations de démarrage par Wi-Fi
 
 **Boîte à outils PC build 12977**

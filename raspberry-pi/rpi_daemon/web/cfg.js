@@ -53,7 +53,7 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
     var lg = (localStorage.getItem('dmd_lang') || document.documentElement.lang || 'fr').substring(0, 2); if (!TXT.fw[lg]) lg = 'fr';
     var cur = String((d && d.fw_version) || ''), items = [];
     var fwNew = vnum(cur) > 0 && vnum(latest) > vnum(cur);
-    if (!onSet && fwNew) items.push({ t: TXT.fw[lg].replace('{v}', latest).replace('{c}', cur), h: '/config/settings', b: false });
+    if (!onSet && fwNew) items.push({ k: 'fw', v: latest, c: cur, t: TXT.fw[lg].replace('{v}', latest).replace('{c}', cur), h: '/config/settings', b: false });
     var sl = parseInt(scrLatest, 10) || 0, sc = String((d && d.scripts_bundle) || ''), age = parseInt((d && d.rb_age) || '0', 10) || 0;
     var have = sc !== '' ? parseInt(sc, 10) : (age >= 90 ? 0 : -1);
     /* v356 : pastille « Mise a jour » sur chaque lien vers Reglages (bouton de l'accueil, menu des pages) : pseudo-element CSS (texte selon html[lang]) : survit au changement de langue (innerHTML reecrit) */
@@ -64,9 +64,9 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
       };
       if (document.body) badge(); else document.addEventListener('DOMContentLoaded', badge);
     }
-    if (!onSet && sl > 0 && have >= 0 && have < sl) items.push({ t: TXT.sc[lg].replace('{v}', sl).replace('{c}', have), h: 'https://github.com/shan-aya/RecalBoxDMD/releases/latest', b: true });
+    if (!onSet && sl > 0 && have >= 0 && have < sl) items.push({ k: 'sc', v: sl, c: have, t: TXT.sc[lg].replace('{v}', sl).replace('{c}', have), h: 'https://github.com/shan-aya/RecalBoxDMD/releases/latest', b: true });
     var tkn = parseInt(tkLatest, 10) || 0, tks = 0; try { tks = parseInt(localStorage.getItem(TKS) || '0', 10) || 0; } catch (e) {}
-    if (tkn > 0 && tkn > tks) items.push({ t: TXT.tk[lg].replace('{v}', tkn), h: 'https://github.com/shan-aya/RecalBoxDMD/releases/latest', b: true, tk: tkn });
+    if (tkn > 0 && tkn > tks) items.push({ k: 'tk', v: tkn, t: TXT.tk[lg].replace('{v}', tkn), h: 'https://github.com/shan-aya/RecalBoxDMD/releases/latest', b: true, tk: tkn });
     if (!items.length) return;
     var show = function () {
       if (document.getElementById('cfgFwBar') || !document.body) return;
@@ -76,10 +76,18 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
         a.href = it.h; if (it.b) { a.target = '_blank'; a.rel = 'noopener'; } a.textContent = it.t; a.style.cssText = 'color:inherit;text-decoration:none';
         n.href = clUrl(); n.target = '_blank'; n.rel = 'noopener'; n.className = 'cfgcl'; n.textContent = CL[clLang()][0]; n.style.cssText = 'color:inherit;text-decoration:underline;display:block;margin-top:3px';
         r.style.cssText = 'text-align:center;background:#7a4a12;color:#ffcf8a;font:700 13px "Segoe UI",Tahoma,sans-serif;padding:8px 10px;margin:0 0 4px;border-radius:8px';
+        it.a = a; it.n = n;   /* v384 : references gardees pour retraduire le bandeau quand la langue de la page change */
         r.appendChild(a); r.appendChild(n); w.appendChild(r);
         if (it.tk) { var x = document.createElement('span'); x.textContent = '\u2715'; x.title = 'OK'; x.style.cssText = 'float:left;cursor:pointer;padding:0 4px;margin:-2px 6px 0 0'; x.onclick = function () { try { localStorage.setItem(TKS, String(it.tk)); } catch (e) {} r.parentNode && r.parentNode.removeChild(r); }; r.insertBefore(x, r.firstChild); }
       });
       document.body.insertBefore(w, document.body.firstChild);
+      /* v384 : le bandeau etait construit UNE fois dans la langue du chargement (souvent le francais avant que la page applique la langue du DMD) et ne suivait pas le selecteur de langue : il est retraduit a chaque changement de l'attribut lang de la page */
+      var retr = function () {
+        var l2 = 'fr'; try { l2 = (localStorage.getItem('dmd_lang') || document.documentElement.lang || 'fr').substring(0, 2); } catch (e) { l2 = (document.documentElement.lang || 'fr').substring(0, 2); } if (!TXT.fw[l2]) l2 = 'fr';
+        items.forEach(function (it) { if (!it.a) return; it.a.textContent = TXT[it.k][l2].replace('{v}', it.v).replace('{c}', it.c === undefined ? '' : it.c); it.n.textContent = CL[clLang()][0]; it.n.href = clUrl(); });
+      };
+      retr();
+      try { new MutationObserver(retr).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] }); } catch (e) {}
     };
     if (document.body) show(); else document.addEventListener('DOMContentLoaded', show);
   }

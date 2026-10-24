@@ -8,6 +8,13 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-24 — Firmware v3.83 and Raspberry Pi daemon v3.63: time zone in "Clock settings", translated update notice, protected boot animations
+
+**Firmware v3.83 · Raspberry Pi daemon v3.63**
+- **Time zone in the clock settings.** The Clock page (opened by the **"Clock settings"** button of the Widgets page, formerly "Choose clock") now offers the time zone on its first line; it is the same setting as on the Place page.
+- **Translated update notice.** The banner announcing a new version (firmware, scripts, toolkit) stayed in the language the page was loaded in, often French: it now follows the language selector.
+- **Protected boot animations.** The `gifs/_boot` folder is hidden from the folder list, the web page can no longer delete it, and only the six known animation files can be sent to it (toolkit Mode 19). Future versions download their animations from the repository's `boot_anim/` folder (`binaries/` stays reserved for the firmware).
+
 ## 2026-10-23 (2) — PC toolkit build 12977: Mode 19, boot animations over Wi-Fi
 
 **PC toolkit build 12977**

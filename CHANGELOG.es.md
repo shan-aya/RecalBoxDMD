@@ -8,6 +8,13 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-24 — Firmware v3.83 y demonio Raspberry Pi v3.63: zona horaria en « Ajustes del reloj », aviso de actualización traducido, animaciones protegidas
+
+**Firmware v3.83 · Demonio Raspberry Pi v3.63**
+- **Zona horaria en los ajustes del reloj.** La página Reloj (abierta por el botón **« Ajustes del reloj »** de la página Widgets) ofrece ahora la zona horaria en su primera línea; es el mismo ajuste que el de la página Lugar.
+- **Aviso de actualización traducido.** El aviso que anuncia una nueva versión (firmware, scripts, caja de herramientas) se quedaba en el idioma de la carga de la página, a menudo el francés: ahora sigue el selector de idioma.
+- **Animaciones de arranque protegidas.** La carpeta `gifs/_boot` queda oculta de la lista de carpetas, la página web ya no puede borrarla, y solo se pueden enviar a ella los seis archivos de animación conocidos (Modo 19 de la caja de herramientas). Las próximas versiones descargan sus animaciones de la carpeta `boot_anim/` del repositorio (`binaries/` sigue reservada al firmware).
+
 ## 2026-10-23 (2) — Caja de herramientas del PC build 12977: Modo 19, animaciones de arranque por Wi-Fi
 
 **Caja de herramientas del PC build 12977**
