@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-25 (3) — Firmware v3.89, Raspberry Pi daemon v3.67: "Recalbox sleep" labels clarified; animated marquees tutorial
+
+**Firmware v3.89 · Raspberry Pi daemon v3.67**
+- **"Recalbox sleep" section (Display page)**: the labels now say that, **unchecked, the DMD shows the playlist with the widgets and the clock per your settings** (instead of "simple playlist"), for game demos and for video clips alike; checked (default): the marquee of the game being shown. No change in behaviour. ESP32 and Raspberry Pi.
+- **New tutorial** (FR/EN/ES, with screenshots): make animated marquees with DMD GIF Creator (AUTO mode) and the toolkit, ending with an SD card full of `.raw565pack` files: [docs/tutorials/animated-marquees.md](docs/tutorials/animated-marquees.md).
+
 ## 2026-10-25 (2) — Firmware v3.88, Raspberry Pi daemon v3.66 and toolkit 13377: the DMD resumes by itself when the configuration page is closed, sending GIF folders to the Pi
 
 **Firmware v3.88 · Raspberry Pi daemon v3.66 · PC toolkit build 13377**

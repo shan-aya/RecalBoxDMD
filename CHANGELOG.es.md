@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-25 (3) — Firmware v3.89, demonio Raspberry Pi v3.67: etiquetas de la sección « Reposo de Recalbox » aclaradas; tutorial de marquesinas animadas
+
+**Firmware v3.89 · Demonio Raspberry Pi v3.67**
+- **Sección « Reposo de Recalbox » (página Pantalla)**: las etiquetas indican ahora que, **desmarcada, el DMD muestra la playlist con los widgets y el reloj según tus ajustes** (en vez de « playlist simple »), tanto para la demo de juegos como para los clips de vídeo; marcada (por defecto): la marquesina del juego en curso. Sin cambios de comportamiento. ESP32 y Raspberry Pi.
+- **Nuevo tutorial** (FR/EN/ES, con capturas): crear marquesinas animadas con DMD GIF Creator (modo AUTO) y la caja de herramientas, hasta una tarjeta SD con archivos `.raw565pack`: [docs/tutorials/animated-marquees.es.md](docs/tutorials/animated-marquees.es.md).
+
 ## 2026-10-25 (2) — Firmware v3.88, demonio Raspberry Pi v3.66 y caja de herramientas 13377: el DMD se reanuda solo al cerrar la página de configuración, envío de carpetas de GIF a la Pi
 
 **Firmware v3.88 · Demonio Raspberry Pi v3.66 · Caja de herramientas del PC build 13377**

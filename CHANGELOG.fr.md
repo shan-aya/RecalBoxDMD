@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-25 (3) — Firmware v3.89, démon Raspberry Pi v3.67 : libellés de la section « Veille Recalbox » précisés ; tutoriel des marquees animés
+
+**Firmware v3.89 · Démon Raspberry Pi v3.67**
+- **Section « Veille Recalbox » (page Affichage)** : les libellés précisent désormais que, **case décochée, le DMD affiche la playlist avec les widgets et l'horloge selon vos réglages** (au lieu de « playlist simple »), pour la démo de jeux comme pour les clips vidéo ; case cochée (par défaut) : le marquee du jeu en cours. Aucun changement de comportement. ESP32 et Raspberry Pi.
+- **Nouveau tutoriel** (FR/EN/ES, avec captures) : créer des marquees animés avec DMD GIF Creator (mode AUTO) et la boîte à outils, carte SD prête avec des `.raw565pack` : [docs/tutorials/animated-marquees.fr.md](docs/tutorials/animated-marquees.fr.md).
+
 ## 2026-10-25 (2) — Firmware v3.88, démon Raspberry Pi v3.66 et boîte à outils 13377 : le DMD reprend seul quand la page de configuration est fermée, envoi de dossiers de GIF au Pi
 
 **Firmware v3.88 · Démon Raspberry Pi v3.66 · Boîte à outils PC build 13377**
