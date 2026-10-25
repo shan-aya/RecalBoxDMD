@@ -139,6 +139,22 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
   };
 })();
 
+/* v388 : page de configuration fermee (croix, fermeture du navigateur, plantage) -> le DMD ne reste plus en mode config.
+   - pagehide : « je pars » (POST /dmd-leave par sendBeacon) : le DMD reprend 10 s plus tard, sauf si une page se rouvre dans ce delai (F5, autre page de configuration) ;
+   - tant que l'onglet est visible : battement POST /dmd-hb toutes les 20 s ; sans battement ni message pendant 3 min (navigateur plante, Wi-Fi coupe, onglet masque) le DMD reprend seul ;
+   - retour sur un onglet masque : le DMD est remis en mode config (il a pu reprendre entre-temps). */
+(function () {
+  var hbT = null;
+  function hb() { if (!document.hidden) fetch('/dmd-hb', { method: 'POST' }).catch(function () {}); }
+  function start() { if (!hbT) hbT = setInterval(hb, 20000); }
+  function stop() { if (hbT) { clearInterval(hbT); hbT = null; } }
+  function rearm() { fetch('/dmd-pause', { method: 'POST', body: new URLSearchParams({ msg: 'http://' + location.host, color: '' }), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }).catch(function () {}); }
+  document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); else { rearm(); start(); } });
+  window.addEventListener('pagehide', function () { try { navigator.sendBeacon('/dmd-leave', new Blob([''], { type: 'text/plain' })); } catch (e) {} });
+  window.addEventListener('pageshow', function (e) { if (e.persisted) { rearm(); start(); } });
+  start();
+})();
+
 /* v352 -- BROUILLON PARTAGE (pages Widgets, Lieu, Evenements, Couleurs d'horloge + fusion des brouillons de TOUTES les pages) : les reglages faits dans un sous-menu sont gardes
    dans localStorage (dmd_draft_widgets, seulement les cles MODIFIEES) et envoyes par UN SEUL « Enregistrer » de n'importe quelle page (wdBodyAll). Effaces apres un enregistrement reussi. */
 var WD_KEY = 'dmd_draft_widgets', WD_ALL = ['dmd_draft_home', 'dmd_draft_basic', 'dmd_draft_playlist', 'dmd_draft_network', 'dmd_draft_clock', 'dmd_draft_widgets'];

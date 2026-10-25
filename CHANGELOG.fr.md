@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-25 (2) — Firmware v3.88, démon Raspberry Pi v3.66 et boîte à outils 13377 : le DMD reprend seul quand la page de configuration est fermée, envoi de dossiers de GIF au Pi
+
+**Firmware v3.88 · Démon Raspberry Pi v3.66 · Boîte à outils PC build 13377**
+- **Le DMD ne reste plus en mode configuration quand on ferme la page** (croix, fermeture du navigateur, plantage). La page prévient le DMD qu'elle part et il reprend 10 s plus tard ; un rafraîchissement (F5) ou le passage à une autre page de configuration annule cette reprise. Si le navigateur plante ou si le Wi-Fi coupe, le DMD reprend après 3 min sans signe de vie. Pas de reprise automatique pendant le premier démarrage, sur l'écran du point d'accès Wi-Fi ni pendant une génération de playlist ; les messages du toolkit et les envois de fichiers comptent comme de l'activité. Même comportement sur ESP32 et sur Raspberry Pi.
+- **Boîte à outils, onglet Playlist : bouton « Envoyer au Pi (Wi-Fi)… »** (Raspberry Pi uniquement). Envoie des dossiers de GIF de l'ordinateur dans `gifs/` du Pi par Wi-Fi, sans sortir sa carte : même choix de dossiers que « Ajouter un dossier PC… », confirmation, progression et résumé. Un DMD ESP32 est refusé (copie sur sa carte SD). La carte du Pi n'accepte que l'ASCII : les accents des noms de dossiers et de fichiers sont convertis (é devient e) et le résumé les signale.
+
 ## 2026-10-25 — Firmware v3.87, démon Raspberry Pi v3.65 et boîte à outils 13277 : lien de téléchargement dans les avis de mise à jour
 
 **Firmware v3.87 · Démon Raspberry Pi v3.65 · Boîte à outils PC build 13277**

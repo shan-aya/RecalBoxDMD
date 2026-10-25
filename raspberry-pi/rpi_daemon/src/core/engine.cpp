@@ -378,6 +378,7 @@ void Engine::configScreen(const std::string &main, const std::string &sub, uint1
   cfgPersistentWhite_ = whiteFrom;
   cfgSubSetMs_ = 0;  // jamais d'expiration : c'est le message permanent
   configActive_ = true;
+  webPaused_ = false;  // ecran de premier demarrage / point d'acces : jamais de reprise automatique
   if (zed_.native()) zed_.setOverlay(true);
   else {
     abortDeco();
@@ -419,7 +420,38 @@ void Engine::configSubLine(const std::string &sub, uint16_t subColor, int whiteF
   d_.show();
 }
 // Ecran de configuration : le titre en haut, le message (page ouverte, « Enregistrement »...) en bas.
+void Engine::webTouch() {
+  webLastMs_ = nowMs();
+  webLeaveAtMs_ = 0;  // une page est (re)ouverte ou vivante : le depart annonce est annule
+}
+
+void Engine::webLeaveSoon(uint64_t delayMs) {
+  // ignoree si une pause vient d'avoir lieu (< 3 s) : au F5 la requete de la page rechargee peut passer AVANT l'annonce de depart de l'ancienne
+  if (webPaused_ && nowMs() - webPausedAtMs_.load() >= 3000) webLeaveAtMs_ = nowMs() + delayMs;
+}
+
+// Reprise automatique du DMD quand plus aucune page de configuration n'est ouverte (voir engine.h).
+void Engine::tickWebWatchdog(uint64_t now) {
+  if (!webPaused_ || !configActive_) return;
+  constexpr uint64_t WEB_IDLE_MS = 180000;  // 3 min sans battement (20 s) ni message : navigateur plante, Wi-Fi coupe, onglet masque
+  if (webBusy_ && webBusy_()) {
+    webLastMs_ = now;
+    return;
+  }
+  const uint64_t leaveAt = webLeaveAtMs_.load();
+  const char *why = nullptr;
+  if (leaveAt != 0 && now >= leaveAt) why = "page fermee";
+  else if (now - webLastMs_.load() > WEB_IDLE_MS) why = "aucune activite depuis 3 min";
+  if (!why) return;
+  logf("WEB", "reprise automatique du DMD (%s)", why);
+  webLeaveAtMs_ = 0;
+  webResume();
+}
+
 void Engine::webPause(const std::string &msg, uint16_t color) {
+  webPaused_ = true;
+  webPausedAtMs_ = nowMs();
+  webTouch();
   cfgSubMsg_ = msg;
   cfgSubColor_ = color;
   cfgSubWhiteFrom_ = -1;
@@ -474,6 +506,8 @@ void Engine::showFirstBootScreen() {
 }
 
 void Engine::webResume() {
+  webPaused_ = false;
+  webLeaveAtMs_ = 0;
   // premier demarrage : l'affichage normal ne reprend qu'apres une sauvegarde conforme (first_boot passe a 0 dans /save)
   if (cfg_.getBool("first_boot", true) && !zed_.native()) {
     logf("WEB", "premier demarrage : reprise refusee, l'ecran de configuration reste affiche jusqu'a une sauvegarde valide");
@@ -1510,6 +1544,7 @@ void Engine::tickBrightSched(uint64_t now) {
 
 void Engine::tick() {
   tickBrightSched(nowMs());
+  tickWebWatchdog(nowMs());
   if (zed_.enabled()) {
     switch (zed_.poll(nowMs())) {
       case ZeDmd::Event::ENTERED:  // le 1er datagramme ZeDMD valide prend l'ecran : tout le reste est suspendu

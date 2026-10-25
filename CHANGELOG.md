@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-25 (2) — Firmware v3.88, Raspberry Pi daemon v3.66 and toolkit 13377: the DMD resumes by itself when the configuration page is closed, sending GIF folders to the Pi
+
+**Firmware v3.88 · Raspberry Pi daemon v3.66 · PC toolkit build 13377**
+- **The DMD no longer stays in configuration mode when the page is closed** (cross, browser closed, crash). The page tells the DMD it is leaving and the DMD resumes 10 s later; a refresh (F5) or moving to another configuration page cancels that. If the browser crashes or the Wi-Fi drops, the DMD resumes after 3 min without a sign of life. No automatic resume during the first boot, on the Wi-Fi access point screen or during a playlist generation; toolkit messages and file uploads count as activity. Same behaviour on ESP32 and Raspberry Pi.
+- **Toolkit, Playlist tab: "Send to Pi (Wi-Fi)…" button** (Raspberry Pi only). Sends GIF folders from the computer into the Pi's `gifs/` folder over Wi-Fi, without taking its card out: same folder picking as "Add a PC folder…", confirmation, progress and summary. An ESP32 DMD is refused (copy to its SD card). The Pi's card only accepts ASCII: accents in folder and file names are converted (é becomes e) and the summary says so.
+
 ## 2026-10-25 — Firmware v3.87, Raspberry Pi daemon v3.65 and toolkit 13277: download link in the update notices
 
 **Firmware v3.87 · Raspberry Pi daemon v3.65 · PC toolkit build 13277**

@@ -112,6 +112,7 @@ struct WebConfig::PlGen {
 
 void WebConfig::registerMediaRoutes() {
   gen_ = std::make_shared<PlGen>();
+  eng_.setWebBusyHook([gen = gen_] { return gen->active.load(); });  // generation de playlist en cours : le DMD ne reprend pas tout seul (Engine::tickWebWatchdog)
 
   // chemin reel (insensible a la casse pour ce qui existe, tel quel pour ce qu'on cree)
   auto real = [this](const std::string &sdPath) {

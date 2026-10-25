@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-25 (2) — Firmware v3.88, demonio Raspberry Pi v3.66 y caja de herramientas 13377: el DMD se reanuda solo al cerrar la página de configuración, envío de carpetas de GIF a la Pi
+
+**Firmware v3.88 · Demonio Raspberry Pi v3.66 · Caja de herramientas del PC build 13377**
+- **El DMD ya no se queda en modo configuración al cerrar la página** (cruz, cierre del navegador, fallo). La página avisa al DMD de que se va y este se reanuda 10 s después; actualizar (F5) o pasar a otra página de configuración cancela la reanudación. Si el navegador falla o se corta el Wi-Fi, el DMD se reanuda tras 3 min sin señales de vida. Sin reanudación automática durante el primer arranque, en la pantalla del punto de acceso Wi-Fi ni durante la generación de una playlist; los mensajes de la caja de herramientas y los envíos de archivos cuentan como actividad. Mismo comportamiento en ESP32 y en Raspberry Pi.
+- **Caja de herramientas, pestaña Playlist: botón « Enviar a la Pi (Wi-Fi)… »** (solo Raspberry Pi). Envía carpetas de GIF del ordenador a `gifs/` de la Pi por Wi-Fi, sin sacar su tarjeta: misma selección de carpetas que « Añadir una carpeta del PC… », confirmación, progreso y resumen. Un DMD ESP32 se rechaza (copia en su tarjeta SD). La tarjeta de la Pi solo acepta ASCII: los acentos de los nombres de carpetas y archivos se convierten (é pasa a e) y el resumen lo indica.
+
 ## 2026-10-25 — Firmware v3.87, demonio Raspberry Pi v3.65 y caja de herramientas 13277: enlace de descarga en los avisos de actualización
 
 **Firmware v3.87 · Demonio Raspberry Pi v3.65 · Caja de herramientas del PC build 13277**

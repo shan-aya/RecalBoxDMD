@@ -717,6 +717,19 @@ void WebConfig::registerRoutes() {
     out.body = "OK";
     return out;
   });
+  // Battement des pages ouvertes (toutes les 20 s) et annonce de depart (pagehide : croix, fermeture du navigateur) : voir Engine::tickWebWatchdog()
+  web_.post("/dmd-hb", [this](const WebRequest &) {
+    WebReply out;
+    eng_.webTouch();
+    out.body = "OK";
+    return out;
+  });
+  web_.post("/dmd-leave", [this](const WebRequest &) {
+    WebReply out;
+    eng_.webLeaveSoon(10000);  // reprise dans 10 s, annulee si une page se rouvre (F5, autre page de configuration)
+    out.body = "OK";
+    return out;
+  });
   web_.post("/dmd-resume", [this](const WebRequest &) {
     WebReply out;
     out.body = "OK REBOOT";

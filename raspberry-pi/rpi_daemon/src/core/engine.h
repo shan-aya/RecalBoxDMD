@@ -84,7 +84,14 @@ class Engine {
   bool mainTaskPending();
   void loadBrightSched();                                  // BRIGHT_SCHED* relus (demarrage, rechargement de config.ini)
   void reloadConfig();                                    // config.ini vient d'etre modifie : relit et applique en direct
-  void webPause(const std::string &msg, uint16_t color);  // « ecran de configuration » : titre + message (page web ouverte / enregistrement)
+  void webPause(const std::string &msg, uint16_t color);
+  // Page de configuration fermee (croix, fermeture du navigateur, plantage) : le DMD ne doit pas rester en mode config.
+  // webTouch() = signe de vie (battement /dmd-hb, message, page ouverte) ; webLeaveSoon() = la page annonce son depart (/dmd-leave) : reprise dans delayMs sauf si une page se rouvre ;
+  // tickWebWatchdog() (boucle principale) reprend aussi apres WEB_IDLE_MS sans signe de vie. Ne touche jamais l'ecran de premier demarrage / du point d'acces (configScreen).
+  void webTouch();
+  void webLeaveSoon(uint64_t delayMs);
+  void tickWebWatchdog(uint64_t now);
+  void setWebBusyHook(std::function<bool()> fn) { webBusy_ = std::move(fn); }  // operation longue en cours (generation de playlist) : pas de reprise automatique  // « ecran de configuration » : titre + message (page web ouverte / enregistrement)
   void webResume();                                       // « Reprendre DMD » : retour a l'affichage normal
   void webOpen(const std::string &msg, const std::string &ip);
   int widgetsRestoreQuotes(const std::string &lang) { return widgets_.restoreQuotes(lang); }
@@ -177,7 +184,10 @@ class Engine {
   uint64_t infoUntilMs_ = 0;                               // action 6 : ecran d'information affiche jusqu'a cette date
   std::mutex mainMu_;
   std::deque<std::pair<std::function<void()>, std::shared_ptr<std::promise<void>>>> mainTasks_;
-  bool configActive_ = false;                              // ecran de configuration affiche (page web)
+  bool configActive_ = false;
+  bool webPaused_ = false;                                 // la pause vient d'une page web / du toolkit (pas du premier demarrage ni du point d'acces)
+  std::atomic<uint64_t> webLastMs_{0}, webLeaveAtMs_{0}, webPausedAtMs_{0};   // dernier signe de vie des pages ; depart annonce (0 = aucun)
+  std::function<bool()> webBusy_;                              // ecran de configuration affiche (page web)
   std::string cfgMainMsg_ = "WEB DMD CONFIG", cfgSubMsg_;
   uint16_t cfgSubColor_ = 0xFFFF;
   std::string cfgPersistentSub_;                           // adresse de la page (reste affichee) ; les messages transitoires expirent apres 5 s
