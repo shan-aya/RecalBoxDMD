@@ -108,9 +108,9 @@ Unos 20 segundos después (184 imágenes) aparece un resumen: *184 GIF creados �
 
 ![Resultado](img/animated-marquees/es/05_gc_done.png)
 
-Ejemplo de GIF producido (Neo-Geo *Legend of Success Joe*):
+Ejemplo de GIF producido (Neo-Geo *Metal Slug X*):
 
-<img src="img/animated-marquees/example_legendos.gif" width="512" alt="Ejemplo animado">
+<img src="img/animated-marquees/example_mslugx.gif" width="512" alt="Ejemplo animado">
 
 **Un ajuste que comprobar** — pestaña **AJUSTES**: **Añadir tipo de animación al nombre** debe seguir **sin marcar**. Si no, los archivos se renombran (`juego_scroll.gif`) y el DMD no los encontrará.
 

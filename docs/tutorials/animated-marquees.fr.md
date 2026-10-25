@@ -108,9 +108,9 @@ Une vingtaine de secondes plus tard (184 images) un bilan s'affiche : *184 GIF c
 
 ![Résultat](img/animated-marquees/fr/05_gc_done.png)
 
-Exemple de GIF produit (Neo-Geo *Legend of Success Joe*) :
+Exemple de GIF produit (Neo-Geo *Metal Slug X*) :
 
-<img src="img/animated-marquees/example_legendos.gif" width="512" alt="Exemple animé">
+<img src="img/animated-marquees/example_mslugx.gif" width="512" alt="Exemple animé">
 
 **Un réglage à vérifier** — onglet **PARAMETRES** : **Ajouter type d'animation au nom de fichier** doit rester **décoché**. Sinon les fichiers sont renommés (`jeu_scroll.gif`) et le DMD ne les trouvera pas.
 

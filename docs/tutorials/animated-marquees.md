@@ -108,9 +108,9 @@ About 20 seconds later (184 images) you get a summary: *184 GIFs created — qua
 
 ![Result](img/animated-marquees/en/05_gc_done.png)
 
-Example of a produced GIF (Neo-Geo *Legend of Success Joe*):
+Example of a produced GIF (Neo-Geo *Metal Slug X*):
 
-<img src="img/animated-marquees/example_legendos.gif" width="512" alt="Animated example">
+<img src="img/animated-marquees/example_mslugx.gif" width="512" alt="Animated example">
 
 **One setting to check** — **SETTINGS** tab: **Add animation type to filename** must stay **unticked**. Otherwise the files are renamed (`game_scroll.gif`) and the DMD will not find them.
 
