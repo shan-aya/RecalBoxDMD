@@ -10,14 +10,14 @@ Toutes les captures viennent d'un vrai déroulé sur une carte de Raspberry Pi (
 
 ## 0. Où se procurer le pack
 
-L'ULTIMATE GIFS DLC est la **collection payante de son créateur** ; il n'est pas dans ce dépôt et nous ne le redistribuons pas. L'échantillon gratuit de 600 GIF est celui que le Mode 11 installe.
+L'ULTIMATE GIFS DLC est la **collection de son créateur, distribuée en charityware** (contre un don) ; il n'est pas dans ce dépôt et nous ne le redistribuons pas. L'échantillon gratuit de 600 GIF est celui que le Mode 11 installe.
 
 | | Lien |
 |---|---|
 | Page du créateur (RpiTeaM / eLLuiGi) | https://rpiteam.carrd.co/ |
 | Sujet du forum « ULTIMATE PACK 11 000 GIFS DLC » (conditions d'accès, nouveautés, mises à jour) | https://www.neo-arcadia.com/forum/viewtopic.php?t=67065 |
 
-Les conditions d'accès et le prix sont fixés par le créateur et peuvent changer : lisez-les sur les pages ci-dessus. Le pack se présente en une archive (environ 0,9 Go compressée, environ 1,5 Go décompressée). **Décompressez-la d'abord sur votre PC** — tout ce qui suit part du dossier `gif` décompressé.
+Les conditions d'accès sont fixées par le créateur et peuvent changer : lisez-les sur les pages ci-dessus. Le pack se présente en une archive (environ 0,9 Go compressée, environ 1,5 Go décompressée). **Décompressez-la d'abord sur votre PC** — tout ce qui suit part du dossier `gif` décompressé.
 
 ---
 

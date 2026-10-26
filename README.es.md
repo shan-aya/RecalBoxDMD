@@ -753,7 +753,7 @@ Apunta una playlist a cualquier subconjunto (pestaña Playlist). Los GIF animado
 
 > ℹ️ Una categoría (`XXX_Mature`) contiene pixel-art de temática adulta, totalmente opcional, nunca seleccionada por defecto.
 
-**¿De dónde viene este pack?** Es la **muestra gratuita** de la colección « pixel perfect » de **eLLuiGi** ([RpiTeaM](https://rpiteam.carrd.co/)), redistribuida con permiso. La colección completa — el **« ULTIMATE GIFS DLC »**, ~11 000 animaciones (1 441 Arcade, 3 601 Consolas, 849 Ordenadores…) — es el pack de pago del creador: [rpiteam.carrd.co](https://rpiteam.carrd.co/) · [hilo del foro](https://www.neo-arcadia.com/forum/viewtopic.php?t=67065).
+**¿De dónde viene este pack?** Es la **muestra gratuita** de la colección « pixel perfect » de **eLLuiGi** ([RpiTeaM](https://rpiteam.carrd.co/)), redistribuida con permiso. La colección completa — el **« ULTIMATE GIFS DLC »**, ~11 000 animaciones (1 441 Arcade, 3 601 Consolas, 849 Ordenadores…) — se distribuye como **charityware** por su creador: [rpiteam.carrd.co](https://rpiteam.carrd.co/) · [hilo del foro](https://www.neo-arcadia.com/forum/viewtopic.php?t=67065).
 
 📖 **Tutorial paso a paso, con capturas**: [instalar el pack ULTIMATE GIFS DLC en la tarjeta del DMD](docs/tutorials/ultimate-gif-pack.es.md).
 

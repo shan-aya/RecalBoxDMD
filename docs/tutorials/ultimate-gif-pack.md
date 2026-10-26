@@ -10,14 +10,14 @@ All screenshots come from a real run on a Raspberry Pi card (`RBPIDMD` partition
 
 ## 0. Where to get the pack
 
-The ULTIMATE GIFS DLC is the **paid collection of its creator**; it is not part of this repository and we do not redistribute it. The free 600-GIF sample is the one installed by Mode 11.
+The ULTIMATE GIFS DLC is the **creator's collection, distributed as charityware** (in return for a donation); it is not part of this repository and we do not redistribute it. The free 600-GIF sample is the one installed by Mode 11.
 
 | | Link |
 |---|---|
 | Creator's page (RpiTeaM / eLLuiGi) | https://rpiteam.carrd.co/ |
 | Forum thread "ULTIMATE PACK 11 000 GIFS DLC" (access conditions, news, updates) | https://www.neo-arcadia.com/forum/viewtopic.php?t=67065 |
 
-Conditions of access and price are set by the creator and may change: read them on the pages above. The pack comes as one archive (about 0.9 GB compressed, about 1.5 GB once unzipped). **Unzip it on your PC first** — everything below starts from the unzipped `gif` folder.
+The conditions of access are set by the creator and may change: read them on the pages above. The pack comes as one archive (about 0.9 GB compressed, about 1.5 GB once unzipped). **Unzip it on your PC first** — everything below starts from the unzipped `gif` folder.
 
 ---
 

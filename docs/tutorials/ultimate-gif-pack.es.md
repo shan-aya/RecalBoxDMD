@@ -10,14 +10,14 @@ Todas las capturas proceden de una ejecución real sobre una tarjeta de Raspberr
 
 ## 0. Dónde conseguir el pack
 
-El ULTIMATE GIFS DLC es la **colección de pago de su creador**; no forma parte de este repositorio y no lo redistribuimos. La muestra gratuita de 600 GIFs es la que instala el Modo 11.
+El ULTIMATE GIFS DLC es la **colección de su creador, distribuida como charityware** (a cambio de una donación); no forma parte de este repositorio y no lo redistribuimos. La muestra gratuita de 600 GIFs es la que instala el Modo 11.
 
 | | Enlace |
 |---|---|
 | Página del creador (RpiTeaM / eLLuiGi) | https://rpiteam.carrd.co/ |
 | Hilo del foro «ULTIMATE PACK 11 000 GIFS DLC» (condiciones de acceso, novedades, actualizaciones) | https://www.neo-arcadia.com/forum/viewtopic.php?t=67065 |
 
-Las condiciones de acceso y el precio los fija el creador y pueden cambiar: léelos en las páginas anteriores. El pack se entrega en un archivo (unos 0,9 GB comprimido, unos 1,5 GB descomprimido). **Descomprímelo primero en tu PC** — todo lo que sigue parte de la carpeta `gif` descomprimida.
+Las condiciones de acceso las fija el creador y pueden cambiar: léelos en las páginas anteriores. El pack se entrega en un archivo (unos 0,9 GB comprimido, unos 1,5 GB descomprimido). **Descomprímelo primero en tu PC** — todo lo que sigue parte de la carpeta `gif` descomprimida.
 
 ---
 
