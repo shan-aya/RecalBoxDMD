@@ -113,6 +113,9 @@ La liste des dossiers est maintenant vide.
 
 ![Dossiers trouvés dans le pack](img/ultimate-gif-pack/fr/05_checklist.png)
 
+La copie démarre **toute seule** dès que vous cliquez **OK** — il n'y a pas de bouton « copier » séparé. Si vous décochez tout ou cliquez **Annuler**, rien n'est copié (l'onglet Logs indique alors « ajout annule »). Attendez la popup de récapitulatif ci-dessous avant de retirer la carte : c'est le seul signe que la copie est terminée.
+
+> ℹ️ Exception : pendant l'installation complète (Mode 1), l'onglet Playlist s'ouvre en mode temporaire où **Ajouter un dossier PC…** ne fait que mettre les dossiers en attente, et il faut ensuite cliquer **Copier la sélection**. Ce tuto commence après l'installation, où la copie démarre automatiquement.
 La copie démarre. La barre de progression indique le dossier et le fichier en cours ; l'onglet **Logs** liste chaque étape (ici, capture prise avec l'onglet Logs ouvert).
 
 ![Copie en cours](img/ultimate-gif-pack/fr/06_copying.png)

@@ -113,6 +113,9 @@ The folder list is now empty.
 
 ![Folders found in the pack](img/ultimate-gif-pack/en/05_checklist.png)
 
+The copy starts **by itself** as soon as you click **OK** — there is no separate "copy" button. If you untick everything or click **Cancel**, nothing is copied (the Logs tab then says "ajout annule"). Wait for the summary pop-up below before removing the card: it is the only sign that the copy is finished.
+
+> ℹ️ Exception: during the full installation (Mode 1) the Playlist tab opens in a temporary mode where **Add a PC folder…** only queues the folders, and you must then click **Copy selection**. This tutorial starts after the installation, where the copy begins automatically.
 The copy starts. The progress bar shows the folder and the file being copied; the **Logs** tab lists every step.
 
 ![Copy in progress (French interface, here with the Logs tab open)](img/ultimate-gif-pack/fr/06_copying.png)

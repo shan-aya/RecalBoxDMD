@@ -113,6 +113,9 @@ La lista de carpetas queda vacía.
 
 ![Carpetas encontradas en el pack](img/ultimate-gif-pack/es/05_checklist.png)
 
+La copia empieza **sola** en cuanto pulsas **OK** — no hay un botón «copiar» aparte. Si desmarcas todo o pulsas **Cancelar**, no se copia nada (la pestaña Logs indica entonces «ajout annule»). Espera a la ventana de resumen de abajo antes de retirar la tarjeta: es la única señal de que la copia ha terminado.
+
+> ℹ️ Excepción: durante la instalación completa (Modo 1) la pestaña Playlist se abre en un modo temporal donde **Añadir una carpeta del PC…** solo deja las carpetas en espera, y después hay que pulsar **Copiar selección**. Este tutorial empieza tras la instalación, donde la copia arranca automáticamente.
 Empieza la copia. La barra de progreso indica la carpeta y el archivo en curso; la pestaña **Logs** lista cada paso.
 
 ![Copia en curso (interfaz en francés, aquí con la pestaña Logs abierta)](img/ultimate-gif-pack/fr/06_copying.png)
