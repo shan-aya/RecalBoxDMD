@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-26 (2) — Boîte à outils PC build 13680 : préférences enregistrées dans la version installée
+
+**Boîte à outils PC build 13680**
+- **Version installée (Setup)** : le Setup installe dans « Program Files », où un utilisateur normal ne peut pas écrire ; le fichier de préférences n'y était jamais créé et l'erreur était ignorée, donc la langue, le thème, l'adresse de la Recalbox et l'image de secours n'étaient pas retenus d'un lancement à l'autre. Les préférences sont maintenant écrites dans `%APPDATA%\RecalBoxDMD` quand le dossier de l'exe n'est pas modifiable ; la version portable garde son fichier à côté de l'exe.
+
 ## 2026-10-26 — Boîte à outils PC build 13579 : image de secours retenue, contrôle de la suppression dans l'onglet Playlist
 
 **Boîte à outils PC build 13579**

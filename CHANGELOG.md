@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-26 (2) — PC toolkit build 13680: preferences saved in the installed version
+
+**PC toolkit build 13680**
+- **Installed version (Setup)**: the Setup installs into "Program Files", where a normal user cannot write; the preferences file was never created there and the error was ignored, so the language, theme, Recalbox address and fallback image were not kept between starts. Preferences are now written to `%APPDATA%\RecalBoxDMD` when the exe folder is not writable; the portable version keeps its file next to the exe.
+
 ## 2026-10-26 — PC toolkit build 13579: fallback image remembered, Playlist tab deletion check
 
 **PC toolkit build 13579**

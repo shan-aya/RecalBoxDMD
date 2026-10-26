@@ -8,6 +8,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-26 (2) — Caja de herramientas del PC build 13680: preferencias guardadas en la versión instalada
+
+**Caja de herramientas del PC build 13680**
+- **Versión instalada (Setup)**: el Setup instala en « Program Files », donde un usuario normal no puede escribir; el archivo de preferencias nunca se creaba allí y el error se ignoraba, así que el idioma, el tema, la dirección de la Recalbox y la imagen de respaldo no se conservaban entre arranques. Las preferencias se escriben ahora en `%APPDATA%\RecalBoxDMD` cuando la carpeta del exe no es modificable; la versión portable conserva su archivo junto al exe.
+
 ## 2026-10-26 — Caja de herramientas del PC build 13579: imagen de respaldo recordada, comprobación de la eliminación en la pestaña Playlist
 
 **Caja de herramientas del PC build 13579**
