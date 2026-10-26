@@ -8,9 +8,9 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
-## 2026-10-26 (2) — Firmware v3.94, démon Raspberry Pi v3.68 : mode diagnostic Wi-Fi / Recalbox
+## 2026-10-26 (2) — Firmware v3.96, démon Raspberry Pi v3.70 : mode diagnostic Wi-Fi / Recalbox
 
-**Firmware v3.94 · Démon Raspberry Pi v3.68**
+**Firmware v3.96 · Démon Raspberry Pi v3.70**
 - **Nouveau mode diagnostic** pour vérifier le signal Wi-Fi et la liaison avec la Recalbox, lançable de trois façons : la nouvelle **action 12 de la page Bouton** (« Diagnostic Wi-Fi / Recalbox »), un **appui court sur le bouton BOOT de l'ESP32** (sans même avoir le bouton physique), ou la nouvelle **page Diagnostic** de la configuration web (aussi dans le menu d'accueil). Il tourne en boucle jusqu'à un nouvel appui.
 - **Ce qu'il mesure**, une fois par seconde sur une fenêtre glissante des 20 derniers tests : force du signal (dBm) et qualité, canal, point d'accès (BSSID), puis un PING vers la Recalbox avec **perte, latence min / moyenne / max et gigue**, l'âge du dernier paquet, les coupures UDP et, sur l'ESP32, les **reconnexions Wi-Fi avec la raison de la dernière déconnexion** et l'historique des 8 dernières connexions (quel point d'accès le DMD a rejoint, et quand). La dalle affiche 4 pages de 4 s ; la page web affiche les valeurs, deux courbes et un **guide « Comment lire ces valeurs »** (seuils, causes, que faire), et peut générer un **rapport texte** à copier ou télécharger pour un message d'assistance.
 - **Sortie du mode** : nouvel appui, page quittée, changement d'onglet ou navigateur fermé (et, par sécurité, 8 s sans signe de vie de la page).

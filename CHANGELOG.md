@@ -8,9 +8,9 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
-## 2026-10-26 (2) — Firmware v3.94, Raspberry Pi daemon v3.68: Wi-Fi / Recalbox diagnostic mode
+## 2026-10-26 (2) — Firmware v3.96, Raspberry Pi daemon v3.70: Wi-Fi / Recalbox diagnostic mode
 
-**Firmware v3.94 · Raspberry Pi daemon v3.68**
+**Firmware v3.96 · Raspberry Pi daemon v3.70**
 - **New diagnostic mode** to check the Wi-Fi signal and the link with the Recalbox, started three ways: the new **action 12 of the Button page** ("Wi-Fi / Recalbox diagnostics"), a **short press on the ESP32 BOOT button** (works even without the physical button), or the new **Diagnostics page** of the web configuration (also in the home menu). It loops until you press again.
 - **What it measures**, once per second over a sliding window of the last 20 tests: signal strength (dBm) and quality, channel, access point (BSSID), then a PING to the Recalbox with **loss, latency min / average / max and jitter**, the time since the last packet, UDP gaps and, on the ESP32, the **Wi-Fi reconnections with the reason of the last disconnection** and the history of the last 8 connections (which access point the DMD joined, and when). The panel shows 4 pages of 4 s; the web page shows the values, two curves and a **"How to read these values" guide** (thresholds, causes, what to do), and can generate a **text report** to copy or download for a support message.
 - **Leaving diagnostic mode**: press again, leave the page, switch tab or close the browser (and, as a safety net, 8 s without a sign of life from the page).
