@@ -581,7 +581,31 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
 
   <div class="wide-sec">
   <section class="feat">
-    <span class="eyebrow" style="color:var(--led-green, var(--led-blue))" data-i18n="pi.eyebrow"></span><span class="newtag" data-i18n="new.label">Nouveauté</span>
+    <span class="eyebrow" style="color:var(--led-green)" data-i18n="diag.eyebrow"></span><span class="newtag" data-i18n="new.label">Nouveauté</span>
+    <h2 data-i18n="diag.h2"></h2>
+    <p data-i18n="diag.p"></p>
+    <figure class="shot glow-g">
+      <img src="media/diag_panel_fr.png" data-diag="1" data-i18n-alt="diag.alt" alt="" loading="lazy">
+    </figure>
+    <ul class="bul"><li data-i18n="diag.l1"></li><li data-i18n="diag.l2"></li><li data-i18n="diag.l3"></li><li data-i18n="diag.l4"></li></ul>
+    <p class="vidcap"><a href="https://github.com/shan-aya/RecalBoxDMD/blob/main/README.fr.md#-diagnostic-wi-fi--recalbox" data-diagdoc="1" target="_blank" rel="noopener" data-i18n="diag.cta">Détails du mode diagnostic</a></p>
+  </section>
+
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--amber)" data-i18n="news.eyebrow"></span><span class="newtag" data-i18n="new.label">Nouveauté</span>
+    <h2 data-i18n="news.h2"></h2>
+    <p data-i18n="news.p"></p>
+    <figure class="shot glow-a">
+      <img src="media/news_fr.png" data-news="1" data-i18n-alt="news.alt" alt="" loading="lazy">
+    </figure>
+    <ul class="bul"><li data-i18n="news.l1"></li><li data-i18n="news.l2"></li><li data-i18n="news.l3"></li><li data-i18n="news.l4"></li></ul>
+    <p class="vidcap"><a href="https://github.com/shan-aya/RecalBoxDMD/blob/main/docs/tutorials/animated-marquees.fr.md" data-tuto="animated-marquees" target="_blank" rel="noopener" data-i18n="news.tuto1">Tutoriel : marquees animés</a> · <a href="https://github.com/shan-aya/RecalBoxDMD/blob/main/docs/tutorials/ultimate-gif-pack.fr.md" data-tuto="ultimate-gif-pack" target="_blank" rel="noopener" data-i18n="news.tuto2">Tutoriel : pack ULTIMATE GIFS DLC</a></p>
+  </section>
+  </div>
+
+  <div class="wide-sec">
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--led-green, var(--led-blue))" data-i18n="pi.eyebrow"></span>
     <h2 data-i18n="pi.h2"></h2>
     <p data-i18n="pi.p"></p>
     <ul class="bul"><li data-i18n="pi.l1"></li><li data-i18n="pi.l2"></li><li data-i18n="pi.l3"></li><li data-i18n="pi.l4"></li><li data-i18n="pi.l5"></li></ul>
@@ -592,7 +616,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
   </section>
 
   <section class="feat">
-    <span class="eyebrow" style="color:var(--amber)" data-i18n="cards.eyebrow"></span><span class="newtag" data-i18n="new.label">Nouveauté</span>
+    <span class="eyebrow" style="color:var(--amber)" data-i18n="cards.eyebrow"></span>
     <h2 data-i18n="cards.h2"></h2>
     <p data-i18n="cards.p"></p>
     <div class="grid2">
@@ -633,7 +657,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
   </section>
 
   <section class="feat">
-    <span class="eyebrow" style="color:var(--amber)" data-i18n="s5c.eyebrow">Thèmes Recalbox</span><!-- NOUVEAUTE : badges « newtag » sur les sections de la derniere publication (Raspberry Pi, Jeux sans logo). A la prochaine publication : les SUPPRIMER et les recopier sur la nouvelle section. -->
+    <span class="eyebrow" style="color:var(--amber)" data-i18n="s5c.eyebrow">Thèmes Recalbox</span><!-- NOUVEAUTE : badges « newtag » sur les sections de la derniere publication (Diagnostic Wi-Fi, Tout par Wi-Fi). A la prochaine publication : les SUPPRIMER et les recopier sur la nouvelle section. -->
     <h2 data-i18n="s5c.h2">Il adopte le thème de votre Recalbox</h2>
     <p data-i18n="s5c.p">Changez de thème dans Recalbox : le DMD affiche les logos de vos consoles dans le style du thème actif — Midnight, CRT Color, Neoretro… 11 thèmes prêts à l'emploi, dont les thèmes officiels de Recalbox, textes FR/EN/ES quand le thème les propose, la langue et la région de votre Recalbox suivies en direct, une case dans la page web du panneau pour activer ou non le suivi, et la boîte à outils PC n'installe que les thèmes que vous choisissez. Et vos thèmes à vous ? Les thèmes créés par les utilisateurs sont eux aussi convertis, par notre moteur de conversion maison, directement depuis votre Recalbox : ils apparaissent sur le DMD comme les autres. (Rendu simulé à partir des vrais logos.)</p>
     <div class="grid2">
@@ -862,6 +886,25 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "pi.l4": "Écran de configuration au premier démarrage, réseau de secours « RecalBox-DMD-Config »",
       "pi.l5": "Mises à jour du démon depuis la page web du panneau : avis, bouton « Mettre à jour », retour automatique en arrière si besoin",
       "pi.alt": "Plaquette : le DMD sur Raspberry Pi — une carte SD préparée en une fois, trois partitions, les mêmes fonctions que le DMD ESP32.",
+      "diag.eyebrow": "Diagnostic Wi-Fi",
+      "diag.h2": "Votre Wi-Fi tient-il la route ? Le DMD le mesure",
+      "diag.p": "Un appui court sur le bouton BOOT de l'ESP32 (ou l'action 12 du bouton physique, ou la page Diagnostic de la configuration web) lance le mode diagnostic : la dalle affiche en direct le signal Wi-Fi, le PING vers la Recalbox (perte, latence, gigue) et les reconnexions, en vert, jaune ou rouge. La page web ajoute des courbes, un guide « Comment lire ces valeurs » et un rapport texte à joindre à une demande d'aide. Même mode sur Raspberry Pi. (Rendu simulé d'après le firmware.)",
+      "diag.l1": "Signal en dBm, canal et point d'accès",
+      "diag.l2": "PING vers la Recalbox : perte, latence min / moyenne / max, gigue",
+      "diag.l3": "Reconnexions Wi-Fi et raison de la dernière coupure",
+      "diag.l4": "Rapport texte à copier pour l'assistance",
+      "diag.alt": "Mode diagnostic : écrans simulés de la dalle (signal, liaison Recalbox, perte et gigue, reconnexions) et façons de le lancer.",
+      "diag.cta": "Détails du mode diagnostic",
+      "news.eyebrow": "Dernières nouveautés",
+      "news.h2": "Tout se fait par Wi-Fi",
+      "news.p": "Sans sortir la carte SD : changez l'image de secours du DMD, installez les animations de démarrage et de fête, envoyez des dossiers de GIF au Raspberry Pi, et installez le pack ULTIMATE de 11 004 GIF en gardant playlists et cache cohérents.",
+      "news.l1": "Image de secours envoyée par Wi-Fi (Mode 10) — ESP32 et Raspberry Pi",
+      "news.l2": "Animations de démarrage et de fête par Wi-Fi (Mode 19) — Halloween, Noël, Nouvel An, Saint-Valentin, Pâques",
+      "news.l3": "Envoi de dossiers de GIF au Raspberry Pi par Wi-Fi (onglet Playlist)",
+      "news.l4": "Tutoriels pas à pas, avec captures, en français, anglais et espagnol",
+      "news.alt": "Plaquette des nouveautés : mode diagnostic, image de secours et animations par Wi-Fi, pack ULTIMATE, tutoriels.",
+      "news.tuto1": "Tutoriel : marquees animés",
+      "news.tuto2": "Tutoriel : pack ULTIMATE GIFS DLC",
       "pi.cta": "Guide d'installation Raspberry Pi",
       "cards.eyebrow": "Jeux sans logo",
       "cards.h2": "Chaque jeu a son cadre, même sans logo",
@@ -1001,6 +1044,25 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "pi.l4": "Configuration screen on first boot, fallback network \"RecalBox-DMD-Config\"",
       "pi.l5": "Daemon updates from the panel's web page: notice, \"Update\" button, automatic rollback if needed",
       "pi.alt": "Flyer: the DMD on Raspberry Pi — one SD card prepared in one go, three partitions, the same features as the ESP32 DMD.",
+      "diag.eyebrow": "Wi-Fi diagnostic",
+      "diag.h2": "Is your Wi-Fi up to it? The DMD measures it",
+      "diag.p": "A short press on the ESP32's BOOT button (or action 12 of the physical button, or the Diagnostic page of the web configuration) starts the diagnostic mode: the panel shows the Wi-Fi signal, the PING to the Recalbox (loss, latency, jitter) and the reconnections live, in green, yellow or red. The web page adds curves, a “How to read these values” guide and a text report to attach to a support request. Same mode on Raspberry Pi. (Simulated render based on the firmware.)",
+      "diag.l1": "Signal in dBm, channel and access point",
+      "diag.l2": "PING to the Recalbox: loss, min / average / max latency, jitter",
+      "diag.l3": "Wi-Fi reconnections and the reason for the last drop",
+      "diag.l4": "Text report to copy for support",
+      "diag.alt": "Diagnostic mode: simulated panel screens (signal, Recalbox link, loss and jitter, reconnections) and ways to start it.",
+      "diag.cta": "Diagnostic mode details",
+      "news.eyebrow": "Latest news",
+      "news.h2": "Everything over Wi-Fi",
+      "news.p": "Without taking the SD card out: change the DMD's fallback image, install the boot and holiday animations, send GIF folders to the Raspberry Pi, and install the 11,004-GIF ULTIMATE pack while keeping playlists and cache consistent.",
+      "news.l1": "Fallback image sent over Wi-Fi (Mode 10) — ESP32 and Raspberry Pi",
+      "news.l2": "Boot and holiday animations over Wi-Fi (Mode 19) — Halloween, Christmas, New Year, Valentine's, Easter",
+      "news.l3": "Send GIF folders to the Raspberry Pi over Wi-Fi (Playlist tab)",
+      "news.l4": "Step-by-step tutorials, with screenshots, in English, French and Spanish",
+      "news.alt": "What's-new flyer: diagnostic mode, fallback image and animations over Wi-Fi, ULTIMATE pack, tutorials.",
+      "news.tuto1": "Tutorial: animated marquees",
+      "news.tuto2": "Tutorial: ULTIMATE GIFS DLC pack",
       "pi.cta": "Raspberry Pi installation guide",
       "cards.eyebrow": "Games without a logo",
       "cards.h2": "Every game gets its frame, even without a logo",
@@ -1140,6 +1202,25 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "pi.l4": "Pantalla de configuración en el primer arranque, red de rescate « RecalBox-DMD-Config »",
       "pi.l5": "Actualizaciones del demonio desde la página web del panel: aviso, botón « Actualizar », vuelta atrás automática si hace falta",
       "pi.alt": "Cartel: el DMD en Raspberry Pi — una tarjeta SD preparada de una vez, tres particiones, las mismas funciones que el DMD ESP32.",
+      "diag.eyebrow": "Diagnóstico Wi-Fi",
+      "diag.h2": "¿Aguanta tu Wi-Fi? El DMD lo mide",
+      "diag.p": "Una pulsación corta del botón BOOT del ESP32 (o la acción 12 del botón físico, o la página Diagnóstico de la configuración web) inicia el modo diagnóstico: el panel muestra en directo la señal Wi-Fi, el PING a la Recalbox (pérdida, latencia, jitter) y las reconexiones, en verde, amarillo o rojo. La página web añade curvas, una guía «Cómo leer estos valores» y un informe de texto para adjuntar a una solicitud de ayuda. El mismo modo en Raspberry Pi. (Render simulado a partir del firmware.)",
+      "diag.l1": "Señal en dBm, canal y punto de acceso",
+      "diag.l2": "PING a la Recalbox: pérdida, latencia mín / media / máx, jitter",
+      "diag.l3": "Reconexiones Wi-Fi y motivo de la última caída",
+      "diag.l4": "Informe de texto para copiar en la ayuda",
+      "diag.alt": "Modo diagnóstico: pantallas simuladas del panel (señal, enlace Recalbox, pérdida y jitter, reconexiones) y formas de iniciarlo.",
+      "diag.cta": "Detalles del modo diagnóstico",
+      "news.eyebrow": "Últimas novedades",
+      "news.h2": "Todo por Wi-Fi",
+      "news.p": "Sin sacar la tarjeta SD: cambia la imagen de respaldo del DMD, instala las animaciones de arranque y de fiesta, envía carpetas de GIF a la Raspberry Pi e instala el pack ULTIMATE de 11 004 GIF manteniendo coherentes playlists y caché.",
+      "news.l1": "Imagen de respaldo enviada por Wi-Fi (Modo 10) — ESP32 y Raspberry Pi",
+      "news.l2": "Animaciones de arranque y de fiesta por Wi-Fi (Modo 19) — Halloween, Navidad, Año Nuevo, San Valentín, Pascua",
+      "news.l3": "Envío de carpetas de GIF a la Raspberry Pi por Wi-Fi (pestaña Playlist)",
+      "news.l4": "Tutoriales paso a paso, con capturas, en español, inglés y francés",
+      "news.alt": "Cartel de novedades: modo diagnóstico, imagen de respaldo y animaciones por Wi-Fi, pack ULTIMATE, tutoriales.",
+      "news.tuto1": "Tutorial: marquees animados",
+      "news.tuto2": "Tutorial: pack ULTIMATE GIFS DLC",
       "pi.cta": "Guía de instalación Raspberry Pi",
       "cards.eyebrow": "Juegos sin logo",
       "cards.h2": "Cada juego tiene su marco, incluso sin logo",
@@ -1216,6 +1297,15 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
     document.querySelectorAll("img[data-img]").forEach(function(el){ el.setAttribute("src", "media/widgets/" + lang + "/" + el.getAttribute("data-img") + ".png"); });
     document.querySelectorAll("img[data-hw]").forEach(function(el){ el.setAttribute("src", lang === "fr" ? "media/hardware.png" : "media/hardware_" + lang + ".png"); });
     document.querySelectorAll("img[data-pi]").forEach(function(el){ el.setAttribute("src", "media/pi_" + lang + ".png"); });
+    document.querySelectorAll("img[data-diag]").forEach(function(el){ el.setAttribute("src", "media/diag_panel_" + lang + ".png"); });
+    document.querySelectorAll("img[data-news]").forEach(function(el){ el.setAttribute("src", "media/news_" + lang + ".png"); });
+    document.querySelectorAll("a[data-diagdoc]").forEach(function(el){
+      var d = { fr: "README.fr.md#-diagnostic-wi-fi--recalbox", en: "README.md#-wi-fi--recalbox-diagnostic", es: "README.es.md#-diagnóstico-wi-fi--recalbox" };
+      el.setAttribute("href", "https://github.com/shan-aya/RecalBoxDMD/blob/main/" + d[lang]);
+    });
+    document.querySelectorAll("a[data-tuto]").forEach(function(el){
+      el.setAttribute("href", "https://github.com/shan-aya/RecalBoxDMD/blob/main/docs/tutorials/" + el.getAttribute("data-tuto") + (lang === "fr" ? ".fr" : lang === "es" ? ".es" : "") + ".md");
+    });
     document.querySelectorAll("a[data-pidoc]").forEach(function(el){ el.setAttribute("href", "https://github.com/shan-aya/RecalBoxDMD/blob/main/RASPBERRY-PI" + (lang === "fr" ? ".fr" : lang === "es" ? ".es" : "") + ".md"); });
     document.querySelectorAll(".langswitch button").forEach(function(b){
       b.setAttribute("aria-pressed", b.getAttribute("data-lang") === lang ? "true" : "false");
