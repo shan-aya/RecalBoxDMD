@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-26 — Boîte à outils PC build 13579 : image de secours retenue, contrôle de la suppression dans l'onglet Playlist
+
+**Boîte à outils PC build 13579**
+- **Image de secours** : l'image choisie dans la galerie (par exemple `default_rgbdual2`) n'était pas retenue au lancement suivant de la version portable, et l'ancien logo Recalbox et fantômes revenait. Le choix est maintenant retrouvé à chaque lancement, les images importées sont conservées dans `%APPDATA%\RecalBoxDMD\default_images` et listées dans la galerie, et si l'image enregistrée a disparu le journal l'indique et le visuel par défaut est appliqué.
+- **Onglet Playlist** : après « Supprimer », une fenêtre « Suppression terminée » affiche le résultat vérifié sur la carte ; chaque action de l'onglet est écrite dans le journal ; la suppression retire aussi les lignes correspondantes de `cache_master_gifs.dat`.
+
 ## 2026-10-25 (3) — Firmware v3.89, démon Raspberry Pi v3.67 : libellés de la section « Veille Recalbox » précisés ; tutoriel des marquees animés
 
 **Firmware v3.89 · Démon Raspberry Pi v3.67**

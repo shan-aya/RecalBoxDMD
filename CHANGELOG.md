@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-26 — PC toolkit build 13579: fallback image remembered, Playlist tab deletion check
+
+**PC toolkit build 13579**
+- **Fallback image**: the image picked in the gallery (for example `default_rgbdual2`) was not remembered the next time the portable version started, and the old Recalbox-and-ghosts logo came back. The choice is now found again at every start, imported images are kept in `%APPDATA%\RecalBoxDMD\default_images` and listed in the gallery, and if the saved image has disappeared the log says so and the default visual is applied.
+- **Playlist tab**: after "Delete", a "Deletion finished" window shows the result checked on the card; every action of the tab is written to the log; deleting also removes the matching lines from `cache_master_gifs.dat`.
+
 ## 2026-10-25 (3) — Firmware v3.89, Raspberry Pi daemon v3.67: "Recalbox sleep" labels clarified; animated marquees tutorial
 
 **Firmware v3.89 · Raspberry Pi daemon v3.67**

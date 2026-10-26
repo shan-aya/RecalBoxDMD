@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-26 — Caja de herramientas del PC build 13579: imagen de respaldo recordada, comprobación de la eliminación en la pestaña Playlist
+
+**Caja de herramientas del PC build 13579**
+- **Imagen de respaldo**: la imagen elegida en la galería (por ejemplo `default_rgbdual2`) no se recordaba en el siguiente arranque de la versión portable, y volvía el antiguo logo de Recalbox con fantasmas. La elección se recupera ahora en cada arranque, las imágenes importadas se guardan en `%APPDATA%\RecalBoxDMD\default_images` y se listan en la galería, y si la imagen guardada ha desaparecido el registro lo indica y se aplica la imagen predeterminada.
+- **Pestaña Playlist**: tras « Eliminar », una ventana « Eliminación terminada » muestra el resultado comprobado en la tarjeta; cada acción de la pestaña se escribe en el registro; la eliminación también quita las líneas correspondientes de `cache_master_gifs.dat`.
+
 ## 2026-10-25 (3) — Firmware v3.89, demonio Raspberry Pi v3.67: etiquetas de la sección « Reposo de Recalbox » aclaradas; tutorial de marquesinas animadas
 
 **Firmware v3.89 · Demonio Raspberry Pi v3.67**
