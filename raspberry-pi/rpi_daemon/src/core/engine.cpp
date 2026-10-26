@@ -506,6 +506,7 @@ void Engine::showFirstBootScreen() {
 }
 
 void Engine::webResume() {
+  diagActive_ = false;
   webPaused_ = false;
   webLeaveAtMs_ = 0;
   // premier demarrage : l'affichage normal ne reprend qu'apres une sauvegarde conforme (first_boot passe a 0 dans /save)
@@ -573,10 +574,14 @@ void Engine::clockPreview(const std::string &theme) {
 }
 // ------------------------------------------------------------------ bouton physique (btnRunAction du firmware)
 void Engine::buttonAction(int a) {
-  if (a <= 0 || a > 11) return;
+  if (a <= 0 || a > 12) return;
+  if (diagActive_.load()) {  // un nouvel appui quitte le mode diagnostic
+    diagStop();
+    return;
+  }
   logf("BTN", "action %d", a);
   // mode Recalbox natif : l'ecran appartient a EmulationStation, seules les actions de maintenance s'appliquent
-  const bool maint = (a == 4 || a == 5 || a == 6 || a == 7 || a == 9 || a == 10);
+  const bool maint = (a == 4 || a == 5 || a == 6 || a == 7 || a == 9 || a == 10 || a == 12);
   if (zed_.native() && !maint) {
     logf("BTN", "ignore (mode natif)");
     return;
@@ -647,6 +652,9 @@ void Engine::buttonAction(int a) {
       break;
     case 9:  // point d'acces de secours
       if (wifiRecoveryHook_) wifiRecoveryHook_();
+      break;
+    case 12:  // diagnostic Wi-Fi / liaison Recalbox (en boucle, un nouvel appui le quitte)
+      diagStart(false);
       break;
     case 10:  // redemarrer
       restart_ = true;
@@ -1177,6 +1185,7 @@ void Engine::resumePlaylist() {
 // ------------------------------------------------------------------ commandes
 
 void Engine::handle(const std::string &cmd, const std::string &arg) {
+  if (diagActive_.load()) diagStop();  // une instruction de la Recalbox (jeu, systeme...) reprend l'ecran
   // le flux ZeDMD possede l'ecran : seules les commandes d'administration passent (une commande d'affichage dessinerait par-dessus)
   if (mode_ == Mode::ZEDMD && cmd != "reboot" && cmd != "wifi_recovery" && cmd != "show_config" && cmd != "mem_probe") {
     logf("CMD", "%s ignoree (le flux ZeDMD possede l'ecran)", cmd.c_str());
@@ -1543,6 +1552,7 @@ void Engine::tickBrightSched(uint64_t now) {
 }
 
 void Engine::tick() {
+  diagTick(nowMs());
   tickBrightSched(nowMs());
   tickWebWatchdog(nowMs());
   if (zed_.enabled()) {
@@ -1571,6 +1581,7 @@ void Engine::tick() {
         break;
     }
   }
+  if (diagActive_.load()) return;  // le diagnostic garde l'ecran : ni alertes, ni playlist, ni horloge
   if (tctl_.version.load() != themeSeen_) applyThemeControl();
   pumpRbw();  // donnees des widgets Recalbox recues par UDP
   if (mode_ == Mode::ZEDMD) {
@@ -1720,4 +1731,237 @@ void Engine::tick() {
       }
       break;
   }
+}
+
+// ------------------------------------------------------------------ mode diagnostic Wi-Fi / liaison Recalbox (portage du firmware v391-v393)
+// Une mesure par seconde : signal (iw) + 1 PING vers la Recalbox active ; le PONG est consomme par le thread UDP (UdpServer::pongCount()).
+// Affichage : 4 pages de 4 s sur l'ecran de configuration (ligne 1 jaune, ligne 2 coloree selon l'etat). Journal des evenements : seulement
+// pendant le diagnostic (le demon ne surveille pas le Wi-Fi en permanence, contrairement a l'ESP32).
+static std::string diagJsonEsc(const std::string &s) {
+  std::string o = "\"";
+  for (char ch : s) {
+    if (ch == '"' || ch == '\\') {
+      o += '\\';
+      o += ch;
+    } else if ((unsigned char)ch >= 0x20) {
+      o += ch;
+    }
+  }
+  return o + "\"";
+}
+
+void Engine::diagWebTouch() {
+  diagWebSeenMs_ = nowMs();
+  webTouch();
+}
+
+void Engine::diagShow(const std::string &l1, const std::string &l2, uint16_t color) {
+  cfgMainMsg_ = l1;
+  cfgSubMsg_ = l2;
+  cfgSubColor_ = color;
+  cfgSubWhiteFrom_ = -1;
+  cfgSubSetMs_ = 0;
+  configActive_ = true;
+  drawConfigScreen();
+}
+
+void Engine::diagStart(bool fromWeb) {
+  if (diagActive_.load()) return;
+  diagFromWeb_ = fromWeb;
+  diagWebSeenMs_ = nowMs();
+  diag_.reset();
+  diagPingOut_ = false;
+  diagLastTickMs_ = 0;
+  diagHaveLink_ = false;
+  diagPrevUp_ = false;
+  diagPrevBssid_.clear();
+  diagPageAtMs_ = nowMs();
+  diagShown1_.clear();
+  diagShown2_.clear();
+  diagMemMin_ = -1;
+  if (!fromWeb || !configActive_) {  // lance par le bouton : l'ecran passe en « pause » ; lance par la page : l'ecran de configuration est deja la
+    cfgMainMsg_ = "DIAGNOSTIC";
+    cfgPersistentSub_.clear();
+    webPause("MESURE...", 0x07FF);
+  }
+  diagActive_ = true;
+  logf("DIAG", "mode diagnostic en boucle (%s)", fromWeb ? "page web" : "bouton");
+}
+
+void Engine::diagStop() {
+  if (!diagActive_.exchange(false)) return;
+  const DiagStats::Calc c = diag_.calc();
+  logf("DIAG", "sortie : fenetre=%d/%d perte=%d%% min=%d avg=%d max=%d gigue=%d reconnexions=%lu", c.got, c.n, c.lossPct, c.mn, c.avg, c.mx, c.jit, diag_.disc());
+  if (diagFromWeb_) {  // la page de configuration reste ouverte : on redessine son ecran
+    cfgMainMsg_ = "WEB DMD CONFIG";
+    cfgSubMsg_ = cfgPersistentSub_;
+    cfgSubColor_ = cfgPersistentColor_;
+    cfgSubWhiteFrom_ = cfgPersistentWhite_;
+    cfgSubSetMs_ = 0;
+    if (configActive_) drawConfigScreen();
+  } else {
+    webResume();
+  }
+}
+
+void Engine::diagTick(uint64_t now) {
+  if (!diagActive_.load()) return;
+  if (diagFromWeb_) {
+    if (now - diagWebSeenMs_.load() > 8000) {
+      logf("DIAG", "page web silencieuse > 8 s : sortie");
+      diagStop();
+      return;
+    }
+  } else {
+    webTouch();  // pas de reprise automatique au bout de 3 min pendant un diagnostic lance par le bouton
+  }
+  // 1) reponse du PING en cours (800 ms au plus)
+  if (diagPingOut_) {
+    if (diagHooks_.pongCount && diagHooks_.pongCount() != diagPongBase_) {
+      const uint64_t arr = diagHooks_.lastPongMs ? diagHooks_.lastPongMs() : now;
+      diag_.push(diagRssi_, (int)(arr >= diagSentMs_ ? arr - diagSentMs_ : 0));
+      diagPingOut_ = false;
+    } else if (now - diagSentMs_ >= 800) {
+      diag_.push(diagRssi_, -1);
+      diagPingOut_ = false;
+    }
+  }
+  // 2) nouvelle mesure toutes les secondes
+  if (!diagPingOut_ && (diagLastTickMs_ == 0 || now - diagLastTickMs_ >= 1000)) {
+    diagLastTickMs_ = now;
+    const WifiLink w = wifiLink();
+    const NetInfo ni = netInfo();
+    const long mem = memAvailableBytes();
+    if (diagHaveLink_) {
+      if (diagPrevUp_ && !w.up) diag_.event('D', "1", now / 1000);
+      else if (w.up && (!diagPrevUp_ || w.bssid != diagPrevBssid_)) diag_.event('C', w.bssid, now / 1000);
+    } else if (w.up) {
+      diag_.event('C', w.bssid, now / 1000);
+    }
+    diagHaveLink_ = true;
+    diagPrevUp_ = w.up;
+    diagPrevBssid_ = w.bssid;
+    {
+      std::lock_guard<std::mutex> lk(diagMu_);
+      diagLink_ = w;
+      diagNet_ = ni;
+      diagMem_ = mem;
+      if (mem >= 0 && (diagMemMin_ < 0 || mem < diagMemMin_)) diagMemMin_ = mem;
+    }
+    diagRssi_ = w.up ? w.rssi : -127;
+    const std::string rb = diagHooks_.rbIp ? diagHooks_.rbIp() : std::string();
+    if (!ni.ip.empty() && !rb.empty() && diagHooks_.sendPing) {
+      diagPongBase_ = diagHooks_.pongCount ? diagHooks_.pongCount() : 0;
+      diagSentMs_ = now;
+      diagHooks_.sendPing();
+      diagPingOut_ = true;
+    } else {
+      diag_.push(diagRssi_, -2);
+    }
+  }
+  // 3) page affichee (4 s chacune), redessinee seulement quand son texte change
+  const uint16_t GREEN = 0x07E0, YEL = 0xFFE0, RED = 0xF800, CYAN = 0x07FF;
+  const int page = (int)(((now - diagPageAtMs_) / 4000) % 4);
+  WifiLink w;
+  NetInfo ni;
+  {
+    std::lock_guard<std::mutex> lk(diagMu_);
+    w = diagLink_;
+    ni = diagNet_;
+  }
+  const std::string rb = diagHooks_.rbIp ? diagHooks_.rbIp() : std::string();
+  const DiagStats::Calc c = diag_.calc();
+  std::string l1, l2;
+  uint16_t col = CYAN;
+  const uint16_t lc = (c.n == 0) ? CYAN : (c.lossPct == 0 && c.avg < 80) ? GREEN : (c.lossPct <= 10 && c.avg < 200) ? YEL : RED;
+  if (page == 3) {
+    l1 = "RECONNEXIONS: " + std::to_string(diag_.disc());
+    if (diag_.disc() == 0) {
+      l2 = "AUCUNE DEPUIS DIAG";
+      col = GREEN;
+    } else {
+      l2 = "DERNIERE IL Y A " + std::to_string((unsigned long)(now / 1000 - diag_.discAtS())) + "s";
+      col = YEL;
+    }
+  } else if (page == 0) {
+    if (w.up) {
+      const char *ql = w.rssi >= -55 ? "EXCELLENT" : w.rssi >= -67 ? "BON" : w.rssi >= -75 ? "MOYEN" : w.rssi >= -82 ? "FAIBLE" : "TRES FAIBLE";
+      l1 = "WIFI " + std::to_string(w.rssi) + " dBm";
+      l2 = std::string(ql) + " CH" + std::to_string(w.channel);
+      col = w.rssi >= -67 ? GREEN : w.rssi >= -75 ? YEL : RED;
+    } else if (!ni.ip.empty()) {
+      l1 = "ETHERNET";
+      l2 = "PAS DE WIFI";
+      col = GREEN;
+    } else {
+      l1 = "RESEAU NON CONNECTE";
+      l2 = "PAS DE SIGNAL";
+      col = RED;
+    }
+  } else if (rb.empty()) {
+    l1 = "RECALBOX";
+    l2 = "IP INCONNUE";
+    col = RED;
+  } else if (c.n == 0) {
+    l1 = "TEST RECALBOX...";
+    l2 = rb;
+  } else if (page == 1) {
+    l1 = "RB " + rb;
+    l2 = c.got == 0 ? std::string("AUCUNE REPONSE") : std::to_string(c.got) + "/" + std::to_string(c.n) + " PONG " + std::to_string(c.avg) + "ms";
+    col = c.got == 0 ? RED : lc;
+  } else {
+    l1 = "PERTE " + std::to_string(c.lossPct) + "% MAX " + std::to_string(c.mx) + "ms";
+    l2 = "GIGUE " + std::to_string(c.jit) + "ms COUP " + std::to_string(diagHooks_.gapCount ? (unsigned long)diagHooks_.gapCount() : 0UL);
+    col = lc;
+  }
+  if (l1 != diagShown1_ || l2 != diagShown2_ || col != diagShownColor_) {
+    diagShown1_ = l1;
+    diagShown2_ = l2;
+    diagShownColor_ = col;
+    diagShow(l1, l2, col);
+  }
+}
+
+std::string Engine::diagJson() {
+  const DiagStats::Calc c = diag_.calc();
+  std::string lat, rs;
+  std::vector<DiagStats::Ev> ev;
+  unsigned long disc = 0;
+  uint64_t discAt = 0;
+  diag_.arrays(lat, rs, ev, disc, discAt);
+  WifiLink w;
+  NetInfo ni;
+  long mem, memMin;
+  {
+    std::lock_guard<std::mutex> lk(diagMu_);
+    w = diagLink_;
+    ni = diagNet_;
+    mem = diagMem_;
+    memMin = diagMemMin_;
+  }
+  const uint64_t now = nowMs();
+  const std::string rb = diagHooks_.rbIp ? diagHooks_.rbIp() : std::string();
+  const uint64_t lastPkt = diagHooks_.lastPacketMs ? diagHooks_.lastPacketMs() : 0;
+  std::string o = "{\"on\":";
+  o += diagActive_.load() ? "1" : "0";
+  o += ",\"up\":" + std::string(w.up ? "1" : "0");
+  o += ",\"ssid\":" + diagJsonEsc(w.ssid) + ",\"bssid\":" + diagJsonEsc(w.bssid);
+  o += ",\"ch\":" + std::to_string(w.up ? w.channel : 0) + ",\"rssi\":" + std::to_string(w.up ? w.rssi : -127);
+  o += ",\"ip\":" + diagJsonEsc(ni.ip) + ",\"gw\":" + diagJsonEsc(ni.gw) + ",\"rb\":" + diagJsonEsc(rb);
+  o += ",\"n\":" + std::to_string(c.n) + ",\"got\":" + std::to_string(c.got) + ",\"loss\":" + std::to_string(c.lossPct);
+  o += ",\"min\":" + std::to_string(c.mn) + ",\"avg\":" + std::to_string(c.avg) + ",\"max\":" + std::to_string(c.mx) + ",\"jit\":" + std::to_string(c.jit);
+  o += ",\"age\":" + std::to_string(lastPkt ? (long)(now - lastPkt) : -1L);
+  o += ",\"gaps\":" + std::to_string(diagHooks_.gapCount ? (unsigned long)diagHooks_.gapCount() : 0UL);
+  o += ",\"pongs\":" + std::to_string(diagHooks_.pongCount ? (unsigned long)diagHooks_.pongCount() : 0UL);
+  o += ",\"heap\":" + std::to_string(mem < 0 ? 0 : mem) + ",\"minheap\":" + std::to_string(memMin < 0 ? 0 : memMin);
+  o += ",\"up_s\":" + std::to_string((unsigned long)(now / 1000));
+  o += ",\"disc\":" + std::to_string(disc) + ",\"dr\":" + std::to_string(disc ? 1 : 0) + ",\"da\":" + std::to_string((unsigned long)discAt);
+  o += ",\"pi\":1,\"eth\":" + std::string(!w.up && !ni.ip.empty() ? "1" : "0");
+  o += ",\"ev\":[";
+  for (size_t i = 0; i < ev.size(); i++) {
+    if (i) o += ',';
+    o += "[\"" + std::string(1, ev[i].type) + "\"," + std::to_string((unsigned long)ev[i].atS) + "," + diagJsonEsc(ev[i].data) + "]";
+  }
+  o += "],\"lat\":[" + lat + "],\"rs\":[" + rs + "]}";
+  return o;
 }

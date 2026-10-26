@@ -27,7 +27,7 @@ void Button::configure(const Config &cfg) {
   pin_ = pinAllowed(p) ? p : 21;
   auto act = [&](const char *k, int def) {
     const int a = cfg.getInt(k, def);
-    return (a >= 0 && a <= 11) ? a : def;
+    return (a >= 0 && a <= 12) ? a : def;
   };
   actShort_ = act("btn_act_short", 1);
   actDouble_ = act("btn_act_double", 3);

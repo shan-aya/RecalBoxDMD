@@ -160,6 +160,8 @@ int main(int argc, char **argv) {
     udp.tickPresence(nowMs());
     engine.pumpRbw();
   });
+  engine.setDiagHooks({[&udp] { udp.sendPing(); }, [&udp] { return udp.pongCount(); }, [&udp] { return udp.lastPongMs(); }, [&udp] { return udp.lastPacketMs(); },
+                       [&udp] { return udp.gapCount(); }, [&udp] { return udp.activeRecalbox(); }});  // mode diagnostic (action 12, page /config/diag)
   udp.setRxTrace(rxTrace);
   udp.setAlertGate([&engine] { return engine.mode() != Mode::PLAYLIST && !engine.configOpen(); });  // « hors ligne » : jamais pendant la playlist ni la page de configuration
   if (!udp.start(udpPort, helloPort)) logf("BOOT", "ATTENTION : serveur UDP indisponible, le DMD ne recevra aucune commande");

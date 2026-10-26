@@ -6,6 +6,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <cctype>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -120,4 +121,58 @@ NetInfo netInfo() {
 
 bool hasDefaultRoute() { return !runShell("ip -4 route show default 2>/dev/null").empty(); }
 
+// --- mode diagnostic : lien Wi-Fi et memoire
+WifiLink wifiLink() {
+  WifiLink w;
+  w.iface = "wlan0";
+  int rc = 0;
+  const std::string out = runArgs({"iw", "dev", w.iface, "link"}, 3000, &rc);
+  if (rc == 0 && out.find("Connected to") != std::string::npos) {
+    w.up = true;
+    std::istringstream in(out);
+    std::string line;
+    while (std::getline(in, line)) {
+      const size_t cp = line.find("Connected to ");
+      if (cp != std::string::npos) {
+        std::string b = line.substr(cp + 13);
+        b = b.substr(0, b.find(' '));
+        for (char &ch : b) ch = (char)std::toupper((unsigned char)ch);
+        w.bssid = b;
+      }
+      const size_t sp = line.find("SSID: ");
+      if (sp != std::string::npos) w.ssid = line.substr(sp + 6);
+      const size_t fp = line.find("freq: ");
+      if (fp != std::string::npos) w.freq = std::atoi(line.c_str() + fp + 6);
+      const size_t gp = line.find("signal: ");
+      if (gp != std::string::npos) w.rssi = std::atoi(line.c_str() + gp + 8);
+    }
+    if (w.freq >= 2412 && w.freq <= 2484) w.channel = w.freq == 2484 ? 14 : (w.freq - 2407) / 5;
+    else if (w.freq >= 5000) w.channel = (w.freq - 5000) / 5;
+    while (!w.ssid.empty() && (w.ssid.back() == '\r' || w.ssid.back() == ' ')) w.ssid.pop_back();
+    return w;
+  }
+  // repli : /proc/net/wireless (colonne « level » en dBm) quand `iw` est absent
+  std::ifstream pw("/proc/net/wireless");
+  std::string line;
+  while (std::getline(pw, line)) {
+    const size_t c = line.find(w.iface + ":");
+    if (c == std::string::npos) continue;
+    std::istringstream ls(line.substr(c + w.iface.size() + 1));
+    std::string status, link, level;
+    ls >> status >> link >> level;
+    if (!level.empty()) {
+      w.up = true;
+      w.rssi = (int)std::atof(level.c_str());
+    }
+  }
+  return w;
+}
+
+long memAvailableBytes() {
+  std::ifstream mi("/proc/meminfo");
+  std::string line;
+  while (std::getline(mi, line))
+    if (line.compare(0, 13, "MemAvailable:") == 0) return std::atol(line.c_str() + 13) * 1024L;
+  return -1;
+}
 std::string i18nLang(const std::string &lang) { return (lang == "en" || lang == "es") ? lang : "fr"; }

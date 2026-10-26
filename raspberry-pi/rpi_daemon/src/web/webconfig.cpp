@@ -504,7 +504,7 @@ WebReply WebConfig::save(const WebRequest &r) {
                                                                           {"btn_act_long", "BTN_ACT_LONG"}, {"btn_act_vlong", "BTN_ACT_VLONG"}})
     if (has(p.first)) {
       const int v = toInt(arg(p.first));
-      if (v >= 0 && v <= 11) kv[p.second] = std::to_string(v);
+      if (v >= 0 && v <= 12) kv[p.second] = std::to_string(v);
     }
   if (has("btn_long_ms")) {
     const int v = toInt(arg("btn_long_ms"));
@@ -659,7 +659,7 @@ void WebConfig::registerRoutes() {
   for (const auto &p : std::vector<std::pair<const char *, const char *>>{
            {"/config/settings", "settings.html"}, {"/config/basic", "basic.html"},   {"/config/playlist", "playlist.html"}, {"/config/network", "network.html"},
            {"/config/clock", "clock.html"},       {"/config/button", "button.html"}, {"/config/brightness", "brightness.html"}, {"/config/widgets", "widgets.html"},   {"/config/deco", "widgets.html"},
-           {"/config/place", "place.html"},       {"/config/events", "events.html"}, {"/config/clockcolors", "clockcolors.html"},
+           {"/config/place", "place.html"},       {"/config/events", "events.html"}, {"/config/clockcolors", "clockcolors.html"}, {"/config/diag", "diag.html"},
            {"/config/quotes", "quotes.html"},     {"/config/media", "media.html"}}) {
     const std::string file = p.second;
     web_.any(p.first, [this, file](const WebRequest &r) { return page(file, r); });
@@ -730,7 +730,27 @@ void WebConfig::registerRoutes() {
     out.body = "OK";
     return out;
   });
-  web_.post("/dmd-resume", [this](const WebRequest &) {
+  // Mode diagnostic Wi-Fi / Recalbox (page /config/diag, meme page que le firmware ESP32) : /diag-data = mesures ET signe de vie (8 s sans appel : le DMD quitte le mode)
+  web_.any("/diag-data", [this](const WebRequest &) {
+    WebReply out;
+    eng_.diagWebTouch();
+    out.contentType = "application/json";
+    out.body = eng_.diagJson();
+    return out;
+  });
+  web_.post("/diag-start", [this](const WebRequest &) {
+    WebReply out;
+    eng_.diagWebTouch();
+    eng_.runOnMain([&] { eng_.diagStart(true); });
+    out.body = "OK";
+    return out;
+  });
+  web_.post("/diag-stop", [this](const WebRequest &) {
+    WebReply out;
+    eng_.runOnMain([&] { eng_.diagStop(); });
+    out.body = "OK";
+    return out;
+  });  web_.post("/dmd-resume", [this](const WebRequest &) {
     WebReply out;
     out.body = "OK REBOOT";
     eng_.runOnMain([&] { eng_.webResume(); });

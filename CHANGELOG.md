@@ -8,6 +8,13 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-26 (3) — Firmware v3.96, Raspberry Pi daemon v3.70 and PC toolkit build 13881: fallback image over Wi-Fi, preferences saved in the installed version, DMD detection reinforced
+
+**Firmware v3.96 · Raspberry Pi daemon v3.70 · PC toolkit build 13881**
+- **Fallback image over Wi-Fi** (ESP32 and Raspberry Pi): in the toolkit's "Fallback image" gallery, the new **"Send the chosen image to the DMD (Wi-Fi)"** button replaces `default.raw565` directly on the DMD, without taking the SD card out. The DMD writes a temporary file, checks it is exactly 8192 bytes, then replaces the old image; an interrupted or wrong-size upload leaves the old image untouched. An older firmware / daemon is detected and nothing is sent.
+- **Installed version (Setup)**: the Setup installs into "Program Files", where a normal user cannot write; the preferences file was never created there, so the language, theme, Recalbox address, DMD address and fallback image were not kept between starts. Preferences are now written to `%APPDATA%\RecalBoxDMD` when the exe folder is not writable; the portable version keeps its file next to the exe. The fallback image chosen from the gallery is also remembered when the portable exe starts again (imported images are kept in `%APPDATA%\RecalBoxDMD\default_images`).
+- **"DMD: not found" at startup**: the search now also tries the `dmd-marquee.local` name and scans **every** active network card (VPN, WSL, Hyper-V and several cards no longer hide the DMD's network), with longer delays and a second pass; the log explains what was tried. New **"DMD address (IP or name)"** field in the Settings tab, used first.
+
 ## 2026-10-26 (2) — Firmware v3.96, Raspberry Pi daemon v3.70: Wi-Fi / Recalbox diagnostic mode
 
 **Firmware v3.96 · Raspberry Pi daemon v3.70**
@@ -17,11 +24,6 @@ This is a curated summary of the project's internal version history (185+ firmwa
 - **Fixed (ESP32)**: the DMD joined the **first** access point that answered instead of the **strongest**. With a mesh network or a repeater it could latch onto a far access point (−75 dBm instead of −52 dBm) and then stop receiving anything while still showing "connected". It now scans all channels and picks the best signal (the scan adds a short delay at each connection).
 - **Fixed (ESP32)**: **"Resume DMD"** after a start in configuration mode (first start, or `first_boot=1`) left a **black screen**: the playlist index was never loaded. It is now loaded on resume.
 - **Raspberry Pi**: same diagnostic mode (action 12 of the Button page and the same web page). No BOOT button on the Pi; the Wi-Fi reconnection history only exists **while a diagnostic runs**; on Ethernet the panel shows "ETHERNET / NO WIFI".
-
-## 2026-10-26 (2) — PC toolkit build 13680: preferences saved in the installed version
-
-**PC toolkit build 13680**
-- **Installed version (Setup)**: the Setup installs into "Program Files", where a normal user cannot write; the preferences file was never created there and the error was ignored, so the language, theme, Recalbox address and fallback image were not kept between starts. Preferences are now written to `%APPDATA%\RecalBoxDMD` when the exe folder is not writable; the portable version keeps its file next to the exe.
 
 ## 2026-10-26 — PC toolkit build 13579: fallback image remembered, Playlist tab deletion check
 

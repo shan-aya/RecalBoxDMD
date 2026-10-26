@@ -8,6 +8,13 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-26 (3) — Firmware v3.96, demonio Raspberry Pi v3.70 y caja de herramientas del PC build 13881: imagen de respaldo por Wi-Fi, preferencias guardadas en la versión instalada, detección del DMD reforzada
+
+**Firmware v3.96 · Demonio Raspberry Pi v3.70 · Caja de herramientas del PC build 13881**
+- **Imagen de respaldo por Wi-Fi** (ESP32 y Raspberry Pi): en la galería « Imagen de respaldo » de la caja de herramientas, el nuevo botón **« Enviar la imagen elegida al DMD (Wi-Fi) »** sustituye `default.raw565` directamente en el DMD, sin sacar la tarjeta SD. El DMD escribe un archivo temporal, comprueba que mide exactamente 8192 bytes y sustituye la imagen anterior; un envío interrumpido o de tamaño incorrecto deja intacta la imagen anterior. Un firmware / demonio demasiado antiguo se detecta y no se envía nada.
+- **Versión instalada (Setup)**: el Setup instala en « Program Files », donde un usuario normal no puede escribir; el archivo de preferencias nunca se creaba allí, así que el idioma, el tema, la dirección de la Recalbox, la del DMD y la imagen de respaldo no se conservaban entre arranques. Las preferencias se escriben ahora en `%APPDATA%\RecalBoxDMD` cuando la carpeta del exe no es modificable; la versión portable conserva su archivo junto al exe. La imagen de respaldo elegida en la galería también se recuerda al reiniciar el exe portable (las imágenes importadas se guardan en `%APPDATA%\RecalBoxDMD\default_images`).
+- **« DMD: no encontrado » al iniciar**: la búsqueda prueba también el nombre `dmd-marquee.local` y recorre **todas** las tarjetas de red activas (VPN, WSL, Hyper-V o varias tarjetas ya no ocultan la red del DMD), con tiempos más largos y una segunda pasada; el registro explica lo que se probó. Nuevo campo **« Dirección del DMD (IP o nombre) »** en la pestaña Ajustes, usado en primer lugar.
+
 ## 2026-10-26 (2) — Firmware v3.96, demonio Raspberry Pi v3.70: modo diagnóstico Wi-Fi / Recalbox
 
 **Firmware v3.96 · Demonio Raspberry Pi v3.70**
@@ -17,11 +24,6 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 - **Corregido (ESP32)**: el DMD se unía al **primer** punto de acceso que respondía en lugar del **más fuerte**. Con una red en malla o un repetidor podía engancharse a un punto de acceso lejano (−75 dBm en lugar de −52 dBm) y dejar de recibir nada mientras mostraba «conectado». Ahora escanea todos los canales y elige la mejor señal (el escaneo añade un breve retraso en cada conexión).
 - **Corregido (ESP32)**: **«Reanudar DMD»** tras un arranque en modo configuración (primer arranque, o `first_boot=1`) dejaba una **pantalla negra**: el índice de la lista nunca se cargaba. Ahora se carga al reanudar.
 - **Raspberry Pi**: mismo modo diagnóstico (acción 12 de la página Botón y la misma página web). No hay botón BOOT en el Pi; el historial de reconexiones Wi-Fi solo existe **mientras se ejecuta un diagnóstico**; con Ethernet, el panel muestra «ETHERNET / SIN WIFI».
-
-## 2026-10-26 (2) — Caja de herramientas del PC build 13680: preferencias guardadas en la versión instalada
-
-**Caja de herramientas del PC build 13680**
-- **Versión instalada (Setup)**: el Setup instala en « Program Files », donde un usuario normal no puede escribir; el archivo de preferencias nunca se creaba allí y el error se ignoraba, así que el idioma, el tema, la dirección de la Recalbox y la imagen de respaldo no se conservaban entre arranques. Las preferencias se escriben ahora en `%APPDATA%\RecalBoxDMD` cuando la carpeta del exe no es modificable; la versión portable conserva su archivo junto al exe.
 
 ## 2026-10-26 — Caja de herramientas del PC build 13579: imagen de respaldo recordada, comprobación de la eliminación en la pestaña Playlist
 

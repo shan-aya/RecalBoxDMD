@@ -349,12 +349,16 @@ void WebConfig::registerMediaRoutes() {
       std::string name = baseName(wf.filename), dir = trim(r.arg("dir"));
       std::string err, path, dirPath;
       const std::string kind = r.arg("kind");
-      bool isBg = kind == "qbg", isQuote = kind == "quote";
+      bool isBg = kind == "qbg", isQuote = kind == "quote", isDef = kind == "defimg";
       size_t limit = 0;
       if (gen_->active) err = "ERR: generation de playlist en cours";
       else if (dir.empty()) err = "ERR: dossier cible manquant";
       else if (name.empty()) err = "ERR: nom fichier invalide";
-      else if (isBg) {
+      else if (isDef) {   // image de secours envoyee par le toolkit : nom impose, 8192 octets exactement
+        name = "default.raw565";
+        dirPath = "/systems/_defaults";
+        limit = 8192;
+      } else if (isBg) {
         const std::string th = slug(dir);
         if (th.empty()) err = "ERR: nom de fond invalide";
         else {
@@ -379,8 +383,19 @@ void WebConfig::registerMediaRoutes() {
         path = dirPath + "/" + name;
         ensureDir(dirPath);
         std::string data = wf.content;
+        const size_t sent = data.size();
         if (limit && data.size() > limit) data.resize(limit);
-        if (isBg && name.size() > 7 && name.compare(name.size() - 7, 7, ".raw565") == 0 && data.size() != 8192) {
+        if (isDef && sent != 8192) {
+          err = "ERR: l'image de secours doit faire 8192 octets (128x32 raw565)";
+        } else if (isDef) {   // temporaire puis renommage : un envoi interrompu ne laisse jamais une image tronquee ; le cache du demon suit la date du fichier
+          const std::string tmp = real(path) + ".tmp";
+          {
+            std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
+            if (!f || !f.write(data.data(), (std::streamsize)data.size())) err = "ERR: ecriture SD impossible";
+          }
+          if (err.empty() && std::rename(tmp.c_str(), real(path).c_str()) != 0) err = "ERR: remplacement de l'image de secours impossible";
+          if (!err.empty()) std::remove(tmp.c_str());
+        } else if (isBg && name.size() > 7 && name.compare(name.size() - 7, 7, ".raw565") == 0 && data.size() != 8192) {
           err = "ERR: un fond doit faire 8192 octets (128x32 raw565)";
         } else {
           std::ofstream f(real(path), std::ios::binary | std::ios::trunc);

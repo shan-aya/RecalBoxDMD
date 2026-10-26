@@ -8,6 +8,13 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-26 (3) — Firmware v3.96, démon Raspberry Pi v3.70 et boîte à outils PC build 13881 : image de secours par Wi-Fi, préférences enregistrées dans la version installée, détection du DMD renforcée
+
+**Firmware v3.96 · Démon Raspberry Pi v3.70 · Boîte à outils PC build 13881**
+- **Image de secours par Wi-Fi** (ESP32 et Raspberry Pi) : dans la galerie « Image de secours » de la boîte à outils, le nouveau bouton **« Envoyer l'image choisie au DMD (Wi-Fi) »** remplace `default.raw565` directement sur le DMD, sans sortir la carte SD. Le DMD écrit un fichier temporaire, vérifie qu'il fait exactement 8192 octets, puis remplace l'ancienne image ; un envoi interrompu ou de mauvaise taille laisse l'ancienne image intacte. Un firmware / démon trop ancien est détecté et rien n'est envoyé.
+- **Version installée (Setup)** : le Setup installe dans « Program Files », où un utilisateur normal ne peut pas écrire ; le fichier de préférences n'y était jamais créé, donc la langue, le thème, l'adresse de la Recalbox, celle du DMD et l'image de secours n'étaient pas retenus d'un lancement à l'autre. Les préférences sont maintenant écrites dans `%APPDATA%\RecalBoxDMD` quand le dossier de l'exe n'est pas modifiable ; la version portable garde son fichier à côté de l'exe. L'image de secours choisie dans la galerie est aussi retenue au redémarrage de l'exe portable (les images importées sont conservées dans `%APPDATA%\RecalBoxDMD\default_images`).
+- **« DMD : non trouvé » au lancement** : la recherche essaie aussi le nom `dmd-marquee.local` et balaie **toutes** les cartes réseau actives (VPN, WSL, Hyper-V ou plusieurs cartes ne cachent plus le réseau du DMD), avec des délais plus longs et une seconde passe ; le journal explique ce qui a été essayé. Nouveau champ **« Adresse du DMD (IP ou nom) »** dans l'onglet Paramètres, utilisé en premier.
+
 ## 2026-10-26 (2) — Firmware v3.96, démon Raspberry Pi v3.70 : mode diagnostic Wi-Fi / Recalbox
 
 **Firmware v3.96 · Démon Raspberry Pi v3.70**
@@ -17,11 +24,6 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 - **Corrigé (ESP32)** : le DMD rejoignait le **premier** point d'accès qui répondait au lieu du **plus fort**. Avec un réseau maillé ou un répéteur, il pouvait s'accrocher à un point d'accès lointain (−75 dBm au lieu de −52 dBm) puis ne plus rien recevoir tout en affichant « connecté ». Il scanne désormais tous les canaux et choisit le meilleur signal (le scan ajoute un court délai à chaque connexion).
 - **Corrigé (ESP32)** : **« Reprendre DMD »** après un démarrage en mode configuration (premier démarrage, ou `first_boot=1`) laissait un **écran noir** : l'index de la playlist n'était jamais chargé. Il est maintenant chargé à la reprise.
 - **Raspberry Pi** : même mode diagnostic (action 12 de la page Bouton et même page web). Pas de bouton BOOT sur le Pi ; l'historique des reconnexions Wi-Fi n'existe que **pendant un diagnostic** ; en Ethernet, la dalle affiche « ETHERNET / PAS DE WIFI ».
-
-## 2026-10-26 (2) — Boîte à outils PC build 13680 : préférences enregistrées dans la version installée
-
-**Boîte à outils PC build 13680**
-- **Version installée (Setup)** : le Setup installe dans « Program Files », où un utilisateur normal ne peut pas écrire ; le fichier de préférences n'y était jamais créé et l'erreur était ignorée, donc la langue, le thème, l'adresse de la Recalbox et l'image de secours n'étaient pas retenus d'un lancement à l'autre. Les préférences sont maintenant écrites dans `%APPDATA%\RecalBoxDMD` quand le dossier de l'exe n'est pas modifiable ; la version portable garde son fichier à côté de l'exe.
 
 ## 2026-10-26 — Boîte à outils PC build 13579 : image de secours retenue, contrôle de la suppression dans l'onglet Playlist
 

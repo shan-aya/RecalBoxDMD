@@ -7,7 +7,7 @@
 <title>RecalBox DMD</title>
 <link rel="stylesheet" href="/cfg.css?h=42c26368">
 <link rel="icon" href="data:,">
-<script src="/cfg.js?h=bfb95521" onerror="try{if(!sessionStorage.cfgR){sessionStorage.cfgR=1;location.reload();}}catch(e){}"></script>
+<script src="/cfg.js?h=b3456e46" onerror="try{if(!sessionStorage.cfgR){sessionStorage.cfgR=1;location.reload();}}catch(e){}"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
@@ -63,6 +63,7 @@ body{position:relative}
 <a class="btn" href="/config/widgets" onclick="showPageLoadingOverlay()" data-i18n="menu_deco">&#x2728; Widgets &amp; Horloge</a>
 <a class="btn" href="/config/media" onclick="showPageLoadingOverlay()" data-i18n="menu_media">&#x1F4BF; M&eacute;dias</a>
 <a class="btn" href="/config/button" onclick="showPageLoadingOverlay()" data-i18n="menu_button">&#x1F518; Bouton</a>
+<a class="btn" href="/config/diag" onclick="showPageLoadingOverlay()" data-i18n="menu_diag">&#x1FA7A; Diagnostic</a>
 </div>
 <div class="small" data-i18n="small_hint">Page fractionn&eacute;e pour un chargement rapide et fiable sur ESP32.</div>
 <div class="btn-row">
@@ -74,9 +75,9 @@ body{position:relative}
 <script>
 const HELP_I18N=window.CFG_HELP;
 const MENU_I18N={
-fr:{menu_settings:'&#x2699; Réglages',title:'RecalBox DMD',tagline:'Configuration DMD',menu_basic:'&#x1F4A1; Affichage',menu_playlist:'&#x1F4BF; Playlist',menu_network:'&#x1F4F6; Wi-Fi',menu_deco:'&#x2728; Widgets &amp; Horloge',menu_media:'&#x1F4BF; Médias',menu_button:'&#x1F518; Bouton',small_hint:'Page fractionnée pour un chargement rapide et fiable sur ESP32.',...HELP_I18N.fr},
-en:{menu_settings:'&#x2699; Settings',title:'RecalBox DMD',tagline:'DMD Configuration',menu_basic:'&#x1F4A1; Display',menu_playlist:'&#x1F4BF; Playlist',menu_network:'&#x1F4F6; Wi-Fi',menu_deco:'&#x2728; Widgets &amp; Clock',menu_media:'&#x1F4BF; Media',menu_button:'&#x1F518; Button',small_hint:'Split page for fast, reliable loading on ESP32.',...HELP_I18N.en},
-es:{menu_settings:'&#x2699; Ajustes',title:'RecalBox DMD',tagline:'Configuración DMD',menu_basic:'&#x1F4A1; Pantalla',menu_playlist:'&#x1F4BF; Playlist',menu_network:'&#x1F4F6; Wi-Fi',menu_deco:'&#x2728; Widgets y Reloj',menu_media:'&#x1F4BF; Medios',menu_button:'&#x1F518; Botón',small_hint:'Página dividida para una carga rápida y fiable en ESP32.',...HELP_I18N.es}
+fr:{menu_settings:'&#x2699; Réglages',title:'RecalBox DMD',tagline:'Configuration DMD',menu_basic:'&#x1F4A1; Affichage',menu_playlist:'&#x1F4BF; Playlist',menu_network:'&#x1F4F6; Wi-Fi',menu_deco:'&#x2728; Widgets &amp; Horloge',menu_media:'&#x1F4BF; Médias',menu_button:'&#x1F518; Bouton',menu_diag:'&#x1FA7A; Diagnostic',small_hint:'Page fractionnée pour un chargement rapide et fiable sur ESP32.',...HELP_I18N.fr},
+en:{menu_settings:'&#x2699; Settings',title:'RecalBox DMD',tagline:'DMD Configuration',menu_basic:'&#x1F4A1; Display',menu_playlist:'&#x1F4BF; Playlist',menu_network:'&#x1F4F6; Wi-Fi',menu_deco:'&#x2728; Widgets &amp; Clock',menu_media:'&#x1F4BF; Media',menu_button:'&#x1F518; Button',menu_diag:'&#x1FA7A; Diagnostics',small_hint:'Split page for fast, reliable loading on ESP32.',...HELP_I18N.en},
+es:{menu_settings:'&#x2699; Ajustes',title:'RecalBox DMD',tagline:'Configuración DMD',menu_basic:'&#x1F4A1; Pantalla',menu_playlist:'&#x1F4BF; Playlist',menu_network:'&#x1F4F6; Wi-Fi',menu_deco:'&#x2728; Widgets y Reloj',menu_media:'&#x1F4BF; Medios',menu_button:'&#x1F518; Botón',menu_diag:'&#x1FA7A; Diagnóstico',small_hint:'Página dividida para una carga rápida y fiable en ESP32.',...HELP_I18N.es}
 };
 let currentLang='fr';
 function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}

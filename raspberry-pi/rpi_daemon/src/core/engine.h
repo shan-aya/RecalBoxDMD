@@ -19,6 +19,8 @@
 #include "brightsched.h"
 #include "clock.h"
 #include "config.h"
+#include "diag.h"
+#include "netutil.h"
 #include "display.h"
 #include "gamescache.h"
 #include "pack.h"
@@ -111,6 +113,18 @@ class Engine {
   void previewBrightness(int pct);                        // apercu live (RAM seulement)
   void clockPreview(const std::string &theme);            // « -1 »..« 14 » ou « stop »
   bool takeHelloRequest() { return helloRequested_.exchange(false); }  // reprise apres un flux ZeDMD : annoncer le DMD a la Recalbox
+  // --- mode diagnostic Wi-Fi / Recalbox (action 12 du bouton, page /config/diag) : voir diag.h ; non bloquant, avance dans tick()
+  struct DiagHooks {
+    std::function<void()> sendPing;                                          // PING vers la Recalbox active
+    std::function<uint64_t()> pongCount, lastPongMs, lastPacketMs, gapCount;  // compteurs du serveur UDP
+    std::function<std::string()> rbIp;                                       // Recalbox active (vide = aucune)
+  };
+  void setDiagHooks(DiagHooks h) { diagHooks_ = std::move(h); }
+  void diagStart(bool fromWeb);
+  void diagStop();
+  bool diagActive() const { return diagActive_.load(); }
+  void diagWebTouch();            // signe de vie de la page (GET /diag-data) : sans appel pendant 8 s le mode s'arrete
+  std::string diagJson();         // memes cles que GET /diag-data du firmware ESP32 (la page web est partagee)
   int playlistCount() { return cfg_.playlistName.empty() ? 0 : playlist_.count(fs_); }
   bool pngDrawn() const { return pngDrawn_; }
   const std::string &currentPngPath() const { return currentPngPath_; }
@@ -182,6 +196,22 @@ class Engine {
   void tickBrightSched(uint64_t now);
   bool screenOff_ = false;                                 // action 5 du bouton : ecran eteint (luminosite 0), rien n'est ecrit dans config.ini
   uint64_t infoUntilMs_ = 0;                               // action 6 : ecran d'information affiche jusqu'a cette date
+  // mode diagnostic
+  void diagTick(uint64_t now);
+  void diagShow(const std::string &l1, const std::string &l2, uint16_t color);
+  DiagHooks diagHooks_;
+  DiagStats diag_;
+  std::atomic<bool> diagActive_{false};
+  bool diagFromWeb_ = false, diagPingOut_ = false, diagHaveLink_ = false, diagPrevUp_ = false;
+  std::atomic<uint64_t> diagWebSeenMs_{0};
+  uint64_t diagLastTickMs_ = 0, diagSentMs_ = 0, diagPongBase_ = 0, diagPageAtMs_ = 0;
+  int diagRssi_ = -127;
+  std::string diagPrevBssid_, diagShown1_, diagShown2_;
+  uint16_t diagShownColor_ = 0;
+  std::mutex diagMu_;               // etat mis en cache pour les gestionnaires HTTP (autre thread)
+  WifiLink diagLink_;
+  NetInfo diagNet_;
+  long diagMem_ = -1, diagMemMin_ = -1;
   std::mutex mainMu_;
   std::deque<std::pair<std::function<void()>, std::shared_ptr<std::promise<void>>>> mainTasks_;
   bool configActive_ = false;

@@ -143,6 +143,7 @@ void UdpServer::drainOnce() {
     if (m == "PONG") {  // reponse a notre PING : jamais un « CMD= », consommee ici
       { std::lock_guard<std::mutex> lk(rbMu_); rbProbing_ = false; }
       lastPongMs_ = lastSeenMs_.load();
+      pongCount_++;
       pongEvent_ = true;
       if (resendFeaturesOnPong_.exchange(false)) {
         connectedEvent_ = true;
@@ -389,6 +390,7 @@ void UdpServer::tickPresence(uint64_t now) {
       discAlertCount_ = 0;  // un futur episode redeclenchera ses 3 affichages depuis le debut
     } else {
       consecutiveMissed_++;
+      if (consecutiveMissed_ == 2) gapCount_++;
       size_t n;
       int target;
       {

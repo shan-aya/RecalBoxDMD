@@ -1,8 +1,11 @@
 # ============================================
 # safe-modify - Historique des modifications
 # ============================================
-# Version actuelle : v79
+# Version actuelle : v81
 #
+# v81 - 2026-10-26 - safe-modify - IMAGE DE SECOURS PAR WI-FI (ESP32 >= 3.95, Raspberry Pi >= 3.69) : default_image_raw565_bytes() (meme conversion que set_default_fallback_image) et send_default_image_to_dmd() : POST /prepare-upload (l'ESP32 peut redemarrer en mode config) puis POST /upload?dir=_defaults&kind=defimg ; firmware plus ancien -> « unsupported » sans rien envoyer (il rangerait le fichier comme un GIF). Le DMD ecrit un .tmp, verifie 8192 octets et remplace default.raw565.
+#
+# v80 - 2026-10-26 - safe-modify - DETECTION DU DMD (find_dmd) renforcee : « DMD : non trouve » au lancement chez un utilisateur de la version installee (preferences non enregistrees -> aucune IP memorisee, et le balayage ne couvrait que le /24 de l'interface devinee, avec 0,35 s par hote). Maintenant : IP memorisee, nom dmd-marquee.local (mDNS), 192.168.0.51/.52, puis balayage du /24 de CHAQUE interface IPv4 active (_local_ipv4_prefixes), delai 1 s puis 2,5 s ; LAST_FIND_DMD_REPORT garde le detail de la recherche (affiche dans le journal [UPDATE]).
 # v79 - 2026-10-26 - safe-modify - ONGLET PLAYLIST : la suppression d'un dossier/fichier de GIF retire aussi ses lignes de playlists/cache_master_gifs.dat (remove_from_master_gifs_cache) ; avant, le cache gardait des chemins disparus. Non publie.
 #
 # v78 - 2026-10-25 - safe-modify - ONGLET PLAYLIST DU TOOLKIT : envoi de dossiers de GIF du PC vers gifs/ d'un DMD RASPBERRY PI par Wi-Fi (dmd_is_raspberry_pi, send_gif_folders_to_pi, pi_send_gif_file ; Pi uniquement : l'ESP32 garde la copie sur carte SD). Non publie.
@@ -5033,42 +5036,111 @@ def _dmd_probe(ip: str, timeout: float = 8.0):
     return None
 
 
-def find_dmd(known_ip=None, scan_timeout: float = 0.35):
-    """Trouve le DMD sur le reseau local et lit sa version de firmware (None si introuvable, jamais d'exception).
+DMD_MDNS_NAME = "dmd-marquee.local"   # nom annonce par le firmware (MDNS.begin("dmd-marquee"))
+LAST_FIND_DMD_REPORT = ""   # v80 : derniere recherche (adresses essayees, reseaux balayes) -- affichee quand le DMD n'est pas trouve
 
-    Ordre : IP memorisee, 192.168.0.51 / .52, puis balayage du /24 de la carte reseau principale (connexion TCP seule puis
-    GET /load sur les hotes qui repondent). Lecture par le RESEAU (Wi-Fi), jamais par le port serie : le toolkit n'est pas
-    branche au DMD en usage normal. Cas courant (IP memorisee) = une seule requete HTTP."""
+
+def _local_ipv4_prefixes() -> list:
+    """v80 : prefixes /24 de TOUTES les interfaces IPv4 actives (interface « principale » devinee par le routage en premier ; VPN, WSL, Hyper-V ou plusieurs cartes ne cachent plus le reseau du DMD).
+    Ignore boucle locale (127.), APIPA (169.254.) et les adresses invalides."""
+    import socket
+    found = []
+
+    def add(ip):
+        parts = str(ip).split(".")
+        if len(parts) != 4 or not all(p.isdigit() for p in parts):
+            return
+        if parts[0] in ("0", "127") or (parts[0] == "169" and parts[1] == "254"):
+            return
+        pre = ".".join(parts[:3])
+        if pre not in found:
+            found.append(pre)
+
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("10.255.255.255", 1))   # aucun paquet envoye : sert a connaitre l'interface principale
+        add(s.getsockname()[0])
+        s.close()
+    except OSError:
+        pass
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            add(info[4][0])
+    except OSError:
+        pass
+    return found
+
+
+def _resolve_mdns(name: str, timeout: float = 2.5):
+    """v80 : adresse IPv4 d'un nom .local (mDNS de Windows), ou None. Dans un fil a part : la resolution peut bloquer plus que le delai voulu."""
     import socket
     from concurrent.futures import ThreadPoolExecutor
+    ex = ThreadPoolExecutor(max_workers=1)
+    try:
+        return ex.submit(socket.gethostbyname, name).result(timeout=timeout)
+    except Exception:
+        return None
+    finally:
+        ex.shutdown(wait=False)
+
+
+def find_dmd(known_ip=None, scan_timeout: float = 1.0):
+    """Trouve le DMD sur le reseau local et lit sa version de firmware (None si introuvable, jamais d'exception).
+
+    Ordre : IP memorisee, nom dmd-marquee.local (mDNS), 192.168.0.51 / .52, puis balayage du /24 de CHAQUE interface IPv4 active
+    (connexion TCP seule puis GET /load sur les hotes qui repondent ; deuxieme passe plus patiente si rien). Lecture par le
+    RESEAU (Wi-Fi), jamais par le port serie : le toolkit n'est pas branche au DMD en usage normal. Cas courant (IP memorisee) = une
+    seule requete HTTP. v80 : LAST_FIND_DMD_REPORT garde le detail de la recherche."""
+    global LAST_FIND_DMD_REPORT
+    import socket
+    from concurrent.futures import ThreadPoolExecutor
+    report = []
     try:
         tried = []
         # UNE seule requete par adresse candidate (pas de test de port separe) : le serveur web du DMD est mono-tache et fragile
         # sous rafale de connexions (constate le 03/10 : plusieurs sondages rapproches pendant la lecture d'un GIF ont retarde
         # la reception du DMD d'environ 18 s pendant quelques minutes, retabli seul ensuite).
-        for ip in [known_ip, "192.168.0.51", "192.168.0.52"]:
-            if ip and ip not in tried:
-                tried.append(ip)
-                r = _dmd_probe(ip, 6.0)
-                if r:
-                    return r
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("10.255.255.255", 1))   # aucun paquet envoye : sert a connaitre l'interface principale
-            local = s.getsockname()[0]
-            s.close()
-        except OSError:
-            return None
-        prefix = local.rsplit(".", 1)[0]
-        hosts = [f"{prefix}.{i}" for i in range(1, 255) if f"{prefix}.{i}" not in tried]
-        with ThreadPoolExecutor(max_workers=64) as ex:
-            opened = [h for h, ok in zip(hosts, ex.map(lambda h: _dmd_port_open(h, scan_timeout), hosts)) if ok]
-        for h in opened:
-            r = _dmd_probe(h, 5.0)
+        candidates = [known_ip]
+        if known_ip:
+            report.append(f"IP memorisee {known_ip}")
+        r = _probe_known(candidates, tried, report)
+        if r:
+            LAST_FIND_DMD_REPORT = "; ".join(report)
+            return r
+        mdns_ip = _resolve_mdns(DMD_MDNS_NAME)
+        report.append(f"{DMD_MDNS_NAME} -> {mdns_ip or 'non resolu'}")
+        r = _probe_known([mdns_ip, "192.168.0.51", "192.168.0.52"], tried, report)
+        if r:
+            LAST_FIND_DMD_REPORT = "; ".join(report)
+            return r
+        prefixes = _local_ipv4_prefixes()
+        report.append("reseaux balayes : " + (", ".join(p + ".0/24" for p in prefixes) or "aucun (pas d'interface IPv4 active)"))
+        for timeout in (scan_timeout, scan_timeout * 2.5):
+            for prefix in prefixes:
+                hosts = [f"{prefix}.{i}" for i in range(1, 255) if f"{prefix}.{i}" not in tried]
+                with ThreadPoolExecutor(max_workers=64) as ex:
+                    opened = [h for h, ok in zip(hosts, ex.map(lambda h: _dmd_port_open(h, timeout), hosts)) if ok]
+                for h in opened:
+                    r = _dmd_probe(h, 5.0)
+                    if r:
+                        LAST_FIND_DMD_REPORT = "; ".join(report)
+                        return r
+                report.append(f"{prefix}.0/24 : {len(opened)} hote(s) avec le port 80 ouvert, aucun DMD (delai {timeout:g} s)")
+    except Exception as e:
+        report.append(f"erreur : {type(e).__name__}: {e}")
+    LAST_FIND_DMD_REPORT = "; ".join(report)
+    return None
+
+
+def _probe_known(ips, tried, report):
+    """v80 : sonde chaque adresse candidate une seule fois (liste `tried` partagee) ; le DMD si l'une repond."""
+    for ip in ips:
+        if ip and ip not in tried:
+            tried.append(ip)
+            r = _dmd_probe(ip, 6.0)
             if r:
                 return r
-    except Exception:
-        pass
+            report.append(f"{ip} : pas de DMD")
     return None
 
 
@@ -5365,6 +5437,71 @@ def install_boot_anims_to_dmd(ip: str, items, progress_cb=None, _sleep=None, ski
         if name == "boot_anim" and res["state"] in ("unsupported",) or (res["state"] == "fail" and res["detail"] == "DMD injoignable"):
             break   # firmware trop ancien pour tout, ou DMD disparu : inutile d'insister
     return out
+
+
+DEFAULT_IMAGE_MIN_FW_ESP32 = 395   # v80 : premier firmware ESP32 qui accepte POST /upload?kind=defimg (3.95) -- un firmware plus ancien rangerait le fichier comme un GIF
+DEFAULT_IMAGE_MIN_FW_PI = 369      # v80 : premier demon Raspberry Pi qui l'accepte (3.69)
+
+
+def default_image_raw565_bytes(src_image) -> bytes:
+    """v80 : image de secours -> les 8192 octets de default.raw565 (meme conversion que set_default_fallback_image, donc meme rendu que sur la carte SD)."""
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="rbdmd_defimg_") as tmp:
+        out = set_default_fallback_image(Path(src_image), Path(tmp))
+        data = Path(out).read_bytes()
+    if len(data) != TARGET_W * TARGET_H * 2:
+        raise ValueError(f"conversion inattendue ({len(data)} octets au lieu de {TARGET_W * TARGET_H * 2})")
+    return data
+
+
+def send_default_image_to_dmd(ip: str, data: bytes, progress_cb=None, _sleep=None) -> dict:
+    """v80 : remplace l'image de secours (systems/_defaults/default.raw565) du DMD par Wi-Fi, ESP32 ou Raspberry Pi, sans sortir la carte SD.
+    data = les 8192 octets de default_image_raw565_bytes(). POST /upload?dir=_defaults&kind=defimg ; le DMD ecrit un fichier temporaire, verifie la taille puis remplace
+    default.raw565 (un envoi interrompu laisse l'ancienne image). Firmware trop ancien -> "unsupported" (il rangerait le fichier comme un GIF : jamais d'envoi dans ce cas).
+    -> {"state": "ok"|"fail"|"unsupported", "detail": str, "target": "pi"|"esp32"|""}. progress_cb(etape) facultatif."""
+    import json
+    import time
+    import urllib.request
+    sleep = _sleep or time.sleep
+    say = progress_cb or (lambda s: None)
+    if len(data) != TARGET_W * TARGET_H * 2:
+        return {"state": "fail", "detail": f"image de {len(data)} octets (8192 attendus)", "target": ""}
+    say("probe")
+    probe = _dmd_probe(ip, 8.0)
+    if not probe:
+        return {"state": "fail", "detail": "DMD injoignable", "target": ""}
+    is_pi = dmd_is_raspberry_pi(ip)
+    target = "pi" if is_pi else "esp32"
+    need = DEFAULT_IMAGE_MIN_FW_PI if is_pi else DEFAULT_IMAGE_MIN_FW_ESP32
+    if fw_version_num(probe.get("version")) < need:
+        return {"state": "unsupported", "target": target,
+                "detail": f"{'demon Raspberry Pi' if is_pi else 'firmware'} {probe.get('version') or '?'} (>= {need // 100}.{need % 100:02d} requis : Mode 14)"}
+    body, ctype = _multipart_file("file", "default.raw565", data)
+    last = "echec"
+    for attempt in (1, 2):
+        try:
+            say("prepare")
+            prep = json.loads(_dmd_http(ip, "/prepare-upload", "POST", 20.0) or "{}")
+            if prep.get("reboot"):   # playlist active : l'ESP32 redemarre en mode config avant de recevoir des fichiers
+                say("reboot")
+                sleep(8)
+                for _ in range(20):
+                    if _dmd_probe(ip, 4.0):
+                        break
+                    sleep(3)
+            say("upload")
+            req = urllib.request.Request(f"http://{ip}/upload?dir=_defaults&kind=defimg", data=body, method="POST",
+                                         headers={"Content-Type": ctype, "User-Agent": "recalbox-toolkit"})
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                ans = json.loads(resp.read(20000).decode("utf-8", "replace"))
+            files = ans.get("files") or []
+            if files and files[0].get("ok"):
+                say("done")
+                return {"state": "ok", "detail": "", "target": target}
+            last = "envoi refuse : " + str((files[0].get("err") if files else "") or "reponse vide")
+        except Exception as e:
+            last = f"{type(e).__name__}: {e}"
+    return {"state": "fail", "detail": last, "target": target}
 
 
 def dmd_reboot(ip: str) -> bool:

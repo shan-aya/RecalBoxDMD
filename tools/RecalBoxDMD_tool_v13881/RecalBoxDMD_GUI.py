@@ -4,6 +4,8 @@
 # ============================================
 # Version actuelle : v134
 #
+# v138 - 2026-10-26 - safe-modify - IMAGE DE SECOURS PAR WI-FI : galerie « Image de secours » (Mode 10 / Mode 1 / Mode 2) -> bouton « Envoyer l'image choisie au DMD (Wi-Fi) » : recherche du DMD (fil separe), confirmation (nom, ESP32 ou Raspberry Pi, adresse), envoi, resultat ; ESP32 >= 3.95 / Pi >= 3.69, sinon message explicite. 6 cles UI_TRANSLATIONS x 3 langues, aide du Mode 10 completee. Voir RecalBoxDMD_tool.py v81.
+# v137 - 2026-10-26 - safe-modify - DMD NON TROUVE AU LANCEMENT : onglet Parametres -> champ « Adresse du DMD (IP ou nom) » (prioritaire sur la detection, memorise dans dmd_ip) ; le journal [UPDATE] detaille la recherche quand le DMD n'est pas trouve (adresses essayees, reseaux balayes). Detection renforcee : voir RecalBoxDMD_tool.py v80.
 # v136 - 2026-10-26 - safe-modify - PREFERENCES DE LA VERSION INSTALLEE : le Setup installe dans Program Files, dossier non modifiable par un utilisateur normal ; RecalBoxDMD_prefs.json (a cote de l'exe) n'y etait jamais cree et l'erreur etait avalee -> aucune preference (langue, theme, IP Recalbox, image de secours) n'etait retenue. RecalBoxDMD_prefs.py v11 : repli sur %APPDATA%\RecalBoxDMD\ quand le dossier de l'exe n'est pas modifiable (version portable inchangee), reprise de l'ancien fichier, erreur d'ecriture affichee.
 # v135 - 2026-10-26 - safe-modify - IMAGE DE SECOURS (default.raw565) : le choix d'une image fournie (ex. default_rgbdual2) n'etait pas retenu au lancement suivant. Cause : le chemin absolu enregistre dans les preferences pointait vers le dossier temporaire de l'exe portable (%TEMP%\_MEIxxxxxx, different a chaque lancement) -> « introuvable », rien n'etait ecrit et l'ancien logo Recalbox + fantomes restait. Correctif : image fournie enregistree sous la forme « bundled:<nom> » (resolue dans les assets courants) ; anciens chemins morts retrouves par leur nom ; images importees copiees dans %APPDATA%\RecalBoxDMD\default_images (durable) et listees dans la galerie ; image enregistree introuvable -> repli explicite sur default_RB.png (journal).
 # v134 - 2026-10-26 - safe-modify - ONGLET PLAYLIST : popup « Suppression terminée » (resultat VERIFIE sur la carte : dossiers restants, ou message d'echec detaille) apres « Supprimer » des dossiers/fichiers de gifs/ ; journal (onglet Logs + fichier) de chaque action de l'onglet : carte choisie, dossier PC choisi/trouve/retenu, copie, suppression (demande, annulation, par dossier, echecs), playlist construite/supprimee, cache regenere. Non publie.
@@ -1433,7 +1435,7 @@ from tkinter import ttk, messagebox, filedialog, font as tkfont
 # mais CETTE constante reste a mettre a jour a la main ici (pas d'ecriture
 # automatique dans le .py au moment du build, pour garder le pipeline
 # simple) -- build_release.ps1 avertit si elle diverge du calcul.
-TOOLKIT_RELEASE_VERSION = "13680"
+TOOLKIT_RELEASE_VERSION = "13881"
 
 # v71, safe-modify -- voir le remplacement du verrou v68 dans __init__ pour
 # le contexte complet. _DPI_SCALE est le ratio DPI reel/96 (1.0 a 100%,
@@ -1556,6 +1558,14 @@ UI_TRANSLATIONS = {
         "mode9_reboot_done": "✅ Redémarrage de la Recalbox demandé — elle sera de nouveau disponible dans environ une minute.",
         "mode9_reboot_fail": "❌ Impossible de redémarrer la Recalbox (SSH) — redémarrez-la depuis son menu.",
         "mode1_profile_label": "Version Recalbox (scrape marquee/logo)",
+        "default_image_send_btn": "Envoyer l'image choisie au DMD (Wi-Fi)",
+        "default_image_send_confirm": "Envoyer l'image « {name} » comme image de secours du DMD ({kind}, {ip}) ?\n\nElle remplace l'image actuelle ; la carte SD n'a pas besoin d'être sortie.",
+        "default_image_send_ok": "Image de secours envoyée au DMD ({ip}). Elle s'affichera à la prochaine utilisation du visuel de secours.",
+        "default_image_send_notfound": "Aucun DMD trouvé sur le réseau. Renseignez son adresse dans l'onglet Paramètres, ou vérifiez qu'il est allumé et sur le même réseau.",
+        "default_image_send_unsupported": "Ce DMD ne sait pas encore recevoir l'image de secours par Wi-Fi : {detail}. Mettez-le à jour (Mode 14), ou copiez l'image sur la carte SD.",
+        "default_image_send_fail": "Échec de l'envoi de l'image de secours : {detail}",
+        "dmd_ip_label": "Adresse du DMD (IP ou nom)",
+        "dmd_ip_hint": "À renseigner seulement si le DMD n'est pas trouvé tout seul au lancement. Laissez vide pour la détection automatique.",
         "slow_threshold_label": "Seuil flag L (systèmes lents)",
         "slow_threshold_hint": (
             "Nombre de fichiers convertis au-delà duquel un système est "
@@ -2183,6 +2193,14 @@ UI_TRANSLATIONS = {
         "mode9_reboot_done": "✅ Recalbox restart requested — it will be available again in about a minute.",
         "mode9_reboot_fail": "❌ Could not restart the Recalbox (SSH) — restart it from its menu.",
         "mode1_profile_label": "Recalbox version (marquee/logo scrape)",
+        "default_image_send_btn": "Send the chosen image to the DMD (Wi-Fi)",
+        "default_image_send_confirm": "Send the image \"{name}\" as the DMD's fallback image ({kind}, {ip})?\n\nIt replaces the current image; the SD card does not need to be taken out.",
+        "default_image_send_ok": "Fallback image sent to the DMD ({ip}). It will be shown the next time the fallback visual is used.",
+        "default_image_send_notfound": "No DMD found on the network. Enter its address in the Settings tab, or check that it is on and on the same network.",
+        "default_image_send_unsupported": "This DMD cannot receive the fallback image over Wi-Fi yet: {detail}. Update it (Mode 14), or copy the image onto the SD card.",
+        "default_image_send_fail": "Sending the fallback image failed: {detail}",
+        "dmd_ip_label": "DMD address (IP or name)",
+        "dmd_ip_hint": "Only fill in if the DMD is not found by itself at startup. Leave empty for automatic detection.",
         "slow_threshold_label": "Slow-flag threshold (slow systems)",
         "slow_threshold_hint": (
             "Number of converted files above which a system is marked "
@@ -2790,6 +2808,14 @@ UI_TRANSLATIONS = {
         "mode9_reboot_done": "✅ Reinicio de la Recalbox solicitado — volverá a estar disponible en aproximadamente un minuto.",
         "mode9_reboot_fail": "❌ No se pudo reiniciar la Recalbox (SSH) — reiníciela desde su menú.",
         "mode1_profile_label": "Version de Recalbox (scrape de marquee/logo)",
+        "default_image_send_btn": "Enviar la imagen elegida al DMD (Wi-Fi)",
+        "default_image_send_confirm": "¿Enviar la imagen « {name} » como imagen de respaldo del DMD ({kind}, {ip})?\n\nSustituye la imagen actual; no hace falta sacar la tarjeta SD.",
+        "default_image_send_ok": "Imagen de respaldo enviada al DMD ({ip}). Se mostrará la próxima vez que se use la imagen de respaldo.",
+        "default_image_send_notfound": "No se encontró ningún DMD en la red. Indique su dirección en la pestaña Ajustes, o compruebe que está encendido y en la misma red.",
+        "default_image_send_unsupported": "Este DMD aún no puede recibir la imagen de respaldo por Wi-Fi: {detail}. Actualícelo (Modo 14) o copie la imagen en la tarjeta SD.",
+        "default_image_send_fail": "Error al enviar la imagen de respaldo: {detail}",
+        "dmd_ip_label": "Dirección del DMD (IP o nombre)",
+        "dmd_ip_hint": "Rellénela solo si el DMD no se encuentra solo al iniciar. Déjela vacía para la detección automática.",
         "slow_threshold_label": "Umbral flag L (sistemas lentos)",
         "slow_threshold_hint": (
             "Número de archivos convertidos a partir del cual un sistema "
@@ -5992,6 +6018,31 @@ class RetroBoxLEDGui:
         )
         self._params_slow_threshold_hint_lbl.grid(row=len(langs) + 7, column=0, sticky="w", pady=(2, 4))
 
+        # v137 : adresse du DMD saisie a la main (prioritaire sur la detection automatique, voir find_dmd)
+        self._dmd_ip_var = tk.StringVar(value=str(prefs.get("dmd_ip") or ""))
+        self._params_dmd_ip_lbl = tk.Label(
+            box,
+            text=ui["dmd_ip_label"],
+            bg="#F3F3F3",
+            fg="black",
+            font=("TkDefaultFont", 10, "bold"),
+        )
+        self._params_dmd_ip_lbl.grid(row=len(langs) + 8, column=0, sticky="w", pady=(12, 4))
+        self._params_dmd_ip_entry = ttk.Entry(box, textvariable=self._dmd_ip_var, width=24)
+        self._params_dmd_ip_entry.grid(row=len(langs) + 9, column=0, sticky="w", pady=2)
+        self._params_dmd_ip_entry.bind("<Return>", self._on_dmd_ip_changed)
+        self._params_dmd_ip_entry.bind("<FocusOut>", self._on_dmd_ip_changed)
+        self._params_dmd_ip_hint_lbl = tk.Label(
+            box,
+            text=ui["dmd_ip_hint"],
+            bg="#F3F3F3",
+            fg="#555555",
+            font=("TkDefaultFont", 8),
+            wraplength=_dpi_px(260),
+            justify="left",
+        )
+        self._params_dmd_ip_hint_lbl.grid(row=len(langs) + 10, column=0, sticky="w", pady=(2, 4))
+
     def _build_help_tab(self, parent: tk.Frame) -> None:
         ui = self._get_ui_t()
         self.tab_help_bg = "#F3F3F3"
@@ -6238,7 +6289,7 @@ class RetroBoxLEDGui:
                 "7": "Le mode 7 génère uniquement le fichier systems_cache.dat, qui représente l’index des systèmes.\n\nMarche à suivre :\nExécutez d'abord le Mode 2 (téléchargement _defaults), OU choisissez directement le dossier « systems » d'une carte SD déjà préparée, puis cliquez sur « Démarrer ».",
                 "8": "Le mode 8 vérifie les images manquantes en parcourant les gamelist.xml du dossier ROMs. Le rapport liste les images absentes avec le chemin attendu selon le profil Recalbox sélectionné.\n\nMarche à suivre :\n1. « Choisir dossier ROMs »\n2. Choisissez la « Version Recalbox »\n3. « Lancer la vérification »\n4. « Ouvrir le rapport »\nOptionnel : « Comparer avec le support final » puis « Ouvrir le rapport final ».",
                 "9": "Installe/met à jour les scripts Recalbox du DMD et copie les hi-scores (.hi) manquants — un .hi déjà présent n'est jamais écrasé. Directement sur la Recalbox (partage réseau, ou SSH), sans passer par le DMD.\n\nMarche à suivre :\n1. Vérifiez l'IP ou le nom de la Recalbox, puis « Installer / Mettre à jour ».\n2. Redémarrez la Recalbox : les scripts ne sont pris en compte qu'au démarrage.",
-                "10": "Choisissez l'image de secours (default.raw565) affichée quand aucune image spécifique n'est disponible pour un jeu ou un système. Action autonome et immédiate, sans dossier ROMs ni pipeline.\n\nMarche à suivre :\n1. « Choisir son image de secours »\n2. Sélectionnez une image de la galerie ou importez la vôtre.\nLe choix s'applique immédiatement au dossier de travail.",
+                "10": "Choisissez l'image de secours (default.raw565) affichée quand aucune image spécifique n'est disponible pour un jeu ou un système. Action autonome et immédiate, sans dossier ROMs ni pipeline.\n\nMarche à suivre :\n1. « Choisir son image de secours »\n2. Sélectionnez une image de la galerie ou importez la vôtre.\nLe choix s'applique immédiatement au dossier de travail.\n3. Facultatif : « Envoyer l'image choisie au DMD (Wi-Fi) » la remplace directement sur le DMD (ESP32 3.95 ou plus, Raspberry Pi 3.69 ou plus), sans sortir la carte SD.",
                 "14": "Met à jour le firmware du DMD par Wi-Fi, directement depuis GitHub : le DMD télécharge lui-même la dernière version publiée, la vérifie (taille + SHA-256) et redémarre dessus. Si la nouvelle version ne démarre pas, il revient seul à l'ancienne. Action autonome, sans dossier ROMs ni pipeline.\n\nMarche à suivre :\n1. Le DMD doit être allumé et sur le même réseau que ce PC.\n2. Cliquez sur « Démarrer » : la fenêtre cherche le DMD et compare sa version à la dernière publiée.\n3. « Mettre à jour maintenant » (environ 2 minutes, l'écran du DMD s'éteint un moment).\nPour un DMD en firmware 2.43 ou antérieur, une réinstallation USB unique avec le Web Installer est d'abord nécessaire.",
                 "16": "Prépare une carte SD complète pour un Raspberry Pi, à la place de Raspberry Pi Imager : système (Raspberry Pi OS Lite téléchargé et vérifié), Wi-Fi, utilisateur, SSH, logiciel du DMD, et une partition MÉDIA (étiquette RECALBOXDMD) lisible sous Windows pour le contenu du DMD.\n\nMarche à suivre :\n1. Insérez la carte (16 Go minimum, 32 Go conseillés) et choisissez-la dans la fenêtre.\n2. Saisissez nom, utilisateur, mot de passe et Wi-Fi.\n3. « Démarrer », puis acceptez l'autorisation administrateur de Windows.\n4. Copiez le contenu du DMD sur la partition média avec le MODE 1 (cible Raspberry Pi).\n5. Mettez la carte dans le Pi et alimentez-le : il s'installe tout seul (environ 3 à 4 minutes).",
                 "17": "Installe ou met à jour le logiciel du DMD sur un Raspberry Pi déjà démarré (SSH) et copie le contenu de la carte SD du DMD vers le Pi (copie incrémentale ; la configuration du Pi n'est jamais écrasée).\n\nMarche à suivre :\n1. Le Pi doit être allumé et sur le même réseau que ce PC.\n2. « Démarrer », saisissez le mot de passe du Pi.\n3. Ouvrez ensuite la page de configuration indiquée.",
@@ -6259,7 +6310,7 @@ class RetroBoxLEDGui:
                 "7": "Mode 7: generates only systems_cache.dat (systems index).\n\nSteps:\nRun Mode 2 first (_defaults download), OR pick the \"systems\" folder of an already-prepared SD card directly, then click « Start ».",
                 "8": "Mode 8: checks missing images by scanning gamelist.xml in the ROMs folder. The report lists missing images with the expected path according to the selected Recalbox profile.\n\nSteps:\n1. « Choose ROMs folder »\n2. Pick the « Recalbox version »\n3. « Start check »\n4. « Open report »\nOptional: « Compare with final media » then « Open final report ».",
                 "9": "Installs/updates the DMD's Recalbox scripts and copies the missing hi-scores (.hi) — a .hi already present is never overwritten. Straight to the Recalbox (network share, or SSH), without going through the DMD.\n\nSteps:\n1. Check the Recalbox IP or name, then « Install / Update ».\n2. Reboot the Recalbox: the scripts are only picked up at startup.",
-                "10": "Choose the fallback image (default.raw565) shown when no specific image is available for a game or system. Standalone, immediate action, no ROMs folder or pipeline involved.\n\nSteps:\n1. « Choose your fallback image »\n2. Pick an image from the gallery or import your own.\nThe choice is applied immediately to the working folder.",
+                "10": "Choose the fallback image (default.raw565) shown when no specific image is available for a game or system. Standalone, immediate action, no ROMs folder or pipeline involved.\n\nSteps:\n1. « Choose your fallback image »\n2. Pick an image from the gallery or import your own.\nThe choice is applied immediately to the working folder.\n3. Optional: \"Send the chosen image to the DMD (Wi-Fi)\" replaces it directly on the DMD (ESP32 3.95 or later, Raspberry Pi 3.69 or later), without taking the SD card out.",
                 "14": "Updates the DMD firmware over Wi-Fi, straight from GitHub: the DMD downloads the latest published version itself, verifies it (size + SHA-256) and restarts on it. If the new version does not start, it automatically goes back to the old one. Standalone action, no ROMs folder or pipeline.\n\nSteps:\n1. The DMD must be on and on the same network as this PC.\n2. Click « Start »: the window looks for the DMD and compares its version with the latest published one.\n3. « Update now » (about 2 minutes, the DMD screen goes dark for a while).\nA DMD running firmware 2.43 or older first needs a one-time USB reinstall with the Web Installer.",
                 "16": "Prepares a complete SD card for a Raspberry Pi, replacing Raspberry Pi Imager: system (Raspberry Pi OS Lite, downloaded and verified), Wi-Fi, user, SSH, the DMD software, and a MEDIA partition (label RECALBOXDMD) readable from Windows for the DMD content.\n\nSteps:\n1. Insert the card (16 GB minimum, 32 GB recommended) and choose it in the window.\n2. Enter name, user, password and Wi-Fi.\n3. « Start », then accept the Windows administrator prompt.\n4. Copy the DMD content to the media partition with MODE 1 (Raspberry Pi target).\n5. Put the card in the Pi and power it: it installs itself (about 3 to 4 minutes).",
                 "17": "Installs or updates the DMD software on a Raspberry Pi that is already running (SSH) and copies the DMD SD card content to the Pi (incremental copy; the Pi configuration is never overwritten).\n\nSteps:\n1. The Pi must be on and on the same network as this PC.\n2. « Start », enter the Pi password.\n3. Then open the configuration page shown.",
@@ -6280,7 +6331,7 @@ class RetroBoxLEDGui:
                 "7": "Modo 7: genera solo systems_cache.dat (índice de sistemas).\n\nPasos:\nEjecute primero el Modo 2 (descarga _defaults), O elija directamente la carpeta \"systems\" de una tarjeta SD ya preparada, luego haga clic en « Iniciar ».",
                 "8": "Modo 8: verifica las imagenes faltantes escaneando los gamelist.xml en la carpeta ROMs. El informe enumera las imagenes faltantes con la ruta esperada segun el perfil de Recalbox seleccionado.\n\nPasos:\n1. « Elegir carpeta ROMs »\n2. Elija la « Versión de Recalbox »\n3. « Iniciar verificación »\n4. « Abrir informe »\nOpcional: « Comparar con el soporte final » luego « Abrir informe final ».",
                 "9": "Instala/actualiza los scripts de Recalbox del DMD y copia los récords (.hi) que faltan — un .hi ya presente nunca se sobrescribe. Directamente en la Recalbox (recurso de red, o SSH), sin pasar por el DMD.\n\nPasos:\n1. Compruebe la IP o el nombre de la Recalbox y pulse « Instalar / Actualizar ».\n2. Reinicie la Recalbox: los scripts solo se tienen en cuenta al arrancar.",
-                "10": "Elija la imagen de respaldo (default.raw565) que se muestra cuando no hay una imagen especifica disponible para un juego o sistema. Accion autonoma e inmediata, sin carpeta ROMs ni proceso.\n\nPasos:\n1. « Elegir su imagen de respaldo »\n2. Seleccione una imagen de la galeria o importe la suya.\nLa eleccion se aplica de inmediato a la carpeta de trabajo.",
+                "10": "Elija la imagen de respaldo (default.raw565) que se muestra cuando no hay una imagen especifica disponible para un juego o sistema. Accion autonoma e inmediata, sin carpeta ROMs ni proceso.\n\nPasos:\n1. « Elegir su imagen de respaldo »\n2. Seleccione una imagen de la galeria o importe la suya.\nLa eleccion se aplica de inmediato a la carpeta de trabajo.\n3. Opcional: « Enviar la imagen elegida al DMD (Wi-Fi) » la sustituye directamente en el DMD (ESP32 3.95 o superior, Raspberry Pi 3.69 o superior), sin sacar la tarjeta SD.",
                 "14": "Actualiza el firmware del DMD por Wi-Fi, directamente desde GitHub: el DMD descarga él mismo la última versión publicada, la verifica (tamaño + SHA-256) y se reinicia con ella. Si la nueva versión no arranca, vuelve sola a la anterior. Acción autónoma, sin carpeta ROMs ni proceso.\n\nPasos:\n1. El DMD debe estar encendido y en la misma red que este PC.\n2. Haga clic en « Iniciar »: la ventana busca el DMD y compara su versión con la última publicada.\n3. « Actualizar ahora » (unos 2 minutos, la pantalla del DMD se apaga un rato).\nUn DMD con firmware 2.43 o anterior necesita antes una reinstalación única por USB con el Web Installer.",
                 "16": "Prepara una tarjeta SD completa para una Raspberry Pi, en lugar de Raspberry Pi Imager: sistema (Raspberry Pi OS Lite descargado y verificado), Wi-Fi, usuario, SSH, software del DMD y una partición de MEDIOS (etiqueta RECALBOXDMD) legible desde Windows para el contenido del DMD.\n\nPasos:\n1. Inserte la tarjeta (16 GB como mínimo, 32 GB recomendados) y elíjala en la ventana.\n2. Escriba nombre, usuario, contraseña y Wi-Fi.\n3. « Iniciar », y acepte el permiso de administrador de Windows.\n4. Copie el contenido del DMD en la partición de medios con el MODO 1 (destino Raspberry Pi).\n5. Ponga la tarjeta en la Pi y conéctela: se instala sola (unos 3 a 4 minutos).",
                 "17": "Instala o actualiza el software del DMD en una Raspberry Pi ya arrancada (SSH) y copia el contenido de la tarjeta SD del DMD a la Pi (copia incremental; la configuración de la Pi nunca se sobrescribe).\n\nPasos:\n1. La Pi debe estar encendida y en la misma red que este PC.\n2. « Iniciar », escriba la contraseña de la Pi.\n3. Abra después la página de configuración indicada.",
@@ -7988,6 +8039,9 @@ class RetroBoxLEDGui:
             self._params_slow_threshold_lbl.config(text=ui["slow_threshold_label"])
         if getattr(self, "_params_slow_threshold_hint_lbl", None):
             self._params_slow_threshold_hint_lbl.config(text=ui["slow_threshold_hint"])
+        if getattr(self, "_params_dmd_ip_lbl", None):
+            self._params_dmd_ip_lbl.config(text=ui["dmd_ip_label"])
+            self._params_dmd_ip_hint_lbl.config(text=ui["dmd_ip_hint"])
 
         # ── Bouton "Image de secours" (Main + Avance/Mode 2) ──
         if getattr(self, "_default_image_btn", None):
@@ -12599,6 +12653,8 @@ class RetroBoxLEDGui:
         num = self.tkmod.fw_version_num
         dmd_txt = "non trouve" if not dmd else f"{dmd['ip']} firmware {dmd['version'] or 'anterieur a 2.37'}"
         sc_state = self.tkmod.scripts_state(dmd.get("scripts"), dmd.get("rb_age"), sc_latest) if dmd else "unknown"
+        if not dmd:   # v137 : detail de la recherche (adresses essayees, reseaux balayes) pour comprendre un « non trouve »
+            dmd_txt += " (" + (getattr(self.tkmod, "LAST_FIND_DMD_REPORT", "") or "recherche non detaillee") + " ; adresse manuelle possible : onglet Parametres)"
         print(f"[UPDATE] boite a outils : build {TOOLKIT_RELEASE_VERSION} (derniere release : {tk_latest or '?'}) - dernier firmware publie : {fw_latest or '?'} - DMD : {dmd_txt} - themes de citations : revision {q_latest or '?'} - scripts Recalbox : publies {sc_latest or '?'}, DMD annonce '{(dmd or {}).get('scripts') or '-'}' ({sc_state})")
         want_tk = bool(res.get("toolkit_newer")) and prefs.get("update_notified_toolkit") != tk_latest
         if dmd:
@@ -12977,6 +13033,15 @@ class RetroBoxLEDGui:
     def _on_mode1_profile_selected(self, event=None) -> None:
         prefs.set("recalbox_profile", self._mode1_profile_var.get())
 
+    def _on_dmd_ip_changed(self, event=None) -> None:
+        # adresse manuelle du DMD (v137) : memorisee telle quelle ; vide = detection automatique (find_dmd la remplira)
+        v = (self._dmd_ip_var.get() or "").strip()
+        if v.lower().startswith("http://"):
+            v = v[7:]
+        v = v.rstrip("/ ")
+        self._dmd_ip_var.set(v)
+        prefs.set("dmd_ip", v)
+
     def _on_slow_threshold_changed(self, event=None) -> None:
         # Repli sur la derniere valeur valide si l'utilisateur a tape
         # quelque chose de non numerique dans le Spinbox (get() sur un
@@ -13145,6 +13210,94 @@ class RetroBoxLEDGui:
             print(f"[GUI] Image de secours appliquee : {src.name}")
         except Exception as e:
             print(f"[GUI] Echec application image de secours : {e}")
+
+    def _on_default_image_send_wifi(self, dlg) -> None:
+        """v138 : envoie l'image de secours actuellement choisie (preferences ; a defaut le visuel du projet) au DMD par Wi-Fi.
+        Recherche du DMD puis confirmation (nom, type, adresse) puis envoi ; tout le reseau dans un fil, les fenetres dans le fil de l'interface."""
+        ui = self._get_ui_t()
+        src = self._resolve_default_fallback_pref(prefs.get("default_fallback_image")) or (
+            self._default_images_bundled_dir() / self.PROJECT_DEFAULT_IMAGE_FILENAME
+        )
+        toolkit = self.tkmod
+        result: dict = {}
+
+        def work():
+            try:
+                dmd = toolkit.find_dmd(prefs.get("dmd_ip"))
+                if not dmd:
+                    result["kind"] = "notfound"
+                    return
+                prefs.set("dmd_ip", dmd["ip"])
+                result["dmd"] = dmd
+                result["is_pi"] = toolkit.dmd_is_raspberry_pi(dmd["ip"])
+                result["kind"] = "found"
+            except Exception as e:
+                result["kind"] = "error"
+                result["detail"] = f"{type(e).__name__}: {e}"
+
+        def send():
+            try:
+                data = toolkit.default_image_raw565_bytes(src)
+                result["res"] = toolkit.send_default_image_to_dmd(result["dmd"]["ip"], data)
+            except Exception as e:
+                result["res"] = {"state": "fail", "detail": f"{type(e).__name__}: {e}", "target": ""}
+
+        def regrab():   # la fenetre d'avis detruite rend le grab modal : on le reprend pour la galerie
+            try:
+                if dlg.winfo_exists():
+                    dlg.grab_set()
+            except Exception:
+                pass
+
+        def finish_send():
+            res = result.get("res") or {}
+            ip = result["dmd"]["ip"]
+            if res.get("state") == "ok":
+                self._themed_info(ui["default_image_send_btn"], ui["default_image_send_ok"].format(ip=ip))
+            elif res.get("state") == "unsupported":
+                self._themed_info(ui["default_image_send_btn"], ui["default_image_send_unsupported"].format(detail=res.get("detail", "")))
+            else:
+                messagebox.showerror(ui["default_image_send_btn"], ui["default_image_send_fail"].format(detail=res.get("detail", "")))
+            regrab()
+
+        def after_search():
+            kind = result.get("kind")
+            if kind == "notfound":
+                self._themed_info(ui["default_image_send_btn"], ui["default_image_send_notfound"])
+                regrab()
+                return
+            if kind != "found":
+                messagebox.showerror(ui["default_image_send_btn"], ui["default_image_send_fail"].format(detail=result.get("detail", "")))
+                regrab()
+                return
+            dmd = result["dmd"]
+            label = "Raspberry Pi" if result.get("is_pi") else "ESP32"
+            if not self._themed_yesno(
+                ui["default_image_send_btn"],
+                ui["default_image_send_confirm"].format(name=src.name, kind=label, ip=dmd["ip"]),
+            ):
+                regrab()
+                return
+            t2 = threading.Thread(target=send, daemon=True)
+            t2.start()
+            poll_send(t2)
+
+        def poll_send(t2):
+            if t2.is_alive():
+                self.root.after(200, lambda: poll_send(t2))
+            else:
+                finish_send()
+
+        t1 = threading.Thread(target=work, daemon=True)
+        t1.start()
+
+        def poll_search():
+            if t1.is_alive():
+                self.root.after(200, poll_search)
+            else:
+                after_search()
+
+        poll_search()
 
     def _on_default_image_picker_clicked(self, reset_on_close: bool = False) -> None:
         """reset_on_close : si True, fermer le dialogue SANS choisir
@@ -13375,6 +13528,20 @@ class RetroBoxLEDGui:
             pady=6,
             font=("TkDefaultFont", 10, "bold"),
         ).pack(fill="x", pady=(12, 6))
+
+        # v138 : envoi de l'image actuellement choisie au DMD par Wi-Fi (ESP32 ou Raspberry Pi), sans sortir la carte SD
+        tk.Button(
+            body,
+            text=ui["default_image_send_btn"],
+            command=lambda: self._on_default_image_send_wifi(dlg),
+            bg=bg_normal,
+            fg=fg,
+            bd=2,
+            relief="solid",
+            padx=10,
+            pady=6,
+            font=("TkDefaultFont", 10, "bold"),
+        ).pack(fill="x", pady=(0, 6))
 
         def _on_close():
             if reset_on_close:

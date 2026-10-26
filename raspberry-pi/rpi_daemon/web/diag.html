@@ -1,0 +1,204 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RecalBox DMD - Diagnostic</title>
+<link rel="stylesheet" href="/cfg.css?h=42c26368">
+<link rel="icon" href="data:,">
+<script src="/cfg.js?h=b3456e46" onerror="try{if(!sessionStorage.cfgR){sessionStorage.cfgR=1;location.reload();}}catch(e){}"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto;position:relative}
+.btn-row{display:flex;gap:10px;justify-content:center;margin:18px 0;flex-wrap:wrap}
+.btn{padding:12px 20px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
+.btn-resume{background:#2d6a4f;color:#fff}
+.badge{display:inline-block;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:bold;margin:6px 0 10px}
+.b-on{background:#14532d;color:#86efac}.b-off{background:#44403c;color:#d6d3d1}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 14px}
+.kv{background:#16213e;border-radius:8px;padding:8px 10px}
+.kv .k{font-size:11px;color:#9ca3af}.kv .v{font-size:17px;font-weight:600;margin-top:2px;word-break:break-all}
+.kv .v small{font-size:12px;font-weight:normal;color:#9ca3af}
+.dg{color:#4ade80}.dw{color:#facc15}.db{color:#f87171}
+canvas{width:100%;height:70px;background:#16213e;border-radius:8px;margin-top:6px}
+h2{color:#8ab4f8;font-size:15px;margin:0 0 10px;border-left:3px solid #8ab4f8;padding-left:8px}
+.hlp{font-size:13px;line-height:1.5;color:#d1d5db}.hlp p{margin:8px 0}
+details summary{cursor:pointer;color:#8ab4f8;font-weight:600;font-size:14px}
+#pageLoadingOverlay{position:fixed;inset:0;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px;font-weight:600;z-index:99999;text-align:center;padding:20px;gap:14px}
+#pageLoadingOverlay .pgspin{width:34px;height:34px;border:4px solid #333;border-top-color:#8ab4f8;border-radius:50%;animation:pgspin .8s linear infinite}
+@keyframes pgspin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="pageLoadingOverlay"><div class="pgspin"></div><div data-i18n="loading">Chargement en cours...</div></div>
+<select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<div class="topnav">
+<a href="/" onclick="showPageLoadingOverlay()" data-i18n="nav_home">&#x1F3E0; Accueil</a>
+<a href="/config/settings" onclick="showPageLoadingOverlay()" data-i18n="nav_settings">&#x2699; R&eacute;glages</a>
+<a href="/config/network" onclick="showPageLoadingOverlay()" data-i18n="nav_network">&#x1F4F6; Wi-Fi</a>
+<a href="/config/button" onclick="showPageLoadingOverlay()" data-i18n="nav_button">&#x1F518; Bouton</a>
+</div>
+<h1 data-i18n="h1">Diagnostic</h1>
+<div class="section">
+<p style="font-size:14px;line-height:1.5" data-i18n="intro"></p>
+<span id="badge" class="badge b-off" data-i18n="st_off"></span>
+</div>
+<div class="section">
+<h2 data-i18n="h_wifi">Wi-Fi</h2>
+<div class="grid">
+<div class="kv"><div class="k" data-i18n="k_rssi">Signal</div><div class="v" id="v_rssi">-</div></div>
+<div class="kv"><div class="k" data-i18n="k_quality">Qualité</div><div class="v" id="v_q">-</div></div>
+<div class="kv"><div class="k" data-i18n="k_ssid">Réseau</div><div class="v" id="v_ssid">-</div></div>
+<div class="kv"><div class="k" data-i18n="k_ch">Canal</div><div class="v" id="v_ch">-</div></div>
+<div class="kv"><div class="k" data-i18n="k_ap">Point d'accès</div><div class="v" id="v_ap" style="font-size:14px">-</div></div>
+<div class="kv"><div class="k" data-i18n="k_ip">IP du DMD / passerelle</div><div class="v" id="v_ip" style="font-size:14px">-</div></div>
+</div>
+<canvas id="c_rssi" width="640" height="140"></canvas>
+<div class="grid" style="margin-top:10px">
+<div class="kv"><div class="k" data-i18n="k_disc">Reconnexions (depuis le démarrage)</div><div class="v" id="v_disc">-</div></div>
+<div class="kv"><div class="k" data-i18n="k_lastdisc">Dernière déconnexion</div><div class="v" id="v_lastdisc" style="font-size:14px">-</div></div>
+</div>
+<div class="kv" style="margin-top:8px"><div class="k" data-i18n="k_hist">Historique Wi-Fi (le plus récent en haut)</div><ul id="ev" style="list-style:none;font-size:13px;line-height:1.6;margin-top:4px"></ul></div>
+</div>
+<div class="section">
+<h2 data-i18n="h_rb">Liaison avec la Recalbox</h2>
+<div class="grid">
+<div class="kv"><div class="k" data-i18n="k_rbip">Recalbox testée</div><div class="v" id="v_rb">-</div></div>
+<div class="kv"><div class="k" data-i18n="k_loss">Perte</div><div class="v" id="v_loss">-</div></div>
+<div class="kv"><div class="k" data-i18n="k_lat">Latence min / moy / max</div><div class="v" id="v_lat">-</div></div>
+<div class="kv"><div class="k" data-i18n="k_jit">Gigue</div><div class="v" id="v_jit">-</div></div>
+<div class="kv"><div class="k" data-i18n="k_age">Dernier paquet reçu</div><div class="v" id="v_age">-</div></div>
+<div class="kv"><div class="k" data-i18n="k_gaps">Coupures UDP (depuis le démarrage)</div><div class="v" id="v_gaps">-</div></div>
+</div>
+<canvas id="c_lat" width="640" height="140"></canvas>
+</div>
+<div class="section">
+<h2 data-i18n="h_sys">Système</h2>
+<div class="grid">
+<div class="kv"><div class="k" data-i18n="k_heap">Mémoire libre (minimum)</div><div class="v" id="v_heap">-</div></div>
+<div class="kv"><div class="k" data-i18n="k_up">Fonctionne depuis</div><div class="v" id="v_up">-</div></div>
+</div>
+</div>
+<div class="section">
+<h2 data-i18n="h_rep">Rapport</h2>
+<p class="hlp" data-i18n="rep_intro"></p>
+<div class="btn-row" style="margin:8px 0">
+<button type="button" class="btn btn-del" onclick="makeReport()" data-i18n="rep_make">Générer</button>
+<button type="button" class="btn btn-del" onclick="copyReport()" data-i18n="rep_copy">Copier</button>
+<button type="button" class="btn btn-del" onclick="dlReport()" data-i18n="rep_dl">Télécharger</button>
+</div>
+<textarea id="rep" readonly rows="10" style="width:100%;display:none;background:#16213e;color:#eee;border:1px solid #2a3558;border-radius:6px;padding:8px;font-family:monospace;font-size:12px"></textarea>
+</div>
+<div class="section">
+<details open><summary data-i18n="h_help">Comment lire ces valeurs</summary>
+<div class="hlp" id="help"></div></details>
+</div>
+<div class="btn-row">
+<button type="button" class="btn btn-save" id="btnToggle" onclick="toggleDiag()" data-i18n="stop">Arrêter</button>
+<a class="btn btn-del" href="/" onclick="showPageLoadingOverlay()" style="text-decoration:none" data-i18n="back">Retour</a>
+<button type="button" class="btn btn-resume" onclick="resumeDmd()" data-i18n="resume">Reprendre DMD</button>
+</div>
+<div id="msg" class="msg"></div>
+<script>
+const PAGE_I18N={
+fr:{title:'RecalBox DMD - Diagnostic',h1:'Diagnostic Wi-Fi et Recalbox',nav_diag:'Diagnostic',intro:'Le DMD affiche ses mesures sur la dalle (signal, liaison avec la Recalbox) et les envoie ici, une mesure par seconde (fenêtre des 20 dernières). Le mode diagnostic s\'arrête dès que vous quittez la page, changez d\'onglet ou fermez le navigateur ; un appui sur le bouton BOOT du DMD l\'arrête aussi.',st_on:'Mode diagnostic actif sur le DMD',st_off:'Mode diagnostic arrêté (le DMD est en mode configuration)',h_wifi:'Wi-Fi',h_rb:'Liaison avec la Recalbox',h_sys:'Système',k_rssi:'Signal',k_quality:'Qualité',k_ssid:'Réseau',k_ch:'Canal',k_ap:'Point d\'accès',k_ip:'IP du DMD / passerelle',k_rbip:'Recalbox testée',k_loss:'Perte (20 derniers tests)',k_lat:'Latence min / moy / max',k_jit:'Gigue',k_age:'Dernier paquet reçu',k_gaps:'Coupures UDP (depuis le démarrage)',k_heap:'Mémoire libre (minimum)',k_up:'Fonctionne depuis',q_ex:'Excellent',q_good:'Bon',q_mid:'Moyen',q_weak:'Faible',q_vweak:'Très faible',q_none:'Pas de Wi-Fi',none:'aucune réponse',noip:'IP inconnue',ago:'il y a',stop:'Arrêter',start:'Démarrer',back:'Retour',resume:'Reprendre DMD',save_err:'Erreur de communication',lost:'perdu',h_help:'Comment lire ces valeurs',k_disc:'Reconnexions (depuis le démarrage)',k_lastdisc:'Dernière déconnexion',k_hist:'Historique Wi-Fi (le plus récent en haut)',never:'aucune',ev_c:'connecté au point d\'accès',ev_d:'déconnecté — ',ago2:'il y a',r1:'raison non précisée',r2:'authentification expirée',r3:'quitté par le point d\'accès',r4:'association expirée',r8:'déconnexion demandée ou perdue',r15:'échange de clés expiré (signal limite ou mot de passe)',r200:'balises perdues : le point d\'accès n\'est plus entendu',r201:'point d\'accès introuvable',r202:'authentification refusée',r203:'association refusée',r205:'connexion échouée',r_x:'code',h_rep:'Rapport',rep_intro:'Génère un rapport texte (mesures, historique, courbes) à joindre à un message d\'assistance.',rep_make:'Générer',rep_copy:'Copier',rep_dl:'Télécharger',rep_copied:'Rapport copié',
+help:'<p><b>Signal (RSSI, en dBm)</b> : plus la valeur est proche de 0, meilleur est le signal. <span class="dg">≥ −55 excellent</span> · <span class="dg">−55 à −67 bon</span> · <span class="dw">−67 à −75 moyen (des pertes peuvent apparaître)</span> · <span class="db">−75 à −82 faible</span> · <span class="db">&lt; −82 très faible, déconnexions probables</span>. Si le signal est faible : rapprochez le DMD de la box ou d\'un répéteur, éloignez-le des métaux et des alimentations.</p><p><b>Canal</b> : en 2,4 GHz, les canaux 1, 6 et 11 ne se chevauchent pas. Un canal encombré (voisins, Bluetooth, micro-ondes) augmente les pertes ; changez le canal de la box si besoin. Le DMD n\'utilise que le 2,4 GHz.</p><p><b>Perte</b> : part des 20 derniers tests (un par seconde) restés sans réponse de la Recalbox. <span class="dg">0 % sain</span> · <span class="dw">1 à 10 % à surveiller</span> · <span class="db">&gt; 10 % liaison dégradée</span>.</p><p><b>Latence</b> (aller-retour DMD ↔ Recalbox) : <span class="dg">&lt; 80 ms bon (&lt; 20 ms : excellent, typique d\'une Recalbox en câble)</span> · <span class="dw">80 à 200 ms moyen</span> · <span class="db">&gt; 200 ms mauvais : logos et scores arrivent en retard</span>.</p><p><b>Gigue</b> : écart moyen de latence d\'un test au suivant. <span class="dg">&lt; 10 ms stable</span> · <span class="dw">10 à 40 ms irrégulier</span> · <span class="db">&gt; 40 ms saccades probables</span> (jeu, mode natif, Pinball).</p><p><b>Dernier paquet reçu</b> : pendant le diagnostic il doit rester sous 2 s ; s\'il augmente, la Recalbox ne répond plus. <b>Coupures UDP</b> : silences de plus de 15 s détectés depuis le démarrage du DMD ; 0 = stable, un chiffre qui monte régulièrement = Wi-Fi instable.</p><p><b>Que conclure ?</b> Signal bon mais pertes élevées : le problème vient de la Recalbox ou du réseau (box, répéteur, CPL), pas du Wi-Fi du DMD. Signal faible avec pertes : rapprochez le DMD ou changez de canal. Aucune réponse : Recalbox éteinte ou en veille, mauvaise IP (page Wi-Fi), ou scripts Recalbox non installés (Mode 9 du toolkit).</p><p><b>Reconnexions</b> : nombre de pertes de Wi-Fi depuis le démarrage (0 = stable). « Balises perdues » ou « point d\'accès introuvable » : signal trop faible ou perturbation radio (haut-parleurs, alimentations, voisins) ; « échange de clés expiré » : signal limite. L\'historique montre aussi les changements de point d\'accès : deux adresses qui alternent signifient que le DMD passe d\'une borne à l\'autre (réseau maillé ou répéteur) ; s\'il se raccroche à la plus éloignée, rapprochez-le de l\'autre.</p>'},
+en:{title:'RecalBox DMD - Diagnostics',h1:'Wi-Fi and Recalbox diagnostics',nav_diag:'Diagnostics',intro:'The DMD shows its measurements on the panel (signal, link with the Recalbox) and sends them here, one measurement per second (window of the last 20). Diagnostic mode stops as soon as you leave the page, switch tab or close the browser; pressing the DMD BOOT button also stops it.',st_on:'Diagnostic mode active on the DMD',st_off:'Diagnostic mode stopped (the DMD is in configuration mode)',h_wifi:'Wi-Fi',h_rb:'Link with the Recalbox',h_sys:'System',k_rssi:'Signal',k_quality:'Quality',k_ssid:'Network',k_ch:'Channel',k_ap:'Access point',k_ip:'DMD IP / gateway',k_rbip:'Recalbox tested',k_loss:'Loss (last 20 tests)',k_lat:'Latency min / avg / max',k_jit:'Jitter',k_age:'Last packet received',k_gaps:'UDP gaps (since boot)',k_heap:'Free memory (minimum)',k_up:'Running for',q_ex:'Excellent',q_good:'Good',q_mid:'Fair',q_weak:'Weak',q_vweak:'Very weak',q_none:'No Wi-Fi',none:'no answer',noip:'unknown IP',ago:'',stop:'Stop',start:'Start',back:'Back',resume:'Resume DMD',save_err:'Communication error',lost:'lost',h_help:'How to read these values',k_disc:'Reconnections (since boot)',k_lastdisc:'Last disconnection',k_hist:'Wi-Fi history (most recent first)',never:'none',ev_c:'connected to the access point',ev_d:'disconnected — ',ago2:'',r1:'unspecified reason',r2:'authentication expired',r3:'left by the access point',r4:'association expired',r8:'disconnect requested or lost',r15:'key exchange timed out (marginal signal or password)',r200:'beacons lost: the access point is no longer heard',r201:'access point not found',r202:'authentication refused',r203:'association refused',r205:'connection failed',r_x:'code',h_rep:'Report',rep_intro:'Builds a text report (measurements, history, curves) to attach to a support message.',rep_make:'Generate',rep_copy:'Copy',rep_dl:'Download',rep_copied:'Report copied',
+help:'<p><b>Signal (RSSI, in dBm)</b>: the closer to 0, the better. <span class="dg">≥ −55 excellent</span> · <span class="dg">−55 to −67 good</span> · <span class="dw">−67 to −75 fair (losses may appear)</span> · <span class="db">−75 to −82 weak</span> · <span class="db">&lt; −82 very weak, disconnections likely</span>. If weak: move the DMD closer to the router or a repeater, away from metal and power supplies.</p><p><b>Channel</b>: on 2.4 GHz, channels 1, 6 and 11 do not overlap. A crowded channel (neighbours, Bluetooth, microwave) increases losses; change the router channel if needed. The DMD only uses 2.4 GHz.</p><p><b>Loss</b>: share of the last 20 tests (one per second) with no answer from the Recalbox. <span class="dg">0 % healthy</span> · <span class="dw">1 to 10 % keep an eye on it</span> · <span class="db">&gt; 10 % degraded link</span>.</p><p><b>Latency</b> (round trip DMD ↔ Recalbox): <span class="dg">&lt; 80 ms good (&lt; 20 ms: excellent, typical of a wired Recalbox)</span> · <span class="dw">80 to 200 ms fair</span> · <span class="db">&gt; 200 ms poor: logos and scores arrive late</span>.</p><p><b>Jitter</b>: average latency difference from one test to the next. <span class="dg">&lt; 10 ms stable</span> · <span class="dw">10 to 40 ms irregular</span> · <span class="db">&gt; 40 ms stutter likely</span> (games, native mode, Pinball).</p><p><b>Last packet received</b>: during diagnostics it should stay under 2 s; if it keeps growing, the Recalbox no longer answers. <b>UDP gaps</b>: silences longer than 15 s detected since the DMD booted; 0 = stable, a number that keeps rising = unstable Wi-Fi.</p><p><b>What to conclude?</b> Good signal but high loss: the problem is the Recalbox or the network (router, repeater, powerline), not the DMD Wi-Fi. Weak signal with loss: move the DMD or change channel. No answer at all: Recalbox off or asleep, wrong IP (Wi-Fi page), or Recalbox scripts not installed (toolkit Mode 9).</p><p><b>Reconnections</b>: number of Wi-Fi losses since boot (0 = stable). "Beacons lost" or "access point not found": signal too weak or radio interference (speakers, power supplies, neighbours); "key exchange timed out": marginal signal. The history also shows access point changes: two alternating addresses mean the DMD hops between two access points (mesh or repeater); if it latches onto the farther one, move it closer to the other.</p>'},
+es:{title:'RecalBox DMD - Diagnóstico',h1:'Diagnóstico Wi-Fi y Recalbox',nav_diag:'Diagnóstico',intro:'El DMD muestra sus mediciones en el panel (señal, enlace con la Recalbox) y las envía aquí, una medición por segundo (ventana de las últimas 20). El modo diagnóstico se detiene en cuanto sale de la página, cambia de pestaña o cierra el navegador; pulsar el botón BOOT del DMD también lo detiene.',st_on:'Modo diagnóstico activo en el DMD',st_off:'Modo diagnóstico detenido (el DMD está en modo configuración)',h_wifi:'Wi-Fi',h_rb:'Enlace con la Recalbox',h_sys:'Sistema',k_rssi:'Señal',k_quality:'Calidad',k_ssid:'Red',k_ch:'Canal',k_ap:'Punto de acceso',k_ip:'IP del DMD / puerta de enlace',k_rbip:'Recalbox probada',k_loss:'Pérdida (últimas 20 pruebas)',k_lat:'Latencia mín / media / máx',k_jit:'Jitter',k_age:'Último paquete recibido',k_gaps:'Cortes UDP (desde el arranque)',k_heap:'Memoria libre (mínimo)',k_up:'Funcionando desde hace',q_ex:'Excelente',q_good:'Buena',q_mid:'Media',q_weak:'Débil',q_vweak:'Muy débil',q_none:'Sin Wi-Fi',none:'sin respuesta',noip:'IP desconocida',ago:'hace',stop:'Detener',start:'Iniciar',back:'Volver',resume:'Reanudar DMD',save_err:'Error de comunicación',lost:'perdido',h_help:'Cómo leer estos valores',k_disc:'Reconexiones (desde el arranque)',k_lastdisc:'Última desconexión',k_hist:'Historial Wi-Fi (el más reciente arriba)',never:'ninguna',ev_c:'conectado al punto de acceso',ev_d:'desconectado — ',ago2:'hace',r1:'motivo no especificado',r2:'autenticación caducada',r3:'abandonado por el punto de acceso',r4:'asociación caducada',r8:'desconexión solicitada o perdida',r15:'intercambio de claves caducado (señal límite o contraseña)',r200:'balizas perdidas: ya no se oye el punto de acceso',r201:'punto de acceso no encontrado',r202:'autenticación rechazada',r203:'asociación rechazada',r205:'conexión fallida',r_x:'código',h_rep:'Informe',rep_intro:'Genera un informe de texto (mediciones, historial, curvas) para adjuntar a un mensaje de asistencia.',rep_make:'Generar',rep_copy:'Copiar',rep_dl:'Descargar',rep_copied:'Informe copiado',
+help:'<p><b>Señal (RSSI, en dBm)</b>: cuanto más cerca de 0, mejor. <span class="dg">≥ −55 excelente</span> · <span class="dg">−55 a −67 buena</span> · <span class="dw">−67 a −75 media (pueden aparecer pérdidas)</span> · <span class="db">−75 a −82 débil</span> · <span class="db">&lt; −82 muy débil, desconexiones probables</span>. Si es débil: acerque el DMD al router o a un repetidor, lejos de metales y fuentes de alimentación.</p><p><b>Canal</b>: en 2,4 GHz, los canales 1, 6 y 11 no se solapan. Un canal saturado (vecinos, Bluetooth, microondas) aumenta las pérdidas; cambie el canal del router si hace falta. El DMD solo usa 2,4 GHz.</p><p><b>Pérdida</b>: parte de las últimas 20 pruebas (una por segundo) sin respuesta de la Recalbox. <span class="dg">0 % sano</span> · <span class="dw">1 a 10 % vigilar</span> · <span class="db">&gt; 10 % enlace degradado</span>.</p><p><b>Latencia</b> (ida y vuelta DMD ↔ Recalbox): <span class="dg">&lt; 80 ms buena (&lt; 20 ms: excelente, típico de una Recalbox por cable)</span> · <span class="dw">80 a 200 ms media</span> · <span class="db">&gt; 200 ms mala: logos y puntuaciones llegan tarde</span>.</p><p><b>Jitter</b>: diferencia media de latencia entre una prueba y la siguiente. <span class="dg">&lt; 10 ms estable</span> · <span class="dw">10 a 40 ms irregular</span> · <span class="db">&gt; 40 ms tirones probables</span> (juego, modo nativo, Pinball).</p><p><b>Último paquete recibido</b>: durante el diagnóstico debe quedar por debajo de 2 s; si crece, la Recalbox ya no responde. <b>Cortes UDP</b>: silencios de más de 15 s detectados desde el arranque del DMD; 0 = estable, una cifra que sube con regularidad = Wi-Fi inestable.</p><p><b>¿Qué concluir?</b> Señal buena pero muchas pérdidas: el problema está en la Recalbox o en la red (router, repetidor, PLC), no en el Wi-Fi del DMD. Señal débil con pérdidas: acerque el DMD o cambie de canal. Ninguna respuesta: Recalbox apagada o en reposo, IP incorrecta (página Wi-Fi) o scripts de Recalbox no instalados (Modo 9 del toolkit).</p><p><b>Reconexiones</b>: número de pérdidas de Wi-Fi desde el arranque (0 = estable). «Balizas perdidas» o «punto de acceso no encontrado»: señal demasiado débil o interferencias (altavoces, fuentes, vecinos); «intercambio de claves caducado»: señal límite. El historial muestra también los cambios de punto de acceso: dos direcciones que alternan indican que el DMD salta de uno a otro (malla o repetidor); si se engancha al más lejano, acérquelo al otro.</p>'}
+};
+let currentLang='fr',running=false,wantRun=true,timer=null,last=null;
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
+function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
+function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||(window.CFG_I18N&&CFG_I18N[currentLang]&&CFG_I18N[currentLang][k])||PAGE_I18N.fr[k]||(window.CFG_I18N&&CFG_I18N.fr&&CFG_I18N.fr[k])||k;}
+function $(i){return document.getElementById(i);}
+function msgLocal(t,ok){const el=$('msg');el.textContent=t;el.className='msg '+(ok?'ok':'err');el.style.display='block';clearTimeout(window._mt);window._mt=setTimeout(()=>{el.style.display='none';},4000);}
+function render(){
+  document.documentElement.lang=currentLang;document.title=tr('title');
+  document.querySelectorAll('[data-i18n]').forEach(function(el){el.innerHTML=tr(el.dataset.i18n);});
+  $('langSelect').value=currentLang;$('help').innerHTML=tr('help');setBadge();if(last)draw(last);
+}
+function applyLang(backend){
+  const s=localStorage.getItem('dmd_lang');
+  if(s&&PAGE_I18N[s])currentLang=s;else if(backend&&PAGE_I18N[backend])currentLang=backend;else{const n=(navigator.language||'').substring(0,2);currentLang=PAGE_I18N[n]?n:'fr';}
+  render();
+}
+function setLang(c){localStorage.setItem('dmd_lang',c);applyLang();fetch('/save-language',{method:'POST',body:'language='+c,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});}
+function setBadge(){const on=running&&last&&last.on;const b=$('badge');b.className='badge '+(on?'b-on':'b-off');b.textContent=tr(on?'st_on':'st_off');$('btnToggle').textContent=tr(wantRun?'stop':'start');}
+function cls(el,c,t){el.className='v '+c;el.innerHTML=t;}
+function qual(r){return r>=-55?['dg','q_ex']:r>=-67?['dg','q_good']:r>=-75?['dw','q_mid']:r>=-82?['db','q_weak']:['db','q_vweak'];}
+function spark(cv,vals,lo,hi,lostMark){
+  const g=cv.getContext('2d'),w=cv.width,h=cv.height;g.clearRect(0,0,w,h);if(!vals.length)return;
+  g.strokeStyle='#2a3558';g.lineWidth=1;[0.25,0.5,0.75].forEach(function(f){g.beginPath();g.moveTo(0,h*f);g.lineTo(w,h*f);g.stroke();});
+  const n=vals.length,dx=w/Math.max(19,n-1);g.strokeStyle='#8ab4f8';g.lineWidth=3;g.beginPath();let pen=false;
+  vals.forEach(function(v,i){const x=i*dx;if(v===null){pen=false;return;}const y=h-6-(Math.min(Math.max(v,lo),hi)-lo)/(hi-lo)*(h-12);if(!pen){g.moveTo(x,y);pen=true;}else g.lineTo(x,y);});g.stroke();
+  if(lostMark)vals.forEach(function(v,i){if(v===null){g.fillStyle='#f87171';g.fillRect(i*dx-3,h-14,6,12);}});
+}
+function draw(d){
+  last=d;setBadge();
+  if(!d.up){cls($('v_rssi'),'db','-');cls($('v_q'),'db',tr('q_none'));}
+  else{const q=qual(d.rssi);cls($('v_rssi'),q[0],d.rssi+' <small>dBm</small>');cls($('v_q'),q[0],tr(q[1]));}
+  $('v_ssid').textContent=d.ssid||'-';$('v_ch').textContent=d.up?d.ch:'-';$('v_ap').textContent=d.bssid||'-';$('v_ip').textContent=d.up?(d.ip+' / '+d.gw):'-';
+  $('v_rb').textContent=d.rb||tr('noip');
+  if(!d.rb||!d.n){['v_loss','v_lat','v_jit'].forEach(function(i){cls($(i),'','-');});}
+  else{
+    cls($('v_loss'),d.loss==0?'dg':d.loss<=10?'dw':'db',d.loss+' % <small>('+d.got+'/'+d.n+')</small>');
+    if(!d.got){cls($('v_lat'),'db',tr('none'));cls($('v_jit'),'','-');}
+    else{cls($('v_lat'),d.avg<80?'dg':d.avg<200?'dw':'db',d.min+' / '+d.avg+' / '+d.max+' <small>ms</small>');cls($('v_jit'),d.jit<10?'dg':d.jit<=40?'dw':'db',d.jit+' <small>ms</small>');}
+  }
+  if(d.age<0)cls($('v_age'),'','-');else cls($('v_age'),d.age<2000?'dg':d.age<15000?'dw':'db',(d.age/1000).toFixed(1)+' <small>s</small>');
+  cls($('v_gaps'),d.gaps==0?'dg':'dw',d.gaps);
+  cls($('v_disc'),d.disc==0?'dg':d.disc<3?'dw':'db',d.disc);
+  $('v_lastdisc').textContent=d.disc?(reasonTxt(d.dr)+' ('+(tr('ago2')+' '+fmtAgo(d.up_s-d.da)).trim()+')'):tr('never');
+  var ul=$('ev');ul.innerHTML='';d.ev.forEach(function(e){var li=document.createElement('li');li.textContent=evTxt(e,d.up_s);ul.appendChild(li);});
+  $('v_heap').textContent=Math.round(d.heap/1024)+' Ko ('+Math.round(d.minheap/1024)+' Ko)';
+  const s=d.up_s,hh=Math.floor(s/3600),mm=Math.floor(s%3600/60);$('v_up').textContent=(hh?hh+' h ':'')+mm+' min';
+  spark($('c_rssi'),d.rs.map(function(v){return v<=-127?null:v;}),-95,-30,false);
+  spark($('c_lat'),d.lat.map(function(v){return v<0?null:v;}),0,Math.max(100,d.max),true);
+}
+function poll(){
+  if(!running)return;
+  fetch('/diag-data',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){draw(d);timer=setTimeout(poll,2000);}).catch(function(){timer=setTimeout(poll,3000);});
+}
+function startDiag(){
+  if(running)return;running=true;
+  fetch('/diag-start',{method:'POST'}).then(function(){setTimeout(poll,500);}).catch(function(){msgLocal(tr('save_err'),false);});
+  setBadge();
+}
+function stopDiag(beacon){
+  if(!running)return;running=false;clearTimeout(timer);
+  if(beacon){try{navigator.sendBeacon('/diag-stop',new Blob([''],{type:'text/plain'}));}catch(e){}}
+  else fetch('/diag-stop',{method:'POST'}).catch(function(){});
+  setBadge();
+}
+function fmtAgo(s){s=Math.max(0,s);var m=Math.floor(s/60);return m?m+' min '+(s%60)+' s':s+' s';}
+function reasonTxt(c){var k='r'+c,v=tr(k);return v===k?tr('r_x')+' '+c:v;}
+function evTxt(e,up){return (tr('ago2')+' '+fmtAgo(up-e[1])).trim()+' : '+(e[0]==='D'?tr('ev_d')+reasonTxt(e[2]):tr('ev_c')+' ('+e[2]+')');}
+function makeReport(){
+  const d=last;if(!d)return;const L=[];
+  L.push('RecalBox DMD - Wi-Fi / Recalbox diagnostics');L.push(new Date().toLocaleString());L.push('');
+  L.push('Wi-Fi: '+d.ssid+' / AP '+d.bssid+' / ch '+d.ch+' / '+d.rssi+' dBm / DMD '+d.ip+' / gw '+d.gw);
+  L.push('Recalbox '+d.rb+': loss '+d.loss+'% ('+d.got+'/'+d.n+') / latency min '+d.min+' avg '+d.avg+' max '+d.max+' ms / jitter '+d.jit+' ms / last packet '+d.age+' ms ago');
+  L.push('UDP gaps: '+d.gaps+' / Wi-Fi reconnections: '+d.disc+' (last reason '+d.dr+')');
+  L.push('Free heap: '+d.heap+' (min '+d.minheap+') / uptime '+d.up_s+' s');
+  L.push('');L.push('Wi-Fi events (most recent first):');
+  d.ev.forEach(function(e){L.push('  '+fmtAgo(d.up_s-e[1])+' ago : '+(e[0]==='D'?'disconnected, reason '+e[2]:'connected, AP '+e[2]));});
+  L.push('');L.push('Latency (ms, -1 = lost, oldest first): '+d.lat.join(','));L.push('RSSI (dBm, oldest first): '+d.rs.join(','));
+  const r=$('rep');r.value=L.join('\n');r.style.display='block';
+}
+function copyReport(){if(!$('rep').value)makeReport();const r=$('rep');r.select();try{document.execCommand('copy');msgLocal(tr('rep_copied'),true);}catch(e){}}
+function dlReport(){if(!$('rep').value)makeReport();const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([$('rep').value],{type:'text/plain'}));a.download='diagnostic-dmd.txt';document.body.appendChild(a);a.click();a.remove();}
+function toggleDiag(){wantRun=!wantRun;if(wantRun)startDiag();else stopDiag(false);setBadge();}
+function resumeDmd(){
+  wantRun=false;stopDiag(false);
+  setTimeout(function(){fetch('/dmd-resume',{method:'POST'}).then(function(){msgLocal(tr('resumed'),true);}).catch(function(){msgLocal(tr('save_err'),false);});},700);
+}
+document.addEventListener('visibilitychange',function(){if(document.hidden)stopDiag(true);else if(wantRun)startDiag();});
+window.addEventListener('pagehide',function(){stopDiag(true);});
+fetch('/lang').then(function(r){return r.json();}).then(function(d){applyLang(d.language);}).catch(function(){applyLang();}).finally(function(){hidePageLoadingOverlay();startDiag();});
+</script>
+<script src="/native.js"></script>
+</body>
+</html>

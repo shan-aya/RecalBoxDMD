@@ -41,6 +41,7 @@ PAGES = {  # bloc du firmware -> fichier
     "WEB_CONFIG_QUOTES_HTML": "quotes.html",
     "WEB_CONFIG_CLOCKCOLORS_HTML": "clockcolors.html",
     "WEB_CONFIG_MEDIA_HTML": "media.html",
+    "WEB_CONFIG_DIAG_HTML": "diag.html",  # diagnostic Wi-Fi / Recalbox (v391)
     "WEB_CONFIG_BRIGHT_HTML": "brightness.html",  # planificateur de luminosite  # page du point d'acces de configuration (premier demarrage / secours)
 }
 

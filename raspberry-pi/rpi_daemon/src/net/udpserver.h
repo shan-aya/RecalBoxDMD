@@ -32,6 +32,10 @@ class UdpServer {
   // Presence (appele depuis la boucle principale) : HELLO de demarrage, PING periodique.
   void tickPresence(uint64_t nowMs);
   uint64_t lastPacketMs() const { return lastSeenMs_.load(); }
+  // mode diagnostic : PONG recus (compteur), heure d'arrivee du dernier, coupures (2 cycles de PING sans PONG de suite)
+  uint64_t pongCount() const { return pongCount_.load(); }
+  uint64_t lastPongMs() const { return lastPongMs_.load(); }
+  uint64_t gapCount() const { return gapCount_.load(); }
 
   // Recalbox active (celle qui commande le DMD) : voir « multi-Recalbox » dans udpserver.cpp
   std::string activeRecalbox();
@@ -72,6 +76,7 @@ class UdpServer {
   std::atomic<uint64_t> lastSeenMs_{0};
   std::atomic<uint64_t> firstSeenMs_{0};
   std::atomic<uint64_t> lastPongMs_{0};
+  std::atomic<uint64_t> pongCount_{0}, gapCount_{0};
   std::atomic<bool> resendFeaturesOnPong_{true};
   std::atomic<bool> connectedEvent_{false};
   std::atomic<bool> discEvent_{false}, pongEvent_{false};

@@ -15,4 +15,13 @@ struct NetInfo {
 NetInfo netInfo();
 bool hasDefaultRoute();  // une connectivite IP existe-t-elle (Wi-Fi ou Ethernet) ?
 
+// Lien Wi-Fi courant (mode diagnostic) : `iw dev <iface> link` (SSID, BSSID, frequence, signal), repli /proc/net/wireless pour le seul signal.
+struct WifiLink {
+  bool up = false;
+  std::string iface, ssid, bssid;
+  int freq = 0, channel = 0, rssi = -127;
+};
+WifiLink wifiLink();
+long memAvailableBytes();  // MemAvailable de /proc/meminfo (octets), -1 si illisible
+
 std::string i18nLang(const std::string &lang);  // « fr » / « en » / « es », defaut « fr »
