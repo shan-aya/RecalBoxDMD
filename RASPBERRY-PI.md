@@ -57,4 +57,4 @@ The Pi has the same diagnostic mode as the ESP32: action 12 of the **Button** pa
 
 - A few defective panel LEDs stay visible whatever the setting (hardware).
 - Recalbox native mode / Visual Pinball: validated with a simulator and by eye on the panels; no long test campaign.
-- Wi-Fi / Recalbox diagnostic on the Pi: written and checked at the syntax level, to be validated on a real Pi.
+- Wi-Fi / Recalbox diagnostic on the Pi: validated on a Pi 3B (build, web page, measurements); the physical-button action and the latency with a powered-on Recalbox still to be tested.

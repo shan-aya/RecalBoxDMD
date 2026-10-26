@@ -57,4 +57,4 @@ El Pi tiene el mismo modo diagnóstico que el ESP32: acción 12 de la página **
 
 - Algunos LED defectuosos de los paneles siguen visibles sea cual sea el ajuste (hardware).
 - Modo nativo de Recalbox / Visual Pinball: validado con un simulador y a ojo en los paneles; sin campaña de pruebas prolongada.
-- Diagnóstico Wi-Fi / Recalbox en el Pi: escrito y comprobado a nivel de sintaxis, por validar en un Pi real.
+- Diagnóstico Wi-Fi / Recalbox en el Pi: validado en un Pi 3B (compilación, página web, mediciones); la acción del botón físico y la latencia con una Recalbox encendida siguen por probar.
