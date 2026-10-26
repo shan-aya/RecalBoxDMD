@@ -94,6 +94,8 @@ Se descarga de 4 formas — elige la que prefieras en la **[página de Releases]
 
 A continuación: [monta el hardware](README.es.md#hardware) y [flashea el firmware](README.es.md#firmware--compilar-y-flashear) — luego inserta esa tarjeta SD y enciende.
 
+**Con el DMD encendido**: una **pulsación corta del botón BOOT** (o la página web *Diagnóstico*) comprueba el Wi-Fi y el enlace con la Recalbox — véase [Diagnóstico Wi-Fi / Recalbox](README.es.md#-diagnóstico-wi-fi--recalbox). Para añadir muchos GIF: [tutoriales paso a paso](README.es.md#-tutoriales-paso-a-paso).
+
 ---
 
 📖 Documentación completa: **[README.md](README.es.md)** · Actualizar desde una versión anterior: **[UPGRADING.md](UPGRADING.es.md)** · Historial de versiones: **[CHANGELOG.md](CHANGELOG.es.md)**

@@ -8,6 +8,14 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-26 (4) — Documentación: sección Diagnóstico del README, tutorial del pack ULTIMATE, plaquette n.º 11, agradecimientos
+
+**Documentación** (sin cambios de firmware, demonio ni caja de herramientas)
+- **README (ES/EN/FR): nueva sección «Diagnóstico Wi-Fi / Recalbox»** — cómo iniciarlo (BOOT, acción 12, página web), qué mide, cómo leer las 4 páginas del panel y la página web, hallazgos típicos, Raspberry Pi. La tabla de páginas de la configuración web incorpora la página **Diagnóstico**, la de modos de la caja de herramientas el **Modo 19** y el envío de la imagen de reserva por Wi-Fi (**Modo 10**); la sección Playlist describe el envío de carpetas de GIF a la Pi por Wi-Fi, la ventana de fin de eliminación y el registro.
+- **Nueva sección «Tutoriales paso a paso»**: marquees animados e **instalación del pack ULTIMATE GIFS DLC** (~11 000 GIF de eLLuiGi / RpiTeaM), en ES/EN/FR con capturas reales: [docs/tutorials/ultimate-gif-pack.es.md](docs/tutorials/ultimate-gif-pack.es.md).
+- **Plaquette n.º 11** (ES/EN/FR): las novedades de las últimas versiones (`medias/marketing/plaquette_11_nouveautes_*.png`).
+- **Agradecimientos**: **Mighty Jim** por su ayuda para depurar la herramienta de diagnóstico; **Dodoche3826** por su apoyo («gracias por el bol de café ^^»).
+
 ## 2026-10-26 (3) — Firmware v3.96, demonio Raspberry Pi v3.70 y caja de herramientas del PC build 13881: imagen de respaldo por Wi-Fi, preferencias guardadas en la versión instalada, detección del DMD reforzada
 
 **Firmware v3.96 · Demonio Raspberry Pi v3.70 · Caja de herramientas del PC build 13881**

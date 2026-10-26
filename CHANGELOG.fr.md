@@ -8,6 +8,14 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-26 (4) — Documentation : section Diagnostic du README, tutoriel du pack ULTIMATE, plaquette n°11, remerciements
+
+**Documentation** (aucun changement de firmware, de démon ni de boîte à outils)
+- **README (FR/EN/ES) : nouvelle section « Diagnostic Wi-Fi / Recalbox »** — lancement (BOOT, action 12, page web), ce qui est mesuré, lecture des 4 pages de la dalle et de la page web, constats typiques, Raspberry Pi. Le tableau des pages de la configuration web gagne la page **Diagnostic**, celui des modes de la boîte à outils le **Mode 19** et l'envoi de l'image de secours par Wi-Fi (**Mode 10**) ; la rubrique Playlist décrit l'envoi de dossiers de GIF au Pi par Wi-Fi, la popup de fin de suppression et le journal.
+- **Nouvelle section « Tutoriels pas à pas »** : marquees animés et **installation du pack ULTIMATE GIFS DLC** (~11 000 GIF d'eLLuiGi / RpiTeaM), en FR/EN/ES avec captures réelles : [docs/tutorials/ultimate-gif-pack.fr.md](docs/tutorials/ultimate-gif-pack.fr.md).
+- **Plaquette n°11** (FR/EN/ES) : les nouveautés des dernières versions (`medias/marketing/plaquette_11_nouveautes_*.png`).
+- **Remerciements** : **Mighty Jim** pour son aide au débogage de l'outil de diagnostic ; **Dodoche3826** pour son soutien (« merci pour le bol de café ^^ »).
+
 ## 2026-10-26 (3) — Firmware v3.96, démon Raspberry Pi v3.70 et boîte à outils PC build 13881 : image de secours par Wi-Fi, préférences enregistrées dans la version installée, détection du DMD renforcée
 
 **Firmware v3.96 · Démon Raspberry Pi v3.70 · Boîte à outils PC build 13881**

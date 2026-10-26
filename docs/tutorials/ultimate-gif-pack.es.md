@@ -38,7 +38,7 @@ La página web de configuración del DMD también puede añadir GIFs y reconstru
 ## 2. Antes de empezar
 
 * Una tarjeta de una **instalación completa correcta** (la del Modo 1 para un ESP32, o la del Modo 16 para un Raspberry Pi), con el pack de 600 GIFs ya instalado, legible en este PC.
-* **RecalBoxDMD Toolkit** build 13377 o posterior. La ventana «Eliminación terminada» y el registro detallado de la pestaña Playlist que se muestran abajo llegan con la versión posterior al build 13377.
+* **RecalBoxDMD Toolkit** build 13579 o posterior (la ventana «Eliminación terminada» y el registro detallado de la pestaña Playlist que se muestran abajo aparecen a partir de ese build).
 * Unos **2 GB libres** en la tarjeta (1,5 GB de GIFs + unos 1,5 MB de playlists y caché).
 * El pack **descomprimido** en el PC (véase la sección 0).
 * En la pestaña **Main** del toolkit, ajusta **Destino** al tipo de tarjeta con el que trabajas: *DMD ESP32 (tarjeta SD)* o *Raspberry Pi*. Esto decide qué tarjetas lista la pestaña Playlist (una tarjeta ESP32 se llama `RECALBOXDMD`, una de Pi `RBPIDMD`).

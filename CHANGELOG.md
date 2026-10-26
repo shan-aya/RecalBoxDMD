@@ -8,6 +8,14 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-26 (4) — Documentation: README Diagnostic section, ULTIMATE pack tutorial, plaquette no. 11, thanks
+
+**Documentation** (no firmware, daemon or toolkit change)
+- **README (EN/FR/ES): new “Wi-Fi / Recalbox diagnostic” section** — how to start it (BOOT, action 12, web page), what it measures, how to read the 4 panel pages and the web page, typical findings, Raspberry Pi. The web-config pages table gains the **Diagnostic** page, the toolkit modes table gains **Mode 19** and sending the fallback image over Wi-Fi (**Mode 10**); the Playlist section describes sending GIF folders to the Pi over Wi-Fi, the deletion-complete pop-up and the log.
+- **New “Step-by-step tutorials” section**: animated marquees and **installing the ULTIMATE GIFS DLC pack** (~11,000 GIFs by eLLuiGi / RpiTeaM), in EN/FR/ES with real screenshots: [docs/tutorials/ultimate-gif-pack.md](docs/tutorials/ultimate-gif-pack.md).
+- **Plaquette no. 11** (EN/FR/ES): what's new in the latest versions (`medias/marketing/plaquette_11_nouveautes_*.png`).
+- **Thanks**: **Mighty Jim** for his help debugging the diagnostic tool; **Dodoche3826** for his support (“thanks for the cup of coffee ^^”).
+
 ## 2026-10-26 (3) — Firmware v3.96, Raspberry Pi daemon v3.70 and PC toolkit build 13881: fallback image over Wi-Fi, preferences saved in the installed version, DMD detection reinforced
 
 **Firmware v3.96 · Raspberry Pi daemon v3.70 · PC toolkit build 13881**

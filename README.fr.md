@@ -55,7 +55,7 @@
 | **Comprendre** | [C'est quoi ?](#-cest-quoi-) · [Ce que vous pouvez afficher](#-ce-que-vous-pouvez-afficher) · [Comment ça marche](#-comment-ça-marche) |
 | **Installer** | [Démarrer en 5 minutes](#-démarrer-en-5-minutes) · [Volet ESP32](#-installation-esp32) · [Volet Raspberry Pi](#-installation-raspberry-pi) · [Scripts Recalbox](#-les-scripts-recalbox-mode-9) |
 | **Piloter** | [Boîte à outils PC — tous les modes](#-la-boîte-à-outils-pc--le-centre-de-linstallation) · [Configuration web](#-la-configuration-web) |
-| **Explorer** | [Les écrans en détail](#-les-écrans-en-détail) · [Écrans en jeu & Pinball](#-écrans-en-jeu-recalbox-natif--pinball) · [Pack de 600 GIFs](#-le-pack-de-600-gifs) |
+| **Explorer** | [Les écrans en détail](#-les-écrans-en-détail) · [Écrans en jeu & Pinball](#-écrans-en-jeu-recalbox-natif--pinball) · [Pack de 600 GIFs](#-le-pack-de-600-gifs) · [Diagnostic](#-diagnostic-wi-fi--recalbox) · [Tutoriels](#-tutoriels-pas-à-pas) |
 | **Référence** | [Référence technique](#-référence-technique) · [Dépannage](#-dépannage) · [Crédits & licence](#-crédits--licence) |
 
 ---
@@ -130,12 +130,16 @@ Chaque widget : **désactivé**, **à la place de l'horloge** ou **en plus**, av
   <img src="medias/marketing/plaquette_7_recalbox11_natif_fr.png" alt="Recalbox 11 : mode natif" width="380">
 </p>
 
+<p align="center">
+  <img src="medias/marketing/plaquette_11_nouveautes_fr.png" alt="Nouveautés : diagnostic Wi-Fi, image de secours et animations par Wi-Fi, pack ULTIMATE, tutoriels" width="760">
+</p>
+
 👉 Le détail de chaque écran : [Les écrans en détail](#-les-écrans-en-détail).
 
 ### Et aussi
 - 🔁 **Plusieurs Recalbox, un seul DMD** — jusqu'à 4 IP ; le DMD **bascule seul** sur celle qui est allumée.
 - 🔘 **Bouton physique** (GPIO 21) — appui court / double / long / très long, chacun avec l'action de votre choix.
-- 📶 **Diagnostic Wi-Fi / Recalbox** — signal, point d'accès, perte, latence et gigue vers la Recalbox, sur la dalle (appui court sur BOOT, ou une action du bouton) et sur une page web qui explique comment lire les valeurs.
+- 📶 **Diagnostic Wi-Fi / Recalbox** — signal, point d'accès, perte, latence et gigue vers la Recalbox, sur la dalle (appui court sur BOOT, ou une action du bouton) et sur une page web qui explique comment lire les valeurs. [Détails](#-diagnostic-wi-fi--recalbox).
 - 🌗 **Planificateur de luminosité** — 24 plages, une par heure.
 - ⬆️ **Mises à jour sans câble** — firmware et démon Pi depuis la page web ou la boîte à outils, avec retour arrière automatique.
 - 🛡️ **`config.ini` blindé** — écriture atomique, sauvegarde vérifiée, refus d'une page vide.
@@ -411,12 +415,13 @@ Puis le pipeline : préparation → **scripts Recalbox** (Mode 9) → extraction
 | | **18 — Cartes texte seules** | Régénère **uniquement** les cartes texte (nom du jeu) des jeux sans image, en `.raw565` |
 | 🖼️ **Outils d'images** | **4 — PNG/GIF → raw565** | PNG → `.raw565`, GIF → `.raw565pack` + `.meta` |
 | | **5 — 128×32** | Redimensionne seulement, sans conversion |
-| | **10 — Image de secours** | Choisit/réinitialise l'image affichée quand rien ne correspond |
+| | **10 — Image de secours** | Choisit/réinitialise l'image affichée quand rien ne correspond, et l'**envoie au DMD par Wi-Fi** (ESP32 et Pi) sans sortir la carte SD |
 | 🧮 **Caches** | **6 — `games_cache.bin`** | Index bigramme (703 entrées par système) |
 | | **7 — `systems_cache.dat`** | Index systèmes + flags lent/rapide **« L »/« N »** |
 | 📜 **Scripts Recalbox** | **9 — Installer les scripts** | [Voir plus haut](#-les-scripts-recalbox-mode-9) |
 | 🎨 **Thèmes Recalbox** | **12 — Gestion des thèmes** | Fenêtre qui compare GitHub / votre Recalbox / la carte SD, met à jour les périmés, convertit ceux que GitHub n'a pas |
 | 🔄 **Firmware du DMD** | **14 — Mise à jour Wi-Fi** | Trouve le DMD, compare à la dernière version, met à jour sans câble (~2 min, retour arrière auto) |
+| | **19 — Animations de démarrage (Wi-Fi)** | Envoie par Wi-Fi au DMD (ESP32 ou Pi) l'animation par défaut et les cinq animations de fête (Halloween, Noël, Nouvel An, Saint-Valentin, Pâques), vérifiées (taille et empreinte) |
 | 🥧 **Raspberry Pi** | **16 — Préparer une carte** · **17 — Installer / mettre à jour** | [Voir le volet Raspberry Pi](#-installation-raspberry-pi) |
 
 <details>
@@ -442,7 +447,7 @@ Puis le pipeline : préparation → **scripts Recalbox** (Mode 9) → extraction
 
 ### L'onglet Playlist
 
-Une **playlist** = les GIF que le DMD joue quand rien ne se passe sur la Recalbox. Cochez un dossier entier, ou cliquez son nom pour choisir fichier par fichier (survol = aperçu animé) ; **Ajouter un dossier PC…** importe vos GIF ; **Construire la playlist** l'enregistre sous un nom ; **Supprimer** nettoie ; **Régénérer le cache playlist** reconstruit `cache_master_gifs.dat`. *Quelle* playlist est active se choisit dans la page web du DMD.
+Une **playlist** = les GIF que le DMD joue quand rien ne se passe sur la Recalbox. Cochez un dossier entier, ou cliquez son nom pour choisir fichier par fichier (survol = aperçu animé) ; **Ajouter un dossier PC…** importe vos GIF ; **Construire la playlist** l'enregistre sous un nom ; **Supprimer** nettoie ; **Régénérer le cache playlist** reconstruit `cache_master_gifs.dat`. *Quelle* playlist est active se choisit dans la page web du DMD. **Envoyer au Pi (Wi-Fi)…** (Raspberry Pi) envoie vos dossiers de GIF par Wi-Fi, sans sortir la carte. Après **Supprimer**, une popup *Suppression terminée* donne le résultat vérifié sur la carte, et chaque action de l'onglet est écrite dans l'onglet **Logs** (réglez *Niveau* sur *Tout*). Pour un gros pack (~11 000 GIF) : [tutoriel ULTIMATE](docs/tutorials/ultimate-gif-pack.fr.md).
 
 ---
 
@@ -471,6 +476,7 @@ Tapez l'IP du DMD (affichée sur le panneau ; ou `rbpidmd.local` pour un Pi) dan
 | 💬 **Citations** | Créer, modifier, **importer un `.txt`** ou supprimer vos thèmes de citations / quiz |
 | 🔘 **Bouton** | L'action de chaque geste du bouton physique |
 | 💿 **Médias** | Parcourir / supprimer les dossiers de GIF de la SD, **envoyer des GIF** depuis le navigateur (quelques fichiers ; en masse, utilisez la boîte à outils) |
+| 📡 **Diagnostic** | Lance / arrête le **mode diagnostic** : signal, PING vers la Recalbox, courbes, guide de lecture, rapport texte — voir [Diagnostic Wi-Fi / Recalbox](#-diagnostic-wi-fi--recalbox) |
 
 ### Le plus utile à savoir
 
@@ -537,6 +543,63 @@ WIDGET_DUR_9=30
 ```
 
 </details>
+
+---
+
+## 📡 Diagnostic Wi-Fi / Recalbox
+
+Un DMD qui saccade, perd la Recalbox ou « décroche » ? Le **mode diagnostic** (firmware 3.96, démon Pi 3.70) mesure en direct la qualité du Wi-Fi et de la liaison avec la Recalbox, sur la dalle comme sur une page web.
+
+<p align="center">
+  <img src="medias/marketing/diag_panel_fr.png" width="760" alt="Mode diagnostic : écrans de la dalle et lancement">
+</p>
+
+### Le lancer
+
+| Depuis | Comment |
+|---|---|
+| **Bouton BOOT de l'ESP32** | appui court (sans bouton physique à câbler) |
+| **Bouton physique** (GPIO 21) | action 12 « Diagnostic Wi-Fi / Recalbox » de la page *Bouton* |
+| **Page web** | bouton 🩺 **Diagnostic** du menu d'accueil (`/config/diag`) |
+
+Il tourne en boucle jusqu'à un nouvel appui. Il s'arrête aussi quand vous quittez la page, changez d'onglet ou fermez le navigateur (8 s sans signe de vie de la page).
+
+### Ce qu'il mesure
+
+Une fois par seconde, sur une fenêtre glissante des 20 derniers tests :
+
+- le **signal** (dBm) et sa qualité, le **canal** et le **point d'accès** (BSSID) ;
+- un **PING vers la Recalbox** : **perte**, latence **min / moyenne / max**, **gigue**, âge du dernier paquet, coupures UDP ;
+- sur l'ESP32, les **reconnexions Wi-Fi avec la raison de la dernière déconnexion** et l'historique des 8 dernières connexions (quel point d'accès, et quand).
+
+### Lire la dalle
+
+Quatre pages de 4 s, en couleur (les textes de la dalle sont en français, abrégés) :
+
+| Page | Exemple | Couleur |
+|---|---|---|
+| Signal | `WIFI -52 dBm` / `EXCELLENT CH6` | vert ≥ −67 dBm · jaune ≥ −75 · rouge en dessous (Excellent ≥ −55, Bon ≥ −67, Moyen ≥ −75, Faible ≥ −82) |
+| Liaison Recalbox | `RB 192.168.1.104` / `20/20 PONG 6ms` | vert / jaune / rouge selon la perte et la latence |
+| Perte et gigue | `PERTE 0% MAX 14ms` / `GIGUE 3ms COUP 0` | vert : 0 % de perte et moyenne < 80 ms · jaune : ≤ 10 % et < 200 ms · rouge au-delà |
+| Reconnexions | `RECONNEXIONS: 0` / `AUCUNE DEPUIS DIAG` | vert si aucune, jaune sinon |
+
+### La page web
+
+Les valeurs en direct, **deux courbes** (signal et latence), un guide **« Comment lire ces valeurs »** (seuils, causes probables, que faire) et un **rapport texte** à copier ou télécharger pour joindre à une demande d'aide.
+
+### Quelques constats typiques
+
+- **Bon signal mais beaucoup de pertes** : le problème vient plutôt de la Recalbox ou du réseau (box, répéteur, CPL) que du DMD.
+- **Signal faible** (sous environ −75 dBm) : rapprochez le DMD de la box.
+- **Deux adresses de point d'accès qui alternent** : le DMD passe d'un point d'accès à l'autre d'un réseau maillé ou d'un répéteur.
+
+Plus de détails dans la [FAQ](FAQ.fr.md).
+
+### Raspberry Pi
+
+Même mode diagnostic (action 12 et même page web). Pas de bouton BOOT sur le Pi ; l'historique des reconnexions n'existe que **pendant un diagnostic** ; en Ethernet, la dalle affiche « ETHERNET / PAS DE WIFI ».
+
+> 🙏 Merci à **Mighty Jim** pour son aide précieuse au débogage de l'outil de diagnostic.
 
 ---
 
@@ -691,7 +754,20 @@ Pointez une playlist vers n'importe quel sous-ensemble (onglet Playlist). Les GI
 
 **D'où vient ce pack ?** C'est l'**échantillon gratuit** de la collection « pixel perfect » d'**eLLuiGi** ([RpiTeaM](https://rpiteam.carrd.co/)), redistribué avec autorisation. La collection complète — **« ULTIMATE GIFS DLC »**, ~11 000 animations (1 441 Arcade, 3 601 Consoles, 849 Ordinateurs…) — est le pack payant du créateur : [rpiteam.carrd.co](https://rpiteam.carrd.co/) · [sujet du forum](https://www.neo-arcadia.com/forum/viewtopic.php?t=67065).
 
+📖 **Tutoriel pas à pas, avec captures** : [installer le pack ULTIMATE GIFS DLC sur la carte du DMD](docs/tutorials/ultimate-gif-pack.fr.md).
+
 > ✅ Ajoutez toujours des GIF via l'**onglet Playlist** de la boîte à outils ou la page **Médias** de la config web — **jamais en copiant directement sur la SD** : c'est ce qui reconstruit la playlist et le cache lus par le firmware.
+
+---
+
+## 📚 Tutoriels pas à pas
+
+| Tutoriel | Ce que vous obtenez |
+|---|---|
+| [Marquees animés](docs/tutorials/animated-marquees.fr.md) | DMD GIF Creator + boîte à outils : une carte SD avec des marquees animés (`.raw565pack`) pour les jeux de votre choix |
+| [Installer le pack ULTIMATE GIFS DLC](docs/tutorials/ultimate-gif-pack.fr.md) | ~11 000 GIF d'eLLuiGi / RpiTeaM sur la carte du DMD, avec playlists et cache cohérents |
+
+Chaque tutoriel est disponible en 🇬🇧 🇫🇷 🇪🇸, avec des captures d'écran réelles.
 
 ---
 
@@ -789,6 +865,7 @@ Gels, affichage corrompu, boucles Wi-Fi, DMD désynchronisé de Recalbox : consu
 | Mauvaise image (jaquette au lieu du logo) | Vérifiez le profil **version Recalbox**, utilisez **« Comment scraper ? »**, puis le **Mode 8** |
 | Rien ne s'affiche quand un jeu démarre | Scripts absents ou anciens → **Mode 9**, puis redémarrez EmulationStation ; vérifiez l'IP de la Recalbox dans la page web |
 | Menu *Scripts utilisateur* grisé | Redémarrez EmulationStation (ou la Recalbox) |
+| Wi-Fi instable, pertes, jeux qui n'affichent pas toujours | Lancez le **diagnostic** (appui court sur BOOT, ou page *Diagnostic*) et lisez [Diagnostic Wi-Fi / Recalbox](#-diagnostic-wi-fi--recalbox) |
 
 Toujours bloqué ? Copiez l'onglet **Logs** et le numéro de **build**, et ouvrez un ticket sur la [page GitHub](https://github.com/shan-aya/RecalBoxDMD).
 
@@ -804,6 +881,7 @@ Toujours bloqué ? Copiez l'onglet **Logs** et le numéro de **build**, et ouvre
 - **Matériel & montage** : [Mortaca — DMDos Board](https://www.mortaca.com/) / [dmdos.net](https://www.dmdos.net/) · boutique FR : [Benfactory.fr](https://benfactory.fr/produit/dmdos/) (code `retrobat10`)
 - **Boîtier 3D** : Janibol — [Retromojones](https://www.youtube.com/@retromojones)
 - **Communauté** : [Recalbox](https://www.recalbox.com/)
+- **Remerciements** : **Mighty Jim** pour son aide au débogage de l'outil de diagnostic · **Dodoche3826** pour son soutien — « merci pour le bol de café ^^ »
 - **Développement** : écrit avec l'assistance de [Claude](https://www.anthropic.com/claude) (Anthropic) — code assisté par IA sur l'ensemble du firmware et de la boîte à outils PC
 
 📜 [CHANGELOG](CHANGELOG.fr.md) · [FAQ](FAQ.fr.md) · [UPGRADING](UPGRADING.fr.md) · [QUICK-START](QUICK-START.fr.md) · [Raspberry Pi](RASPBERRY-PI.fr.md) — sous licence [MIT](LICENSE) (le démon Raspberry Pi : GPL-2.0+).
