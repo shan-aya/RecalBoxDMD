@@ -8,6 +8,16 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-26 (2) — Firmware v3.94, demonio Raspberry Pi v3.68: modo diagnóstico Wi-Fi / Recalbox
+
+**Firmware v3.94 · Demonio Raspberry Pi v3.68**
+- **Nuevo modo diagnóstico** para comprobar la señal Wi-Fi y el enlace con la Recalbox, que se lanza de tres maneras: la nueva **acción 12 de la página Botón** («Diagnóstico Wi-Fi / Recalbox»), una **pulsación corta del botón BOOT del ESP32** (incluso sin botón físico), o la nueva **página Diagnóstico** de la configuración web (también en el menú de inicio). Funciona en bucle hasta una nueva pulsación.
+- **Qué mide**, una vez por segundo en una ventana deslizante de las últimas 20 pruebas: intensidad de la señal (dBm) y calidad, canal, punto de acceso (BSSID), y luego un PING a la Recalbox con **pérdida, latencia mín / media / máx y jitter**, la antigüedad del último paquete, los cortes UDP y, en el ESP32, las **reconexiones Wi-Fi con el motivo de la última desconexión** y el historial de las últimas 8 conexiones (a qué punto de acceso se unió el DMD, y cuándo). El panel muestra 4 páginas de 4 s; la página web muestra los valores, dos curvas y una **guía «Cómo leer estos valores»** (umbrales, causas, qué hacer), y puede generar un **informe de texto** para copiar o descargar en un mensaje de asistencia.
+- **Salir del modo**: nueva pulsación, salir de la página, cambiar de pestaña o cerrar el navegador (y, por seguridad, 8 s sin señales de vida de la página).
+- **Corregido (ESP32)**: el DMD se unía al **primer** punto de acceso que respondía en lugar del **más fuerte**. Con una red en malla o un repetidor podía engancharse a un punto de acceso lejano (−75 dBm en lugar de −52 dBm) y dejar de recibir nada mientras mostraba «conectado». Ahora escanea todos los canales y elige la mejor señal (el escaneo añade un breve retraso en cada conexión).
+- **Corregido (ESP32)**: **«Reanudar DMD»** tras un arranque en modo configuración (primer arranque, o `first_boot=1`) dejaba una **pantalla negra**: el índice de la lista nunca se cargaba. Ahora se carga al reanudar.
+- **Raspberry Pi**: mismo modo diagnóstico (acción 12 de la página Botón y la misma página web). No hay botón BOOT en el Pi; el historial de reconexiones Wi-Fi solo existe **mientras se ejecuta un diagnóstico**; con Ethernet, el panel muestra «ETHERNET / SIN WIFI».
+
 ## 2026-10-26 (2) — Caja de herramientas del PC build 13680: preferencias guardadas en la versión instalada
 
 **Caja de herramientas del PC build 13680**

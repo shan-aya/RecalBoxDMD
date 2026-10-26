@@ -135,6 +135,7 @@ Each widget: **off**, **instead of the clock** or **in addition**, with its own 
 ### And also
 - 🔁 **Several Recalbox, one DMD** — up to 4 IPs; the DMD **switches by itself** to the one that is on.
 - 🔘 **Physical button** (GPIO 21) — short / double / long / very long press, each with the action of your choice.
+- 📶 **Wi-Fi / Recalbox diagnostic** — signal, access point, loss, latency and jitter towards the Recalbox, on the panel (short press on BOOT, or a button action) and on a web page that explains how to read the values.
 - 🌗 **Brightness scheduler** — 24 slots, one per hour.
 - ⬆️ **Cable-free updates** — firmware and Pi daemon from the web page or the toolkit, with automatic rollback.
 - 🛡️ **Bulletproof `config.ini`** — atomic writes, verified saves, refusal of an empty page.

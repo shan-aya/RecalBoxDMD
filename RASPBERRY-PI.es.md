@@ -49,7 +49,12 @@ Cuenta entre 10 y 25 minutos en una Pi 3B. `deploy/install.sh --build` hace todo
 
 La carpeta [`raspberry-pi/rpi_daemon/`](raspberry-pi/rpi_daemon/) está bajo **GPL-2.0-or-later** (el demonio se enlaza con rpi-rgb-led-matrix, GPL-2.0+): texto en `raspberry-pi/rpi_daemon/LICENSE`, detalles en `LICENSE.md`. El binario distribuido se construye a partir de las fuentes de este repositorio. El resto del repositorio (firmware ESP32, caja de herramientas) sigue bajo licencia MIT.
 
+## Diagnóstico Wi-Fi / Recalbox
+
+El Pi tiene el mismo modo diagnóstico que el ESP32: acción 12 de la página **Botón** (botón físico en GPIO 21) y página **Diagnóstico** de la configuración web. Mide la señal Wi-Fi (con `iw`), la pérdida, la latencia y el jitter hacia la Recalbox, y muestra 4 páginas en el panel hasta una nueva pulsación. Diferencias con el ESP32: no hay botón BOOT; el historial de reconexiones Wi-Fi solo existe mientras se ejecuta un diagnóstico; con Ethernet, el panel muestra «ETHERNET / SIN WIFI» y solo se mide el enlace con la Recalbox.
+
 ## Límites conocidos
 
 - Algunos LED defectuosos de los paneles siguen visibles sea cual sea el ajuste (hardware).
 - Modo nativo de Recalbox / Visual Pinball: validado con un simulador y a ojo en los paneles; sin campaña de pruebas prolongada.
+- Diagnóstico Wi-Fi / Recalbox en el Pi: escrito y comprobado a nivel de sintaxis, por validar en un Pi real.

@@ -45,6 +45,10 @@ The DMD's WiFi/network stack can be genuinely busy at any given moment (talking 
 
 A short, temporary WiFi hiccup doesn't need any action on your part. The firmware detects the reconnection on its own, generally within a few seconds, and automatically resyncs the DMD's display with whatever Recalbox is actually doing at that moment (current game, browsing, demo mode...) — there's no need to restart anything, on the DMD or on Recalbox, for a brief drop like this to resolve itself.
 
+## Is my Wi-Fi good enough? Diagnose the signal and the link with Recalbox
+
+Use the **diagnostic mode**: a **short press on the BOOT button** of the ESP32 (or the **Diagnostics** button of the web configuration home menu, or action 12 of the Button page). The panel shows the Wi-Fi signal, the loss and latency towards the Recalbox, then the number of Wi-Fi reconnections; press again to leave. The web page adds curves, the access point the DMD is connected to, the history of reconnections and a **"How to read these values" guide**, plus a text report to attach if you ask for help. Typical findings: a good signal with high loss points to the Recalbox or the network (router, repeater, powerline) rather than the DMD; a weak signal (below about −75 dBm) calls for moving the DMD closer to the router; two different access point addresses alternating means the DMD hops between two access points of a mesh network or repeater.
+
 ## Stuck looping back to the DMD's own WiFi hotspot (AP mode)
 
 If, after saving your WiFi network on the DMD's own captive-portal setup page, it keeps coming back to broadcasting its own hotspot (`RecalBox-DMD-Config`) instead of joining your network, the simplest fix is to avoid that screen entirely: use the **Wi-Fi step built into the PC Toolkit's Mode 1** instead. It scans your networks, verifies the password by actually testing the connection from your PC, and writes it straight into `config.ini` on the SD card before the card ever goes into the DMD — the DMD then joins your network on its very first boot, and the captive-portal screen never needs to appear at all.

@@ -135,6 +135,7 @@ Cada widget: **desactivado**, **en lugar del reloj** o **además**, con su propi
 ### Y además
 - 🔁 **Varias Recalbox, un solo DMD** — hasta 4 IP; el DMD **cambia solo** a la que esté encendida.
 - 🔘 **Botón físico** (GPIO 21) — pulsación corta / doble / larga / muy larga, cada una con la acción que elijas.
+- 📶 **Diagnóstico Wi-Fi / Recalbox** — señal, punto de acceso, pérdida, latencia y jitter hacia la Recalbox, en el panel (pulsación corta de BOOT, o una acción del botón) y en una página web que explica cómo leer los valores.
 - 🌗 **Planificador de brillo** — 24 franjas, una por hora.
 - ⬆️ **Actualizaciones sin cable** — firmware y demonio del Pi desde la página web o la caja de herramientas, con vuelta atrás automática.
 - 🛡️ **`config.ini` blindado** — escritura atómica, guardado verificado, rechazo de una página vacía.
