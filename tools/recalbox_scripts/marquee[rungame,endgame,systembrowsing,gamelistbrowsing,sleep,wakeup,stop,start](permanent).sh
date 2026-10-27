@@ -1048,6 +1048,17 @@ send_mqtt_retain() {
     echo "$(date '+%H:%M:%S') [$(precise_ts)] SEND(R) marquee/cmd/${1} = $2" >> "$LOG"
 }
 
+# v44 -- BUG REEL (2026-10-27, systeme daphne/Singe) : chaque JEU y est un
+# DOSSIER "<jeu>.daphne" ; le test "-d" du case gamelistbrowsing le prenait pour
+# un sous-dossier de navigation (publiait "system daphne" au lieu de "game").
+# Vrai sous-dossier = dossier dont le nom ne se termine pas par ".daphne".
+is_nav_folder() {
+    [ -d "$1" ] || return 1
+    case "$1" in
+        *.daphne|*.daphne/) return 1 ;;
+    esac
+    return 0
+}
 normalize_system() {
     local sys="$1"
     case "$sys" in
@@ -1666,11 +1677,11 @@ while true; do
             system=$(normalize_system "$system_raw")
             game_path=$(extract_field "$_snap" "GamePath")
             _cand_rom=""
-            if [ -n "$game_path" ] && [ ! -d "$game_path" ]; then
+            if [ -n "$game_path" ] && ! is_nav_folder "$game_path"; then
                 _cand_rom=$(basename "$game_path" | sed 's/\.[^.]*$//; s/ //g')
             fi
             _position_unchanged=0
-            if [ -n "$game_path" ] && [ ! -d "$game_path" ]; then
+            if [ -n "$game_path" ] && ! is_nav_folder "$game_path"; then
                 [ "$_cand_rom" = "$LAST_ROM" ] && [ "$system" = "$LAST_SYSTEM" ] && _position_unchanged=1
             elif [ -n "$system" ]; then
                 [ "$system" = "$LAST_SYSTEM" ] && [ -z "$LAST_ROM" ] && _position_unchanged=1
@@ -1732,7 +1743,7 @@ while true; do
             fi
 
             if [ -n "$game_path" ]; then
-                if [ -d "$game_path" ]; then
+                if is_nav_folder "$game_path"; then
                     echo "$(date '+%H:%M:%S') BROWSE subdir -> send system $system" >> "$LOG"
                     if [ "$system" != "$LAST_SYSTEM" ] || [ -n "$LAST_ROM" ]; then
                         LAST_SYSTEM="$system"
