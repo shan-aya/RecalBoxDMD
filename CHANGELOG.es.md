@@ -17,6 +17,7 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 - **Modo 20 del toolkit — Logos reales** (*Download from GitHub*): descarga solo la carpeta `logos-reels`, para actualizarla por separado; los Modos 1 y 13 la listan premarcada mientras falte o esté obsoleta en la SD. Columna izquierda de la pestaña Avanzado reducida (516 → 491 px) para que quepa un quinto modo.
 - **Paquete**: `logos-reels` (137 logos base + `r_us` / `r_eu` / `r_jp`) es un tema *extra* del paquete (`EXTRA_THEMES` en `build_theme_package.py` v10): el flujo de los lunes nunca lo borra. Logos de ScreenScraper (CC BY-NC-SA 4.0), ver el `LISEZMOI.txt` de la carpeta.
 - **Plaquette n.º 12** (FR/EN/ES).
+- **Agradecimientos**: **Mighty Jim** por su apoyo («un café est un café !») y **Beavisx** por la idea de los logos realistas.
 
 ## 2026-10-27 (2) — Firmware v3.97, demonio Raspberry Pi v3.72 y caja de herramientas 13982: cada DMD anuncia su hardware, avisos de actualización adaptados a la Pi
 
