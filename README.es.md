@@ -131,6 +131,10 @@ Cada widget: **desactivado**, **en lugar del reloj** o **además**, con su propi
 </p>
 
 <p align="center">
+  <img src="medias/marketing/plaquette_12_logos_reels_es.png" alt="Logos reales de consolas: logo del tema, luego variantes EE. UU., Europa y Japón" width="760">
+</p>
+
+<p align="center">
   <img src="medias/marketing/plaquette_11_nouveautes_es.png" alt="Novedades: diagnóstico Wi-Fi, imagen de respaldo y animaciones por Wi-Fi, pack ULTIMATE, tutoriales" width="760">
 </p>
 
@@ -410,6 +414,7 @@ Luego el pipeline: preparación → **scripts de Recalbox** (Modo 9) → extracc
 | 📥 **Descargar de GitHub** | **2 — `_defaults`** | Extrae los marquees *y* descarga las imágenes por defecto (logos de sistemas, géneros, reserva) |
 | | **11 — Pack 600 GIF** | Descarga el pack gratuito en `gifs/` |
 | | **13 — Temas de Recalbox** | Descarga los logos de los temas elegidos en la carpeta de trabajo |
+| | **20 — Logos reales** | Descarga **solo** la carpeta `logos-reels` (logos reales de las consolas, variantes EE. UU. / Europa / Japón) en la carpeta de trabajo, para actualizarla sin tocar el resto de la SD |
 | | **15 — Temas de citas** | 15 temas listos (citas, galleta china, chistes, adivinanzas, quiz retro) × 3 idiomas, directamente en la SD |
 | 🗂️ **Gamelist** | **3 — Extracción** | Extrae marquees/logos según tu perfil de versión de Recalbox |
 | | **8 — Imágenes que faltan** | Informe por sistema/juego de lo que realmente falta (ROMs / trabajo / SD) |
@@ -429,6 +434,8 @@ Luego el pipeline: preparación → **scripts de Recalbox** (Modo 9) → extracc
 <summary><b>📚 Detalle de los modos que merecen una explicación</b> (Modos 12-13 temas · 14 firmware · 15 citas · herramientas anexas)</summary>
 
 **Temas de Recalbox (Modos 12 y 13).** El DMD muestra los logos de sistema del tema que usas en Recalbox. El **Modo 13** descarga de GitHub los temas elegidos (mismas preguntas que el Modo 1). El **Modo 12** abre la gestión de temas: compara GitHub, tu Recalbox y la **tarjeta SD** (la referencia), señala los temas más antiguos o nunca convertidos, y los actualiza (**Actualizar los obsoletos**) o convierte los que GitHub no tiene (**Convertir la selección**). Un tema ya al día nunca se vuelve a descargar. Se usan los logos listos del paquete de GitHub cuando la versión coincide (unos segundos); si no, la caja de herramientas **convierte desde tu Recalbox** (que sigue siendo la referencia). Cada tema se prepara en la carpeta de trabajo y luego se copia; si la copia se interrumpe, **Copiar a la SD (n)** continúa. **Idioma y región son automáticos**: se instalan todas las variantes y el DMD toma las de tu Recalbox, y las sigue en unos segundos si las cambias (firmware ≥ 2.38, script `dmd_udp_resync` v8 del Modo 9). También se ofrecen los temas propios de Recalbox (`recalbox-next`, `recalbox-240p`); si no pueden venir del paquete, se descargan de GitLab y se convierten en tu PC para uso personal (licencia). Los logos se reducen como hace Recalbox 11 para su DMD (letras sin deformar, niveles de gris conservados).
+
+**Logos reales (Modo 20, firmware 3.98).** En lugar de los logos dibujados por el tema, el DMD puede mostrar los **logos reales de las consolas** (logos de marca de ScreenScraper, CC BY-NC-SA 4.0, revisados para leerse bien en 128×32): 137 sistemas, con variantes EE. UU. / Europa / Japón elegidas por la **región configurada en tu Recalbox** (Genesis / Mega Drive, Super Nintendo / Super Famicom…). La carpeta es `systems/_defaults/_themes/logos-reels/`. Actívalo en la página web del DMD (página **Pantalla** → *Logos reales de consolas*): *Todos los temas* o *Solo los temas marcados* — la lista se construye sola (temas instalados en la SD + temas ya anunciados por tu Recalbox), con una opción para marcar automáticamente los temas nuevos. La variante de idioma del tema conserva la prioridad; los logos ausentes del set (géneros, favoritos…) conservan el logo del tema. El **Modo 20** descarga solo esta carpeta desde GitHub (los Modos 1 y 13 también la ofrecen, premarcada); cópiala a la tarjeta SD con el panel habitual. ESP32 y Raspberry Pi.
 
 **Actualización del firmware por Wi-Fi (Modo 14).** Desde el firmware 2.44, el DMD se actualiza desde GitHub: el Modo 14 lo encuentra, compara versiones y, con *Actualizar ahora*, le hace descargar la nueva versión (~2 min; pantalla apagada un rato, varios reinicios, no cortes la alimentación). Se verifican el tamaño y el SHA-256; vuelta atrás automática a la versión anterior si la nueva no arranca. El botón de la página web hace lo mismo. Tras una actualización, repite el Modo 9 si se anuncian scripts nuevos.
 

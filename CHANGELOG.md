@@ -8,6 +8,16 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## Unreleased (prepared 2026-10-28, published after tests on the real panel) — Real console logos: firmware 3.98, Raspberry Pi daemon, toolkit Mode 20
+
+**Firmware 3.98 · Raspberry Pi daemon · PC toolkit (Mode 20)**
+- **Real console logos**: new *Real console logos* option on the Display page (*Off / All themes / Only the ticked themes*). The DMD then shows the real logo of each console (137 systems, USA / Europe / Japan variants chosen by the region announced by the Recalbox, base = world logo) **before** the theme's region and base logos; the theme's language variant keeps priority and logos missing from the set keep the theme's logo. Works even when the theme folder is not on the SD.
+- **The tick list builds itself**: themes installed on the SD (`GET /reels_installed`) + themes the Recalbox has already announced (`reels_seen` in `config.ini`, 24 max) + an option to tick new themes automatically — nothing to maintain when new themes come out.
+- **Same behaviour on the Raspberry Pi** (daemon): same `config.ini` keys, same order, same page, same route. Checked with the real `themelogos.cpp` on a host test bench; **not yet tested on a Raspberry Pi**.
+- **Toolkit Mode 20 — Real console logos** (*Download from GitHub*): downloads only the `logos-reels` folder, so it can be updated on its own; Mode 1 / Mode 13 list it as a pre-ticked item while it is missing or outdated on the SD. Left column of the Advanced tab tightened (516 → 491 px) to fit the fifth mode.
+- **Package**: `logos-reels` (137 base logos + `r_us` / `r_eu` / `r_jp`) is an *extra* theme of the package (`EXTRA_THEMES` in `build_theme_package.py` v10): the Monday workflow never deletes it. Logos from ScreenScraper (CC BY-NC-SA 4.0), see the folder's `LISEZMOI.txt`.
+- **Plaquette no. 12** (FR/EN/ES).
+
 ## 2026-10-27 (2) — Firmware v3.97, Raspberry Pi daemon v3.72 and toolkit 13982: every DMD announces its hardware, update notices adapted to the Pi
 
 **Firmware v3.97 · Raspberry Pi daemon v3.72 · PC toolkit build 13982**

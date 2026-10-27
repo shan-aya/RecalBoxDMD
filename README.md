@@ -131,6 +131,10 @@ Each widget: **off**, **instead of the clock** or **in addition**, with its own 
 </p>
 
 <p align="center">
+  <img src="medias/marketing/plaquette_12_logos_reels_en.png" alt="Real console logos: theme logo, then USA, Europe and Japan variants" width="760">
+</p>
+
+<p align="center">
   <img src="medias/marketing/plaquette_11_nouveautes_en.png" alt="What's new: Wi-Fi diagnostic, fallback image and animations over Wi-Fi, ULTIMATE pack, tutorials" width="760">
 </p>
 
@@ -409,6 +413,7 @@ Then the pipeline: preparation → **Recalbox scripts** (Mode 9) → marquee ext
 | 📥 **Download from GitHub** | **2 — `_defaults`** | Extracts marquees *and* downloads the default images (system logos, genres, fallback) |
 | | **11 — 600-GIF pack** | Downloads the free pack into `gifs/` |
 | | **13 — Recalbox themes** | Downloads the chosen themes' logos into the work folder |
+| | **20 — Real console logos** | Downloads **only** the `logos-reels` folder (real console logos, USA / Europe / Japan variants) into the work folder, to update it without touching the rest of the SD |
 | | **15 — Quote themes** | 15 ready-made themes (quotes, fortune cookie, jokes, riddles, retro quizzes) × 3 languages, straight onto the SD |
 | 🗂️ **Gamelist** | **3 — Extraction** | Extracts marquees/logos according to your Recalbox version profile |
 | | **8 — Missing images** | Per-system/game report of what is really missing (ROMs / work / SD) |
@@ -428,6 +433,8 @@ Then the pipeline: preparation → **Recalbox scripts** (Mode 9) → marquee ext
 <summary><b>📚 Detail of the modes that deserve an explanation</b> (Modes 12-13 themes · 14 firmware · 15 quotes · side tools)</summary>
 
 **Recalbox themes (Modes 12 and 13).** The DMD shows the system logos of the theme you use in Recalbox. **Mode 13** downloads the chosen themes from GitHub (same questions as Mode 1). **Mode 12** opens theme management: it compares GitHub, your Recalbox and the **SD card** (the reference), flags themes that are older or never converted, and updates them (**Update outdated**) or converts those GitHub lacks (**Convert selection**). A theme already up to date is never re-downloaded. Ready-made logos from the GitHub package are used when the version matches (a few seconds); otherwise the toolkit **converts from your Recalbox** (which stays the reference). Each theme is prepared in the work folder then copied; if the copy is interrupted, **Copy to SD (n)** resumes. **Language and region are automatic**: every variant is installed and the DMD uses your Recalbox's, following within seconds if you change them (firmware ≥ 2.38, Mode 9's `dmd_udp_resync` v8 script). Recalbox's own themes (`recalbox-next`, `recalbox-240p`) are offered too; if they cannot come from the package they are downloaded from GitLab and converted on your PC for personal use (licence). Logos are shrunk the way Recalbox 11 does for its own DMD (undistorted letters, grey levels kept).
+
+**Real console logos (Mode 20, firmware 3.98).** Instead of the logos drawn by the theme, the DMD can show the **real console logos** (brand logos taken from ScreenScraper, CC BY-NC-SA 4.0, reviewed to stay readable on 128×32): 137 systems, with USA / Europe / Japan variants picked by the **region set in your Recalbox** (Genesis / Mega Drive, Super Nintendo / Super Famicom…). It sits in `systems/_defaults/_themes/logos-reels/`. Enable it on the DMD's web page (**Display** page → *Real console logos*): *All themes* or *Only the ticked themes* — the list is built by the DMD itself (themes installed on the SD + themes your Recalbox has already announced), with an option to tick new themes automatically. The theme's own language variant keeps priority; logos missing from the set (genres, favorites…) keep the theme's logo. **Mode 20** downloads only this folder from GitHub (Mode 1 and Mode 13 also offer it as a pre-ticked item); copy it to the SD card with the usual panel. ESP32 and Raspberry Pi.
 
 **Firmware update over Wi-Fi (Mode 14).** Since firmware 2.44 the DMD updates from GitHub: Mode 14 finds it, compares versions and, on *Update now*, has it download the new version (~2 min; the screen goes dark for a while, several reboots, do not cut the power). Size and SHA-256 are checked; automatic rollback to the old version if the new one does not boot. The web page button does the same. After an update, run Mode 9 again if new scripts are announced.
 
@@ -468,7 +475,7 @@ Type the DMD's IP (shown on the panel; or `rbpidmd.local` for a Pi) into the bro
 |---|---|
 | 🏠 **Home** | The menu: one button per page, **⚙ Settings** first. *Save & Restart*, *Resume DMD* |
 | ⚙ **Settings** | **Brightness** (live preview pushed to the panel while you move the slider) · quiet/normal boot · **Pinball mode (VPX)** · **RetroAchievements** alerts · **native Recalbox mode** · **firmware version** + *Update*. Saving is confirmed on the DMD's line 2 |
-| 💡 **Display & Playlists** | In-game screens · **Recalbox sleep** (follow the game's logo during the "game demos / video clips" screensavers, or plain playlist) · **Recalbox theme** (follow the active theme or default logos) · default playlist + shuffle · **create / edit / delete playlists** from the GIF folders on the SD |
+| 💡 **Display & Playlists** | In-game screens · **Recalbox sleep** (follow the game's logo during the "game demos / video clips" screensavers, or plain playlist) · **Recalbox theme** (follow the active theme or default logos) · **Real console logos** (all themes, or only the ticked ones) · default playlist + shuffle · **create / edit / delete playlists** from the GIF folders on the SD |
 | 📶 **Wi-Fi** | Network scan and choice, password, static IP (gateway / mask / DNS) · **Recalbox IPs** (up to 4, comma-separated) + **target Recalbox** (*Automatic* or 1-4); the active Recalbox is shown |
 | ⏰ **Clock** | Enable, **theme with instant preview on the panel**, neon colour, interval (in GIFs or minutes), duration, time zone |
 | ✨ **Widgets and Clock** | The **mix** (each widget's state and duration, trigger, order, background *playlist / widgets only*), ambiances and colours, quote theme, **Preview** of each widget on the panel |

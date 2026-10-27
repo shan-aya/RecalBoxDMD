@@ -70,6 +70,16 @@ Il existe deux façons de lui donner une adresse fixe :
 
 Si le DMD arrête de réagir à ce qui se passe sur Recalbox après une mise à jour du firmware ou de la boîte à outils PC, les scripts côté Recalbox déjà installés sont peut-être obsolètes. Réinstalle-les avec le **Mode 9** (ou un nouveau **Mode 1**) depuis la boîte à outils PC — ça retire aussi automatiquement les anciennes versions de scripts. Consulte [UPGRADING.md](UPGRADING.fr.md) si tu viens d'une version plus ancienne : certaines mises à jour changent le protocole sous-jacent utilisé par les scripts et le DMD pour se parler, donc les scripts ont vraiment besoin d'être réinstallés, pas seulement le firmware reflashé.
 
+## Le DMD affiche les logos du thème — comment avoir les vrais logos des consoles ?
+
+Depuis le firmware 3.98 (et le démon Raspberry Pi correspondant), le DMD peut afficher les **vrais logos des consoles** à la place de ceux dessinés par votre thème Recalbox.
+
+1. Téléchargez les logos avec la boîte à outils PC : **Mode 20** (ou **Mode 1**, qui les propose pré-cochés), puis copiez le dossier `logos-reels` sur la carte SD du DMD (`systems/_defaults/_themes/`).
+2. Dans la page web du DMD (**Affichage**), réglez **Logos réels des consoles** sur *Tous les thèmes*, ou sur *Seulement les thèmes cochés* et cochez les thèmes concernés.
+3. La variante (USA / Europe / Japon) suit la **région réglée dans votre Recalbox** ; il n'y a rien à régler sur le DMD.
+
+Un système absent du set (genres, favoris…) garde le logo du thème. Un thème qui n'apparaît pas encore dans la liste y apparaît dès que vous le sélectionnez une fois dans Recalbox.
+
 ## Dépannage général
 
 | Symptôme | Cause probable | Essaie ceci |
