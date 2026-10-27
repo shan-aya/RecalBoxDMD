@@ -17,7 +17,7 @@ This is a curated summary of the project's internal version history (185+ firmwa
 - **Toolkit Mode 20 — Real console logos** (*Download from GitHub*): downloads only the `logos-reels` folder, so it can be updated on its own; Mode 1 / Mode 13 list it as a pre-ticked item while it is missing or outdated on the SD. Left column of the Advanced tab tightened (516 → 491 px) to fit the fifth mode.
 - **Package**: `logos-reels` (137 base logos + `r_us` / `r_eu` / `r_jp`) is an *extra* theme of the package (`EXTRA_THEMES` in `build_theme_package.py` v10): the Monday workflow never deletes it. Logos from ScreenScraper (CC BY-NC-SA 4.0), see the folder's `LISEZMOI.txt`.
 - **Plaquette no. 12** (FR/EN/ES).
-- **Thanks**: **Mighty Jim** for his support (“un café est un café !”) and **Beavisx** for the idea of the realistic logos.
+- **Thanks**: **Mighty Jim** for his support (“a coffee is a coffee!”) and **Beavisx** for the idea of the realistic logos.
 
 ## 2026-10-27 (2) — Firmware v3.97, Raspberry Pi daemon v3.72 and toolkit 13982: every DMD announces its hardware, update notices adapted to the Pi
 
