@@ -18,6 +18,7 @@ Usage : python build_theme_package.py <dossier _themes> [--known <dossier _defau
   --summary     : ecrit un compte rendu Markdown des changements (corps de la Pull Request du workflow GitHub).
 Dependances : resvg-py, numpy, pillow (versions figees dans requirements.txt : le rendu doit rester reproductible).
 
+safe-modify -- v10 - 2026-10-27 - THEMES « EXTRAS » (EXTRA_THEMES = {"logos-reels"}) : paquet qui ne vient PAS du hub (logos reels des consoles, sources ScreenScraper, voir son LISEZMOI.txt). Le dossier est conserve tel quel (jamais supprime ni reconstruit), son entree de manifeste (version, files, overlays, bytes, rev) est recalculee depuis le contenu a chaque passage : le toolkit le telecharge en Mode 1 comme un theme.
 safe-modify -- v9 - 2026-10-05 - LA RECALBOX COMME SOURCE : --prefer-rb (avec --rb et --only) construit les themes choisis depuis leur copie INSTALLEE sur la Recalbox (le hub peut etre en retard : Dashboard-X 1.4 publie, 1.5 installee) ; version du paquet = version du theme.xml ; entree marquee packaged_from="rb". Le mode --incremental (workflow du lundi, sans Recalbox) CONSERVE une entree packaged_from="rb" tant que la version du hub n'est pas strictement plus recente (tl.version_newer), au lieu de la reconstruire depuis un hub en retard.
 safe-modify -- v8 - 2026-10-03 - VARIANTES A LA VOLEE (format 2) : plus de surcharges fr/es construites avec une region eu. Le paquet contient la BASE (US / anglais) + des sous-dossiers
 l_<langue>/ (textes traduits) et r_<region>/ (consoles eu / jp), chacun avec _index.bin et seulement les logos qui different ; le DMD choisit selon la langue et la region de la Recalbox.
@@ -91,6 +92,28 @@ def theme_rev(theme_dir):
                 with open(p, "rb") as f:
                     h.update(hashlib.sha1(f.read()).digest())
     return h.hexdigest()[:12]
+
+
+EXTRA_THEMES = {"logos-reels"}      # v10 : dossiers du paquet qui ne viennent pas du hub (voir l'en-tete)
+EXTRA_VERSION = "1"                 # a incrementer quand le contenu d'un extra change (le toolkit compare aussi rev)
+
+
+def _extra_entry(out_root, name, old):
+    """Entree de manifeste d'un theme extra a partir de son dossier (None si le dossier est absent)."""
+    d = os.path.join(out_root, name)
+    if not os.path.isdir(d):
+        return None
+    base_files = sorted(f for f in os.listdir(d) if f.endswith(".raw565"))
+    overlays = {}
+    for code in sorted(c for c in os.listdir(d) if re.fullmatch(r"[lr]_[a-z]{2}", c) and os.path.isdir(os.path.join(d, c))):
+        overlays[code] = sorted(f for f in os.listdir(os.path.join(d, code)) if f.endswith(".raw565"))
+    rev = theme_rev(d)
+    return {"version": EXTRA_VERSION, "packaged_from": "extra",
+            "variants": {"lang": sorted(c[2:] for c in overlays if c.startswith("l_")), "region": sorted(c[2:] for c in overlays if c.startswith("r_"))},
+            "files": base_files, "overlays": overlays,
+            "bytes": sum(os.path.getsize(os.path.join(d, f)) for f in base_files)
+            + sum(os.path.getsize(os.path.join(d, c, f)) for c, fl in overlays.items() for f in fl),
+            "rev": rev}
 
 
 def _load_manifest(out_root):
@@ -211,10 +234,20 @@ def build(out_root, known_dir, only=None, rb_root=None, log=print, incremental=F
             changes["updated"].append(f"{folder} v{old_entry.get('version')} → v{hv}" + ("" if old_entry.get("rev") != entry["rev"] else " (contenu identique)"))
         log(f"[{folder}] base {len(base_files)} fichiers ; variantes : " + (", ".join(f"{k}={len(v)}" for k, v in entry["overlays"].items()) or "aucune"))
 
+    # --- v10 : themes extras (hors hub) : dossier conserve, entree de manifeste recalculee depuis son contenu
+    for name in sorted(EXTRA_THEMES):
+        entry = _extra_entry(out_root, name, old_themes.get(name))
+        if entry:
+            manifest["themes"][name] = entry
+            if old_themes.get(name) is None and reuse:
+                changes["new"].append(f"{name} (extra)")
+            elif old_themes.get(name) and old_themes[name].get("rev") != entry["rev"]:
+                changes["updated"].append(f"{name} (extra)")
+
     # --- themes d'un ancien paquet non traites ici (filtre --only) : conserves ; retires du hub : supprimes
     if reuse:
         for name, o in old_themes.items():
-            if name in manifest["themes"]:
+            if name in manifest["themes"] or name in EXTRA_THEMES:
                 continue
             if name in hub_names or any(tl.theme_dir_name(f) == name for f in rb_names):
                 manifest["themes"][name] = o

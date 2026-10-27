@@ -1,0 +1,12 @@
+Set "Logos reels" de logos de systemes pour le DMD (128x32, RGB565)
+
+Source : ScreenScraper (https://www.screenscraper.fr), media "Wheel" de chaque systeme, par region
+(Monde, USA, Europe, Japon). Images des contributeurs de la communaute ScreenScraper
+(ex. Nyny77, marblemad) ; licence indiquee par ScreenScraper : Creative Commons Attribution -
+Pas d'Utilisation Commerciale - Partage dans les Memes Conditions 4.0 International.
+Les logos restent la propriete de leurs detenteurs respectifs (marques deposees).
+Conversion : moteur du toolkit RecalBoxDMD (rognage du vide transparent, reduction vers 128x32).
+
+Structure : <systeme Recalbox>.raw565 = logo de base (Monde, sinon USA) ; r_us/, r_eu/, r_jp/ =
+uniquement les logos qui different de la base pour cette region ; _index.bin dans chaque dossier.
+Sources d'origine : dossier raw/ (ss<id ScreenScraper>_wheel-<region>.png).
