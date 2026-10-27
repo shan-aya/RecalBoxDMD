@@ -8,6 +8,14 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-27 — Scripts Recalbox n° 7 (logos daphne/Singe), démon Raspberry Pi 3.71
+
+**Scripts Recalbox** (numéro d'ensemble 6 → 7, installation par le Mode 9)
+- **Correctif : les logos de jeu du système `daphne` (Singe inclus) n'apparaissaient pas en navigation**, seulement une fois le jeu lancé. Sur ce système chaque jeu est un dossier `<jeu>.daphne`, que le script `marquee` (v44) prenait pour un sous-dossier de navigation et auquel il répondait par le logo du système.
+
+**Démon Raspberry Pi 3.71** (pages web uniquement, même binaire que la 3.70)
+- **Correctif : la page Réglages proposait à un Pi le firmware ESP32 (3.96)** — elle compare désormais le Pi à la version `pi` du manifeste, comme la pastille de la page d'accueil.
+
 ## 2026-10-26 (4) — Documentation : section Diagnostic du README, tutoriel du pack ULTIMATE, plaquette n°11, remerciements
 
 **Documentation** (aucun changement de firmware, de démon ni de boîte à outils)

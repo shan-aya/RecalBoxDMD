@@ -8,6 +8,14 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-27 — Recalbox scripts no. 7 (daphne/Singe logos), Raspberry Pi daemon 3.71
+
+**Recalbox scripts** (bundle no. 6 → 7, install with Mode 9)
+- **Fix: game logos of the `daphne` system (Singe included) were missing while browsing**, only shown once the game was launched. On this system each game is a folder named `<game>.daphne`, which the `marquee` script (v44) took for a navigation sub-folder and answered with the system logo.
+
+**Raspberry Pi daemon 3.71** (web pages only, same binary as 3.70)
+- **Fix: the Settings page offered the ESP32 firmware (3.96) to a Pi** — it now compares the Pi with the `pi` version of the manifest, like the home page badge.
+
 ## 2026-10-26 (4) — Documentation: README Diagnostic section, ULTIMATE pack tutorial, plaquette no. 11, thanks
 
 **Documentation** (no firmware, daemon or toolkit change)

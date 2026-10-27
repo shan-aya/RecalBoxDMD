@@ -255,7 +255,7 @@ function renderFw(){
 function checkFwOnline(){
   if(_fwChecked||!_fwCur)return;
   _fwChecked=true;
-  fetchTimeout('https://shan-aya.github.io/RecalBoxDMD/install/manifest.json',{cache:'no-store'},6000).then(function(r){return r.json();}).then(function(m){_fwLatest=String((m&&m.version)||'');_scrLatest=String((m&&m.scripts)||'');renderFw();}).catch(function(){});
+  fetchTimeout('https://shan-aya.github.io/RecalBoxDMD/install/manifest.json',{cache:'no-store'},6000).then(function(r){return r.json();}).then(function(m){_fwLatest=String((m&&(m.pi||m.version))||'');_scrLatest=String((m&&m.scripts)||'');renderFw();}).catch(function(){});
 }
 function loadDisplay(){
   return fetchTimeout('/load',{},45000).catch(function(){return fetchTimeout('/load',{},45000);}).then(function(r){return r.json();}).then(function(d){
