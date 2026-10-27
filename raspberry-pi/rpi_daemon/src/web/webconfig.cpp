@@ -185,6 +185,7 @@ WebReply WebConfig::load() {
   // version du demon (fichier PI_VERSION de l'installation, meme format M.mm que le firmware) : la page la compare a la cle « pi » du manifeste GitHub.
   // Vide (lancement a la main, installation sans ce fichier) : pas d'avis de mise a jour.
   add("fw_version", installPrefix().empty() ? "" : readSmall(installPrefix() + "/PI_VERSION"));
+  add("platform", "rpi");  // materiel annonce au toolkit (l'ESP32 annonce "esp32") : compare la bonne version publiee (cle pi / version du manifeste)
   {
     std::lock_guard<std::mutex> lk(eng_.themeControl().m);
     add("scripts_bundle", eng_.themeControl().scriptVer);

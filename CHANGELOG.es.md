@@ -8,6 +8,13 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-27 (2) — Firmware v3.97, demonio Raspberry Pi v3.72 y caja de herramientas 13982: cada DMD anuncia su hardware, avisos de actualización adaptados a la Pi
+
+**Firmware v3.97 · Demonio Raspberry Pi v3.72 · Caja de herramientas del PC build 13982**
+- **Cada DMD anuncia su hardware** (campo `platform` de `/load`: `esp32` o `rpi`). Las páginas web y la caja de herramientas lo usan para comparar una Raspberry Pi con la versión publicada **del demonio Pi** (clave `pi` del manifiesto) y un ESP32 con la del **firmware**: ya no se invita a una Pi a instalar el firmware ESP32.
+- **Caja de herramientas: aviso de la Pi** — a un DMD Raspberry Pi desactualizado se le ofrece la actualización del demonio (página Ajustes del DMD o Modo 17), no el Web Installer ni el Modo 14.
+- **Caja de herramientas: el aviso de los scripts de Recalbox vuelve en cada inicio** mientras el lote anunciado por el DMD sea más antiguo que el del repositorio, nombrando el DMD afectado (antes solo se mostraba una vez por versión publicada).
+
 ## 2026-10-27 — Scripts Recalbox n.º 7 (logos daphne/Singe), demonio Raspberry Pi 3.71
 
 **Scripts Recalbox** (número de conjunto 6 → 7, instalación con el Modo 9)

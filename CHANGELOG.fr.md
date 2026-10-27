@@ -8,6 +8,13 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-27 (2) — Firmware v3.97, démon Raspberry Pi v3.72 et boîte à outils 13982 : chaque DMD annonce son matériel, avis de mise à jour adaptés au Pi
+
+**Firmware v3.97 · Démon Raspberry Pi v3.72 · Boîte à outils PC build 13982**
+- **Chaque DMD annonce son matériel** (champ `platform` de `/load` : `esp32` ou `rpi`). Les pages web et la boîte à outils s'en servent pour comparer un Raspberry Pi à la version publiée **du démon Pi** (clé `pi` du manifeste) et un ESP32 à celle du **firmware** : un Pi n'est plus invité à installer le firmware ESP32.
+- **Boîte à outils : avis du Pi** — un DMD Raspberry Pi en retard se voit proposer la mise à jour du démon (page Réglages du DMD ou Mode 17), pas le Web Installer ni le Mode 14.
+- **Boîte à outils : l'avis des scripts Recalbox revient à chaque lancement** tant que le lot annoncé par le DMD est plus ancien que celui du dépôt, en nommant le DMD concerné (il n'était affiché qu'une fois par version publiée).
+
 ## 2026-10-27 — Scripts Recalbox n° 7 (logos daphne/Singe), démon Raspberry Pi 3.71
 
 **Scripts Recalbox** (numéro d'ensemble 6 → 7, installation par le Mode 9)

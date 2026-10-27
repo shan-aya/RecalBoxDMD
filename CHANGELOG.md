@@ -8,6 +8,13 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-27 (2) — Firmware v3.97, Raspberry Pi daemon v3.72 and toolkit 13982: every DMD announces its hardware, update notices adapted to the Pi
+
+**Firmware v3.97 · Raspberry Pi daemon v3.72 · PC toolkit build 13982**
+- **Every DMD announces its hardware** (`platform` field of `/load`: `esp32` or `rpi`). The web pages and the toolkit use it to compare a Raspberry Pi with the published **Pi daemon** version (the manifest's `pi` key) and an ESP32 with the **firmware** version: a Pi is no longer invited to install the ESP32 firmware.
+- **Toolkit: Pi notice** — an outdated Raspberry Pi DMD is offered the daemon update (DMD Settings page or Mode 17), not the Web Installer nor Mode 14.
+- **Toolkit: the Recalbox scripts notice comes back at every launch** as long as the bundle announced by the DMD is older than the repository's, naming the DMD concerned (it used to be shown only once per published version).
+
 ## 2026-10-27 — Recalbox scripts no. 7 (daphne/Singe logos), Raspberry Pi daemon 3.71
 
 **Recalbox scripts** (bundle no. 6 → 7, install with Mode 9)

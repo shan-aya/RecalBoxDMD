@@ -96,12 +96,14 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
   }
   function fwCheck(d) {
     if (!d || !d.fw_version) return;
+    /* v3.97 : un Pi se compare a la version du demon Pi (cle pi), un ESP32 a celle du firmware (cle version) ; window._cfgPi est aussi lu par la page Reglages */
+    var isPi = window._cfgPi = d.platform === 'rpi' || (!d.platform && d.boot_reason === 'raspberry-pi');
     var now = Date.now(), t = 0, latest = '', scr = '', tk = '';
     try { t = parseInt(localStorage.getItem(FWT) || '0', 10) || 0; latest = localStorage.getItem(FWK) || ''; scr = localStorage.getItem(SCK) || ''; tk = localStorage.getItem(TKK) || ''; } catch (e) {}
     if (latest && now - t < 5 * 60 * 1000) { updBar(d, latest, scr, tk); return; }
     var c = new AbortController(), to = setTimeout(function () { c.abort(); }, 6000);
     of('https://shan-aya.github.io/RecalBoxDMD/install/manifest.json', { cache: 'no-store', signal: c.signal }).then(function (r) { return r.json(); }).then(function (m) {
-      latest = String((m && (m.pi || m.version)) || ''); scr = String((m && m.scripts) || ''); tk = String((m && m.toolkit) || '');
+      latest =String((m && (isPi && m.pi ? m.pi : m.version)) || ''); scr = String((m && m.scripts) || ''); tk = String((m && m.toolkit) || '');
       try { localStorage.setItem(FWK, latest); localStorage.setItem(SCK, scr); localStorage.setItem(TKK, tk); localStorage.setItem(FWT, String(now)); } catch (e) {}
       updBar(d, latest, scr, tk);
     }).catch(function () { if (latest) updBar(d, latest, scr, tk); }).then(function () { clearTimeout(to); });
@@ -207,6 +209,23 @@ function cfgSaveReboot() {
   };
 })();
 
+/* v359 -- mention d'auteur + lien « Payez-moi un cafe » en bas de TOUTES les pages (sous l'image d'intro sur l'accueil, qui a .logo-wrap). Langue = dmd_lang, mise a jour au changement de langue. */
+(function () {
+  var TXT = { fr: 'Payez-moi un caf\u00e9', en: 'Buy me a coffee', es: 'Inv\u00edtame a un caf\u00e9' };
+  function lang() { var l = ''; try { l = (localStorage.getItem('dmd_lang') || '').substring(0, 2); } catch (e) {} if (!TXT[l]) l = (document.documentElement.lang || 'fr').substring(0, 2); return TXT[l] ? l : 'fr'; }
+  function upd() { var s = document.getElementById('cfgCoffee'); if (s) s.textContent = TXT[lang()]; }
+  function build() {
+    if (document.getElementById('cfgCredit') || !document.body) return;
+    var d = document.createElement('div'); d.id = 'cfgCredit';
+    d.style.cssText = 'text-align:center;margin:16px 0 8px;font:12px "Segoe UI",Tahoma,sans-serif;opacity:.85';
+    d.innerHTML = '&copy; Shan_ayA 2026 &middot; <a href="https://buymeacoffee.com/shan_aya" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;text-underline-offset:4px">\u2615 <span id="cfgCoffee">' + TXT[lang()] + '</span></a>';
+    var logo = document.querySelector('.logo-wrap');
+    if (logo && logo.parentNode) logo.parentNode.insertBefore(d, logo.nextSibling); else document.body.appendChild(d);
+  }
+  document.addEventListener('change', function (e) { if (e.target && e.target.id === 'langSelect') setTimeout(upd, 0); });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build); else build();
+})();
+
 /* cfg_help.js -- aide COMMUNE des pages web config (genere par tools/web_shared_step3b_help.py, DECISIONS.md 3.20). */
 window.CFG_HELP={
 fr:{help_link:'Aide',help_title:'Bienvenue sur la configuration du DMD',help_intro:'Par défaut, le DMD affiche des widgets et une horloge aléatoire : rien n\'est obligatoire. Voici de quoi le personnaliser, et un résumé de cette interface.',help_checklist_title:'Pour aller plus loin (facultatif)',help_check_ip:'IP de votre Recalbox (page Wi-Fi) — seulement si vous en utilisez une',help_check_playlist:'Une playlist de GIFs (page Playlist) — la choisir active automatiquement le fond « Playlist de GIFs » ; sans playlist, les widgets tournent seuls',help_check_wifi:'Le Wi-Fi est déjà validé à ce stade — inutile d\'y retoucher, sauf si vous voulez le changer',help_url_reminder:'Cette page reste accessible à tout moment en tapant l\'IP du DMD dans un navigateur — actuellement {ip}',help_features_title:'Ce que permet cette interface',help_feat_playlists:'GIFs (page Médias) : ajouter des GIFs sur la carte SD (upload direct depuis le navigateur, création de dossiers) — les playlists qui référencent un dossier modifié sont mises à jour automatiquement',help_feat_clock:'Widgets (page Widgets) : horloge, date, météo, éphéméride, compte à rebours, citations, ambiances, widgets Recalbox ; fond (widgets seuls ou playlist de GIFs), déclencheur, durées. Horloge : thème, couleurs, fuseau horaire',help_feat_display:'Réglages (page Réglages) : luminosité, démarrage silencieux, mode Pinball, mode Recalbox natif, mise à jour du firmware. Affichage : hi-score/infos/RetroAchievements. Playlist : choix de la playlist, création/suppression à partir des dossiers de GIFs',help_feat_network:'Réseau (page Wi-Fi) : IP de la Recalbox (jusqu\'à 4, le DMD bascule seul sur celle qui est allumée), Wi-Fi (réseau, mot de passe, IP statique)'},
@@ -238,19 +257,3 @@ if (window.CFG_I18N) {
   CFG_I18N.es.bs_label = 'Programador de brillo'; CFG_I18N.es.bs_open = 'Configurar';
 }
 
-/* v359 -- mention d'auteur + lien « Payez-moi un cafe » en bas de TOUTES les pages (sous l'image d'intro sur l'accueil, qui a .logo-wrap). Langue = dmd_lang, mise a jour au changement de langue. */
-(function () {
-  var TXT = { fr: 'Payez-moi un caf\u00e9', en: 'Buy me a coffee', es: 'Inv\u00edtame a un caf\u00e9' };
-  function lang() { var l = ''; try { l = (localStorage.getItem('dmd_lang') || '').substring(0, 2); } catch (e) {} if (!TXT[l]) l = (document.documentElement.lang || 'fr').substring(0, 2); return TXT[l] ? l : 'fr'; }
-  function upd() { var s = document.getElementById('cfgCoffee'); if (s) s.textContent = TXT[lang()]; }
-  function build() {
-    if (document.getElementById('cfgCredit') || !document.body) return;
-    var d = document.createElement('div'); d.id = 'cfgCredit';
-    d.style.cssText = 'text-align:center;margin:16px 0 8px;font:12px "Segoe UI",Tahoma,sans-serif;opacity:.85';
-    d.innerHTML = '&copy; Shan_ayA 2026 &middot; <a href="https://buymeacoffee.com/shan_aya" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;text-underline-offset:4px">\u2615 <span id="cfgCoffee">' + TXT[lang()] + '</span></a>';
-    var logo = document.querySelector('.logo-wrap');
-    if (logo && logo.parentNode) logo.parentNode.insertBefore(d, logo.nextSibling); else document.body.appendChild(d);
-  }
-  document.addEventListener('change', function (e) { if (e.target && e.target.id === 'langSelect') setTimeout(upd, 0); });
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build); else build();
-})();

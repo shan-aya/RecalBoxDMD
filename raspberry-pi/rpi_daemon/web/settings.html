@@ -7,7 +7,7 @@
 <title>RecalBox DMD - R&eacute;glages</title>
 <link rel="stylesheet" href="/cfg.css?h=42c26368">
 <link rel="icon" href="data:,">
-<script src="/cfg.js?h=b3456e46" onerror="try{if(!sessionStorage.cfgR){sessionStorage.cfgR=1;location.reload();}}catch(e){}"></script>
+<script src="/cfg.js?h=24719fad" onerror="try{if(!sessionStorage.cfgR){sessionStorage.cfgR=1;location.reload();}}catch(e){}"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
@@ -251,11 +251,10 @@ function renderFw(){
   var latest=parseInt(_scrLatest,10)||0,have=_scrCur!==''?parseInt(_scrCur,10):(_rbAge>=90?0:-1);
   if(sn){if(latest>0&&have>=0&&have<latest){sn.innerHTML=tr('scr_new')+' &ndash; <a href="https://github.com/shan-aya/RecalBoxDMD/releases/latest" target="_blank" rel="noopener">'+tr('scr_dl')+'</a> &ndash; '+cfgNotes();sn.style.display='block';}else{sn.style.display='none';}}
 }
-// Verification faite par le navigateur (le DMD n'a pas besoin d'Internet) ; hors ligne / erreur : silence.
 function checkFwOnline(){
   if(_fwChecked||!_fwCur)return;
   _fwChecked=true;
-  fetchTimeout('https://shan-aya.github.io/RecalBoxDMD/install/manifest.json',{cache:'no-store'},6000).then(function(r){return r.json();}).then(function(m){_fwLatest=String((m&&(m.pi||m.version))||'');_scrLatest=String((m&&m.scripts)||'');renderFw();}).catch(function(){});
+  fetchTimeout('https://shan-aya.github.io/RecalBoxDMD/install/manifest.json',{cache:'no-store'},6000).then(function(r){return r.json();}).then(function(m){_fwLatest=String((m&&(self._cfgPi&&m.pi||m.version))||'');_scrLatest=String((m&&m.scripts)||'');renderFw();}).catch(function(){});
 }
 function loadDisplay(){
   return fetchTimeout('/load',{},45000).catch(function(){return fetchTimeout('/load',{},45000);}).then(function(r){return r.json();}).then(function(d){
