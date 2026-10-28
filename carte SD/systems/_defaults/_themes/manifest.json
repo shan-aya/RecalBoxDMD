@@ -3942,7 +3942,6 @@
     "colecovision.raw565",
     "creativision.raw565",
     "daphne.raw565",
-    "dice.raw565",
     "dragon.raw565",
     "dreamcast.raw565",
     "easyrpg.raw565",
@@ -4085,8 +4084,8 @@
      "videopacplus.raw565"
     ]
    },
-   "bytes": 1327104,
-   "rev": "4ffd174c3ead"
+   "bytes": 1318912,
+   "rev": "cf0871f9cc5b"
   }
  },
  "skipped": {
