@@ -106,6 +106,25 @@ std::string readSmall(const std::string &path) {
   return s;
 }
 int clampi(int v, int lo, int hi) { return std::max(lo, std::min(hi, v)); }
+
+// v398 -- liste de themes « ,a,b, » (noms [A-Za-z0-9._-] de 31 car. max, 24 noms max) ; tout le reste est ignore (meme regle que le firmware ESP32).
+std::string reelsSanitizeList(const std::string &raw) {
+  std::string out, cur;
+  int n = 0;
+  for (size_t i = 0; i <= raw.size(); i++) {
+    const char ch = (i < raw.size()) ? raw[i] : ',';
+    if (ch == ',') {
+      if (!cur.empty() && cur != "." && cur != ".." && n < 24 && out.find("," + cur + ",") == std::string::npos) {
+        out += (out.empty() ? std::string(",") : std::string()) + cur + ",";
+        n++;
+      }
+      cur.clear();
+    } else if (((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '.' || ch == '_' || ch == '-') && cur.size() < 31) {
+      cur += ch;
+    }
+  }
+  return out;
+}
 std::string trimStr(const std::string &s) { return trim(s); }
 }  // namespace
 
@@ -182,6 +201,10 @@ WebReply WebConfig::load() {
   add("feat_clip_follow", fb("feat_clip_follow", true));
   add("feat_theme_follow", fb("feat_theme_follow", true));
   add("feat_lang_priority", b01(s("feat_lang_priority", "0") == "1"));
+  add("feat_reels_mode", std::to_string(clampi(cfg_.getInt("feat_reels_mode", 0), 0, 2)));  // v398 : logos reels (0 / 1 / 2)
+  add("reels_auto_new", b01(s("reels_auto_new", "0") == "1"));
+  add("reels_themes", reelsSanitizeList(s("reels_themes")));  // noms assainis [A-Za-z0-9._-] : pas d'echappement JSON necessaire
+  add("reels_seen", reelsSanitizeList(s("reels_seen")));
   // version du demon (fichier PI_VERSION de l'installation, meme format M.mm que le firmware) : la page la compare a la cle « pi » du manifeste GitHub.
   // Vide (lancement a la main, installation sans ce fichier) : pas d'avis de mise a jour.
   add("fw_version", installPrefix().empty() ? "" : readSmall(installPrefix() + "/PI_VERSION"));
@@ -411,6 +434,9 @@ WebReply WebConfig::save(const WebRequest &r) {
                         "feat_ra_ingame", "feat_ra_browse", "feat_vpinball_dmd", "recalbox_native_mode", "feat_ra_window", "feat_demo_follow", "feat_clip_follow",
                         "feat_theme_follow", "feat_lang_priority"})
     if (has(k)) kv[k] = b01(arg(k) == "1");
+  if (has("feat_reels_mode")) kv["feat_reels_mode"] = std::to_string(clampi(toInt(arg("feat_reels_mode")), 0, 2));  // v398
+  if (has("reels_auto_new")) kv["reels_auto_new"] = b01(arg("reels_auto_new") == "1");
+  if (has("reels_themes")) kv["reels_themes"] = reelsSanitizeList(arg("reels_themes"));
   if (has("feat_repeat_cycles")) kv["feat_repeat_cycles"] = std::to_string(clampi(toInt(arg("feat_repeat_cycles")), 0, 20));
   if (has("feat_repeat_browse_cycles")) kv["feat_repeat_browse_cycles"] = std::to_string(clampi(toInt(arg("feat_repeat_browse_cycles")), 0, 20));
   if (has("feat_dwell_seconds")) kv["feat_dwell_seconds"] = std::to_string(clampi(toInt(arg("feat_dwell_seconds")), 3, 30));
@@ -667,6 +693,26 @@ void WebConfig::registerRoutes() {
   }
   web_.any("/favicon.ico", [](const WebRequest &) { WebReply r; r.status = 204; return r; });
   web_.any("/load", [this](const WebRequest &) { return load(); });
+  web_.any("/reels_installed", [this](const WebRequest &) {  // v398 : themes installes sur la SD (liste a cocher des logos reels), hors logos-reels et dossiers « _ »
+    WebReply r;
+    r.contentType = "application/json";
+    std::string j = "[";
+    bool first = true;
+    for (const std::string &n : fs_.list("/systems/_defaults/_themes")) {
+      bool ok = !n.empty() && n.size() <= 31 && n != "logos-reels" && n[0] != '_' && fs_.isDir("/systems/_defaults/_themes/" + n);
+      for (size_t i = 0; ok && i < n.size(); i++) {
+        const char ch = n[i];
+        ok = (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '.' || ch == '_' || ch == '-';
+      }
+      if (ok) {
+        if (!first) j += ",";
+        j += "\"" + n + "\"";
+        first = false;
+      }
+    }
+    r.body = j + "]";
+    return r;
+  });
   web_.post("/save", [this](const WebRequest &r) { return save(r); });
   web_.any("/lang", [this](const WebRequest &) {
     WebReply r;

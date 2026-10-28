@@ -21,6 +21,13 @@ class ThemeLogos {
   // Memorise ce que la Recalbox veut et applique. Retourne true si la selection EFFECTIVE (theme|langue|region) a change.
   bool setWanted(const SdFs &fs, const std::string &theme, const std::string &lang, const std::string &region);
   void setLangPriority(bool on) { langPriority_ = on; }
+  // v398 -- LOGOS REELS (dossier _themes/logos-reels : base monde + r_us / r_eu / r_jp), passent avant la region et la base du theme.
+  // mode : 0 = desactive, 1 = tous les themes, 2 = seulement les themes coches (checked = « ,a,b, »). Retourne true si la selection EFFECTIVE a change.
+  bool setReels(const SdFs &fs, int mode, bool autoNew, const std::string &checked);
+  // Theme annonce par la Recalbox : l'ajoute a la liste « vus » (et le coche si autoNew). Retourne true si seen / checked ont change (a ecrire dans config.ini).
+  bool noteSeen(const std::string &theme);
+  const std::string &reelsSeen() const { return reelsSeen_; }
+  const std::string &reelsChecked() const { return reelsChecked_; }
   // Option « suivi du theme » changee (page web) : reapplique.
   bool setFollow(const SdFs &fs, bool follow);
 
@@ -45,6 +52,8 @@ class ThemeLogos {
   bool apply(const SdFs &fs);
   void defaultsLangSelect(const SdFs &fs, const std::string &lang);
   bool anyLogo(const std::string &n) const;
+  static bool listHas(const std::string &list, const std::string &name);
+  bool reelsWanted() const;  // le theme annonce doit-il utiliser les logos reels ?
 
   bool follow_ = true, langPriority_ = false;
   std::string wTheme_, wLang_, wRegion_;
@@ -53,6 +62,11 @@ class ThemeLogos {
 
   std::string logoTheme_;                  // g_logoTheme : theme actif ("" = logos par defaut)
   Idx themeIdx_, langIdx_, regionIdx_;
+  int reelsMode_ = 0;  // v398
+  bool reelsAutoNew_ = false;
+  std::string reelsChecked_, reelsSeen_;  // listes « ,a,b, »
+  std::string reelsDir_, reelsRegionDir_;
+  Idx reelsIdx_, reelsRegionIdx_;
   std::string langDir_, regionDir_;        // variantes presentes sur la SD
 
   std::string defLang_, defLangRequested_;  // langue des images par defaut

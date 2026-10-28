@@ -8,9 +8,9 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
-## Unreleased (prepared 2026-10-28, published after tests on the real panel) — Real console logos: firmware 3.98, Raspberry Pi daemon, toolkit Mode 20
+## 2026-10-28 — Firmware v3.98, Raspberry Pi daemon v3.73 and toolkit 14083: real console logos
 
-**Firmware 3.98 · Raspberry Pi daemon · PC toolkit (Mode 20)**
+**Firmware v3.98 · Raspberry Pi daemon v3.73 · PC toolkit build 14083 (Mode 20)**
 - **Real console logos**: new *Real console logos* option on the Display page (*Off / All themes / Only the ticked themes*). The DMD then shows the real logo of each console (137 systems, USA / Europe / Japan variants chosen by the region announced by the Recalbox, base = world logo) **before** the theme's region and base logos; the theme's language variant keeps priority and logos missing from the set keep the theme's logo. Works even when the theme folder is not on the SD.
 - **The tick list builds itself**: themes installed on the SD (`GET /reels_installed`) + themes the Recalbox has already announced (`reels_seen` in `config.ini`, 24 max) + an option to tick new themes automatically — nothing to maintain when new themes come out.
 - **Same behaviour on the Raspberry Pi** (daemon): same `config.ini` keys, same order, same page, same route. Checked on a real Raspberry Pi 3B (daemon built on the Pi, daemon log): it picks the right file (base, then `r_jp/` when the Recalbox announces the Japan region), redraws the logo on screen straight away when the region changes, and ticks the announced theme automatically.

@@ -222,7 +222,9 @@ void Engine::applyThemeControl() {
     lang = tctl_.haveOpt ? tctl_.lang : themes_.wantedLang();
     region = tctl_.haveOpt ? tctl_.region : themes_.wantedRegion();
   }
+  const bool seenChanged = themes_.noteSeen(theme);  // v398 : theme annonce -> liste « vus » (+ coche d'office si reels_auto_new), AVANT setWanted
   const bool changed = themes_.setWanted(fs_, theme, lang, region);
+  if (seenChanged) cfg_.writeKeys(fs_, {{"reels_seen", themes_.reelsSeen()}, {"reels_themes", themes_.reelsChecked()}});
   if (themes_.takePersist()) {  // memorise la derniere selection (theme_last / lang_last / region_last), seulement quand elle change
     cfg_.writeKeys(fs_, {{"theme_last", themes_.wantedTheme()}, {"lang_last", themes_.wantedLang()}, {"region_last", themes_.wantedRegion()}});
     logf("THEME", "derniere selection memorisee (config.ini) : theme=%s langue=%s region=%s", themes_.wantedTheme().c_str(),
@@ -284,8 +286,9 @@ void Engine::reloadConfig() {
   clock_.configure(cfg_);
   loadDecoConfig();  // reglages du decor + widgets
   themes_.setLangPriority(cfg_.get("feat_lang_priority", "0") == "1");
-  if (themes_.setFollow(fs_, cfg_.getBool("feat_theme_follow", true)) && !lastSys_.empty() && mode_ == Mode::PNG &&
-      startsWith(currentPngPath_, "/systems/_defaults/")) {
+  const bool reelsChanged = themes_.setReels(fs_, cfg_.getInt("feat_reels_mode", 0), cfg_.get("reels_auto_new", "0") == "1", cfg_.get("reels_themes"));  // v398
+  const bool followChanged = themes_.setFollow(fs_, cfg_.getBool("feat_theme_follow", true));
+  if ((reelsChanged || followChanged) && !lastSys_.empty() && mode_ == Mode::PNG && startsWith(currentPngPath_, "/systems/_defaults/")) {
     pngDrawn_ = false;
     currentPngPath_.clear();
     cmdSystem(lastSys_);  // « suivi du theme » (de)coche : le logo a l'ecran est redessine tout de suite

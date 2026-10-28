@@ -8,9 +8,9 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
-## À venir (préparé le 2026-10-28, publié après les tests sur la dalle réelle) — Logos réels des consoles : firmware 3.98, démon Raspberry Pi, Mode 20 de la boîte à outils
+## 2026-10-28 — Firmware v3.98, démon Raspberry Pi v3.73 et boîte à outils 14083 : logos réels des consoles
 
-**Firmware 3.98 · démon Raspberry Pi · boîte à outils PC (Mode 20)**
+**Firmware v3.98 · Démon Raspberry Pi v3.73 · Boîte à outils PC build 14083 (Mode 20)**
 - **Logos réels des consoles** : nouvelle option *Logos réels des consoles* dans la page Affichage (*Désactivé / Tous les thèmes / Seulement les thèmes cochés*). Le DMD affiche alors le vrai logo de chaque console (137 systèmes, variantes USA / Europe / Japon choisies par la région annoncée par la Recalbox, base = logo « monde ») **avant** les logos de région et de base du thème ; la variante de langue du thème garde la priorité et les logos absents du set gardent le logo du thème. Fonctionne même si le dossier du thème n'est pas sur la SD.
 - **La liste à cocher se construit toute seule** : thèmes installés sur la SD (`GET /reels_installed`) + thèmes déjà annoncés par la Recalbox (`reels_seen` dans `config.ini`, 24 au plus) + option pour cocher automatiquement les nouveaux thèmes — rien à maintenir quand de nouveaux thèmes sortent.
 - **Même comportement sur le Raspberry Pi** (démon) : mêmes clés `config.ini`, même ordre, même page, même route. Vérifié sur un vrai Raspberry Pi 3B (démon compilé sur le Pi, journal du démon) : il choisit le bon fichier (base, puis `r_jp/` quand la Recalbox annonce la région Japon), redessine tout de suite le logo à l'écran quand la région change, et coche d'office le thème annoncé.

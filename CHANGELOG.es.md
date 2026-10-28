@@ -8,9 +8,9 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
-## Próximamente (preparado el 2026-10-28, publicado tras las pruebas en el panel real) — Logos reales de consolas: firmware 3.98, demonio Raspberry Pi, Modo 20 del toolkit
+## 2026-10-28 — Firmware v3.98, demonio Raspberry Pi v3.73 y caja de herramientas 14083: logos reales de consolas
 
-**Firmware 3.98 · demonio Raspberry Pi · caja de herramientas PC (Modo 20)**
+**Firmware v3.98 · Demonio Raspberry Pi v3.73 · Caja de herramientas del PC build 14083 (Modo 20)**
 - **Logos reales de consolas**: nueva opción *Logos reales de consolas* en la página Pantalla (*Desactivado / Todos los temas / Solo los temas marcados*). El DMD muestra entonces el logo real de cada consola (137 sistemas, variantes EE. UU. / Europa / Japón elegidas por la región anunciada por Recalbox, base = logo «mundo») **antes** de los logos de región y base del tema; la variante de idioma del tema conserva la prioridad y los logos ausentes del set conservan el logo del tema. Funciona aunque la carpeta del tema no esté en la SD.
 - **La lista para marcar se construye sola**: temas instalados en la SD (`GET /reels_installed`) + temas ya anunciados por Recalbox (`reels_seen` en `config.ini`, 24 como máximo) + opción para marcar automáticamente los temas nuevos — nada que mantener cuando salgan temas nuevos.
 - **Mismo comportamiento en la Raspberry Pi** (demonio): mismas claves de `config.ini`, mismo orden, misma página, misma ruta. Verificado en una Raspberry Pi 3B real (demonio compilado en la Pi, registro del demonio): elige el archivo correcto (base y luego `r_jp/` cuando la Recalbox anuncia la región Japón), redibuja el logo en pantalla al instante cuando cambia la región y marca automáticamente el tema anunciado.

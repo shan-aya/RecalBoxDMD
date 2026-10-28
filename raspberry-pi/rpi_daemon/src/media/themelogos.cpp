@@ -59,7 +59,12 @@ void ThemeLogos::begin(const Config &cfg, const SdFs &fs) {
   pTheme_ = wTheme_;
   pLang_ = wLang_;
   pRegion_ = wRegion_;
-  if (!wTheme_.empty() || !wLang_.empty() || !wRegion_.empty()) {  // derniere selection reappliquee des le demarrage
+  reelsMode_ = cfg.getInt("feat_reels_mode", 0);  // v398
+  if (reelsMode_ < 0 || reelsMode_ > 2) reelsMode_ = 0;
+  reelsAutoNew_ = cfg.get("reels_auto_new", "0") == "1";
+  reelsChecked_ = cfg.get("reels_themes");
+  reelsSeen_ = cfg.get("reels_seen");
+  if (!wTheme_.empty() || !wLang_.empty() || !wRegion_.empty() || reelsMode_ != 0) {  // derniere selection reappliquee des le demarrage
     defaultsLangSelect(fs, wLang_);
     apply(fs);
   }
@@ -71,6 +76,33 @@ bool ThemeLogos::setWanted(const SdFs &fs, const std::string &theme, const std::
   wRegion_ = region;
   defaultsLangSelect(fs, wLang_);
   return apply(fs);
+}
+
+bool ThemeLogos::listHas(const std::string &list, const std::string &name) {
+  return !name.empty() && list.find("," + name + ",") != std::string::npos;
+}
+
+bool ThemeLogos::reelsWanted() const { return reelsMode_ == 1 || (reelsMode_ == 2 && listHas(reelsChecked_, wTheme_)); }
+
+bool ThemeLogos::setReels(const SdFs &fs, int mode, bool autoNew, const std::string &checked) {
+  reelsMode_ = (mode < 0 || mode > 2) ? 0 : mode;
+  reelsAutoNew_ = autoNew;
+  reelsChecked_ = checked;
+  return apply(fs);
+}
+
+bool ThemeLogos::noteSeen(const std::string &theme) {
+  if (theme.empty() || listHas(reelsSeen_, theme)) return false;
+  size_t n = 0;
+  for (char ch : reelsSeen_) n += (ch == ',');
+  if (n >= 25) {
+    logf("THEME", "liste des themes vus pleine (24) : %s non ajoute", theme.c_str());
+    return false;
+  }
+  reelsSeen_ = (reelsSeen_.empty() ? std::string(",") : reelsSeen_) + theme + ",";
+  if (reelsAutoNew_) reelsChecked_ = (reelsChecked_.empty() ? std::string(",") : reelsChecked_) + theme + ",";
+  logf("THEME", "theme vu pour la 1re fois : %s%s", theme.c_str(), reelsAutoNew_ ? " (logos reels coches d'office)" : "");
+  return true;
 }
 
 bool ThemeLogos::setFollow(const SdFs &fs, bool follow) {
@@ -111,12 +143,31 @@ void ThemeLogos::defaultsLangSelect(const SdFs &fs, const std::string &lang) {
 // Applique le theme voulu selon l'option : suivi actif -> theme de la Recalbox (+ langue / region annoncees), sinon logos par defaut
 bool ThemeLogos::apply(const SdFs &fs) {
   const std::string clean = follow_ ? wTheme_ : std::string();
-  const std::string key = clean + "|" + wLang_ + "|" + wRegion_;
+  const bool reels = reelsWanted();
+  const std::string key = clean + "|" + wLang_ + "|" + wRegion_ + (reels ? "|R" : "");
   if (key == requested_) return false;  // HELLO / PING repetes : rien a refaire
   requested_ = key;
   themeIdx_ = langIdx_ = regionIdx_ = Idx();
+  reelsIdx_ = reelsRegionIdx_ = Idx();
   langDir_.clear();
   regionDir_.clear();
+  reelsDir_.clear();
+  reelsRegionDir_.clear();
+  if (reels) {  // v398 : independants du theme (charges meme si le dossier du theme est absent de la SD) ; region absente = us ; r_<region> absent = base seule
+    const std::string rd = std::string(THEMES_DIR) + "logos-reels";
+    if (fs.isDir(rd)) {
+      reelsDir_ = rd;
+      loadIdx(fs, rd + "/_index.bin", reelsIdx_);
+      const std::string rc = "r_" + (wRegion_.size() == 2 ? wRegion_ : std::string("us"));
+      if (fs.isDir(rd + "/" + rc)) {
+        reelsRegionDir_ = rd + "/" + rc;
+        loadIdx(fs, reelsRegionDir_ + "/_index.bin", reelsRegionIdx_);
+      }
+      logf("THEME", "logos reels : actifs (index %zu, region %s %zu)", reelsIdx_.v.size(), reelsRegionDir_.empty() ? "-" : rc.c_str(), reelsRegionIdx_.v.size());
+    } else {
+      logf("THEME", "logos reels demandes mais %s absent de la SD (Mode 1 / Mode 20 du toolkit)", rd.c_str());
+    }
+  }
   logoTheme_ = clean;
   if (clean.empty()) {
     logf("THEME", "logos systeme : (defaut)");
@@ -149,19 +200,25 @@ bool ThemeLogos::anyLogo(const std::string &n) const {
 
 std::vector<std::string> ThemeLogos::candidates(const std::string &sys) const {
   std::vector<std::string> cand;
-  if (logoTheme_.empty()) return cand;
+  const bool hasTheme = !logoTheme_.empty();
+  if (!hasTheme && reelsDir_.empty()) return cand;
   std::string tn = sys;  // nom cherche dans le theme (alias auto-<x> si le theme n'a pas le nom recu)
-  if (!anyLogo(tn)) {
+  if (hasTheme && !anyLogo(tn)) {
     const std::string alt = autoAlias(sys);
     if (!alt.empty() && anyLogo(alt)) tn = alt;
   }
-  const bool themeLangHas = !langDir_.empty() && langIdx_.has(tn);
+  const bool themeLangHas = hasTheme && !langDir_.empty() && langIdx_.has(tn);
   // le DMD affiche ce que la Recalbox affiche (v246) : logo du theme (langue, region, base) AVANT toute image par defaut ;
   // sauf option feat_lang_priority : image par defaut TRADUITE disponible (index charge) et pas de variante de langue dans le theme
   const bool langDefaultWins = langPriority_ && !themeLangHas && defLangDirOk_ && defLangIdx_.loaded && defLangIdx_.has(sys);
+  // v398 -- ordre avec les logos reels : langue du theme, reels (region puis base), region du theme, base du theme
   if (themeLangHas) cand.push_back(langDir_ + "/" + tn + ".raw565");
-  if (!langDefaultWins && !regionDir_.empty() && regionIdx_.has(tn)) cand.push_back(regionDir_ + "/" + tn + ".raw565");
-  if (!langDefaultWins && themeIdx_.has(tn)) cand.push_back(std::string(THEMES_DIR) + logoTheme_ + "/" + tn + ".raw565");
+  if (!langDefaultWins && !reelsDir_.empty()) {
+    if (!reelsRegionDir_.empty() && reelsRegionIdx_.has(sys)) cand.push_back(reelsRegionDir_ + "/" + sys + ".raw565");
+    if (reelsIdx_.has(sys)) cand.push_back(reelsDir_ + "/" + sys + ".raw565");
+  }
+  if (hasTheme && !langDefaultWins && !regionDir_.empty() && regionIdx_.has(tn)) cand.push_back(regionDir_ + "/" + tn + ".raw565");
+  if (hasTheme && !langDefaultWins && themeIdx_.has(tn)) cand.push_back(std::string(THEMES_DIR) + logoTheme_ + "/" + tn + ".raw565");
   return cand;
 }
 
