@@ -8,6 +8,19 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## Próximamente (preparado el 2026-10-28, publicado tras las pruebas en el panel real) — Logos reales de consolas: firmware 3.98, demonio Raspberry Pi, Modo 20 del toolkit
+
+**Firmware 3.98 · demonio Raspberry Pi · caja de herramientas PC (Modo 20)**
+- **Logos reales de consolas**: nueva opción *Logos reales de consolas* en la página Pantalla (*Desactivado / Todos los temas / Solo los temas marcados*). El DMD muestra entonces el logo real de cada consola (137 sistemas, variantes EE. UU. / Europa / Japón elegidas por la región anunciada por Recalbox, base = logo «mundo») **antes** de los logos de región y base del tema; la variante de idioma del tema conserva la prioridad y los logos ausentes del set conservan el logo del tema. Funciona aunque la carpeta del tema no esté en la SD.
+- **La lista para marcar se construye sola**: temas instalados en la SD (`GET /reels_installed`) + temas ya anunciados por Recalbox (`reels_seen` en `config.ini`, 24 como máximo) + opción para marcar automáticamente los temas nuevos — nada que mantener cuando salgan temas nuevos.
+- **Mismo comportamiento en la Raspberry Pi** (demonio): mismas claves de `config.ini`, mismo orden, misma página, misma ruta. Verificado en una Raspberry Pi 3B real (demonio compilado en la Pi, registro del demonio): elige el archivo correcto (base y luego `r_jp/` cuando la Recalbox anuncia la región Japón), redibuja el logo en pantalla al instante cuando cambia la región y marca automáticamente el tema anunciado.
+- **Verificado en el DMD (ESP32) contra una Recalbox**: cambiar la región del tema en Recalbox cambia el logo real mostrado en el DMD.
+- **Pantalla de configuración (ESP32) corregida**: el mensaje de fondo (la dirección de la página) nunca se establecía, así que «Guardando…» dejaba la línea 2 vacía al expirar; la dirección vuelve ahora a los 5 s.
+- **Modo 20 del toolkit — Logos reales** (*Download from GitHub*): descarga solo la carpeta `logos-reels`, para actualizarla por separado; los Modos 1 y 13 la listan premarcada mientras falte o esté obsoleta en la SD. Columna izquierda de la pestaña Avanzado reducida (516 → 491 px) para que quepa un quinto modo.
+- **Paquete**: `logos-reels` (137 logos base + `r_us` / `r_eu` / `r_jp`) es un tema *extra* del paquete (`EXTRA_THEMES` en `build_theme_package.py` v10): el flujo de los lunes nunca lo borra. Logos de ScreenScraper (CC BY-NC-SA 4.0), ver el `LISEZMOI.txt` de la carpeta.
+- **Plaquette n.º 12** (FR/EN/ES).
+- **Agradecimientos**: **Mighty Jim** por su apoyo («¡un café es un café!») y **Beavisx** por la idea de los logos realistas, y gracias por el café sabor arce 🇨🇦.
+
 ## 2026-10-27 (2) — Firmware v3.97, demonio Raspberry Pi v3.72 y caja de herramientas 13982: cada DMD anuncia su hardware, avisos de actualización adaptados a la Pi
 
 **Firmware v3.97 · Demonio Raspberry Pi v3.72 · Caja de herramientas del PC build 13982**

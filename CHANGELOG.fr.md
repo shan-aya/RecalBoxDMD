@@ -8,6 +8,19 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## À venir (préparé le 2026-10-28, publié après les tests sur la dalle réelle) — Logos réels des consoles : firmware 3.98, démon Raspberry Pi, Mode 20 de la boîte à outils
+
+**Firmware 3.98 · démon Raspberry Pi · boîte à outils PC (Mode 20)**
+- **Logos réels des consoles** : nouvelle option *Logos réels des consoles* dans la page Affichage (*Désactivé / Tous les thèmes / Seulement les thèmes cochés*). Le DMD affiche alors le vrai logo de chaque console (137 systèmes, variantes USA / Europe / Japon choisies par la région annoncée par la Recalbox, base = logo « monde ») **avant** les logos de région et de base du thème ; la variante de langue du thème garde la priorité et les logos absents du set gardent le logo du thème. Fonctionne même si le dossier du thème n'est pas sur la SD.
+- **La liste à cocher se construit toute seule** : thèmes installés sur la SD (`GET /reels_installed`) + thèmes déjà annoncés par la Recalbox (`reels_seen` dans `config.ini`, 24 au plus) + option pour cocher automatiquement les nouveaux thèmes — rien à maintenir quand de nouveaux thèmes sortent.
+- **Même comportement sur le Raspberry Pi** (démon) : mêmes clés `config.ini`, même ordre, même page, même route. Vérifié sur un vrai Raspberry Pi 3B (démon compilé sur le Pi, journal du démon) : il choisit le bon fichier (base, puis `r_jp/` quand la Recalbox annonce la région Japon), redessine tout de suite le logo à l'écran quand la région change, et coche d'office le thème annoncé.
+- **Vérifié sur le DMD (ESP32) contre une Recalbox** : changer la région du thème dans Recalbox change le logo réel affiché sur le DMD.
+- **Écran de configuration (ESP32) corrigé** : le message de fond (l'adresse de la page) n'était jamais renseigné, donc « Enregistrement… » laissait la ligne 2 vide une fois expiré ; l'adresse revient maintenant au bout de 5 s.
+- **Mode 20 de la boîte à outils — Logos réels** (*Download from GitHub*) : ne télécharge que le dossier `logos-reels`, pour le mettre à jour seul ; les Modes 1 et 13 le listent pré-coché tant qu'il manque ou est périmé sur la SD. Colonne gauche de l'onglet Avancé resserrée (516 → 491 px) pour tenir avec un cinquième mode.
+- **Paquet** : `logos-reels` (137 logos de base + `r_us` / `r_eu` / `r_jp`) est un thème *extra* du paquet (`EXTRA_THEMES` dans `build_theme_package.py` v10) : le workflow du lundi ne le supprime jamais. Logos issus de ScreenScraper (CC BY-NC-SA 4.0), voir le `LISEZMOI.txt` du dossier.
+- **Plaquette n° 12** (FR/EN/ES).
+- **Remerciements** : **Mighty Jim** pour son soutien (« un café est un café ! ») et **Beavisx** pour l'idée des logos réalistes, et merci pour le café saveur érable 🇨🇦.
+
 ## 2026-10-27 (2) — Firmware v3.97, démon Raspberry Pi v3.72 et boîte à outils 13982 : chaque DMD annonce son matériel, avis de mise à jour adaptés au Pi
 
 **Firmware v3.97 · Démon Raspberry Pi v3.72 · Boîte à outils PC build 13982**
