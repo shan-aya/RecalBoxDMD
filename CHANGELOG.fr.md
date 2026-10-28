@@ -8,6 +8,13 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-28 (2) — Démon Raspberry Pi v3.74 et boîte à outils 14184 : les logos réels s'envoient au Pi par Wi-Fi
+
+**Démon Raspberry Pi v3.74 · Boîte à outils PC build 14184**
+- **Mode 20 : envoi des logos réels au Raspberry Pi par Wi-Fi.** Après le téléchargement, si un Pi (démon 3.74 ou plus) répond sur le réseau, la boîte à outils lui envoie directement le dossier `logos-reels` (167 fichiers, environ 4 s) : plus besoin de sortir sa carte SD. Le démon recharge les index et redessine tout de suite le logo à l'écran. Aucun Pi trouvé : un message, et la copie sur la carte SD comme avant (l'ESP32 reste en copie sur carte SD).
+- **Démon Pi** : nouveau type d'envoi `POST /upload?kind=reels&dir=base|r_us|r_eu|r_jp` (noms, dossiers et tailles contrôlés ; fichier temporaire puis renommage, jamais de logo tronqué) et `POST /reels-refresh`. Un démon plus ancien est refusé par la boîte à outils (il rangerait les fichiers comme des GIF).
+- Testé sur un Raspberry Pi 3B : 167 fichiers envoyés, SHA-256 identiques à la source.
+
 ## 2026-10-28 — Firmware v3.98, démon Raspberry Pi v3.73 et boîte à outils 14083 : logos réels des consoles
 
 **Firmware v3.98 · Démon Raspberry Pi v3.73 · Boîte à outils PC build 14083 (Mode 20)**

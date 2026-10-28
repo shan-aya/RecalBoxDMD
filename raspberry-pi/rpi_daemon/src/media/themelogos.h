@@ -30,6 +30,8 @@ class ThemeLogos {
   const std::string &reelsChecked() const { return reelsChecked_; }
   // Option « suivi du theme » changee (page web) : reapplique.
   bool setFollow(const SdFs &fs, bool follow);
+  // v3.74 -- des logos reels viennent d'etre envoyes (toolkit, Wi-Fi) : recharge les index / dossiers meme si la selection n'a pas change.
+  bool refresh(const SdFs &fs) { requested_.clear(); return apply(fs); }
 
   const std::string &wantedTheme() const { return wTheme_; }
   const std::string &wantedLang() const { return wLang_; }

@@ -713,6 +713,12 @@ void WebConfig::registerRoutes() {
     r.body = j + "]";
     return r;
   });
+  web_.post("/reels-refresh", [this](const WebRequest &) {  // v3.74 : fin d'un envoi de logos reels par le toolkit
+    WebReply r;
+    eng_.runOnMain([&] { eng_.reelsRefresh(); });
+    r.body = "OK";
+    return r;
+  });
   web_.post("/save", [this](const WebRequest &r) { return save(r); });
   web_.any("/lang", [this](const WebRequest &) {
     WebReply r;

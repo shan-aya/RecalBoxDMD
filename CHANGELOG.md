@@ -8,6 +8,13 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-28 (2) — Raspberry Pi daemon v3.74 and toolkit 14184: real console logos can be sent to the Pi over Wi-Fi
+
+**Raspberry Pi daemon v3.74 · PC toolkit build 14184**
+- **Mode 20: sending the real console logos to the Raspberry Pi over Wi-Fi.** After the download, if a Pi (daemon 3.74 or later) answers on the network, the toolkit sends it the `logos-reels` folder directly (167 files, about 4 s): no need to take the SD card out. The daemon reloads its indexes and redraws the logo on screen straight away. No Pi found: a message, and the copy to the SD card as before (the ESP32 stays on SD-card copy).
+- **Pi daemon**: new upload type `POST /upload?kind=reels&dir=base|r_us|r_eu|r_jp` (names, folders and sizes checked; temporary file then rename, never a truncated logo) and `POST /reels-refresh`. An older daemon is refused by the toolkit (it would store the files as GIFs).
+- Tested on a Raspberry Pi 3B: 167 files sent, SHA-256 identical to the source.
+
 ## 2026-10-28 — Firmware v3.98, Raspberry Pi daemon v3.73 and toolkit 14083: real console logos
 
 **Firmware v3.98 · Raspberry Pi daemon v3.73 · PC toolkit build 14083 (Mode 20)**

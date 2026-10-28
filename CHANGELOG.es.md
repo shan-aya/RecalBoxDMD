@@ -8,6 +8,13 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-28 (2) — Demonio Raspberry Pi v3.74 y caja de herramientas 14184: los logos reales se envían a la Pi por Wi-Fi
+
+**Demonio Raspberry Pi v3.74 · Caja de herramientas del PC build 14184**
+- **Modo 20: envío de los logos reales a la Raspberry Pi por Wi-Fi.** Tras la descarga, si una Pi (demonio 3.74 o superior) responde en la red, la caja de herramientas le envía directamente la carpeta `logos-reels` (167 archivos, unos 4 s): ya no hace falta sacar su tarjeta SD. El demonio recarga los índices y redibuja el logo en pantalla al instante. Si no se encuentra ninguna Pi: un mensaje, y la copia a la tarjeta SD como antes (el ESP32 sigue con la copia a tarjeta SD).
+- **Demonio Pi**: nuevo tipo de envío `POST /upload?kind=reels&dir=base|r_us|r_eu|r_jp` (nombres, carpetas y tamaños comprobados; archivo temporal y luego renombrado, nunca un logo truncado) y `POST /reels-refresh`. La caja de herramientas rechaza un demonio más antiguo (guardaría los archivos como GIF).
+- Probado en una Raspberry Pi 3B: 167 archivos enviados, SHA-256 idénticos al original.
+
 ## 2026-10-28 — Firmware v3.98, demonio Raspberry Pi v3.73 y caja de herramientas 14083: logos reales de consolas
 
 **Firmware v3.98 · Demonio Raspberry Pi v3.73 · Caja de herramientas del PC build 14083 (Modo 20)**

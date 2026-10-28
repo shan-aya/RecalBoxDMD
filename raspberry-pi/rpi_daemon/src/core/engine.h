@@ -86,6 +86,7 @@ class Engine {
   bool mainTaskPending();
   void loadBrightSched();                                  // BRIGHT_SCHED* relus (demarrage, rechargement de config.ini)
   void reloadConfig();                                    // config.ini vient d'etre modifie : relit et applique en direct
+  void reelsRefresh();                                    // v3.74 : logos reels envoyes par le toolkit : recharge les index et redessine le logo a l'ecran
   void webPause(const std::string &msg, uint16_t color);
   // Page de configuration fermee (croix, fermeture du navigateur, plantage) : le DMD ne doit pas rester en mode config.
   // webTouch() = signe de vie (battement /dmd-hb, message, page ouverte) ; webLeaveSoon() = la page annonce son depart (/dmd-leave) : reprise dans delayMs sauf si une page se rouvre ;

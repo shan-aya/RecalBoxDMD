@@ -299,6 +299,17 @@ void Engine::reloadConfig() {
   if (reloadHook_) reloadHook_();
 }
 
+void Engine::reelsRefresh() {
+  themes_.refresh(fs_);
+  if (!lastSys_.empty() && mode_ == Mode::PNG && startsWith(currentPngPath_, "/systems/_defaults/")) {
+    pngDrawn_ = false;
+    currentPngPath_.clear();
+    cmdSystem(lastSys_);  // le logo a l'ecran est redessine avec les nouveaux fichiers
+    d_.show();
+  }
+  logf("WEB", "logos reels : fichiers recharges");
+}
+
 // deux couleurs : le prefixe d'instruction dans cfgSubColor_, la valeur (SSID, adresse) en blanc
 void Engine::drawSubAt(int x) {
   d_.setTextWrap(false);

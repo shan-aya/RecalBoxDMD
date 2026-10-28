@@ -349,12 +349,25 @@ void WebConfig::registerMediaRoutes() {
       std::string name = baseName(wf.filename), dir = trim(r.arg("dir"));
       std::string err, path, dirPath;
       const std::string kind = r.arg("kind");
-      bool isBg = kind == "qbg", isQuote = kind == "quote", isDef = kind == "defimg";
+      bool isBg = kind == "qbg", isQuote = kind == "quote", isDef = kind == "defimg", isReels = kind == "reels";
+      const bool reelsRaw = isReels && name.size() > 7 && name.compare(name.size() - 7, 7, ".raw565") == 0;
       size_t limit = 0;
       if (gen_->active) err = "ERR: generation de playlist en cours";
       else if (dir.empty()) err = "ERR: dossier cible manquant";
       else if (name.empty()) err = "ERR: nom fichier invalide";
-      else if (isDef) {   // image de secours envoyee par le toolkit : nom impose, 8192 octets exactement
+      else if (isReels) {   // v3.74 : logos reels envoyes par le toolkit (Wi-Fi). dir = base | r_us | r_eu | r_jp ; fichiers : <systeme>.raw565 (8192 octets), _index.bin, LISEZMOI.txt
+        const bool dirOk = dir == "base" || dir == "r_us" || dir == "r_eu" || dir == "r_jp";
+        bool nameOk = name == "_index.bin" || (name == "LISEZMOI.txt" && dir == "base") || (reelsRaw && name.size() <= 48);
+        for (size_t i = 0; nameOk && reelsRaw && i < name.size(); i++) {
+          const char c = name[i];
+          nameOk = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' || c == '_' || c == '-';
+        }
+        if (!dirOk || !nameOk) err = "ERR: logo reel invalide";
+        else {
+          dirPath = "/systems/_defaults/_themes/logos-reels" + (dir == "base" ? std::string() : "/" + dir);
+          limit = reelsRaw ? 8192 : 16384;
+        }
+      } else if (isDef) {   // image de secours envoyee par le toolkit : nom impose, 8192 octets exactement
         name = "default.raw565";
         dirPath = "/systems/_defaults";
         limit = 8192;
@@ -387,6 +400,18 @@ void WebConfig::registerMediaRoutes() {
         if (limit && data.size() > limit) data.resize(limit);
         if (isDef && sent != 8192) {
           err = "ERR: l'image de secours doit faire 8192 octets (128x32 raw565)";
+        } else if (isReels && reelsRaw && sent != 8192) {
+          err = "ERR: un logo doit faire 8192 octets (128x32 raw565)";
+        } else if (isReels && name == "_index.bin" && (sent == 0 || sent % 4 != 0 || sent > 16384)) {
+          err = "ERR: index de logos invalide";
+        } else if (isReels) {   // temporaire puis renommage : un envoi interrompu ne laisse jamais un logo tronque
+          const std::string tmp = real(path) + ".tmp";
+          {
+            std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
+            if (!f || !f.write(data.data(), (std::streamsize)data.size())) err = "ERR: ecriture SD impossible";
+          }
+          if (err.empty() && std::rename(tmp.c_str(), real(path).c_str()) != 0) err = "ERR: remplacement du logo impossible";
+          if (!err.empty()) std::remove(tmp.c_str());
         } else if (isDef) {   // temporaire puis renommage : un envoi interrompu ne laisse jamais une image tronquee ; le cache du demon suit la date du fichier
           const std::string tmp = real(path) + ".tmp";
           {
