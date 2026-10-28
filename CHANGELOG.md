@@ -8,6 +8,14 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-28 (3) — Toolkit 14285: new "Customize" tab (custom game logos), Mode 3 without text cards
+
+**PC toolkit build 14285** (firmware 3.98 and Pi daemon 3.74 unchanged)
+- **New "Customize" tab**: replace a game's logo with your own image (PNG/JPG, animated GIF, or a text card). Your choices are stored in `custom/logos.json` on the SD card (with a copy in `%APPDATA%`) and **re-applied automatically after every copy to the SD card**: a new scrape no longer overwrites them. Batch import, zip packages, "All systems" list, LED preview.
+- **Logs tab**: Copy and Export buttons (full log), Top/End navigation, grid scrollbars.
+- **Mode 3: no more text cards.** Mode 3 extracts the raw images from `gamelist.xml` for DMD GIF Creator; the text cards generated for games without an image were converted like real images, with a catastrophic result. Games without an image are listed in `images_manquantes.txt` again. The other modes keep text cards (Mode 18 regenerates them on their own).
+- **Real logos**: the `dice` logo is removed (it showed ATARI CLASSICS; DICE is an emulator, not a console, and the theme's logo is correct). The set is now 136 base logos.
+
 ## 2026-10-28 (2) — Raspberry Pi daemon v3.74 and toolkit 14184: real console logos can be sent to the Pi over Wi-Fi
 
 **Raspberry Pi daemon v3.74 · PC toolkit build 14184**
