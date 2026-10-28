@@ -76,7 +76,7 @@ Depuis le firmware 3.98 (et le démon Raspberry Pi correspondant), le DMD peut a
 
 1. Téléchargez les logos avec la boîte à outils PC : **Mode 20** (ou **Mode 1**, qui les propose pré-cochés), puis copiez le dossier `logos-reels` sur la carte SD du DMD (`systems/_defaults/_themes/`).
 2. Dans la page web du DMD (**Affichage**), réglez **Logos réels des consoles** sur *Tous les thèmes*, ou sur *Seulement les thèmes cochés* et cochez les thèmes concernés.
-3. La variante (USA / Europe / Japon) suit la **région réglée dans votre Recalbox** ; il n'y a rien à régler sur le DMD.
+3. La variante (USA / Europe / Japon) suit la **région réglée dans votre Recalbox**, même si le thème n'a pas de variante pour cette région ; il n'y a rien à régler sur le DMD.
 
 Un système absent du set (genres, favoris…) garde le logo du thème. Un thème qui n'apparaît pas encore dans la liste y apparaît dès que vous le sélectionnez une fois dans Recalbox.
 

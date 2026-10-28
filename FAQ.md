@@ -76,7 +76,7 @@ Since firmware 3.98 (and the matching Raspberry Pi daemon), the DMD can show the
 
 1. Download the logos with the PC toolkit: **Mode 20** (or **Mode 1**, which offers them pre-ticked), then copy the `logos-reels` folder to the DMD's SD card (`systems/_defaults/_themes/`).
 2. On the DMD's web page (**Display**), set **Real console logos** to *All themes*, or to *Only the ticked themes* and tick the themes concerned.
-3. The variant (USA / Europe / Japan) follows the **region set in your Recalbox**; there is nothing to set on the DMD.
+3. The variant (USA / Europe / Japan) follows the **region set in your Recalbox**, even when the theme has no variant for that region; there is nothing to set on the DMD.
 
 A system that is not in the set (genres, favorites…) keeps the theme's logo. A theme that does not appear in the list yet appears as soon as you select it once in Recalbox.
 
