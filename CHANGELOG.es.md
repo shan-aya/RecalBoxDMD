@@ -8,14 +8,6 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
-## 2026-10-28 (3) — Caja de herramientas 14285: nueva pestaña « Personalizar » (logos de juegos personalizados), Modo 3 sin tarjetas de texto
-
-**Caja de herramientas del PC build 14285** (firmware 3.98 y demonio Pi 3.74 sin cambios)
-- **Nueva pestaña « Personalizar »**: sustituya el logo de un juego por su propia imagen (PNG/JPG, GIF animado o una tarjeta de texto). Sus elecciones se guardan en `custom/logos.json` en la tarjeta SD (con una copia en `%APPDATA%`) y **se reaplican automáticamente tras cada copia a la tarjeta SD**: un nuevo scrape ya no las sobrescribe. Importación por lotes, paquetes zip, lista « Todos los sistemas », vista previa LED.
-- **Pestaña Logs**: botones Copiar y Exportar (registro completo), navegación Inicio/Final, barras de desplazamiento en cuadrícula.
-- **Modo 3: ya no crea tarjetas de texto.** El Modo 3 extrae las imágenes en bruto del `gamelist.xml` para DMD GIF Creator; las tarjetas de texto generadas para los juegos sin imagen se convertían como imágenes reales, con un resultado catastrófico. Los juegos sin imagen vuelven a figurar en `images_manquantes.txt`. Los demás modos conservan las tarjetas de texto (el Modo 18 las regenera por separado).
-- **Logos reales**: se retira el logo `dice` (mostraba ATARI CLASSICS; DICE es un emulador, no una consola, y el logo del tema es correcto). El conjunto pasa a 136 logos base.
-
 ## 2026-10-28 (2) — Demonio Raspberry Pi v3.74 y caja de herramientas 14184: los logos reales se envían a la Pi por Wi-Fi
 
 **Demonio Raspberry Pi v3.74 · Caja de herramientas del PC build 14184**

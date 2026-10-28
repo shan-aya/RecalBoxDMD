@@ -8,14 +8,6 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
-## 2026-10-28 (3) — Boîte à outils 14285 : onglet « Personnalisation » (logos de jeux personnalisés), Mode 3 sans cartes texte
-
-**Boîte à outils PC build 14285** (firmware 3.98 et démon Pi 3.74 inchangés)
-- **Nouvel onglet « Personnalisation »** : remplacez le logo d'un jeu par votre propre image (PNG/JPG, GIF animé, ou une carte texte). Les choix sont mémorisés dans `custom/logos.json` sur la carte SD (avec une copie dans `%APPDATA%`) et **réappliqués automatiquement après chaque copie sur la SD** : un nouveau scrape ne les écrase plus. Import en lot, paquets zip, liste « Tous les systèmes », aperçu LED.
-- **Onglet Logs** : boutons Copier et Exporter (journal complet), navigation Début/Fin, ascenseurs en grille.
-- **Mode 3 : plus de cartes texte.** Le Mode 3 extrait les images brutes du `gamelist.xml` pour DMD GIF Creator ; les cartes texte générées pour les jeux sans image étaient converties comme de vraies images, avec un résultat catastrophique. Les jeux sans image sont de nouveau listés dans `images_manquantes.txt`. Les autres modes gardent les cartes texte (Mode 18 pour les régénérer seules).
-- **Logos réels** : le logo `dice` est retiré (il affichait ATARI CLASSICS ; DICE est un émulateur, pas une console, et le logo du thème est correct). Le jeu passe à 136 logos de base.
-
 ## 2026-10-28 (2) — Démon Raspberry Pi v3.74 et boîte à outils 14184 : les logos réels s'envoient au Pi par Wi-Fi
 
 **Démon Raspberry Pi v3.74 · Boîte à outils PC build 14184**
