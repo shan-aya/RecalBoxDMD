@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-29 — Caja de herramientas 14286: el Modo 3 ya no crea tarjetas de texto
+
+**Caja de herramientas del PC build 14286** (firmware 3.98 y demonio Pi 3.74 sin cambios)
+- **Modo 3 sin tarjetas de texto.** El Modo 3 extrae las imágenes en bruto del `gamelist.xml` para DMD GIF Creator; las tarjetas de texto generadas para los juegos sin imagen se convertían como imágenes reales, con un resultado catastrófico. Los juegos sin imagen vuelven a figurar en `images_manquantes.txt`. Los demás modos conservan las tarjetas de texto (el Modo 18 las regenera por separado). Una carpeta ya extraída conserva sus tarjetas: bórrela o ejecute el Modo 3 en una carpeta vacía.
+- **Logos reales**: se retira el logo `dice` del conjunto (mostraba ATARI CLASSICS; DICE es un emulador, no una consola). 136 logos base.
+
 ## 2026-10-28 (2) — Demonio Raspberry Pi v3.74 y caja de herramientas 14184: los logos reales se envían a la Pi por Wi-Fi
 
 **Demonio Raspberry Pi v3.74 · Caja de herramientas del PC build 14184**

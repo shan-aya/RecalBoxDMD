@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-29 — Toolkit 14286: Mode 3 no longer creates text cards
+
+**PC toolkit build 14286** (firmware 3.98 and Pi daemon 3.74 unchanged)
+- **Mode 3 without text cards.** Mode 3 extracts the raw images from `gamelist.xml` for DMD GIF Creator; the text cards generated for games without an image were converted like real images, with a catastrophic result. Games without an image are listed in `images_manquantes.txt` again. The other modes keep text cards (Mode 18 regenerates them on their own). A folder that was already extracted keeps its cards: delete it or run Mode 3 into an empty folder.
+- **Real logos**: the `dice` logo is removed from the set (it showed ATARI CLASSICS; DICE is an emulator, not a console). 136 base logos.
+
 ## 2026-10-28 (2) — Raspberry Pi daemon v3.74 and toolkit 14184: real console logos can be sent to the Pi over Wi-Fi
 
 **Raspberry Pi daemon v3.74 · PC toolkit build 14184**

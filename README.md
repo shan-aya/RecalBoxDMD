@@ -8,7 +8,7 @@
 
 <p align="center">
   <img alt="Firmware: v3.98" src="https://img.shields.io/badge/firmware-v3.98-blueviolet.svg">
-  <img alt="PC tool: v14184" src="https://img.shields.io/badge/PC%20tool-v14184-blueviolet.svg">
+  <img alt="PC tool: v14286" src="https://img.shields.io/badge/PC%20tool-v14286-blueviolet.svg">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green.svg"></a>
   <img alt="Platforms: ESP32 and Raspberry Pi" src="https://img.shields.io/badge/platforms-ESP32%20%7C%20Raspberry%20Pi-blue.svg">
   <img alt="Panel: HUB75 128x32" src="https://img.shields.io/badge/panel-HUB75%20128x32-blue.svg">
@@ -368,7 +368,7 @@ The Pi software is **downloaded from GitHub** (`pi-v…` release, SHA-256 checke
 
 ## 🧰 The PC Toolkit — the heart of the installation
 
-The Windows application (FR / EN / ES, 9 visual skins) that **builds everything**: SD card, scripts, themes, GIFs, updates — for the ESP32 and the Raspberry Pi alike. Full manual: [`HELP.md`](tools/RecalBoxDMD_tool_v14184/HELP.md) (also in the *Help* tab).
+The Windows application (FR / EN / ES, 9 visual skins) that **builds everything**: SD card, scripts, themes, GIFs, updates — for the ESP32 and the Raspberry Pi alike. Full manual: [`HELP.md`](tools/RecalBoxDMD_tool_v14286/HELP.md) (also in the *Help* tab).
 
 | Main · SNES | Settings · Dreamcast |
 |---|---|
