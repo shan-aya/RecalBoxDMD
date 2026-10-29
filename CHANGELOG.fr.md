@@ -19,6 +19,7 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 **Démon Raspberry Pi v3.75**
 - **Nouvelles routes pour remplacer le logo d'un jeu sans sortir la carte SD** (pour l'onglet Personnalisation de la boîte à outils, à venir) : `POST /upload?kind=logo` (écriture), `GET /logo-info` et `GET /logo` (lecture : existence, empreinte, octets), `POST /logo-delete` (suppression) et `POST /logos-refresh` (fin d'un lot).
 - **Le Pi complète lui-même `games_cache.bin`** pour qu'un logo ajouté à un jeu qui n'en avait pas s'affiche vraiment (sans cela le Pi affiche l'image par défaut). Sécurité : la réécriture est refusée si elle ne redonne pas, octet pour octet, le fichier actuel. L'écran est redessiné quand le jeu affiché est concerné.
+- **Messages traduits (français / anglais / espagnol)** : les écrans du DMD (redémarrage, mise à jour, bouton, mode diagnostic), les erreurs du serveur web et les raisons d'échec de la mise à jour OTA suivent maintenant la langue choisie (`language`). Pages web du Pi : clé espagnole manquante ajoutée, titre de la page Widgets traduit (« Widgets & Clock » / « Widgets y Reloj »).
 - Aucun changement visible tant que la boîte à outils ne s'en sert pas. Noms de systèmes et de jeux strictement contrôlés (ASCII, jamais de chemin), 8192 octets exactement, fichier temporaire puis renommage. Testé sur un Raspberry Pi 3B ; l'ESP32 n'est pas concerné.
 
 ## 2026-10-28 (2) — Démon Raspberry Pi v3.74 et boîte à outils 14184 : les logos réels s'envoient au Pi par Wi-Fi

@@ -61,4 +61,20 @@ for name, fn in PAGES.items():
 (out / "cfg.css").write_bytes(css)
 (out / "cfg.js").write_bytes(js)
 (out / "native.js").write_text(block("NATIVE_JS", "nativejs"), encoding="utf-8", newline="\n")
+# v3.75 -- retouches propres au Pi, appliquees apres l'extraction (le firmware ESP32 n'est pas touche : web_config.h reste la source). Un texte deja corrige a la source n'est pas retouche.
+PI_PATCHES = [
+    ("playlist.html", "msg_stopping_gen:'Deteniendo la generación de la lista, espere...'",
+     "msg_stopping_gen:'Deteniendo la generación de la lista, espere...',msg_stop_gen_failed:'Falló la solicitud de parada (red) -- reintente'"),
+    ("widgets.html", "en:{title:'RecalBox DMD - Widgets & Horloge',h1:'Widgets &amp; Horloge'", "en:{title:'RecalBox DMD - Widgets & Clock',h1:'Widgets &amp; Clock'"),
+    ("widgets.html", "es:{title:'RecalBox DMD - Widgets & Horloge',h1:'Widgets &amp; Horloge'", "es:{title:'RecalBox DMD - Widgets y Reloj',h1:'Widgets y Reloj'"),
+]
+for fn, old, new in PI_PATCHES:
+    p = out / fn
+    t = p.read_text(encoding="utf-8")
+    if t.count(old) == 1:
+        p.write_text(t.replace(old, new), encoding="utf-8", newline="\n")
+    elif new in t:
+        print(f"retouche Pi deja faite a la source : {fn}")
+    else:
+        print(f"ATTENTION : retouche Pi non appliquee ({fn}) : le texte a change dans web_config.h")
 print(f"{len(PAGES)} pages + cfg.css ({css_hash}) + cfg.js ({js_hash}) + native.js -> {out} ({total} octets de HTML)")

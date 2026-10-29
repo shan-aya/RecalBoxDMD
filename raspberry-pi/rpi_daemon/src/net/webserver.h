@@ -36,6 +36,7 @@ class WebServer {
   void get(const std::string &path, WebHandler h);
   void post(const std::string &path, WebHandler h);
   void any(const std::string &path, WebHandler h) { get(path, h); post(path, h); }  // « on(path, handler) » du firmware : toute methode
+  void setReplyFilter(std::function<void(WebReply &)> f);  // v3.75 : appele sur chaque reponse avant l'envoi (traduction des messages)
   bool start(int port);  // thread dedie ; false si le port est indisponible
   void stop();
 

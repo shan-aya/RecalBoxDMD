@@ -19,6 +19,103 @@
 #include "netutil.h"
 #include "wifimanager.h"
 #include "button.h"
+#include "i18n.h"
+
+namespace {
+// v3.75 : reponses du serveur en trois langues. Le demon ecrit ses messages en francais ; quand « language » (config.ini) vaut en ou es, le filtre de reponse remplace
+// ces textes avant l'envoi. Plus long d'abord quand un texte est le debut d'un autre. Le francais n'est jamais touche.
+struct Msg3 { const char *fr, *en, *es; };
+const Msg3 kMsgs[] = {
+    {"ERR: la page n'a pas charge la configuration (champs vides) - rien enregistre, rechargez la page", "ERR: the page did not load the configuration (empty fields) - nothing saved, reload the page", "ERR: la página no cargó la configuración (campos vacíos) - nada guardado, recargue la página"},
+    {"ERREUR : le fond Widgets seuls demande au moins un widget (ou l'horloge) - rien n'a ete enregistre.", "ERROR: the Widgets-only background needs at least one widget (or the clock) - nothing was saved.", "ERROR: el fondo Solo widgets necesita al menos un widget (o el reloj) - no se guardó nada."},
+    {"ERR: mise a jour indisponible (dmd_update.py absent de l'installation)", "ERR: update unavailable (dmd_update.py missing from the installation)", "ERR: actualización no disponible (falta dmd_update.py en la instalación)"},
+    {"ERR: dossier reserve aux animations de demarrage", "ERR: folder reserved for boot animations", "ERR: carpeta reservada a las animaciones de arranque"},
+    {"ERR: l'image de secours doit faire 8192 octets (128x32 raw565)", "ERR: the fallback image must be 8192 bytes (128x32 raw565)", "ERR: la imagen de respaldo debe tener 8192 bytes (128x32 raw565)"},
+    {"ERR: remplacement de l'image de secours impossible", "ERR: cannot replace the fallback image", "ERR: no se puede reemplazar la imagen de respaldo"},
+    {"ERR: un logo doit faire 8192 octets (128x32 raw565)", "ERR: a logo must be 8192 bytes (128x32 raw565)", "ERR: un logo debe tener 8192 bytes (128x32 raw565)"},
+    {"ERR: un fond doit faire 8192 octets (128x32 raw565)", "ERR: a background must be 8192 bytes (128x32 raw565)", "ERR: un fondo debe tener 8192 bytes (128x32 raw565)"},
+    {"ERR: systeme ou nom de logo invalide", "ERR: invalid system or logo name", "ERR: sistema o nombre de logo no válido"},
+    {"ERR: generation de playlist en cours", "ERR: playlist generation in progress", "ERR: generación de playlist en curso"},
+    {"ERR: remplacement du logo impossible", "ERR: cannot replace the logo", "ERR: no se puede reemplazar el logo"},
+    {"ERR: gestionnaire Wi-Fi indisponible", "ERR: Wi-Fi manager unavailable", "ERR: gestor Wi-Fi no disponible"},
+    {"ERR: nom de playlist invalide", "ERR: invalid playlist name", "ERR: nombre de playlist no válido"},
+    {"ERR: nom de dossier invalide", "ERR: invalid folder name", "ERR: nombre de carpeta no válido"},
+    {"ERR: dossier cible manquant", "ERR: target folder missing", "ERR: falta la carpeta de destino"},
+    {"ERR: generation deja en cours", "ERR: generation already running", "ERR: generación ya en curso"},
+    {"ERR: ecriture SD impossible", "ERR: SD write failed", "ERR: no se puede escribir en la SD"},
+    {"ERR: index de logos invalide", "ERR: invalid logo index", "ERR: índice de logos no válido"},
+    {"ERR: suppression impossible", "ERR: cannot delete", "ERR: no se puede eliminar"},
+    {"ERR: lancement impossible", "ERR: cannot start", "ERR: no se puede iniciar"},
+    {"ERR: nom de logo invalide", "ERR: invalid logo name", "ERR: nombre de logo no válido"},
+    {"ERR: nom de fond invalide", "ERR: invalid background name", "ERR: nombre de fondo no válido"},
+    {"ERR: nom fichier invalide", "ERR: invalid file name", "ERR: nombre de archivo no válido"},
+    {"ERR: ecriture impossible", "ERR: cannot write", "ERR: no se puede escribir"},
+    {"ERR: aucun fichier recu", "ERR: no file received", "ERR: ningún archivo recibido"},
+    {"ERR: creation echouee", "ERR: creation failed", "ERR: creación fallida"},
+    {"ERR: manque nom ou dirs", "ERR: name or folders missing", "ERR: faltan el nombre o las carpetas"},
+    {"ERR: generation en cours", "ERR: generation in progress", "ERR: generación en curso"},
+    {"ERR: dossier manquant", "ERR: folder missing", "ERR: falta la carpeta"},
+    {"ERR: langue inconnue", "ERR: unknown language", "ERR: idioma desconocido"},
+    {"ERR: systeme inconnu", "ERR: unknown system", "ERR: sistema desconocido"},
+    {"ERR: logo reel invalide", "ERR: invalid real logo", "ERR: logo real no válido"},
+    {"ERR: theme invalide", "ERR: invalid theme", "ERR: tema no válido"},
+    {"ERR: fete inconnue", "ERR: unknown holiday", "ERR: festividad desconocida"},
+    {"ERR: manque nom", "ERR: name missing", "ERR: falta el nombre"},
+    {"ERR: nom invalide", "ERR: invalid name", "ERR: nombre no válido"},
+    {"ERR: logo absent", "ERR: logo not found", "ERR: logo no encontrado"},
+    {"ERR: introuvable", "ERR: not found", "ERR: no encontrado"},
+    {"ERR: langue", "ERR: unknown language", "ERR: idioma desconocido"},
+    {"OK: arret demande", "OK: stop requested", "OK: parada solicitada"},
+    {"OK: rien a arreter", "OK: nothing to stop", "OK: nada que detener"},
+    {"OK: existant", "OK: already exists", "OK: ya existe"},
+    {"OK: cree", "OK: created", "OK: creado"},
+    {" GIFs ajoutes dans la playlist ", " GIFs added to playlist ", " GIFs añadidos a la playlist "},
+    {" fichiers supprimes pour ", " files deleted for ", " archivos eliminados para "},
+    {" supprime(s)", " deleted", " eliminado(s)"},
+    {" echec(s)", " failure(s)", " fallo(s)"},
+};
+
+void localizeReply(const std::string &lang, WebReply &r) {
+  if (lang != "en" && lang != "es") return;
+  const bool plain = r.contentType.compare(0, 10, "text/plain") == 0, js = r.contentType.compare(0, 16, "application/json") == 0;
+  const bool okErr = plain && r.body.size() < 4096 && (r.body.compare(0, 2, "OK") == 0 || r.body.compare(0, 3, "ERR") == 0);
+  const bool jsonErr = js && r.body.size() < 8192 && r.body.find("\"err\":\"ERR") != std::string::npos;
+  if (!okErr && !jsonErr) return;
+  for (const Msg3 &m : kMsgs) {
+    const std::string fr = m.fr, to = lang == "en" ? m.en : m.es;
+    for (size_t p = r.body.find(fr); p != std::string::npos; p = r.body.find(fr, p + to.size())) r.body.replace(p, fr.size(), to);
+  }
+}
+
+// v3.75 : dmd_update.py ecrit « echec:<code>[|<detail>] » dans ota_last ; /load renvoie la raison dans la langue du DMD. Un texte inconnu (ancien dmd_update.py) passe tel quel.
+std::string otaLocalize(const std::string &lang, std::string raw) {
+  while (!raw.empty() && (raw.back() == '\n' || raw.back() == '\r')) raw.pop_back();
+  if (raw.compare(0, 6, "echec:") != 0) return raw;
+  std::string code = raw.substr(6), detail;
+  const size_t bar = code.find('|');
+  if (bar != std::string::npos) {
+    detail = code.substr(bar + 1);
+    code = code.substr(0, bar);
+  }
+  struct R { const char *code, *fr, *en, *es; };
+  static const R rs[] = {
+      {"github", "GitHub injoignable", "GitHub unreachable", "GitHub inaccesible"},
+      {"norelease", "aucune version publiee", "no published version", "ninguna versión publicada"},
+      {"download", "telechargement impossible", "download failed", "descarga imposible"},
+      {"sha", "empreinte SHA-256 invalide, telechargement rejete", "invalid SHA-256 fingerprint, download rejected", "huella SHA-256 no válida, descarga rechazada"},
+      {"archive", "archive illisible", "unreadable archive", "archivo ilegible"},
+      {"payload", "charge utile incomplete", "incomplete payload", "paquete incompleto"},
+      {"version", "version de la charge utile incoherente", "inconsistent payload version", "versión del paquete incoherente"},
+      {"install", "installation refusee, version precedente remise", "installation refused, previous version restored", "instalación rechazada, versión anterior restaurada"},
+      {"busy", "lancement impossible (mise a jour deja en cours ?)", "cannot start (update already running?)", "no se puede iniciar (¿actualización ya en curso?)"},
+      {"error", "erreur interne", "internal error", "error interno"},
+  };
+  for (const R &x : rs)
+    if (code == x.code) return std::string("echec:") + L3(lang, x.fr, x.en, x.es) + (detail.empty() ? "" : " (" + detail + ")");
+  return raw;
+}
+}  // namespace
+
 
 namespace {
 std::string jsonEscape(const std::string &s) {
@@ -213,7 +310,7 @@ WebReply WebConfig::load() {
     std::lock_guard<std::mutex> lk(eng_.themeControl().m);
     add("scripts_bundle", eng_.themeControl().scriptVer);
   }
-  add("ota_last", installPrefix().empty() ? s("ota_last") : readSmall(installPrefix() + "/ota_last"));  // ecrit par dmd_update.py : en-cours / ok:<version> / ok:deja ... / echec:<raison>
+  add("ota_last", otaLocalize(cfg_.uiLanguage, installPrefix().empty() ? s("ota_last") : readSmall(installPrefix() + "/ota_last")));  // ecrit par dmd_update.py : en-cours / ok:<version> / ok:deja ... / echec:<raison>
   const uint64_t first = udp_.firstPacketMs();
   add("rb_age", std::to_string(first ? (unsigned long)((nowMs() - first) / 1000UL) : 0UL));
   add("wifi_enabled", fb("wifi_enabled", true));
@@ -691,6 +788,7 @@ void WebConfig::registerRoutes() {
     const std::string file = p.second;
     web_.any(p.first, [this, file](const WebRequest &r) { return page(file, r); });
   }
+  web_.setReplyFilter([this](WebReply &r) { localizeReply(cfg_.uiLanguage, r); });   // v3.75 : ERR: / OK: dans la langue du DMD
   web_.any("/favicon.ico", [](const WebRequest &) { WebReply r; r.status = 204; return r; });
   web_.any("/load", [this](const WebRequest &) { return load(); });
   web_.any("/reels_installed", [this](const WebRequest &) {  // v398 : themes installes sur la SD (liste a cocher des logos reels), hors logos-reels et dossiers « _ »
@@ -822,7 +920,7 @@ void WebConfig::registerRoutes() {
     if (netDirty_.exchange(false)) {  // reseau modifie : redemarrage complet du Raspberry Pi (la page attend son retour puis l'annonce)
       logf("WEB", "reseau modifie : redemarrage du Raspberry Pi");
       out.body = "PIREBOOT";
-      eng_.runOnMain([&] { eng_.webPause("Redemarrage du Pi...", 0xFFE0); });
+      eng_.runOnMain([&] { eng_.webPause(L3(cfg_.uiLanguage, "Redemarrage du Pi...", "Restarting the Pi...", "Reiniciando la Pi..."), 0xFFE0); });
       std::thread([] {
         std::this_thread::sleep_for(std::chrono::milliseconds(1500));  // laisse partir la reponse HTTP
         runArgs({"systemctl", "reboot"}, 15000);
@@ -854,13 +952,13 @@ void WebConfig::registerRoutes() {
     runArgs({"systemd-run", "--no-block", "--collect", "--unit=recalboxdmd-update", script}, 15000, &rc);
     if (rc != 0) {  // deja en cours (unite existante) ou systemd-run indisponible
       std::ofstream st(prefix + "/ota_last", std::ios::trunc);
-      st << "echec:lancement impossible (mise a jour deja en cours ?)\n";
+      st << "echec:busy\n";
       r.status = 500;
       r.body = "ERR: lancement impossible";
       return r;
     }
     logf("WEB", "mise a jour du demon lancee (dmd_update.py)");
-    eng_.runOnMain([&] { eng_.webPause("Mise a jour...", 0xFFE0); });
+    eng_.runOnMain([&] { eng_.webPause(L3(cfg_.uiLanguage, "Mise a jour...", "Updating...", "Actualizando..."), 0xFFE0); });
     r.body = "OK";
     return r;
   });

@@ -19,6 +19,7 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 **Demonio Raspberry Pi v3.75**
 - **Nuevas rutas para cambiar el logo de un juego sin sacar la tarjeta SD** (para la pestaña Personalización de la caja de herramientas, próximamente): `POST /upload?kind=logo` (escritura), `GET /logo-info` y `GET /logo` (lectura: existencia, huella, bytes), `POST /logo-delete` (borrado) y `POST /logos-refresh` (fin de un lote).
 - **La Pi completa ella misma `games_cache.bin`** para que un logo añadido a un juego que no tenía se muestre de verdad (sin esto la Pi muestra la imagen por defecto). Seguridad: la reescritura se rechaza si no reproduce, byte a byte, el archivo actual. La pantalla se redibuja cuando el juego mostrado está afectado.
+- **Mensajes traducidos (francés / inglés / español)**: las pantallas del DMD (reinicio, actualización, botón, modo diagnóstico), los errores del servidor web y los motivos de fallo de la actualización OTA siguen ahora el idioma elegido (`language`). Páginas web de la Pi: añadida la clave española que faltaba, título de la página Widgets traducido («Widgets & Clock» / «Widgets y Reloj»).
 - Ningún cambio visible mientras la caja de herramientas no las use. Nombres de sistemas y de juegos estrictamente comprobados (ASCII, nunca una ruta), exactamente 8192 bytes, archivo temporal y luego renombrado. Probado en una Raspberry Pi 3B; el ESP32 no se ve afectado.
 
 ## 2026-10-28 (2) — Demonio Raspberry Pi v3.74 y caja de herramientas 14184: los logos reales se envían a la Pi por Wi-Fi

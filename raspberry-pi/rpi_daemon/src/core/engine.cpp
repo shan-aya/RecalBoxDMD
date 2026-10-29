@@ -13,6 +13,7 @@
 #include "netutil.h"
 #include "pngdecode.h"
 #include "score.h"
+#include "i18n.h"
 
 namespace {
 constexpr long SCORE_DISPLAY_DURATION_MS = 6000;         // duree par defaut de l'ecran de score
@@ -626,7 +627,7 @@ void Engine::buttonAction(int a) {
       } else {
         cfgMainMsg_ = "PAUSE";
         cfgPersistentSub_.clear();
-        webPause("BOUTON : REPRISE", 0xFFE0);
+        webPause(L3(cfg_.uiLanguage, "BOUTON : REPRISE", "BUTTON: RESUME", "BOTON: REANUDAR"), 0xFFE0);
       }
       break;
     case 3:  // sequence des widgets maintenant
@@ -1810,9 +1811,9 @@ void Engine::diagStart(bool fromWeb) {
   diagShown2_.clear();
   diagMemMin_ = -1;
   if (!fromWeb || !configActive_) {  // lance par le bouton : l'ecran passe en « pause » ; lance par la page : l'ecran de configuration est deja la
-    cfgMainMsg_ = "DIAGNOSTIC";
+    cfgMainMsg_ = L3(cfg_.uiLanguage, "DIAGNOSTIC", "DIAGNOSTIC", "DIAGNOSTICO");
     cfgPersistentSub_.clear();
-    webPause("MESURE...", 0x07FF);
+    webPause(L3(cfg_.uiLanguage, "MESURE...", "MEASURING...", "MIDIENDO..."), 0x07FF);
   }
   diagActive_ = true;
   logf("DIAG", "mode diagnostic en boucle (%s)", fromWeb ? "page web" : "bouton");
@@ -1903,45 +1904,46 @@ void Engine::diagTick(uint64_t now) {
   const DiagStats::Calc c = diag_.calc();
   std::string l1, l2;
   uint16_t col = CYAN;
+  const std::string &dl = cfg_.uiLanguage;   // v3.75 : langue du DMD (fr / en / es)
   const uint16_t lc = (c.n == 0) ? CYAN : (c.lossPct == 0 && c.avg < 80) ? GREEN : (c.lossPct <= 10 && c.avg < 200) ? YEL : RED;
   if (page == 3) {
-    l1 = "RECONNEXIONS: " + std::to_string(diag_.disc());
+    l1 = std::string(L3(dl, "RECONNEXIONS: ", "RECONNECTIONS: ", "RECONEXIONES: ")) + std::to_string(diag_.disc());
     if (diag_.disc() == 0) {
-      l2 = "AUCUNE DEPUIS DIAG";
+      l2 = L3(dl, "AUCUNE DEPUIS DIAG", "NONE SINCE DIAG", "NINGUNA DESDE DIAG");
       col = GREEN;
     } else {
-      l2 = "DERNIERE IL Y A " + std::to_string((unsigned long)(now / 1000 - diag_.discAtS())) + "s";
+      l2 = std::string(L3(dl, "DERNIERE IL Y A ", "LAST ONE ", "ULTIMA HACE ")) + std::to_string((unsigned long)(now / 1000 - diag_.discAtS())) + (dl == "en" ? "s AGO" : "s");
       col = YEL;
     }
   } else if (page == 0) {
     if (w.up) {
-      const char *ql = w.rssi >= -55 ? "EXCELLENT" : w.rssi >= -67 ? "BON" : w.rssi >= -75 ? "MOYEN" : w.rssi >= -82 ? "FAIBLE" : "TRES FAIBLE";
+      const char *ql = w.rssi >= -55 ? L3(dl, "EXCELLENT", "EXCELLENT", "EXCELENTE") : w.rssi >= -67 ? L3(dl, "BON", "GOOD", "BUENA") : w.rssi >= -75 ? L3(dl, "MOYEN", "FAIR", "MEDIA") : w.rssi >= -82 ? L3(dl, "FAIBLE", "WEAK", "DEBIL") : L3(dl, "TRES FAIBLE", "VERY WEAK", "MUY DEBIL");
       l1 = "WIFI " + std::to_string(w.rssi) + " dBm";
       l2 = std::string(ql) + " CH" + std::to_string(w.channel);
       col = w.rssi >= -67 ? GREEN : w.rssi >= -75 ? YEL : RED;
     } else if (!ni.ip.empty()) {
       l1 = "ETHERNET";
-      l2 = "PAS DE WIFI";
+      l2 = L3(dl, "PAS DE WIFI", "NO WIFI", "SIN WIFI");
       col = GREEN;
     } else {
-      l1 = "RESEAU NON CONNECTE";
-      l2 = "PAS DE SIGNAL";
+      l1 = L3(dl, "RESEAU NON CONNECTE", "NETWORK NOT CONNECTED", "RED NO CONECTADA");
+      l2 = L3(dl, "PAS DE SIGNAL", "NO SIGNAL", "SIN SENAL");
       col = RED;
     }
   } else if (rb.empty()) {
     l1 = "RECALBOX";
-    l2 = "IP INCONNUE";
+    l2 = L3(dl, "IP INCONNUE", "UNKNOWN IP", "IP DESCONOCIDA");
     col = RED;
   } else if (c.n == 0) {
-    l1 = "TEST RECALBOX...";
+    l1 = L3(dl, "TEST RECALBOX...", "TESTING RECALBOX...", "PROBANDO RECALBOX...");
     l2 = rb;
   } else if (page == 1) {
     l1 = "RB " + rb;
-    l2 = c.got == 0 ? std::string("AUCUNE REPONSE") : std::to_string(c.got) + "/" + std::to_string(c.n) + " PONG " + std::to_string(c.avg) + "ms";
+    l2 = c.got == 0 ? std::string(L3(dl, "AUCUNE REPONSE", "NO ANSWER", "SIN RESPUESTA")) : std::to_string(c.got) + "/" + std::to_string(c.n) + " PONG " + std::to_string(c.avg) + "ms";
     col = c.got == 0 ? RED : lc;
   } else {
-    l1 = "PERTE " + std::to_string(c.lossPct) + "% MAX " + std::to_string(c.mx) + "ms";
-    l2 = "GIGUE " + std::to_string(c.jit) + "ms COUP " + std::to_string(diagHooks_.gapCount ? (unsigned long)diagHooks_.gapCount() : 0UL);
+    l1 = std::string(L3(dl, "PERTE ", "LOSS ", "PERDIDA ")) + std::to_string(c.lossPct) + "% MAX " + std::to_string(c.mx) + "ms";
+    l2 = std::string(L3(dl, "GIGUE ", "JITTER ", "JITTER ")) + std::to_string(c.jit) + std::string("ms ") + L3(dl, "COUP ", "DROPS ", "CORTES ") + std::to_string(diagHooks_.gapCount ? (unsigned long)diagHooks_.gapCount() : 0UL);
     col = lc;
   }
   if (l1 != diagShown1_ || l2 != diagShown2_ || col != diagShownColor_) {

@@ -9,6 +9,7 @@
 
 struct WebServer::Impl {
   httplib::Server svr;
+  std::function<void(WebReply &)> filter;
 };
 
 WebServer::WebServer() : impl_(new Impl) {}
@@ -43,11 +44,13 @@ void fill(const WebReply &rep, httplib::Response &res) {
 }  // namespace
 
 void WebServer::get(const std::string &path, WebHandler h) {
-  impl_->svr.Get(path, [h](const httplib::Request &req, httplib::Response &res) { fill(h(toRequest(req)), res); });
+  impl_->svr.Get(path, [h, im = impl_.get()](const httplib::Request &req, httplib::Response &res) { WebReply rep = h(toRequest(req)); if (im->filter) im->filter(rep); fill(rep, res); });
 }
 void WebServer::post(const std::string &path, WebHandler h) {
-  impl_->svr.Post(path, [h](const httplib::Request &req, httplib::Response &res) { fill(h(toRequest(req)), res); });
+  impl_->svr.Post(path, [h, im = impl_.get()](const httplib::Request &req, httplib::Response &res) { WebReply rep = h(toRequest(req)); if (im->filter) im->filter(rep); fill(rep, res); });
 }
+
+void WebServer::setReplyFilter(std::function<void(WebReply &)> f) { impl_->filter = std::move(f); }
 
 bool WebServer::start(int port) {
   if (!impl_->svr.bind_to_port("0.0.0.0", port)) {

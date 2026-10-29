@@ -19,6 +19,7 @@ This is a curated summary of the project's internal version history (185+ firmwa
 **Raspberry Pi daemon v3.75**
 - **New routes to replace a game's logo without taking the SD card out** (for the toolkit's upcoming Customisation tab): `POST /upload?kind=logo` (write), `GET /logo-info` and `GET /logo` (read: existence, fingerprint, bytes), `POST /logo-delete` (delete) and `POST /logos-refresh` (end of a batch).
 - **The Pi completes `games_cache.bin` itself** so that a logo added to a game that had none really shows (without it the Pi shows the default image). Safety: the rewrite is refused unless it reproduces the current file byte for byte. The screen is redrawn when the displayed game is concerned.
+- **Translated messages (French / English / Spanish)**: the DMD screens (restart, update, button, diagnostic mode), the web server's errors and the reasons an OTA update fails now follow the chosen language (`language`). Pi web pages: missing Spanish key added, Widgets page title translated ("Widgets & Clock" / "Widgets y Reloj").
 - No visible change until the toolkit uses them. System and game names strictly checked (ASCII, never a path), exactly 8192 bytes, temporary file then rename. Tested on a Raspberry Pi 3B; the ESP32 is not concerned.
 
 ## 2026-10-28 (2) — Raspberry Pi daemon v3.74 and toolkit 14184: real console logos can be sent to the Pi over Wi-Fi

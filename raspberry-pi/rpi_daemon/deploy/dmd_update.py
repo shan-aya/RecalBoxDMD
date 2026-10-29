@@ -6,7 +6,7 @@ Lance en root par le demon, DETACHE du service (systemd-run) : le service est re
   2. cherche la release pi-v... la plus recente (release publiee, pas un brouillon) et la compare a <prefix>/PI_VERSION ;
   3. telecharge RecalBoxDMD_pi_payload.zip, verifie son SHA-256 (fichier .sha256 de la release), l'extrait sans jamais sortir du dossier de travail ;
   4. sauvegarde le demon actuel (<prefix>/backup/), lance l'install.sh de la charge utile (qui redemarre le service et verifie qu'il reste actif) ;
-  5. en cas d'echec, REMET l'ancienne version et relance le service. Resultat final dans ota_last : « ok:<version> », « ok:deja <version> » ou « echec:<raison> ».
+  5. en cas d'echec, REMET l'ancienne version et relance le service. Resultat final dans ota_last : « ok:<version> », « ok:deja <version> » ou « echec:<code>[|<detail>] » (code neutre : le demon traduit la raison dans la langue du DMD, voir otaLocalize() de webconfig.cpp).
 config.ini et le contenu de la carte ne sont jamais touches. Variables de test : DMD_UPDATE_API (URL de la liste des releases), DMD_UPDATE_PREFIX.
 """
 import hashlib
@@ -142,10 +142,10 @@ def main() -> int:
         try:
             rel = latest_release()
         except Exception as e:   # noqa: BLE001
-            state(f"echec:GitHub injoignable ({type(e).__name__})")
+            state(f"echec:github|{type(e).__name__}")
             return 1
         if rel is None:
-            state("echec:aucune version publiee")
+            state("echec:norelease")
             return 1
         ver, url_zip, url_sha = rel
         if vtuple(ver) <= vtuple(cur):
@@ -157,24 +157,24 @@ def main() -> int:
             zpath = os.path.join(work, ASSET)
             got = download(url_zip, zpath)
         except Exception as e:   # noqa: BLE001
-            state(f"echec:telechargement impossible ({type(e).__name__})")
+            state(f"echec:download|{type(e).__name__}")
             return 1
         if got != want:
-            state("echec:empreinte SHA-256 invalide, telechargement rejete")
+            state("echec:sha")
             return 1
         stage = os.path.join(work, "payload")
         try:
             os.makedirs(stage)
             extract(zpath, stage)
         except Exception as e:   # noqa: BLE001
-            state(f"echec:archive illisible ({type(e).__name__})")
+            state(f"echec:archive|{type(e).__name__}")
             return 1
         for need in ("install.sh", "bin/dmd_daemon", "recalboxdmd.service", "PI_VERSION"):
             if not os.path.isfile(os.path.join(stage, need)):
-                state(f"echec:charge utile incomplete ({need})")
+                state(f"echec:payload|{need}")
                 return 1
         if read(os.path.join(stage, "PI_VERSION")) != ver:
-            state("echec:version de la charge utile incoherente")
+            state("echec:version")
             return 1
         b = backup()
         if TEST:
@@ -187,12 +187,12 @@ def main() -> int:
             tail = (res.stderr or res.stdout or "").strip().splitlines()[-1:] or ["?"]
             restore(b)
             restart_service()
-            state(f"echec:installation refusee, version precedente remise ({tail[0][:80]})")
+            state(f"echec:install|{tail[0][:80]}")
             return 1
         state(f"ok:{ver}")
         return 0
     except Exception as e:   # noqa: BLE001
-        state(f"echec:{type(e).__name__}")
+        state(f"echec:error|{type(e).__name__}")
         return 1
     finally:
         shutil.rmtree(work, ignore_errors=True)
