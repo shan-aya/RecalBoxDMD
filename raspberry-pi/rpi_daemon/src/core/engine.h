@@ -86,7 +86,8 @@ class Engine {
   bool mainTaskPending();
   void loadBrightSched();                                  // BRIGHT_SCHED* relus (demarrage, rechargement de config.ini)
   void reloadConfig();                                    // config.ini vient d'etre modifie : relit et applique en direct
-  void reelsRefresh();                                    // v3.74 : logos reels envoyes par le toolkit : recharge les index et redessine le logo a l'ecran
+  void gameLogosChanged(const std::vector<std::string> &games);  // v3.75 : logos de jeux envoyes/supprimes par le toolkit (« systeme/jeu ») : redessine l'ecran si le jeu affiche en fait partie
+  void reelsRefresh();                                 // v3.74 : logos reels envoyes par le toolkit : recharge les index et redessine le logo a l'ecran
   void webPause(const std::string &msg, uint16_t color);
   // Page de configuration fermee (croix, fermeture du navigateur, plantage) : le DMD ne doit pas rester en mode config.
   // webTouch() = signe de vie (battement /dmd-hb, message, page ouverte) ; webLeaveSoon() = la page annonce son depart (/dmd-leave) : reprise dans delayMs sauf si une page se rouvre ;
@@ -235,7 +236,8 @@ class Engine {
   ThemeControl tctl_;
   ThemeLogos themes_;
   uint32_t themeSeen_ = 0;
-  std::string lastSys_;   // lastSysName : dernier « system » recu (pour redessiner son logo quand le theme change)
+  std::string lastGameArg_;  // dernier « game » recu (« systeme/jeu »), vide des qu'un « system » le remplace
+  std::string lastSys_;  // lastSysName : dernier « system » recu (pour redessiner son logo quand le theme change)
   std::atomic<bool> helloRequested_{false};
   uint64_t connectedOverlayUntilMs_ = 0;                  // fin du message « RecalBox connectee » (0 = pas de message)
   uint64_t connectedBlinkMs_ = 0;                         // dernier clignotement du message (toutes les 400 ms)

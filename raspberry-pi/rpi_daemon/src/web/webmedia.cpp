@@ -56,6 +56,21 @@ bool bootAnimNameOk(const std::string &n) {
     if (toLower(n) == k) return true;
   return false;
 }
+// v3.75 : logo personnalise d'un jeu (kind=logo). Systeme : [A-Za-z0-9_-], 48 max, jamais « _defaults » ni un dossier cache. Fichier : <jeu>.raw565 ou <jeu> = nom de la ROM sans extension
+// deja assaini par le toolkit (espaces supprimes, \/:*?"<>| remplaces) ; ASCII imprimable seulement (la FAT du Pi est montee en iocharset=ascii), jamais de « . » ni de « _ » en tete.
+bool logoSysOk(const std::string &s) {
+  if (s.empty() || s.size() > 48 || s[0] == '_' || s[0] == '.') return false;
+  for (char c : s)
+    if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-')) return false;
+  return true;
+}
+bool logoNameOk(const std::string &n) {
+  if (n.size() <= 7 || n.size() > 127 || n.compare(n.size() - 7, 7, ".raw565") != 0) return false;
+  if (n[0] == '.' || n[0] == '_') return false;
+  for (unsigned char c : n)
+    if (c <= 32 || c >= 127 || std::strchr("\\/:*?\"<>|", c)) return false;
+  return true;
+}
 std::string slug(const std::string &in) {  // minuscules, [a-z0-9_-], espaces -> '-', 24 car. max
   std::string o;
   for (size_t i = 0; i < in.size() && o.size() < 24; i++) {
@@ -349,7 +364,7 @@ void WebConfig::registerMediaRoutes() {
       std::string name = baseName(wf.filename), dir = trim(r.arg("dir"));
       std::string err, path, dirPath;
       const std::string kind = r.arg("kind");
-      bool isBg = kind == "qbg", isQuote = kind == "quote", isDef = kind == "defimg", isReels = kind == "reels";
+      bool isBg = kind == "qbg", isQuote = kind == "quote", isDef = kind == "defimg", isReels = kind == "reels", isLogo = kind == "logo";
       const bool reelsRaw = isReels && name.size() > 7 && name.compare(name.size() - 7, 7, ".raw565") == 0;
       size_t limit = 0;
       if (gen_->active) err = "ERR: generation de playlist en cours";
@@ -366,6 +381,14 @@ void WebConfig::registerMediaRoutes() {
         else {
           dirPath = "/systems/_defaults/_themes/logos-reels" + (dir == "base" ? std::string() : "/" + dir);
           limit = reelsRaw ? 8192 : 16384;
+        }
+      } else if (isLogo) {   // v3.75 : logo d'un jeu envoye par le toolkit. dir = systeme (doit deja exister) ; ecrit la ou le logo du jeu est deja (plat ou sous-dossier de lettre), sinon dans <lettre|#>/
+        if (!logoSysOk(dir) || !fs_.isDir("/systems/" + dir)) err = "ERR: systeme inconnu";
+        else if (!logoNameOk(name)) err = "ERR: nom de logo invalide";
+        else {
+          const std::string flat = "/systems/" + dir + "/" + name, sub = alphaSubdirPath(flat);
+          dirPath = (!fs_.exists(sub) && fs_.exists(flat)) ? "/systems/" + dir : sub.substr(0, sub.rfind('/'));
+          limit = 8192;
         }
       } else if (isDef) {   // image de secours envoyee par le toolkit : nom impose, 8192 octets exactement
         name = "default.raw565";
@@ -404,7 +427,9 @@ void WebConfig::registerMediaRoutes() {
           err = "ERR: un logo doit faire 8192 octets (128x32 raw565)";
         } else if (isReels && name == "_index.bin" && (sent == 0 || sent % 4 != 0 || sent > 16384)) {
           err = "ERR: index de logos invalide";
-        } else if (isReels) {   // temporaire puis renommage : un envoi interrompu ne laisse jamais un logo tronque
+        } else if (isLogo && sent != 8192) {
+          err = "ERR: un logo doit faire 8192 octets (128x32 raw565)";
+        } else if (isReels || isLogo) {   // temporaire puis renommage : un envoi interrompu ne laisse jamais un logo tronque
           const std::string tmp = real(path) + ".tmp";
           {
             std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
@@ -439,6 +464,94 @@ void WebConfig::registerMediaRoutes() {
     }
     if (results.empty()) return text(400, "ERR: aucun fichier recu");
     return json("{\"ok\":" + std::to_string(okCount) + ",\"files\":[" + results + "]}");
+  });
+
+  // v3.75 : lecture du logo d'un jeu (onglet Personnalisation du toolkit). Memes regles de nom que l'envoi (kind=logo) ; le logo est cherche dans le sous-dossier de sa lettre, puis a plat.
+  // GET /logo-info?dir=<systeme>&name=<jeu>.raw565 -> {"exists":false} ou {"exists":true,"where":"letter"|"flat","size":N,"fnv":"xxxxxxxx"} (FNV-1a 32 bits du fichier entier, comme /boot-anim)
+  // GET /logo?dir=<systeme>&name=<jeu>.raw565       -> les octets du fichier (404 si absent)
+  auto logoExisting = [this](const std::string &dir, const std::string &name, bool *flatOut) -> std::string {
+    if (!logoSysOk(dir) || !logoNameOk(name)) return "";
+    const std::string flat = "/systems/" + dir + "/" + name, sub = alphaSubdirPath(flat);
+    *flatOut = !fs_.exists(sub) && fs_.exists(flat);
+    return fs_.exists(sub) ? sub : (*flatOut ? flat : std::string());
+  };
+  web_.get("/logo-info", [this, logoExisting](const WebRequest &r) {
+    const std::string dir = trim(r.arg("dir")), name = baseName(r.arg("name"));
+    if (!logoSysOk(dir) || !logoNameOk(name)) return text(400, "ERR: systeme ou nom de logo invalide");
+    bool flat = false;
+    const std::string path = logoExisting(dir, name, &flat);
+    std::vector<uint8_t> data;
+    if (path.empty() || !fs_.readAll(path, data)) return json("{\"exists\":false}");
+    uint32_t h = 2166136261u;
+    for (uint8_t b : data) {
+      h ^= b;
+      h *= 16777619u;
+    }
+    char out[112];
+    std::snprintf(out, sizeof(out), "{\"exists\":true,\"where\":\"%s\",\"size\":%u,\"fnv\":\"%08x\"}", flat ? "flat" : "letter", (unsigned)data.size(), (unsigned)h);
+    return json(out);
+  });
+  web_.get("/logo", [this, logoExisting](const WebRequest &r) {
+    const std::string dir = trim(r.arg("dir")), name = baseName(r.arg("name"));
+    if (!logoSysOk(dir) || !logoNameOk(name)) return text(400, "ERR: systeme ou nom de logo invalide");
+    bool flat = false;
+    const std::string path = logoExisting(dir, name, &flat);
+    std::vector<uint8_t> data;
+    if (path.empty() || !fs_.readAll(path, data)) return text(404, "ERR: logo absent");
+    WebReply rep;
+    rep.contentType = "application/octet-stream";
+    rep.body.assign(reinterpret_cast<const char *>(data.data()), data.size());
+    return rep;
+  });
+
+  // POST /logo-delete?dir=<systeme>&name=<jeu>.raw565 : supprime CE fichier de logo (jamais un dossier) -> {"deleted":true,"where":"letter"|"flat"} ; 404 si absent. Le toolkit s'en sert pour « Retablir l'original »
+  // apres avoir garde l'original (GET /logo) : le jeu retombe sinon sur l'image par defaut du systeme.
+  web_.post("/logo-delete", [this, real, logoExisting](const WebRequest &r) {
+    const std::string dir = trim(r.arg("dir")), name = baseName(r.arg("name"));
+    if (!logoSysOk(dir) || !logoNameOk(name)) return text(400, "ERR: systeme ou nom de logo invalide");
+    if (gen_->active) return text(409, "ERR: generation de playlist en cours");
+    bool flat = false;
+    const std::string path = logoExisting(dir, name, &flat);
+    if (path.empty()) return text(404, "ERR: logo absent");
+    if (std::remove(real(path).c_str()) != 0) return text(500, "ERR: suppression impossible");
+    logf("WEB", "logo supprime : %s", path.c_str());
+    const std::vector<std::string> gone{dir + "/" + name.substr(0, name.size() - 7)};
+    eng_.runOnMain([&] { eng_.gameLogosChanged(gone); });
+    return json(std::string("{\"deleted\":true,\"where\":\"") + (flat ? "flat" : "letter") + "\"}");
+  });
+
+  // POST /logos-refresh?games=<sys>/<jeu>|<sys>/<jeu>...[&dry=1] : fin d'un lot d'envois (ou de suppressions) de logos de jeux. Complete games_cache.bin avec les jeux qui ont un logo sur la SD mais
+  // pas dans l'index (sans lui, le Pi affiche l'image par defaut), puis redessine l'ecran si le jeu affiche en fait partie. dry=1 : ne rien ecrire, seulement compter.
+  // -> {"added":N,"known":N,"nologo":N,"invalid":N,"cache":"ok"|"unavailable" (fichier absent, illisible ou non reproductible),"identical":bool}. « | » est interdit dans un nom de logo : il sert de separateur.
+  web_.post("/logos-refresh", [this, logoExisting](const WebRequest &r) {
+    const bool dry = r.arg("dry") == "1";
+    std::vector<std::pair<std::string, std::string>> adds;
+    std::vector<std::string> args;
+    int invalid = 0, nologo = 0;
+    const std::string all = r.arg("games");
+    size_t start = 0;
+    while (start <= all.size() && !all.empty() && args.size() + (size_t)invalid < 5000) {
+      const size_t bar = all.find('|', start);
+      const std::string item = trim(bar == std::string::npos ? all.substr(start) : all.substr(start, bar - start));
+      start = bar == std::string::npos ? all.size() + 1 : bar + 1;
+      const size_t sl = item.find('/');
+      const std::string sys = sl == std::string::npos ? "" : item.substr(0, sl), stem = sl == std::string::npos ? "" : item.substr(sl + 1);
+      bool flat = false;
+      if (!logoSysOk(sys) || !logoNameOk(stem + ".raw565")) {
+        invalid++;
+      } else if (logoExisting(sys, stem + ".raw565", &flat).empty()) {
+        nologo++;
+      } else {
+        adds.push_back({sys, stem});
+        args.push_back(sys + "/" + stem);
+      }
+    }
+    bool identical = false;
+    const int added = GamesCache::addGames(fs_, adds, dry, &identical);
+    if (!dry) eng_.runOnMain([&] { eng_.gameLogosChanged(args); });
+    const int known = added < 0 ? 0 : (int)adds.size() - added;
+    return json(std::string("{\"added\":") + std::to_string(added < 0 ? 0 : added) + ",\"known\":" + std::to_string(known) + ",\"nologo\":" + std::to_string(nologo) + ",\"invalid\":" + std::to_string(invalid) +
+                ",\"cache\":\"" + (added < 0 ? "unavailable" : "ok") + "\",\"identical\":" + (identical ? "true" : "false") + "}");
   });
 
   // GET /boot-anim[?s=<fete>] : taille + empreinte FNV-1a des images entieres (meme contrat que le firmware, v362 / v367) : le toolkit verifie ainsi la copie apres l'envoi

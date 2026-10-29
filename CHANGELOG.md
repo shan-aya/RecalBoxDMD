@@ -14,6 +14,13 @@ This is a curated summary of the project's internal version history (185+ firmwa
 - **Mode 3 without text cards.** Mode 3 extracts the raw images from `gamelist.xml` for DMD GIF Creator; the text cards generated for games without an image were converted like real images, with a catastrophic result. Games without an image are listed in `images_manquantes.txt` again. The other modes keep text cards (Mode 18 regenerates them on their own). A folder that was already extracted keeps its cards: delete it or run Mode 3 into an empty folder.
 - **Real logos**: the `dice` logo is removed from the set (it showed ATARI CLASSICS; DICE is an emulator, not a console). 136 base logos.
 
+## 2026-10-29 — Raspberry Pi daemon v3.75: game logos can be read, written and deleted over Wi-Fi
+
+**Raspberry Pi daemon v3.75**
+- **New routes to replace a game's logo without taking the SD card out** (for the toolkit's upcoming Customisation tab): `POST /upload?kind=logo` (write), `GET /logo-info` and `GET /logo` (read: existence, fingerprint, bytes), `POST /logo-delete` (delete) and `POST /logos-refresh` (end of a batch).
+- **The Pi completes `games_cache.bin` itself** so that a logo added to a game that had none really shows (without it the Pi shows the default image). Safety: the rewrite is refused unless it reproduces the current file byte for byte. The screen is redrawn when the displayed game is concerned.
+- No visible change until the toolkit uses them. System and game names strictly checked (ASCII, never a path), exactly 8192 bytes, temporary file then rename. Tested on a Raspberry Pi 3B; the ESP32 is not concerned.
+
 ## 2026-10-28 (2) — Raspberry Pi daemon v3.74 and toolkit 14184: real console logos can be sent to the Pi over Wi-Fi
 
 **Raspberry Pi daemon v3.74 · PC toolkit build 14184**

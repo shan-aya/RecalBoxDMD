@@ -14,6 +14,13 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 - **Modo 3 sin tarjetas de texto.** El Modo 3 extrae las imágenes en bruto del `gamelist.xml` para DMD GIF Creator; las tarjetas de texto generadas para los juegos sin imagen se convertían como imágenes reales, con un resultado catastrófico. Los juegos sin imagen vuelven a figurar en `images_manquantes.txt`. Los demás modos conservan las tarjetas de texto (el Modo 18 las regenera por separado). Una carpeta ya extraída conserva sus tarjetas: bórrela o ejecute el Modo 3 en una carpeta vacía.
 - **Logos reales**: se retira el logo `dice` del conjunto (mostraba ATARI CLASSICS; DICE es un emulador, no una consola). 136 logos base.
 
+## 2026-10-29 — Demonio Raspberry Pi v3.75: los logos de los juegos se leen, escriben y borran por Wi-Fi
+
+**Demonio Raspberry Pi v3.75**
+- **Nuevas rutas para cambiar el logo de un juego sin sacar la tarjeta SD** (para la pestaña Personalización de la caja de herramientas, próximamente): `POST /upload?kind=logo` (escritura), `GET /logo-info` y `GET /logo` (lectura: existencia, huella, bytes), `POST /logo-delete` (borrado) y `POST /logos-refresh` (fin de un lote).
+- **La Pi completa ella misma `games_cache.bin`** para que un logo añadido a un juego que no tenía se muestre de verdad (sin esto la Pi muestra la imagen por defecto). Seguridad: la reescritura se rechaza si no reproduce, byte a byte, el archivo actual. La pantalla se redibuja cuando el juego mostrado está afectado.
+- Ningún cambio visible mientras la caja de herramientas no las use. Nombres de sistemas y de juegos estrictamente comprobados (ASCII, nunca una ruta), exactamente 8192 bytes, archivo temporal y luego renombrado. Probado en una Raspberry Pi 3B; el ESP32 no se ve afectado.
+
 ## 2026-10-28 (2) — Demonio Raspberry Pi v3.74 y caja de herramientas 14184: los logos reales se envían a la Pi por Wi-Fi
 
 **Demonio Raspberry Pi v3.74 · Caja de herramientas del PC build 14184**

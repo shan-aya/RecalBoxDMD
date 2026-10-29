@@ -14,6 +14,13 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 - **Mode 3 sans cartes texte.** Le Mode 3 extrait les images brutes du `gamelist.xml` pour DMD GIF Creator ; les cartes texte générées pour les jeux sans image étaient converties comme de vraies images, avec un résultat catastrophique. Les jeux sans image sont de nouveau listés dans `images_manquantes.txt`. Les autres modes gardent les cartes texte (Mode 18 pour les régénérer seules). Un dossier déjà extrait garde ses cartes : le supprimer ou relancer le Mode 3 dans un dossier vide.
 - **Logos réels** : le logo `dice` est retiré du jeu (il affichait ATARI CLASSICS ; DICE est un émulateur, pas une console). 136 logos de base.
 
+## 2026-10-29 — Démon Raspberry Pi v3.75 : les logos de jeux se lisent, s'écrivent et se suppriment par Wi-Fi
+
+**Démon Raspberry Pi v3.75**
+- **Nouvelles routes pour remplacer le logo d'un jeu sans sortir la carte SD** (pour l'onglet Personnalisation de la boîte à outils, à venir) : `POST /upload?kind=logo` (écriture), `GET /logo-info` et `GET /logo` (lecture : existence, empreinte, octets), `POST /logo-delete` (suppression) et `POST /logos-refresh` (fin d'un lot).
+- **Le Pi complète lui-même `games_cache.bin`** pour qu'un logo ajouté à un jeu qui n'en avait pas s'affiche vraiment (sans cela le Pi affiche l'image par défaut). Sécurité : la réécriture est refusée si elle ne redonne pas, octet pour octet, le fichier actuel. L'écran est redessiné quand le jeu affiché est concerné.
+- Aucun changement visible tant que la boîte à outils ne s'en sert pas. Noms de systèmes et de jeux strictement contrôlés (ASCII, jamais de chemin), 8192 octets exactement, fichier temporaire puis renommage. Testé sur un Raspberry Pi 3B ; l'ESP32 n'est pas concerné.
+
 ## 2026-10-28 (2) — Démon Raspberry Pi v3.74 et boîte à outils 14184 : les logos réels s'envoient au Pi par Wi-Fi
 
 **Démon Raspberry Pi v3.74 · Boîte à outils PC build 14184**

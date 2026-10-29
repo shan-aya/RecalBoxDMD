@@ -299,6 +299,20 @@ void Engine::reloadConfig() {
   if (reloadHook_) reloadHook_();
 }
 
+void Engine::gameLogosChanged(const std::vector<std::string> &games) {
+  if (lastGameArg_.empty()) return;
+  const std::string cur = toLower(lastGameArg_);
+  for (const std::string &g : games)
+    if (toLower(g) == cur) {
+      pngDrawn_ = false;
+      currentPngPath_.clear();
+      cmdGame(lastGameArg_);  // le jeu a l'ecran est redessine avec son nouveau logo (ou le repli si le logo vient d'etre supprime)
+      d_.show();
+      logf("WEB", "logo de jeu : %s redessine", lastGameArg_.c_str());
+      return;
+    }
+}
+
 void Engine::reelsRefresh() {
   themes_.refresh(fs_);
   if (!lastSys_.empty() && mode_ == Mode::PNG && startsWith(currentPngPath_, "/systems/_defaults/")) {
@@ -1334,6 +1348,7 @@ void Engine::cmdDefault() {
 
 void Engine::cmdSystem(const std::string &sys) {
   lastSys_ = sys;
+  lastGameArg_.clear();
   closeGifAll();
   gifOpened_ = false;
   pngDrawn_ = false;
@@ -1358,6 +1373,7 @@ void Engine::cmdGame(const std::string &arg) {
   const std::string rom = (slash != std::string::npos) ? arg.substr(slash + 1) : arg;
   const std::string sysBase = "/systems/" + sys + "/_default";
   const std::string gameBase = "/systems/" + arg;
+  lastGameArg_ = arg;
 
   const char bucket = bucketLetterForFilename(rom);
   const char slow = sys_.bucketSlowFlag(sys, bucket);
