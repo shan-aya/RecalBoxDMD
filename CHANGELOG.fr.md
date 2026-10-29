@@ -8,6 +8,13 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-29 — Firmware v3.99 : les écrans de mise à jour dans votre langue
+
+**Firmware v3.99** (démon Raspberry Pi 3.75 et boîte à outils 14286 inchangés)
+- **Les messages affichés pendant la mise à jour du DMD (OTA) ne sont plus toujours en français.** « MISE A JOUR », « Connexion... » et le résultat affiché après le redémarrage (« MISE A JOUR KO », « MANIFESTE », « COUPURE »...) suivent maintenant la langue choisie (`language`) : français, anglais ou espagnol. Idem pour les écrans « Mode natif » et « Connexion... » du démarrage en mode Recalbox natif / pinball.
+- Quand la mise à jour est lancée depuis la page de configuration, la page envoie sa propre langue : cela fonctionne même si la boîte à outils n'a jamais écrit `language=` dans `config.ini`.
+- Signalé par un testeur dont toute l'installation était en anglais. Pas encore testé sur une dalle en anglais / espagnol.
+
 ## 2026-10-29 — Boîte à outils 14286 : le Mode 3 ne crée plus de cartes texte
 
 **Boîte à outils PC build 14286** (firmware 3.98 et démon Pi 3.74 inchangés)

@@ -8,6 +8,13 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-29 — Firmware v3.99: update screens in your language
+
+**Firmware v3.99** (Raspberry Pi daemon 3.75 and toolkit 14286 unchanged)
+- **The messages shown while the DMD updates itself (OTA) are no longer always in French.** "MISE A JOUR", "Connexion..." and the result shown after the restart ("MISE A JOUR KO", "MANIFESTE", "COUPURE"...) now follow the chosen language (`language`): French, English or Spanish. The same goes for the "Native mode" and "Connecting..." screens of the Recalbox native / pinball boot.
+- When the update is started from the configuration page, the page sends its own language, so it applies even if the toolkit never wrote `language=` to `config.ini`.
+- Reported by a tester whose whole setup was in English. Not yet tested on a panel in English / Spanish.
+
 ## 2026-10-29 — Toolkit 14286: Mode 3 no longer creates text cards
 
 **PC toolkit build 14286** (firmware 3.98 and Pi daemon 3.74 unchanged)

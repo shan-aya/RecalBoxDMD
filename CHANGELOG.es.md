@@ -8,6 +8,13 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-29 — Firmware v3.99: las pantallas de actualización en tu idioma
+
+**Firmware v3.99** (demonio Raspberry Pi 3.75 y caja de herramientas 14286 sin cambios)
+- **Los mensajes que se muestran mientras el DMD se actualiza (OTA) ya no están siempre en francés.** «MISE A JOUR», «Connexion...» y el resultado mostrado tras el reinicio («MISE A JOUR KO», «MANIFESTE», «COUPURE»...) siguen ahora el idioma elegido (`language`): francés, inglés o español. Lo mismo para las pantallas «Modo nativo» y «Conectando...» del arranque en modo Recalbox nativo / pinball.
+- Cuando la actualización se inicia desde la página de configuración, la página envía su propio idioma: funciona aunque la caja de herramientas nunca haya escrito `language=` en `config.ini`.
+- Señalado por un probador con toda la instalación en inglés. Aún sin probar en un panel en inglés / español.
+
 ## 2026-10-29 — Caja de herramientas 14286: el Modo 3 ya no crea tarjetas de texto
 
 **Caja de herramientas del PC build 14286** (firmware 3.98 y demonio Pi 3.74 sin cambios)
