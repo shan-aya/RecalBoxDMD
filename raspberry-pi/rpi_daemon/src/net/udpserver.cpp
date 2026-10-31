@@ -248,7 +248,7 @@ void UdpServer::dispatch(const std::string &msg) {
   // commandes SANS argument : l'ARG eventuel est ignore (comme le firmware, qui n'en recopie pas)
   const bool noArg = cmd == "stop" || cmd == "default" || cmd == "show_config" || cmd == "wifi_recovery" ||
                      cmd == "mem_probe" || cmd == "reboot" || cmd == "brightness_up" || cmd == "brightness_down";
-  const bool withArg = cmd == "system" || cmd == "game" || cmd == "brightness";
+  const bool withArg = cmd == "system" || cmd == "game" || cmd == "brightness" || cmd == "diag";  // « diag » : ARG=0 / stop arrete le mode diagnostic (script manuel « DMD Diagnostic »)
   if (noArg) q_.post(cmd, std::string());
   else if (withArg) q_.post(cmd, arg);
   else if (cmd == "score") {

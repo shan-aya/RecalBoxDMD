@@ -206,6 +206,7 @@ class Engine {
   std::atomic<bool> diagActive_{false};
   bool diagFromWeb_ = false, diagPingOut_ = false, diagHaveLink_ = false, diagPrevUp_ = false;
   std::atomic<uint64_t> diagWebSeenMs_{0};
+  uint64_t diagUntilMs_ = 0;  // echeance du diagnostic lance par la Recalbox (CMD=diag) ; 0 = aucune (bouton / page web)
   uint64_t diagLastTickMs_ = 0, diagSentMs_ = 0, diagPongBase_ = 0, diagPageAtMs_ = 0;
   int diagRssi_ = -127;
   std::string diagPrevBssid_, diagShown1_, diagShown2_;

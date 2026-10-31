@@ -8,6 +8,13 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-10-31 — Firmware v4.00: fix for a memory overflow in the Lava clock theme · "Diagnostic" tab and script
+
+**Firmware v4.00 · Raspberry Pi daemon v3.76 · PC toolkit build 14588 · Recalbox scripts bundle 8**
+- **Fix (firmware, present since v3.82): memory overflow in the Lava clock theme.** While the Lava clock was on screen, the DMD wrote 240 bytes past one of its work buffers and overwrote neighbouring variables (update state, Wi-Fi recovery state…). Symptoms seen on a real DMD: reboots (watchdog) a few seconds to minutes after the clock appeared, a "WiFi Recovery" countdown drawn over a GIF for no reason, and probably an update that rolled back to the previous version. Reproduced on 3.99 and gone in 4.00. **Until you update: untick the Lava theme on the Clock page.**
+- **New: "DMD Diagnostic" Recalbox script** (scripts bundle 8). It starts the Wi-Fi / Recalbox diagnostic screen on the DMD (signal, latency and loss towards that Recalbox) and stops it when run again, or by itself after 5 minutes. ESP32 (firmware 4.00) and Raspberry Pi (daemon 3.76; on the Pi any display instruction from the Recalbox also ends the diagnostic). The daemon 3.76 only adds this command.
+- **New: "Diagnostic" tab in the toolkit.** Wi-Fi measurements identical to the DMD's web diagnostic page (ESP32 and Pi), USB serial monitor (opening the port does not reboot the board), a Wi-Fi event follower for a DMD without a cable (reboots and their cause, link losses, Wi-Fi drops), and an exportable report: a **.zip** holding an HTML report that starts with what needs attention, a text version, the serial log, the measurements and the DMD configuration (passwords masked).
+
 ## 2026-10-29 — Firmware v3.99: update screens in your language
 
 **Firmware v3.99** (Raspberry Pi daemon 3.75 and toolkit 14286 unchanged)

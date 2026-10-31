@@ -8,6 +8,13 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-10-31 — Firmware v4.00: corrección de un desbordamiento de memoria del tema de reloj Lava · pestaña y script «Diagnóstico»
+
+**Firmware v4.00 · Demonio Raspberry Pi v3.76 · Caja de herramientas del PC build 14588 · Lote de scripts de Recalbox n.º 8**
+- **Corrección (firmware, presente desde la v3.82): desbordamiento de memoria del tema de reloj Lava.** Mientras el reloj Lava estaba en pantalla, el DMD escribía 240 bytes más allá de uno de sus búferes de trabajo y sobrescribía variables vecinas (estado de la actualización, estado de recuperación Wi-Fi…). Síntomas vistos en un DMD real: reinicios (watchdog) entre unos segundos y unos minutos después de aparecer el reloj, una cuenta atrás «WiFi Recovery» dibujada sobre un GIF sin motivo, y probablemente una actualización que volvía a la versión anterior. Reproducido en 3.99 y desaparecido en 4.00. **Hasta que actualices: desmarca el tema Lava en la página Reloj.**
+- **Nuevo: script de Recalbox «DMD Diagnostic»** (lote de scripts n.º 8). Inicia la pantalla de diagnóstico Wi-Fi / Recalbox en el DMD (señal, latencia y pérdidas hacia esa Recalbox) y la detiene al volver a ejecutarlo, o sola a los 5 minutos. ESP32 (firmware 4.00) y Raspberry Pi (demonio 3.76; en la Pi, cualquier instrucción de pantalla de la Recalbox también termina el diagnóstico). El demonio 3.76 solo añade este comando.
+- **Nuevo: pestaña «Diagnóstico» en la caja de herramientas.** Mediciones Wi-Fi idénticas a la página web de diagnóstico del DMD (ESP32 y Pi), monitor serie USB (abrir el puerto no reinicia la placa), seguimiento Wi-Fi de eventos para un DMD sin cable (reinicios y su causa, pérdidas de enlace, desconexiones Wi-Fi) e informe exportable: un **.zip** con un informe HTML que empieza por lo que requiere atención, una versión de texto, el registro serie, las mediciones y la configuración del DMD (contraseñas ocultas).
+
 ## 2026-10-29 — Firmware v3.99: las pantallas de actualización en tu idioma
 
 **Firmware v3.99** (demonio Raspberry Pi 3.75 y caja de herramientas 14286 sin cambios)

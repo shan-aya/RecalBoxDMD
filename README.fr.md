@@ -8,7 +8,7 @@
 
 <p align="center">
   <img alt="Firmware : v3.99" src="https://img.shields.io/badge/firmware-v3.99-blueviolet.svg">
-  <img alt="Outil PC : v14286" src="https://img.shields.io/badge/outil%20PC-v14286-blueviolet.svg">
+  <img alt="Outil PC : v14588" src="https://img.shields.io/badge/outil%20PC-v14588-blueviolet.svg">
   <a href="LICENSE"><img alt="Licence : MIT" src="https://img.shields.io/badge/licence-MIT-green.svg"></a>
   <img alt="Plateformes : ESP32 et Raspberry Pi" src="https://img.shields.io/badge/plateformes-ESP32%20%7C%20Raspberry%20Pi-blue.svg">
   <img alt="Panneau : HUB75 128x32" src="https://img.shields.io/badge/panneau-HUB75%20128x32-blue.svg">
@@ -359,7 +359,7 @@ Le logiciel du Pi est **téléchargé depuis GitHub** (release `pi-v…`, SHA-25
 |---|---|
 | **Scripts d'évènements** (automatiques) | pont *marquee* · *hi-score / infos jeu / Challenge RB* · *RetroAchievements* · `dmd_vpx_config` (règle Visual Pinball **seulement** si *Mode Pinball (VPX)* est coché sur le DMD) · aides dans `dmd_helpers/` |
 | **Widgets Recalbox** (automatiques) | `dmd_rbwidgets` envoie toutes les 2 min un résumé du **challenge**, des **récompenses** et de la **santé** de la Recalbox |
-| **Scripts manuels** (menu *Scripts utilisateur*) | **WiFi Recovery DMD** · **Config Web DMD** · **Reboot DMD** · **Luminosité DMD +10 % / −10 %** |
+| **Scripts manuels** (menu *Scripts utilisateur*) | **WiFi Recovery DMD** · **Config Web DMD** · **Reboot DMD** · **Luminosité DMD +10 % / −10 %** · **DMD Diagnostic** |
 | **Fichiers hi-score `.hi`** | ~3000 fichiers (FBNeo, MAME 0.278) ajoutés à `share/saves` — **un `.hi` existant n'est jamais écrasé** |
 
 > **Redémarrez EmulationStation** (ou la Recalbox) après l'installation, sinon le menu *Scripts utilisateur* reste grisé : Recalbox ne cherche les scripts qu'à son démarrage.
@@ -368,7 +368,7 @@ Le logiciel du Pi est **téléchargé depuis GitHub** (release `pi-v…`, SHA-25
 
 ## 🧰 La boîte à outils PC — le centre de l'installation
 
-C'est l'application Windows (FR / EN / ES, 9 habillages visuels) qui **construit tout** : carte SD, scripts, thèmes, GIF, mises à jour — pour l'ESP32 comme pour le Raspberry Pi. Manuel complet : [`HELP.fr.md`](tools/RecalBoxDMD_tool_v14286/HELP.fr.md) (aussi dans l'onglet *Aide*).
+C'est l'application Windows (FR / EN / ES, 9 habillages visuels) qui **construit tout** : carte SD, scripts, thèmes, GIF, mises à jour — pour l'ESP32 comme pour le Raspberry Pi. Manuel complet : [`HELP.fr.md`](tools/RecalBoxDMD_tool_v14588/HELP.fr.md) (aussi dans l'onglet *Aide*).
 
 | Main · SNES | Paramètres · Dreamcast |
 |---|---|

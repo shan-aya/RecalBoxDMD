@@ -1214,6 +1214,18 @@ void Engine::resumePlaylist() {
 // ------------------------------------------------------------------ commandes
 
 void Engine::handle(const std::string &cmd, const std::string &arg) {
+  // CMD=diag (script manuel « DMD Diagnostic » de la Recalbox, comme le firmware ESP32 v400) : demarre le mode diagnostic, l'arrete s'il tourne deja ou si ARG=0|stop ; arret automatique apres 5 min
+  if (cmd == "diag") {
+    if (diagActive_.load() || arg == "0" || arg == "stop") {
+      diagStop();
+    } else if (mode_ == Mode::ZEDMD || (configActive_ && mode_ == Mode::CONFIG)) {
+      logf("DIAG", "demande par UDP ignoree (flux ZeDMD / ecran de configuration)");
+    } else {
+      diagUntilMs_ = nowMs() + 300000;
+      diagStart(false);
+    }
+    return;
+  }
   if (diagActive_.load()) diagStop();  // une instruction de la Recalbox (jeu, systeme...) reprend l'ecran
   // le flux ZeDMD possede l'ecran : seules les commandes d'administration passent (une commande d'affichage dessinerait par-dessus)
   if (mode_ == Mode::ZEDMD && cmd != "reboot" && cmd != "wifi_recovery" && cmd != "show_config" && cmd != "mem_probe") {
@@ -1820,6 +1832,7 @@ void Engine::diagStart(bool fromWeb) {
 }
 
 void Engine::diagStop() {
+  diagUntilMs_ = 0;
   if (!diagActive_.exchange(false)) return;
   const DiagStats::Calc c = diag_.calc();
   logf("DIAG", "sortie : fenetre=%d/%d perte=%d%% min=%d avg=%d max=%d gigue=%d reconnexions=%lu", c.got, c.n, c.lossPct, c.mn, c.avg, c.mx, c.jit, diag_.disc());
@@ -1837,6 +1850,11 @@ void Engine::diagStop() {
 
 void Engine::diagTick(uint64_t now) {
   if (!diagActive_.load()) return;
+  if (diagUntilMs_ != 0 && now > diagUntilMs_) {  // lance par la Recalbox (CMD=diag) : echeance de 5 min
+    logf("DIAG", "delai de 5 min (demande par la Recalbox) ecoule : sortie");
+    diagStop();
+    return;
+  }
   if (diagFromWeb_) {
     if (now - diagWebSeenMs_.load() > 8000) {
       logf("DIAG", "page web silencieuse > 8 s : sortie");

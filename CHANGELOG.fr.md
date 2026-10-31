@@ -8,6 +8,13 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-10-31 — Firmware v4.00 : correction d'un débordement mémoire du thème d'horloge Lava · onglet et script « Diagnostic »
+
+**Firmware v4.00 · Démon Raspberry Pi v3.76 · Boîte à outils PC build 14588 · Lot de scripts Recalbox n°8**
+- **Correction (firmware, présent depuis la v3.82) : débordement mémoire du thème d'horloge Lava.** Pendant que l'horloge Lava était affichée, le DMD écrivait 240 octets au-delà d'un de ses tampons de travail et écrasait des variables voisines (état de la mise à jour, état du secours Wi-Fi…). Symptômes constatés sur un vrai DMD : redémarrages (watchdog) quelques secondes à quelques minutes après l'apparition de l'horloge, compte à rebours « Secours WiFi » dessiné par-dessus un GIF sans raison, et probablement une mise à jour qui revenait à la version précédente. Reproduit en 3.99 et disparu en 4.00. **En attendant la mise à jour : décochez le thème Lava dans la page Horloge.**
+- **Nouveau : script Recalbox « DMD Diagnostic »** (lot de scripts n°8). Il lance l'écran de diagnostic Wi-Fi / Recalbox sur le DMD (signal, latence et pertes vers cette Recalbox) et l'arrête quand on le relance, ou tout seul au bout de 5 minutes. ESP32 (firmware 4.00) et Raspberry Pi (démon 3.76 ; sur le Pi, toute instruction d'affichage de la Recalbox met aussi fin au diagnostic). Le démon 3.76 n'ajoute que cette commande.
+- **Nouveau : onglet « Diagnostic » dans la boîte à outils.** Mesures Wi-Fi identiques à la page web de diagnostic du DMD (ESP32 et Pi), moniteur série USB (l'ouverture du port ne redémarre pas la carte), suivi Wi-Fi des événements pour un DMD sans câble (redémarrages et leur cause, pertes de liaison, déconnexions Wi-Fi) et rapport exportable : un **.zip** contenant un rapport HTML qui commence par ce qui demande attention, une version texte, le journal série, les mesures et la configuration du DMD (mots de passe masqués).
+
 ## 2026-10-29 — Firmware v3.99 : les écrans de mise à jour dans votre langue
 
 **Firmware v3.99** (démon Raspberry Pi 3.75 et boîte à outils 14286 inchangés)

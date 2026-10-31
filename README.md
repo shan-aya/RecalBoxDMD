@@ -8,7 +8,7 @@
 
 <p align="center">
   <img alt="Firmware: v3.99" src="https://img.shields.io/badge/firmware-v3.99-blueviolet.svg">
-  <img alt="PC tool: v14286" src="https://img.shields.io/badge/PC%20tool-v14286-blueviolet.svg">
+  <img alt="PC tool: v14588" src="https://img.shields.io/badge/PC%20tool-v14588-blueviolet.svg">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green.svg"></a>
   <img alt="Platforms: ESP32 and Raspberry Pi" src="https://img.shields.io/badge/platforms-ESP32%20%7C%20Raspberry%20Pi-blue.svg">
   <img alt="Panel: HUB75 128x32" src="https://img.shields.io/badge/panel-HUB75%20128x32-blue.svg">
@@ -359,7 +359,7 @@ The Pi software is **downloaded from GitHub** (`pi-v…` release, SHA-256 checke
 |---|---|
 | **Event scripts** (automatic) | *marquee* bridge · *hi-score / game info / RB Challenge* · *RetroAchievements* · `dmd_vpx_config` (sets up Visual Pinball **only** if *Pinball mode (VPX)* is ticked on the DMD) · helpers in `dmd_helpers/` |
 | **Recalbox widgets** (automatic) | `dmd_rbwidgets` sends a summary of the **challenge**, **rewards** and Recalbox **health** every 2 min |
-| **Manual scripts** (*User scripts* menu) | **DMD WiFi Recovery** · **DMD Web Config** · **DMD Reboot** · **DMD Brightness +10 % / −10 %** |
+| **Manual scripts** (*User scripts* menu) | **DMD WiFi Recovery** · **DMD Web Config** · **DMD Reboot** · **DMD Brightness +10 % / −10 %** · **DMD Diagnostic** |
 | **Hi-score `.hi` files** | ~3000 files (FBNeo, MAME 0.278) added to `share/saves` — **an existing `.hi` is never overwritten** |
 
 > **Restart EmulationStation** (or the Recalbox) after installing, otherwise the *User scripts* menu stays greyed out: Recalbox only looks for scripts at startup.
@@ -368,7 +368,7 @@ The Pi software is **downloaded from GitHub** (`pi-v…` release, SHA-256 checke
 
 ## 🧰 The PC Toolkit — the heart of the installation
 
-The Windows application (FR / EN / ES, 9 visual skins) that **builds everything**: SD card, scripts, themes, GIFs, updates — for the ESP32 and the Raspberry Pi alike. Full manual: [`HELP.md`](tools/RecalBoxDMD_tool_v14286/HELP.md) (also in the *Help* tab).
+The Windows application (FR / EN / ES, 9 visual skins) that **builds everything**: SD card, scripts, themes, GIFs, updates — for the ESP32 and the Raspberry Pi alike. Full manual: [`HELP.md`](tools/RecalBoxDMD_tool_v14588/HELP.md) (also in the *Help* tab).
 
 | Main · SNES | Settings · Dreamcast |
 |---|---|
