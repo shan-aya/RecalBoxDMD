@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="Firmware: v3.99" src="https://img.shields.io/badge/firmware-v3.99-blueviolet.svg">
+  <img alt="Firmware: v4.00" src="https://img.shields.io/badge/firmware-v4.00-blueviolet.svg">
   <img alt="Herramienta PC: v14588" src="https://img.shields.io/badge/herramienta%20PC-v14588-blueviolet.svg">
   <a href="LICENSE"><img alt="Licencia: MIT" src="https://img.shields.io/badge/licencia-MIT-green.svg"></a>
   <img alt="Plataformas: ESP32 y Raspberry Pi" src="https://img.shields.io/badge/plataformas-ESP32%20%7C%20Raspberry%20Pi-blue.svg">
