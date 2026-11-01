@@ -5,7 +5,7 @@
 The same DMD, with a **Raspberry Pi** instead of the ESP32: same Recalbox scripts, same SD card content, same web configuration pages, widgets and themes. The Pi drives two 64×32 P5 panels (128×32 in total) through an HUB75 interface board.
 
 > ✅ **Validated: Raspberry Pi 3B** (Raspberry Pi OS Lite 32-bit "Bookworm").
-> ⚠️ **Planned but untested: Pi 4 / 400 / CM4, Pi 2, Zero 2.** The software detects the model and sets `gpio_slowdown` accordingly (Pi 4: 4; Pi 2/3: 2; Pi 1/Zero: 1), but only the Pi 3B has been tried on real panels. If your Pi flickers, adjust `gpio_slowdown=1..4` in `config.ini`.
+> ⚠️ **Validated: Pi 3B and Pi 4. Planned but untested: Pi 400 / CM4, Pi 2, Zero 2.** The software detects the model and sets `gpio_slowdown` accordingly (Pi 4: 4; Pi 2/3: 2; Pi 1/Zero: 1), but only the Pi 3B and Pi 4 have been tried on real panels. If your Pi flickers, adjust `gpio_slowdown=1..4` in `config.ini`.
 
 ## Install (easiest: the PC toolkit)
 

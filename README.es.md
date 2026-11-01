@@ -315,7 +315,7 @@ esptool.py --chip esp32 --port COM3 write_flash 0x0 RecalBoxDMD_merged.bin
 <p align="center"><img src="medias/marketing/plaquette_10_raspberry_es.png" alt="El DMD en Raspberry Pi" width="760"></p>
 
 > ✅ **Validada: Raspberry Pi 3B** (Raspberry Pi OS Lite 32 bits « Bookworm »).
-> ⚠️ **Prevista, sin probar: Pi 4 / 400 / CM4, Pi 2, Zero 2.** El software ajusta `gpio_slowdown` según el modelo (Pi 4: 4; Pi 2/3: 2; Pi 1/Zero: 1); si tu Pi parpadea, ajusta `gpio_slowdown=1..4` en `config.ini`.
+> ⚠️ **Validadas: Pi 3B y Pi 4. Previstas, sin probar: Pi 400 / CM4, Pi 2, Zero 2.** El software ajusta `gpio_slowdown` según el modelo (Pi 4: 4; Pi 2/3: 2; Pi 1/Zero: 1); si tu Pi parpadea, ajusta `gpio_slowdown=1..4` en `config.ini`.
 
 ### 1. El hardware
 - **Raspberry Pi 3B** + una **placa de interfaz HUB75** (tipo RPI2DMD: mapeo GPIO « regular », reloj RTC DS1307 opcional).

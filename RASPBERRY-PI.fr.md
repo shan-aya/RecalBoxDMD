@@ -5,7 +5,7 @@
 Le même DMD, avec un **Raspberry Pi** à la place de l'ESP32 : mêmes scripts Recalbox, même contenu de carte SD, mêmes pages de configuration web, mêmes widgets et mêmes thèmes. Le Pi pilote deux dalles P5 64×32 (soit 128×32) par une carte d'interface HUB75.
 
 > ✅ **Validé : Raspberry Pi 3B** (Raspberry Pi OS Lite 32 bits « Bookworm »).
-> ⚠️ **Prévu mais non testé : Pi 4 / 400 / CM4, Pi 2, Zero 2.** Le logiciel détecte le modèle et règle `gpio_slowdown` en conséquence (Pi 4 : 4 ; Pi 2/3 : 2 ; Pi 1/Zero : 1), mais seul le Pi 3B a été essayé sur de vraies dalles. Si votre Pi scintille, ajustez `gpio_slowdown=1..4` dans `config.ini`.
+> ⚠️ **Validé : Pi 3B et Pi 4. Prévu mais non testé : Pi 400 / CM4, Pi 2, Zero 2.** Le logiciel détecte le modèle et règle `gpio_slowdown` en conséquence (Pi 4 : 4 ; Pi 2/3 : 2 ; Pi 1/Zero : 1), mais seuls les Pi 3B et Pi 4 ont été essayés sur de vraies dalles. Si votre Pi scintille, ajustez `gpio_slowdown=1..4` dans `config.ini`.
 
 ## Installer (le plus simple : la boîte à outils PC)
 
