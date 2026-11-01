@@ -421,6 +421,18 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
   .shops{margin:18px auto 0;max-width:760px;text-align:center;line-height:1.9;} .shops .flag{vertical-align:-2px;border-radius:2px;margin-right:4px;image-rendering:auto;} .shops a{color:var(--led-blue);}
   @media (max-width:900px){ .duo{grid-template-columns:1fr;} .grid4{grid-template-columns:repeat(2,1fr);} }
   @media (max-width:520px){ .grid3{grid-template-columns:repeat(2,1fr);} }
+
+  /* ---- v4 : chapitres + navigation ---- */
+  html{scroll-behavior:smooth;}
+  .chapnav{position:sticky;top:0;z-index:30;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:10px 12px;margin:18px 0 0;background:var(--ink);border-bottom:1px solid var(--line);}
+  .chapnav a{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--led-white);text-decoration:none;padding:7px 14px;border:1px solid var(--line);border-radius:999px;background:var(--panel);}
+  .chapnav a:hover{border-color:var(--muted);}
+  .chapnav a.on{border-color:var(--amber);color:var(--amber);}
+  .chaphead{max-width:760px;margin:64px auto 6px;padding:0 20px;text-align:center;scroll-margin-top:64px;}
+  .chapnum{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;border:2px solid var(--amber);color:var(--amber);font-family:"JetBrains Mono",monospace;font-weight:800;font-size:18px;}
+  .chaptitle{margin:12px 0 4px;font-size:30px;letter-spacing:.01em;color:var(--led-white);}
+  .chapsub{margin:0;color:var(--muted);font-size:16px;line-height:1.5;}
+  @media (max-width:600px){ .chapnav{gap:6px;} .chapnav a{padding:6px 10px;font-size:11px;} .chaptitle{font-size:24px;} }
 </style>
 </head>
 <body>
@@ -435,7 +447,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
     </div>
   </div>
 
-  <div class="narrow">
+    <div class="narrow">
   <header class="hero">
     <img class="logo-sa" src="media/shan_aya_logo.png" width="520" height="382" alt="Logo Shan_ayA">
     <div class="brand" data-i18n="brand">Panneau LED · Pixel Art</div>
@@ -452,10 +464,11 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       <video src="media/hero-dmd.mp4" autoplay loop muted playsinline></video>
     </figure>
   </header>
-
-  <div class="divider" data-i18n="divider1">Ce qu'il fait chez vous, au quotidien</div>
-
   </div>
+
+  <nav class="chapnav" aria-label="Sections"><a href="#deco" data-i18n="nav.1"></a><a href="#recalbox" data-i18n="nav.2"></a><a href="#toolkit" data-i18n="nav.3"></a><a href="#diag" data-i18n="nav.4"></a><a href="#install" data-i18n="nav.5"></a></nav>
+
+  <div class="chaphead" id="deco"><span class="chapnum">1</span><h2 class="chaptitle" data-i18n="ch1.t"></h2><p class="chapsub" data-i18n="ch1.s"></p></div>
 
   <div class="wide-sec">
   <section class="feat">
@@ -491,7 +504,6 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
     </div>
     <p class="credit" data-i18n="s1.credit">Pack offert par <strong>eLLuiGi</strong> / <strong>RpiTeam</strong> — leur collection complète (~11 000 GIFs) est distribuée en charityware sur <a href="https://rpiteam.carrd.co/" target="_blank" rel="noopener">rpiteam.carrd.co</a>.</p>
   </section>
-
   <section class="feat">
     <span class="eyebrow" style="color:var(--led-green)" data-i18n="s2.eyebrow">Playlist</span>
     <h2 data-i18n="s2.h2">Composez votre propre rotation</h2>
@@ -501,7 +513,17 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       <figure class="shot glow-g"><img src="media/playlist-pc.png" data-i18n-alt="alt.playlistpc" alt="Constitution d'une playlist de GIFs depuis l'application PC."><figcaption data-i18n="cap.pc">Depuis le PC</figcaption></figure>
     </div>
   </section>
-
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--amber)" data-i18n="season.eyebrow"></span>
+    <h2 data-i18n="season.h2"></h2>
+    <p data-i18n="season.p"></p>
+    <figure class="shot glow-a">
+      <img src="media/seasons_fr.png" data-season="1" data-i18n-alt="season.alt" alt="" loading="lazy">
+      <figcaption data-i18n="sim.cap"></figcaption>
+    </figure>
+    <ul class="bul"><li data-i18n="season.l1"></li><li data-i18n="season.l2"></li><li data-i18n="season.l3"></li><li data-i18n="season.l4"></li></ul>
+    <p class="vidcap"><a href="https://github.com/shan-aya/RecalBoxDMD/blob/main/README.fr.md#longlet-playlist" data-docanchor="season" target="_blank" rel="noopener" data-i18n="season.cta"></a></p>
+  </section>
   <section class="feat">
     <span class="eyebrow" style="color:var(--amber)" data-i18n="s3.eyebrow">Ajout à la volée</span>
     <h2 data-i18n="s3.h2">Un nouveau GIF ? Il tourne à l'instant</h2>
@@ -510,7 +532,6 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       <img src="media/webconfig-media.png" data-i18n-alt="alt.mediaupload" alt="Envoi d'un GIF depuis le navigateur vers le panneau LED.">
     </figure>
   </section>
-
   <section class="feat">
     <span class="eyebrow" style="color:var(--led-blue)" data-i18n="s4.eyebrow">10 habillages</span>
     <h2 data-i18n="s4.h2">Une horloge qui change de décor</h2>
@@ -526,14 +547,12 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
     </figure>
     <p class="cap" data-i18n="cap.clock">Choix du thème, couleur, intervalle et durée — en direct depuis le téléphone</p>
   </section>
-
   <section class="feat">
     <span class="eyebrow" style="color:var(--led-blue)" data-i18n="w5.eyebrow"></span>
     <h2 data-i18n="w5.h2"></h2>
     <p data-i18n="w5.p"></p>
     <div class="grid2"><figure class="shot glow-b"><img src="media/widgets/clk_plasma.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-b"><img src="media/widgets/clk_life.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-b"><img src="media/widgets/clk_stars.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-b"><img src="media/widgets/clk_rain.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-b"><img src="media/widgets/clk_lava.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure></div>
   </section>
-
     </div>
     <div class="col col-wid">
       <h3 class="coltitle"><span data-i18n="col.wid">🧩 Widgets &amp; écrans vivants</span></h3>
@@ -543,25 +562,25 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
     <p data-i18n="w1.p"></p>
     <div class="grid1"><figure class="shot glow-b"><img src="media/widgets/fr/date.png" data-img="date" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-b"><img src="media/widgets/fr/weather.png" data-img="weather" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-b"><img src="media/widgets/fr/ephemeris.png" data-img="ephemeris" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-b"><img src="media/widgets/fr/countdown.png" data-img="countdown" data-i18n-alt="w.alt" alt="" loading="lazy"></figure></div><p class="cap" data-i18n="w1.cap"></p>
   </section>
-<section class="feat">
+  <section class="feat">
     <span class="eyebrow" style="color:var(--amber)" data-i18n="w2.eyebrow"></span>
     <h2 data-i18n="w2.h2"></h2>
     <p data-i18n="w2.p"></p>
     <div class="grid2"><figure class="shot glow-a"><img src="media/widgets/fr/wx_clear.png" data-img="wx_clear" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-a"><img src="media/widgets/fr/wx_part.png" data-img="wx_part" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-a"><img src="media/widgets/fr/wx_night.png" data-img="wx_night" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-a"><img src="media/widgets/fr/wx_rain.png" data-img="wx_rain" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-a"><img src="media/widgets/fr/wx_snow.png" data-img="wx_snow" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-a"><img src="media/widgets/fr/wx_storm.png" data-img="wx_storm" data-i18n-alt="w.alt" alt="" loading="lazy"></figure></div>
   </section>
-<section class="feat">
+  <section class="feat">
     <span class="eyebrow" style="color:var(--led-green)" data-i18n="w3.eyebrow"></span>
     <h2 data-i18n="w3.h2"></h2>
     <p data-i18n="w3.p"></p>
     <div class="grid1"><figure class="shot glow-g"><img src="media/widgets/fr/qcm_question.png" data-img="qcm_question" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-g"><img src="media/widgets/fr/qcm_answer.png" data-img="qcm_answer" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-g"><img src="media/widgets/fr/quote_famous.png" data-img="quote_famous" data-i18n-alt="w.alt" alt="" loading="lazy"></figure></div><div class="chips"><span class="chip" data-i18n="w3.c1"></span><span class="chip" data-i18n="w3.c2"></span><span class="chip" data-i18n="w3.c3"></span><span class="chip" data-i18n="w3.c4"></span></div><p class="cap" data-i18n="w3.p2"></p>
   </section>
-<section class="feat">
+  <section class="feat">
     <span class="eyebrow" style="color:var(--led-red)" data-i18n="w4.eyebrow"></span>
     <h2 data-i18n="w4.h2"></h2>
     <p data-i18n="w4.p"></p>
     <div class="grid2"><figure class="shot glow-r"><img src="media/widgets/amb_plasma.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-r"><img src="media/widgets/amb_rain.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-r"><img src="media/widgets/amb_stars.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-r"><img src="media/widgets/amb_life.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-r"><img src="media/widgets/amb_liquid.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-r"><img src="media/widgets/amb_sand1.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-r"><img src="media/widgets/amb_sand2.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure><figure class="shot glow-r"><img src="media/widgets/amb_lava.png" data-i18n-alt="w.alt" alt="" loading="lazy"></figure></div>
   </section>
-<section class="feat">
+  <section class="feat">
     <span class="eyebrow" style="color:var(--led-green)" data-i18n="w6.eyebrow"></span>
     <h2 data-i18n="w6.h2"></h2>
     <p data-i18n="w6.p"></p>
@@ -579,59 +598,9 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
   </section>
   </div>
 
-  <div class="wide-sec">
-  <section class="feat">
-    <span class="eyebrow" style="color:var(--led-green)" data-i18n="diag.eyebrow"></span>
-    <h2 data-i18n="diag.h2"></h2>
-    <p data-i18n="diag.p"></p>
-    <figure class="shot glow-g">
-      <img src="media/diag_panel_fr.png" data-diag="1" data-i18n-alt="diag.alt" alt="" loading="lazy">
-    </figure>
-    <ul class="bul"><li data-i18n="diag.l1"></li><li data-i18n="diag.l2"></li><li data-i18n="diag.l3"></li><li data-i18n="diag.l4"></li></ul>
-    <p class="vidcap"><a href="https://github.com/shan-aya/RecalBoxDMD/blob/main/README.fr.md#-diagnostic-wi-fi--recalbox" data-diagdoc="1" target="_blank" rel="noopener" data-i18n="diag.cta">Détails du mode diagnostic</a></p>
-  </section>
-
-  <section class="feat">
-    <span class="eyebrow" style="color:var(--amber)" data-i18n="news.eyebrow"></span>
-    <h2 data-i18n="news.h2"></h2>
-    <p data-i18n="news.p"></p>
-    <figure class="shot glow-a">
-      <img src="media/news_fr.png" data-news="1" data-i18n-alt="news.alt" alt="" loading="lazy">
-    </figure>
-    <ul class="bul"><li data-i18n="news.l1"></li><li data-i18n="news.l2"></li><li data-i18n="news.l3"></li><li data-i18n="news.l4"></li></ul>
-    <p class="vidcap"><a href="https://github.com/shan-aya/RecalBoxDMD/blob/main/docs/tutorials/animated-marquees.fr.md" data-tuto="animated-marquees" target="_blank" rel="noopener" data-i18n="news.tuto1">Tutoriel : marquees animés</a> · <a href="https://github.com/shan-aya/RecalBoxDMD/blob/main/docs/tutorials/ultimate-gif-pack.fr.md" data-tuto="ultimate-gif-pack" target="_blank" rel="noopener" data-i18n="news.tuto2">Tutoriel : pack ULTIMATE GIFS DLC</a></p>
-  </section>
-  </div>
+  <div class="chaphead" id="recalbox"><span class="chapnum">2</span><h2 class="chaptitle" data-i18n="ch2.t"></h2><p class="chapsub" data-i18n="ch2.s"></p></div>
 
   <div class="wide-sec">
-  <section class="feat">
-    <span class="eyebrow" style="color:var(--led-green, var(--led-blue))" data-i18n="pi.eyebrow"></span>
-    <h2 data-i18n="pi.h2"></h2>
-    <p data-i18n="pi.p"></p>
-    <ul class="bul"><li data-i18n="pi.l1"></li><li data-i18n="pi.l2"></li><li data-i18n="pi.l3"></li><li data-i18n="pi.l4"></li><li data-i18n="pi.l5"></li></ul>
-    <figure class="shot glow-g">
-      <img src="media/pi_fr.png" data-pi="1" data-i18n-alt="pi.alt" alt="" loading="lazy">
-    </figure>
-    <p class="vidcap"><a href="https://github.com/shan-aya/RecalBoxDMD/blob/main/RASPBERRY-PI.fr.md" data-pidoc="1" target="_blank" rel="noopener" data-i18n="pi.cta">Guide d'installation Raspberry Pi</a></p>
-  </section>
-
-  <section class="feat">
-    <span class="eyebrow" style="color:var(--amber)" data-i18n="cards.eyebrow"></span>
-    <h2 data-i18n="cards.h2"></h2>
-    <p data-i18n="cards.p"></p>
-    <div class="grid2">
-      <figure class="shot glow-a"><img src="media/cards/card_1.png" data-i18n-alt="cards.alt" alt="" loading="lazy"></figure>
-      <figure class="shot glow-a"><img src="media/cards/card_2.png" data-i18n-alt="cards.alt" alt="" loading="lazy"></figure>
-      <figure class="shot glow-a"><img src="media/cards/card_3.png" data-i18n-alt="cards.alt" alt="" loading="lazy"></figure>
-      <figure class="shot glow-a"><img src="media/cards/card_4.png" data-i18n-alt="cards.alt" alt="" loading="lazy"></figure>
-    </div>
-    <ul class="bul"><li data-i18n="cards.l1"></li><li data-i18n="cards.l2"></li><li data-i18n="cards.l3"></li></ul>
-  </section>
-  </div>
-
-  <div class="narrow">
-  <div class="divider pivot" data-i18n="divider2">Un bonus pour les joueurs</div>
-
   <section class="feat">
     <span class="eyebrow" style="color:var(--led-red)" data-i18n="s5.eyebrow">WiFi optionnel</span>
     <h2 data-i18n="s5.h2">Il devient le marquee numérique de votre Recalbox</h2>
@@ -692,6 +661,19 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
   </section>
 
   <section class="feat">
+    <span class="eyebrow" style="color:var(--amber)" data-i18n="cards.eyebrow"></span>
+    <h2 data-i18n="cards.h2"></h2>
+    <p data-i18n="cards.p"></p>
+    <div class="grid2">
+      <figure class="shot glow-a"><img src="media/cards/card_1.png" data-i18n-alt="cards.alt" alt="" loading="lazy"></figure>
+      <figure class="shot glow-a"><img src="media/cards/card_2.png" data-i18n-alt="cards.alt" alt="" loading="lazy"></figure>
+      <figure class="shot glow-a"><img src="media/cards/card_3.png" data-i18n-alt="cards.alt" alt="" loading="lazy"></figure>
+      <figure class="shot glow-a"><img src="media/cards/card_4.png" data-i18n-alt="cards.alt" alt="" loading="lazy"></figure>
+    </div>
+    <ul class="bul"><li data-i18n="cards.l1"></li><li data-i18n="cards.l2"></li><li data-i18n="cards.l3"></li></ul>
+  </section>
+
+  <section class="feat">
     <span class="eyebrow" style="color:var(--led-green, var(--amber))" data-i18n="s5d.eyebrow">Recalbox 11</span>
     <h2 data-i18n="s5d.h2">Prêt pour Recalbox 11 : le mode natif du firmware</h2>
     <p data-i18n="s5d.p1">Recalbox vous laisse choisir le firmware qui pilote le DMD, et RecalBoxDMD vous laisse aussi le choix : ses propres fonctionnalités, ou l'affichage par défaut de Recalbox. Recalbox 11 sait piloter lui-même un afficheur DMD, ZeDMD en USB ou en Wi-Fi compris. Le firmware du panneau sait s'y brancher : cochez « Mode Recalbox natif » dans la page web du panneau, et votre DMD se comporte comme un ZeDMD WiFi — c'est Recalbox qui décide de tout ce qui s'affiche.</p>
@@ -732,10 +714,70 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       <figcaption data-i18n="cap.vpinballmono">Rendu classique monochrome — Indiana Jones Pinball Adventure, en attente puis en jeu</figcaption>
     </figure>
   </section>
+  </div>
+
+  <div class="chaphead" id="toolkit"><span class="chapnum">3</span><h2 class="chaptitle" data-i18n="ch3.t"></h2><p class="chapsub" data-i18n="ch3.s"></p></div>
+
+  <div class="wide-sec">
   <section class="feat">
-    <span class="eyebrow" style="color:var(--led-green, var(--led-blue))" data-i18n="ota.eyebrow">Mises à jour</span>
-    <h2 data-i18n="ota.h2">Plus besoin de brancher le DMD en USB pour le mettre à jour</h2>
-    <p data-i18n="ota.p">Une nouvelle version du firmware est publiée ? Un avis s'affiche dans la page web de configuration du panneau — depuis votre téléphone comme depuis votre PC — avec un bouton « Mettre à jour maintenant (Wi-Fi) ». Le DMD télécharge lui-même le firmware sur GitHub (environ 2 minutes, écran éteint pendant ce temps), contrôle sa taille et son empreinte SHA-256, et revient tout seul à la version précédente si quoi que ce soit se passe mal. La boîte à outils PC (Mode 14) fait la même chose en un clic, et la page web comme la boîte à outils vous signalent quand une nouvelle version existe. Seul le passage à la version 2.44 demande un dernier branchement USB, une fois pour toutes.</p>
+    <span class="eyebrow" style="color:var(--led-blue)" data-i18n="tk.eyebrow"></span>
+    <h2 data-i18n="tk.h2"></h2>
+    <p data-i18n="tk.p"></p>
+    <ul class="bul"><li data-i18n="tk.l1"></li><li data-i18n="tk.l2"></li><li data-i18n="tk.l3"></li><li data-i18n="tk.l4"></li></ul>
+    <p class="vidcap"><a href="https://github.com/shan-aya/RecalBoxDMD/releases/latest" target="_blank" rel="noopener" data-i18n="tk.cta"></a></p>
+  </section>
+
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--amber)" data-i18n="news.eyebrow"></span>
+    <h2 data-i18n="news.h2"></h2>
+    <p data-i18n="news.p"></p>
+    <figure class="shot glow-a">
+      <img src="media/news_fr.png" data-news="1" data-i18n-alt="news.alt" alt="" loading="lazy">
+    </figure>
+    <ul class="bul"><li data-i18n="news.l1"></li><li data-i18n="news.l2"></li><li data-i18n="news.l3"></li><li data-i18n="news.l4"></li></ul>
+    <p class="vidcap"><a href="https://github.com/shan-aya/RecalBoxDMD/blob/main/docs/tutorials/animated-marquees.fr.md" data-tuto="animated-marquees" target="_blank" rel="noopener" data-i18n="news.tuto1">Tutoriel : marquees animés</a> · <a href="https://github.com/shan-aya/RecalBoxDMD/blob/main/docs/tutorials/ultimate-gif-pack.fr.md" data-tuto="ultimate-gif-pack" target="_blank" rel="noopener" data-i18n="news.tuto2">Tutoriel : pack ULTIMATE GIFS DLC</a></p>
+  </section>
+  </div>
+
+  <div class="chaphead" id="diag"><span class="chapnum">4</span><h2 class="chaptitle" data-i18n="ch4.t"></h2><p class="chapsub" data-i18n="ch4.s"></p></div>
+
+  <div class="wide-sec">
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--led-green)" data-i18n="diag.eyebrow"></span>
+    <h2 data-i18n="diag.h2"></h2>
+    <p data-i18n="diag.p"></p>
+    <figure class="shot glow-g">
+      <img src="media/diag_panel_fr.png" data-diag="1" data-i18n-alt="diag.alt" alt="" loading="lazy">
+    </figure>
+    <ul class="bul"><li data-i18n="diag.l1"></li><li data-i18n="diag.l2"></li><li data-i18n="diag.l3"></li><li data-i18n="diag.l4"></li></ul>
+    <p class="vidcap"><a href="https://github.com/shan-aya/RecalBoxDMD/blob/main/README.fr.md#-diagnostic-wi-fi--recalbox" data-diagdoc="1" target="_blank" rel="noopener" data-i18n="diag.cta">Détails du mode diagnostic</a></p>
+  </section>
+
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--led-green)" data-i18n="ser.eyebrow"></span>
+    <h2 data-i18n="ser.h2"></h2>
+    <p data-i18n="ser.p"></p>
+    <figure class="shot glow-g">
+      <img src="media/serial_fr.png" data-serial="1" data-i18n-alt="ser.alt" alt="" loading="lazy">
+      <figcaption data-i18n="sim.cap"></figcaption>
+    </figure>
+    <ul class="bul"><li data-i18n="ser.l1"></li><li data-i18n="ser.l2"></li><li data-i18n="ser.l3"></li><li data-i18n="ser.l4"></li></ul>
+    <p class="vidcap"><a href="https://github.com/shan-aya/RecalBoxDMD/blob/main/README.fr.md#dans-la-boîte-à-outils" data-docanchor="serial" target="_blank" rel="noopener" data-i18n="ser.cta"></a></p>
+  </section>
+  </div>
+
+  <div class="chaphead" id="install"><span class="chapnum">5</span><h2 class="chaptitle" data-i18n="ch5.t"></h2><p class="chapsub" data-i18n="ch5.s"></p></div>
+
+  <div class="wide-sec">
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--led-green, var(--led-blue))" data-i18n="pi.eyebrow"></span>
+    <h2 data-i18n="pi.h2"></h2>
+    <p data-i18n="pi.p"></p>
+    <ul class="bul"><li data-i18n="pi.l1"></li><li data-i18n="pi.l2"></li><li data-i18n="pi.l3"></li><li data-i18n="pi.l4"></li><li data-i18n="pi.l5"></li></ul>
+    <figure class="shot glow-g">
+      <img src="media/pi_fr.png" data-pi="1" data-i18n-alt="pi.alt" alt="" loading="lazy">
+    </figure>
+    <p class="vidcap"><a href="https://github.com/shan-aya/RecalBoxDMD/blob/main/RASPBERRY-PI.fr.md" data-pidoc="1" target="_blank" rel="noopener" data-i18n="pi.cta">Guide d'installation Raspberry Pi</a></p>
   </section>
 
   <section class="feat">
@@ -749,6 +791,12 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
   </section>
 
   <section class="feat">
+    <span class="eyebrow" style="color:var(--led-green, var(--led-blue))" data-i18n="ota.eyebrow">Mises à jour</span>
+    <h2 data-i18n="ota.h2">Plus besoin de brancher le DMD en USB pour le mettre à jour</h2>
+    <p data-i18n="ota.p">Une nouvelle version du firmware est publiée ? Un avis s'affiche dans la page web de configuration du panneau — depuis votre téléphone comme depuis votre PC — avec un bouton « Mettre à jour maintenant (Wi-Fi) ». Le DMD télécharge lui-même le firmware sur GitHub (environ 2 minutes, écran éteint pendant ce temps), contrôle sa taille et son empreinte SHA-256, et revient tout seul à la version précédente si quoi que ce soit se passe mal. La boîte à outils PC (Mode 14) fait la même chose en un clic, et la page web comme la boîte à outils vous signalent quand une nouvelle version existe. Seul le passage à la version 2.44 demande un dernier branchement USB, une fois pour toutes.</p>
+  </section>
+
+  <section class="feat">
     <span class="eyebrow" style="color:var(--led-red)" data-i18n="vid.eyebrow">Vidéo</span>
     <h2 data-i18n="vid.h2">Tout voir en vidéo : présentation, montage, installation</h2>
     <p data-i18n="vid.p">Le tuto complet de Jamyz Gaming : présentation du projet, assemblage du cadre et installation pas à pas.</p>
@@ -758,7 +806,9 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
     </a>
     <p class="vidcap"><a href="https://youtu.be/xF8O88XXSwU" target="_blank" rel="noopener" data-i18n="vid.cta">▶ Regarder sur YouTube</a></p>
   </section>
+  </div>
 
+  <div class="narrow">
   <footer class="outro">
     <div class="word">Recal<span>BoxDMD</span></div>
     <p data-i18n="footer.p1">Interface disponible en français, anglais et espagnol.</p>
@@ -785,6 +835,48 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "fw.updated": "Dernier firmware :",
       "fw.version": "Version",
       "brand": "Panneau LED · Pixel Art",
+      "nav.1": "Déco",
+      "nav.2": "Recalbox",
+      "nav.3": "Boîte à outils",
+      "nav.4": "Diagnostic",
+      "nav.5": "Installer",
+      "ch1.t": "Déco : le panneau tout seul",
+      "ch1.s": "Sans Recalbox : GIFs, saisons, horloge et widgets.",
+      "ch2.t": "Avec votre Recalbox",
+      "ch2.s": "Le marquee de vos jeux, vos thèmes, les vrais logos, le mode natif Recalbox 11 et vos flippers.",
+      "ch3.t": "La boîte à outils PC",
+      "ch3.s": "Une application Windows qui prépare la carte SD et pilote le DMD.",
+      "ch4.t": "Diagnostic",
+      "ch4.s": "Comprendre un Wi-Fi capricieux ou un redémarrage : sur le DMD, et dans la boîte à outils.",
+      "ch5.t": "Matériel et installation",
+      "ch5.s": "ESP32 ou Raspberry Pi : montage, installation et mises à jour.",
+      "sim.cap": "Rendu simulé, valeurs d'exemple",
+      "season.eyebrow": "Nouveau · Saisons",
+      "season.h2": "Une playlist qui suit les fêtes de l'année",
+      "season.p": "Planifiez une playlist sur une période qui se répète <strong>chaque année</strong> : une fête du calendrier (Halloween, Noël, Nouvel An, Saint-Valentin, Pâques — calculée chaque année) ou des dates libres. <strong>Exclusive</strong>, elle remplace la playlist par défaut ; <strong>mixée</strong>, elle s'y ajoute. Deux périodes exclusives ne peuvent pas se recouvrir : c'est refusé et signalé.",
+      "season.l1": "Exclusive ou mixée avec votre playlist par défaut",
+      "season.l2": "Fêtes du calendrier ou dates libres, y compris à cheval sur le 31/12",
+      "season.l3": "Alerte de chevauchement, bloquante entre deux exclusives",
+      "season.l4": "Page web du DMD et boîte à outils PC, ESP32 comme Raspberry Pi — un cadran 🕒 marque les playlists utilisées",
+      "season.alt": "Frise de l'année avec les périodes saisonnières (Halloween, Noël, Nouvel An, Saint-Valentin, Pâques, été) et tableau des périodes avec leurs alertes de chevauchement (rendu simulé).",
+      "season.cta": "Détails de l'onglet Playlist",
+      "tk.eyebrow": "Boîte à outils PC",
+      "tk.h2": "Une application Windows qui prépare tout",
+      "tk.p": "Le <strong>Mode 1 AUTO</strong> prépare la carte SD en un clic — scripts Recalbox, thèmes, logos, GIFs, animations de démarrage — pour l'ESP32 comme pour le Raspberry Pi. L'interface existe en français, anglais et espagnol, avec 9 habillages.",
+      "tk.l1": "Onglet <strong>Playlist</strong> : composez vos rotations et planifiez vos playlists saisonnières",
+      "tk.l2": "Onglet <strong>Avancé</strong> : les modes un par un (thèmes, logos, cartes texte, mises à jour…)",
+      "tk.l3": "Onglet <strong>Diagnostic</strong> : moniteur série USB, mesures Wi-Fi, rapport d'assistance",
+      "tk.l4": "Mises à jour de la boîte à outils et du firmware directement depuis GitHub",
+      "tk.cta": "Télécharger la dernière version",
+      "ser.eyebrow": "Nouveau · Boîte à outils",
+      "ser.h2": "Le moniteur série USB, directement dans la boîte à outils",
+      "ser.p": "L'onglet <strong>Diagnostic</strong> affiche le journal du DMD en direct, sans PuTTY ni autre logiciel : branchez la carte en USB, choisissez le port, c'est tout — et <strong>ouvrir le port ne redémarre pas la carte</strong>. Les mesures Wi-Fi de la page web y sont aussi, pour l'ESP32 comme pour le Raspberry Pi.",
+      "ser.l1": "Journal série en direct : filtre de lignes, « Redémarrer la carte », « Effacer »",
+      "ser.l2": "Suivi Wi-Fi des événements pour un DMD sans câble : redémarrages et leur cause, pertes de liaison",
+      "ser.l3": "Mesures identiques à la page web du DMD : signal, perte, latence, gigue, reconnexions",
+      "ser.l4": "Rapport d'assistance exportable (.zip), avec une analyse automatique des points d'attention",
+      "ser.alt": "Console série de la boîte à outils : source USB ou Wi-Fi, port, débit, boutons Connecter, Redémarrer la carte et Effacer, filtre de lignes et journal du DMD (rendu simulé).",
+      "ser.cta": "Détails de l'onglet Diagnostic",
       "col.gif": "🎬 Playlist de GIF",
       "col.wid": "🧩 Widgets &amp; écrans vivants",
       "w.alt": "Rendu simulé du panneau LED 128×32.",
@@ -952,6 +1044,48 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "fw.updated": "Latest firmware:",
       "fw.version": "Version",
       "brand": "LED Panel · Pixel Art",
+      "nav.1": "Decor",
+      "nav.2": "Recalbox",
+      "nav.3": "Toolkit",
+      "nav.4": "Diagnostics",
+      "nav.5": "Install",
+      "ch1.t": "Decor: the panel on its own",
+      "ch1.s": "No Recalbox needed: GIFs, seasons, clock and widgets.",
+      "ch2.t": "With your Recalbox",
+      "ch2.s": "Your games' marquee, your themes, the real logos, Recalbox 11 native mode and your pinball tables.",
+      "ch3.t": "The PC toolkit",
+      "ch3.s": "A Windows app that prepares the SD card and drives the DMD.",
+      "ch4.t": "Diagnostics",
+      "ch4.s": "Understand a flaky Wi-Fi or a reboot: on the DMD, and in the toolkit.",
+      "ch5.t": "Hardware and installation",
+      "ch5.s": "ESP32 or Raspberry Pi: assembly, installation and updates.",
+      "sim.cap": "Simulated render, example values",
+      "season.eyebrow": "New · Seasons",
+      "season.h2": "A playlist that follows the holidays of the year",
+      "season.p": "Schedule a playlist on a period that repeats <strong>every year</strong>: a calendar holiday (Halloween, Christmas, New Year, Valentine's Day, Easter — computed each year) or custom dates. <strong>Exclusive</strong>, it replaces the default playlist; <strong>mixed</strong>, it is added to it. Two exclusive periods cannot overlap: it is refused and flagged.",
+      "season.l1": "Exclusive or mixed with your default playlist",
+      "season.l2": "Calendar holidays or custom dates, even across 31/12",
+      "season.l3": "Overlap alert, blocking between two exclusive periods",
+      "season.l4": "DMD web page and PC toolkit, ESP32 and Raspberry Pi alike — a 🕒 clock face marks the playlists in use",
+      "season.alt": "Year timeline with the seasonal periods (Halloween, Christmas, New Year, Valentine's Day, Easter, summer) and a table of periods with their overlap alerts (simulated render).",
+      "season.cta": "Playlist tab details",
+      "tk.eyebrow": "PC toolkit",
+      "tk.h2": "A Windows app that prepares everything",
+      "tk.p": "<strong>Mode 1 AUTO</strong> prepares the SD card in one click — Recalbox scripts, themes, logos, GIFs, boot animations — for the ESP32 and the Raspberry Pi alike. The interface comes in French, English and Spanish, with 9 visual skins.",
+      "tk.l1": "<strong>Playlist</strong> tab: compose your rotations and schedule your seasonal playlists",
+      "tk.l2": "<strong>Advanced</strong> tab: the modes one by one (themes, logos, text cards, updates…)",
+      "tk.l3": "<strong>Diagnostic</strong> tab: USB serial monitor, Wi-Fi measurements, support report",
+      "tk.l4": "Toolkit and firmware updates straight from GitHub",
+      "tk.cta": "Download the latest version",
+      "ser.eyebrow": "New · Toolkit",
+      "ser.h2": "The USB serial monitor, right inside the toolkit",
+      "ser.p": "The <strong>Diagnostic</strong> tab shows the DMD's live log, with no PuTTY or other software: plug the board in over USB, pick the port, that's it — and <strong>opening the port does not restart the board</strong>. The web page's Wi-Fi measurements are there too, for the ESP32 and the Raspberry Pi alike.",
+      "ser.l1": "Live serial log: line filter, “Restart the board”, “Clear”",
+      "ser.l2": "Wi-Fi event follower for a DMD without a cable: reboots and their cause, link losses",
+      "ser.l3": "Same measurements as the DMD's web page: signal, loss, latency, jitter, reconnections",
+      "ser.l4": "Exportable support report (.zip), with an automatic analysis of the points to watch",
+      "ser.alt": "The toolkit's serial console: USB or Wi-Fi source, port, baud rate, Connect, Restart the board and Clear buttons, line filter and the DMD's log (simulated render).",
+      "ser.cta": "Diagnostic tab details",
       "col.gif": "🎬 GIF playlist",
       "col.wid": "🧩 Widgets &amp; live screens",
       "w.alt": "Simulated render of the 128×32 LED panel.",
@@ -1119,6 +1253,48 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "fw.updated": "Último firmware:",
       "fw.version": "Versión",
       "brand": "Panel LED · Pixel Art",
+      "nav.1": "Decoración",
+      "nav.2": "Recalbox",
+      "nav.3": "Herramientas",
+      "nav.4": "Diagnóstico",
+      "nav.5": "Instalar",
+      "ch1.t": "Decoración: el panel por sí solo",
+      "ch1.s": "Sin Recalbox: GIFs, temporadas, reloj y widgets.",
+      "ch2.t": "Con tu Recalbox",
+      "ch2.s": "El marquee de tus juegos, tus temas, los logos reales, el modo nativo de Recalbox 11 y tus pinballs.",
+      "ch3.t": "La caja de herramientas del PC",
+      "ch3.s": "Una aplicación de Windows que prepara la tarjeta SD y maneja el DMD.",
+      "ch4.t": "Diagnóstico",
+      "ch4.s": "Entender un Wi-Fi caprichoso o un reinicio: en el DMD y en la caja de herramientas.",
+      "ch5.t": "Hardware e instalación",
+      "ch5.s": "ESP32 o Raspberry Pi: montaje, instalación y actualizaciones.",
+      "sim.cap": "Render simulado, valores de ejemplo",
+      "season.eyebrow": "Nuevo · Temporadas",
+      "season.h2": "Una playlist que sigue las fiestas del año",
+      "season.p": "Programa una playlist en un período que se repite <strong>cada año</strong>: una fiesta del calendario (Halloween, Navidad, Año Nuevo, San Valentín, Pascua — calculada cada año) o fechas libres. <strong>Exclusiva</strong>, sustituye a la playlist por defecto; <strong>mixta</strong>, se añade a ella. Dos períodos exclusivos no pueden solaparse: se rechaza y se avisa.",
+      "season.l1": "Exclusiva o mixta con tu playlist por defecto",
+      "season.l2": "Fiestas del calendario o fechas libres, incluso a caballo del 31/12",
+      "season.l3": "Aviso de solapamiento, bloqueante entre dos exclusivas",
+      "season.l4": "Página web del DMD y caja de herramientas del PC, ESP32 y Raspberry Pi — un reloj 🕒 marca las playlists en uso",
+      "season.alt": "Cronología del año con los períodos de temporada (Halloween, Navidad, Año Nuevo, San Valentín, Pascua, verano) y tabla de períodos con sus avisos de solapamiento (render simulado).",
+      "season.cta": "Detalles de la pestaña Playlist",
+      "tk.eyebrow": "Caja de herramientas del PC",
+      "tk.h2": "Una aplicación de Windows que lo prepara todo",
+      "tk.p": "El <strong>Modo 1 AUTO</strong> prepara la tarjeta SD con un clic — scripts de Recalbox, temas, logos, GIFs, animaciones de arranque — tanto para el ESP32 como para la Raspberry Pi. La interfaz está en francés, inglés y español, con 9 aspectos visuales.",
+      "tk.l1": "Pestaña <strong>Playlist</strong>: compón tus rotaciones y programa tus playlists de temporada",
+      "tk.l2": "Pestaña <strong>Avanzado</strong>: los modos uno a uno (temas, logos, tarjetas de texto, actualizaciones…)",
+      "tk.l3": "Pestaña <strong>Diagnóstico</strong>: monitor serie USB, medidas Wi-Fi, informe de soporte",
+      "tk.l4": "Actualizaciones de la caja de herramientas y del firmware directamente desde GitHub",
+      "tk.cta": "Descargar la última versión",
+      "ser.eyebrow": "Nuevo · Caja de herramientas",
+      "ser.h2": "El monitor serie USB, dentro de la caja de herramientas",
+      "ser.p": "La pestaña <strong>Diagnóstico</strong> muestra el registro del DMD en directo, sin PuTTY ni otro programa: conecta la placa por USB, elige el puerto y listo — y <strong>abrir el puerto no reinicia la placa</strong>. Las medidas Wi-Fi de la página web también están ahí, tanto para el ESP32 como para la Raspberry Pi.",
+      "ser.l1": "Registro serie en directo: filtro de líneas, «Reiniciar la placa», «Borrar»",
+      "ser.l2": "Seguimiento Wi-Fi de eventos para un DMD sin cable: reinicios y su causa, pérdidas de enlace",
+      "ser.l3": "Las mismas medidas que la página web del DMD: señal, pérdida, latencia, jitter, reconexiones",
+      "ser.l4": "Informe de soporte exportable (.zip), con un análisis automático de los puntos a vigilar",
+      "ser.alt": "Consola serie de la caja de herramientas: fuente USB o Wi-Fi, puerto, baudios, botones Conectar, Reiniciar la placa y Borrar, filtro de líneas y registro del DMD (render simulado).",
+      "ser.cta": "Detalles de la pestaña Diagnóstico",
       "col.gif": "🎬 Lista de GIF",
       "col.wid": "🧩 Widgets y pantallas vivas",
       "w.alt": "Render simulado del panel LED 128×32.",
@@ -1337,6 +1513,13 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
     document.querySelectorAll("img[data-pi]").forEach(function(el){ el.setAttribute("src", "media/pi_" + lang + ".png"); });
     document.querySelectorAll("img[data-diag]").forEach(function(el){ el.setAttribute("src", "media/diag_panel_" + lang + ".png"); });
     document.querySelectorAll("img[data-news]").forEach(function(el){ el.setAttribute("src", "media/news_" + lang + ".png"); });
+    document.querySelectorAll("img[data-season]").forEach(function(el){ el.setAttribute("src", "media/seasons_" + lang + ".png"); });
+    document.querySelectorAll("img[data-serial]").forEach(function(el){ el.setAttribute("src", "media/serial_" + lang + ".png"); });
+    document.querySelectorAll("a[data-docanchor]").forEach(function(el){
+      var m = { season: { fr: "README.fr.md#longlet-playlist", en: "README.md#the-playlist-tab", es: "README.es.md#la-pestaña-playlist" },
+                serial: { fr: "README.fr.md#dans-la-boîte-à-outils", en: "README.md#in-the-toolkit", es: "README.es.md#en-el-toolkit" } };
+      el.setAttribute("href", "https://github.com/shan-aya/RecalBoxDMD/blob/main/" + m[el.getAttribute("data-docanchor")][lang]);
+    });
   document.querySelectorAll("img[data-reels]").forEach(function(el){ el.setAttribute("src", "media/logos_reels_" + lang + ".png"); });
     document.querySelectorAll("a[data-diagdoc]").forEach(function(el){
       var d = { fr: "README.fr.md#-diagnostic-wi-fi--recalbox", en: "README.md#-wi-fi--recalbox-diagnostic", es: "README.es.md#-diagnóstico-wi-fi--recalbox" };
@@ -1403,6 +1586,19 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       }
     })
     .catch(function(){});
+})();
+</script>
+
+<script>
+(function(){
+  var links = document.querySelectorAll(".chapnav a");
+  if (!("IntersectionObserver" in window) || !links.length) return;
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if (e.isIntersecting) links.forEach(function(a){ a.classList.toggle("on", a.getAttribute("href") === "#" + e.target.id); });
+    });
+  }, { rootMargin: "-20% 0px -70% 0px" });
+  document.querySelectorAll(".chaphead").forEach(function(h){ io.observe(h); });
 })();
 </script>
 
