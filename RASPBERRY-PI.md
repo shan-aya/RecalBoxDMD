@@ -18,7 +18,7 @@ The separate modes remain available: **Mode 16** (prepare a card, replaces Raspb
 
 ## Hardware
 
-- Raspberry Pi 3B (validated) and an HUB75 interface board (RPI2DMD-type boards: "regular" GPIO mapping, optional DS1307 RTC).
+- Raspberry Pi 3B or Pi 4 (validated) and an HUB75 interface board (RPI2DMD-type boards: "regular" GPIO mapping, optional DS1307 RTC). Example seller in France: [MM Workshop](https://mmwork.shop/boutique/pidmd-pour-matrices-led-rgb-hub75/) (Raspberry Pi HUB75 DMD controller board, RPI2DMD-compatible according to the seller).
 - Two 64×32 P5 panels chained (128×32), 1/16 scan: default settings `--led-cols=64 --led-rows=32 --led-chain=2 --led-pwm-bits=11 --led-slowdown-gpio=<per model>`.
 - An optional physical button between GPIO 21 and GND.
 - Pi audio is disabled and one core is reserved for the display (`isolcpus=3`): the installation does it.
