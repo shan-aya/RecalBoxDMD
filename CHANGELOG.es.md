@@ -8,6 +8,15 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-01 — Playlists de temporada · pestaña Diagnóstico: firmware v4.01, demonio Pi v3.77, toolkit build 14689
+
+**Firmware v4.01 · Demonio Raspberry Pi v3.77 · Toolkit PC build 14689**
+- **Nuevo: playlists de temporada.** Programa una playlist en un período que se repite cada año: una fiesta del calendario (Halloween, Navidad, Año Nuevo, San Valentín, Pascua — calculada) o fechas libres. **Exclusiva** (sustituye a la playlist por defecto) o **mixta** (se añade a ella). Dos períodos exclusivos que se solapan se **rechazan**; con un período mixto es un aviso. Hasta 8 períodos, guardados en `/playlists/seasons.ini`.
+- **Dónde configurarlas:** sección «Playlists de temporada» de la página web *Playlist* del DMD, y botón **Playlists de temporada…** de la pestaña Playlist del toolkit (guardar en la tarjeta SD, enviar por Wi-Fi, leer desde el DMD) — para el ESP32 **y** la Pi.
+- **Comportamiento:** el ESP32 elige la playlist al arrancar y, al cambiar de día, se reinicia una sola vez si cambia la elección; la Pi cambia de playlist **sin reiniciar**. Una playlist de temporada ausente de la tarjeta se ignora (vuelta a la playlist por defecto).
+- **Corrección (firmware, presente antes de la v4.01): la fecha no se conservaba tras «Guardar y reiniciar».** Guardar desde las páginas web borraba la última fecha conocida de `config.ini`; el siguiente arranque no tenía fecha antes de sincronizar la hora y la **animación de arranque de temporada** se ignoraba. Corregido.
+- **Recordatorio — pestaña «Diagnóstico» del toolkit** (build 14588): medidas Wi-Fi idénticas a la página web del DMD, monitor serie USB, informe de soporte con análisis automático; véase [Diagnóstico Wi-Fi / Recalbox](README.es.md#-diagnóstico-wi-fi--recalbox).
+
 ## 2026-11-01 — Lote de scripts de Recalbox n.º 9: el DMD ya no se queda en el juego tras el botón de encendido de la Pi 5
 
 **Lote de scripts de Recalbox n.º 9** (sin cambios de firmware, demonio de Pi ni caja de herramientas)

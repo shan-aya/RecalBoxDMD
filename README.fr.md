@@ -99,6 +99,7 @@ Le panneau mélange **deux univers**, à doser comme vous voulez depuis la page 
 ### 🎬 La playlist & le marquee
 - ⚡ **Marquee du jeu en direct** — fixe ou animé, par jeu ou par système, images de repli (4 fournies, ou la vôtre).
 - 🎞️ **~600 GIF rétro gratuits** + onglet *Playlist* pour composer vos rotations d'attente.
+- 📅 **Playlists saisonnières** — planifiez une playlist sur une période qui se répète chaque année (Halloween, Noël, Pâques… ou dates libres), *exclusive* ou *mixée* avec la playlist par défaut, avec alerte de chevauchement.
 - 🏆 **Écrans en jeu** — Hi-Score, Infos du jeu, RetroAchievements, Challenge Recalbox.
 - 🎨 **Le DMD suit votre thème Recalbox** — logos de systèmes selon le thème, la langue et la région, à la volée.
 - 🎯 **Pinball** — les tables Visual Pinball affichent leur DMD.
@@ -376,7 +377,7 @@ C'est l'application Windows (FR / EN / ES, 9 habillages visuels) qui **construit
 | **Main · Mega Drive** | **Playlist · Neo Geo** |
 | ![Onglet Main, thème Mega Drive](medias/screenshots/gui_fr_main_megadrive.png) | ![Onglet Playlist, thème Neo Geo](medias/screenshots/gui_fr_playlist_neogeo.png) |
 
-### Les six onglets
+### Les sept onglets
 
 | Onglet | Rôle |
 |---|---|
@@ -386,6 +387,7 @@ C'est l'application Windows (FR / EN / ES, 9 habillages visuels) qui **construit
 | **Logs** | Toute la sortie texte, avec filtre de niveau — à copier pour signaler un souci |
 | **Paramètres** | Langue, thème de couleurs, profil de version Recalbox, seuil « L » (systèmes lents) |
 | **Aide** | Le manuel, ouvrable dans le navigateur |
+| **Diagnostic** | Mesures Wi-Fi du DMD (ESP32 et Pi), moniteur série USB, rapport d'assistance avec analyse automatique |
 
 En bas, **Pause / Reprise · Passe · Stop** (Stop arrête vraiment la copie). Le numéro dans la barre de titre est le **build** : donnez-le quand vous demandez de l'aide. Au lancement, un **avis** signale toolkit, firmware, scripts ou citations plus récents (lien *Notes de version*).
 
@@ -454,7 +456,7 @@ Puis le pipeline : préparation → **scripts Recalbox** (Mode 9) → extraction
 
 ### L'onglet Playlist
 
-Une **playlist** = les GIF que le DMD joue quand rien ne se passe sur la Recalbox. Cochez un dossier entier, ou cliquez son nom pour choisir fichier par fichier (survol = aperçu animé) ; **Ajouter un dossier PC…** importe vos GIF ; **Construire la playlist** l'enregistre sous un nom ; **Supprimer** nettoie ; **Régénérer le cache playlist** reconstruit `cache_master_gifs.dat`. *Quelle* playlist est active se choisit dans la page web du DMD. **Envoyer au Pi (Wi-Fi)…** (Raspberry Pi) envoie vos dossiers de GIF par Wi-Fi, sans sortir la carte. Après **Supprimer**, une popup *Suppression terminée* donne le résultat vérifié sur la carte, et chaque action de l'onglet est écrite dans l'onglet **Logs** (réglez *Niveau* sur *Tout*). Pour un gros pack (~11 000 GIF) : [tutoriel ULTIMATE](docs/tutorials/ultimate-gif-pack.fr.md).
+Une **playlist** = les GIF que le DMD joue quand rien ne se passe sur la Recalbox. Cochez un dossier entier, ou cliquez son nom pour choisir fichier par fichier (survol = aperçu animé) ; **Ajouter un dossier PC…** importe vos GIF ; **Construire la playlist** l'enregistre sous un nom ; **Supprimer** nettoie ; **Régénérer le cache playlist** reconstruit `cache_master_gifs.dat`. *Quelle* playlist est active se choisit dans la page web du DMD. **Playlists saisonnières…** (firmware 4.01, démon Pi 3.77) planifie une playlist sur une période qui se répète chaque année : choisissez une fête du calendrier (Halloween, Noël, Nouvel An, Saint-Valentin, Pâques — calculée chaque année) ou des dates libres, la playlist et son mode — *exclusive* (remplace la playlist par défaut) ou *mixée* (s'y ajoute). Deux périodes exclusives ne peuvent pas se recouvrir (le bouton d'enregistrement se désactive) ; un recouvrement avec une période mixée n'est qu'un avertissement. Enregistrez sur la carte SD, ou envoyez au DMD par Wi-Fi. **Envoyer au Pi (Wi-Fi)…** (Raspberry Pi) envoie vos dossiers de GIF par Wi-Fi, sans sortir la carte. Après **Supprimer**, une popup *Suppression terminée* donne le résultat vérifié sur la carte, et chaque action de l'onglet est écrite dans l'onglet **Logs** (réglez *Niveau* sur *Tout*). Pour un gros pack (~11 000 GIF) : [tutoriel ULTIMATE](docs/tutorials/ultimate-gif-pack.fr.md).
 
 ---
 
@@ -487,6 +489,7 @@ Tapez l'IP du DMD (affichée sur le panneau ; ou `rbpidmd.local` pour un Pi) dan
 
 ### Le plus utile à savoir
 
+- 📅 **Playlists saisonnières** : section de la page *Playlist* (et fenêtre de l'onglet Playlist de la boîte à outils). Le DMD suit les saisons tout seul : au changement de jour, l'ESP32 redémarre une fois si la playlist du jour change ; le Pi change de playlist sans redémarrer.
 - 🔔 **Un bandeau en haut de chaque page** annonce un firmware, des scripts Recalbox (→ Mode 9) ou une boîte à outils plus récents. La vérification est faite par **votre navigateur** : le DMD n'a besoin d'aucun accès Internet.
 - 👁️ **Aperçu en direct** : luminosité, thème d'horloge et widgets se jouent tout de suite sur le panneau physique.
 - 🆘 **Secours Wi-Fi** : sans réseau valide, le DMD ouvre son propre point d'accès (Pi : **RecalBox-DMD-Config**, 192.168.4.1) ; le script manuel *WiFi Recovery DMD* le relance à distance.
@@ -601,6 +604,10 @@ Les valeurs en direct, **deux courbes** (signal et latence), un guide **« Comme
 - **Deux adresses de point d'accès qui alternent** : le DMD passe d'un point d'accès à l'autre d'un réseau maillé ou d'un répéteur.
 
 Plus de détails dans la [FAQ](FAQ.fr.md).
+
+### Dans la boîte à outils
+
+L'onglet **Diagnostic** de la boîte à outils (le dernier, après *Aide*) reprend les mesures de la page web — signal, qualité, perte, latence, gigue, reconnexions, mémoire libre — pour l'ESP32 **et** le Raspberry Pi, avec en plus un **moniteur série USB** (l'ouverture du port ne redémarre pas la carte) et un **rapport d'assistance** : *Rapport (navigateur)*, *Aperçu texte*, *Copier le rapport*, *Exporter (.zip)*. Le rapport s'ouvre sur un **résumé des points d'attention** (redémarrage par watchdog, mise à jour échouée, Wi-Fi faible…), à joindre à une demande d'aide.
 
 ### Raspberry Pi
 

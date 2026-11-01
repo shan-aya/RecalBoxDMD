@@ -99,6 +99,7 @@ The panel mixes **two worlds**, in whatever proportion you like, from the *Widge
 ### 🎬 The playlist & the marquee
 - ⚡ **Live game marquee** — still or animated, per game or per system, fallback images (4 provided, or your own).
 - 🎞️ **~600 free retro GIFs** + a *Playlist* tab to compose your attract rotations.
+- 📅 **Seasonal playlists** — schedule a playlist on a period that repeats every year (Halloween, Christmas, Easter… or custom dates), *exclusive* or *mixed* with the default playlist, with an overlap alert.
 - 🏆 **In-game screens** — Hi-Score, Game Info, RetroAchievements, Recalbox Challenge.
 - 🎨 **The DMD follows your Recalbox theme** — system logos per theme, language and region, on the fly.
 - 🎯 **Pinball** — Visual Pinball tables show their DMD.
@@ -376,7 +377,7 @@ The Windows application (FR / EN / ES, 9 visual skins) that **builds everything*
 | **Main · Mega Drive** | **Playlist · Neo Geo** |
 | ![Main tab, Mega Drive theme](medias/screenshots/gui_fr_main_megadrive.png) | ![Playlist tab, Neo Geo theme](medias/screenshots/gui_fr_playlist_neogeo.png) |
 
-### The six tabs
+### The seven tabs
 
 | Tab | Role |
 |---|---|
@@ -386,6 +387,7 @@ The Windows application (FR / EN / ES, 9 visual skins) that **builds everything*
 | **Logs** | All the text output, with a level filter — copy it to report a problem |
 | **Settings** | Language, colour theme, Recalbox version profile, "L" threshold (slow systems) |
 | **Help** | The manual, openable in the browser |
+| **Diagnostic** | The DMD's Wi-Fi measurements (ESP32 and Pi), USB serial monitor, support report with automatic analysis |
 
 At the bottom, **Pause / Resume · Skip · Stop** (Stop really stops the copy). The number in the title bar is the **build**: quote it when asking for help. At launch, a **notice** flags newer toolkit, firmware, scripts or quotes (*Release notes* link).
 
@@ -454,7 +456,7 @@ Then the pipeline: preparation → **Recalbox scripts** (Mode 9) → marquee ext
 
 ### The Playlist tab
 
-A **playlist** = the GIFs the DMD plays when nothing is happening on the Recalbox. Tick a whole folder, or click its name to choose file by file (hover = animated preview); **Add PC folder…** imports your GIFs; **Build playlist** saves it under a name; **Delete** cleans up; **Regenerate playlist cache** rebuilds `cache_master_gifs.dat`. *Which* playlist is active is chosen in the DMD's web page. **Send to Pi (Wi-Fi)…** (Raspberry Pi) sends your GIF folders over Wi-Fi without taking the card out. After **Delete**, a *Deletion complete* pop-up shows the result checked on the card, and every action of the tab is written to the **Logs** tab (set *Level* to *All*). For a big pack (~11,000 GIFs): [ULTIMATE tutorial](docs/tutorials/ultimate-gif-pack.md).
+A **playlist** = the GIFs the DMD plays when nothing is happening on the Recalbox. Tick a whole folder, or click its name to choose file by file (hover = animated preview); **Add PC folder…** imports your GIFs; **Build playlist** saves it under a name; **Delete** cleans up; **Regenerate playlist cache** rebuilds `cache_master_gifs.dat`. *Which* playlist is active is chosen in the DMD's web page. **Seasonal playlists…** (firmware 4.01, Pi daemon 3.77) schedules a playlist on a period that repeats every year: pick a calendar holiday (Halloween, Christmas, New Year, Valentine's Day, Easter — computed each year) or custom dates, the playlist and its mode — *exclusive* (replaces the default playlist) or *mixed* (is added to it). Two exclusive periods cannot overlap (the save button is disabled); an overlap with a mixed period is only a warning. Save to the SD card, or send to the DMD over Wi-Fi. **Send to Pi (Wi-Fi)…** (Raspberry Pi) sends your GIF folders over Wi-Fi without taking the card out. After **Delete**, a *Deletion complete* pop-up shows the result checked on the card, and every action of the tab is written to the **Logs** tab (set *Level* to *All*). For a big pack (~11,000 GIFs): [ULTIMATE tutorial](docs/tutorials/ultimate-gif-pack.md).
 
 ---
 
@@ -487,6 +489,7 @@ Type the DMD's IP (shown on the panel; or `rbpidmd.local` for a Pi) into the bro
 
 ### Good to know
 
+- 📅 **Seasonal playlists**: a section of the *Playlist* page (and a window of the toolkit's Playlist tab). The DMD follows the seasons by itself: at the day change the ESP32 restarts once if the day's playlist changes; the Pi switches playlist without restarting.
 - 🔔 **A banner at the top of every page** announces a newer firmware, Recalbox scripts (→ Mode 9) or toolkit. The check is done by **your browser**: the DMD needs no Internet access.
 - 👁️ **Live preview**: brightness, clock theme and widgets play right away on the physical panel.
 - 🆘 **Wi-Fi rescue**: without a valid network the DMD opens its own access point (Pi: **RecalBox-DMD-Config**, 192.168.4.1); the manual *DMD WiFi Recovery* script relaunches it remotely.
@@ -601,6 +604,10 @@ Live values, **two curves** (signal and latency), a **“How to read these value
 - **Two access-point addresses alternating**: the DMD is hopping between access points of a mesh network or a repeater.
 
 More in the [FAQ](FAQ.md).
+
+### In the toolkit
+
+The toolkit's **Diagnostic** tab (the last one, after *Help*) shows the web page's measurements — signal, quality, loss, latency, jitter, reconnections, free memory — for the ESP32 **and** the Raspberry Pi, plus a **USB serial monitor** (opening the port does not restart the board) and a **support report**: *Report (browser)*, *Text preview*, *Copy report*, *Export (.zip)*. The report opens with a **summary of the points to watch** (watchdog restart, failed update, weak Wi-Fi…), to attach to a help request.
 
 ### Raspberry Pi
 

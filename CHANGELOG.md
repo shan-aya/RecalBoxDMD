@@ -8,6 +8,15 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-01 — Seasonal playlists · Diagnostic tab: firmware v4.01, Pi daemon v3.77, toolkit build 14689
+
+**Firmware v4.01 · Raspberry Pi daemon v3.77 · PC toolkit build 14689**
+- **New: seasonal playlists.** Schedule a playlist on a period that repeats every year: a calendar holiday (Halloween, Christmas, New Year, Valentine's Day, Easter — computed) or custom dates. **Exclusive** (replaces the default playlist) or **mixed** (is added to it). Two exclusive periods that overlap are **refused**; with a mixed period it is a warning. Up to 8 periods, stored in `/playlists/seasons.ini`.
+- **Where to set it:** the “Seasonal playlists” section of the DMD's *Playlist* web page, and the **Seasonal playlists…** button of the toolkit's Playlist tab (save to the SD card, send over Wi-Fi, read back from the DMD) — for the ESP32 **and** the Pi.
+- **Behavior:** the ESP32 picks the playlist at startup and, at the day change, restarts once if the choice changes; the Pi switches playlist **without restarting**. A seasonal playlist missing from the card is ignored (back to the default playlist).
+- **Fix (firmware, present before v4.01): the date was not kept after “Save and restart”.** Saving from the web pages erased the last known date from `config.ini`; the next startup therefore had no date before the clock synchronized, and the **seasonal boot animation** was skipped. Fixed.
+- **Reminder — the toolkit's “Diagnostic” tab** (build 14588): Wi-Fi measurements identical to the DMD's web page, USB serial monitor, support report with automatic analysis; see [Wi-Fi / Recalbox diagnostic](README.md#-wi-fi--recalbox-diagnostic).
+
 ## 2026-11-01 — Recalbox scripts bundle 9: the DMD no longer stays stuck on the game after the Pi 5 power button
 
 **Recalbox scripts bundle 9** (no firmware, Pi daemon or toolkit change)

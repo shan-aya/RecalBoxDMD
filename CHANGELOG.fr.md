@@ -8,6 +8,15 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-01 — Playlists saisonnières · onglet Diagnostic : firmware v4.01, démon Pi v3.77, boîte à outils build 14689
+
+**Firmware v4.01 · Démon Raspberry Pi v3.77 · Boîte à outils PC build 14689**
+- **Nouveau : playlists saisonnières.** Planifiez une playlist sur une période qui se répète chaque année : une fête du calendrier (Halloween, Noël, Nouvel An, Saint-Valentin, Pâques — calculée) ou des dates libres. **Exclusive** (remplace la playlist par défaut) ou **mixée** (s'y ajoute). Deux périodes exclusives qui se recouvrent sont **refusées** ; avec une période mixée, c'est un avertissement. Jusqu'à 8 périodes, stockées dans `/playlists/seasons.ini`.
+- **Où la régler :** section « Playlists saisonnières » de la page web *Playlist* du DMD, et bouton **Playlists saisonnières…** de l'onglet Playlist de la boîte à outils (enregistrement sur la carte SD, envoi par Wi-Fi, lecture depuis le DMD) — pour l'ESP32 **et** le Pi.
+- **Comportement :** l'ESP32 choisit la playlist au démarrage et, au changement de jour, redémarre une seule fois si le choix change ; le Pi change de playlist **sans redémarrer**. Une playlist saisonnière absente de la carte est ignorée (retour à la playlist par défaut).
+- **Correction (firmware, présente avant la v4.01) : la date n'était pas conservée après « Enregistrer et redémarrer ».** L'enregistrement depuis les pages web effaçait la dernière date connue de `config.ini` ; le démarrage suivant n'avait donc aucune date avant la synchronisation de l'heure, et l'**animation de démarrage saisonnière** était ignorée. Corrigé.
+- **Rappel — onglet « Diagnostic » de la boîte à outils** (build 14588) : mesures Wi-Fi identiques à la page web du DMD, moniteur série USB, rapport d'assistance avec analyse automatique ; voir [Diagnostic Wi-Fi / Recalbox](README.fr.md#-diagnostic-wi-fi--recalbox).
+
 ## 2026-11-01 — Lot de scripts Recalbox n°9 : le DMD ne reste plus figé sur le jeu après le bouton d'alimentation du Pi 5
 
 **Lot de scripts Recalbox n°9** (aucun changement de firmware, de démon Pi ni de boîte à outils)

@@ -80,6 +80,17 @@ Desde el firmware 3.98 (y el demonio Raspberry Pi correspondiente), el DMD puede
 
 Un sistema que no está en el set (géneros, favoritos…) conserva el logo del tema. Un tema que aún no aparece en la lista aparece en cuanto lo seleccionas una vez en Recalbox.
 
+## ¿Cómo reproducir una playlist especial en Navidad, Halloween…?
+
+Usa las **playlists de temporada** (firmware 4.01, demonio Pi 3.77): pestaña *Playlist* del toolkit → **Playlists de temporada…** (o la sección del mismo nombre en la página web *Playlist* del DMD).
+
+- Elige una **fiesta** (Halloween 15/10–02/11, Navidad 10/12–26/12, Año Nuevo 27/12–03/01, San Valentín 07/02–14/02, Pascua −7 d/+1 d) o **fechas libres** — el período se repite cada año.
+- **Exclusiva**: la playlist sustituye a la playlist por defecto durante el período. **Mixta**: se añade a ella.
+- Dos períodos **exclusivos** que se solapan se rechazan; con un período mixto es solo un aviso (gana la exclusiva).
+- El DMD necesita conocer la fecha: Wi-Fi (hora por Internet) al menos una vez. Sin fecha conocida, se reproduce la playlist por defecto.
+- **¿No cambia nada enseguida en el ESP32?** El cambio ocurre al cambiar de día (el DMD se reinicia entonces una vez) o en el siguiente reinicio. La Pi cambia de playlist sin reiniciar.
+- Una playlist de temporada **ausente de la tarjeta SD** se ignora: el DMD vuelve a la playlist por defecto.
+
 ## Solución de problemas general
 
 | Síntoma | Causa probable | Prueba esto |

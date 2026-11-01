@@ -53,6 +53,10 @@ The [`raspberry-pi/rpi_daemon/`](raspberry-pi/rpi_daemon/) folder is under **GPL
 
 The Pi has the same diagnostic mode as the ESP32: action 12 of the **Button** page (physical button on GPIO 21) and the **Diagnostics** page of the web configuration. It measures the Wi-Fi signal (from `iw`), the loss, latency and jitter towards the Recalbox, and shows 4 pages on the panel until you press again. Differences with the ESP32: there is no BOOT button; the Wi-Fi reconnection history only exists while a diagnostic is running; on an Ethernet connection the panel shows "ETHERNET / NO WIFI" and only the Recalbox link is measured.
 
+## Seasonal playlists
+
+The Pi daemon (3.77 and later) handles **seasonal playlists** like the ESP32 (the *Playlist* web page, the toolkit's Playlist tab, same rules: exclusive or mixed, overlap alert). Difference: the Pi **switches playlist live** at the day change, without restarting; it reads the date from the system clock (network or RTC).
+
 ## Known limits
 
 - A few defective panel LEDs stay visible whatever the setting (hardware).

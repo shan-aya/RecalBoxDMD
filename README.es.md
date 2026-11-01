@@ -99,6 +99,7 @@ El panel mezcla **dos mundos**, en la proporción que quieras, desde la página 
 ### 🎬 La lista de reproducción y el marquee
 - ⚡ **Marquee del juego en vivo** — fijo o animado, por juego o por sistema, imágenes de reserva (4 incluidas, o la tuya).
 - 🎞️ **~600 GIF retro gratis** + pestaña *Playlist* para componer tus rotaciones de espera.
+- 📅 **Playlists de temporada** — programa una playlist en un período que se repite cada año (Halloween, Navidad, Pascua… o fechas libres), *exclusiva* o *mixta* con la playlist por defecto, con aviso de solapamiento.
 - 🏆 **Pantallas en juego** — Hi-Score, Info del juego, RetroAchievements, Desafío Recalbox.
 - 🎨 **El DMD sigue tu tema de Recalbox** — logos de sistemas según tema, idioma y región, al vuelo.
 - 🎯 **Pinball** — las mesas de Visual Pinball muestran su DMD.
@@ -377,7 +378,7 @@ La aplicación Windows (FR / EN / ES, 9 aspectos visuales) que **lo construye to
 | **Main · PlayStation** | **Avanzado · Atari 2600** |
 | ![Pestaña Main, tema PlayStation](medias/screenshots/gui_es_main_playstation.png) | ![Pestaña Avanzado, tema Atari 2600](medias/screenshots/gui_es_advanced_atari2600.png) |
 
-### Las seis pestañas
+### Las siete pestañas
 
 | Pestaña | Función |
 |---|---|
@@ -387,6 +388,7 @@ La aplicación Windows (FR / EN / ES, 9 aspectos visuales) que **lo construye to
 | **Logs** | Toda la salida de texto, con filtro de nivel — cópiala para informar de un problema |
 | **Ajustes** | Idioma, tema de colores, perfil de versión de Recalbox, umbral « L » (sistemas lentos) |
 | **Ayuda** | El manual, abrible en el navegador |
+| **Diagnóstico** | Medidas Wi-Fi del DMD (ESP32 y Pi), monitor serie USB, informe de soporte con análisis automático |
 
 Abajo, **Pausa / Reanudar · Saltar · Stop** (Stop detiene de verdad la copia). El número de la barra de título es el **build**: indícalo al pedir ayuda. Al arrancar, un **aviso** señala toolkit, firmware, scripts o citas más recientes (enlace *Notas de versión*).
 
@@ -455,7 +457,7 @@ Luego el pipeline: preparación → **scripts de Recalbox** (Modo 9) → extracc
 
 ### La pestaña Playlist
 
-Una **playlist** = los GIF que el DMD reproduce cuando no pasa nada en la Recalbox. Marca una carpeta entera, o haz clic en su nombre para elegir archivo por archivo (pasar el ratón = vista previa animada); **Añadir carpeta PC…** importa tus GIF; **Construir la playlist** la guarda con un nombre; **Eliminar** limpia; **Regenerar la caché de playlist** reconstruye `cache_master_gifs.dat`. *Cuál* playlist está activa se elige en la página web del DMD. **Enviar a la Pi (Wi-Fi)…** (Raspberry Pi) envía tus carpetas de GIF por Wi-Fi sin sacar la tarjeta. Tras **Eliminar**, una ventana *Eliminación terminada* da el resultado comprobado en la tarjeta, y cada acción de la pestaña se escribe en la pestaña **Logs** (pon *Nivel* en *Todo*). Para un pack grande (~11 000 GIF): [tutorial ULTIMATE](docs/tutorials/ultimate-gif-pack.es.md).
+Una **playlist** = los GIF que el DMD reproduce cuando no pasa nada en la Recalbox. Marca una carpeta entera, o haz clic en su nombre para elegir archivo por archivo (pasar el ratón = vista previa animada); **Añadir carpeta PC…** importa tus GIF; **Construir la playlist** la guarda con un nombre; **Eliminar** limpia; **Regenerar la caché de playlist** reconstruye `cache_master_gifs.dat`. *Cuál* playlist está activa se elige en la página web del DMD. **Playlists de temporada…** (firmware 4.01, demonio Pi 3.77) programa una playlist en un período que se repite cada año: elige una fiesta del calendario (Halloween, Navidad, Año Nuevo, San Valentín, Pascua — calculada cada año) o fechas libres, la playlist y su modo — *exclusiva* (sustituye a la playlist por defecto) o *mixta* (se añade a ella). Dos períodos exclusivos no pueden solaparse (el botón de guardar se desactiva); un solapamiento con un período mixto es solo un aviso. Guarda en la tarjeta SD, o envía al DMD por Wi-Fi. **Enviar a la Pi (Wi-Fi)…** (Raspberry Pi) envía tus carpetas de GIF por Wi-Fi sin sacar la tarjeta. Tras **Eliminar**, una ventana *Eliminación terminada* da el resultado comprobado en la tarjeta, y cada acción de la pestaña se escribe en la pestaña **Logs** (pon *Nivel* en *Todo*). Para un pack grande (~11 000 GIF): [tutorial ULTIMATE](docs/tutorials/ultimate-gif-pack.es.md).
 
 ---
 
@@ -488,6 +490,7 @@ Escribe la IP del DMD (se muestra en el panel; o `rbpidmd.local` para un Pi) en 
 
 ### Lo más útil de saber
 
+- 📅 **Playlists de temporada**: sección de la página *Playlist* (y ventana de la pestaña Playlist del toolkit). El DMD sigue las estaciones solo: al cambiar de día, el ESP32 se reinicia una vez si cambia la playlist del día; la Pi cambia de playlist sin reiniciar.
 - 🔔 **Un banner arriba en cada página** anuncia un firmware, scripts de Recalbox (→ Modo 9) o una caja de herramientas más recientes. La comprobación la hace **tu navegador**: el DMD no necesita acceso a Internet.
 - 👁️ **Vista previa en vivo**: brillo, tema de reloj y widgets se reproducen enseguida en el panel físico.
 - 🆘 **Rescate Wi-Fi**: sin red válida, el DMD abre su propio punto de acceso (Pi: **RecalBox-DMD-Config**, 192.168.4.1); el script manual *WiFi Recovery DMD* lo relanza a distancia.
@@ -602,6 +605,10 @@ Valores en directo, **dos curvas** (señal y latencia), una guía **«Cómo leer
 - **Dos direcciones de punto de acceso que se alternan**: el DMD salta entre puntos de acceso de una red mallada o de un repetidor.
 
 Más detalles en la [FAQ](FAQ.es.md).
+
+### En el toolkit
+
+La pestaña **Diagnóstico** del toolkit (la última, tras *Ayuda*) muestra las medidas de la página web — señal, calidad, pérdida, latencia, jitter, reconexiones, memoria libre — para el ESP32 **y** la Raspberry Pi, con además un **monitor serie USB** (abrir el puerto no reinicia la placa) y un **informe de soporte**: *Informe (navegador)*, *Vista de texto*, *Copiar informe*, *Exportar (.zip)*. El informe se abre con un **resumen de los puntos a vigilar** (reinicio por watchdog, actualización fallida, Wi-Fi débil…), para adjuntar a una petición de ayuda.
 
 ### Raspberry Pi
 

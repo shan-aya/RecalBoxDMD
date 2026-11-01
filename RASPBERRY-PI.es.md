@@ -53,6 +53,10 @@ La carpeta [`raspberry-pi/rpi_daemon/`](raspberry-pi/rpi_daemon/) está bajo **G
 
 El Pi tiene el mismo modo diagnóstico que el ESP32: acción 12 de la página **Botón** (botón físico en GPIO 21) y página **Diagnóstico** de la configuración web. Mide la señal Wi-Fi (con `iw`), la pérdida, la latencia y el jitter hacia la Recalbox, y muestra 4 páginas en el panel hasta una nueva pulsación. Diferencias con el ESP32: no hay botón BOOT; el historial de reconexiones Wi-Fi solo existe mientras se ejecuta un diagnóstico; con Ethernet, el panel muestra «ETHERNET / SIN WIFI» y solo se mide el enlace con la Recalbox.
 
+## Playlists de temporada
+
+El demonio de la Pi (3.77 y posteriores) gestiona las **playlists de temporada** como el ESP32 (página web *Playlist*, pestaña Playlist del toolkit, mismas reglas: exclusiva o mixta, aviso de solapamiento). Diferencia: la Pi **cambia de playlist en caliente** al cambiar de día, sin reiniciar; lee la fecha del reloj del sistema (red o RTC).
+
 ## Límites conocidos
 
 - Algunos LED defectuosos de los paneles siguen visibles sea cual sea el ajuste (hardware).
