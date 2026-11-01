@@ -85,6 +85,13 @@ body{position:relative}
 <div class="row"><label for="deletePlaylistSelect" data-i18n="lbl_delete_playlist">Supprimer</label><select id="deletePlaylistSelect"></select></div>
 <div class="btn-row"><button type="button" class="btn btn-del" onclick="deletePlaylist()" data-i18n="btn_delete_playlist">&#x1F5D1; Supprimer playlist</button></div>
 </div>
+<div class="section" id="seasonSec">
+<h2 data-i18n="sec_season">&#x1F384; Playlists saisonni&egrave;res</h2>
+<div class="desc" data-i18n="desc_season">Planifiez une playlist sur une p&eacute;riode qui se r&eacute;p&egrave;te chaque ann&eacute;e.</div>
+<div id="seasonRules"></div>
+<div class="btn-row"><button type="button" class="btn" onclick="seasonAdd()" data-i18n="btn_season_add">+ Ajouter une p&eacute;riode</button><button type="button" class="btn btn-save" id="seasonSaveBtn" onclick="seasonSave()" data-i18n="btn_season_save">&#x1F4BE; Enregistrer les p&eacute;riodes</button></div>
+<div id="seasonMsg" class="hint"></div>
+</div>
 <div class="btn-row">
 <button type="submit" class="btn btn-save" data-i18n="btn_save">&#x1F4BE; Enregistrer</button>
 <button type="button" class="btn btn-reboot" onclick="saveAndReboot()" data-i18n="btn_save_reboot">&#x1F504; Enreg. &amp; Red&eacute;marrer</button>
@@ -183,11 +190,13 @@ async function fillPlaylists(selVal){
       const opt2=document.createElement('option');opt2.value='';opt2.textContent='---';del.appendChild(opt2);
       const opt3=document.createElement('option');opt3.value='';opt3.textContent='---';load.appendChild(opt3);
       pl.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;if(p===selVal)o.selected=true;sel.appendChild(o);const o2=document.createElement('option');o2.value=p;o2.textContent=p;del.appendChild(o2);const o3=document.createElement('option');o3.value=p;o3.textContent=p;load.appendChild(o3);});
+      if(typeof markSeasonal==='function')markSeasonal();   /* v401 : cadran sur les playlists saisonnieres */
       return;
     }catch(e){ if(attempt<4) await new Promise(r=>setTimeout(r,500)); }
   }
 }
 function deletePlaylist(){const name=document.getElementById('deletePlaylistSelect').value;if(!name){showMsg(tr('msg_select_playlist'),false);return;}
+  if(seasonUsed.has(name)&&!confirm(trTpl('season_del_warn',name)))return;   /* v401 : playlist utilisee par une periode saisonniere */
   const isDefault=document.getElementById('playlist').value===name;
   if(isDefault){if(!confirm(trTpl('msg_confirm_delete_default',name)))return;}
   else if(!confirm(trTpl('msg_confirm_delete',name)))return;
@@ -373,7 +382,63 @@ function loadConfig(){const draft=loadDraft();return fetchLoadRetry().then(d=>{
   if(draft)_formDirty=true;
 }).catch(()=>showMsg(tr('msg_load_error'),false));}
 fetchTimeout('/lang',{},45000).then(r=>r.json()).then(d=>{applyLang(d.language);if(d.first_boot==='1'&&!sessionStorage.getItem('dmd_help_seen')){sessionStorage.setItem('dmd_help_seen','1');showHelpModal();}return loadConfig();}).catch(()=>{applyLang();return loadConfig();}).then(loadGenDirs).finally(hidePageLoadingOverlay);
-document.getElementById('playlistForm').addEventListener('input',()=>{_formDirty=true;saveDraft();});
+/* v401 -- PLANIFICATION SAISONNIERE : regles de /playlists/seasons.ini (GET/POST /season-rules). Enregistrement IMMEDIAT par son propre bouton (fichier sur la SD, pas config.ini : hors brouillon partage). Meme logique de chevauchement que playlist_seasons.h (firmware) : le serveur refuse (409) deux periodes EXCLUSIVES qui se recouvrent. */
+Object.assign(PAGE_I18N.fr,{sec_season:'&#x1F384; Playlists saisonni&egrave;res',desc_season:'Planifiez une playlist sur une p&eacute;riode qui se r&eacute;p&egrave;te chaque ann&eacute;e (f&ecirc;tes du calendrier ou dates libres). <b>Exclusive</b> : remplace la playlist par d&eacute;faut. <b>Mix&eacute;e</b> : s\'ajoute &agrave; la playlist par d&eacute;faut. Pris en compte au changement de jour ou au red&eacute;marrage. &#x1F552; marque, dans les listes de playlists, celles qui sont utilis&eacute;es par une p&eacute;riode.',btn_season_add:'+ Ajouter une p&eacute;riode',btn_season_save:'&#x1F4BE; Enregistrer les p&eacute;riodes',season_free:'Dates libres',fete_halloween:'Halloween',fete_noel:'No&euml;l',fete_nouvelan:'Nouvel An',fete_valentin:'Saint-Valentin',fete_paques:'P&acirc;ques',season_from:'du',season_to:'au',season_mode_excl:'Exclusive',season_mode_mix:'Mix&eacute;e',season_none:'Aucune p&eacute;riode planifi&eacute;e.',season_max:'8 p&eacute;riodes au maximum.',season_need_playlist:'Choisissez une playlist pour chaque p&eacute;riode.',season_err_dates:'Dates invalides (format JJ/MM, les deux dates sont n&eacute;cessaires pour des dates libres).',season_err_overlap:'Refus&eacute; : deux p&eacute;riodes exclusives se recouvrent.',season_err_line:'Enregistrement refus&eacute; par le DMD.',season_saved:'P&eacute;riodes enregistr&eacute;es.',season_conf_block:'Recouvre la p&eacute;riode ${0} : deux p&eacute;riodes exclusives ne peuvent pas se recouvrir.',season_conf_warn:'Recouvre la p&eacute;riode ${0} (autoris&eacute; : l\'une est mix&eacute;e ; l\'exclusive l\'emporte).',season_absent:'(absente)',season_del:'Supprimer',season_del_warn:'La playlist « ${0} » est utilisée par une période de playlists saisonnières. Si vous la supprimez, cette période sera ignorée (le DMD jouera la playlist par défaut). Supprimer quand même ?'});
+Object.assign(PAGE_I18N.en,{sec_season:'&#x1F384; Seasonal playlists',desc_season:'Schedule a playlist for a period that repeats every year (calendar holidays or custom dates). <b>Exclusive</b>: replaces the default playlist. <b>Mixed</b>: is added to the default playlist. Applied at the day change or at the next restart. &#x1F552; marks, in the playlist lists, the playlists used by a period.',btn_season_add:'+ Add a period',btn_season_save:'&#x1F4BE; Save periods',season_free:'Custom dates',fete_halloween:'Halloween',fete_noel:'Christmas',fete_nouvelan:'New Year',fete_valentin:'Valentine\'s Day',fete_paques:'Easter',season_from:'from',season_to:'to',season_mode_excl:'Exclusive',season_mode_mix:'Mixed',season_none:'No scheduled period.',season_max:'8 periods maximum.',season_need_playlist:'Choose a playlist for each period.',season_err_dates:'Invalid dates (DD/MM format, both dates are required for custom dates).',season_err_overlap:'Refused: two exclusive periods overlap.',season_err_line:'Save refused by the DMD.',season_saved:'Periods saved.',season_conf_block:'Overlaps period ${0}: two exclusive periods cannot overlap.',season_conf_warn:'Overlaps period ${0} (allowed: one is mixed; the exclusive one wins).',season_absent:'(missing)',season_del:'Delete',season_del_warn:'The playlist “${0}” is used by a seasonal playlist period. If you delete it, that period will be ignored (the DMD will play the default playlist). Delete anyway?'});
+Object.assign(PAGE_I18N.es,{sec_season:'&#x1F384; Listas de temporada',desc_season:'Programa una lista para un per&iacute;odo que se repite cada a&ntilde;o (fiestas del calendario o fechas libres). <b>Exclusiva</b>: sustituye a la lista predeterminada. <b>Mixta</b>: se a&ntilde;ade a la lista predeterminada. Se aplica al cambiar de d&iacute;a o al reiniciar. &#x1F552; marca, en las listas de playlists, las que usa un per&iacute;odo.',btn_season_add:'+ A&ntilde;adir un per&iacute;odo',btn_season_save:'&#x1F4BE; Guardar per&iacute;odos',season_free:'Fechas libres',fete_halloween:'Halloween',fete_noel:'Navidad',fete_nouvelan:'A&ntilde;o Nuevo',fete_valentin:'San Valent&iacute;n',fete_paques:'Pascua',season_from:'del',season_to:'al',season_mode_excl:'Exclusiva',season_mode_mix:'Mixta',season_none:'Ning&uacute;n per&iacute;odo programado.',season_max:'M&aacute;ximo 8 per&iacute;odos.',season_need_playlist:'Elige una lista para cada per&iacute;odo.',season_err_dates:'Fechas no v&aacute;lidas (formato DD/MM, hacen falta las dos fechas en fechas libres).',season_err_overlap:'Rechazado: dos per&iacute;odos exclusivos se solapan.',season_err_line:'Guardado rechazado por el DMD.',season_saved:'Per&iacute;odos guardados.',season_conf_block:'Se solapa con el per&iacute;odo ${0}: dos per&iacute;odos exclusivos no pueden solaparse.',season_conf_warn:'Se solapa con el per&iacute;odo ${0} (permitido: uno es mixto; gana el exclusivo).',season_absent:'(ausente)',season_del:'Eliminar',season_del_warn:'La playlist «${0}» la usa un período de playlists de temporada. Si la eliminas, ese período se ignorará (el DMD reproducirá la playlist por defecto). ¿Eliminar de todos modos?'});
+const SEASON_FETES={halloween:[1015,1102],noel:[1210,1226],nouvelan:[1227,103],valentin:[207,214],paques:null};
+const SEASON_MAX=8;
+let seasonRules=[],seasonPl=[];
+let seasonUsed=new Set();   /* v401 : playlists (avec .txt) citees par une regle enregistree */
+const SEASON_MARK='\uD83D\uDD52 ';   /* cadran d'horloge */
+function markSeasonal(){['playlist','deletePlaylistSelect','loadPlaylistSelect'].forEach(function(id){const sel=document.getElementById(id);if(!sel)return;[].forEach.call(sel.options,function(o){if(o.value)o.textContent=(seasonUsed.has(o.value)?SEASON_MARK:'')+o.value;});});}
+function seasonSetUsed(){seasonUsed=new Set(seasonRules.map(function(r){return r.playlist;}).filter(Boolean));markSeasonal();}
+function sMD(s){if(!s||!s.trim())return 0;const m=/^\s*(\d{1,2})\s*[\/.-]\s*(\d{1,2})\s*$/.exec(s);if(!m)return -1;const d=+m[1],mo=+m[2];return(mo>=1&&mo<=12&&d>=1&&d<=31)?mo*100+d:-1;}
+function sFmt(md){return md>0?String(md%100).padStart(2,'0')+'/'+String(Math.floor(md/100)).padStart(2,'0'):'';}
+function sDays(y,m,d){return Math.round(Date.UTC(y,m-1,d)/86400000);}
+function sEaster(y){const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31),da=((h+l-7*m+114)%31)+1;return sDays(y,mo,da);}
+function sSpan(r,y){if(r.fete==='paques'&&!(r.start>0&&r.end>0)){const E=sEaster(y);return[E-7,E+1];}let st=r.start,en=r.end;if(!(st>0&&en>0)){const p=SEASON_FETES[r.fete];st=p[0];en=p[1];}return[sDays(y,Math.floor(st/100),st%100),sDays(y+(en<st?1:0),Math.floor(en/100),en%100)];}
+function sMDok(md){const m=Math.floor(md/100),d=md%100;return md===0||(m>=1&&m<=12&&d>=1&&d<=31);}
+function sValid(r){if(r.start<0||r.end<0||!sMDok(r.start)||!sMDok(r.end))return false;if(r.fete)return(r.start>0)===(r.end>0);return r.start>0&&r.end>0;}
+function sConflict(a,b){if(!sValid(a)||!sValid(b))return 0;const y0=new Date().getFullYear();for(let y=y0;y<y0+40;y++){const A=sSpan(a,y);for(let dy=-1;dy<=1;dy++){const B=sSpan(b,y+dy);if(A[0]<=B[1]&&B[0]<=A[1])return(a.mode!=='mix'&&b.mode!=='mix')?2:1;}}return 0;}
+function seasonMsg(t,ok){const e=document.getElementById('seasonMsg');if(!e)return;e.innerHTML=t;e.style.color=ok?'#4caf50':'#ff6b6b';}
+function seasonRender(){
+  const box=document.getElementById('seasonRules');if(!box)return;box.innerHTML='';
+  let blocking=false;
+  if(!seasonRules.length){const h=document.createElement('div');h.className='hint';h.innerHTML=tr('season_none');box.appendChild(h);}
+  seasonRules.forEach((r,i)=>{
+    const row=document.createElement('div');row.style.cssText='display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0;padding:8px;border:1px solid #555;border-radius:6px';
+    const mkSel=(opts,val,fn)=>{const s=document.createElement('select');opts.forEach(o=>{const e=document.createElement('option');e.value=o[0];e.innerHTML=o[1];if(o[0]===val)e.selected=true;s.appendChild(e);});s.onchange=()=>fn(s.value);return s;};
+    row.appendChild(mkSel([['',tr('season_free')]].concat(Object.keys(SEASON_FETES).map(k=>[k,tr('fete_'+k)])),r.fete,v=>{r.fete=v;seasonRender();}));
+    const mkDate=(key)=>{const inp=document.createElement('input');inp.type='text';inp.size=6;inp.maxLength=5;inp.value=sFmt(r[key]);const def=r.fete&&SEASON_FETES[r.fete]?SEASON_FETES[r.fete][key==='start'?0:1]:0;inp.placeholder=def?sFmt(def):(r.fete==='paques'?'auto':'JJ/MM');if(r[key]<0)inp.style.borderColor='#ff6b6b';inp.onchange=()=>{r[key]=sMD(inp.value);seasonRender();};return inp;};
+    const t1=document.createElement('span');t1.innerHTML=tr('season_from');const t2=document.createElement('span');t2.innerHTML=tr('season_to');
+    row.appendChild(t1);row.appendChild(mkDate('start'));row.appendChild(t2);row.appendChild(mkDate('end'));
+    const pls=seasonPl.slice();if(r.playlist&&pls.indexOf(r.playlist)<0)pls.push(r.playlist);
+    row.appendChild(mkSel([['','---']].concat(pls.map(p=>[p,p.replace(/&/g,'&amp;').replace(/</g,'&lt;')+(seasonPl.indexOf(p)<0?' '+tr('season_absent'):'')])),r.playlist,v=>{r.playlist=v;seasonRender();}));
+    row.appendChild(mkSel([['excl',tr('season_mode_excl')],['mix',tr('season_mode_mix')]],r.mode,v=>{r.mode=v;seasonRender();}));
+    const del=document.createElement('button');del.type='button';del.className='mini-btn';del.innerHTML='&#x1F5D1; '+tr('season_del');del.onclick=()=>{seasonRules.splice(i,1);seasonRender();};row.appendChild(del);
+    let worst=0,other=-1;seasonRules.forEach((o,j)=>{if(j===i)return;const c=sConflict(r,o);if(c>worst){worst=c;other=j;}});
+    if(worst){const w=document.createElement('div');w.style.cssText='flex-basis:100%;font-size:13px;color:'+(worst===2?'#ff6b6b':'#ffb74d');w.innerHTML=(worst===2?'&#x26D4; ':'&#x26A0; ')+trTpl(worst===2?'season_conf_block':'season_conf_warn',other+1);row.appendChild(w);if(worst===2)blocking=true;}
+    box.appendChild(row);
+  });
+  const sb=document.getElementById('seasonSaveBtn');if(sb)sb.disabled=blocking;
+}
+function seasonAdd(){if(seasonRules.length>=SEASON_MAX){seasonMsg(tr('season_max'),false);return;}seasonRules.push({fete:'noel',start:0,end:0,playlist:'',mode:'excl'});seasonMsg('',true);seasonRender();}
+async function seasonSave(){
+  for(const r of seasonRules){if(!r.playlist){seasonMsg(tr('season_need_playlist'),false);return;}if(!sValid(r)){seasonMsg(tr('season_err_dates'),false);return;}}
+  const lines=seasonRules.map(r=>'fete='+r.fete+(r.start>0&&r.end>0?'|start='+String(r.start).padStart(4,'0')+'|end='+String(r.end).padStart(4,'0'):'')+'|playlist='+r.playlist+'|mode='+r.mode);
+  try{const res=await fetch('/season-rules',{method:'POST',body:lines.join('\n'),headers:{'Content-Type':'text/plain'}});
+    if(res.ok){seasonSetUsed();seasonMsg(tr('season_saved'),true);}else if(res.status===409)seasonMsg(tr('season_err_overlap'),false);else seasonMsg(tr('season_err_line'),false);
+  }catch(e){seasonMsg(tr('msg_net_error'),false);}
+}
+async function seasonInit(){
+  for(let a=0;a<4;a++){try{seasonPl=await(await fetch('/lsplaylists')).json();break;}catch(e){await new Promise(r=>setTimeout(r,500));}}
+  for(let a=0;a<4;a++){try{const j=await(await fetch('/season-rules')).json();seasonRules=j.rules.map(r=>({fete:r.fete,start:r.start,end:r.end,playlist:r.playlist,mode:r.mode}));break;}catch(e){await new Promise(r=>setTimeout(r,500));}}
+  seasonRender();seasonSetUsed();
+}
+(function(){const al=applyLang;applyLang=function(b){al(b);seasonRender();};})();
+setTimeout(seasonInit,2500);
+document.getElementById('playlistForm').addEventListener('input',(ev)=>{if(ev.target&&ev.target.closest&&ev.target.closest('#seasonSec'))return;_formDirty=true;saveDraft();});
 document.getElementById('playlist').addEventListener('change',function(){if(this.value)wdPatch({deco_bg:'0'});});   /* v352 : choisir une playlist = fond « playlist de GIFs » */
 </script>
 <script src="/native.js"></script>

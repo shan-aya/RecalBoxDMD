@@ -16,6 +16,7 @@
 
 #include "boot_seasons.h"
 #include "log.h"
+#include "seasons.h"
 #include "webconfig.h"
 
 namespace fs = std::filesystem;
@@ -144,7 +145,7 @@ void WebConfig::registerMediaRoutes() {
     if (gen_->active) return json("[]");  // rafraichissement silencieux pendant une generation
     std::vector<std::string> names;
     for (const std::string &n : fs_.list("/playlists"))
-      if (n.size() > 4 && n.compare(n.size() - 4, 4, ".txt") == 0) names.push_back(n);
+      if (n.size() > 4 && n.compare(n.size() - 4, 4, ".txt") == 0 && n.compare(0, 8, "_saison_") != 0) names.push_back(n);  // v3.77 : sans la playlist mixee generee
     std::sort(names.begin(), names.end());
     std::string j = "[";
     for (size_t i = 0; i < names.size(); i++) j += (i ? "," : "") + std::string("\"") + jsonEsc(names[i]) + "\"";
@@ -592,6 +593,73 @@ void WebConfig::registerMediaRoutes() {
         first = false;
       }
     return json(out + "]}");
+  });
+
+  // v3.77 -- PLAYLISTS SAISONNIERES : GET /season-rules = regles de /playlists/seasons.ini + gravite des chevauchements ; POST /season-rules (corps texte brut, une regle par ligne,
+  // ou champ « rules ») = remplace tout le fichier, corps vide = supprime les regles. 400 ligne invalide / trop de regles, 409 deux regles EXCLUSIVES qui se recouvrent (un
+  // chevauchement avec une mixee n'est qu'un avertissement). Memes contrats que le firmware ESP32 4.01. Contrairement a l'ESP32, la nouvelle liste est appliquee tout de suite.
+  web_.get("/season-rules", [this](const WebRequest &) {
+    SeasonRule rules[PS_MAX_RULES];
+    const int n = seasons::loadRules(fs_, rules, PS_MAX_RULES);
+    const int y = seasons::yearNow();
+    std::string out = "{\"n\":" + std::to_string(n) + ",\"max\":" + std::to_string(PS_MAX_RULES) + ",\"blocking\":" + std::to_string(psBlockingPairs(rules, n, y)) + ",\"rules\":[";
+    for (int i = 0; i < n; i++) {
+      int other;
+      const int worst = psWorstConflict(rules, n, i, y, other);
+      if (i) out += ",";
+      out += std::string("{\"fete\":\"") + (rules[i].fete >= 0 ? kBootSeasons[rules[i].fete].name : "") + "\",\"start\":" + std::to_string(rules[i].startMD) + ",\"end\":" + std::to_string(rules[i].endMD) +
+             ",\"playlist\":\"" + jsonEsc(rules[i].playlist) + "\",\"mode\":\"" + (rules[i].mix ? "mix" : "excl") + "\",\"conflict\":" + std::to_string(worst) + ",\"with\":" + std::to_string(other) + "}";
+    }
+    return json(out + "]}");
+  });
+  web_.post("/season-rules", [this, real, ensureDir](const WebRequest &r) {
+    auto err = [](int status, const std::string &body) {
+      WebReply rep;
+      rep.status = status;
+      rep.contentType = "application/json";
+      rep.body = body;
+      return rep;
+    };
+    const std::string body = r.has("rules") ? r.arg("rules") : r.body;
+    SeasonRule rules[PS_MAX_RULES];
+    int n = 0, lineNo = 0;
+    size_t start = 0;
+    while (start <= body.size()) {
+      size_t e = body.find('\n', start);
+      if (e == std::string::npos) e = body.size();
+      std::string ln = trim(body.substr(start, e - start));
+      lineNo++;
+      start = e + 1;
+      if (ln.empty() || ln[0] == '#' || ln[0] == ';') continue;
+      if (n >= PS_MAX_RULES) return err(400, "{\"error\":\"too_many\",\"max\":" + std::to_string(PS_MAX_RULES) + "}");
+      if (!psParseLine(ln.c_str(), rules[n]) || !psRuleValid(rules[n])) return err(400, "{\"error\":\"bad_line\",\"line\":" + std::to_string(lineNo) + "}");
+      n++;
+    }
+    const int y = seasons::yearNow();
+    std::string pairs;
+    int warn = 0;
+    for (int i = 0; i < n; i++)
+      for (int j = i + 1; j < n; j++) {
+        const int c = psConflict(rules[i], rules[j], y);
+        if (c == 2) pairs += (pairs.empty() ? "" : ",") + std::string("[") + std::to_string(i) + "," + std::to_string(j) + "]";
+        else if (c == 1) warn++;
+      }
+    if (!pairs.empty()) return err(409, "{\"error\":\"overlap\",\"pairs\":[" + pairs + "]}");
+    ensureDir("/playlists");
+    const std::string path = real("/playlists/seasons.ini");
+    std::error_code ec;
+    if (n == 0) fs::remove(path, ec);
+    else {
+      std::ofstream o(path, std::ios::binary | std::ios::trunc);
+      if (!o) return err(500, "{\"error\":\"sd_write\"}");
+      o << "# Playlists saisonnieres (une regle par ligne) : fete=<noel|halloween|nouvelan|valentin|paques ou vide>|start=MMJJ|end=MMJJ|playlist=<fichier.txt>|mode=<excl|mix>\n";
+      char buf[200];
+      for (int i = 0; i < n; i++)
+        if (psFormatLine(rules[i], buf, sizeof(buf))) o << buf << "\n";
+    }
+    logf("SEASON", "/season-rules enregistre : %d regle(s), %d avertissement(s)", n, warn);
+    eng_.runOnMain([this] { eng_.reloadConfig(); });  // applique tout de suite (relit config.ini et refait le choix saisonnier)
+    return json("{\"ok\":1,\"n\":" + std::to_string(n) + ",\"warn\":" + std::to_string(warn) + "}");
   });
 
   // suppression de dossiers de GIF, puis nettoyage des playlists qui les referencaient

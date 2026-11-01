@@ -220,7 +220,7 @@ function startOta(){
   var b=document.getElementById('otaBtn'),st=document.getElementById('otaState');
   if(!b||_otaBusy)return;
   _otaBusy=true;b.disabled=true;st.textContent=tr('ota_running');otaPop(true);
-  fetch('/ota/start',{method:'POST'}).catch(function(){});
+  fetch('/ota/start?lang='+encodeURIComponent(currentLang),{method:'POST'}).catch(function(){});
   var t0=Date.now();
   function done(txt){_otaBusy=false;otaPop(false);st.textContent=txt;}
   function poll(){

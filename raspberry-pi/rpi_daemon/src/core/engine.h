@@ -196,6 +196,15 @@ class Engine {
   int bsLastSlot_ = -2;
   uint64_t bsLastMs_ = 0;
   void tickBrightSched(uint64_t now);
+  // v3.77 -- playlists SAISONNIERES : choisit la playlist effective (defaut, exclusive ou mixee, voir seasons.h) et configure Playlist ;
+  // tickSeasonDay() refait le choix quand la date change (controle toutes les 60 s) : le changement se voit au prochain GIF, sans redemarrage.
+  void applyPlaylist();
+  void tickSeasonDay(uint64_t now);
+  void showPlaylistInfo();     // ecran de playlist au demarrage (comme showPlaylistInfoScreen() du firmware ESP32) : 2 lignes, ou 3 si une playlist saisonniere est active
+  std::string seasonAdd_;      // mixte : noms des playlists saisonnieres ajoutees (« Hiver+Ete »)
+  std::string seasonKey_;      // cle du choix en cours ("" = playlist par defaut)
+  uint32_t seasonYmd_ = 0;     // date utilisee pour ce choix (0 = aucune regle ou date inconnue)
+  uint64_t seasonLastMs_ = 0;
   bool screenOff_ = false;                                 // action 5 du bouton : ecran eteint (luminosite 0), rien n'est ecrit dans config.ini
   uint64_t infoUntilMs_ = 0;                               // action 6 : ecran d'information affiche jusqu'a cette date
   // mode diagnostic

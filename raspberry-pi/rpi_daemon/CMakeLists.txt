@@ -29,6 +29,7 @@ add_library(dmd_core STATIC
   src/media/stdgif.cpp
   src/media/pngdecode.cpp
   src/media/playlist.cpp
+  src/media/seasons.cpp
   src/media/themelogos.cpp
   src/ui/score.cpp
   src/ui/bootanim.cpp

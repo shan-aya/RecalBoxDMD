@@ -5,14 +5,17 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <chrono>
 #include <random>
 #include <sstream>
+#include <thread>
 
 #include "log.h"
 #include "brightsched.h"
 #include "netutil.h"
 #include "pngdecode.h"
 #include "score.h"
+#include "seasons.h"
 #include "i18n.h"
 
 namespace {
@@ -283,7 +286,7 @@ bool Engine::mainTaskPending() {
 void Engine::reloadConfig() {
   cfg_.refreshTyped();
   d_.setBrightness8(cfg_.brightness8());
-  playlist_.configure(cfg_.playlistName, cfg_.playlistRandom);
+  applyPlaylist();  // v3.77 : playlist par defaut, ou saisonniere du jour
   clock_.configure(cfg_);
   loadDecoConfig();  // reglages du decor + widgets
   themes_.setLangPriority(cfg_.get("feat_lang_priority", "0") == "1");
@@ -700,14 +703,69 @@ void Engine::start() {
     showFirstBootScreen();
     return;
   }
+  showPlaylistInfo();
   resumePlaylist();
   d_.show();
+}
+
+// v3.77 -- ECRAN DE PLAYLIST au demarrage, comme le firmware ESP32 (showPlaylistInfoScreen, 1,3 s) : nom de la playlist et nombre de GIF. Playlist saisonniere active : 3 lignes de 21 caracteres,
+// meme texte sur les lignes de nom (blanc), seul le « + » du mixte est orange :
+//   mixte     : nom de la playlist par defaut / « +Hiver » / nombre de GIF       exclusive : « SAISON » / nom de la playlist saisonniere / nombre de GIF
+// Rien ne s'affiche sans playlist (widgets seuls) ni sans aucun GIF.
+void Engine::showPlaylistInfo() {
+  const int n = cfg_.playlistName.empty() ? 0 : playlist_.count(fs_);
+  if (n <= 0) return;
+  auto plain = [](std::string s) {
+    const size_t sl = s.find_last_of('/');
+    if (sl != std::string::npos) s = s.substr(sl + 1);
+    const size_t d = s.find_last_of('.');
+    if (d != std::string::npos && d > 0) s.resize(d);
+    return trim(s);
+  };
+  auto fit = [](std::string s, size_t m) {
+    s = trim(s);
+    if (s.size() <= m) return s;
+    return m <= 3 ? s.substr(0, m) : s.substr(0, m - 3) + "...";
+  };
+  const uint16_t white = Display::color565(235, 235, 235), orange = Display::color565(255, 140, 0), yellow = Display::color565(255, 210, 70);
+  const bool excl = seasonKey_.compare(0, 2, "x:") == 0, mix = seasonKey_.compare(0, 2, "m:") == 0;
+  d_.clearScreen();
+  d_.setTextWrap(false);
+  d_.setTextSize(1);
+  d_.setTextColor(white);
+  if (excl || mix) {
+    const std::string lang = cfg_.uiLanguage, tag = lang == "en" ? "SEASON" : lang == "es" ? "TEMPORADA" : "SAISON";
+    d_.setCursor(1, 1);
+    d_.print(fit(mix ? plain(cfg_.playlistName) : tag, 21));
+    if (mix) {
+      d_.setTextColor(orange);
+      d_.setCursor(1, 12);
+      d_.print("+");
+      d_.setTextColor(white);
+      d_.setCursor(7, 12);
+      d_.print(fit(seasonAdd_, 20));
+    } else {
+      d_.setCursor(1, 12);
+      d_.print(fit(plain(playlist_.name()), 21));
+    }
+    d_.setTextColor(yellow);
+    d_.setCursor(1, 23);
+    d_.print(std::to_string(n) + " GIFS");
+  } else {
+    d_.setCursor(1, 5);
+    d_.print(fit(plain(cfg_.playlistName), 18));
+    d_.setTextColor(yellow);
+    d_.setCursor(1, 18);
+    d_.print(std::to_string(n) + " GIFS");
+  }
+  d_.show();
+  std::this_thread::sleep_for(std::chrono::milliseconds(1300));
 }
 
 void Engine::begin() {
   if (!sys_.loadOrBuild(fs_)) logf("CACHE", "systems_cache.dat absent et /systems introuvable : tous les systemes seront « inconnus »");
   d_.setBrightness8(cfg_.brightness8());
-  playlist_.configure(cfg_.playlistName, cfg_.playlistRandom);
+  applyPlaylist();  // v3.77 : playlist par defaut, ou saisonniere du jour
   clock_.attach(d_);
   clock_.configure(cfg_);
   zed_.configure();
@@ -716,7 +774,34 @@ void Engine::begin() {
   themeSeen_ = tctl_.version.load();
   loadDecoConfig();
   decoLastMs_ = nowMs();
-  logf("BOOT", "playlist='%s' : %d GIF", cfg_.playlistName.c_str(), cfg_.playlistName.empty() ? 0 : playlist_.count(fs_));
+  logf("BOOT", "playlist='%s' : %d GIF", playlist_.name().c_str(), cfg_.playlistName.empty() ? 0 : playlist_.count(fs_));
+}
+
+// v3.77 -- PLAYLISTS SAISONNIERES (portage du firmware ESP32 4.01). cfg_.playlistName reste la playlist PAR DEFAUT enregistree (config.ini, page web) ; Playlist lit la playlist effective.
+// Playlist::configure() ne repart de zero que si le NOM change : rappeler cette fonction sans changement de choix ne perturbe pas la lecture.
+void Engine::applyPlaylist() {
+  const seasons::Pick p = seasons::choose(fs_, cfg_, false);
+  seasonKey_ = p.key;
+  seasonYmd_ = p.ymd;
+  seasonAdd_ = p.add;
+  playlist_.configure(p.file.empty() ? cfg_.playlistName : p.file, cfg_.playlistRandom);
+}
+
+// Controle toutes les 60 s : la date a change et le choix saisonnier du nouveau jour differe de celui en cours => nouvelle playlist (visible au prochain GIF). Contrairement a l'ESP32
+// (qui redemarre : tas faible, caches de playlist), le demon recharge a chaud : la liste est tenue en memoire.
+void Engine::tickSeasonDay(uint64_t now) {
+  if (cfg_.playlistName.empty()) return;
+  if (seasonLastMs_ != 0 && now - seasonLastMs_ < 60000) return;
+  seasonLastMs_ = now ? now : 1;
+  const uint32_t ymd = seasons::todayYmd(cfg_);
+  if (!ymd || ymd == seasonYmd_) return;
+  const seasons::Pick p = seasons::choose(fs_, cfg_, true);
+  if (p.key == seasonKey_) {
+    seasonYmd_ = ymd;
+    return;
+  }
+  logf("SEASON", "changement de jour %u -> %u : choix '%s' -> '%s'", (unsigned)seasonYmd_, (unsigned)ymd, seasonKey_.c_str(), p.key.c_str());
+  applyPlaylist();
 }
 
 // ------------------------------------------------------------------ medias
@@ -1597,6 +1682,7 @@ void Engine::tickBrightSched(uint64_t now) {
 void Engine::tick() {
   diagTick(nowMs());
   tickBrightSched(nowMs());
+  tickSeasonDay(nowMs());   // v3.77
   tickWebWatchdog(nowMs());
   if (zed_.enabled()) {
     switch (zed_.poll(nowMs())) {

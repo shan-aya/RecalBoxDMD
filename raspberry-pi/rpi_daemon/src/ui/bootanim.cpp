@@ -10,23 +10,14 @@
 
 #include "boot_seasons.h"
 #include "log.h"
+#include "seasons.h"
 
 namespace {
 constexpr size_t FRAME_BYTES = (size_t)DMD_W * DMD_H * 2;  // 8192 : une image RGB565 128x32
 constexpr uint32_t SEASON_FILE_BYTES = 819200;               // 100 images : taille exacte attendue d'un fichier saisonnier
 constexpr uint32_t T_TITLE_ON = 2000, T_TITLE_OFF = 4500, T_END = 6500, FRAME_MS = 40;
 
-uint32_t todayYmd(const Config &cfg) {
-  const uint32_t fake = (uint32_t)std::strtoul(cfg.get("fake_date", "0").c_str(), nullptr, 10);
-  if (fake) return fake;
-  const time_t now = time(nullptr);
-  if (now >= 1700000000L) {  // horloge systeme synchronisee (NTP) ou lue sur la RTC de la carte d'interface
-    struct tm ti;
-    localtime_r(&now, &ti);
-    return (uint32_t)(ti.tm_year + 1900) * 10000u + (uint32_t)(ti.tm_mon + 1) * 100u + (uint32_t)ti.tm_mday;
-  }
-  return (uint32_t)std::strtoul(cfg.get("last_date", "0").c_str(), nullptr, 10);
-}
+uint32_t todayYmd(const Config &cfg) { return seasons::todayYmd(cfg); }   // v3.77 : partage avec les playlists saisonnieres (seasons.cpp)
 
 // titre par-dessus l'image : meme dessin que bootAnimDrawTitle() (liseré noir de 8 voisins, puis « Recal » rouge, « Box » bleu, « DMD » vert)
 void drawTitle(Display &cv, const std::string &edition) {
