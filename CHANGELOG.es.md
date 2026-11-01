@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-01 — Lote de scripts de Recalbox n.º 9: el DMD ya no se queda en el juego tras el botón de encendido de la Pi 5
+
+**Lote de scripts de Recalbox n.º 9** (sin cambios de firmware, demonio de Pi ni caja de herramientas)
+- **Corrección (Recalbox 11 en Raspberry Pi 5):** pulsar el botón de encendido de la Pi 5 durante un juego sale del juego, pero Recalbox termina entonces todos los procesos lanzados por EmulationStation, incluido el script que alimenta el DMD. El DMD se quedaba en el logo del juego y dejaba de seguir la lista de juegos (solo se recuperaba al reiniciar EmulationStation). Ahora el script se separa de EmulationStation, se reconecta solo y devuelve el DMD a la navegación (`ingame 0` y luego `default`) si alguna vez tiene que detenerse. Probado en una Recalbox RGB Dual 2 (Recalbox 11.0-patron-1.7) con una pulsación corta; una pulsación larga apaga la máquina (comportamiento normal de Recalbox). Aún no probado en arranque en frío ni en Recalbox 10.x.
+- **Para aplicarlo:** reinstala los scripts desde la caja de herramientas (Modo 9 o el botón de instalación) y luego **reinicia la Recalbox**: el script anterior sigue activo hasta entonces.
+
 ## 2026-10-31 — Firmware v4.00: corrección de un desbordamiento de memoria del tema de reloj Lava · pestaña y script «Diagnóstico»
 
 **Firmware v4.00 · Demonio Raspberry Pi v3.76 · Caja de herramientas del PC build 14588 · Lote de scripts de Recalbox n.º 8**

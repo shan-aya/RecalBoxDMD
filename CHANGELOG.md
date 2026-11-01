@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-01 — Recalbox scripts bundle 9: the DMD no longer stays stuck on the game after the Pi 5 power button
+
+**Recalbox scripts bundle 9** (no firmware, Pi daemon or toolkit change)
+- **Fix (Recalbox 11 on Raspberry Pi 5):** pressing the Pi 5 power button during a game quits the game, but Recalbox then terminates every process EmulationStation started — including the script that feeds the DMD. The DMD stayed on the game logo and no longer followed the game list (it only recovered after restarting EmulationStation). The script now detaches itself from EmulationStation, reconnects on its own, and puts the DMD back in navigation (`ingame 0` then `default`) if it ever has to stop. Tested on a Recalbox RGB Dual 2 (Recalbox 11.0-patron-1.7) with a short press; a long press switches the machine off (normal Recalbox behaviour). Not tested on a cold boot or on Recalbox 10.x yet.
+- **To apply it:** reinstall the scripts from the toolkit (Mode 9 or the install button), then **restart the Recalbox** — the previous script keeps running until then.
+
 ## 2026-10-31 — Firmware v4.00: fix for a memory overflow in the Lava clock theme · "Diagnostic" tab and script
 
 **Firmware v4.00 · Raspberry Pi daemon v3.76 · PC toolkit build 14588 · Recalbox scripts bundle 8**

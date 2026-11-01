@@ -14,7 +14,21 @@
 # fail-closed si dmd_helpers/ est absent (deja arrive une fois sur ce
 # projet, package incomplet) : le script s'arrete plutot que de tourner
 # sans protection anti-relance.
-. /recalbox/share/userscripts/dmd_helpers/singleton_lock.sh marquee 2>/dev/null || exit 1
+# v56 -- DETACHEMENT de l'arbre de processus d'ES. Le lanceur (celui qu'ES attend)
+# prend le verrou comme avant (aucun fork de plus pour une relance dupliquee),
+# puis relance CE script dans une nouvelle session (setsid) et sort : le demon
+# n'a plus d'ancetre ES (ppid 1, comme dmd_achievement) et survit au nettoyage
+# « ProcessTree » d'ES (bouton d'alimentation du Pi 5 en jeu). Le verrou est
+# transmis au demon : le lanceur y ecrit le pid du demon ($!), le demon saute
+# l'acquisition (DMD_MARQUEE_DETACHED).
+if [ -z "$DMD_MARQUEE_DETACHED" ]; then
+    . /recalbox/share/userscripts/dmd_helpers/singleton_lock.sh marquee 2>/dev/null || exit 1
+    DMD_MARQUEE_DETACHED=1
+    export DMD_MARQUEE_DETACHED
+    setsid /bin/sh "$0" "$@" </dev/null >/dev/null 2>&1 &
+    echo $! > "$LOCKDIR/pid"
+    exit 0
+fi
 echo "$(date '+%H:%M:%S.%N') TRACE proceeding pid=$$ ppid=$PPID arg0=$0" >> /tmp/marquee_trace.log
 LOG="/recalbox/share/system/logs/marquee_mqtt.log"
 # v52 - 2026-09-19 - safe-modify - BUG REEL corrige (retour utilisateur
@@ -37,6 +51,7 @@ LOG="/recalbox/share/system/logs/marquee_mqtt.log"
 DMD_UDP_IP_FALLBACK="192.168.0.51"
 DMD_UDP_IP_CACHE="/tmp/dmd_udp_ip"
 DMD_UDP_PORT=5005
+# v56 - 2026-11-01 - safe-modify - BUG REEL corrige (retour testeur + reproduit sur RGB Dual 2, Recalbox 11.0-patron-1.7) : le bouton d'alimentation du Pi 5 (appui court en jeu = « exiting game », appui long = en plus redemarrage d'ES) fait TERMINER par ES tout l'arbre de processus lance depuis son demarrage, DONT ce script et son mosquitto_sub, et ES n'emet PAS « endgame » (jeu termine avec le code 247). Le script ecrivait « pipe fermee » et sortait SANS prevenir le DMD : « ingame=1 » restait en memoire cote DMD, qui ignorait ensuite « default » (« RB toujours en jeu ») et restait sur le logo du jeu. Fix : dmd_leave_game() envoie « ingame 0 » puis « default » en UDP avant la sortie (canal ferme) ET sur TERM/HUP/INT (trap). Non teste sur materiel avant essai sur la RGB Dual 2.
 # v55 - 2026-10-24 - safe-modify - EXTINCTION (shutdown|reboot) : envoie aussi « rb_shutdown » (le Pi en mode natif rend l'ecran a la playlist immediatement). Non teste sur materiel.
 # v54 - 2026-10-06 - safe-modify - EXTINCTION PROPRE : nouvelle branche shutdown|reboot (retour playlist immediat, comme stop) -- voir son commentaire. NON TESTE SUR MATERIEL.
 # v53 - 2026-09-19 - safe-modify - Reglages "Veille Recalbox" de la page web
@@ -1014,6 +1029,30 @@ send_udp() {
     python3 -c "import socket,sys; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(sys.argv[1].encode('utf-8','replace'), (sys.argv[2], int(sys.argv[3])))" "$1" "$DMD_UDP_IP" "$DMD_UDP_PORT" 2>/dev/null
 }
 
+# v56 -- ce script va s'arreter sans avoir vu « endgame » (ES l'a tue avec le jeu
+# : bouton d'alimentation du Pi 5, ou canal MQTT ferme) : le DMD doit etre
+# remis en navigation. « ingame 0 » D'ABORD (sinon le firmware ignore « default »
+# tant qu'il croit la Recalbox en jeu), puis « default » (playlist). Pause entre
+# les deux : le firmware ne garde que le 1er paquet d'un lot recu d'un coup.
+# Execute UNE seule fois (garde), best-effort, jamais bloquant.
+dmd_leave_game() {
+    # Garde par horodatage (fichier) : la boucle externe de reconnexion relance
+    # le sous-shell, une variable ne survivrait pas ; pas plus d'un envoi / 20 s.
+    _dl_now=$(date +%s)
+    _dl_last=$(cat /tmp/dmd_leave_ts 2>/dev/null)
+    if [ -n "$_dl_last" ] && [ $((_dl_now - _dl_last)) -lt 20 ] 2>/dev/null; then return 0; fi
+    echo "$_dl_now" > /tmp/dmd_leave_ts
+    send_udp "CMD=ingame ARG=0"
+    sleep 0.3 2>/dev/null || sleep 1
+    send_udp "CMD=default ARG=1"
+    echo "$(date '+%H:%M:%S') SORTIE du script -> DMD remis en navigation (ingame 0 + default, UDP)" >> "$LOG" 2>/dev/null
+}
+# Le trap previent le DMD mais NE SORT PAS : ES envoie TERM a tout son arbre de
+# processus quand le bouton d'alimentation du Pi 5 quitte un jeu, et ne
+# relance jamais ce script ensuite. En restant en vie, le pont se reconnecte
+# (boucle externe plus bas) au lieu de laisser le DMD sans navigation.
+trap 'dmd_leave_game' TERM HUP INT
+
 send_mqtt_retain() {
     # v38 -- diagnostic pub_time (v36) retire (retour utilisateur, une fois
     # la vraie cause de la saturation CPU trouvee et corrigee -- voir
@@ -1446,8 +1485,18 @@ echo "$(date) - Marquee bridge started (v41, veille ciblee demo/gameclip desacti
 # comme features_watcher.
 python3 "/recalbox/share/userscripts/dmd_helpers/dmd_udp_resync.py" >> "$LOG" 2>&1 &
 
+# v56 -- boucle EXTERNE de reconnexion : ES termine l'arbre de processus (dont
+# ce mosquitto_sub) quand le bouton d'alimentation du Pi 5 quitte un jeu, et
+# ne relance PAS ce script ensuite -- l'ancienne sortie « relance attendue au
+# prochain evenement ES » laissait le DMD sans navigation jusqu'au prochain
+# redemarrage d'ES. Le pipeline est maintenant relance apres 3 s (le broker,
+# lui, est toujours la). Le trap TERM/HUP/INT ne sort plus : le script survit.
+while true; do
 mosquitto_sub -h 127.0.0.1 -p 1883 -q 0 -t "Recalbox/EmulationStation/Event" 2>/dev/null | \
 while true; do
+    # v56 -- ce while tourne dans un sous-shell (pipe) : les trap du shell
+    # principal n'y sont pas herites, on les repose ici (builtin, cout nul).
+    trap 'dmd_leave_game' TERM HUP INT
     PREV_EVENT="$event"
     # v37 -- REVERT du sondage continu v34 (retour utilisateur, 2026-09-01,
     # apres decouverte de la VRAIE cause de la saturation CPU en navigation
@@ -1486,7 +1535,8 @@ while true; do
         # la prochaine relance par ES (evenement quelconque) redemarrer
         # le script a neuf.
         if [ "$readRc" -ne 0 ]; then
-            echo "$(date '+%H:%M:%S') mosquitto_sub pipe fermee (broker injoignable ?) -- sortie propre, relance attendue au prochain evenement ES" >> "$LOG"
+            echo "$(date '+%H:%M:%S') mosquitto_sub pipe fermee (broker injoignable ?) -- sortie du sous-shell, reconnexion automatique (v56)" >> "$LOG"
+            dmd_leave_game   # v56 : ES a pu tuer jeu + script sans « endgame » (bouton Pi 5) : prevenir le DMD
             exit 1
         fi
     fi
@@ -2002,4 +2052,8 @@ while true; do
             # Event inconnu ou vide
             ;;
     esac
+done
+# v56 -- le pipeline s'est ferme (mosquitto_sub tue / broker coupe) : on reconnecte.
+echo "$(date '+%H:%M:%S') reconnexion de mosquitto_sub dans 3 s" >> "$LOG"
+sleep 3
 done
