@@ -466,7 +466,24 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
   </header>
   </div>
 
-  <nav class="chapnav" aria-label="Sections"><a href="#deco" data-i18n="nav.1"></a><a href="#recalbox" data-i18n="nav.2"></a><a href="#cadre" data-i18n="nav.3"></a><a href="#toolkit" data-i18n="nav.4"></a><a href="#diag" data-i18n="nav.5"></a><a href="#install" data-i18n="nav.6"></a></nav>
+  <nav class="chapnav" aria-label="Sections"><a href="#nouveau" data-i18n="nav.0"></a><a href="#deco" data-i18n="nav.1"></a><a href="#recalbox" data-i18n="nav.2"></a><a href="#cadre" data-i18n="nav.3"></a><a href="#toolkit" data-i18n="nav.4"></a><a href="#diag" data-i18n="nav.5"></a><a href="#install" data-i18n="nav.6"></a></nav>
+
+  <!-- CHAPITRE « NOUVEAUTE » : y mettre la plaquette de la derniere nouveaute (docs/media/plaquette_N_<lang>.png).
+       Quand une autre nouveaute la remplace : reintegrer la precedente dans les chapitres concernes (c'est deja fait pour les saisons / le moniteur serie : sections « season » et « ser ») puis remplacer ici. -->
+  <div class="chaphead" id="nouveau"><span class="chapnum">★</span><h2 class="chaptitle" data-i18n="ch0.t"></h2><p class="chapsub" data-i18n="ch0.s"></p></div>
+
+  <div class="wide-sec">
+  <section class="feat">
+    <span class="eyebrow" style="color:var(--amber)" data-i18n="nw.eyebrow"></span>
+    <h2 data-i18n="nw.h2"></h2>
+    <p data-i18n="nw.p"></p>
+    <figure class="shot glow-a">
+      <img src="media/plaquette_13_fr.png" data-plaq="1" data-i18n-alt="nw.alt" alt="" loading="lazy">
+    </figure>
+    <ul class="bul"><li data-i18n="nw.l1"></li><li data-i18n="nw.l2"></li><li data-i18n="nw.l3"></li></ul>
+    <p class="vidcap"><a href="#deco" data-i18n="nw.cta1"></a> · <a href="#diag" data-i18n="nw.cta2"></a></p>
+  </section>
+  </div>
 
   <div class="chaphead" id="deco"><span class="chapnum">1</span><h2 class="chaptitle" data-i18n="ch1.t"></h2><p class="chapsub" data-i18n="ch1.s"></p></div>
 
@@ -860,6 +877,18 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "nav.6": "Installer",
       "ch1.t": "Déco : le panneau tout seul",
       "ch1.s": "Sans Recalbox : GIFs, saisons, horloge et widgets.",
+      "nav.0": "Nouveauté",
+      "ch0.t": "Les nouveautés",
+      "ch0.s": "Ce qui vient d'arriver : des playlists qui suivent les saisons et un moniteur série pour comprendre ce que fait le DMD.",
+      "nw.eyebrow": "Nouveau",
+      "nw.h2": "Playlists saisonnières et moniteur série",
+      "nw.p": "Le DMD change de playlist tout seul selon la période de l'année, et la boîte à outils affiche en direct ce que le DMD raconte sur son port série.",
+      "nw.alt": "Plaquette : playlists saisonnières, diagnostic et moniteur série de la boîte à outils.",
+      "nw.l1": "Playlists saisonnières : une playlist par période (Noël, Halloween, dates libres), répétée chaque année, exclusive ou mélangée à la playlist par défaut, avec détection des chevauchements — sur le firmware ESP32, dans la boîte à outils et sur le Raspberry Pi",
+      "nw.l2": "Moniteur série dans la boîte à outils : suivez en direct les messages du DMD et enregistrez-les pour un diagnostic",
+      "nw.l3": "Au démarrage, un écran indique la playlist jouée ; une petite horloge 🕒 repère les playlists saisonnières dans la liste",
+      "nw.cta1": "Voir les playlists saisonnières",
+      "nw.cta2": "Voir le diagnostic",
       "ch2.t": "Avec votre Recalbox",
       "ch2.s": "Le marquee de vos jeux, vos thèmes, les vrais logos, le mode natif Recalbox 11 et vos flippers.",
       "nav.3": "Cadre",
@@ -1084,6 +1113,18 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "nav.6": "Install",
       "ch1.t": "Decor: the panel on its own",
       "ch1.s": "No Recalbox needed: GIFs, seasons, clock and widgets.",
+      "nav.0": "What's new",
+      "ch0.t": "What's new",
+      "ch0.s": "Just arrived: playlists that follow the seasons and a serial monitor to understand what the DMD is doing.",
+      "nw.eyebrow": "New",
+      "nw.h2": "Seasonal playlists and serial monitor",
+      "nw.p": "The DMD switches playlist by itself depending on the time of year, and the toolkit shows live what the DMD says on its serial port.",
+      "nw.alt": "Flyer: seasonal playlists, diagnostics and the toolkit's serial monitor.",
+      "nw.l1": "Seasonal playlists: one playlist per period (Christmas, Halloween, free dates), repeated every year, exclusive or mixed with the default playlist, with overlap detection — on the ESP32 firmware, in the toolkit and on the Raspberry Pi",
+      "nw.l2": "Serial monitor in the toolkit: follow the DMD's messages live and save them for diagnostics",
+      "nw.l3": "At boot, a screen shows the playlist being played; a small clock 🕒 marks seasonal playlists in the list",
+      "nw.cta1": "See seasonal playlists",
+      "nw.cta2": "See diagnostics",
       "ch2.t": "With your Recalbox",
       "ch2.s": "Your games' marquee, your themes, the real logos, Recalbox 11 native mode and your pinball tables.",
       "nav.3": "Frame",
@@ -1308,6 +1349,18 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
       "nav.6": "Instalar",
       "ch1.t": "Decoración: el panel por sí solo",
       "ch1.s": "Sin Recalbox: GIFs, temporadas, reloj y widgets.",
+      "nav.0": "Novedad",
+      "ch0.t": "Las novedades",
+      "ch0.s": "Recién llegado: listas que siguen las estaciones y un monitor serie para entender qué hace el DMD.",
+      "nw.eyebrow": "Nuevo",
+      "nw.h2": "Listas de temporada y monitor serie",
+      "nw.p": "El DMD cambia de lista por sí solo según la época del año, y la caja de herramientas muestra en directo lo que dice el DMD por su puerto serie.",
+      "nw.alt": "Cartel: listas de temporada, diagnóstico y monitor serie de la caja de herramientas.",
+      "nw.l1": "Listas de temporada: una lista por periodo (Navidad, Halloween, fechas libres), repetida cada año, exclusiva o mezclada con la lista por defecto, con detección de solapamientos — en el firmware ESP32, en la caja de herramientas y en la Raspberry Pi",
+      "nw.l2": "Monitor serie en la caja de herramientas: sigue los mensajes del DMD en directo y guárdalos para diagnosticar",
+      "nw.l3": "Al arrancar, una pantalla indica la lista que suena; un pequeño reloj 🕒 marca las listas de temporada en la lista",
+      "nw.cta1": "Ver las listas de temporada",
+      "nw.cta2": "Ver el diagnóstico",
       "ch2.t": "Con tu Recalbox",
       "ch2.s": "El marquee de tus juegos, tus temas, los logos reales, el modo nativo de Recalbox 11 y tus pinballs.",
       "nav.3": "Mueble",
@@ -1577,6 +1630,7 @@ footer.outro .support{margin-top:18px;font-size:15px}footer.outro .support a{col
     document.querySelectorAll("img[data-diag]").forEach(function(el){ el.setAttribute("src", "media/diag_panel_" + lang + ".png"); });
     document.querySelectorAll("img[data-news]").forEach(function(el){ el.setAttribute("src", "media/news_" + lang + ".png"); });
     document.querySelectorAll("img[data-season]").forEach(function(el){ el.setAttribute("src", "media/seasons_" + lang + ".png"); });
+    document.querySelectorAll("img[data-plaq]").forEach(function(el){ el.setAttribute("src", "media/plaquette_13_" + lang + ".png"); });
     document.querySelectorAll("img[data-serial]").forEach(function(el){ el.setAttribute("src", "media/serial_" + lang + ".png"); });
     document.querySelectorAll("a[data-docanchor]").forEach(function(el){
       var m = { season: { fr: "README.fr.md#longlet-playlist", en: "README.md#the-playlist-tab", es: "README.es.md#la-pestaña-playlist" },
