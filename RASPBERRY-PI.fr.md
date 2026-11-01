@@ -18,7 +18,7 @@ Les modes séparés restent disponibles : **Mode 16** (préparer une carte, remp
 
 ## Matériel
 
-- Raspberry Pi 3B ou Pi 4 (validés) et une carte d'interface HUB75 (cartes de type RPI2DMD : mapping GPIO « regular », horloge RTC DS1307 optionnelle). Exemple de vendeur en France : [MM Workshop](https://mmwork.shop/boutique/pidmd-pour-matrices-led-rgb-hub75/) (carte contrôleur DMD Raspberry Pi HUB75, compatible RPI2DMD selon le vendeur).
+- Raspberry Pi 3B ou Pi 4 (validés) et une carte d'interface HUB75 (cartes de type RPI2DMD : mapping GPIO « regular », horloge RTC DS1307 optionnelle). Vendeurs en France : [RPI2DMD](https://www.rpi2dmd.fr/product-page/carte-matrix-pour-raspberry-pi) (la carte d'origine) ou [MM Workshop](https://mmwork.shop/boutique/pidmd-pour-matrices-led-rgb-hub75/) (compatible RPI2DMD selon le vendeur).
 - Deux dalles P5 64×32 en chaîne (128×32), balayage 1/16 : réglages par défaut `--led-cols=64 --led-rows=32 --led-chain=2 --led-pwm-bits=11 --led-slowdown-gpio=<selon le modèle>`.
 - Un bouton physique optionnel entre GPIO 21 et GND.
 - Le son du Pi est désactivé et un cœur est réservé à l'affichage (`isolcpus=3`) : c'est fait par l'installation.

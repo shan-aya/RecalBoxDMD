@@ -18,7 +18,7 @@ Los modos separados siguen disponibles: **Modo 16** (preparar una tarjeta, susti
 
 ## Hardware
 
-- Raspberry Pi 3B o Pi 4 (validadas) y una placa de interfaz HUB75 (placas tipo RPI2DMD: mapeo GPIO « regular », RTC DS1307 opcional). Ejemplo de vendedor en Francia: [MM Workshop](https://mmwork.shop/boutique/pidmd-pour-matrices-led-rgb-hub75/) (placa controladora DMD Raspberry Pi HUB75, compatible con RPI2DMD según el vendedor).
+- Raspberry Pi 3B o Pi 4 (validadas) y una placa de interfaz HUB75 (placas tipo RPI2DMD: mapeo GPIO « regular », RTC DS1307 opcional). Vendedores en Francia: [RPI2DMD](https://www.rpi2dmd.fr/product-page/carte-matrix-pour-raspberry-pi) (la placa original) o [MM Workshop](https://mmwork.shop/boutique/pidmd-pour-matrices-led-rgb-hub75/) (compatible con RPI2DMD según el vendedor).
 - Dos paneles P5 de 64×32 en cadena (128×32), barrido 1/16: ajustes por defecto `--led-cols=64 --led-rows=32 --led-chain=2 --led-pwm-bits=11 --led-slowdown-gpio=<según modelo>`.
 - Un botón físico opcional entre GPIO 21 y GND.
 - El audio de la Pi se desactiva y se reserva un núcleo para la pantalla (`isolcpus=3`): lo hace la instalación.
