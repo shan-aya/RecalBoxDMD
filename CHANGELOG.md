@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-02 (2) — Toolkit 14790: invisible "DGC" watermark
+
+**PC toolkit build 14790** (firmware 4.01 and Pi daemon 3.77 unchanged)
+- **Invisible "DGC" watermark** in the `.raw565` and `.raw565pack` images written by the toolkit (logos, text cards, theme logos): an imperceptible mark (lowest bit of the green channel of a few bright pixels, ±4/255, never a black pixel) that tells a file comes from our tools. The Discord server reacts to it. It is a hint, not a proof: the mark disappears if the file is recoloured or re-encoded. No visible change, file sizes are identical.
+
 ## 2026-11-02 — Toolkit 14789: Discord link
 
 **PC toolkit build 14789** (firmware 4.01 and Pi daemon 3.77 unchanged)

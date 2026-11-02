@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-02 (2) — Boîte à outils 14790 : filigrane invisible « DGC »
+
+**Boîte à outils PC build 14790** (firmware 4.01 et démon Pi 3.77 inchangés)
+- **Filigrane invisible « DGC »** dans les visuels `.raw565` et `.raw565pack` que la boîte à outils écrit (logos, cartes texte, logos de thèmes) : une marque imperceptible (bit de poids faible du vert de quelques pixels clairs, ±4/255, jamais un noir) qui permet de savoir qu'un fichier vient de nos outils. Le serveur Discord y réagit. C'est un indice, pas une preuve : la marque disparaît si le fichier est recoloré ou ré-encodé. Aucun changement visible, la taille des fichiers est identique.
+
 ## 2026-11-02 — Boîte à outils 14789 : lien vers le Discord
 
 **Boîte à outils PC build 14789** (firmware 4.01 et démon Pi 3.77 inchangés)

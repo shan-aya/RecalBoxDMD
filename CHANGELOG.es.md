@@ -8,6 +8,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-02 (2) — Caja de herramientas 14790: marca de agua invisible «DGC»
+
+**Caja de herramientas del PC build 14790** (firmware 4.01 y demonio Pi 3.77 sin cambios)
+- **Marca de agua invisible «DGC»** en las imágenes `.raw565` y `.raw565pack` que escribe la caja de herramientas (logos, tarjetas de texto, logos de temas): una marca imperceptible (bit menos significativo del verde de algunos píxeles claros, ±4/255, nunca un píxel negro) que permite saber que un archivo procede de nuestras herramientas. El servidor de Discord reacciona a ella. Es un indicio, no una prueba: la marca desaparece si el archivo se recolorea o se vuelve a codificar. Ningún cambio visible, el tamaño de los archivos es idéntico.
+
 ## 2026-11-02 — Caja de herramientas 14789: enlace al Discord
 
 **Caja de herramientas del PC build 14789** (firmware 4.01 y demonio Pi 3.77 sin cambios)
