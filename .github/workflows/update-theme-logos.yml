@@ -53,6 +53,11 @@ jobs:
           --known "carte SD/systems/_defaults"
 
       - name: Verify language / region selection against EmulationStation (all themes)
+        # Lundi (schedule) : informatif seulement. Cette verification compare le paquet PUBLIE au hub d'aujourd'hui : si un theme a change
+        # sur le hub, elle echoue avant que l'etape incrementale ne l'ait mis a jour, et le workflow ne pouvait donc jamais se corriger
+        # lui-meme. La verification DU PAQUET RECONSTRUIT (apres l'etape incrementale) reste, elle, bloquante. A la main (verify = true),
+        # cette etape est la seule : elle reste bloquante.
+        continue-on-error: ${{ github.event_name == 'schedule' }}
         run: >
           python tools/theme_package/verify_package_semantics.py
           "carte SD/systems/_defaults/_themes"

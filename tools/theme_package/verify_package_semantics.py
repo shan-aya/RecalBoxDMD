@@ -9,11 +9,15 @@ neutre est ignore une fois la propriete localisee). Le resultat attendu est rend
 Usage : python verify_package_semantics.py <dossier _themes du paquet> --known <dossier _defaults> [--only theme1,theme2] [--report fichier.txt]
 Code de sortie : 0 = aucun ecart, 1 = au moins un ecart.
 
+safe-modify -- v3 - 2026-11-02 - ECHEC TOUS LES LUNDIS depuis le 12/10 (4 716 ecarts identiques) : faux positifs, pas un probleme de reseau. (1) l'attendu est converti avec les MEMES
+reglages que le constructeur (elargissement / coupe / eclaircissement par systeme, retouches du rendu 5 du 07/10) ; (2) les themes SYSTEME (manifeste packaged_from != "hub" :
+recalbox-next, recalbox-240p, construits depuis la copie installee sur la Recalbox) sont ignores : leurs sources ne sont pas celles du hub.
 safe-modify -- v2 - 2026-10-04 - les elements <image name="logo" region="eu" ...> (un element par region, ex. bounitos-crt-color-package) sont pris en compte : l'element ne
 s'applique que si sa region / langue correspond, et tous les elements sont fusionnes DANS L'ORDRE du XML (le dernier gagne), comme ES.
 safe-modify -- v1 - 2026-10-04 - creation (demande utilisateur : « verifier tous les themes sans tester a la main »).
 """
 import argparse
+import json
 import os
 import re
 import sys
@@ -116,13 +120,17 @@ def check_theme(name, src, theme_dir, log):
     sids = {s for s in sids if not tl._NOISE.search(s)}
     cache = {}
 
-    def rendered(rel):
-        if rel not in cache:
+    def rendered(rel, sid):
+        # MEMES reglages que le constructeur (convert_theme) : elargissement / coupe / eclaircissement propres au systeme
+        # (retouches de lisibilite, depuis le rendu 5 du 2026-10-07) ; sans eux, tout systeme retouche paraissait en ecart.
+        key = (rel, sid)
+        if key not in cache:
             try:
-                cache[rel] = tl.convert_bytes(src.read(rel), rel.lower().endswith(".svg"))
+                cache[key] = tl.convert_bytes(src.read(rel), rel.lower().endswith(".svg"),
+                                              tl._widen_for(sid), tl._cut_for(sid), tl._lighten_for(sid))
             except Exception:
-                cache[rel] = None
-        return cache[rel]
+                cache[key] = None
+        return cache[key]
 
     checked = bad = ambiguous = 0
     problems = []
@@ -140,7 +148,7 @@ def check_theme(name, src, theme_dir, log):
                     problems.append((sid, lang, region, sorted(expected)[0].split("/")[-1], "AUCUN fichier sur la SD"))
                     continue
                 gb = open(got, "rb").read()
-                exp_bytes = [rendered(e) for e in expected]
+                exp_bytes = [rendered(e, sid) for e in expected]
                 if len(expected) > 1:
                     ambiguous += 1
                 if gb not in exp_bytes:
@@ -164,6 +172,11 @@ def main():
         print(s, flush=True)
         lines.append(s)
 
+    try:
+        with open(os.path.join(a.published, "manifest.json"), encoding="utf-8") as f:
+            packaged_from = {k: v.get("packaged_from", "hub") for k, v in json.load(f).get("themes", {}).items()}
+    except (OSError, ValueError):
+        packaged_from = {}
     cat = {h["folder"]: h for h in tl.hub_catalog(lambda *x: None) if h.get("active", True)}
     total_c = total_b = 0
     allp = []
@@ -174,6 +187,10 @@ def main():
         h = cat.get(folder)
         if not h or not h.get("zips"):
             log(f"{folder}: absent du catalogue, ignore")
+            continue
+        origin = packaged_from.get(folder, "hub")
+        if origin != "hub":   # themes SYSTEME (recalbox-next, recalbox-240p) : construits depuis la copie installee sur la Recalbox, pas depuis le hub
+            log(f"{folder}: construit depuis la Recalbox ({origin}), non reproductible depuis le hub : ignore")
             continue
         src, _rf = tl.open_hub_source(h, cache_dir=tl.default_cache_dir())
         c, b, p = check_theme(folder, src, tdir, log)
