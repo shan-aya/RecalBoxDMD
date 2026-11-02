@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-02 — Toolkit 14789: Discord link
+
+**PC toolkit build 14789** (firmware 4.01 and Pi daemon 3.77 unchanged)
+- **Support Discord server** (French / English): a "Join the Discord" link now appears at the bottom of the window, next to the coffee link (https://discord.gg/CYAyGJSvp4). It hosts support, GIF and logo sharing, ideas with their status and release announcements.
+
 ## 2026-11-01 — Seasonal playlists · Diagnostic tab: firmware v4.01, Pi daemon v3.77, toolkit build 14689
 
 **Firmware v4.01 · Raspberry Pi daemon v3.77 · PC toolkit build 14689**

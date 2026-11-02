@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-02 — Boîte à outils 14789 : lien vers le Discord
+
+**Boîte à outils PC build 14789** (firmware 4.01 et démon Pi 3.77 inchangés)
+- **Serveur Discord d'aide** (français / anglais) : un lien « Rejoindre le Discord » apparaît en bas de la fenêtre, à côté du lien café (https://discord.gg/CYAyGJSvp4). On y trouve le support, le partage de GIF et de logos, les idées avec leur statut et les annonces de versions.
+
 ## 2026-11-01 — Playlists saisonnières · onglet Diagnostic : firmware v4.01, démon Pi v3.77, boîte à outils build 14689
 
 **Firmware v4.01 · Démon Raspberry Pi v3.77 · Boîte à outils PC build 14689**

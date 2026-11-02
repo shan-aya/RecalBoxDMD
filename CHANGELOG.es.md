@@ -8,6 +8,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-02 — Caja de herramientas 14789: enlace al Discord
+
+**Caja de herramientas del PC build 14789** (firmware 4.01 y demonio Pi 3.77 sin cambios)
+- **Servidor de Discord de ayuda** (francés / inglés): aparece un enlace «Unirse al Discord» al pie de la ventana, junto al enlace del café (https://discord.gg/CYAyGJSvp4). Reúne soporte, intercambio de GIF y logos, ideas con su estado y anuncios de versiones.
+
 ## 2026-11-01 — Playlists de temporada · pestaña Diagnóstico: firmware v4.01, demonio Pi v3.77, toolkit build 14689
 
 **Firmware v4.01 · Demonio Raspberry Pi v3.77 · Toolkit PC build 14689**
