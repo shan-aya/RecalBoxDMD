@@ -14,6 +14,7 @@
   <img alt="Panel: HUB75 128x32" src="https://img.shields.io/badge/panel-HUB75%20128x32-blue.svg">
   <img alt="Recalbox: 11 / 10.x / 9.x / legacy" src="https://img.shields.io/badge/recalbox-11%20%7C%2010.x%20%7C%209.x%20%7C%20legacy-orange.svg">
   <img alt="UI languages: FR EN ES" src="https://img.shields.io/badge/UI-FR%20%7C%20EN%20%7C%20ES-purple.svg">
+  <a href="https://discord.gg/CYAyGJSvp4"><img alt="Join the Discord: help and community" src="https://img.shields.io/badge/Discord-join%20the%20community-5865F2?logo=discord&logoColor=white"></a>
   <a href="https://buymeacoffee.com/shan_aya"><img alt="Support the project: Buy Me a Coffee" src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-FFDD00?logo=buymeacoffee&logoColor=black"></a>
 </p>
 
@@ -31,7 +32,8 @@
   <a href="#-raspberry-pi-setup"><b>🥧 Raspberry Pi setup</b></a> &nbsp;·&nbsp;
   <a href="#-the-pc-toolkit--the-heart-of-the-installation"><b>🧰 PC Toolkit</b></a> &nbsp;·&nbsp;
   <a href="#-web-configuration"><b>🌐 Web config</b></a> &nbsp;·&nbsp;
-  <a href="https://shan-aya.github.io/RecalBoxDMD/"><b>✨ Interactive page</b></a>
+  <a href="https://shan-aya.github.io/RecalBoxDMD/"><b>✨ Interactive page</b></a> &nbsp;·&nbsp;
+  <a href="https://discord.gg/CYAyGJSvp4"><b>💬 Discord</b></a>
 </p>
 
 <p align="center">
@@ -901,6 +903,8 @@ Still stuck? Copy the **Logs** tab and the **build** number, and open an issue o
 📜 [CHANGELOG](CHANGELOG.md) · [FAQ](FAQ.md) · [UPGRADING](UPGRADING.md) · [QUICK-START](QUICK-START.md) · [Raspberry Pi](RASPBERRY-PI.md) — licensed under [MIT](LICENSE) (the Raspberry Pi daemon: GPL-2.0+).
 
 🔔 **Get notified of new releases**: *Watch → Custom → Releases* on GitHub, or the [releases feed](https://github.com/shan-aya/RecalBoxDMD/releases.atom). The toolkit and the web config warn you too, and the [Web Installer](https://shan-aya.github.io/RecalBoxDMD/install/) shows the firmware version it installs.
+
+💬 Help, questions, showcase: [join the Discord](https://discord.gg/CYAyGJSvp4) (EN/FR)
 
 ☕ If this project is useful to you: [buy me a coffee](https://buymeacoffee.com/shan_aya) or [donate via PayPal](https://www.paypal.com/paypalme/felysaya)
 

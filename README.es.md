@@ -14,6 +14,7 @@
   <img alt="Panel: HUB75 128x32" src="https://img.shields.io/badge/panel-HUB75%20128x32-blue.svg">
   <img alt="Recalbox: 11 / 10.x / 9.x / legacy" src="https://img.shields.io/badge/recalbox-11%20%7C%2010.x%20%7C%209.x%20%7C%20legacy-orange.svg">
   <img alt="Idiomas: FR EN ES" src="https://img.shields.io/badge/UI-FR%20%7C%20EN%20%7C%20ES-purple.svg">
+  <a href="https://discord.gg/CYAyGJSvp4"><img alt="Únete al Discord: ayuda y comunidad" src="https://img.shields.io/badge/Discord-unirse-5865F2?logo=discord&logoColor=white"></a>
   <a href="https://buymeacoffee.com/shan_aya"><img alt="Apoyar el proyecto: Buy Me a Coffee" src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-FFDD00?logo=buymeacoffee&logoColor=black"></a>
 </p>
 
@@ -31,7 +32,8 @@
   <a href="#-instalación-raspberry-pi"><b>🥧 Instalar en Raspberry Pi</b></a> &nbsp;·&nbsp;
   <a href="#-la-caja-de-herramientas-pc--el-centro-de-la-instalación"><b>🧰 Caja de herramientas</b></a> &nbsp;·&nbsp;
   <a href="#-configuración-web"><b>🌐 Config web</b></a> &nbsp;·&nbsp;
-  <a href="https://shan-aya.github.io/RecalBoxDMD/"><b>✨ Página interactiva</b></a>
+  <a href="https://shan-aya.github.io/RecalBoxDMD/"><b>✨ Página interactiva</b></a> &nbsp;·&nbsp;
+  <a href="https://discord.gg/CYAyGJSvp4"><b>💬 Discord</b></a>
 </p>
 
 <p align="center">
@@ -902,6 +904,8 @@ Congelaciones, pantalla corrupta, bucles Wi-Fi, DMD desincronizado de Recalbox: 
 📜 [CHANGELOG](CHANGELOG.es.md) · [FAQ](FAQ.es.md) · [UPGRADING](UPGRADING.es.md) · [QUICK-START](QUICK-START.es.md) · [Raspberry Pi](RASPBERRY-PI.es.md) — bajo licencia [MIT](LICENSE) (el demonio de la Raspberry Pi: GPL-2.0+).
 
 🔔 **Recibe aviso de las nuevas versiones**: *Watch → Custom → Releases* en GitHub, o el [feed de releases](https://github.com/shan-aya/RecalBoxDMD/releases.atom). La caja de herramientas y la config web también te avisan, y el [instalador web](https://shan-aya.github.io/RecalBoxDMD/install/) muestra la versión del firmware que instala.
+
+💬 Ayuda, preguntas, montajes: [únete al Discord](https://discord.gg/CYAyGJSvp4) (ES/EN)
 
 ☕ Si este proyecto te resulta útil: [invítame a un café](https://buymeacoffee.com/shan_aya) o [haz una donación por PayPal](https://www.paypal.com/paypalme/felysaya)
 

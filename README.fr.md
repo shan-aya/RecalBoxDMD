@@ -14,6 +14,7 @@
   <img alt="Panneau : HUB75 128x32" src="https://img.shields.io/badge/panneau-HUB75%20128x32-blue.svg">
   <img alt="Recalbox : 11 / 10.x / 9.x / legacy" src="https://img.shields.io/badge/recalbox-11%20%7C%2010.x%20%7C%209.x%20%7C%20legacy-orange.svg">
   <img alt="Langues : FR EN ES" src="https://img.shields.io/badge/UI-FR%20%7C%20EN%20%7C%20ES-purple.svg">
+  <a href="https://discord.gg/CYAyGJSvp4"><img alt="Rejoindre le Discord : aide et communauté" src="https://img.shields.io/badge/Discord-rejoindre-5865F2?logo=discord&logoColor=white"></a>
   <a href="https://buymeacoffee.com/shan_aya"><img alt="Soutenir le projet : Buy Me a Coffee" src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-FFDD00?logo=buymeacoffee&logoColor=black"></a>
 </p>
 
@@ -31,7 +32,8 @@
   <a href="#-installation-raspberry-pi"><b>🥧 Installer sur Raspberry Pi</b></a> &nbsp;·&nbsp;
   <a href="#-la-boîte-à-outils-pc--le-centre-de-linstallation"><b>🧰 Boîte à outils</b></a> &nbsp;·&nbsp;
   <a href="#-la-configuration-web"><b>🌐 Config web</b></a> &nbsp;·&nbsp;
-  <a href="https://shan-aya.github.io/RecalBoxDMD/"><b>✨ Page interactive</b></a>
+  <a href="https://shan-aya.github.io/RecalBoxDMD/"><b>✨ Page interactive</b></a> &nbsp;·&nbsp;
+  <a href="https://discord.gg/CYAyGJSvp4"><b>💬 Discord</b></a>
 </p>
 
 <p align="center">
@@ -901,6 +903,8 @@ Toujours bloqué ? Copiez l'onglet **Logs** et le numéro de **build**, et ouvre
 📜 [CHANGELOG](CHANGELOG.fr.md) · [FAQ](FAQ.fr.md) · [UPGRADING](UPGRADING.fr.md) · [QUICK-START](QUICK-START.fr.md) · [Raspberry Pi](RASPBERRY-PI.fr.md) — sous licence [MIT](LICENSE) (le démon Raspberry Pi : GPL-2.0+).
 
 🔔 **Être prévenu des nouvelles versions** : *Watch → Custom → Releases* sur GitHub, ou le [flux des releases](https://github.com/shan-aya/RecalBoxDMD/releases.atom). La boîte à outils et la config web vous avertissent aussi, et le [Web Installer](https://shan-aya.github.io/RecalBoxDMD/install/) affiche la version du firmware.
+
+💬 Aide, questions, réalisations : [rejoignez le Discord](https://discord.gg/CYAyGJSvp4) (FR/EN)
 
 ☕ Si ce projet vous est utile : [offrez-moi un café](https://buymeacoffee.com/shan_aya) ou [faites un don via PayPal](https://www.paypal.com/paypalme/felysaya)
 
