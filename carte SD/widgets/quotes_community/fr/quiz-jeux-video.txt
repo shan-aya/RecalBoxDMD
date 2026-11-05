@@ -14,19 +14,19 @@ Dans Fortnite, quel est l'objectif principal du mode Battle Royale ? | COLLECTER
 Quel jeu de football édité par EA Sports sort chaque année avec une mise à jour des équipes ? | EA SPORTS FC (EX-FIFA) / ROCKET LEAGUE / FOOTBALL MANAGER | 1
 Comment s'appelle le méchant principal, une grosse tortue, dans les jeux Mario ? | WARIO / GANONDORF / BOWSER | 3
 Quel jeu de danse utilise une caméra pour détecter les mouvements des joueurs ? | SINGSTAR / JUST DANCE / ROCK BAND | 2
-Dans quel jeu construit-on des maisons et gère-t-on la vie quotidienne de personnages virtuels ? | LES SIMS / SIMCITY / STARDEW VALLEY | 1
+Dans quel jeu gère-t-on la vie quotidienne de personnages virtuels ? | LES SIMS / SIMCITY / STARDEW VALLEY | 1
 Quelle couleur est le fantôme Blinky, le plus agressif dans Pac-Man ? | ROUGE / ROSE / BLEU | 1
 Quel jeu de course met en scène Mario et ses amis sur des karts ? | GRAN TURISMO / NEED FOR SPEED / MARIO KART | 3
 Quel célèbre jeu de blocs tombants a été créé en Union soviétique ? | COLUMNS / TETRIS / PUYO PUYO | 2
 Quel personnage jaune rond mange des pac-gommes dans un labyrinthe ? | KIRBY / WARIO / PAC-MAN | 3
-Dans quel jeu les joueurs construisent-ils des structures avec des blocs cubiques et explorent-ils un monde généré aléatoirement ? | ROBLOX / MINECRAFT / TETRIS | 2
+Dans quel jeu construit-on avec des blocs cubiques dans un monde aléatoire ? | ROBLOX / MINECRAFT / TETRIS | 2
 Quelle princesse est la souveraine du Royaume Champignon dans les jeux Mario ? | PEACH / DAISY / ZELDA | 1
-Quel jeu de bataille royale gratuit développé par Epic Games est célèbre pour ses danses et ses constructions ? | FORTNITE / PUBG / APEX LEGENDS | 1
+Quel jeu de bataille royale d'Epic Games est célèbre pour ses danses ? | FORTNITE / PUBG / APEX LEGENDS | 1
 Quelle est la couleur principale du personnage Luigi, le frère de Mario ? | BLEU / VERT / ROUGE | 2
-Dans quel jeu de sport virtuel peut-on jouer au tennis, au bowling et au golf avec des mouvements de la manette ? | NBA 2K / EA SPORTS FC / WII SPORTS | 3
+Dans quel jeu joue-t-on au tennis, bowling et golf en bougeant la manette ? | NBA 2K / EA SPORTS FC / WII SPORTS | 3
 Quel petit dinosaure vert sert de monture à Mario dans plusieurs jeux ? | KOOPA / BIRDO / YOSHI | 3
 Quel jeu permet d'attraper et de collectionner des créatures appelées Pokémon ? | YO-KAI WATCH / POKEMON / DIGIMON WORLD | 2
-Sur quelle console portable Nintendo peut-on jouer aussi bien en mode nomade qu'en la connectant à la télévision ? | NINTENDO SWITCH / GAME BOY / NINTENDO 3DS | 1
+Quelle console portable Nintendo se branche aussi à la télévision ? | NINTENDO SWITCH / GAME BOY / NINTENDO 3DS | 1
 Quel ennemi récurrent de Mario est une tortue à carapace verte ou rouge ? | BOO / KOOPA TROOPA / LAKITU | 2
 En quelle année Nintendo a-t-elle été fondée à Kyoto ? | 1889 / 1912 / 1931 | 1
 En quelle année les jeux Pokémon Rouge et Vert sont-ils sortis au Japon ? | 1994 / 1996 / 1998 | 2
@@ -38,26 +38,26 @@ Qui est le créateur de la franchise Pokémon ? | SATOSHI TAJIRI / KEN SUGIMORI 
 Quel éditeur américain développe le jeu League of Legends ? | VALVE / BLIZZARD / RIOT GAMES | 3
 En quelle année World of Warcraft est-il sorti en Amérique du Nord ? | 2001 / 2003 / 2004 | 3
 Qui est le principal créateur de Sonic the Hedgehog chez Sega ? | YUJI NAKA / YU SUZUKI / HIDEO KOJIMA | 1
-Quel jeu de tir à la première personne sorti en 1993 est considéré comme le pionnier du genre FPS moderne ? | QUAKE / DUKE NUKEM 3D / DOOM | 3
+Quel jeu de tir à la première personne de 1993 est le pionnier du FPS moderne ? | QUAKE / DUKE NUKEM 3D / DOOM | 3
 Comment s'appelle le monde ouvert où se déroule The Elder Scrolls V: Skyrim ? | CYRODIIL / HALTEVOIE / BORDECIEL | 3
 Quel studio polonais a développé la série de jeux The Witcher ? | CD PROJEKT RED / TECHLAND / 11 BIT STUDIOS | 1
 En quelle année la première PlayStation est-elle sortie au Japon ? | 1994 / 1993 / 1995 | 1
-Quel jeu de rôle en ligne massivement multijoueur se déroule dans l'univers de Warcraft ? | EVERQUEST / GUILD WARS / WORLD OF WARCRAFT | 3
+Quel MMORPG se déroule dans l'univers de Warcraft ? | EVERQUEST / GUILD WARS / WORLD OF WARCRAFT | 3
 Quel personnage est le protagoniste principal de la série God of War ? | DANTE / KRATOS / ATREUS | 2
-Quel jeu de survie développé par Re-Logic propose un monde en 2D avec du minage et des combats de boss ? | VALHEIM / STARBOUND / TERRARIA | 3
+Quel jeu de survie de Re-Logic propose un monde 2D avec minage et boss ? | VALHEIM / STARBOUND / TERRARIA | 3
 Quelle console portable Nintendo sortie en 2004 possède deux écrans dont un tactile ? | NINTENDO 3DS / NINTENDO DS / GAME BOY ADVANCE | 2
 Quel éditeur français a créé les séries Assassin's Creed et Far Cry ? | UBISOFT / CAPCOM / ACTIVISION | 1
 Quel jeu de combat 2D de Capcom oppose des personnages comme Ryu et Ken ? | TEKKEN / STREET FIGHTER / MORTAL KOMBAT | 2
 Quel jeu de Valve sorti en 2007 propose des puzzles basés sur un pistolet créant des portails ? | LEFT 4 DEAD / HALF-LIFE 2 / PORTAL | 3
 Comment s'appelle l'antagoniste principal de la série Donkey Kong Country, un crocodile roi ? | KING K. ROOL / BOWSER / GANONDORF | 1
-Quel jeu de From Software sorti en 2011 est réputé pour sa difficulté extrême et ses combats contre des boss ? | SEKIRO / BLOODBORNE / DARK SOULS | 3
-Dans quel jeu d'aventure Naughty Dog suit-on les péripéties du chasseur de trésors Nathan Drake ? | TOMB RAIDER / UNCHARTED / THE LAST OF US | 2
-Quel jeu de cartes en ligne développé par Blizzard se déroule dans l'univers de Warcraft ? | HEARTHSTONE / GWENT / LEGENDS OF RUNETERRA | 1
+Quel jeu de From Software de 2011 est réputé pour sa difficulté extrême ? | SEKIRO / BLOODBORNE / DARK SOULS | 3
+Dans quel jeu Naughty Dog suit-on le chasseur de trésors Nathan Drake ? | TOMB RAIDER / UNCHARTED / THE LAST OF US | 2
+Quel jeu de cartes en ligne de Blizzard se déroule dans l'univers de Warcraft ? | HEARTHSTONE / GWENT / LEGENDS OF RUNETERRA | 1
 Quel studio a développé le jeu Red Dead Redemption 2, sorti en 2018 ? | ROCKSTAR GAMES / UBISOFT / BETHESDA | 1
-Comment s'appelle le protagoniste de la série de jeux Halo, un super-soldat en armure verte ? | MASTER CHIEF / DOOM SLAYER / MARCUS FENIX | 1
-Quel jeu de survie multijoueur développé par InnerSloth met en scène un imposteur parmi l'équipage d'un vaisseau spatial ? | FALL GUYS / PHASMOPHOBIA / AMONG US | 3
-Dans quel pays le studio Capcom, créateur de Resident Evil et Street Fighter, a-t-il son siège social ? | CHINE / JAPON / ETATS-UNIS | 2
-Quel jeu de course futuriste Nintendo met en scène le Captain Falcon et des vaisseaux à haute vitesse ? | WIPEOUT / F-ZERO / STAR FOX | 2
+Comment s'appelle le héros de Halo, un super-soldat en armure verte ? | MASTER CHIEF / DOOM SLAYER / MARCUS FENIX | 1
+Quel jeu d'InnerSloth met en scène un imposteur dans un vaisseau spatial ? | FALL GUYS / PHASMOPHOBIA / AMONG US | 3
+Dans quel pays se trouve le siège de Capcom (Resident Evil, Street Fighter) ? | CHINE / JAPON / ETATS-UNIS | 2
+Quel jeu de course futuriste Nintendo met en scène le Captain Falcon ? | WIPEOUT / F-ZERO / STAR FOX | 2
 Combien d'exemplaires de Minecraft avaient été vendus selon Mojang en octobre 2023 ? | 300 MILLIONS / 250 MILLIONS / 200 MILLIONS | 1
 En quelle année le premier Final Fantasy est-il sorti au Japon ? | 1985 / 1987 / 1990 | 2
 Quelle équipe a remporté le premier championnat du monde de League of Legends en 2011 ? | FNATIC / CLOUD9 / TEAM LIQUID | 1
@@ -71,20 +71,20 @@ Avec quelle société Square a-t-elle fusionné en 2003 pour former Square Enix 
 En quelle année la Dreamcast de Sega est-elle sortie au Japon ? | 1998 / 1997 / 1999 | 1
 Quel studio japonais, fondé par d'anciens employés de Square, a développé Xenoblade Chronicles ? | MONOLITH SOFT / ATLUS / LEVEL-5 | 1
 Quel est le vrai nom du personnage Master Chief dans la série Halo ? | ADAM JENSEN / MARCUS FENIX / JOHN-117 | 3
-Combien d'unités la Nintendo Wii a-t-elle vendues dans le monde selon les chiffres officiels de Nintendo ? | ENVIRON 75 MILLIONS / ENVIRON 101 MILLIONS / ENVIRON 87 MILLIONS | 2
-Quel jeu indépendant sorti en 2015 met en scène un enfant tombé dans un monde souterrain peuplé de monstres ? | CELESTE / UNDERTALE / SHOVEL KNIGHT | 2
+Combien de Nintendo Wii ont été vendues dans le monde selon Nintendo ? | ENVIRON 75 MILLIONS / ENVIRON 101 MILLIONS / ENVIRON 87 MILLIONS | 2
+Quel jeu indépendant de 2015 met en scène un enfant tombé chez des monstres ? | CELESTE / UNDERTALE / SHOVEL KNIGHT | 2
 Quel compositeur a créé la musique de la série Dark Souls ? | NOBUO UEMATSU / KEIICHI OKABE / MOTOI SAKURABA | 3
 En quelle année le premier jeu Resident Evil est-il sorti sur PlayStation ? | 1996 / 1995 / 1997 | 1
 Quel jeu FromSoftware sorti en 2019 se déroule au Japon féodal et met en scène un shinobi ? | NIOH / SEKIRO: SHADOWS DIE TWICE / BLOODBORNE | 2
-Quelle équipe sud-coréenne a remporté le plus de titres au championnat du monde de League of Legends entre 2013 et 2023 ? | GEN.G / T1 (SK TELECOM T1) / DAMWON GAMING | 2
+Quelle équipe sud-coréenne détient le plus de titres mondiaux sur League of Legends ? | GEN.G / T1 (SK TELECOM T1) / DAMWON GAMING | 2
 Quel studio américain a développé le jeu BioShock, sorti en 2007 ? | IRRATIONAL GAMES / ARKANE STUDIOS / BETHESDA GAME STUDIOS | 1
 En quelle année le jeu Half-Life de Valve est-il sorti sur PC ? | 1998 / 1996 / 2000 | 1
 Quel compositeur japonais a créé la musique de la série Final Fantasy jusqu'à Final Fantasy X ? | YOKO SHIMOMURA / MASASHI HAMAUZU / NOBUO UEMATSU | 3
-Quel jeu indépendant de 2012, développé par Polytron, propose des puzzles basés sur la rotation d'un monde 2D en 3D ? | FEZ / LIMBO / BRAID | 1
-Combien de générations de consoles de salon Nintendo ont existé entre la NES (1983) et la Switch (2017) incluses ? | 7 / 5 / 6 | 1
+Quel jeu indépendant de 2012 de Polytron fait pivoter un monde 2D en 3D ? | FEZ / LIMBO / BRAID | 1
+Combien de générations de consoles de salon Nintendo entre la NES et la Switch incluses ? | 7 / 5 / 6 | 1
 Quel studio américain, fondé en 1991 et racheté par Microsoft en 2000, a développé la série Halo ? | ID SOFTWARE / INFINITY WARD / BUNGIE | 3
-En quelle année le premier jeu de la série Castlevania est-il sorti au Japon sur Famicom Disk System ? | 1986 / 1984 / 1988 | 1
-Quel jeu de course arcade sorti en 1992 par Sega permettait de choisir entre plusieurs itinéraires vers la ligne d'arrivée ? | OUTRUN / VIRTUA RACING / SEGA RALLY | 2
+En quelle année sort le premier Castlevania au Japon sur Famicom Disk System ? | 1986 / 1984 / 1988 | 1
+Quel jeu de course Sega de 1992 offrait plusieurs itinéraires vers l'arrivée ? | OUTRUN / VIRTUA RACING / SEGA RALLY | 2
 Quel designer japonais est le créateur de la série Kingdom Hearts chez Square Enix ? | TETSUYA NOMURA / YOKO TARO / YOSHINORI KITASE | 1
-Quel jeu de tir tactique de Riot Games, sorti en 2020, oppose deux équipes de cinq agents aux capacités uniques ? | OVERWATCH / COUNTER-STRIKE 2 / VALORANT | 3
+Quel jeu de tir tactique de Riot Games (2020) oppose deux équipes de cinq agents ? | OVERWATCH / COUNTER-STRIKE 2 / VALORANT | 3
 Quel studio japonais, connu pour la série Persona, a développé Catherine en 2011 ? | LEVEL-5 / ATLUS / PLATINUMGAMES | 2
