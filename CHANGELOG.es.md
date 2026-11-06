@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-06 — Firmware 4.02, demonio Pi 3.78, caja de herramientas 14891: temas de citas de la comunidad
+
+- **Modo 15 de la caja de herramientas**: una sola ventana para los temas **oficiales** y los **propuestos por la comunidad de Discord** (validados por el equipo, publicados en GitHub), con su **número de entradas** y su **autor**; tarjeta SD o **Wi-Fi** (Pi, ESP32 un tema cada vez). El ESP32 se pausa durante el envío y se reanuda.
+- **Quiz**: una pregunta de más de **3 líneas de pantalla** no puede mostrarse como QCM; la caja de herramientas elimina esas líneas al instalar en lugar de rechazar el tema.
+- **Página web del DMD (ESP32 4.02 y Pi 3.78)**: la lista de temas de citas indica el número de entradas y el autor de los temas de la comunidad («por Apodo»).
+
 ## 2026-11-02 (2) — Caja de herramientas 14790: marca de agua invisible «DGC»
 
 **Caja de herramientas del PC build 14790** (firmware 4.01 y demonio Pi 3.77 sin cambios)

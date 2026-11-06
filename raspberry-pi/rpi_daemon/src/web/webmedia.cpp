@@ -728,7 +728,33 @@ void WebConfig::registerMediaRoutes() {
     for (const std::string &e : names) {
       if (n >= 24) break;
       if (e.size() > 4 && e.compare(e.size() - 4, 4, ".txt") == 0 && !fs_.isDir("/widgets/quotes/" + lg + "/" + e)) {
-        j += (n++ ? "," : "") + std::string("{\"n\":\"") + jsonEsc(e.substr(0, e.size() - 4)) + "\",\"s\":" + std::to_string(fs_.fileSize("/widgets/quotes/" + lg + "/" + e)) + "}";
+        // v3.78 : « l » = nombre d'entrees (lignes ni vides ni « # »), « a » = auteur d'un theme communautaire (1re ligne « # auteur: X »)
+        std::string author;
+        int entries = 0;
+        std::vector<uint8_t> body;
+        if (fs_.readAll("/widgets/quotes/" + lg + "/" + e, body)) {
+          size_t i = (body.size() >= 3 && body[0] == 0xEF && body[1] == 0xBB && body[2] == 0xBF) ? 3 : 0;   // BOM UTF-8 eventuel
+          bool first = true;
+          while (i < body.size()) {
+            size_t k = i;
+            while (k < body.size() && body[k] != '\n') k++;
+            std::string ln((const char *)body.data() + i, k - i);
+            while (!ln.empty() && (ln.back() == '\r' || ln.back() == ' ')) ln.pop_back();
+            size_t b = ln.find_first_not_of(' ');
+            if (b != std::string::npos) {
+              if (ln[b] != '#') entries++;
+              else if (first) {
+                for (const char *key : {"# auteur:", "# author:", "# autor:"}) {
+                  const size_t kl = strlen(key);
+                  if (ln.compare(b, kl, key) == 0) { author = ln.substr(b + kl); const size_t a0 = author.find_first_not_of(' '); author = (a0 == std::string::npos) ? "" : author.substr(a0); if (author.size() > 40) author.resize(40); break; }
+                }
+              }
+              first = false;
+            }
+            i = k + 1;
+          }
+        }
+        j += (n++ ? "," : "") + std::string("{\"n\":\"") + jsonEsc(e.substr(0, e.size() - 4)) + "\",\"s\":" + std::to_string(fs_.fileSize("/widgets/quotes/" + lg + "/" + e)) + ",\"l\":" + std::to_string(entries) + (author.empty() ? "" : ",\"a\":\"" + jsonEsc(author) + "\"") + "}";
       }
     }
     return json(j + "]");

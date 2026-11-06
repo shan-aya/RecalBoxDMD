@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-06 — Firmware 4.02, Pi daemon 3.78, toolkit 14891: community quote themes
+
+- **Toolkit Mode 15**: one window for the **official** themes and the themes **proposed by the Discord community** (validated by the team, published on GitHub), with their **entry count** and **author**; SD card or **Wi-Fi** (Pi, ESP32 one theme at a time). The ESP32 is paused during the transfer and resumed.
+- **Quiz**: a question longer than **3 screen lines** cannot be shown as multiple-choice; the toolkit removes those lines on install instead of refusing the theme.
+- **DMD web page (ESP32 4.02 and Pi 3.78)**: the quote theme list shows the entry count and the author of community themes (“by Nickname”).
+
 ## 2026-11-02 (2) — Toolkit 14790: invisible "DGC" watermark
 
 **PC toolkit build 14790** (firmware 4.01 and Pi daemon 3.77 unchanged)

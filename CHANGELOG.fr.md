@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-06 — Firmware 4.02, démon Pi 3.78, boîte à outils 14891 : thèmes de citations de la communauté
+
+- **Mode 15 de la boîte à outils** : une seule fenêtre pour les thèmes **officiels** et les thèmes **proposés par la communauté du Discord** (validés par l'équipe, publiés sur GitHub), avec leur **nombre d'entrées** et leur **auteur** ; carte SD ou **Wi-Fi** (Pi, ESP32 un thème à la fois). L'ESP32 est mis en pause pendant l'envoi puis repris.
+- **Quiz** : une question de plus de **3 lignes d'écran** ne peut pas s'afficher en QCM ; la boîte à outils retire ces lignes à l'installation au lieu de refuser le thème.
+- **Page web du DMD (ESP32 4.02 et Pi 3.78)** : la liste des thèmes de citations indique le nombre d'entrées et l'auteur des thèmes de la communauté (« par Pseudo »).
+
 ## 2026-11-02 (2) — Boîte à outils 14790 : filigrane invisible « DGC »
 
 **Boîte à outils PC build 14790** (firmware 4.01 et démon Pi 3.77 inchangés)
