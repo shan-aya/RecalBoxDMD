@@ -7,11 +7,11 @@ De quel type est le Pokémon Pikachu ? | EAU / ELECTRIK / FEU | 2
 Quel animal est le personnage Sonic de Sega ? | UN HERISSON / UN RENARD / UN ECUREUIL | 1
 Quel studio suédois a créé le jeu Minecraft ? | MOJANG / BETHESDA / ROCKSTAR | 1
 En quelle année la Nintendo Switch est-elle sortie ? | 2015 / 2017 / 2016 | 2
-Sur quelle console Super Mario Bros. est-il sorti en 1985 ? | GAME BOY / NINTENDO 64 / NINTENDO ENTERTAINMENT SYSTEM | 3
+Sur quelle console Super Mario Bros. est-il sorti en 1985 ? | GAME BOY / NINTENDO 64 / NES | 3
 Dans quel jeu incarne-t-on un plombier qui saute sur des champignons et des tortues ? | CRASH BANDICOOT / SUPER MARIO BROS. / SONIC THE HEDGEHOG | 2
 Quel est le nom de la princesse que Mario doit sauver dans la plupart de ses aventures ? | ZELDA / PEACH / DAISY | 2
-Dans Fortnite, quel est l'objectif principal du mode Battle Royale ? | COLLECTER DES PIECES / FINIR UNE COURSE / ETRE LE DERNIER EN VIE | 3
-Quel jeu de football édité par EA Sports sort chaque année avec une mise à jour des équipes ? | EA SPORTS FC (EX-FIFA) / ROCKET LEAGUE / FOOTBALL MANAGER | 1
+Dans Fortnite, quel est l'objectif principal du mode Battle Royale ? | COLLECTER DES PIECES / FINIR UNE COURSE / DERNIER EN VIE | 3
+Quel jeu de football édité par EA Sports sort chaque année avec une mise à jour des équipes ? | EA SPORTS FC / ROCKET LEAGUE / FOOTBALL MANAGER | 1
 Comment s'appelle le méchant principal, une grosse tortue, dans les jeux Mario ? | WARIO / GANONDORF / BOWSER | 3
 Quel jeu de danse utilise une caméra pour détecter les mouvements des joueurs ? | SINGSTAR / JUST DANCE / ROCK BAND | 2
 Dans quel jeu gère-t-on la vie quotidienne de personnages virtuels ? | LES SIMS / SIMCITY / STARDEW VALLEY | 1
@@ -65,19 +65,19 @@ Qui est le concepteur du jeu Tetris, créé en 1984 en Union soviétique ? | TOR
 Qui est le créateur de la série Metal Gear ? | YU SUZUKI / GOICHI SUDA / HIDEO KOJIMA | 3
 En quelle année The Legend of Zelda: Ocarina of Time est-il sorti au Japon ? | 1996 / 1998 / 1997 | 2
 Combien d'exemplaires de Grand Theft Auto V avaient été vendus selon Take-Two en mai 2024 ? | 100 MILLIONS / 200 MILLIONS / 250 MILLIONS | 2
-Quels frères sont les fondateurs de Rockstar Games ? | TERRY ET STEVEN RILEY / SAM ET DAN HOUSER / JOHN ET JAMES CARMACK | 2
+Quels frères sont les fondateurs de Rockstar Games ? | LES RILEY / SAM ET DAN HOUSER / LES CARMACK | 2
 En quelle année la première console Xbox est-elle sortie en Amérique du Nord ? | 2001 / 1999 / 2000 | 1
 Avec quelle société Square a-t-elle fusionné en 2003 pour former Square Enix ? | ENIX / BANDAI / CAPCOM | 1
 En quelle année la Dreamcast de Sega est-elle sortie au Japon ? | 1998 / 1997 / 1999 | 1
 Quel studio japonais, fondé par d'anciens employés de Square, a développé Xenoblade Chronicles ? | MONOLITH SOFT / ATLUS / LEVEL-5 | 1
 Quel est le vrai nom du personnage Master Chief dans la série Halo ? | ADAM JENSEN / MARCUS FENIX / JOHN-117 | 3
-Combien de Nintendo Wii ont été vendues dans le monde selon Nintendo ? | ENVIRON 75 MILLIONS / ENVIRON 101 MILLIONS / ENVIRON 87 MILLIONS | 2
+Environ combien de Nintendo Wii ont été vendues dans le monde ? | 75 MILLIONS / 101 MILLIONS / 87 MILLIONS | 2
 Quel jeu indépendant de 2015 met en scène un enfant tombé chez des monstres ? | CELESTE / UNDERTALE / SHOVEL KNIGHT | 2
 Quel compositeur a créé la musique de la série Dark Souls ? | NOBUO UEMATSU / KEIICHI OKABE / MOTOI SAKURABA | 3
 En quelle année le premier jeu Resident Evil est-il sorti sur PlayStation ? | 1996 / 1995 / 1997 | 1
-Quel jeu FromSoftware sorti en 2019 se déroule au Japon féodal et met en scène un shinobi ? | NIOH / SEKIRO: SHADOWS DIE TWICE / BLOODBORNE | 2
+Quel jeu FromSoftware sorti en 2019 se déroule au Japon féodal et met en scène un shinobi ? | NIOH / SEKIRO / BLOODBORNE | 2
 Quelle équipe sud-coréenne détient le plus de titres mondiaux sur League of Legends ? | GEN.G / T1 (SK TELECOM T1) / DAMWON GAMING | 2
-Quel studio américain a développé le jeu BioShock, sorti en 2007 ? | IRRATIONAL GAMES / ARKANE STUDIOS / BETHESDA GAME STUDIOS | 1
+Quel studio américain a développé le jeu BioShock, sorti en 2007 ? | IRRATIONAL GAMES / ARKANE STUDIOS / BETHESDA | 1
 En quelle année le jeu Half-Life de Valve est-il sorti sur PC ? | 1998 / 1996 / 2000 | 1
 Quel compositeur japonais a créé la musique de la série Final Fantasy jusqu'à Final Fantasy X ? | YOKO SHIMOMURA / MASASHI HAMAUZU / NOBUO UEMATSU | 3
 Quel jeu indépendant de 2012 de Polytron fait pivoter un monde 2D en 3D ? | FEZ / LIMBO / BRAID | 1
