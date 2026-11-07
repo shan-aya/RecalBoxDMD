@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-07 — Firmware 4.03, Pi daemon 3.79, toolkit 14992: quiz fixed layout
+
+- **Quiz (multiple choice) on ESP32 4.03 and Pi 3.79**: the countdown bar (2 px) no longer moves whatever the question length; the **question is shown in gold** (easier to read), centred above; the **answers** are centred below and wrap on **2 lines** if needed, even under a 3-line question (they used to be cut off); the countdown digit is aligned with the bar.
+- **Toolkit 14992**: a quiz question with an answer that would still be cut off (more than 2 lines) is removed on install, like a question longer than 3 lines. The Discord bot refuses it on submission.
+
 ## 2026-11-06 — Firmware 4.02, Pi daemon 3.78, toolkit 14891: community quote themes
 
 - **Toolkit Mode 15**: one window for the **official** themes and the themes **proposed by the Discord community** (validated by the team, published on GitHub), with their **entry count** and **author**; SD card or **Wi-Fi** (Pi, ESP32 one theme at a time). The ESP32 is paused during the transfer and resumed.

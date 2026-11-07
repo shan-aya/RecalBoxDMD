@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-07 — Firmware 4.03, démon Pi 3.79, boîte à outils 14992 : quiz en mise en page fixe
+
+- **Quiz (QCM) sur l'ESP32 4.03 et le Pi 3.79** : la barre de décompte (2 px) ne bouge plus quelle que soit la longueur de la question ; la **question s'affiche en doré** (moins fatigant à lire), centrée au-dessus ; les **réponses** sont centrées en dessous et passent sur **2 lignes** si besoin, y compris sous une question de 3 lignes (avant elles étaient coupées) ; le chiffre du décompte est aligné sur la barre.
+- **Boîte à outils 14992** : une question de quiz dont une réponse serait encore coupée (plus de 2 lignes) est retirée à l'installation, comme une question de plus de 3 lignes. Le bot Discord la refuse à la soumission.
+
 ## 2026-11-06 — Firmware 4.02, démon Pi 3.78, boîte à outils 14891 : thèmes de citations de la communauté
 
 - **Mode 15 de la boîte à outils** : une seule fenêtre pour les thèmes **officiels** et les thèmes **proposés par la communauté du Discord** (validés par l'équipe, publiés sur GitHub), avec leur **nombre d'entrées** et leur **auteur** ; carte SD ou **Wi-Fi** (Pi, ESP32 un thème à la fois). L'ESP32 est mis en pause pendant l'envoi puis repris.

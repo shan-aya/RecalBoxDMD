@@ -1468,16 +1468,26 @@ static int decoDrawQcm(const char *qIn, const char *sIn, bool preview)
 
   const uint16_t white = 0xFFFF, red = display->color565(255, 50, 50), green = display->color565(0, 230, 70), grey = display->color565(55, 55, 55), blueBar = display->color565(0, 110, 255), gold = display->color565(255, 200, 0);
   const uint16_t cc[3] = {red, white, green}, c2[2] = {red, green};
-  const int zw = 128 / nc, cy = nql * 6 + 3;   // zone de chaque choix ; ordonnee du haut de la ligne des choix
+  const int zw = 128 / nc;   // zone de chaque choix
+  // v403 -- MISE EN PAGE FIXE DU QCM (simulee et validee sur images avant codage) : la barre de decompte (2 px, lignes 18-19) ne bouge JAMAIS ; la question est centree dans la zone au-dessus (lignes 0-17),
+  // les reponses dans la zone en dessous (lignes 20-31) ; une reponse trop longue passe sur 2 lignes quelle que soit la question (avant : 2 lignes seulement sous une question de 1-2 lignes) ; le chiffre du decompte
+  // est aligne sur la barre (x 122, lignes 16-20 ; 17-21 si la 3e ligne de la question le touche). Pire cas (question 3 lignes + reponses 2 lignes) : 1 px libre de chaque cote de la barre.
+  const int BAR_Y = 18, BAR_H = 2;
+  auto blockH = [](int n) { return 5 + 6 * (n - 1); };
+  int ay[3] = {0, 0, 0};   // ordonnee du haut du bloc de chaque reponse
   decoQuoteBgLoad();   // v304 : fond d'image du theme (ou noir)
   if (g_qBg) decoQBgRect(0, 0, 128, 32); else display->clearScreen();
   display->setTextWrap(false); display->setFont(&TomThumb);
-  for (int i = 0; i < nql; i++) decoQText((128 - qw[i]) / 2, i * 6 + 5, white, ql[i]);
+  const int topQ = (BAR_Y - blockH(nql)) / 2;   // question centree au-dessus de la barre (3 lignes : 0 ; 2 lignes : 3 ; 1 ligne : 6)
+  // chiffre du decompte : ligne de base 21 (lignes 16-20, centre sur la barre) ; 1 px plus bas (22) si la 3e ligne de la question va jusqu'a lui (fin de ligne >= colonne 120 : 4 questions sur 63 du quiz de test)
+  int dBase = 21;
+  if (nql == 3 && (128 + qw[2]) / 2 >= 120) dBase = 22;
+  for (int i = 0; i < nql; i++) decoQText((128 - qw[i]) / 2, topQ + 5 + i * 6, g_qCq, ql[i]);   // v403 : question en couleur « question » du fond (dore par defaut, comme l'affichage de repli) au lieu de blanc : moins fatigant a lire
   // v340 -- une reponse trop longue passe sur 2 LIGNES (si la question tient sur 2 lignes au plus : sinon pas la place) au lieu d'etre tronquee ; plus de place nulle part = tronquee comme avant
-  auto drawCh = [&](int k, uint16_t col) { for (int l = 0; l < an[k]; l++) decoQText(k * zw + (zw - aw[k][l]) / 2, cy + 5 + l * 6, col, al[k][l]); };
+  auto drawCh = [&](int k, uint16_t col) { for (int l = 0; l < an[k]; l++) decoQText(k * zw + (zw - aw[k][l]) / 2, ay[k] + 5 + l * 6, col, al[k][l]); };
   for (int k = 0; k < nc; k++) {
     an[k] = 0;
-    if (nql <= 2 && decoTTWidth(ch[k]) > zw - 2) {
+    if (decoTTWidth(ch[k]) > zw - 2) {      // v403 : 2 lignes possibles sous une question de 3 lignes aussi
       char tmp[80]; strncpy(tmp, ch[k], sizeof(tmp) - 1); tmp[sizeof(tmp) - 1] = 0;
       // v350 : la DERNIERE reponse sur 2 lignes est plus etroite de 8 px (le chiffre du decompte occupe x 119-127, y 25-31)
       int r = decoWrapTT(tmp, al[k], aw[k], 2, (k == nc - 1) ? zw - 10 : zw - 2);
@@ -1488,9 +1498,16 @@ static int decoDrawQcm(const char *qIn, const char *sIn, bool preview)
       while (strlen(ch[k]) > 1 && decoTTWidth(ch[k]) > zw - 2) ch[k][strlen(ch[k]) - 1] = 0;
       strncpy(al[k][0], ch[k], sizeof(al[k][0]) - 1); al[k][0][sizeof(al[k][0]) - 1] = 0; aw[k][0] = (uint8_t)decoTTWidth(al[k][0]); an[k] = 1;
     }
+  }
+  int na = 1; for (int k = 0; k < nc; k++) if (an[k] > na) na = an[k];
+  const int areaTop = BAR_Y + BAR_H, areaH = 32 - areaTop;
+  const int topA = areaTop + (areaH - blockH(na) + 1) / 2;   // reponses centrees sous la barre (2 lignes : 21 ; 1 ligne : 24)
+  for (int k = 0; k < nc; k++) {
+    ay[k] = topA + (blockH(na) - blockH(an[k])) / 2;       // une reponse sur 1 ligne se centre dans le bloc de 2 lignes
     int mn = 128, mx = 0;
     for (int l = 0; l < an[k]; l++) { const int x = k * zw + (zw - aw[k][l]) / 2; if (x < mn) mn = x; if (x + aw[k][l] > mx) mx = x + aw[k][l]; }
-    bx[k] = mn; bw[k] = mx - mn; bh[k] = 7 + (an[k] - 1) * 6;
+    bx[k] = mn; bw[k] = mx - mn;
+    bh[k] = blockH(an[k]) + ((ay[k] + blockH(an[k]) + 2 <= 31) ? 3 : 0);   // + la ligne du soulignement si elle tient encore sur la dalle (jamais sous une reponse sur 2 lignes)
     drawCh(k, nc == 2 ? c2[k] : cc[k]);
   }
   Serial.println("[DECO] qcm reponses : lignes=" + String(an[0]) + "/" + String(an[1]) + "/" + String(nc > 2 ? an[2] : 0) + " largeurs=" + String(aw[0][0]) + "," + String(aw[0][1]) + " " + String(aw[1][0]) + "," + String(aw[1][1]) + " " + String(nc > 2 ? aw[2][0] : 0) + "," + String(nc > 2 ? aw[2][1] : 0) + " zone=" + String(zw) + " | " + String(al[0][0]) + (an[0] > 1 ? String(" / ") + al[0][1] : String("")) + " ; " + String(al[1][0]) + (an[1] > 1 ? String(" / ") + al[1][1] : String("")) + " ; " + String(nc > 2 ? al[2][0] : "") + ((nc > 2 && an[2] > 1) ? String(" / ") + al[2][1] : String("")));
@@ -1498,28 +1515,29 @@ static int decoDrawQcm(const char *qIn, const char *sIn, bool preview)
   // decompte : barre (118 px) + chiffre des secondes
   const unsigned long totalMs = (nql >= 3 ? 9000UL : 7000UL), t0 = millis();
   int lastW = 118, lastSec = -1; bool red3 = false;
-  display->fillRect(0, 28, 118, 3, blueBar);
+  display->fillRect(0, BAR_Y, 118, BAR_H, blueBar);
   while (millis() - t0 < totalMs) {
     if (decoStop(preview)) { display->setFont(NULL); return 0; }
     const unsigned long el = millis() - t0, left = totalMs - el;
     const int w = (int)(118UL * left / totalMs);
-    if (w < lastW) decoQBgRect(w, 28, lastW - w, 3);
+    if (w < lastW) decoQBgRect(w, BAR_Y, lastW - w, BAR_H);
     lastW = w;
-    if (left <= 3000UL && !red3) { red3 = true; display->fillRect(0, 28, w > 0 ? w : 0, 3, red); }
+    if (left <= 3000UL && !red3) { red3 = true; display->fillRect(0, BAR_Y, w > 0 ? w : 0, BAR_H, red); }
     const int sec = (int)((left + 999UL) / 1000UL);
-    if (sec != lastSec) { lastSec = sec; decoQBgRect(119, 25, 9, 7); char sb[6]; snprintf(sb, sizeof(sb), "%d", sec); decoQText(122, 31, red3 ? red : gold, sb); }
+    if (sec != lastSec) { lastSec = sec; decoQBgRect(119, dBase - 5, 9, 5); char sb[6]; snprintf(sb, sizeof(sb), "%d", sec); decoQText(122, dBase, red3 ? red : gold, sb); }
     delay(40);
   }
   // reponse : les mauvais choix s'eteignent, le bon clignote puis reste souligne
-  decoQBgRect(0, 25, 128, 7);
+  decoQBgRect(0, BAR_Y, 128, BAR_H); decoQBgRect(119, dBase - 6, 9, 7);   // la barre et le chiffre disparaissent
   const int a = correct - 1;
-  for (int k = 0; k < nc; k++) if (k != a) { decoQBgRect(bx[k], cy, bw[k] + 2, bh[k]); drawCh(k, grey); }
+  auto ulY = [&](int k) { return ay[k] + blockH(an[k]) + 2; };   // ligne du soulignement (2 lignes sous le texte) ; > 31 : pas de soulignement
+  for (int k = 0; k < nc; k++) if (k != a) { decoQBgRect(bx[k], ay[k], bw[k] + 2, bh[k]); drawCh(k, grey); }
   for (int b = 0; b < 6; b++) {
-    decoQBgRect(bx[a], cy, bw[a] + 2, bh[a] + 2);
-    if (b % 2 == 0) { drawCh(a, green); display->drawFastHLine(bx[a], cy + bh[a], bw[a], green); }
+    decoQBgRect(bx[a], ay[a], bw[a] + 2, bh[a]);
+    if (b % 2 == 0) { drawCh(a, green); if (ulY(a) <= 31) display->drawFastHLine(bx[a], ulY(a), bw[a], green); }
     const unsigned long e = millis() + 250UL; while (millis() < e) { if (decoStop(preview)) { display->setFont(NULL); return 0; } delay(20); }
   }
-  decoQBgRect(bx[a], cy, bw[a] + 2, bh[a] + 2); drawCh(a, green); display->drawFastHLine(bx[a], cy + bh[a], bw[a], green);   // v313 : la bonne reponse RESTE affichee (soulignee) apres le clignotement
+  decoQBgRect(bx[a], ay[a], bw[a] + 2, bh[a]); drawCh(a, green); if (ulY(a) <= 31) display->drawFastHLine(bx[a], ulY(a), bw[a], green);   // v313 : la bonne reponse RESTE affichee (soulignee) apres le clignotement
   const unsigned long e2 = millis() + 4500UL; while (millis() < e2) { if (decoStop(preview)) { display->setFont(NULL); return 0; } delay(20); }
   display->setFont(NULL);
   return 1;
