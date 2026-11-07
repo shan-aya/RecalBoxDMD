@@ -1,6 +1,6 @@
 {
   "pack": "quotes_community",
-  "rev": 2,
+  "rev": 3,
   "themes": [
     {
       "lang": "fr",
@@ -8,10 +8,10 @@
       "kind": "quiz",
       "title": "jeux video",
       "lines": 90,
-      "size": 10262,
+      "size": 10133,
       "bg": "quiz-retrogaming",
       "sample": "Qui a créé le personnage de Mario chez Nintendo ? | HIDEO KOJIMA / SHIGERU MIYAMOTO / SATOSHI TAJIRI | 2",
-      "sha256": "b8466ba908fc55d97f457a8aba68ae0ebc265bbcc684783207bb3bfb4dee2dc3",
+      "sha256": "8c4fa58431d538780486530e691d5caff87525282b818c9fc1a8a897a9f10b55",
       "file": "fr/quiz-jeux-video.txt"
     }
   ],
