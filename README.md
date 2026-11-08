@@ -112,7 +112,8 @@ The panel mixes **two worlds**, in whatever proportion you like, from the *Widge
 
 ### 🧩 The widgets
 Living screens, drawn on a **sky that follows the real sun and weather at your location**.
-- 🕰️ **15 clocks** — 10 pixel-art themes + 5 animated
+- 🕰️ **9 clock themes** — Tetris, Pac-Man, Invaders, Pong, Neon (4 styles), Plasma, Life, Stars, Rain
+- ⚽ **Live scores** — football, basketball, hockey, NFL, baseball, rugby
 - 📅 Date · 🌅 Ephemeris · ⏳ Countdown
 - 🌦️ Weather · 🌀 8 ambiances
 - 💬 Quotes & quizzes
@@ -621,20 +622,17 @@ Same diagnostic mode (action 12 and the same web page). No BOOT button on the Pi
 
 ## 🧩 Screens in detail
 
-### 🕰️ Clocks — 10 pixel-art themes + 5 animated
+### 🕰️ Clocks — 9 themes
 
-Shown between games (adjustable interval / duration) or continuously, with an **instant preview on the panel** when you pick one. Pixel-art themes: Super Mario · Tetris · Pac-Man · Space Invaders · Pong · Neon · Matrix · Fire · Rainbow · Level 1-1 (scrolling). Animated clocks: **Plasma · Life · Stars · Rain · Lava**.
+Shown between games (adjustable interval / duration) or continuously, with an **instant preview on the panel** when you pick one. Themes: Tetris · Pac-Man · Space Invaders · Pong · Neon (4 styles) · Plasma · Life · Stars · Rain.
 
 <p align="center">
-  <img src="medias/clock_themes/00_super_mario.gif" width="120" alt="Super Mario"> <img src="medias/clock_themes/01_tetris.gif" width="120" alt="Tetris">
+  <img src="medias/clock_themes/01_tetris.gif" width="120" alt="Tetris">
   <img src="medias/clock_themes/02_pac_man.gif" width="120" alt="Pac-Man"> <img src="medias/clock_themes/03_space_invaders.gif" width="120" alt="Space Invaders">
   <img src="medias/clock_themes/04_pong.gif" width="120" alt="Pong"><br>
-  <img src="medias/clock_themes/05_neon.gif" width="120" alt="Neon"> <img src="medias/clock_themes/06_matrix.gif" width="120" alt="Matrix">
-  <img src="medias/clock_themes/07_fire.gif" width="120" alt="Fire"> <img src="medias/clock_themes/08_rainbow.gif" width="120" alt="Rainbow">
-  <img src="medias/clock_themes/09_level_1_1.gif" width="120" alt="Level 1-1"><br>
+  <img src="medias/clock_themes/05_neon.gif" width="120" alt="Neon"><br>
   <img src="medias/widgets/clk_plasma.png" width="100" alt="Plasma"> <img src="medias/widgets/clk_life.png" width="100" alt="Life">
   <img src="medias/widgets/clk_stars.png" width="100" alt="Stars"> <img src="medias/widgets/clk_rain.png" width="100" alt="Rain">
-  <img src="medias/widgets/clk_lava.png" width="100" alt="Lava">
 </p>
 
 ### 🧩 The widgets
@@ -643,7 +641,8 @@ Shown between games (adjustable interval / duration) or continuously, with an **
 
 | Widget | What it shows | Needs |
 |---|---|---|
-| 🕰️ **Clock** | 10 pixel-art themes + 5 animated, adjustable colours | — |
+| 🕰️ **Clock** | 9 themes (Tetris, Pac-Man, Invaders, Pong, Neon, Plasma, Life, Stars, Rain), adjustable colours | — |
+| ⚽ **Live scores** | football, basketball, hockey, NFL, baseball, rugby: **live** (score, clock), **upcoming** (the ball spins), **finished**; up to 3 competitions and 4 favourite teams, free data, no key | Internet (ESPN) |
 | 📅 **Date** | calendar card with the weekday; Sundays and public holidays in colour | time (NTP) |
 | 🌅 **Ephemeris** | sunrise, sunset, day length, **moon phase** | location |
 | ⏳ **Countdown** | days left to your events (10 max, yearly or one-off) | time |
@@ -663,6 +662,8 @@ Shown between games (adjustable interval / duration) or continuously, with an **
   <sub>Simulated renders of the 128×32 panel, drawn with the firmware's own drawing routines.</sub>
 </p>
 
+<p align="center"><img src="medias/widgets/sports_foot.png" width="300" alt="football"> <img src="medias/widgets/sports_basket.png" width="300" alt="basketball"></p>
+
 <details>
 <summary><b>💬 Quotes and quizzes — file format, themes, backgrounds</b></summary>
 
@@ -677,7 +678,7 @@ Shown between games (adjustable interval / duration) or continuously, with an **
 
 - **Ready to use**: **Mode 15** installs 15 themes of 50 entries (FR/EN/ES) into `widgets/quotes/<language>/`; built-in themes per language also exist (*Restore* button).
 - **Your own**: *Widgets → Quotes* page (create, edit, delete, **import a `.txt`**, 64 KB max, accents converted) or `.txt` files dropped into `/widgets/quotes/<language>/`.
-- **Illustrated backgrounds**: a 128×32 raw565 image (`/widgets/quotes/bg/<theme>.raw565`, 8,192 bytes) becomes the background; an optional `<theme>.col` sets colours, shadow/outline, brightness and text area. The original backgrounds are **embedded in the firmware**.
+- **Illustrated backgrounds**: a 128×32 raw565 image (`/widgets/quotes/bg/<theme>.raw565`, 8,192 bytes) becomes the background; an optional `<theme>.col` sets colours, shadow/outline, brightness and text area. Since firmware 4.05 the original backgrounds live on the **SD card** (installed by Mode 1 or downloaded during a Wi-Fi update); without the file, a procedural sky is used.
 - The **widget's duration** is a number of quotes played in a row.
 
 </details>

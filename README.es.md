@@ -112,7 +112,8 @@ El panel mezcla **dos mundos**, en la proporción que quieras, desde la página 
 
 ### 🧩 Los widgets
 Pantallas vivas, dibujadas sobre un **cielo que sigue el sol y el tiempo reales de tu lugar**.
-- 🕰️ **15 relojes** — 10 temas pixel-art + 5 animados
+- 🕰️ **9 temas de reloj** — Tetris, Pac-Man, Invaders, Pong, Neón (4 estilos), Plasma, Vida, Estrellas, Lluvia
+- ⚽ **Marcadores en directo** — fútbol, baloncesto, hockey, NFL, béisbol, rugby
 - 📅 Fecha · 🌅 Efemérides · ⏳ Cuenta atrás
 - 🌦️ Tiempo · 🌀 8 ambientes
 - 💬 Citas y quiz
@@ -622,20 +623,17 @@ Mismo modo diagnóstico (acción 12 y la misma página web). Sin botón BOOT en 
 
 ## 🧩 Las pantallas en detalle
 
-### 🕰️ Relojes — 10 temas pixel-art + 5 animados
+### 🕰️ Relojes — 9 temas
 
-Se muestran entre juegos (intervalo / duración ajustables) o de forma continua, con una **vista previa instantánea en el panel** al elegir uno. Temas pixel-art: Super Mario · Tetris · Pac-Man · Space Invaders · Pong · Neon · Matrix · Fire · Rainbow · Level 1-1 (con desplazamiento). Relojes animados: **Plasma · Life · Stars · Rain · Lava**.
+Se muestran entre juegos (intervalo / duración ajustables) o de forma continua, con una **vista previa instantánea en el panel** al elegir uno. Temas: Tetris · Pac-Man · Space Invaders · Pong · Neón (4 estilos) · Plasma · Vida · Estrellas · Lluvia.
 
 <p align="center">
-  <img src="medias/clock_themes/00_super_mario.gif" width="120" alt="Super Mario"> <img src="medias/clock_themes/01_tetris.gif" width="120" alt="Tetris">
+  <img src="medias/clock_themes/01_tetris.gif" width="120" alt="Tetris">
   <img src="medias/clock_themes/02_pac_man.gif" width="120" alt="Pac-Man"> <img src="medias/clock_themes/03_space_invaders.gif" width="120" alt="Space Invaders">
   <img src="medias/clock_themes/04_pong.gif" width="120" alt="Pong"><br>
-  <img src="medias/clock_themes/05_neon.gif" width="120" alt="Neon"> <img src="medias/clock_themes/06_matrix.gif" width="120" alt="Matrix">
-  <img src="medias/clock_themes/07_fire.gif" width="120" alt="Fire"> <img src="medias/clock_themes/08_rainbow.gif" width="120" alt="Rainbow">
-  <img src="medias/clock_themes/09_level_1_1.gif" width="120" alt="Level 1-1"><br>
+  <img src="medias/clock_themes/05_neon.gif" width="120" alt="Neon"><br>
   <img src="medias/widgets/clk_plasma.png" width="100" alt="Plasma"> <img src="medias/widgets/clk_life.png" width="100" alt="Life">
   <img src="medias/widgets/clk_stars.png" width="100" alt="Stars"> <img src="medias/widgets/clk_rain.png" width="100" alt="Rain">
-  <img src="medias/widgets/clk_lava.png" width="100" alt="Lava">
 </p>
 
 ### 🧩 Los widgets
@@ -644,7 +642,8 @@ Página web **Widgets** (`/config/widgets`). Cada uno está **desactivado**, **e
 
 | Widget | Qué muestra | Necesita |
 |---|---|---|
-| 🕰️ **Reloj** | 10 temas pixel-art + 5 animados, colores ajustables | — |
+| 🕰️ **Reloj** | 9 temas (Tetris, Pac-Man, Invaders, Pong, Neón, Plasma, Vida, Estrellas, Lluvia), colores ajustables | — |
+| ⚽ **Marcadores en directo** | fútbol, baloncesto, hockey, NFL, béisbol, rugby: partidos **en directo** (marcador, minuto), **próximos** (el balón gira), **terminados**; hasta 3 competiciones y 4 equipos favoritos, datos gratuitos sin clave | Internet (ESPN) |
 | 📅 **Fecha** | tarjeta de calendario con el día de la semana; domingos y festivos en color | hora (NTP) |
 | 🌅 **Efemérides** | salida, puesta, duración del día, **fase de la luna** | lugar |
 | ⏳ **Cuenta atrás** | días que faltan para tus eventos (10 máx., anual o único) | hora |
@@ -664,6 +663,8 @@ Página web **Widgets** (`/config/widgets`). Cada uno está **desactivado**, **e
   <sub>Renders simulados del panel 128×32, dibujados con las propias rutinas del firmware.</sub>
 </p>
 
+<p align="center"><img src="medias/widgets/sports_foot.png" width="300" alt="fútbol"> <img src="medias/widgets/sports_basket.png" width="300" alt="baloncesto"></p>
+
 <details>
 <summary><b>💬 Citas y quiz — formato de los archivos, temas, fondos</b></summary>
 
@@ -678,7 +679,7 @@ Página web **Widgets** (`/config/widgets`). Cada uno está **desactivado**, **e
 
 - **Listos para usar**: el **Modo 15** instala 15 temas de 50 entradas (FR/EN/ES) en `widgets/quotes/<idioma>/`; también hay temas integrados por idioma (botón *Restaurar*).
 - **Los tuyos**: página *Widgets → Citas* (crear, editar, eliminar, **importar un `.txt`**, 64 KB máx., acentos convertidos) o `.txt` colocados en `/widgets/quotes/<idioma>/`.
-- **Fondos ilustrados**: una imagen raw565 128×32 (`/widgets/quotes/bg/<tema>.raw565`, 8 192 bytes) pasa a ser el fondo; un `<tema>.col` opcional ajusta colores, sombra/contorno, brillo y zona de texto. Los fondos originales están **integrados en el firmware**.
+- **Fondos ilustrados**: una imagen raw565 128×32 (`/widgets/quotes/bg/<tema>.raw565`, 8 192 bytes) pasa a ser el fondo; un `<tema>.col` opcional ajusta colores, sombra/contorno, brillo y zona de texto. Desde el firmware 4.05, los fondos originales están en la **tarjeta SD** (instalados por el Modo 1 o descargados durante una actualización Wi-Fi); sin el archivo se usa un cielo procedural.
 - La **duración del widget** es un número de citas reproducidas seguidas.
 
 </details>
