@@ -18,7 +18,9 @@ class Widgets {
   void attach(Display &d, const SdFs &fs);  // la SD : citations (/widgets/quotes/<langue>/*.txt) et fonds d'image (/widgets/quotes/bg/)
   // Reglages : lieu (DECO_LAT/LON/PLACE), evenements du compte a rebours (DECO_EV_n), ambiances (DECO_AMB, DECO_AMBC_n_a/b, DECO_LAVA_*),
   // theme de citations (DECO_QTHEME) ; langue = `language`. `dur` : duree en secondes de chaque widget (index = identifiant).
-  void configure(const Config &cfg, const uint8_t dur[11]);
+  void configure(const Config &cfg, const uint8_t dur[12]);
+  static std::string cleanSportsList(const std::string &in, int maxItems, bool upper);
+  static int sportsTeamList(const std::string &path, std::string &out);   // v406 : equipes d'une competition « ABR|Nom\n » (page /config/sports) ; 0 = ok, 1 = chemin invalide, 2 = ESPN injoignable   // v405 : liste « a,b,c » nettoyee (reglages du widget Scores)
 
   // CMD=rbw : donnees des widgets Recalbox (challenge C, recompenses R, sante H), appelee par la boucle principale
   void feedRbw(const std::string &arg);

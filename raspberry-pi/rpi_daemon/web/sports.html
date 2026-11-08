@@ -1,0 +1,127 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RecalBox DMD - Scores</title>
+<link rel="stylesheet" href="/cfg.css?h=42c26368">
+<link rel="icon" href="data:,">
+<script src="/cfg.js?h=24719fad" onerror="try{if(!sessionStorage.cfgR){sessionStorage.cfgR=1;location.reload();}}catch(e){}"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:700px;margin:auto}
+.btn-row{display:flex;gap:10px;justify-content:center;margin:18px 0;flex-wrap:wrap}
+.btn{padding:12px 20px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer}
+.btn-resume{background:#2d6a4f;color:#fff}
+body{position:relative}
+#pageLoadingOverlay{position:fixed;inset:0;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px;font-weight:600;z-index:99999;text-align:center;padding:20px;gap:14px}
+#pageLoadingOverlay .pgspin{width:34px;height:34px;border:4px solid #333;border-top-color:#8ab4f8;border-radius:50%;animation:pgspin .8s linear infinite}
+@keyframes pgspin{to{transform:rotate(360deg)}}
+.lgl{display:flex;align-items:center;gap:8px;font-size:14px;margin:5px 0;cursor:pointer}
+.lgl input{flex:0 0 18px;width:18px;height:18px;min-width:0;margin:0}
+.chip{display:inline-block;background:#2a2a4a;border:1px solid #556;border-radius:14px;padding:5px 12px;margin:3px 6px 3px 0;cursor:pointer;font-size:14px}
+</style>
+</head>
+<body>
+<div id="pageLoadingOverlay"><div class="pgspin"></div><div data-i18n="loading">Chargement en cours...</div></div>
+<select id="langSelect" onchange="setLang(this.value)"><option value="fr">FR</option><option value="en">EN</option><option value="es">ES</option></select>
+<div class="topnav">
+<a href="/" onclick="showPageLoadingOverlay()" data-i18n="nav_home">&#x1F3E0; Accueil</a>
+<a href="/config/settings" onclick="showPageLoadingOverlay()" data-i18n="nav_settings">&#x2699; R&eacute;glages</a>
+<a href="/config/basic" onclick="showPageLoadingOverlay()" data-i18n="nav_basic">&#x1F4A1; Affichage</a>
+<a href="/config/playlist" onclick="showPageLoadingOverlay()" data-i18n="nav_playlist">&#x1F4BF; Playlist</a>
+<a href="/config/network" onclick="showPageLoadingOverlay()" data-i18n="nav_network">&#x1F4F6; Wi-Fi</a>
+<a href="/config/widgets" onclick="showPageLoadingOverlay()" data-i18n="nav_deco">&#x2728; Widgets &amp; Horloge</a>
+<a href="/config/media" onclick="showPageLoadingOverlay()" data-i18n="nav_media">&#x1F4BF; M&eacute;dias</a>
+<a href="/config/button" onclick="showPageLoadingOverlay()" data-i18n="nav_button">&#x1F518; Bouton</a>
+</div>
+<h1 data-i18n="h1">Scores en direct</h1>
+<div class="section"><p style="font-size:14px;line-height:1.5" data-i18n="intro"></p></div>
+<div class="section"><div style="font-size:14px;color:#ffd146;margin-bottom:6px" data-i18n="lg_t">Comp&eacute;titions</div><div id="lgbox"></div></div>
+<div class="section"><div style="font-size:14px;color:#ffd146;margin-bottom:6px" data-i18n="tm_t">&Eacute;quipes favorites</div>
+<div id="tmbox" style="font-size:13px;color:#aaa;margin-bottom:8px"></div>
+<div class="row"><input id="tin" list="tl" maxlength="5" autocomplete="off" style="max-width:190px;text-transform:uppercase"><datalist id="tl"></datalist><button type="button" class="btn btn-del" style="margin-left:6px;padding:8px 12px" onclick="addTm()" data-i18n="add">Ajouter</button></div>
+<div class="hint" id="thint" data-i18n="tm_h"></div>
+<label class="lgl" style="margin-top:12px"><input type="checkbox" id="nx" onchange="S.nx=this.checked"><span data-i18n="nx_l">Afficher aussi les prochains matchs</span></label>
+</div>
+<div class="btn-row">
+<button type="button" class="btn btn-save" onclick="saveSp(false)" data-i18n="save">Enregistrer</button>
+<button type="button" class="btn btn-del" onclick="saveSp(true)" data-i18n="prev">Aper&ccedil;u</button>
+<a class="btn btn-del" href="/config/widgets" onclick="showPageLoadingOverlay()" style="text-decoration:none" data-i18n="back">Retour</a>
+<button type="button" class="btn btn-resume" onclick="resumeDmd()" data-i18n="resume">Reprendre DMD</button>
+</div>
+<div id="msg" class="msg"></div>
+<script>
+const PAGE_I18N={
+fr:{title:'RecalBox DMD - Scores',h1:'Scores en direct',intro:'Choisissez jusqu\'à 3 compétitions et jusqu\'à 4 équipes favorites (sélection nationale ou clubs). Le DMD affiche leurs matchs en cours, terminés depuis moins d\'un jour et à venir. Sans équipe favorite, tous les matchs des compétitions choisies sont affichés. Les scores viennent d\'ESPN et se rafraîchissent chaque minute pendant un match.',lg_t:'Compétitions (3 max)',tm_t:'Équipes favorites (4 max)',ph:'Abréviation (ex. FRA)',add:'Ajouter',tm_h:'Tapez l\'abréviation de 2 à 5 lettres, ou choisissez dans la liste proposée (chargée depuis Internet pour les compétitions cochées).',tm_none:'Aucune équipe : tous les matchs sont affichés.',nx_l:'Afficher aussi les prochains matchs',save:'Enregistrer',prev:'Aperçu',back:'Retour',resume:'Reprendre DMD',saving:'Enregistrement...',save_err:'Erreur d\'enregistrement',load_err:'Erreur de chargement',resumed:'DMD repris',max_lg:'3 compétitions maximum',max_tm:'4 équipes maximum',t_err:'Liste d\'équipes indisponible : saisissez l\'abréviation à la main.'},
+en:{title:'RecalBox DMD - Scores',h1:'Live scores',intro:'Pick up to 3 competitions and up to 4 favorite teams (national team or clubs). The DMD shows their live matches, matches finished less than a day ago and upcoming ones. With no favorite team, every match of the chosen competitions is shown. Scores come from ESPN and refresh every minute during a match.',lg_t:'Competitions (3 max)',tm_t:'Favorite teams (4 max)',ph:'Code (e.g. FRA)',add:'Add',tm_h:'Type the 2 to 5 letter code, or pick one from the suggested list (loaded from the Internet for the ticked competitions).',tm_none:'No team: every match is shown.',nx_l:'Also show upcoming matches',save:'Save',prev:'Preview',back:'Back',resume:'Resume DMD',saving:'Saving...',save_err:'Save error',load_err:'Load error',resumed:'DMD resumed',max_lg:'3 competitions maximum',max_tm:'4 teams maximum',t_err:'Team list unavailable: type the code by hand.'},
+es:{title:'RecalBox DMD - Marcadores',h1:'Marcadores en directo',intro:'Elija hasta 3 competiciones y hasta 4 equipos favoritos (selección nacional o clubes). El DMD muestra sus partidos en juego, terminados hace menos de un día y próximos. Sin equipo favorito, se muestran todos los partidos de las competiciones elegidas. Los resultados vienen de ESPN y se actualizan cada minuto durante un partido.',lg_t:'Competiciones (máx. 3)',tm_t:'Equipos favoritos (máx. 4)',ph:'Código (p. ej. FRA)',add:'Añadir',tm_h:'Escriba el código de 2 a 5 letras, o elija uno de la lista propuesta (cargada desde Internet para las competiciones marcadas).',tm_none:'Ningún equipo: se muestran todos los partidos.',nx_l:'Mostrar también los próximos partidos',save:'Guardar',prev:'Vista previa',back:'Volver',resume:'Reanudar DMD',saving:'Guardando...',save_err:'Error al guardar',load_err:'Error de carga',resumed:'DMD reanudado',max_lg:'Máximo 3 competiciones',max_tm:'Máximo 4 equipos',t_err:'Lista de equipos no disponible: escriba el código a mano.'}
+};
+const LG=[["soccer/fifa.world","FIFA World Cup"],["soccer/fifa.friendly","International friendlies"],["soccer/uefa.nations","UEFA Nations League"],["soccer/uefa.euro","UEFA Euro"],["soccer/fifa.worldq.uefa","World Cup qualifiers (Europe)"],["soccer/uefa.champions","UEFA Champions League"],["soccer/fra.1","Ligue 1"],["soccer/eng.1","Premier League"],["soccer/esp.1","LaLiga"],["soccer/ita.1","Serie A"],["soccer/ger.1","Bundesliga"],["basketball/nba","NBA"],["football/nfl","NFL"],["hockey/nhl","NHL"],["baseball/mlb","MLB"],["rugby/180659","Six Nations"]];
+let currentLang='fr',S={lg:[],tm:[],nx:true};
+function showPageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='flex';}
+function hidePageLoadingOverlay(){var el=document.getElementById('pageLoadingOverlay');if(el)el.style.display='none';}
+function tr(k){return (PAGE_I18N[currentLang]&&PAGE_I18N[currentLang][k])||(window.CFG_I18N&&CFG_I18N[currentLang]&&CFG_I18N[currentLang][k])||PAGE_I18N.fr[k]||(window.CFG_I18N&&CFG_I18N.fr&&CFG_I18N.fr[k])||k;}
+function $(i){return document.getElementById(i);}
+function stripAccents(s){return s.normalize('NFD').replace(new RegExp('['+String.fromCharCode(768)+'-'+String.fromCharCode(879)+']','g'),'').replace(/[^ -~]/g,'?');}
+function msgLocal(t,ok){const el=$('msg');el.textContent=t;el.className='msg '+(ok?'ok':'err');el.style.display='block';clearTimeout(window._mt);window._mt=setTimeout(()=>{el.style.display='none';},4000);}
+function msg(t,ok){msgLocal(t,ok);fetch('/dmd-pause',{method:'POST',body:new URLSearchParams({msg:stripAccents(t),color:ok?'1':'2'}),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(()=>{});}
+function buildLg(){
+  const b=$('lgbox');b.innerHTML='';
+  const all=LG.slice();S.lg.forEach(function(p){if(!all.some(function(x){return x[0]===p;}))all.push([p,p]);});
+  all.forEach(function(x){
+    const l=document.createElement('label');l.className='lgl';
+    const c=document.createElement('input');c.type='checkbox';c.checked=S.lg.indexOf(x[0])>=0;
+    c.onchange=function(){const i=S.lg.indexOf(x[0]);if(c.checked){if(S.lg.length>=3){c.checked=false;msgLocal(tr('max_lg'),false);return;}S.lg.push(x[0]);}else if(i>=0)S.lg.splice(i,1);loadTeams();};
+    l.appendChild(c);l.appendChild(document.createTextNode(x[1]));b.appendChild(l);
+  });
+}
+function buildTm(){
+  const b=$('tmbox');b.innerHTML='';
+  if(!S.tm.length){b.textContent=tr('tm_none');return;}
+  S.tm.forEach(function(a,i){const s=document.createElement('span');s.className='chip';s.textContent=a+' ✕';s.onclick=function(){S.tm.splice(i,1);buildTm();};b.appendChild(s);});
+}
+function addTm(){
+  const v=$('tin').value.toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,5);
+  if(v.length<2)return;
+  if(S.tm.indexOf(v)>=0){$('tin').value='';return;}
+  if(S.tm.length>=4){msgLocal(tr('max_tm'),false);return;}
+  S.tm.push(v);$('tin').value='';buildTm();
+}
+function loadTeams(){
+  const dl=$('tl');dl.innerHTML='';$('thint').textContent=tr('tm_h');
+  S.lg.forEach(function(p){
+    fetch('/sports-teams?l='+encodeURIComponent(p)).then(function(r){if(!r.ok)throw 0;return r.text();}).then(function(x){
+      x.split('\n').forEach(function(l){const k=l.indexOf('|');if(k<1)return;const o=document.createElement('option');o.value=l.substring(0,k);o.textContent=l.substring(k+1);dl.appendChild(o);});
+    }).catch(function(){$('thint').textContent=tr('t_err');});
+  });
+}
+function render(){document.documentElement.lang=currentLang;document.title=tr('title');document.querySelectorAll('[data-i18n]').forEach(function(el){el.innerHTML=tr(el.dataset.i18n);});$('tin').placeholder=tr('ph');$('langSelect').value=currentLang;buildLg();buildTm();$('nx').checked=S.nx;}
+function applyLang(backend){
+  const s=localStorage.getItem('dmd_lang');
+  if(s&&PAGE_I18N[s])currentLang=s;else if(backend&&PAGE_I18N[backend])currentLang=backend;else{const n=(navigator.language||'').substring(0,2);currentLang=PAGE_I18N[n]?n:'fr';}
+  render();
+}
+function setLang(c){localStorage.setItem('dmd_lang',c);applyLang();fetch('/save-language',{method:'POST',body:'language='+c,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});}
+function saveSp(prev){
+  msg(tr('saving'),true);
+  const p=new URLSearchParams();
+  p.set('sports_leagues',S.lg.join(','));p.set('sports_teams',S.tm.join(','));p.set('sports_next',S.nx?'1':'0');
+  fetch('/save',{method:'POST',body:wdBodyAll(p),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.text()).then(x=>{
+    const ok=x.includes('OK');msg(ok?tr('saving'):x,ok);
+    if(ok){wdClearAll();if(prev)fetch('/clock-preview',{method:'POST',body:'theme=w11',headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});}
+  }).catch(()=>msgLocal(tr('save_err'),false));
+}
+function resumeDmd(){fetch('/dmd-resume',{method:'POST'}).then(()=>msgLocal(tr('resumed'),true)).catch(()=>msgLocal(tr('save_err'),false));}
+function fetchTimeout(u,o,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);return fetch(u,Object.assign({},o,{signal:c.signal})).finally(()=>clearTimeout(t));}
+function loadConfig(){return fetchTimeout('/load',{},45000).catch(()=>fetchTimeout('/load',{},45000)).then(r=>r.json()).then(d=>{
+  S.lg=(d.sports_leagues||'').split(',').filter(Boolean);S.tm=(d.sports_teams||'').split(',').filter(Boolean);S.nx=d.sports_next!=='0';
+  render();loadTeams();
+}).catch(()=>msgLocal(tr('load_err'),false));}
+fetchTimeout('/lang',{},45000).then(r=>r.json()).then(d=>{applyLang(d.language);return loadConfig();}).catch(()=>{applyLang();return loadConfig();}).finally(hidePageLoadingOverlay);
+window.addEventListener('pagehide',function(){try{navigator.sendBeacon('/clock-preview',new Blob(['theme=stop'],{type:'application/x-www-form-urlencoded'}));}catch(e){}});
+</script>
+<script src="/native.js"></script>
+</body>
+</html>

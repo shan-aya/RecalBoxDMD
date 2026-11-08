@@ -83,7 +83,7 @@ void Engine::loadDecoConfig() {
     return cfg_.has(w) ? w : o;
   };
   bool seen0 = false;
-  for (int id = 0; id < 11; id++) {
+  for (int id = 0; id < 12; id++) {
     const std::string mk = key("mode_", id), dk = key("dur_", id);
     if (cfg_.has(mk)) {
       const int v = cfg_.getInt(mk, 0);
@@ -115,7 +115,7 @@ void Engine::loadDecoConfig() {
   {  // v352 du firmware : PREMIER DEMARRAGE sans playlist et sans aucun widget actif -> « widgets seuls » + horloge par defaut (on ne reste pas bloque sur
     // « choisissez une playlist »). Uniquement tant que first_boot=1 ; une carte preparee avec sa playlist n'est pas touchee.
     bool anyW = false;
-    for (int i = 0; i < 11; i++)
+    for (int i = 0; i < 12; i++)
       if (i != 6 && deco_.mode[i] != 0) anyW = true;
     if (cfg_.getBool("first_boot", true) && cfg_.playlistName.empty() && !anyW) {
       deco_.widgetsOnly = true;
@@ -136,15 +136,15 @@ void Engine::loadDecoConfig() {
 }
 
 bool Engine::decoAnyActive() const {
-  for (int i = 0; i < 11; i++)
+  for (int i = 0; i < 12; i++)
     if (i != 6 && deco_.mode[i]) return true;
   return false;
 }
 
 void Engine::startDecoSequence(uint64_t now) {
-  int pool[11], addList[11];
+  int pool[12], addList[12];
   int n = 0, nAdd = 0;
-  for (int i = 0; i < 11; i++) {
+  for (int i = 0; i < 12; i++) {
     if (i == 6) continue;
     if (deco_.mode[i] == 1) pool[n++] = i;
     else if (deco_.mode[i] == 2) addList[nAdd++] = i;
@@ -213,7 +213,8 @@ void Engine::abortDeco() {
 void Engine::startClockPreview(const std::string &arg) {  // « clock_preview <0..14> » : session d'horloge forcee (test)
   modeAfterDeco_ = Mode::BLACK;
   decoQueue_.clear();
-  clock_.begin(nowMs(), arg.empty() ? -1 : std::atoi(arg.c_str()));
+  const size_t colon = arg.find(':');   // v404 : « <theme>:<style> » = theme Neon dans un de ses 4 styles (apercu)
+  clock_.begin(nowMs(), arg.empty() ? -1 : std::atoi(arg.c_str()), colon == std::string::npos ? -1 : std::atoi(arg.c_str() + colon + 1));
   mode_ = Mode::CLOCK;
 }
 

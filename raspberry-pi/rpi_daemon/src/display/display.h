@@ -47,10 +47,10 @@ class Display {
   int height() const { return h_; }
 
   // --- primitives ---
-  void drawPixel(int16_t x, int16_t y, uint16_t c);
+  virtual void drawPixel(int16_t x, int16_t y, uint16_t c);   // virtuel : SpFlapGfx (widget Scores, panneau mecanique) intercepte les pixels comme sur l'ESP32
   void clearScreen() { fillScreen(0); }
   void fillScreen(uint16_t c);
-  void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t c);
+  virtual void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t c);   // virtuel : le texte en corps >= 2 passe par ici (SpFlapGfx l'intercepte)
   void drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t c);
   void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t c);
   void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t c);

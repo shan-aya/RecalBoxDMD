@@ -47,7 +47,7 @@ BLOCKS = [
     ("char g_quoteThemeName", "static void decoQuoteMkdirs", "citations : etat, table des themes"),
     ("// UTF-8 -> ASCII", "// Tire une citation au hasard", "citations : UTF-8 -> ASCII"),
     ("// Affichage : defilement vertical d'un texte", "// ============ v287 -- QCM", "citations : vitesse de defilement"),
-    ("// ============ v287 -- QCM", "// v326 -- ecrit /widgets/quotes/bg", "QCM : decoupe de texte TomThumb"),
+    ("// ============ v287 -- QCM", "// v404 -- les fonds ne sont PLUS", "QCM : decoupe de texte TomThumb"),
     ("static void decoQuoteBgLoadImpl();", "// Boucle commune d'un widget", "citations : fond, texte, QCM, defilement"),
 ]
 
@@ -67,5 +67,18 @@ for label, a, b, chunk in parts:
     body.append(f"// ---- {label} (firmware, lignes {a + 1}-{b}) ----")
     body.extend(chunk)
     body.append("")
-out.write_text(header + "\n".join(body) + "\n", encoding="utf-8")
+# PI_PATCHES -- adaptations mecaniques au Pi (canevas hors ecran : le rendu n'est visible qu'apres display->show())
+gen = header + "\n".join(body) + "\n"
+PATCHES = [
+    ("  const int r = decoSkyRun(ms, preview, decoSkyClass(), skyNoDataFg, &c);\n  display->clearScreen();\n  if (r < 0) return true;",
+     "  const int r = decoSkyRun(ms, preview, decoSkyClass(), skyNoDataFg, &c);\n  display->clearScreen(); display->show();   // Pi : canevas valide par show()\n  if (r < 0) return true;"),
+    # Texte en corps >= 2 : Display::drawChar passe par fillRect (comme Adafruit_GFX::writeFillRect), il faut donc l'intercepter aussi -- sinon sigles et scores du widget Scores restent invisibles
+    ("  SpFlapGfx(Adafruit_GFX *tg, float st, float sb) : Adafruit_GFX(128, 32), t(tg), sT(st), sB(sb) {}\n",
+     "  SpFlapGfx(Adafruit_GFX *tg, float st, float sb) : Adafruit_GFX(128, 32), t(tg), sT(st), sB(sb) {}\n  void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t c) override { for (int16_t yy = y; yy < y + h; yy++) for (int16_t xx = x; xx < x + w; xx++) drawPixel(xx, yy, c); }   // Pi\n"),
+]
+for old, new in PATCHES:
+    if old not in gen:
+        raise SystemExit("patch Pi inapplicable (le code du firmware a change) : " + old[:60])
+    gen = gen.replace(old, new)
+out.write_text(gen, encoding="utf-8")
 print(f"{out} : " + ", ".join(f"{label} {b - a} lignes" for label, a, b, _ in parts) + f" (firmware {fw})")

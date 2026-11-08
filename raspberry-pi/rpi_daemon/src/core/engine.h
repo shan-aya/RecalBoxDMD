@@ -60,8 +60,8 @@ class Engine {
   void setWifiRecoveryHook(std::function<void()> fn) { wifiRecoveryHook_ = std::move(fn); }  // CMD=wifi_recovery / bouton : point d'acces de secours
   // horloge / decor : reglages lus dans [CLOCK] et [WIDGETS] de config.ini
   struct Deco {
-    uint8_t mode[11] = {0};  // par identifiant : 0 desactive, 1 « a la place » (creneau principal), 2 « en plus »
-    uint8_t dur[11] = {60, 10, 15, 10, 60, 15, 8, 1, 15, 30, 15};
+    uint8_t mode[12] = {0};  // par identifiant : 0 desactive, 1 « a la place » (creneau principal), 2 « en plus »
+    uint8_t dur[12] = {60, 10, 15, 10, 60, 15, 8, 1, 15, 30, 15, 15};   // v405 : 11 = scores en direct
     int trig = 0;        // 0 = tous les N GIF (clock_interval), 1 = toutes les M minutes (clock_interval_min)
     int mainOrder = 0;   // 0 aleatoire, 1 tourniquet
     int addMode = 0;     // 0 tous les widgets « en plus » dans l'ordre, 1 addCount tires au hasard

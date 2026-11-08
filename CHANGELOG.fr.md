@@ -8,6 +8,14 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-08 — Firmware 4.16, démon Pi 3.80, boîte à outils 15093 : widget Scores, flash libérée
+
+- **Widget Scores (ESP32 4.16 et Pi 3.80)** : les matchs **en direct** (score, minute), **à venir** (le ballon, le palet… tourne au centre) et **terminés** défilent sur l'écran, pour le **foot, le basket, le hockey, le football US, le baseball et le rugby**. Jusqu'à **3 compétitions** et **4 équipes favorites** (page web « Scores »), sigles usuels (OM, PSG, OL…), fond de terrain propre à chaque sport, sans compte ni clé. Un écran « pas de données » remplace l'écran noir quand un widget dépend d'une donnée indisponible.
+- **Horloges : 15 thèmes ramenés à 9** (Tetris, Pac-Man, Invaders, Pong, Néon en 4 styles, Plasma, Vie, Étoiles, Pluie). Vos réglages sont migrés automatiquement vers le thème le plus proche.
+- **Flash libérée (firmware 4.16)** : les 12 fonds d'image des widgets et les pages de l'interface web sont désormais sur la **carte SD**. La mise à jour par Wi-Fi les télécharge toute seule (en HTTPS, vérifiés par SHA-256) ; si une page manque, le DMD affiche une page de secours avec un lien « Réessayer ». La carte SD reste indispensable, comme avant.
+- **Page Widgets** : un 2e enregistrement dans le même onglet ne remet plus les réglages précédents (l'horloge se réactivait).
+- **Boîte à outils 15093** : le **Mode 1** copie aussi sur la carte SD les fonds d'image et le paquet de pages du firmware ≥ 4.05.
+
 ## 2026-11-07 — Firmware 4.03, démon Pi 3.79, boîte à outils 14992 : quiz en mise en page fixe
 
 - **Quiz (QCM) sur l'ESP32 4.03 et le Pi 3.79** : la barre de décompte (2 px) ne bouge plus quelle que soit la longueur de la question ; la **question s'affiche en doré** (moins fatigant à lire), centrée au-dessus ; les **réponses** sont centrées en dessous et passent sur **2 lignes** si besoin, y compris sous une question de 3 lignes (avant elles étaient coupées) ; le chiffre du décompte est aligné sur la barre.

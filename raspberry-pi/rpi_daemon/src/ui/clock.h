@@ -1,6 +1,6 @@
 // clock.h -- horloge a themes (portage de showClock() du firmware, version NON BLOQUANTE).
 //
-// 15 themes : 10 « retro » pixel-art (clock_themes.h du firmware, utilise TEL QUEL : Mario, Tetris, Pac-Man, Space
+// 15 themes : 10 Â« retro Â» pixel-art (clock_themes.h du firmware, utilise TEL QUEL : Mario, Tetris, Pac-Man, Space
 // Invaders, Pong, Neon, Matrix, Fire, Rainbow, Level 1-1) + 5 sur fond anime (Plasma, Life, Stars, Rain, Lava, code extrait
 // du .ino par tools/port_clock_ambient.py). Une session = nom du theme 800 ms, puis le theme pendant `duration` secondes.
 // L'heure vient de l'horloge systeme (NTP) ; fuseau = cle TZ de config.ini (chaine POSIX) sinon celui du systeme.
@@ -16,15 +16,17 @@ class Clock {
   void attach(Display &d);
   // Lit CLOCK_* : enabled, theme (-1 aleatoire), themes_mask, duree, couleurs, TZ.
   void configure(const Config &cfg);
+  // v404 : lit CLOCK_THEME / CLOCK_THEMES_MASK / CLOCK_NEON_STYLE en migrant l'ancienne numerotation (15 themes) si CLOCK_SCHEMA < 2.
+  static void readCfg(const Config &cfg, int &theme, int &mask, int &neonStyle);
 
-  // Couleurs en direct (page « couleurs des horloges », sans ecriture sur la SD) : slot 0..4, a = animation, d = chiffres, n = Neon ; « #RRGGBB » ou vide (automatique)
+  // Couleurs en direct (page Â« couleurs des horloges Â», sans ecriture sur la SD) : slot 0..4, a = animation, d = chiffres, n = Neon ; Â« #RRGGBB Â» ou vide (automatique)
   static void setLiveColors(int slot, const std::string *a, const std::string *d, const std::string *neon);
 
   void setDuration(int sec) { durationSec_ = sec < 1 ? 1 : sec; }  // WIDGET_DUR_0 (ou CLOCK_DURATION)
   int durationSec() const { return durationSec_; }
 
   // Demarre une session. forceTheme : -2 = selon la config (theme fixe ou tirage parmi le masque) ; 0..14 = theme impose.
-  void begin(uint64_t now, int forceTheme = -2);
+  void begin(uint64_t now, int forceTheme = -2, int neonStyle = -1);  // neonStyle 0..3 = style Neon impose (apercu) ; -1 = celui de la config
   // Avance la session ; false = terminee (l'ecran est efface).
   bool tick(uint64_t now);
   void stop();
@@ -38,7 +40,8 @@ class Clock {
   Display *d_ = nullptr;
   State state_ = State::IDLE;
   int theme_ = -1;          // CLOCK_THEME : -1 = aleatoire
-  int mask_ = 0x7FFF;       // CLOCK_THEMES_MASK : themes admis au tirage aleatoire
+  int mask_ = 0x1FF;        // v404 : 9 themes ; CLOCK_THEMES_MASK : themes admis au tirage aleatoire
+  int cfgNeonStyle_ = 0;    // v404 : CLOCK_NEON_STYLE de la config
   int durationSec_ = 60;
   int current_ = 0;
   uint64_t endMs_ = 0, bannerEndMs_ = 0, themeStartMs_ = 0, lastDrawMs_ = 0;

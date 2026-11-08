@@ -8,6 +8,14 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-08 — Firmware 4.16, Pi daemon 3.80, toolkit 15093: Scores widget, flash freed
+
+- **Scores widget (ESP32 4.16 and Pi 3.80)**: **live** (score, clock), **upcoming** (the ball, puck… spins in the middle) and **finished** matches cycle on the screen, for **soccer, basketball, hockey, American football, baseball and rugby**. Up to **3 competitions** and **4 favourite teams** (“Scores” web page), usual club codes (OM, PSG, OL…), a pitch background per sport, no account or key. A “no data” screen replaces the black screen when a widget depends on unavailable data.
+- **Clocks: 15 themes reduced to 9** (Tetris, Pac-Man, Invaders, Pong, Neon in 4 styles, Plasma, Life, Stars, Rain). Your settings are migrated automatically to the closest theme.
+- **Flash freed (firmware 4.16)**: the 12 widget background images and the web interface pages now live on the **SD card**. The Wi-Fi update downloads them by itself (over HTTPS, verified by SHA-256); if a page is missing, the DMD shows a fallback page with a “Retry” link. The SD card remains required, as before.
+- **Widgets page**: a 2nd save in the same tab no longer restores the previous settings (the clock used to come back on).
+- **Toolkit 15093**: **Mode 1** also copies the background images and the page pack of firmware ≥ 4.05 to the SD card.
+
 ## 2026-11-07 — Firmware 4.03, Pi daemon 3.79, toolkit 14992: quiz fixed layout
 
 - **Quiz (multiple choice) on ESP32 4.03 and Pi 3.79**: the countdown bar (2 px) no longer moves whatever the question length; the **question is shown in gold** (easier to read), centred above; the **answers** are centred below and wrap on **2 lines** if needed, even under a 3-line question (they used to be cut off); the countdown digit is aligned with the bar.

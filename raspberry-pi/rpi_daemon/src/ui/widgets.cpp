@@ -46,7 +46,7 @@ extern bool clockNeonCustomColor;             // globaux attendus par clock_them
 extern uint8_t clockNeonR, clockNeonG, clockNeonB;
 
 String uiLanguage = "fr";
-uint8_t decoDur[11] = {60, 10, 15, 10, 60, 15, 8, 1, 15, 30, 15};   // 0 horloge, 1 date, 2 ephemeride, 3 compte a rebours, 4 ambiance, 5 meteo, 6 stats, 7 citations, 8-10 Recalbox
+uint8_t decoDur[12] = {60, 10, 15, 10, 60, 15, 8, 1, 15, 30, 15, 15};   // 11 scores en direct (v405) ; 0 horloge, 1 date, 2 ephemeride, 3 compte a rebours, 4 ambiance, 5 meteo, 6 stats, 7 citations, 8-10 Recalbox
 int32_t decoAmbCol[9][2] = {{-1, -1}, {-1, -1}, {-1, -1}, {-1, -1}, {-1, -1}, {-1, -1}, {-1, -1}, {-1, -1}, {-1, -1}};
 float decoLat = 0.0f, decoLon = 0.0f;        // position de l'ephemeride (0,0 = non definie)
 String decoPlace = "";
@@ -57,6 +57,30 @@ uint8_t decoEvYearly[DECO_EV_COUNT] = {0};
 uint8_t decoEvOn[DECO_EV_COUNT] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 uint8_t decoAmbStyle = 0;                    // 0 = aleatoire, 1 plasma, 2 pluie, 3 etoiles, 4 vie, 5 liquide, 6 sable, 7 sable 2, 8 lava lamp
 String decoQuoteTheme = "";
+// v405 -- widget Scores en direct (id 11) : memes reglages que le firmware (WIDGET_SPORTS_*)
+String sportsLeagues = "soccer/fifa.world";   // competitions ESPN « sport/ligue » separees par des virgules (3 max)
+String sportsTeams = "";                      // abreviations d'equipes favorites (4 max) ; "" = tous les matchs
+bool sportsNext = true;                       // afficher aussi les prochains matchs
+bool g_sportsDirty = false;                   // reglages changes : cache de scores jete au prochain passage
+// copie de sportsCleanList() du firmware (web_config.h) : liste « a,b,c » nettoyee ; upper=false -> chemins « sport/ligue », upper=true -> abreviations (MAJUSCULES, 5 car.)
+static String sportsCleanList(const String &in, int maxItems, bool upper) {
+  String out;
+  int start = 0, cnt = 0;
+  while (start <= (int)in.length() && cnt < maxItems) {
+    const int c = in.indexOf(',', start);
+    const String raw = (c < 0) ? in.substring(start) : in.substring(start, c);
+    String ok;
+    for (unsigned k = 0; k < raw.length() && ok.length() < (upper ? 5u : 40u); k++) {
+      char ch = raw[k];
+      if (upper) { if (ch >= 'a' && ch <= 'z') ch -= 32; if ((ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')) ok += ch; }
+      else { if (ch >= 'A' && ch <= 'Z') ch += 32; if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '/' || ch == '.' || ch == '_' || ch == '-') ok += ch; }
+    }
+    if (ok.length() >= 2 && (upper || ok.indexOf('/') > 0)) { if (out.length()) out += ","; out += ok; cnt++; }
+    if (c < 0) break;
+    start = c + 1;
+  }
+  return out;
+}
 int g_skyPass = 0;                           // numero de bande du ciel (une seule ici : toujours 0)
 
 namespace {
@@ -105,6 +129,7 @@ static uint16_t g_rawBuf[128 * 32];             // raw565FullBuf du firmware : t
 static uint16_t *raw565FullBuf = g_rawBuf;
 static bool decoQuoteBgTry(const char *name);   // definis plus bas (SD)
 static bool decoBgEnsure(const char *file);
+static int decoSkyRun(unsigned long durMs, bool preview, int cls, void (*fg)(Adafruit_GFX &, int, void *), void *ctx);   // definie plus bas ; utilisee par decoNoData (genere)
 
 #include "widgets_fw.inc"
 
@@ -370,6 +395,8 @@ static void decoScratchRelease() {
   }
 }
 
+// v414 : ecran « PAS DE DONNEES » (SPL3, spText, spX, SpNoData, skyNoDataFg, decoNoData) : GENERE, voir widgets_fw.inc (tools/port_widgets.py).
+
 // Execute un widget (decoRunWidgetImpl du firmware). false = interrompu, true = termine ou saute faute de donnees.
 static bool decoRunWidgetImpl(int id, bool preview) {
   auto skyOrSkip = [&](const char *name, unsigned long ms, int cls, void (*fg)(Adafruit_GFX &, int, void *), void *ctx) -> bool {
@@ -383,7 +410,7 @@ static bool decoRunWidgetImpl(int id, bool preview) {
     struct tm ti;
     time(&now);
     localtime_r(&now, &ti);
-    if (ti.tm_year < 100) { Serial.println("[DECO] date : heure non synchronisee, widget saute"); return true; }
+    if (ti.tm_year < 100) return decoNoData(1, SPL3("HEURE NON SYNCHRO.", "TIME NOT SYNCED", "HORA SIN SINCRONIZAR"), nullptr, preview);
     Serial.println("[DECO] widget date (" + String((int)decoDur[1]) + " s)");
     SkyDateCtx dc;
     dc.t = ti;
@@ -391,14 +418,14 @@ static bool decoRunWidgetImpl(int id, bool preview) {
   }
   if (id == 2) {
     static SkyEphCtx ec;
-    if (!decoEphCompute(&ec)) { Serial.println("[DECO] ephemeride : position ou heure non definie, widget saute"); return true; }
+    if (!decoEphCompute(&ec)) return decoNoData(2, SPL3("LIEU OU HEURE ABSENT", "PLACE/TIME MISSING", "LUGAR U HORA AUSENTE"), nullptr, preview);
     Serial.println("[DECO] widget ephemeride (" + String((int)decoDur[2]) + " s)");
     return skyOrSkip("ephemeride", (unsigned long)decoDur[2] * 1000UL, decoSkyClass(), skyEphFg, &ec);
   }
   if (id == 3) {
     int idx, ey, em, ed;
     long days;
-    if (!decoPickEvent(idx, days, ey, em, ed)) { Serial.println("[DECO] compte a rebours : aucun evenement a venir (ou heure non definie), widget saute"); return true; }
+    if (!decoPickEvent(idx, days, ey, em, ed)) return decoNoData(3, SPL3("AUCUN EVENEMENT", "NO UPCOMING EVENT", "SIN EVENTOS PROXIMOS"), nullptr, preview);
     static SkyCdCtx cc;
     cc.days = days;
     String nm = decoEvName[idx];
@@ -413,7 +440,7 @@ static bool decoRunWidgetImpl(int id, bool preview) {
   }
   if (id == 4) return decoRunAmbiance(preview);
   if (id == 5) {
-    if (decoLat == 0.0f && decoLon == 0.0f) { Serial.println("[DECO] meteo : position non definie (page Lieu), widget saute"); return true; }
+    if (decoLat == 0.0f && decoLon == 0.0f) return decoNoData(5, SPL3("LIEU NON DEFINI", "PLACE NOT SET", "LUGAR SIN DEFINIR"), SPL3("PAGE LIEU", "PLACE PAGE", "PAGINA LUGAR"), preview);
     const bool moved = s_wx.valid && (fabsf(s_wx.lat - decoLat) > 0.005f || fabsf(s_wx.lon - decoLon) > 0.005f);   // autre lieu = valeurs gardees inutilisables
     if (moved) s_wx.valid = false;
     const bool stale = !s_wx.valid || (millis() - s_wx.fetchedMs) > 30UL * 60000UL;
@@ -435,7 +462,7 @@ static bool decoRunWidgetImpl(int id, bool preview) {
     char qt[240], qs[80];
     const int cnt = decoDur[7] < 1 ? 1 : (decoDur[7] > 10 ? 10 : decoDur[7]);   // la « duree » du widget = nombre de citations d'affilee (1 par defaut)
     for (int k = 0; k < cnt; k++) {
-      if (!decoQuotePick(qt, sizeof(qt), qs, sizeof(qs))) { Serial.println("[DECO] citations : aucun theme / aucune citation, widget saute"); return true; }
+      if (!decoQuotePick(qt, sizeof(qt), qs, sizeof(qs))) return decoNoData(7, SPL3("AUCUNE CITATION", "NO QUOTE", "SIN CITAS"), nullptr, preview);
       if (qs[0]) {  // QCM
         const int r = decoDrawQcm(qt, qs, preview);
         if (r >= 0) {
@@ -451,8 +478,36 @@ static bool decoRunWidgetImpl(int id, bool preview) {
     }
     return true;
   }
+  if (id == 11) {  // v405 : scores en direct (ESPN) -- meme logique que le firmware
+    if (!sportsLeagues.length()) return decoNoData(11, SPL3("AUCUNE COMPETITION", "NO LEAGUE", "SIN LIGA"), nullptr, preview, 0);
+    if (g_sportsDirty) { g_sportsDirty = false; s_spValid = false; s_spN = 0; s_spTried = false; }
+    if (s_spValid && (millis() - s_spFetchedMs) > 3UL * 3600UL * 1000UL) { s_spValid = false; s_spN = 0; }
+    const bool stale = !s_spValid || (millis() - s_spFetchedMs) > (s_spAnyLive ? 60000UL : 600000UL);
+    if (stale && (preview || !s_spTried || (millis() - s_spLastTry) > 90000UL)) {
+      display->clearScreen();
+      display->setTextWrap(false);
+      display->setTextSize(1);
+      display->setTextColor(display->color565(150, 150, 150));
+      display->setCursor(37, 12);
+      display->print("SCORES...");
+      display->show();
+      decoSportsFetch(preview);
+      if (s_spAbort) return false;
+    }
+    if (!s_spValid || s_spN == 0) {   // v414 : ecran d'information (fond du sport, ballon, competitions suivies) au lieu d'un saut
+      char lbl[24]; lbl[0] = 0;
+      { const String lg = sportsLeagues; int st0 = 0; while (st0 <= (int)lg.length()) { const int cc = lg.indexOf(',', st0); const String pth = (cc < 0) ? lg.substring(st0) : lg.substring(st0, cc); const char *lb = spLeagueLabel(pth.c_str()); if (lb[0] && strlen(lbl) + strlen(lb) + 2 < sizeof(lbl)) { if (lbl[0]) strcat(lbl, " "); strcat(lbl, lb); } if (cc < 0) break; st0 = cc + 1; } }
+      const int ci0 = sportsLeagues.indexOf(','); const String p0 = (ci0 < 0) ? sportsLeagues : sportsLeagues.substring(0, ci0);
+      return decoNoData(11, s_spValid ? SPL3("AUCUN MATCH", "NO MATCH", "SIN PARTIDOS") : SPL3("INDISPONIBLE", "UNAVAILABLE", "NO DISPONIBLE"), lbl, preview, spSportKind(p0.c_str()));
+    }
+    unsigned long spMs = (unsigned long)decoDur[11] * 1000UL;
+    const unsigned long spNeed = (s_spN > 1) ? (unsigned long)s_spN * 5000UL : 0UL;
+    if (spMs < spNeed) spMs = spNeed > 40000UL ? 40000UL : spNeed;
+    Serial.println("[DECO] widget scores (" + String(spMs / 1000UL) + " s, " + String((int)s_spN) + " match(s))");
+    return skyOrSkip("scores", spMs, decoSkyClass(), skySportsFg, nullptr);
+  }
   if (id == 8) {
-    if (!g_rbw.ch) { Serial.println("[DECO] challenge Recalbox : aucune donnee (script RB absent ou pas de challenge), widget saute"); return true; }
+    if (!g_rbw.ch) return decoNoData(8, SPL3("PAS DE DONNEES", "NO DATA", "SIN DATOS"), "RECALBOX", preview);
     Serial.println("[DECO] widget challenge Recalbox (" + String((int)decoDur[8]) + " s)");
     decoRbBgLoad("rb-challenge");
     const bool r8 = skyOrSkip("challenge", (unsigned long)decoDur[8] * 1000UL, decoSkyClass(), skyRbwChFg, nullptr);
@@ -460,7 +515,7 @@ static bool decoRunWidgetImpl(int id, bool preview) {
     return r8;
   }
   if (id == 9) {
-    if (g_rbw.nRw == 0) { Serial.println("[DECO] recompenses Recalbox : aucune donnee, widget saute"); return true; }
+    if (g_rbw.nRw == 0) return decoNoData(9, SPL3("PAS DE DONNEES", "NO DATA", "SIN DATOS"), "RECALBOX", preview);
     Serial.println("[DECO] widget recompenses Recalbox (" + String((int)decoDur[9]) + " s)");
     unsigned long rwMs = (unsigned long)decoDur[9] * 1000UL;
     const unsigned long rwNeed = (unsigned long)rbwRwTotalFrames() * 50UL;
@@ -471,7 +526,7 @@ static bool decoRunWidgetImpl(int id, bool preview) {
     return r9;
   }
   if (id == 10) {
-    if (!g_rbw.hl) { Serial.println("[DECO] sante Recalbox : aucune donnee, widget saute"); return true; }
+    if (!g_rbw.hl) return decoNoData(10, SPL3("PAS DE DONNEES", "NO DATA", "SIN DATOS"), "RECALBOX", preview);
     Serial.println("[DECO] widget sante Recalbox (" + String((int)decoDur[10]) + " s)");
     decoRbBgLoad("rb-health");
     const bool r10 = skyOrSkip("sante", (unsigned long)decoDur[10] * 1000UL, decoSkyClass(), skyRbwHlFg, nullptr);
@@ -525,7 +580,7 @@ void Widgets::previewSpec(const std::string &specIn) {
   const bool hasTheme = f.size() > 4;
   const std::string theme = f.size() > 3 ? f[3] : "";
   const std::string lo = f.size() > 4 ? f[4] : "", lw = f.size() > 5 ? f[5] : "";
-  if (wid < 1 || wid > 10) return;
+  if (wid < 1 || wid > 11) return;
   const uint8_t oldDur = decoDur[wid], oldAmb = decoAmbStyle;
   const String oldQ = decoQuoteTheme;
   if (pDur >= 1 && pDur <= 120) decoDur[wid] = (uint8_t)pDur;
@@ -553,6 +608,17 @@ void Widgets::previewSpec(const std::string &specIn) {
   decoAmbCol[pSt][1] = oldCb;
 }
 
+std::string Widgets::cleanSportsList(const std::string &in, int maxItems, bool upper) { return std::string(sportsCleanList(String(in), maxItems, upper).c_str()); }   // v405 : sert a la page web (/save)
+int Widgets::sportsTeamList(const std::string &path, std::string &out) {   // v406 : meme controle que handleSportsTeams() du firmware
+  bool okp = path.size() > 2 && path.size() < 48 && path.find('/') != std::string::npos && path.find('/') > 0;
+  for (size_t i = 0; okp && i < path.size(); i++) { const char ch = path[i]; if (!(isalnum((unsigned char)ch) || ch == '/' || ch == '.' || ch == '_' || ch == '-')) okp = false; }
+  if (!okp) return 1;
+  String o; o.reserve(2048);
+  if (!sportsTeamsFetch(path.c_str(), o)) return 2;
+  out = std::string(o.c_str());
+  return 0;
+}
+
 int Widgets::restoreQuotes(const std::string &lang) { return decoQuotesRestore(String(lang)); }
 
 void Widgets::setHooks(std::function<bool()> commandPending, std::function<void()> service) {
@@ -560,8 +626,8 @@ void Widgets::setHooks(std::function<bool()> commandPending, std::function<void(
   g_service = std::move(service);
 }
 
-void Widgets::configure(const Config &cfg, const uint8_t dur[11]) {
-  for (int i = 0; i < 11; i++) decoDur[i] = dur[i];
+void Widgets::configure(const Config &cfg, const uint8_t dur[12]) {
+  for (int i = 0; i < 12; i++) decoDur[i] = dur[i];
   uiLanguage = cfg.uiLanguage.c_str();
   // anciennes cles DECO_* encore lues (le firmware les renomme en WIDGET_* : meme valeur ; la plus recente gagne)
   auto get = [&](const std::string &base, const std::string &def = "") -> std::string {
@@ -595,11 +661,15 @@ void Widgets::configure(const Config &cfg, const uint8_t dur[11]) {
     decoEvOn[id - 1] = (c4 != std::string::npos && std::atoi(v.substr(c4 + 1).c_str()) == 0) ? 0 : 1;
   }
   decoQuoteTheme = quoteSlugList(String(get("qtheme")));
+  if (has("sports_leagues")) sportsLeagues = sportsCleanList(String(get("sports_leagues")), 3, false);   // v405
+  if (has("sports_teams")) sportsTeams = sportsCleanList(String(get("sports_teams")), 4, true);
+  if (has("sports_next")) sportsNext = std::atoi(get("sports_next").c_str()) != 0;
+  g_sportsDirty = true;   // une relecture de la config jette le cache de scores
   logf("DECO", "lieu=%s (%.4f, %.4f), ambiance=%d, langue=%s", decoPlace.c_str(), decoLat, decoLon, decoAmbStyle, cfg.uiLanguage.c_str());
 }
 
 void Widgets::setDuration(int id, int sec) {
-  if (id >= 0 && id < 11 && sec >= 1 && sec <= 120) decoDur[id] = (uint8_t)sec;
+  if (id >= 0 && id < 12 && sec >= 1 && sec <= 120) decoDur[id] = (uint8_t)sec;
 }
 void Widgets::setAmbStyle(int style) { decoAmbStyle = (uint8_t)((style >= 0 && style <= 8) ? style : 0); }
 

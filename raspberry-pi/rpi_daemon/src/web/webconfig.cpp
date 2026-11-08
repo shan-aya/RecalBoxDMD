@@ -19,6 +19,7 @@
 #include "netutil.h"
 #include "wifimanager.h"
 #include "button.h"
+#include "clock.h"
 #include "i18n.h"
 
 namespace {
@@ -367,8 +368,13 @@ WebReply WebConfig::load() {
   add("uptime_s", std::to_string((unsigned long)(nowMs() / 1000UL)));
   add("recalbox_target", std::to_string(clampi(cfg_.getInt("recalbox_target", 0), 0, 4)));
   add("clock_enabled", b01(d.mode[0] != 0));
-  add("clock_theme", std::to_string(cfg_.getInt("clock_theme", -1)));
-  add("clock_themes_mask", std::to_string(cfg_.getInt("clock_themes_mask", 0x7FFF)));
+  {
+    int th = -1, mk = 0x1FF, ns = 0;   // v404 : valeurs migrees vers les 9 themes si la config est ancienne
+    Clock::readCfg(cfg_, th, mk, ns);
+    add("clock_theme", std::to_string(th));
+    add("clock_themes_mask", std::to_string(mk));
+    add("clock_neon_style", std::to_string(ns));
+  }
   {
     const int32_t nc = hexColor(s("clock_color"));
     const unsigned v = nc >= 0 ? (unsigned)nc : 0xFF2878u;  // rose du theme Neon par defaut
@@ -434,7 +440,10 @@ WebReply WebConfig::load() {
   add("deco_main_order", std::to_string(d.mainOrder));
   add("deco_add_mode", std::to_string(d.addMode));
   add("deco_add_count", std::to_string(d.addCount));
-  for (int i = 0; i < 11; i++) {
+  add("sports_leagues", Widgets::cleanSportsList(cfg_.get(cfg_.has("widget_sports_leagues") ? "widget_sports_leagues" : "deco_sports_leagues", "soccer/fifa.world"), 3, false));   // v405
+  add("sports_teams", Widgets::cleanSportsList(cfg_.get(cfg_.has("widget_sports_teams") ? "widget_sports_teams" : "deco_sports_teams", ""), 4, true));
+  add("sports_next", cfg_.getInt(cfg_.has("widget_sports_next") ? "widget_sports_next" : "deco_sports_next", 1) != 0 ? "1" : "0");
+  for (int i = 0; i < 12; i++) {
     add("deco_mode_" + std::to_string(i), std::to_string(d.mode[i]));
     add("deco_dur_" + std::to_string(i), std::to_string(d.dur[i]));
   }
@@ -468,7 +477,7 @@ WebReply WebConfig::save(const WebRequest &r) {
   }
   if (has("deco_bg") && toInt(arg("deco_bg")) == 1) {  // widgets seuls : au moins un widget actif (horloge comprise), refus AVANT toute modification
     bool any = false;
-    for (int i = 0; i < 11; i++) {
+    for (int i = 0; i < 12; i++) {
       if (i == 6) continue;
       const std::string km = "deco_mode_" + std::to_string(i);
       const int m = has(km.c_str()) ? toInt(arg(km.c_str())) : (int)d.mode[i];
@@ -486,7 +495,7 @@ WebReply WebConfig::save(const WebRequest &r) {
 
   {  // diagnostic : valeurs du decor reellement recues dans cette requete
     std::string seen;
-    for (int i = 0; i < 11; i++) {
+    for (int i = 0; i < 12; i++) {
       const std::string km = "deco_mode_" + std::to_string(i), kd = "deco_dur_" + std::to_string(i);
       if (has(km.c_str())) seen += " m" + std::to_string(i) + "=" + arg(km.c_str());
       if (has(kd.c_str())) seen += " d" + std::to_string(i) + "=" + arg(kd.c_str());
@@ -592,11 +601,24 @@ WebReply WebConfig::save(const WebRequest &r) {
     rbChanged = true;
   }
 
+  // widget Scores en direct (v405)
+  if (has("sports_leagues")) kv["WIDGET_SPORTS_LEAGUES"] = Widgets::cleanSportsList(arg("sports_leagues"), 3, false);
+  if (has("sports_teams")) kv["WIDGET_SPORTS_TEAMS"] = Widgets::cleanSportsList(arg("sports_teams"), 4, true);
+  if (has("sports_next")) kv["WIDGET_SPORTS_NEXT"] = arg("sports_next") == "1" ? "1" : "0";
+
   // horloge
-  if (has("clock_theme")) kv["CLOCK_THEME"] = std::to_string(toInt(arg("clock_theme")));
+  if (has("clock_theme")) {   // v404 : CLOCK_SCHEMA=2 ecrit avec le theme, le masque et le style (numerotation compacte)
+    const int th = toInt(arg("clock_theme"));
+    kv["CLOCK_SCHEMA"] = "2";
+    kv["CLOCK_THEME"] = std::to_string((th >= -1 && th <= 8) ? th : -1);
+  }
   if (has("clock_themes_mask")) {
     const int m = toInt(arg("clock_themes_mask"));
-    kv["CLOCK_THEMES_MASK"] = std::to_string((m > 0 && m <= 0x7FFF) ? m : 0x7FFF);
+    kv["CLOCK_THEMES_MASK"] = std::to_string((m > 0 && m <= 0x1FF) ? m : 0x1FF);
+  }
+  if (has("clock_neon_style")) {
+    const int ns = toInt(arg("clock_neon_style"));
+    kv["CLOCK_NEON_STYLE"] = std::to_string((ns >= 0 && ns <= 3) ? ns : 0);
   }
   if (has("clock_neon_color_enabled") || has("clock_neon_color")) {
     int32_t cur = hexColor(cfg_.get("clock_color"));
@@ -709,7 +731,7 @@ WebReply WebConfig::save(const WebRequest &r) {
   }
   int mode0 = d.mode[0], dur0 = d.dur[0];
   bool anyW = false;
-  for (int i = 0; i < 11; i++) {
+  for (int i = 0; i < 12; i++) {
     const std::string km = "deco_mode_" + std::to_string(i), kd = "deco_dur_" + std::to_string(i);
     int m = d.mode[i];
     if (has(km.c_str())) {
@@ -783,7 +805,8 @@ void WebConfig::registerRoutes() {
   for (const auto &p : std::vector<std::pair<const char *, const char *>>{
            {"/config/settings", "settings.html"}, {"/config/basic", "basic.html"},   {"/config/playlist", "playlist.html"}, {"/config/network", "network.html"},
            {"/config/clock", "clock.html"},       {"/config/button", "button.html"}, {"/config/brightness", "brightness.html"}, {"/config/widgets", "widgets.html"},   {"/config/deco", "widgets.html"},
-           {"/config/place", "place.html"},       {"/config/events", "events.html"}, {"/config/clockcolors", "clockcolors.html"}, {"/config/diag", "diag.html"},
+           {"/config/sports", "sports.html"},   // v405 : widget Scores en direct
+    {"/config/place", "place.html"},       {"/config/events", "events.html"}, {"/config/clockcolors", "clockcolors.html"}, {"/config/diag", "diag.html"},
            {"/config/quotes", "quotes.html"},     {"/config/media", "media.html"}}) {
     const std::string file = p.second;
     web_.any(p.first, [this, file](const WebRequest &r) { return page(file, r); });
@@ -818,7 +841,14 @@ void WebConfig::registerRoutes() {
     return r;
   });
   web_.post("/save", [this](const WebRequest &r) { return save(r); });
-  web_.any("/lang", [this](const WebRequest &) {
+  web_.any("/sports-teams", [](const WebRequest &r) {   // v406 : ESPN n'autorise pas le CORS, le DMD lit la liste des equipes (page /config/sports)
+    WebReply out;
+    const int rc = Widgets::sportsTeamList(r.arg("l"), out.body);
+    if (rc == 1) { out.status = 400; out.body = "BAD"; return out; }
+    if (rc == 2) { out.status = 502; out.body = "ERR"; return out; }
+    out.contentType = "text/plain; charset=utf-8";
+    return out;
+  });  web_.any("/lang", [this](const WebRequest &) {
     WebReply r;
     r.contentType = "application/json";
     r.body = "{\"language\":\"" + cfg_.uiLanguage + "\",\"first_boot\":\"" + b01(cfg_.getBool("first_boot", true)) + "\"}";

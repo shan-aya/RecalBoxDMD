@@ -1,5 +1,5 @@
 // ============================================================================
-// GENERE par tools/port_clock_ambient.py depuis RecalBox_DMD.ino (FW_VERSION_NUM 382, lignes 12105-12449).
+// GENERE par tools/port_clock_ambient.py depuis RecalBox_DMD.ino (FW_VERSION_NUM 415, lignes 12470-12807).
 // NE PAS EDITER A LA MAIN : relancer le script. Themes d'horloge animes : Plasma, Life, Stars, Rain, Lava.
 // ============================================================================
 struct LavaBlob { float x, y, vx, vy, r, T, ax; bool att, alive; };   // v309 : r = taille (masse ~ r^2), fusions et reapparitions
@@ -9,8 +9,9 @@ struct LavaBall { float x, y, R, R2; };
 
 struct AmbRain { int16_t head[128]; uint8_t len[128], spd[128]; };
 struct AmbStar { float x, y, z; int16_t px, py; };
-struct ClkScratch { uint8_t mask[512]; uint8_t outl[512]; uint8_t state[1024]; };   // masque des chiffres, halo (1 px) et etat du fond
-union AmbScratch {   // 2 048 o au total
+struct ClkScratch { uint8_t mask[512]; uint8_t outl[512]; uint8_t state[1280]; };   // masque des chiffres, halo (1 px) et etat du fond ; v400 : state 1024 -> 1280 (LavaSt = 1264 o, voir static_assert ci-dessous)
+static_assert(sizeof(LavaSt) <= sizeof(ClkScratch::state), "LavaSt depasse ClkScratch::state : le theme d'horloge Lava ecraserait les variables suivant s_amb");   // v400 : le static_assert historique ne couvrait que le widget (s_amb.sand, offset 0), pas l'horloge (s_amb.clk.state, offset 1024)
+union AmbScratch {   // 2 304 o au total (v400 ; 2 048 o avant)
   uint16_t pal[256];                                   // plasma (ambiance)
   AmbRain  rain;                                       // pluie (ambiance)
   AmbStar  st[48];                                     // etoiles (ambiance)
@@ -258,7 +259,7 @@ static void decoClockAmbient(int kind, int h, int m, unsigned long ms)
   uint8_t *st = s_amb.clk.state;
   uint16_t *pal = (uint16_t *)st;
   AmbRain *rn = (AmbRain *)st; AmbStar *stars = (AmbStar *)st; uint8_t (*life)[512] = (uint8_t (*)[512])st;
-  static int lifeCur = 0; static unsigned long lavaT0 = 0;
+  static int lifeCur = 0;
   static uint16_t lifeCol = 0, rainHead = 0, rainMid = 0, rainTail = 0, lastVer = 0xFFFF; static uint8_t aR = 255, aG = 255, aB = 255;   // v294 : couleurs de l'animation en cours
   const bool fresh = (ms < lastMs) || (kind != lastKind);
   const bool timeChanged = (h != lastHour) || (m != lastMin);
@@ -279,8 +280,7 @@ static void decoClockAmbient(int kind, int h, int m, unsigned long ms)
     rainMid  = display->color565(aR, aG, aB);
     rainTail = display->color565(aR * 55 / 100, aG * 55 / 100, aB * 55 / 100);
     if (kind == 0) decoPlasmaPalette(pal, ac);
-    if (kind == 4) { LavaSt *LL = (LavaSt *)st; LL->wax[0] = aR; LL->wax[1] = aG; LL->wax[2] = aB; lavaOilFromWax(LL->wax, LL->oil); }   // v300 : couleur d'animation = cire, huile = complementaire sombre
-  };
+  };   // v404 : Lava retire des horloges (reste un fond du widget Ambiance)
   auto repaint = [&]() {   // fond complet + chiffres (au demarrage et a chaque minute)
     for (int y = 0; y < 32; y++) for (int x = 0; x < 128; x++) {
       uint16_t c = 0; if (kind == 1 && lget(lifeCur, x, y)) c = lifeCol;
@@ -295,7 +295,6 @@ static void decoClockAmbient(int kind, int h, int m, unsigned long ms)
     if (kind == 0) decoPlasmaInit(pal);
     else if (kind == 1) { lifeCur = 0; memset(life[0], 0, 512); for (int y = 0; y < 32; y++) for (int x = 0; x < 128; x++) if (random(0, 100) < 28) lput(0, x, y, 1); }
     else if (kind == 2) { for (int i = 0; i < 48; i++) { stars[i].x = random(-640, 640) / 10.0f; stars[i].y = random(-160, 160) / 10.0f; stars[i].z = random(30, 100) / 10.0f; stars[i].px = -1; stars[i].py = -1; } }
-    else if (kind == 4) { static const uint8_t o0[3] = {40, 10, 80}, w0[3] = {255, 110, 0}; lavaInit((LavaSt *)st, o0, w0); lavaT0 = ms; }
     else { for (int x = 0; x < 128; x++) { rn->head[x] = -(int)random(0, 40); rn->len[x] = (uint8_t)random(6, 14); rn->spd[x] = (uint8_t)random(1, 3); } }
     style();
     repaint();
@@ -331,12 +330,6 @@ static void decoClockAmbient(int kind, int h, int m, unsigned long ms)
       int b = (int)(255.0f * (1.0f - s.z / 10.0f)); if (b < 40) b = 40;
       clkPx(px, py, display->color565(aR * b / 255, aG * b / 255, aB * b / 255)); s.px = (int16_t)px; s.py = (int16_t)py;
     }
-  } else if (kind == 4) {   // lava lamp : toute l'image est reecrite a chaque image (un seul ecriture par pixel) ; temperature : 15 % -> 100 % en 40 s
-    if (ms - lastStep < 33) return; lastStep = ms;
-    LavaSt *LL = (LavaSt *)st; const float t = (ms - lavaT0) / 1000.0f, tg = (t < 6.0f) ? 0.0f : ((t - 6.0f) > 40.0f ? 1.0f : (t - 6.0f) / 40.0f);
-    lavaStep(LL, tg, t); lavaBuild(LL, tg, t);
-    uint8_t lv[128];
-    for (int y = 0; y < 32; y++) { lavaRow(y, lv); for (int x = 0; x < 128; x++) clkPx(x, y, lavaColor(LL, x, y, lv[x])); }
   } else {   // pluie : traînees vertes derriere les chiffres
     if (ms - lastStep < 45) return; lastStep = ms; static unsigned tick = 0; tick++;
     for (int x = 0; x < 128; x++) {

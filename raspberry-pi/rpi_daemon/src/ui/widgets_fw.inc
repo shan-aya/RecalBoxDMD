@@ -1,8 +1,8 @@
 // ============================================================================
-// GENERE par tools/port_widgets.py depuis RecalBox_DMD.ino (FW_VERSION_NUM 382).
+// GENERE par tools/port_widgets.py depuis RecalBox_DMD.ino (FW_VERSION_NUM 414).
 // NE PAS EDITER A LA MAIN : relancer le script. Widgets du decor (voir l'en-tete du script).
 // ============================================================================
-// ---- donnees des widgets Recalbox (CMD=rbw) et leur analyse (firmware, lignes 5369-5415) ----
+// ---- donnees des widgets Recalbox (CMD=rbw) et leur analyse (firmware, lignes 5412-5458) ----
 struct RbwData {
   bool ch, hl; uint8_t nTop, nRw;
   char chName[32]; int days, rank, ggs;
@@ -51,7 +51,7 @@ static void rbwParse(const String &arg)
   }
 }
 
-// ---- date + ephemeride (firmware, lignes 13383-13532) ----
+// ---- date + ephemeride (firmware, lignes 13769-13918) ----
 static int decoIsoWeek(const struct tm &t)
 {
   const int y = t.tm_year + 1900;
@@ -203,7 +203,7 @@ static bool decoDrawEphemeris()
   return true;
 }
 
-// ---- compte a rebours : calcul de l'evenement (firmware, lignes 13552-13584) ----
+// ---- compte a rebours : calcul de l'evenement (firmware, lignes 13938-13970) ----
 static long decoJdn(int y, int m, int d)   // jours depuis 1970-01-01 (Howard Hinnant)
 {
   y -= (m <= 2);
@@ -238,7 +238,7 @@ static bool decoPickEvent(int &idx, long &days, int &ey, int &em, int &ed)
 }
 
 
-// ---- ambiances (firmware, lignes 13668-14263) ----
+// ---- ambiances (firmware, lignes 14054-14649) ----
 // -- Ambiances : plasma, pluie, etoiles, vie (aucune allocation dynamique : tampons statiques) --
 static bool decoAmbPlasma(unsigned long durMs, bool preview)
 {
@@ -836,7 +836,7 @@ static bool decoRunAmbiance(bool preview)
 }
 
 
-// ---- meteo : donnees, requete Open-Meteo, classes (firmware, lignes 14267-14330) ----
+// ---- meteo : donnees, requete Open-Meteo, classes (firmware, lignes 14653-14716) ----
 struct DecoWx { bool valid; float temp, tmax, tmin; int code; bool day; unsigned long fetchedMs; float lat, lon; };   // v353 : lat/lon = lieu des valeurs gardees
 static DecoWx s_wx = {false, 0, 0, 0, 0, true, 0, 0, 0};
 static unsigned long s_wxLastTry = 0; static bool s_wxTried = false;
@@ -902,7 +902,7 @@ static int decoWxClass(int code)
 }
 
 
-// ---- ciel anime : degrades, astres, nuages, pluie (firmware, lignes 14923-15024) ----
+// ---- ciel anime : degrades, astres, nuages, pluie (firmware, lignes 15314-15415) ----
 struct SkyKey { float h; uint8_t t[3], b[3]; };
 static const SkyKey SKYK[9] = {{0.0f, {5, 8, 30}, {14, 20, 50}}, {4.5f, {5, 8, 30}, {14, 20, 50}}, {6.5f, {40, 50, 110}, {230, 120, 70}}, {9.0f, {50, 120, 220}, {140, 200, 250}},
   {14.0f, {30, 110, 230}, {120, 190, 245}}, {18.0f, {30, 110, 230}, {120, 190, 245}}, {19.8f, {50, 40, 110}, {240, 110, 60}}, {21.5f, {5, 8, 30}, {14, 20, 50}}, {24.0f, {5, 8, 30}, {14, 20, 50}}};
@@ -1006,7 +1006,7 @@ static void skyTextWin(Adafruit_GFX &g, int x0, int x1, int off, int y, uint16_t
 // de 8 Ko d'avant echouait -> retour a l'ancien affichage sans ciel (constate par l'utilisateur). Une bande de 2 Ko suffit. L'avant-plan est redessine une fois par bande :
 // tout etat qui avance (particules...) ne doit evoluer que pendant la bande 0 (g_skyPass == 0).
 
-// ---- avant-plans : meteo, date, compte a rebours, ephemeride (firmware, lignes 15083-15252) ----
+// ---- avant-plans : meteo, date, compte a rebours, ephemeride (firmware, lignes 15474-15643) ----
 static int decoSkyClass() { return (s_wx.valid && (millis() - s_wx.fetchedMs) <= 3UL * 3600UL * 1000UL) ? decoWxClass(s_wx.code) : 0; }
 
 // ---- widget METEO sur le ciel ----
@@ -1178,7 +1178,7 @@ static void skyEphFg(Adafruit_GFX &g, int f, void *ctx)
   }
 }
 
-// ---- avant-plans des widgets Recalbox : challenge, recompenses, sante (firmware, lignes 15286-15382) ----
+// ---- avant-plans des widgets Recalbox : challenge, recompenses, sante (firmware, lignes 15677-16223) ----
 // ---- v315 : widgets RECALBOX (8 challenge, 9 recompenses, 10 sante) sur le ciel ----
 // decalage (px) d'un texte trop long dans une fenetre : pause, defilement, pause, retour
 static int rbwPing(int f, int over)
@@ -1276,8 +1276,459 @@ static void skyRbwHlFg(Adafruit_GFX &g, int f, void *ctx)
   if (g_rbw.disk >= 0) snprintf(b, sizeof(b), "SD %d%%", g_rbw.disk); else snprintf(b, sizeof(b), "SD --");
   skyText(g, 86, 24, 1, g_rbw.hs[4] > '0' ? display->color565(255, 150, 60) : ct, b);
 }
+// ============ v405 -- Widget SCORES EN DIRECT (id 11) : API ESPN en HTTP simple (sans cle, sans TLS) ============
+// GET http://site.api.espn.com/apis/site/v2/sports/<sport>/<ligue>/scoreboard (HTTP/1.0 : pas de chunked). La reponse fait de 5 a 270 Ko : elle n'est JAMAIS stockee,
+// elle est lue en flux par une machine a etats qui cherche des « aiguilles » (decoupage par match = "season":{"year": ; champs lus dans n'importe quel ordre, l'ordre
+// des cles differant selon le sport). Valide hors ligne sur 10 competitions reelles (foot, NBA, NFL, NHL, MLB, rugby, FIBA). Echec = on garde les derniers scores (3 h).
+#define SPORTS_MAXM 6
+struct SportsM { char h[6], a[6]; uint8_t hs, sa; uint8_t st; char det[12]; char lg[5]; uint8_t sp; uint32_t t; };   // sp : 0 foot, 1 basket, 2 hockey, 3 football US, 4 baseball, 5 rugby (fond)   // st : 0 a venir, 1 en cours, 2 termine ; t = debut du match (epoch UTC, 0 = inconnu)
+static SportsM s_spM[SPORTS_MAXM]; static int32_t s_spKey[SPORTS_MAXM]; static uint8_t s_spN = 0;
+static bool s_spValid = false, s_spTried = false, s_spAbort = false, s_spAnyLive = false;
+static unsigned long s_spFetchedMs = 0, s_spLastTry = 0;
 
-// ---- citations : themes d'origine embarques (firmware, lignes 14448-14511) ----
+struct SpStream {
+  WiFiClient *c; unsigned long deadline, lastChk; bool preview, aborted, noStop; uint8_t buf[192]; int len, pos; uint32_t total; char win[20]; uint8_t wl;
+  int nb()
+  {
+    if (pos >= len) {
+      for (;;) {
+        const unsigned long now = millis();
+        if ((long)(now - deadline) > 0) return -1;
+        if (!noStop && now - lastChk > 120) { lastChk = now; if (decoStop(preview)) { aborted = true; return -1; } }   // une requete web en attente, une commande MQTT... : on abandonne
+        const int a = c->available();
+        if (a > 0) { const int r = c->read(buf, a < (int)sizeof(buf) ? a : (int)sizeof(buf)); if (r > 0) { len = r; pos = 0; break; } }
+        else if (!c->connected()) return -1;
+        else delay(2);
+      }
+    }
+    total++; return buf[pos++];
+  }
+  // lit jusqu'a une des `n` aiguilles ; retourne son indice (-1 = fin / delai) et copie la valeur qui suit (jusqu'au guillemet) dans out
+  int seekAny(const char *const *nd, uint8_t n, char *out, size_t outLen)
+  {
+    uint8_t ln[8]; for (uint8_t i = 0; i < n; i++) ln[i] = (uint8_t)strlen(nd[i]);
+    for (;;) {
+      int ch = nb(); if (ch < 0) return -1;
+      if (wl < sizeof(win)) win[wl++] = (char)ch; else { memmove(win, win + 1, sizeof(win) - 1); win[sizeof(win) - 1] = (char)ch; }
+      for (uint8_t i = 0; i < n; i++) {
+        if (wl >= ln[i] && memcmp(win + wl - ln[i], nd[i], ln[i]) == 0) {
+          size_t k = 0;
+          while ((ch = nb()) >= 0 && ch != '"') { if (out && k + 1 < outLen) out[k++] = (char)ch; }
+          if (out) out[k] = 0;
+          wl = 0;
+          return i;
+        }
+      }
+    }
+  }
+};
+
+static bool spParseIso(const char *s, uint32_t &t)   // « 2026-11-07T22:00Z » (UTC) -> epoch
+{
+  if (strlen(s) < 16 || s[4] != '-' || s[10] != 'T') return false;
+  const int y = atoi(s), mo = atoi(s + 5), d = atoi(s + 8), h = atoi(s + 11), mi = atoi(s + 14);
+  if (y < 2020 || y > 2100 || mo < 1 || mo > 12 || d < 1 || d > 31) return false;
+  t = (uint32_t)(decoJdn(y, mo, d) * 86400L + h * 3600L + mi * 60L);
+  return true;
+}
+static bool spIsFav(const char *ab)   // liste d'equipes vide = tous les matchs
+{
+  const String &f = sportsTeams; if (!f.length()) return true;
+  int start = 0; const int L = (int)f.length();
+  while (start <= L) {
+    const int c = f.indexOf(',', start);
+    const String tok = (c < 0) ? f.substring(start) : f.substring(start, c);
+    if (tok.equalsIgnoreCase(ab)) return true;
+    if (c < 0) break;
+    start = c + 1;
+  }
+  return false;
+}
+// v406 : sigle (3 lettres max) de la competition affiche en haut a gauche
+static const char *spLeagueLabel(const char *path)
+{
+  static const char *const T[][2] = { {"fifa.world", "CDM"}, {"fifa.friendly", "AMI"}, {"uefa.nations", "LN"}, {"uefa.euro", "EUR"}, {"fifa.worldq", "QUA"}, {"uefa.champions", "LDC"},
+    {"fra.1", "L1"}, {"eng.1", "PL"}, {"esp.1", "LL"}, {"ita.1", "SA"}, {"ger.1", "BUN"}, {"nba", "NBA"}, {"nfl", "NFL"}, {"nhl", "NHL"}, {"mlb", "MLB"}, {"rugby/", "RUG"} };
+  for (size_t i = 0; i < sizeof(T) / sizeof(T[0]); i++) if (strstr(path, T[i][0])) return T[i][1];
+  return "";
+}
+// v410 : nom d'equipe -> majuscules ASCII (la police de la dalle n'a pas les accents : UTF-8 « é » -> E), 11 caracteres au plus
+static void spFoldName(const char *in, char *out, size_t cap)
+{
+  size_t k = 0;
+  for (const unsigned char *p = (const unsigned char *)in; *p && k + 1 < cap; p++) {
+    unsigned char c = *p; char o = 0;
+    if (c == 0xC3 && p[1]) {
+      const unsigned char d = (unsigned char)(p[1] & 0xDF);   // minuscule -> majuscule (0xA0.. -> 0x80..)
+      p++;
+      if (d >= 0x80 && d <= 0x85) o = 'A'; else if (d == 0x87) o = 'C'; else if (d >= 0x88 && d <= 0x8B) o = 'E'; else if (d >= 0x8C && d <= 0x8F) o = 'I';
+      else if (d == 0x91) o = 'N'; else if ((d >= 0x92 && d <= 0x96) || d == 0x98) o = 'O'; else if (d >= 0x99 && d <= 0x9C) o = 'U'; else if (d == 0x9D) o = 'Y'; else if (d == 0x9F) o = 'S';
+    } else if (c >= 0x80) { while (p[1] && (p[1] & 0xC0) == 0x80) p++; continue; }
+    else if (c >= 'a' && c <= 'z') o = (char)(c - 32);
+    else if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == ' ' || c == '-' || c == '.' || c == '\'') o = (char)c;
+    if (o && !(o == ' ' && (k == 0 || out[k - 1] == ' '))) out[k++] = o;
+  }
+  while (k > 0 && out[k - 1] == ' ') k--;
+  out[k] = 0;
+}
+// v413 : sigles USUELS des clubs francais (retour : « Marseille, c'est OM comme PSG » ; les clubs europeens ont tous un sigle). Nom ESPN (majuscules ASCII) -> sigle, ecrit dans out
+// seulement s'il est connu ; sinon le code ESPN (3 lettres : ARS, CHE, RMA...) est affiche. Les equipes NATIONALES gardent les codes normalises (FRA, ESP...).
+static void spClubAlias(const char *nm, char *out)
+{
+  static const char *const A[][2] = { {"MARSEILLE", "OM"}, {"OLYMPIQUE DE MARSEILLE", "OM"}, {"PARIS SAINT-GERMAIN", "PSG"}, {"PARIS SG", "PSG"}, {"LYON", "OL"}, {"OLYMPIQUE LYONNAIS", "OL"},
+    {"MONACO", "ASM"}, {"AS MONACO", "ASM"}, {"LILLE", "LOSC"}, {"LENS", "RCL"}, {"RC LENS", "RCL"}, {"SAINT-ETIENNE", "ASSE"}, {"ST-ETIENNE", "ASSE"}, {"NICE", "OGCN"}, {"OGC NICE", "OGCN"},
+    {"RENNES", "SRFC"}, {"STADE RENNAIS", "SRFC"}, {"NANTES", "FCN"}, {"STRASBOURG", "RCSA"}, {"TOULOUSE", "TFC"}, {"MONTPELLIER", "MHSC"}, {"REIMS", "SDR"}, {"STADE DE REIMS", "SDR"},
+    {"ANGERS", "SCO"}, {"LE HAVRE", "HAC"}, {"LORIENT", "FCL"}, {"METZ", "FCM"}, {"AUXERRE", "AJA"}, {"AJ AUXERRE", "AJA"}, {"PARIS FC", "PFC"}, {"TROYES", "ESTAC"}, {"BREST", "SB29"} };
+  for (size_t i = 0; i < sizeof(A) / sizeof(A[0]); i++) if (!strcmp(nm, A[i][0])) { strncpy(out, A[i][1], 5); out[5] = 0; return; }
+}static bool spNationalPath(const char *path) { return strstr(path, "fifa.") || strstr(path, "uefa.nations") || strstr(path, "uefa.euro") || strstr(path, "rugby/"); }   // equipes nationales : on garde les codes FRA / ESP
+static uint8_t spSportKind(const char *path)
+{
+  if (!strncmp(path, "basketball/", 11)) return 1;
+  if (!strncmp(path, "hockey/", 7)) return 2;
+  if (!strncmp(path, "football/", 9)) return 3;
+  if (!strncmp(path, "baseball/", 9)) return 4;
+  if (!strncmp(path, "rugby/", 6)) return 5;
+  return 0;
+}
+// fond du widget selon le sport : REMPLISSAGE sombre (texte lisible) mais MARQUAGES du terrain a pleine luminosite (le sport reste reconnaissable ; v408)
+static void spDrawBg(Adafruit_GFX &g, uint8_t k)
+{
+  auto C = [&](int r, int gr, int b) { return display->color565(r * 40 / 100, gr * 40 / 100, b * 40 / 100); };   // remplissage assombri
+  auto L = [&](int r, int gr, int b) { return display->color565(r, gr, b); };                                      // marquages : pleine luminosite
+  switch (k) {
+    case 1: {   // basket : parquet a lattes, lignes du terrain
+      g.fillRect(0, 0, 128, 32, C(130, 68, 22));
+      for (int x = 0; x < 128; x += 8) g.drawFastVLine(x, 0, 32, C(100, 50, 15));
+      const uint16_t l = L(235, 150, 75);
+      g.drawRect(1, 1, 126, 30, l); g.drawFastVLine(63, 1, 9, l); g.drawFastVLine(64, 1, 9, l); g.drawFastVLine(63, 28, 3, l); g.drawFastVLine(64, 28, 3, l);
+      g.drawRect(1, 8, 22, 16, l); g.drawRect(105, 8, 22, 16, l);   // raquettes
+      g.drawCircle(23, 16, 6, l); g.drawCircle(105, 16, 6, l);      // demi-cercles des lancers francs
+    } break;
+    case 2: {   // hockey : glace, ligne rouge centrale, lignes bleues, cercles de mise au jeu
+      g.fillRect(0, 0, 128, 32, C(70, 110, 150));
+      const uint16_t red = L(230, 40, 40), blu = L(70, 120, 240);
+      g.drawFastVLine(63, 0, 10, red); g.drawFastVLine(64, 0, 10, red); g.drawFastVLine(63, 28, 4, red); g.drawFastVLine(64, 28, 4, red);
+      g.drawFastVLine(38, 0, 32, blu); g.drawFastVLine(39, 0, 32, blu); g.drawFastVLine(88, 0, 32, blu); g.drawFastVLine(89, 0, 32, blu);
+      g.drawRect(0, 0, 128, 32, L(150, 190, 230));
+      g.drawCircle(18, 16, 5, red); g.drawCircle(110, 16, 5, red);
+    } break;
+    case 3: {   // football US : herbe, lignes de yards (symetriques autour de la ligne mediane), lignes de but
+      g.fillRect(0, 0, 128, 32, C(30, 140, 50));
+      const uint16_t l = L(210, 235, 210);
+      for (int j = 1; j < 5; j++) { g.drawFastVLine(63 - 12 * j, 0, 32, C(90, 190, 100)); g.drawFastVLine(64 + 12 * j, 0, 32, C(90, 190, 100)); }
+      g.drawFastVLine(15, 0, 32, l); g.drawFastVLine(112, 0, 32, l);
+      g.drawFastVLine(63, 0, 10, l); g.drawFastVLine(64, 0, 10, l); g.drawFastVLine(63, 28, 4, l); g.drawFastVLine(64, 28, 4, l);
+      for (int j = 0; j < 4; j++) for (int q = 0; q < 4; q++) { const int yy = (q == 0) ? 1 : (q == 1) ? 11 : (q == 2) ? 20 : 30; g.drawPixel(57 - 12 * j, yy, l); g.drawPixel(70 + 12 * j, yy, l); }
+    } break;
+    case 4: {   // baseball : herbe, terre du losange, lignes de fond
+      g.fillRect(0, 0, 128, 32, C(35, 150, 55));
+      const uint16_t d = L(215, 160, 90);
+      g.drawLine(64, 1, 91, 16, d); g.drawLine(91, 16, 64, 30, d); g.drawLine(63, 30, 36, 16, d); g.drawLine(36, 16, 63, 1, d);
+      g.fillRect(62, 28, 4, 3, L(240, 240, 240));
+    } break;
+    default: {  // 0 foot / 5 rugby : pelouse a bandes, marquages blancs
+      g.fillRect(0, 0, 128, 32, C(30, 150, 55));
+      for (int x = 0; x < 128; x += 16) g.fillRect(x, 0, 8, 32, C(20, 125, 45));
+      const uint16_t l = L(225, 245, 225);
+      g.drawFastVLine(63, 0, 10, l); g.drawFastVLine(64, 0, 10, l); g.drawFastVLine(63, 28, 4, l); g.drawFastVLine(64, 28, 4, l); g.drawRect(0, 0, 128, 32, l);
+      if (k == 5) { g.drawFastVLine(12, 0, 32, l); g.drawFastVLine(115, 0, 32, l); g.drawFastVLine(24, 0, 32, C(150, 200, 150)); g.drawFastVLine(103, 0, 32, C(150, 200, 150)); }
+      else { g.drawRect(0, 7, 18, 18, l); g.drawRect(110, 7, 18, 18, l); g.drawRect(0, 12, 7, 8, l); g.drawRect(121, 12, 7, 8, l); g.drawCircle(64, 16, 15, C(150, 215, 150)); }
+    } break;
+  }
+}// (pas de fonction a parametre de type SportsM : le generateur de prototypes d'Arduino les placerait AVANT la structure ; l'ajout est donc dans le lambda fin() de spFetchOne)
+
+
+// 1 = reponse lue, 0 = echec (reseau / pas de donnees), -1 = interrompu
+static int spFetchOne(const char *path, bool preview, bool tv, time_t nowT)
+{
+  WiFiClient c;
+  const unsigned long t0 = millis();
+  if (!c.connect("site.api.espn.com", 80, 3000)) { Serial.println(String("[SPORTS] connexion impossible : ") + path + " (" + String(millis() - t0) + " ms)"); return 0; }
+  char req[260];
+  const int rl = snprintf(req, sizeof(req), "GET /apis/site/v2/sports/%s/scoreboard HTTP/1.0\r\nHost: site.api.espn.com\r\nUser-Agent: RecalBoxDMD\r\nAccept: application/json\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n", path);
+  if (rl <= 0 || rl >= (int)sizeof(req)) { c.stop(); Serial.println("[SPORTS] requete tronquee"); return 0; }
+  c.print(req);
+  SpStream s; s.c = &c; s.deadline = millis() + 8000UL; s.lastChk = millis(); s.preview = preview; s.aborted = false; s.noStop = false; s.len = 0; s.pos = 0; s.total = 0; s.wl = 0;
+  static const char *const ND[] = { "\"season\":{\"year\":", "\"state\":\"", "\"shortDetail\":\"", "\"homeAway\":\"", "\"score\":\"", "\"team\":{\"id\":\"", "\"date\":\"", "\"shortDisplayName\":\"" };
+  static const char *const NA[] = { "\"abbreviation\":\"" };
+  char val[24], last[20] = "", dt[20] = "", det[12] = "", ab[2][6] = {{0}, {0}}, nm[2][6] = {{0}, {0}}; bool nmWant[2] = {false, false};
+  bool open = false, home[2] = {false, false}; uint8_t st = 255; int nc = 0, sc[2] = {-1, -1}, ev = 0, kept = 0;
+  auto fin = [&]() {
+    if (!open) return;
+    open = false;
+    if (nc != 2 || st == 255 || !ab[0][0] || !ab[1][0] || sc[0] < 0 || sc[1] < 0) return;
+    if (!spIsFav(ab[0]) && !spIsFav(ab[1])) return;
+    uint32_t tt = 0; const bool hasT = spParseIso(dt, tt);
+    if (tv && hasT) {
+      const long dts = (long)tt - (long)nowT;
+      if (st == 2 && dts < -36L * 3600L) return;                          // termine depuis plus d'un jour et demi : plus d'interet
+      if (st == 0 && (!sportsNext || dts > 14L * 86400L)) return;         // a venir : seulement si demande, et dans les 14 jours
+    }
+    SportsM m; memset(&m, 0, sizeof(m));
+    const int hi = (home[1] && !home[0]) ? 1 : 0;                         // equipe a domicile (sinon la premiere)
+    strncpy(m.h, ab[hi], 5); strncpy(m.a, ab[1 - hi], 5);
+    m.hs = (uint8_t)(sc[hi] > 255 ? 255 : sc[hi]); m.sa = (uint8_t)(sc[1 - hi] > 255 ? 255 : sc[1 - hi]);
+    m.st = st; strncpy(m.det, det, sizeof(m.det) - 1); m.t = hasT ? tt : 0; strncpy(m.lg, spLeagueLabel(path), sizeof(m.lg) - 1); m.sp = spSportKind(path); if (m.sp == 0 && !spNationalPath(path)) { if (nm[hi][0]) strncpy(m.h, nm[hi], 5); if (nm[1 - hi][0]) strncpy(m.a, nm[1 - hi], 5); }   // v413 : clubs de foot = sigle usuel s'il est connu
+    const int32_t key = (st == 1) ? -1 : ((tv && hasT) ? (int32_t)labs((long)tt - (long)nowT) : 0x3FFFFFFF);
+    if (s_spN < SPORTS_MAXM) { s_spM[s_spN] = m; s_spKey[s_spN++] = key; }   // garde les SPORTS_MAXM matchs les plus pertinents (en cours d'abord, puis les plus proches dans le temps)
+    else { int w = 0; for (int i = 1; i < SPORTS_MAXM; i++) if (s_spKey[i] > s_spKey[w]) w = i; if (key < s_spKey[w]) { s_spM[w] = m; s_spKey[w] = key; } }
+    kept++;
+  };
+  for (;;) {
+    const int k = s.seekAny(ND, 8, val, sizeof(val));
+    if (k < 0) break;
+    if (k == 6) { strncpy(last, val, sizeof(last) - 1); last[sizeof(last) - 1] = 0; continue; }     // dernier « date » vu = date du match quand « season » arrive
+    if (k == 0) { fin(); open = true; ev++; strncpy(dt, last, sizeof(dt) - 1); dt[sizeof(dt) - 1] = 0; st = 255; det[0] = 0; nc = 0; sc[0] = sc[1] = -1; ab[0][0] = ab[1][0] = 0; nm[0][0] = nm[1][0] = 0; nmWant[0] = nmWant[1] = false; home[0] = home[1] = false; continue; }
+    if (!open) continue;
+    if (k == 1) { if (st == 255) { if (!strcmp(val, "pre")) st = 0; else if (!strcmp(val, "in")) st = 1; else if (!strcmp(val, "post")) st = 2; } }   // « state » existe aussi dans l'adresse du stade : seules ces 3 valeurs comptent
+    else if (k == 2) { if (!det[0]) { strncpy(det, val, sizeof(det) - 1); det[sizeof(det) - 1] = 0; } }
+    else if (k == 3) { nc++; if (nc <= 2) home[nc - 1] = !strcmp(val, "home"); }
+    else if (k == 4) { const int ci = nc - 1; if (ci >= 0 && ci < 2 && sc[ci] < 0) sc[ci] = atoi(val); }
+    else if (k == 7) { const int ci = nc - 1; if (ci >= 0 && ci < 2 && nmWant[ci] && !nm[ci][0]) { char fn[24]; spFoldName(val, fn, sizeof(fn)); spClubAlias(fn, nm[ci]); } }   // v410 : « shortDisplayName » juste apres l'abbreviation de la meme equipe
+    else if (k == 5) {
+      const int ci = nc - 1;
+      if (ci >= 0 && ci < 2 && !ab[ci][0]) { char a[8]; if (s.seekAny(NA, 1, a, sizeof(a)) < 0) break; strncpy(ab[ci], a, 5); ab[ci][5] = 0; nmWant[ci] = true; }
+    }
+  }
+  fin();
+  c.stop();
+  Serial.println(String("[SPORTS] ") + path + " : " + String(ev) + " matchs, " + String(kept) + " gardes, " + String((unsigned long)s.total) + " o, " + String(millis() - t0) + " ms" + (s.aborted ? " (INTERROMPU)" : ""));
+  if (s.aborted) return -1;
+  return (s.total > 200) ? 1 : 0;
+}
+
+// v406 : liste des equipes d'une competition pour la page /config/sports (ESPN n'autorise pas le CORS : le navigateur ne peut pas l'interroger lui-meme).
+// Sortie « ABR|Nom\n » par equipe (HTTP en flux, rien n'est stocke hors de `out`, 6 Ko au plus).
+bool sportsTeamsFetch(const char *path, String &out)
+{
+  if (WiFi.status() != WL_CONNECTED) return false;
+  WiFiClient c;
+  if (!c.connect("site.api.espn.com", 80, 3000)) return false;
+  char req[260];
+  const int rl = snprintf(req, sizeof(req), "GET /apis/site/v2/sports/%s/teams?limit=300 HTTP/1.0\r\nHost: site.api.espn.com\r\nUser-Agent: RecalBoxDMD\r\nAccept: application/json\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n", path);
+  if (rl <= 0 || rl >= (int)sizeof(req)) { c.stop(); return false; }
+  c.print(req);
+  SpStream s; s.c = &c; s.deadline = millis() + 9000UL; s.lastChk = millis(); s.preview = false; s.aborted = false; s.noStop = true; s.len = 0; s.pos = 0; s.total = 0; s.wl = 0;
+  static const char *const NA[] = { "\"abbreviation\":\"" };
+  static const char *const ND[] = { "\"displayName\":\"" };
+  char ab[8], nm[40]; int n = 0;
+  static const char *const NT[] = { "\"teams\":[" };
+  if (s.seekAny(NT, 1, nullptr, 0) < 0) { c.stop(); return false; }   // saute l'en-tete (sigle et nom de la COMPETITION, qui precedent la liste)
+  while (out.length() < 6000 && n < 80) {
+    if (s.seekAny(NA, 1, ab, sizeof(ab)) < 0) break;
+    if (s.seekAny(ND, 1, nm, sizeof(nm)) < 0) break;
+    if (!ab[0] || !nm[0]) continue;
+    out += ab; out += '|'; out += nm; out += '\n'; n++;
+  }
+  c.stop();
+  Serial.println(String("[SPORTS] equipes ") + path + " : " + String(n) + " (" + String((unsigned long)s.total) + " o)");
+  return n > 0;
+}
+
+static bool decoSportsFetch(bool preview)
+{
+  s_spTried = true; s_spLastTry = millis(); s_spAbort = false;
+  if (WiFi.status() != WL_CONNECTED) { Serial.println("[SPORTS] pas de Wi-Fi"); return false; }
+  const uint32_t maxA = ESP.getMaxAllocHeap();
+  if (maxA < 12000) { Serial.println("[SPORTS] tas insuffisant maxalloc=" + String(maxA)); return false; }
+  time_t nowT; time(&nowT); const bool tv = (nowT > 1700000000L);   // heure synchronisee (apres nov. 2023) ?
+  SportsM oldM[SPORTS_MAXM]; int32_t oldK[SPORTS_MAXM]; const uint8_t oldN = s_spN;   // sauvegarde : un echec total garde les derniers scores
+  memcpy(oldM, s_spM, sizeof(oldM)); memcpy(oldK, s_spKey, sizeof(oldK));
+  s_spN = 0;
+  int okL = 0; const String lg = sportsLeagues; int start = 0;
+  while (start <= (int)lg.length()) {
+    const int c = lg.indexOf(',', start);
+    const String path = (c < 0) ? lg.substring(start) : lg.substring(start, c);
+    if (path.length()) {
+      const int r = spFetchOne(path.c_str(), preview, tv, nowT);
+      if (r < 0) { s_spAbort = true; memcpy(s_spM, oldM, sizeof(oldM)); memcpy(s_spKey, oldK, sizeof(oldK)); s_spN = oldN; return false; }
+      if (r > 0) okL++;
+    }
+    if (c < 0) break;
+    start = c + 1;
+  }
+  if (okL == 0) { memcpy(s_spM, oldM, sizeof(oldM)); memcpy(s_spKey, oldK, sizeof(oldK)); s_spN = oldN; return false; }
+  for (int i = 1; i < s_spN; i++) for (int j = i; j > 0 && s_spKey[j] < s_spKey[j - 1]; j--) { const SportsM tm = s_spM[j]; s_spM[j] = s_spM[j - 1]; s_spM[j - 1] = tm; const int32_t tk = s_spKey[j]; s_spKey[j] = s_spKey[j - 1]; s_spKey[j - 1] = tk; }
+  s_spAnyLive = false; for (int i = 0; i < s_spN; i++) if (s_spM[i].st == 1) s_spAnyLive = true;
+  s_spValid = true; s_spFetchedMs = millis();
+  for (int i = 0; i < s_spN; i++) Serial.println(String("[SPORTS]  ") + s_spM[i].lg + " " + s_spM[i].h + " " + String(s_spM[i].hs) + "-" + String(s_spM[i].sa) + " " + s_spM[i].a + " st=" + String(s_spM[i].st));   // controle des sigles lus
+  Serial.println("[SPORTS] OK " + String(s_spN) + " match(s)" + (s_spAnyLive ? " dont en cours" : "") + " maxalloc avant=" + String(maxA) + " apres=" + String(ESP.getMaxAllocHeap()));
+  return true;
+}
+
+// v408 : texte avec CONTOUR noir complet (les marquages du terrain, a pleine luminosite, passent derriere : le texte les decoupe et reste lisible)
+static void spText(Adafruit_GFX &g, int x, int y, int size, uint16_t col, const char *t)
+{
+  g.setTextWrap(false); g.setTextSize(size);
+  g.setTextColor(0);
+  for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) if (dx || dy) { g.setCursor(x + dx, y + dy); g.print(t); }
+  g.setTextColor(col); g.setCursor(x, y); g.print(t);
+}
+// v409 : PANNEAU MECANIQUE. Cette surface intercepte les pixels du texte et les ramene vers la charnière (y = 16) avec un facteur d'echelle par moitie
+// (sT = moitie haute, sB = moitie basse) : 1 = normal, 0 = replie (invisible, le fond du terrain apparait en entier). Les fonds, eux, sont dessines sur la vraie surface.
+struct SpFlapGfx : public Adafruit_GFX {
+  Adafruit_GFX *t; float sT, sB;
+  SpFlapGfx(Adafruit_GFX *tg, float st, float sb) : Adafruit_GFX(128, 32), t(tg), sT(st), sB(sb) {}
+  void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t c) override { for (int16_t yy = y; yy < y + h; yy++) for (int16_t xx = x; xx < x + w; xx++) drawPixel(xx, yy, c); }   // Pi
+  void drawPixel(int16_t x, int16_t y, uint16_t c) override
+  {
+    const float s = (y < 16) ? sT : sB;
+    if (s >= 0.999f) { t->drawPixel(x, y, c); return; }
+    if (s <= 0.01f) return;
+    t->drawPixel(x, 16 + (int)lroundf((y - 16) * s), c);
+  }
+};
+// x de depart d'un texte de `len` caracteres (corps `size`) dont le centre visible est c2 / 2 (c2 = 127 : centre reel de la dalle, entre les colonnes 63 et 64)
+static int spX(int c2, int len, int size) { const int vis = len * 6 * size - size; return (c2 - (vis - 1)) / 2; }
+
+// v409 : ballon qui tourne sur lui-meme, calcule a chaque image (0 octet de RAM), au centre a la place du « VS » des matchs a venir
+static const float SP_ICO[12][3] = { {0, .5257f, .8507f}, {0, .5257f, -.8507f}, {0, -.5257f, .8507f}, {0, -.5257f, -.8507f}, {.5257f, .8507f, 0}, {.5257f, -.8507f, 0},
+  {-.5257f, .8507f, 0}, {-.5257f, -.8507f, 0}, {.8507f, 0, .5257f}, {.8507f, 0, -.5257f}, {-.8507f, 0, .5257f}, {-.8507f, 0, -.5257f} };
+static uint16_t spSh(int r, int gr, int b, float k)
+{
+  int rr = (int)(r * k), gg = (int)(gr * k), bb = (int)(b * k);
+  if (rr > 255) rr = 255; if (gg > 255) gg = 255; if (bb > 255) bb = 255;
+  return display->color565(rr, gg, bb);
+}
+static void spBall(Adafruit_GFX &g, uint8_t sp, int f, int cx)
+{
+  const float ang = f * 0.13f, ca = cosf(ang), sa = sinf(ang);
+  if (sp == 0 || sp == 1 || sp == 4) {   // spheres : foot, basket, baseball
+    const float ct = 0.9394f, st = 0.3429f;   // axe incline (sinon on ne verrait que des meridiens)
+    for (int py = -9; py < 9; py++) for (int px = -9; px < 9; px++) {
+      const float nx = (px + 0.5f) / 9.0f, ny = (py + 0.5f) / 9.0f, r2 = nx * nx + ny * ny;
+      if (r2 > 1.0f) continue;
+      const float nz = sqrtf(1.0f - r2);
+      const float y1 = ny * ct - nz * st, z1 = ny * st + nz * ct;
+      const float x2 = nx * ca + z1 * sa, z2 = -nx * sa + z1 * ca;
+      float lt = -nx * 0.4f - ny * 0.5f + nz * 0.77f; lt = 0.6f + 0.4f * (lt > 0 ? lt : 0);
+      uint16_t c;
+      if (sp == 0) {
+        bool blk = false; for (int i = 0; i < 12 && !blk; i++) if (x2 * SP_ICO[i][0] + y1 * SP_ICO[i][1] + z2 * SP_ICO[i][2] > 0.93f) blk = true;
+        c = blk ? spSh(25, 25, 30, lt) : spSh(245, 245, 245, lt);
+      } else if (sp == 1) {
+        const bool seam = fabsf(x2) < 0.065f || fabsf(y1) < 0.065f || fabsf(fabsf(x2) - (0.72f - 0.35f * y1 * y1)) < 0.05f;   // cross + deux courbes laterales « ( ) » (retour : les traits n'etaient pas realistes)
+        c = (seam || r2 > 0.74f) ? spSh(30, 16, 8, lt) : spSh(230, 110, 30, lt);   // liseré noir comme sur un ballon dessine
+      } else {
+        const bool s = fabsf(fabsf(x2) - (0.52f + 0.30f * cosf(y1 * 2.2f))) < 0.09f && ((int)((y1 + 1.0f) * 5.0f) % 2) == 0;
+        c = s ? spSh(210, 30, 30, lt) : spSh(245, 245, 240, lt);
+      }
+      g.drawPixel(cx + px, 19 + py, c);
+    }
+    return;
+  }
+  if (sp == 2) {   // palet de hockey : disque qui bascule (la hauteur de l'ellipse varie), tranche sombre visible
+    const int ry = 2 + (int)(6.0f * fabsf(sa));
+    for (int dy = -ry - 3; dy <= ry + 3; dy++) for (int dx = -11; dx < 11; dx++) {
+      const float ex = (dx + 0.5f) / 11.0f, e1 = ex * ex + ((dy + 0.5f) / ry) * ((dy + 0.5f) / ry), e2 = ex * ex + ((dy - 2.0f) / ry) * ((dy - 2.0f) / ry);
+      if (e1 <= 1.0f) g.drawPixel(cx + dx, 18 + dy, (e1 > 0.72f) ? spSh(150, 155, 175, 1.0f) : spSh(75, 78, 92, 1.0f));
+      else if (e2 <= 1.0f) g.drawPixel(cx + dx, 18 + dy, spSh(25, 25, 32, 1.0f));
+    }
+    return;
+  }
+  const int rx = 11, ry = (sp == 3) ? 6 : 7;   // ballons ovales : football US (3) / rugby (5)
+  for (int dy = -ry; dy < ry; dy++) for (int dx = -rx; dx < rx; dx++) {
+    const float ex = (dx + 0.5f) / rx, ey = (dy + 0.5f) / ry;
+    if (ex * ex + ey * ey > 1.0f) continue;
+    float lt = -ey * 0.7f + 0.5f; lt = 0.6f + 0.4f * (lt > 0 ? lt : 0);
+    g.drawPixel(cx + dx, 19 + dy, (sp == 3) ? spSh(150, 75, 30, lt) : spSh(230, 220, 195, lt));
+  }
+  for (int dx = -rx + 2; dx < rx - 2; dx++) {
+    const float ex = (dx + 0.5f) / rx, env = sqrtf(fmaxf(0.0f, 1.0f - ex * ex));
+    if (sp == 3) {
+      if (ca > 0.05f && abs(dx) <= 4) g.drawPixel(cx + dx, 19 + (int)lroundf(ry * env * sa), spSh(240, 240, 240, 1.0f));   // lacets : visibles quand ils font face
+      if (abs(dx + 1) >= 6 && abs(dx + 1) <= 7) for (int yy = -(int)(ry * env * 0.9f); yy <= (int)(ry * env * 0.9f); yy++) g.drawPixel(cx + dx, 19 + yy, spSh(235, 235, 235, 0.9f));   // bandes blanches
+    } else {
+      for (int k = 0; k < 4; k++) { const float a2 = ang + k * 1.5708f; if (cosf(a2) > 0.1f) g.drawPixel(cx + dx, 19 + (int)lroundf(ry * env * sinf(a2)), spSh(90, 70, 50, 1.0f)); }   // coutures
+    }
+  }
+}
+
+// ---- affichage : un match a la fois (5 s chacun), equipes a gauche / droite, score (ou ballon) au centre, etat en haut ; transition « panneau mecanique » entre deux matchs ----
+static void skySportsFg(Adafruit_GFX &g, int f, void *ctx)
+{
+  (void)ctx;
+  if (!s_spN) return;
+  const int n = s_spN, idx = (n > 1) ? (f / 100) % n : 0;
+  const SportsM &m = s_spM[idx];
+  spDrawBg(g, m.sp);   // v406 : fond du sport (a la place du ciel meteo)
+  float sT = 1.0f, sB = 1.0f;   // v409 : les deux moities du panneau se replient sur la charniere (0,3 s), le terrain reste seul 0,35 s, puis le match suivant se deplie
+  if (n > 1) {
+    const int p = f % 100;
+    auto cl = [](float v) { return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v); };
+    if (p >= 88) { sT = cl(1.0f - (p - 88) / 6.0f); sB = cl(1.0f - (p - 91) / 6.0f); }
+    else if (p < 13) { sT = cl((p - 3) / 6.0f); sB = cl((p - 6) / 6.0f); }
+  }
+  SpFlapGfx fg(&g, sT, sB);
+  const bool en = (uiLanguage == "en"), es = (uiLanguage == "es");
+  const uint16_t white = display->color565(235, 235, 245), yel = display->color565(255, 240, 120), grey = display->color565(170, 170, 190), red = display->color565(255, 80, 80);
+  time_t nw; time(&nw); struct tm nt; localtime_r(&nw, &nt);
+  struct tm lt; memset(&lt, 0, sizeof(lt)); const time_t tt = (time_t)m.t; if (m.t) localtime_r(&tt, &lt);
+  const bool tOk = m.t && nt.tm_year >= 100;
+  const long dd = tOk ? decoJdn(lt.tm_year + 1900, lt.tm_mon + 1, lt.tm_mday) - decoJdn(nt.tm_year + 1900, nt.tm_mon + 1, nt.tm_mday) : 0;
+  char top[28]; uint16_t topCol = white;
+  if (m.st == 1) {
+    snprintf(top, sizeof(top), "%s", m.det[0] ? m.det : "LIVE");
+    for (char *p = top; *p; p++) if (*p >= 'a' && *p <= 'z') *p -= 32;
+    topCol = red;
+  } else if (m.st == 2) {
+    const char *fl = (en || es) ? "FINAL" : "TERMINE";
+    if (tOk && dd < 0) { if (en) snprintf(top, sizeof(top), "%s %02d/%02d", fl, lt.tm_mon + 1, lt.tm_mday); else snprintf(top, sizeof(top), "%s %02d/%02d", fl, lt.tm_mday, lt.tm_mon + 1); }
+    else snprintf(top, sizeof(top), "%s", fl);
+    topCol = grey;
+  } else {
+    if (!tOk) snprintf(top, sizeof(top), "--:--");
+    else if (dd <= 0) snprintf(top, sizeof(top), "%02d:%02d", lt.tm_hour, lt.tm_min);
+    else if (dd == 1) snprintf(top, sizeof(top), "%s %02d:%02d", en ? "TOMORROW" : es ? "MANANA" : "DEMAIN", lt.tm_hour, lt.tm_min);
+    else if (en) snprintf(top, sizeof(top), "%02d/%02d %02d:%02d", lt.tm_mon + 1, lt.tm_mday, lt.tm_hour, lt.tm_min);
+    else snprintf(top, sizeof(top), "%02d/%02d %02d:%02d", lt.tm_mday, lt.tm_mon + 1, lt.tm_hour, lt.tm_min);
+    topCol = display->color565(140, 240, 255);
+  }
+  const int tx = spX(127, (int)strlen(top), 1);   // v409 : centre reel de la dalle (63,5), l'heure est donc sur la ligne mediane du terrain
+  spText(fg, tx, 2, 1, topCol, top);
+  if (m.lg[0]) spText(fg, 1, 2, 1, display->color565(255, 210, 80), m.lg);   // v406 : competition (ex. NHL, L1, CDM)
+  if (m.st == 1 && ((f / 8) & 1)) { fg.fillCircle(tx - 6, 5, 2, 0); fg.fillCircle(tx - 7, 4, 2, red); }   // pastille « en direct » qui clignote
+  auto team = [&](const char *ab, int c2) { const int len = (int)strlen(ab); if (len <= 3) spText(fg, spX(c2, len, 2), 12, 2, white, ab); else spText(fg, spX(c2, len, 1), 16, 1, white, ab); };
+  team(m.h, 41); team(m.a, 213);   // centres 20,5 et 106,5 : symetriques par rapport a la ligne mediane
+  if (m.st == 0) spBall(fg, m.sp, f, 64);   // v409 : match a venir = le ballon du sport tourne a la place du « VS »
+  else {
+    char sb[12]; snprintf(sb, sizeof(sb), "%u-%u", (unsigned)m.hs, (unsigned)m.sa);
+    const int sl = (int)strlen(sb), scol = (m.st == 1) ? yel : white;
+    if (sl * 12 <= 46) spText(fg, spX(127, sl, 2), 12, 2, scol, sb); else spText(fg, spX(127, sl, 1), 16, 1, scol, sb);   // scores a 3 chiffres (basket) : petit corps
+  }
+  if (n > 1) { char nb2[8]; snprintf(nb2, sizeof(nb2), "%d/%d", idx + 1, n); spText(fg, 127 - (int)strlen(nb2) * 6, 2, 1, grey, nb2); }   // v406 : compteur en haut a droite
+}
+// v414 : ECRAN « PAS DE DONNEES » (retour utilisateur : un widget saute laissait l'ecran noir quand il etait seul). Tout widget qui depend d'une donnee
+// affiche, quand elle manque, son titre + la raison pendant sa duree habituelle, au lieu d'etre saute. Scores : fond du sport + ballon + competitions suivies.
+#define SPL3(f, e, s) (uiLanguage == "en" ? (e) : uiLanguage == "es" ? (s) : (f))
+struct SpNoData { const char *t, *m1, *m2; uint8_t sp; };   // sp 255 = pas de fond de sport
+static void skyNoDataFg(Adafruit_GFX &g, int f, void *ctx)
+{
+  const SpNoData *c = (const SpNoData *)ctx;
+  const bool sport = (c->sp != 255);
+  if (sport) { spDrawBg(g, c->sp); spBall(g, c->sp, f, 24); }
+  const int c2 = sport ? 171 : 127;   // centre (x2) du bloc de texte : a droite du ballon, ou au milieu de la dalle
+  spText(g, spX(127, (int)strlen(c->t), 1), 2, 1, display->color565(255, 210, 80), c->t);
+  if (c->m1 && c->m1[0]) spText(g, spX(c2, (int)strlen(c->m1), 1), c->m2 ? 13 : 16, 1, display->color565(235, 235, 245), c->m1);
+  if (c->m2 && c->m2[0]) spText(g, spX(c2, (int)strlen(c->m2), 1), 22, 1, display->color565(170, 170, 190), c->m2);
+}
+static bool decoNoData(int id, const char *m1, const char *m2, bool preview, uint8_t sp = 255)
+{
+  static const char *const TF[] = {"HORLOGE", "DATE", "EPHEMERIDE", "COMPTE A REBOURS", "AMBIANCE", "METEO", "", "CITATIONS", "CHALLENGE RB", "RECOMPENSES RB", "SANTE RB", "SCORES"};
+  static const char *const TE[] = {"CLOCK", "DATE", "SUN TIMES", "COUNTDOWN", "AMBIENCE", "WEATHER", "", "QUOTES", "RB CHALLENGE", "RB REWARDS", "RB HEALTH", "SCORES"};
+  static const char *const TS[] = {"RELOJ", "FECHA", "EFEMERIDES", "CUENTA ATRAS", "AMBIENTE", "TIEMPO", "", "CITAS", "RETO RB", "LOGROS RB", "SALUD RB", "MARCADORES"};
+  const int ix = (id >= 0 && id < 12) ? id : 0;
+  SpNoData c; c.t = SPL3(TF[ix], TE[ix], TS[ix]); c.m1 = m1; c.m2 = m2; c.sp = sp;
+  Serial.println(String("[DECO] widget ") + String(id) + " : pas de donnees (" + (m1 ? m1 : "") + "), ecran d'information");
+  unsigned long ms = (id == 7) ? 8000UL : (unsigned long)decoDur[id] * 1000UL; if (ms < 4000UL) ms = 4000UL;
+  const int r = decoSkyRun(ms, preview, decoSkyClass(), skyNoDataFg, &c);
+  display->clearScreen(); display->show();   // Pi : canevas valide par show()
+  if (r < 0) return true;
+  return r == 1;
+}
+
+
+// ---- citations : themes d'origine embarques (firmware, lignes 14834-14897) ----
 // Themes d'origine embarques (copies sur la SD par decoQuotesRestore()). Contenu d'ESSAI : le jeu complet suit apres relecture.
 static const char QT_FR_BISCUIT[] PROGMEM =
   "Un petit pas aujourd'hui vaut mieux qu'un grand projet demain.\n"
@@ -1343,7 +1794,7 @@ static const char QT_ES_CELEBRES[] PROGMEM =
   "La libertad, Sancho, es uno de los mas preciosos dones que a los hombres dieron los cielos; con ella no pueden igualarse los tesoros que encierra la tierra ni el mar encubre. | Miguel de Cervantes, Don Quijote\n"
   "Que toda la vida es sueno, y los suenos, suenos son. | Calderon de la Barca, La vida es sueno\n";
 
-// ---- citations : etat, table des themes (firmware, lignes 14512-14525) ----
+// ---- citations : etat, table des themes (firmware, lignes 14898-14911) ----
 char g_quoteThemeName[26] = "";   // v304 -- theme de citations tire (choix du fond d'image)
 const uint16_t *g_qBg = nullptr;   // fond de la citation en cours (nullptr = noir)
 uint16_t g_qCq = 0, g_qCa = 0xFFFF, g_qShCol = 0; bool g_qShadow = true, g_qOutline = false; uint8_t g_qDim = 55; int g_qX0 = 0, g_qX1 = 128, g_qY0 = 0, g_qY1 = 32;   // v312 : + fenetre verticale (evite les bordures claires du fond)   // v308 : fenetre de texte propre au fond (ex. devinettes : seulement la partie jaune)   // v306d : ombre (couleur) et luminosite du fond (% ; 55 par defaut : les fonds clairs nuisaient a la lisibilite)   // v305 -- couleurs du texte (question / reponse) et ombre portee, propres au fond (fichier <fond>.col)
@@ -1359,7 +1810,7 @@ static const DecoQuoteSet DECO_QUOTE_SETS[] = {
 static bool decoQuoteLangOk(const String &l) { return l == "fr" || l == "en" || l == "es"; }
 
 
-// ---- citations : UTF-8 -> ASCII (firmware, lignes 14575-14593) ----
+// ---- citations : UTF-8 -> ASCII (firmware, lignes 14961-14979) ----
 // UTF-8 -> ASCII (la police n'a pas d'accents) : sur place.
 static void decoAscii(char *s)
 {
@@ -1380,14 +1831,14 @@ static void decoAscii(char *s)
 }
 
 
-// ---- citations : vitesse de defilement (firmware, lignes 14635-14639) ----
+// ---- citations : vitesse de defilement (firmware, lignes 15021-15025) ----
 // Affichage : defilement vertical d'un texte (+ suite). POLICE ET STYLE DE L'ECRAN DESCRIPTION DES JEUX (drawScoreScreen) :
 // TomThumb 3x5, tout en MAJUSCULES, or (255,200,0), lignes CENTREES (avances reelles tomThumbCharAdvance()), pas de ligne de 8 px
 // (4 lignes dans 32 px). Le texte est dessine UNE fois dans un GFXcanvas1 (1 bit) puis une fenetre de 32 lignes est recopiee point a
 // point a chaque image (voir v282). La suite (auteur / reponse) est en blanc.
 #define QUOTE_STEP_MS 100   // 1 pixel toutes les 100 ms (~10 px/s, ~1 s par ligne) : a ajuster apres essai sur la dalle
 
-// ---- QCM : decoupe de texte TomThumb (firmware, lignes 14640-14668) ----
+// ---- QCM : decoupe de texte TomThumb (firmware, lignes 15026-15054) ----
 // ============ v287 -- QCM (quiz a choix multiples) ============
 // Decoupe un texte en <= maxLines lignes de <= maxPx pixels (avances TomThumb), retourne le nombre de lignes, ou -1 si ca ne tient pas.
 static int decoWrapTT(const char *t, char (*lines)[40], uint8_t *widths, int maxLines, int maxPx)
@@ -1418,7 +1869,7 @@ static int decoTTWidth(const char *s) { int w = 0; for (; *s; s++) w += tomThumb
 // Aucun fichier = fond noir comme avant. Le fond est lu UNE fois par citation dans le tampon raw565FullBuf (8 Ko, deja alloue par drawRaw565) ; texte avec ombre portee.
 // ==================================================================
 
-// ---- citations : fond, texte, QCM, defilement (firmware, lignes 14710-14905) ----
+// ---- citations : fond, texte, QCM, defilement (firmware, lignes 15083-15296) ----
 static void decoQuoteBgLoadImpl();
 static void decoQuoteBgLoad() { decoQuoteBgLoadImpl(); Serial.println(String("[DECO] fond citation : theme=") + g_quoteThemeName + (g_qBg ? " -> fond charge" : " -> aucun fond (noir)") + ", heap=" + String(ESP.getMaxAllocHeap())); }
 static void decoQuoteBgLoadImpl()

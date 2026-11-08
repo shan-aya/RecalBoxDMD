@@ -1,6 +1,6 @@
 // clock.cpp -- horloge a themes. Reutilise TELS QUELS le code du firmware :
-//   * clock_themes.h (10 themes retro, genere par generate_clock_themes.py) via la couche compat/ ;
-//   * clock_ambient.inc (5 themes animes, extrait du .ino par tools/port_clock_ambient.py).
+//   * clock_themes.h (5 themes retro dont Neon a 4 styles, v404) via la couche compat/ ;
+//   * clock_ambient.inc (4 themes animes Plasma/Life/Stars/Rain, extrait du .ino par tools/port_clock_ambient.py).
 // Seuls le sequencement (non bloquant) et la lecture de l'heure sont reecrits ici.
 #include "clock.h"
 
@@ -32,6 +32,7 @@ uint8_t clockNeonR = 255, clockNeonG = 40, clockNeonB = 120;  // defauts = rose 
 int32_t clockAnimCol[5] = {-1, -1, -1, -1, -1};               // couleur d'animation des themes animes (0xRRGGBB, -1 = auto)
 int32_t clockDigitCol[5] = {-1, -1, -1, -1, -1};              // couleur des chiffres
 uint16_t g_clkColorVer = 0;                                   // incremente a chaque changement de couleur en direct
+int clockNeonStyle = 0;                                        // v404 : style du theme Neon (0 Neon, 1 Matrix, 2 Fire, 3 Rainbow)
 
 #include "clock_themes.h"       // dossier parent (firmware) : RETRO_THEME_COUNT, drawRetroClockTheme(), retroThemeNames
 #include "clock_ambient.inc"    // decoClockAmbient() et ses dependances
@@ -39,10 +40,11 @@ uint16_t g_clkColorVer = 0;                                   // incremente a ch
 #pragma GCC diagnostic pop
 
 namespace {
-constexpr int CLOCK_THEME_TOTAL = RETRO_THEME_COUNT + 5;  // 10 retro + Plasma, Life, Stars, Rain, Lava
+constexpr int CLOCK_THEME_TOTAL = RETRO_THEME_COUNT + 4;  // v404 : 5 retro (Tetris, Pac-Man, Invaders, Pong, Neon) + Plasma, Life, Stars, Rain
 
 const char *clockThemeName(int i) {
-  static const char *extra[5] = {"Plasma", "Life", "Stars", "Rain", "Lava"};
+  static const char *extra[4] = {"Plasma", "Life", "Stars", "Rain"};
+  if (i == 4) return neonStyleNames[(clockNeonStyle >= 0 && clockNeonStyle <= 3) ? clockNeonStyle : 0];  // le theme 4 porte le nom de son style
   return (i < RETRO_THEME_COUNT) ? retroThemeNames[i] : extra[i - RETRO_THEME_COUNT];
 }
 
@@ -94,13 +96,30 @@ void Clock::attach(Display &d) {
   display = &d;
 }
 
+void Clock::readCfg(const Config &cfg, int &theme, int &mask, int &neonStyle) {
+  // v404 : 15 -> 9 themes. clock_schema >= 2 = numerotation compacte ; sinon migration de l'ancienne (0 Mario, 1 Tetris, 2 Pac-Man,
+  // 3 Invaders, 4 Pong, 5 Neon, 6 Matrix, 7 Fire, 8 Rainbow, 9 Level 1-1, 10 Plasma, 11 Life, 12 Stars, 13 Rain, 14 Lava).
+  static const int8_t MAP[15] = {-1, 0, 1, 2, 3, 4, 4, 4, 4, -1, 5, 6, 7, 8, -1};
+  const bool v2 = cfg.getInt("clock_schema", 1) >= 2;
+  int ns = cfg.getInt("clock_neon_style", 0);
+  theme = cfg.getInt("clock_theme", -1);
+  mask = cfg.getInt("clock_themes_mask", v2 ? 0x1FF : 0x7FFF);
+  if (!v2) {
+    if (theme >= 5 && theme <= 8) ns = theme - 5;
+    theme = (theme >= 0 && theme < 15) ? MAP[theme] : -1;  // theme supprime -> aleatoire
+    int nm = 0;
+    for (int i = 0; i < 15; i++)
+      if (((mask >> i) & 1) && MAP[i] >= 0) nm |= (1 << MAP[i]);
+    mask = nm;
+  }
+  neonStyle = (ns >= 0 && ns <= 3) ? ns : 0;
+  if (theme < -1 || theme >= CLOCK_THEME_TOTAL) theme = -1;
+  if (!(mask > 0 && mask <= 0x1FF)) mask = 0x1FF;
+}
+
 void Clock::configure(const Config &cfg) {
-  theme_ = cfg.getInt("clock_theme", -1);
-  if (theme_ < -1 || theme_ >= CLOCK_THEME_TOTAL) theme_ = -1;
-  int mask = cfg.getInt("clock_themes_mask", 0x7FFF);
-  if (mask == 0x3FFF) mask = 0x7FFF;  // l'ancien « tous » (10 themes + 4) devient « tous »
-  mask_ = (mask > 0 && mask <= 0x7FFF) ? mask : 0x7FFF;
-  const std::string col = cfg.get("clock_color");
+  readCfg(cfg, theme_, mask_, cfgNeonStyle_);
+  clockNeonStyle = cfgNeonStyle_;  const std::string col = cfg.get("clock_color");
   if (col.size() == 7 && col[0] == '#') {
     const unsigned long cv = std::strtoul(col.c_str() + 1, nullptr, 16);
     clockNeonR = (cv >> 16) & 0xFF;
@@ -152,7 +171,8 @@ void Clock::drawBanner() {
   d_->print(name);
 }
 
-void Clock::begin(uint64_t now, int forceTheme) {
+void Clock::begin(uint64_t now, int forceTheme, int neonStyle) {
+  clockNeonStyle = (neonStyle >= 0 && neonStyle <= 3) ? neonStyle : cfgNeonStyle_;  // v404 : un apercu d'un autre style ne survit pas a sa session
   const bool preview = (forceTheme != -2);
   const int source = preview ? forceTheme : theme_;
   current_ = (source >= 0 && source < CLOCK_THEME_TOTAL) ? source : pickTheme(-1);

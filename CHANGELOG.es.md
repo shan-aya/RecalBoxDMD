@@ -8,6 +8,14 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-08 — Firmware 4.16, demonio Pi 3.80, caja de herramientas 15093: widget Marcadores, flash liberada
+
+- **Widget Marcadores (ESP32 4.16 y Pi 3.80)**: los partidos **en directo** (marcador, minuto), **próximos** (el balón, el disco… gira en el centro) y **terminados** se alternan en pantalla, para **fútbol, baloncesto, hockey, fútbol americano, béisbol y rugby**. Hasta **3 competiciones** y **4 equipos favoritos** (página web «Marcadores»), siglas habituales (OM, PSG, OL…), fondo de campo propio de cada deporte, sin cuenta ni clave. Una pantalla «sin datos» sustituye a la pantalla negra cuando un widget depende de un dato no disponible.
+- **Relojes: de 15 temas a 9** (Tetris, Pac-Man, Invaders, Pong, Neón en 4 estilos, Plasma, Vida, Estrellas, Lluvia). Tus ajustes se migran automáticamente al tema más parecido.
+- **Flash liberada (firmware 4.16)**: las 12 imágenes de fondo de los widgets y las páginas de la interfaz web están ahora en la **tarjeta SD**. La actualización por Wi-Fi las descarga sola (por HTTPS, verificadas con SHA-256); si falta una página, el DMD muestra una página de emergencia con un enlace «Reintentar». La tarjeta SD sigue siendo imprescindible, como antes.
+- **Página Widgets**: un 2.º guardado en la misma pestaña ya no restablece los ajustes anteriores (el reloj se reactivaba).
+- **Caja de herramientas 15093**: el **Modo 1** copia también a la tarjeta SD las imágenes de fondo y el paquete de páginas del firmware ≥ 4.05.
+
 ## 2026-11-07 — Firmware 4.03, demonio Pi 3.79, caja de herramientas 14992: quiz con disposición fija
 
 - **Quiz (QCM) en ESP32 4.03 y Pi 3.79**: la barra de cuenta atrás (2 px) ya no se mueve sea cual sea la longitud de la pregunta; la **pregunta se muestra en dorado** (más fácil de leer), centrada encima; las **respuestas** se centran debajo y pasan a **2 líneas** si hace falta, incluso bajo una pregunta de 3 líneas (antes se cortaban); el dígito de la cuenta atrás está alineado con la barra.
