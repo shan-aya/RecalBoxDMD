@@ -1,9 +1,9 @@
 {
   "name": "RecalBoxDMD — RawEdition",
-  "version": "4.03",
+  "version": "4.05",
   "scripts": 9,
-  "app_sha256": "4a6d3e41fa4f9aa595a129493dd41b860d16a0f4d7f8e977b2eb557c0ad7e8aa",
-  "app_size": 1944768,
+  "app_sha256": "f93ec4df8c3f098a874621ab70362e58945a98e556422c55732e5292a0d9788c",
+  "app_size": 1710576,
   "toolkit": 14992,
   "pi": "3.79",
   "boot_anim_ver": 1,
@@ -35,5 +35,29 @@
         }
       ]
     }
-  ]
+  ],
+  "wbg_biscuit-chinois.raw565_size": 8192,
+  "wbg_biscuit-chinois.raw565_sha256": "9835fedece1d844fede315da7b31d4c7205794787afd9ee44f66c9b99729ac29",
+  "wbg_blagues.col_size": 35,
+  "wbg_blagues.col_sha256": "b16f2f9557bd2532596447ba96081b3194d8a3963938ce68991ffc4a77b9e2c2",
+  "wbg_blagues.raw565_size": 8192,
+  "wbg_blagues.raw565_sha256": "e5077f24d20b1ac3f1c32b58e9eb1023b93459924a69529655265ad5fd8ef434",
+  "wbg_citations-celebres.col_size": 35,
+  "wbg_citations-celebres.col_sha256": "30dd974dabc5939e61a660a419263695e6c632c2fa12e59617560a6c306e1329",
+  "wbg_citations-celebres.raw565_size": 8192,
+  "wbg_citations-celebres.raw565_sha256": "682246ffccffbe77d60cc9adfd281e9bde3abf764928d04e253dd867e412585d",
+  "wbg_devinettes.col_size": 36,
+  "wbg_devinettes.col_sha256": "80d76766e376c645f5e9612a87af0cc7db18c6e948ae6b589594b9e5688856b2",
+  "wbg_devinettes.raw565_size": 8192,
+  "wbg_devinettes.raw565_sha256": "47b0b67aadfd277c6ae013496108801b432f03c0104068ba7220ae739dbbe303",
+  "wbg_quiz-retrogaming.raw565_size": 8192,
+  "wbg_quiz-retrogaming.raw565_sha256": "ce490a2f07792dde0dc5d3aa48434de73342a2fb28705443658842dbeb63ad73",
+  "wbg_quiz.raw565_size": 8192,
+  "wbg_quiz.raw565_sha256": "c053d47624f0c5957fd33a15a586186aef74198bd6da5792371c14510b35027b",
+  "wbg_rb-challenge.raw565_size": 8192,
+  "wbg_rb-challenge.raw565_sha256": "4540c0a18162fd5320a57e613abd2172f1184bf0bf1decd19ce1a776774ecc67",
+  "wbg_rb-health.raw565_size": 8192,
+  "wbg_rb-health.raw565_sha256": "831494321bdd016c03552187f130a511e26b310c6c8e05a597b9e9d42856cf69",
+  "wbg_rb-rewards.raw565_size": 8192,
+  "wbg_rb-rewards.raw565_sha256": "4281e51b759d06eb09532d53b8454e4c2515a25e69f1c4dec28adf8dd954913b"
 }
