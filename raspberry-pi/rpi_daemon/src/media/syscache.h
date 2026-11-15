@@ -23,6 +23,9 @@ class SysCache {
   char slowFlag(const std::string &sys) const;         // flag agrege 'L'/'N' ('N' si inconnu)
   char bucketSlowFlag(const std::string &sys, char bucketLetter) const;  // par bucket, repli sur le flag agrege
   size_t count() const { return e_.size(); }
+  // v3.82 : elargit le type d'un systeme apres l'envoi d'un visuel par le toolkit : une ANIMATION dans un systeme 'p' le fait passer a 'B' (un 'p' ne lit jamais un .raw565pack),
+  // une image fixe dans un 'g' aussi (comme _sysc_update() du toolkit pour la SD). Jamais l'inverse. Ne reecrit QUE la lettre de type de la ligne (les autres champs sont conserves).
+  bool widen(const SdFs &fs, const std::string &sys, bool anim);
 
  private:
   struct Entry {

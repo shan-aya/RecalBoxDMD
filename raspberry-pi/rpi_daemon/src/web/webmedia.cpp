@@ -72,6 +72,17 @@ bool logoNameOk(const std::string &n) {
     if (c <= 32 || c >= 127 || std::strchr("\\/:*?\"<>|", c)) return false;
   return true;
 }
+// v3.82 (non publiee) : ANIMATION de navigation d'un jeu = <jeu>.raw565pack (2 a 600 images de 8192 octets) + <jeu>.meta (2 octets par image : delai en ms), memes regles de nom que le logo fixe ;
+// le meta (si non nul) renseigne *meta. Ces deux fichiers passent par kind=logo comme le .raw565.
+bool logoAnimNameOk(const std::string &n, bool *meta) {
+  size_t ext = 0;
+  bool m = false;
+  if (n.size() > 11 && n.compare(n.size() - 11, 11, ".raw565pack") == 0) ext = 11;
+  else if (n.size() > 5 && n.compare(n.size() - 5, 5, ".meta") == 0) { ext = 5; m = true; }
+  else return false;
+  if (meta) *meta = m;
+  return logoNameOk(n.substr(0, n.size() - ext) + ".raw565");
+}
 std::string slug(const std::string &in) {  // minuscules, [a-z0-9_-], espaces -> '-', 24 car. max
   std::string o;
   for (size_t i = 0; i < in.size() && o.size() < 24; i++) {
@@ -368,6 +379,8 @@ void WebConfig::registerMediaRoutes() {
       bool isBg = kind == "qbg", isQuote = kind == "quote", isDef = kind == "defimg", isReels = kind == "reels", isLogo = kind == "logo";
       const bool reelsRaw = isReels && name.size() > 7 && name.compare(name.size() - 7, 7, ".raw565") == 0;
       size_t limit = 0;
+      bool animMeta = false;
+      const bool animFile = isLogo && logoAnimNameOk(name, &animMeta);
       if (gen_->active) err = "ERR: generation de playlist en cours";
       else if (dir.empty()) err = "ERR: dossier cible manquant";
       else if (name.empty()) err = "ERR: nom fichier invalide";
@@ -385,11 +398,18 @@ void WebConfig::registerMediaRoutes() {
         }
       } else if (isLogo) {   // v3.75 : logo d'un jeu envoye par le toolkit. dir = systeme (doit deja exister) ; ecrit la ou le logo du jeu est deja (plat ou sous-dossier de lettre), sinon dans <lettre|#>/
         if (!logoSysOk(dir) || !fs_.isDir("/systems/" + dir)) err = "ERR: systeme inconnu";
-        else if (!logoNameOk(name)) err = "ERR: nom de logo invalide";
-        else {
-          const std::string flat = "/systems/" + dir + "/" + name, sub = alphaSubdirPath(flat);
-          dirPath = (!fs_.exists(sub) && fs_.exists(flat)) ? "/systems/" + dir : sub.substr(0, sub.rfind('/'));
-          limit = 8192;
+        else if (!animFile && !logoNameOk(name)) err = "ERR: nom de logo invalide";
+        else {   // emplacement : la ou se trouve deja un des fichiers du jeu (logo fixe, animation, delais), a plat ou dans le sous-dossier de sa lettre
+          const std::string stemName = name.substr(0, name.rfind('.'));
+          bool inFlat = false, inSub = false;
+          for (const char *e : {".raw565", ".raw565pack", ".meta"}) {
+            const std::string fl = "/systems/" + dir + "/" + stemName + e;
+            inFlat = inFlat || fs_.exists(fl);
+            inSub = inSub || fs_.exists(alphaSubdirPath(fl));
+          }
+          const std::string sub = alphaSubdirPath("/systems/" + dir + "/" + name);
+          dirPath = (!inSub && inFlat) ? "/systems/" + dir : sub.substr(0, sub.rfind('/'));
+          limit = animFile ? (animMeta ? 1200u : 600u * 8192u) : 8192u;
         }
       } else if (isDef) {   // image de secours envoyee par le toolkit : nom impose, 8192 octets exactement
         name = "default.raw565";
@@ -428,7 +448,9 @@ void WebConfig::registerMediaRoutes() {
           err = "ERR: un logo doit faire 8192 octets (128x32 raw565)";
         } else if (isReels && name == "_index.bin" && (sent == 0 || sent % 4 != 0 || sent > 16384)) {
           err = "ERR: index de logos invalide";
-        } else if (isLogo && sent != 8192) {
+        } else if (animFile && (animMeta ? (sent < 4 || sent > limit || sent % 2 != 0) : (sent < 16384 || sent > limit || sent % 8192 != 0))) {
+          err = animMeta ? "ERR: delais invalides (2 octets par image, 2 images au moins)" : "ERR: une animation fait 2 a 600 images de 8192 octets";
+        } else if (isLogo && !animFile && sent != 8192) {
           err = "ERR: un logo doit faire 8192 octets (128x32 raw565)";
         } else if (isReels || isLogo) {   // temporaire puis renommage : un envoi interrompu ne laisse jamais un logo tronque
           const std::string tmp = real(path) + ".tmp";
@@ -471,14 +493,14 @@ void WebConfig::registerMediaRoutes() {
   // GET /logo-info?dir=<systeme>&name=<jeu>.raw565 -> {"exists":false} ou {"exists":true,"where":"letter"|"flat","size":N,"fnv":"xxxxxxxx"} (FNV-1a 32 bits du fichier entier, comme /boot-anim)
   // GET /logo?dir=<systeme>&name=<jeu>.raw565       -> les octets du fichier (404 si absent)
   auto logoExisting = [this](const std::string &dir, const std::string &name, bool *flatOut) -> std::string {
-    if (!logoSysOk(dir) || !logoNameOk(name)) return "";
+    if (!logoSysOk(dir) || !(logoNameOk(name) || logoAnimNameOk(name, nullptr))) return "";
     const std::string flat = "/systems/" + dir + "/" + name, sub = alphaSubdirPath(flat);
     *flatOut = !fs_.exists(sub) && fs_.exists(flat);
     return fs_.exists(sub) ? sub : (*flatOut ? flat : std::string());
   };
   web_.get("/logo-info", [this, logoExisting](const WebRequest &r) {
     const std::string dir = trim(r.arg("dir")), name = baseName(r.arg("name"));
-    if (!logoSysOk(dir) || !logoNameOk(name)) return text(400, "ERR: systeme ou nom de logo invalide");
+    if (!logoSysOk(dir) || !(logoNameOk(name) || logoAnimNameOk(name, nullptr))) return text(400, "ERR: systeme ou nom de logo invalide");
     bool flat = false;
     const std::string path = logoExisting(dir, name, &flat);
     std::vector<uint8_t> data;
@@ -488,8 +510,8 @@ void WebConfig::registerMediaRoutes() {
       h ^= b;
       h *= 16777619u;
     }
-    char out[112];
-    std::snprintf(out, sizeof(out), "{\"exists\":true,\"where\":\"%s\",\"size\":%u,\"fnv\":\"%08x\"}", flat ? "flat" : "letter", (unsigned)data.size(), (unsigned)h);
+    char out[144];
+    std::snprintf(out, sizeof(out), "{\"exists\":true,\"where\":\"%s\",\"size\":%u,\"fnv\":\"%08x\",\"frames\":%u}", flat ? "flat" : "letter", (unsigned)data.size(), (unsigned)h, (unsigned)(data.size() / 8192));
     return json(out);
   });
   web_.get("/logo", [this, logoExisting](const WebRequest &r) {
@@ -505,18 +527,36 @@ void WebConfig::registerMediaRoutes() {
     return rep;
   });
 
+  // v3.81 (non publiee) : GET /games-snapshot -> les octets de /custom/games.json, la liste des jeux du dernier scrape (Mode 1) avec le drapeau « c » des cartes texte ; 404 si absent.
+  // Lecture SEULE : l'onglet Personnalisation du toolkit s'en sert pour reconnaitre les cartes texte d'un Pi en Wi-Fi (une carte est un .raw565 comme un autre, rien d'autre ne la distingue d'un logo).
+  // Plafond 16 Mo (environ 200 000 jeux) ; au-dela, 404 : le toolkit retombe sur son comportement sans instantane.
+  web_.get("/games-snapshot", [this](const WebRequest &) {
+    std::vector<uint8_t> data;
+    if (!fs_.readAll("/custom/games.json", data) || data.empty() || data.size() > 16u * 1024u * 1024u) return text(404, "ERR: instantane absent");
+    WebReply rep;
+    rep.contentType = "application/json";
+    rep.body.assign(reinterpret_cast<const char *>(data.data()), data.size());
+    return rep;
+  });
   // POST /logo-delete?dir=<systeme>&name=<jeu>.raw565 : supprime CE fichier de logo (jamais un dossier) -> {"deleted":true,"where":"letter"|"flat"} ; 404 si absent. Le toolkit s'en sert pour « Retablir l'original »
   // apres avoir garde l'original (GET /logo) : le jeu retombe sinon sur l'image par defaut du systeme.
   web_.post("/logo-delete", [this, real, logoExisting](const WebRequest &r) {
     const std::string dir = trim(r.arg("dir")), name = baseName(r.arg("name"));
-    if (!logoSysOk(dir) || !logoNameOk(name)) return text(400, "ERR: systeme ou nom de logo invalide");
+    bool animMeta = false;
+    const bool anim = logoAnimNameOk(name, &animMeta);
+    if (!logoSysOk(dir) || !(logoNameOk(name) || anim)) return text(400, "ERR: systeme ou nom de logo invalide");
     if (gen_->active) return text(409, "ERR: generation de playlist en cours");
     bool flat = false;
     const std::string path = logoExisting(dir, name, &flat);
     if (path.empty()) return text(404, "ERR: logo absent");
     if (std::remove(real(path).c_str()) != 0) return text(500, "ERR: suppression impossible");
     logf("WEB", "logo supprime : %s", path.c_str());
-    const std::vector<std::string> gone{dir + "/" + name.substr(0, name.size() - 7)};
+    if (anim && !animMeta) {   // supprimer l'animation retire aussi ses delais (jamais un .meta orphelin)
+      bool mflat = false;
+      const std::string metaPath = logoExisting(dir, name.substr(0, name.size() - 11) + ".meta", &mflat);
+      if (!metaPath.empty() && std::remove(real(metaPath).c_str()) == 0) logf("WEB", "delais supprimes : %s", metaPath.c_str());
+    }
+    const std::vector<std::string> gone{dir + "/" + name.substr(0, name.rfind('.'))};
     eng_.runOnMain([&] { eng_.gameLogosChanged(gone); });
     return json(std::string("{\"deleted\":true,\"where\":\"") + (flat ? "flat" : "letter") + "\"}");
   });
@@ -528,6 +568,7 @@ void WebConfig::registerMediaRoutes() {
     const bool dry = r.arg("dry") == "1";
     std::vector<std::pair<std::string, std::string>> adds;
     std::vector<std::string> args;
+    std::vector<std::pair<std::string, bool>> widen;   // v3.82 : (systeme, animation?) dont le type d'image doit couvrir ce qui vient d'arriver
     int invalid = 0, nologo = 0;
     const std::string all = r.arg("games");
     size_t start = 0;
@@ -540,16 +581,24 @@ void WebConfig::registerMediaRoutes() {
       bool flat = false;
       if (!logoSysOk(sys) || !logoNameOk(stem + ".raw565")) {
         invalid++;
-      } else if (logoExisting(sys, stem + ".raw565", &flat).empty()) {
-        nologo++;
       } else {
-        adds.push_back({sys, stem});
-        args.push_back(sys + "/" + stem);
+        const bool hasStatic = !logoExisting(sys, stem + ".raw565", &flat).empty(), hasAnim = !logoExisting(sys, stem + ".raw565pack", &flat).empty();
+        if (!hasStatic && !hasAnim) {   // un jeu qui n'a qu'une animation a bien un visuel
+          nologo++;
+        } else {
+          adds.push_back({sys, stem});
+          args.push_back(sys + "/" + stem);
+          if (hasAnim) widen.push_back({sys, true});
+          if (hasStatic) widen.push_back({sys, false});
+        }
       }
     }
     bool identical = false;
     const int added = GamesCache::addGames(fs_, adds, dry, &identical);
-    if (!dry) eng_.runOnMain([&] { eng_.gameLogosChanged(args); });
+    if (!dry) eng_.runOnMain([&] {
+      eng_.widenSystemTypes(widen);   // un systeme 'p' ne lit jamais un .raw565pack : il devient 'B' des qu'un jeu y recoit une animation
+      eng_.gameLogosChanged(args);
+    });
     const int known = added < 0 ? 0 : (int)adds.size() - added;
     return json(std::string("{\"added\":") + std::to_string(added < 0 ? 0 : added) + ",\"known\":" + std::to_string(known) + ",\"nologo\":" + std::to_string(nologo) + ",\"invalid\":" + std::to_string(invalid) +
                 ",\"cache\":\"" + (added < 0 ? "unavailable" : "ok") + "\",\"identical\":" + (identical ? "true" : "false") + "}");

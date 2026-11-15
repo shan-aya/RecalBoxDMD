@@ -126,9 +126,19 @@ DMD_UDP_IP_FALLBACK="192.168.0.51"
 DMD_UDP_IP_CACHE="/tmp/dmd_udp_ip"
 DMD_UDP_PORT=5005
 send_udp() {
-    DMD_UDP_IP=$(cat "$DMD_UDP_IP_CACHE" 2>/dev/null)
-    [ -n "$DMD_UDP_IP" ] || DMD_UDP_IP="$DMD_UDP_IP_FALLBACK"
-    python3 -c "import socket,sys; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(sys.argv[1].encode('utf-8','replace'), (sys.argv[2], int(sys.argv[3])))" "$1" "$DMD_UDP_IP" "$DMD_UDP_PORT" 2>/dev/null
+    # v57 (SCRIPTS_BUNDLE 10) -- PLUSIEURS DMD : le payload part vers TOUS les afficheurs listes dans /tmp/dmd_udp_ips (un par ligne, tenu par dmd_udp_resync.py :
+    # ceux qui se sont annonces a CETTE Recalbox, donc ceux dont la liste d'adresses Recalbox de la page web contient cette Recalbox) ; sinon cache a adresse unique, sinon IP de secours.
+    # La lecture des fichiers est faite par python3 (aucun fork shell de plus).
+    python3 -c "import socket,sys
+p=sys.argv[1]
+ips=[]
+for f in (sys.argv[3], sys.argv[4]):
+    try: ips=open(f).read().split()
+    except Exception: ips=[]
+    if ips: break
+if not ips: ips=[sys.argv[5]]
+s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+for ip in ips: s.sendto(p.encode('utf-8','replace'),(ip,int(sys.argv[2])))" "$1" "$DMD_UDP_PORT" /tmp/dmd_udp_ips "$DMD_UDP_IP_CACHE" "$DMD_UDP_IP_FALLBACK" 2>/dev/null
 }
 
 # Fonctions actives du DMD : /tmp/dmd_features_cache, ecrit par

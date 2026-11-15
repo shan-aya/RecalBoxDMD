@@ -131,6 +131,11 @@ static bool decoQuoteBgTry(const char *name);   // definis plus bas (SD)
 static bool decoBgEnsure(const char *file);
 static int decoSkyRun(unsigned long durMs, bool preview, int cls, void (*fg)(Adafruit_GFX &, int, void *), void *ctx);   // definie plus bas ; utilisee par decoNoData (genere)
 
+// v418 -- OBJETS FLOTTANTS du widget Liquide : chargeur de sprites du firmware (liquid_floaters.h, copie generee) compile avec LQ_RPI = fichiers stdio ; lqOpen() est definie plus bas (SD du Pi + sprite embarque)
+#define LQ_RPI 1
+#include "liquid_floaters.h"
+#include "liquid_spr_data.h"   // sprites embarques (ecrits sur la SD s'ils manquent, comme les fonds d'image)
+
 #include "widgets_fw.inc"
 
 // ----------------------------------------------------------------------------------------------------------------- SD : citations et fonds d'image
@@ -199,6 +204,26 @@ static bool decoBgEnsure(const char *file) {
     return ok;
   }
   return false;
+}
+
+// v418 -- ouvre un sprite des objets flottants (/widgets/liquid/<nom>.spr) : s'il est ABSENT de la SD il est ecrit depuis le demon (jamais d'ecrasement), puis le chemin reel est resolu comme pour les autres fichiers
+LqFile lqOpen(const char *sdPath) {
+  LqFile f;
+  if (!g_fs) return f;
+  if (!g_fs->exists(sdPath)) {
+    const char *base = std::strrchr(sdPath, '/');
+    base = base ? base + 1 : sdPath;
+    for (unsigned i = 0; i < sizeof(DECO_LIQ_ASSETS) / sizeof(DECO_LIQ_ASSETS[0]); i++) {
+      if (strcmp(DECO_LIQ_ASSETS[i].file, base) != 0) continue;
+      const bool ok = sdWrite(sdPath, DECO_LIQ_ASSETS[i].data, DECO_LIQ_ASSETS[i].len);
+      Serial.println(String("[DECO] sprite ") + base + (ok ? " ecrit sur la SD (embarque dans le demon)" : " : ECHEC d'ecriture"));
+      break;
+    }
+  }
+  const std::string real = g_fs->resolve(sdPath);
+  if (real.empty()) return f;
+  f.fp = std::fopen(real.c_str(), "rb");
+  return f;
 }
 
 // themes d'origine de la langue : ecrase les fichiers du meme nom ; retourne le nombre de fichiers ecrits
@@ -454,8 +479,10 @@ static bool decoRunWidgetImpl(int id, bool preview) {
       display->show();
       decoWeatherFetch();
     }
-    Serial.println("[DECO] widget meteo (" + String((int)decoDur[5]) + " s)");
-    return skyOrSkip("meteo", (unsigned long)decoDur[5] * 1000UL, decoSkyClass(), skyWxFg, nullptr);
+    const bool wxOk = s_wx.valid && (millis() - s_wx.fetchedMs) <= 3UL * 3600UL * 1000UL;   // v420 : meteo injoignable = 3 s au lieu de la duree programmee
+    const unsigned long wxMs = wxOk ? (unsigned long)decoDur[5] * 1000UL : 3000UL;
+    Serial.println("[DECO] widget meteo (" + String((int)(wxMs / 1000UL)) + " s" + (wxOk ? "" : ", sans donnees") + ")");
+    return skyOrSkip("meteo", wxMs, decoSkyClass(), skyWxFg, nullptr);
   }
   if (id == 6) return true;  // widget « Statistiques Recalbox » retire du firmware : identifiant reserve, jamais joue
   if (id == 7) {
@@ -561,6 +588,27 @@ void Widgets::feedRbw(const std::string &arg) { rbwParse(String(arg)); }
 
 void Widgets::previewSpec(const std::string &specIn) {
   std::string wa = specIn, ll;
+  // v418 : suffixe « ~<type>[,<objet>[,<nom>]] » (apres le lieu « @lat,lon ») = type de liquide force (0..5, -1 = hasard), avec / sans objet flottant (0 / 1) et sprite impose (a-z0-9, « + » pour un 2e objet), POUR CET APERCU SEULEMENT
+  int pLq = -2, pLqObj = -1;
+  std::string pLqName;
+  {
+    const size_t tl = wa.rfind('~');
+    if (tl != std::string::npos) {
+      const std::string t = wa.substr(tl + 1);
+      wa = wa.substr(0, tl);
+      const size_t c1 = t.find(',');
+      pLq = std::atoi(t.substr(0, c1).c_str());
+      if (c1 != std::string::npos) {
+        const size_t c2 = t.find(',', c1 + 1);
+        pLqObj = std::atoi(t.substr(c1 + 1, c2 == std::string::npos ? std::string::npos : c2 - c1 - 1).c_str());
+        if (c2 != std::string::npos) {
+          pLqName = t.substr(c2 + 1);
+          for (char &ch : pLqName) if (ch >= 'A' && ch <= 'Z') ch = (char)(ch + 32);
+          for (char ch : pLqName) if (!((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '+')) { pLqName.clear(); break; }
+        }
+      }
+    }
+  }
   const size_t at = wa.find('@');
   if (at != std::string::npos) { ll = wa.substr(at + 1); wa = wa.substr(0, at); }   // lieu affiche dans la page (brouillon non enregistre)
   std::vector<std::string> f;
@@ -598,7 +646,16 @@ void Widgets::previewSpec(const std::string &specIn) {
     decoLat = (float)std::atof(ll.substr(0, cm).c_str());
     decoLon = (float)std::atof(ll.substr(cm + 1).c_str());
   }
+  const int oldLqF = decoLiqForce, oldLqO = decoLiqObj;   // v418 : valeurs temporaires du widget Liquide, restaurees apres l'apercu
+  char oldLqN[16];
+  std::snprintf(oldLqN, sizeof(oldLqN), "%s", decoLiqObjName);
+  if (wid == 4 && pLq >= -1 && pLq <= 5) decoLiqForce = pLq;
+  if (wid == 4 && pLqObj >= 0) decoLiqObj = pLqObj ? 1 : 0;
+  if (wid == 4 && !pLqName.empty() && pLqName.size() < sizeof(decoLiqObjName)) std::snprintf(decoLiqObjName, sizeof(decoLiqObjName), "%s", pLqName.c_str());
   decoRunWidget(wid, true);
+  decoLiqForce = oldLqF;
+  decoLiqObj = oldLqO;
+  std::snprintf(decoLiqObjName, sizeof(decoLiqObjName), "%s", oldLqN);
   decoLat = oldLa;
   decoLon = oldLo;
   decoDur[wid] = oldDur;
@@ -642,6 +699,7 @@ void Widgets::configure(const Config &cfg, const uint8_t dur[12]) {
   decoPlace.trim();
   const int amb = std::atoi(get("amb", "0").c_str());
   decoAmbStyle = (uint8_t)((amb >= 0 && amb <= 8) ? amb : 0);
+  decoLiqObj = (get("liq_obj", "1") == "0") ? 0 : 1;   // v418 : avec / sans objet flottant (widget Liquide) ; WIDGET_LIQ_OBJ (ou DECO_LIQ_OBJ)
   for (int n = 1; n <= 8; n++)
     for (int k = 0; k < 2; k++) {
       const std::string base = std::string("ambc_") + char('0' + n) + "_" + (k ? "b" : "a");

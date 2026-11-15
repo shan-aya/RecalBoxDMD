@@ -81,4 +81,10 @@ for old, new in PATCHES:
         raise SystemExit("patch Pi inapplicable (le code du firmware a change) : " + old[:60])
     gen = gen.replace(old, new)
 out.write_text(gen, encoding="utf-8")
+# v418 : liquid_floaters.h (chargeur de sprites des objets flottants, utilise par decoAmbLiquid) : COPIE dans src/ui (elle se compile ici avec LQ_RPI : fichiers stdio au lieu de la classe File de l'ESP32)
+lq_src = ino.parent / "liquid_floaters.h"
+if lq_src.exists():
+    banner = "// COPIE GENEREE par tools/port_widgets.py depuis ../../liquid_floaters.h (firmware ESP32) -- NE PAS EDITER ICI : modifier l'original puis relancer le script.\n"
+    (out.parent / "liquid_floaters.h").write_text(banner + lq_src.read_text(encoding="utf-8", errors="replace"), encoding="utf-8")
+    print("liquid_floaters.h copie dans src/ui")
 print(f"{out} : " + ", ".join(f"{label} {b - a} lignes" for label, a, b, _ in parts) + f" (firmware {fw})")

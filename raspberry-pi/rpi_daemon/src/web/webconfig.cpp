@@ -407,6 +407,7 @@ WebReply WebConfig::load() {
   add("btn_vlong_ms", std::to_string(cfg_.getInt("btn_vlong_ms", 10000)));
   add("deco_qtheme", wg("qtheme"));
   add("deco_amb", std::to_string(clampi(std::atoi(wg("amb", "0").c_str()), 0, 8)));
+  add("deco_liqobj", wg("liq_obj", "1") == "0" ? "0" : "1");   // v418 : avec / sans objet flottant (widget Liquide)
   add("deco_lava_oil", colorHex(hexColor(wg("lava_oil"))));
   add("deco_lava_wax", colorHex(hexColor(wg("lava_wax"))));
   for (int n = 1; n <= 7; n++) {
@@ -667,6 +668,7 @@ WebReply WebConfig::save(const WebRequest &r) {
     const int v = toInt(arg("deco_amb"));
     if (v >= 0 && v <= 8) kv["WIDGET_AMB"] = std::to_string(v);
   }
+  if (has("deco_liqobj")) kv["WIDGET_LIQ_OBJ"] = (arg("deco_liqobj") == "0") ? "0" : "1";   // v418 : avec / sans objet flottant (widget Liquide)
   if (has("deco_lava_oil")) kv["WIDGET_LAVA_OIL"] = colorHex(hexColor(arg("deco_lava_oil")));
   if (has("deco_lava_wax")) kv["WIDGET_LAVA_WAX"] = colorHex(hexColor(arg("deco_lava_wax")));
   for (int n = 1; n <= 7; n++) {

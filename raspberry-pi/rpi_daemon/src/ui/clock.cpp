@@ -178,10 +178,9 @@ void Clock::begin(uint64_t now, int forceTheme, int neonStyle) {
   current_ = (source >= 0 && source < CLOCK_THEME_TOTAL) ? source : pickTheme(-1);
   themeStartMs_ = now;
   endMs_ = now + (uint64_t)durationSec_ * 1000ULL;  // la duree compte depuis le debut, bandeau du nom compris
-  drawBanner();  // nom du theme pendant 800 ms
-  bannerEndMs_ = now + 800;
+  // v417 : plus de banniere du nom de theme (demande utilisateur) ; l'etat BANNER se termine au premier tick (efface l'ecran puis demarre le theme)
+  bannerEndMs_ = now;
   state_ = State::BANNER;
-  d_->show();
 }
 
 bool Clock::tick(uint64_t now) {

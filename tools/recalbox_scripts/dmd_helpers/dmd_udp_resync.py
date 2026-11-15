@@ -2,7 +2,9 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v13
+# Version actuelle : v20
+#
+# v20 - 2026-11-09 - safe-modify - PLUSIEURS AFFICHEURS (ex. 1 ESP32 + 1 Raspberry Pi sur la meme Recalbox) : jusqu'ici /tmp/dmd_udp_ip ne gardait que le DERNIER afficheur qui avait ecrit, si bien que l'autre ne recevait plus rien (veille, navigation, jeux). Nouveau fichier /tmp/dmd_udp_ips (une adresse par ligne) = tous les afficheurs annonces a CETTE Recalbox ; les scripts d'envoi (marquee, dmd_score, dmd_achievement, dmd_rbwidgets) envoient a chacun. Le CHOIX se fait dans la page web de chaque DMD (liste d'adresses Recalbox + Recalbox cible) : un DMD ne contacte que les Recalbox de sa liste, donc 2 Recalbox + 2 DMD restent possibles (chacun a la sienne). Inscription sur tout paquet recu (HELLO, FEATURES, PING ; les sondes d'un DMD en mode auto n'ont lieu que si sa Recalbox active est muette) ; retrait apres 120 s de silence (ping toutes les 15 s). /tmp/dmd_udp_ip garde le dernier qui a parle (dmd_vpx_config, compatibilite). SCRIPTS_BUNDLE 9 -> 10.
 #
 # v13 - 2026-10-07 - safe-modify - FAUSSE ALERTE « scripts Recalbox a mettre a jour » apres un Mode 9 + redemarrage de la Recalbox (DMD reste allume) : « CMD=scriptver » n'etait envoye que sur un HELLO (demarrage / reconnexion Wi-Fi du DMD), jamais quand seule la Recalbox redemarre ; le DMD n'avait donc aucun numero et la page web (web_config.h : Recalbox muette depuis >= 90 s => scripts anciens) affichait l'alerte. Le numero est maintenant AUSSI annonce (1) en reponse au message FEATURES, que le DMD renvoie des que ses pings reviennent apres une coupure de la Recalbox, et (2) au 1er PING recu par DMD depuis le demarrage de ce script. Aucun changement du firmware ni de la page. SCRIPTS_BUNDLE 2 -> 3.
 #
@@ -152,6 +154,9 @@ FEATURES_PREFIX = "FEATURES:"
 # (hello/PING/FEATURES, peu importe le type) -- lue par marquee.sh/
 # dmd_score.sh/dmd_achievement.sh au lieu de leur ancienne IP codee en dur.
 DMD_IP_CACHE_PATH = "/tmp/dmd_udp_ip"
+DMD_IPS_PATH = "/tmp/dmd_udp_ips"   # v20 -- tous les afficheurs annonces a cette Recalbox (un par ligne)
+DMD_TARGET_TTL_S = 120              # v20 -- retrait d'un afficheur muet depuis ce delai
+_dmd_targets = {}                   # v20 -- ip -> derniere reception (time.time())
 # v6 -- theme Recalbox (voir changelog v6).
 RECALBOX_CONF_PATH = "/recalbox/share/system/recalbox.conf"
 _last_theme_sent = {}  # ip du DMD -> dernier (options, theme) envoye (changement detecte sur les PING)
@@ -222,6 +227,35 @@ def compute_current_state():
     return [("default", "1")]
 
 
+def write_dmd_targets():
+    # v20 -- ecrit /tmp/dmd_udp_ips (best-effort), du plus recent au plus ancien.
+    try:
+        ips = sorted(_dmd_targets, key=lambda k: _dmd_targets[k], reverse=True)
+        with open(DMD_IPS_PATH, "w") as f:
+            f.write("\n".join(ips) + ("\n" if ips else ""))
+    except Exception as e:
+        log(f"ERREUR ecriture {DMD_IPS_PATH}: {e}")
+
+
+def prune_dmd_targets():
+    now = time.time()
+    gone = [ip for ip, ts in _dmd_targets.items() if now - ts > DMD_TARGET_TTL_S]
+    for ip in gone:
+        del _dmd_targets[ip]
+        log(f"afficheur {ip} retire (muet depuis plus de {DMD_TARGET_TTL_S} s)")
+    if gone:
+        write_dmd_targets()
+
+
+def touch_dmd_target(ip, text):
+    # v20 -- inscrit / rafraichit l'afficheur sur TOUT paquet recu (HELLO, FEATURES, PING). Un DMD ne contacte que les Recalbox de sa liste ; ses sondes (autres Recalbox) n'ont lieu que si sa Recalbox active est muette, et il bascule alors sur celle qui repond.
+    known = ip in _dmd_targets
+    _dmd_targets[ip] = time.time()
+    if not known:
+        log(f"afficheur {ip} inscrit (afficheurs : {', '.join(_dmd_targets)})")
+        write_dmd_targets()
+
+
 def update_dmd_ip_cache(ip):
     # v5 -- best-effort, appele a CHAQUE paquet recu -- voir DMD_IP_CACHE_PATH.
     try:
@@ -231,7 +265,7 @@ def update_dmd_ip_cache(ip):
         log(f"ERREUR ecriture {DMD_IP_CACHE_PATH}: {e}")
 
 
-SCRIPTS_BUNDLE = 9   # v19 -- marquee v56 : le pont survit au bouton d'alimentation du Pi 5 en jeu (Recalbox 11 : ES termine tout son arbre de processus) -- detache d'ES (setsid), reconnexion de mosquitto_sub, DMD remis en navigation (8 -> 9) ; v18 -- nouveau script manuel « DMD Diagnostic » (CMD=diag : mode diagnostic Wi-Fi / Recalbox du DMD ; firmware 4.00, demon Pi 3.76) (7 -> 8) ; v17 -- marquee v44 : logos de jeu daphne/Singe en navigation (6 -> 7) ; v16 -- nouveaux scripts dmd_rbwidgets (widgets Recalbox challenge / recompenses / sante, UDP CMD=rbw ; firmware 3.50) (5 -> 6) ; v15 -- dmd_vpx_config v3 : ecrit l'adresse ZeDMD WiFi de Recalbox (dmd.zedmd.wifi) dans la config Visual Pinball (4 -> 5) ; v14 -- fusion mode natif / fenetre RA : dmd_achievement v9 (3 -> 4) ; a incrementer a chaque modification d'un script publie
+SCRIPTS_BUNDLE = 10   # v20 -- plusieurs afficheurs par Recalbox (/tmp/dmd_udp_ips) : dmd_udp_resync v20, marquee v57, dmd_score, dmd_achievement, dmd_rbwidgets v2 (9 -> 10) ; v19 -- marquee v56 : le pont survit au bouton d'alimentation du Pi 5 en jeu (Recalbox 11 : ES termine tout son arbre de processus) -- detache d'ES (setsid), reconnexion de mosquitto_sub, DMD remis en navigation (8 -> 9) ; v18 -- nouveau script manuel « DMD Diagnostic » (CMD=diag : mode diagnostic Wi-Fi / Recalbox du DMD ; firmware 4.00, demon Pi 3.76) (7 -> 8) ; v17 -- marquee v44 : logos de jeu daphne/Singe en navigation (6 -> 7) ; v16 -- nouveaux scripts dmd_rbwidgets (widgets Recalbox challenge / recompenses / sante, UDP CMD=rbw ; firmware 3.50) (5 -> 6) ; v15 -- dmd_vpx_config v3 : ecrit l'adresse ZeDMD WiFi de Recalbox (dmd.zedmd.wifi) dans la config Visual Pinball (4 -> 5) ; v14 -- fusion mode natif / fenetre RA : dmd_achievement v9 (3 -> 4) ; a incrementer a chaque modification d'un script publie
 THEME_PACKET_GAP_S = 0.5   # v9 -- ecart entre CMD=themeopt et CMD=theme
 DEFAULT_THEME_FOLDER = "recalbox-next"   # valeur par defaut de emulationstation.theme.folder dans Recalbox 9/10/11
 
@@ -310,12 +344,20 @@ def main():
     listen_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     listen_sock.bind(("0.0.0.0", UDP_HELLO_PORT))
+    listen_sock.settimeout(30)   # v20 -- purge periodique des afficheurs muets
+    try:
+        os.remove(DMD_IPS_PATH)   # v20 -- liste vide au demarrage (reconstruite par les annonces)
+    except OSError:
+        pass
     send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     log(f"demarre, ecoute UDP {UDP_HELLO_PORT}, repond a l'IP source de chaque paquet recu")
 
     while True:
         try:
             data, addr = listen_sock.recvfrom(256)
+        except socket.timeout:
+            prune_dmd_targets()   # v20 -- retrait des afficheurs muets
+            continue
         except Exception as e:
             log(f"ERREUR recvfrom: {e}")
             time.sleep(1)
@@ -324,6 +366,9 @@ def main():
         # v5 -- apprend l'IP reelle du DMD de CHAQUE paquet recu, peu importe
         # son type -- voir DMD_IP_CACHE_PATH.
         update_dmd_ip_cache(addr[0])
+        text_head = data.decode("utf-8", "replace")
+        touch_dmd_target(addr[0], text_head)   # v20
+        prune_dmd_targets()
 
         # v2 -- distingue desormais 2 types de message sur ce port (avant,
         # v1 traitait TOUT paquet comme un "hello") :

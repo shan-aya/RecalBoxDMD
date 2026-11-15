@@ -8,6 +8,16 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-15 — Firmware 4.20, démon Pi 3.82, boîte à outils 15994 : plusieurs DMD sur une même Recalbox
+
+- **Plusieurs DMD sur une même Recalbox** (scripts Recalbox version 10) : tout DMD qui s'annonce à une Recalbox est alimenté par ses scripts (marquee, scores, succès, widgets), et non plus seulement le dernier arrivé — un ESP32 et un Raspberry Pi suivent désormais la même Recalbox ensemble, même avec une seule adresse. Le choix reste dans la page web de chaque DMD ; 2 Recalbox + 2 DMD restent possibles. **Relancez le Mode 9** pour installer les scripts.
+- **Widget Liquide** : un objet flotte dans le bac — canard (cire), Benchy (sirop), ballon de plage (miel), Poké Ball (mercure), requin (eau et huile). Flottaison propre à chaque liquide, cap avec inertie, roulis. Réglage « Objet flottant » dans la page Widgets (« sans » = comme avant) ; les sprites sont sur la carte SD et se téléchargent à la mise à jour. ESP32 et Pi.
+- **Widget Récompenses Recalbox** : un texte trop long fait l'aller-retour pendant toute la page (jamais coupé en plein défilement). **Horloges** : plus d'annonce du nom du thème.
+- **Widgets sans données** : l'écran d'information dure 3 secondes au lieu de la durée programmée du widget.
+- **Mise à jour par Wi-Fi plus fiable (firmware 4.19)** : un fichier perdu à l'écriture sur la carte SD est redemandé jusqu'à 3 fois (0 échec sur 61 téléchargements, contre environ 20 % auparavant).
+- **Démon Pi 3.82** : mêmes widgets et horloges que le firmware 4.20 (objets flottants, aller-retour, écran de 3 s) ; il lit aussi les animations `.raw565pack` en navigation et expose une route de lecture seule `GET /games-snapshot`.
+- **Boîte à outils 15994** : l'onglet **Diagnostic** est refait (cartes signal / latence / perte, deux courbes lisibles, historique coloré) ; l'aide intégrée décrit désormais les sept onglets ; le **Mode 1** copie aussi les sprites des objets flottants sur la carte SD.
+
 ## 2026-11-08 — Firmware 4.16, démon Pi 3.80, boîte à outils 15093 : widget Scores, flash libérée
 
 - **Widget Scores (ESP32 4.16 et Pi 3.80)** : les matchs **en direct** (score, minute), **à venir** (le ballon, le palet… tourne au centre) et **terminés** défilent sur l'écran, pour le **foot, le basket, le hockey, le football US, le baseball et le rugby**. Jusqu'à **3 compétitions** et **4 équipes favorites** (page web « Scores »), sigles usuels (OM, PSG, OL…), fond de terrain propre à chaque sport, sans compte ni clé. Un écran « pas de données » remplace l'écran noir quand un widget dépend d'une donnée indisponible.

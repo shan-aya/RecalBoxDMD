@@ -8,7 +8,7 @@
 
 <p align="center">
   <img alt="Firmware : v4.16" src="https://img.shields.io/badge/firmware-v4.16-blueviolet.svg">
-  <img alt="Outil PC : v15093" src="https://img.shields.io/badge/outil%20PC-v15093-blueviolet.svg">
+  <img alt="Outil PC : v15994" src="https://img.shields.io/badge/outil%20PC-v15994-blueviolet.svg">
   <a href="LICENSE"><img alt="Licence : MIT" src="https://img.shields.io/badge/licence-MIT-green.svg"></a>
   <img alt="Plateformes : ESP32 et Raspberry Pi" src="https://img.shields.io/badge/plateformes-ESP32%20%7C%20Raspberry%20Pi-blue.svg">
   <img alt="Panneau : HUB75 128x32" src="https://img.shields.io/badge/panneau-HUB75%20128x32-blue.svg">
@@ -145,7 +145,7 @@ Chaque widget : **désactivé**, **à la place de l'horloge** ou **en plus**, av
 👉 Le détail de chaque écran : [Les écrans en détail](#-les-écrans-en-détail).
 
 ### Et aussi
-- 🔁 **Plusieurs Recalbox, un seul DMD** — jusqu'à 4 IP ; le DMD **bascule seul** sur celle qui est allumée.
+- 🔁 **Plusieurs Recalbox, un seul DMD** — jusqu'à 4 IP ; le DMD **bascule seul** sur celle qui est allumée. **Et plusieurs DMD sur une même Recalbox** (ex. un ESP32 et un Raspberry Pi).
 - 🔘 **Bouton physique** (GPIO 21) — appui court / double / long / très long, chacun avec l'action de votre choix.
 - 📶 **Diagnostic Wi-Fi / Recalbox** — signal, point d'accès, perte, latence et gigue vers la Recalbox, sur la dalle (appui court sur BOOT, ou une action du bouton) et sur une page web qui explique comment lire les valeurs. [Détails](#-diagnostic-wi-fi--recalbox).
 - 🌗 **Planificateur de luminosité** — 24 plages, une par heure.
@@ -372,7 +372,7 @@ Le logiciel du Pi est **téléchargé depuis GitHub** (release `pi-v…`, SHA-25
 
 ## 🧰 La boîte à outils PC — le centre de l'installation
 
-C'est l'application Windows (FR / EN / ES, 9 habillages visuels) qui **construit tout** : carte SD, scripts, thèmes, GIF, mises à jour — pour l'ESP32 comme pour le Raspberry Pi. Manuel complet : [`HELP.fr.md`](tools/RecalBoxDMD_tool_v15093/HELP.fr.md) (aussi dans l'onglet *Aide*).
+C'est l'application Windows (FR / EN / ES, 9 habillages visuels) qui **construit tout** : carte SD, scripts, thèmes, GIF, mises à jour — pour l'ESP32 comme pour le Raspberry Pi. Manuel complet : [`HELP.fr.md`](tools/RecalBoxDMD_tool_v15994/HELP.fr.md) (aussi dans l'onglet *Aide*).
 
 | Main · SNES | Paramètres · Dreamcast |
 |---|---|
@@ -646,7 +646,7 @@ Page web **Widgets** (`/config/widgets`). Chacun est **désactivé**, **à la pl
 | 📅 **Date** | carte de calendrier avec jour de la semaine ; dimanches et jours fériés en couleur | heure (NTP) |
 | 🌅 **Éphéméride** | lever, coucher, durée du jour, **phase de la lune** | lieu |
 | ⏳ **Compte à rebours** | jours restants avant vos événements (10 max, annuel ou unique) | heure |
-| 🌀 **Ambiance** | 8 animations : plasma, pluie, étoiles, jeu de la vie, liquide, sable, **sable 2**, **lampe à lave** ; couleurs réglables | — |
+| 🌀 **Ambiance** | 8 animations : plasma, pluie, étoiles, jeu de la vie, liquide (un objet y flotte), sable, **sable 2**, **lampe à lave** ; couleurs réglables | — |
 | 🌦️ **Météo** | température, ▲▼ min/max, conditions ; noms de lieu longs défilants | lieu + Internet (open-meteo.com, toutes les 30 min) |
 | 💬 **Citations et quiz** | citations, blagues, devinettes, **quiz à 3 choix**, fonds illustrés | — |
 | 🏆 **Recalbox : challenge** | challenge en cours, jours restants, **top 3 avec ▲▼**, votre rang et vos GG | scripts Recalbox |
@@ -689,6 +689,8 @@ Page web **Widgets** (`/config/widgets`). Chacun est **désactivé**, **à la pl
 **Widgets Recalbox.** Un petit script sur la Recalbox lit ses propres fichiers (challenge, classement, mouvements, lignes `[Health]` du journal, température, mémoire, disque) et envoie un résumé au DMD en UDP (`CMD=rbw`) **toutes les 2 minutes** (`dmd_rbwidgets[watch](permanent).sh` + `dmd_helpers/dmd_rbwidgets.py`, installés par le Mode 9). Sans données reçues, les widgets sont sautés sans bruit. Durées par défaut : challenge 15 s, **récompenses 30 s** (8 s minimum par récompense, textes longs défilants), santé 15 s.
 
 **Plusieurs Recalbox, un seul DMD.** Listez jusqu'à **4 IP** (page Wi-Fi, ou `recalbox_ips=`) et choisissez **Cible = Automatique** ou une Recalbox imposée. Le DMD reste sur celle qui répond ; quand elle s'éteint, il **sonde les autres et bascule seul**, sans reconfiguration ni redémarrage. Les paquets de l'autre Recalbox listée sont ignorés pour ne jamais mélanger deux consoles. La boîte à outils (Modes 1 et 9) accepte aussi plusieurs IP.
+
+**Plusieurs DMD sur une même Recalbox.** Chaque DMD qui s'annonce à une Recalbox est alimenté par elle (marquee, scores, succès, widgets) : un ESP32 et un Raspberry Pi peuvent donc afficher la même Recalbox en même temps, y compris avec une seule adresse. Le choix reste dans la page web de chaque DMD (sa liste d'adresses Recalbox et sa cible) : avec 2 Recalbox et 2 DMD, chacun suit la sienne. Un DMD qui se tait depuis 2 minutes n'est plus alimenté. Nécessite les scripts Recalbox de la version 10 (**Mode 9**).
 
 **Bouton physique.** Un bouton entre **GPIO 21 et GND** (pull-up interne). La page **Bouton** associe une action à chaque geste : **court**, **double**, **long** (~1,5 s), **très long** (~5 s) — GIF suivant, pause/reprise, horloge tout de suite, luminosité, écran éteint, écran d'infos, URL de config, redémarrer… (les actions de maintenance seulement sur le très long).
 

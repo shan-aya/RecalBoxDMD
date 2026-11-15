@@ -8,6 +8,16 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-15 — Firmware 4.20, Pi daemon 3.82, toolkit 15994: several DMDs on one Recalbox
+
+- **Several DMDs on one Recalbox** (Recalbox scripts version 10): every DMD that announces itself to a Recalbox is fed by its scripts (marquee, scores, achievements, widgets), instead of only the last one to arrive — an ESP32 and a Raspberry Pi now follow the same Recalbox together, even with a single address. The choice stays in each DMD's web page; 2 Recalbox + 2 DMDs remain possible. **Re-run Mode 9** to install the scripts.
+- **Liquid widget**: an object floats in the tank — duck (wax), Benchy (syrup), beach ball (honey), Poké Ball (mercury), shark (water and oil). Buoyancy specific to each liquid, heading with inertia, roll. A “Floating object” setting in the Widgets page (“none” = as before); the sprites live on the SD card and are downloaded on update. ESP32 and Pi.
+- **Recalbox Rewards widget**: a text that is too long scrolls back and forth for the whole page (never cut mid-scroll). **Clocks**: no more theme-name announcement.
+- **Widgets without data**: the information screen lasts 3 seconds instead of the widget's programmed duration.
+- **More reliable Wi-Fi update (firmware 4.19)**: a file lost while being written to the SD card is requested again up to 3 times (0 failures out of 61 downloads, against about 20 % before).
+- **Pi daemon 3.82**: same widgets and clocks as firmware 4.20 (floating objects, back-and-forth, 3 s screen); it also plays `.raw565pack` animations in browsing and exposes a read-only `GET /games-snapshot` route.
+- **Toolkit 15994**: the **Diagnostic** tab is redesigned (signal / latency / loss cards, two readable curves, colour history); the built-in help now describes the seven tabs; **Mode 1** also copies the floating-object sprites to the SD card.
+
 ## 2026-11-08 — Firmware 4.16, Pi daemon 3.80, toolkit 15093: Scores widget, flash freed
 
 - **Scores widget (ESP32 4.16 and Pi 3.80)**: **live** (score, clock), **upcoming** (the ball, puck… spins in the middle) and **finished** matches cycle on the screen, for **soccer, basketball, hockey, American football, baseball and rugby**. Up to **3 competitions** and **4 favourite teams** (“Scores” web page), usual club codes (OM, PSG, OL…), a pitch background per sport, no account or key. A “no data” screen replaces the black screen when a widget depends on unavailable data.

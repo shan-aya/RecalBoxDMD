@@ -44,6 +44,47 @@ char SysCache::bucketSlowFlag(const std::string &sys, char bucketLetter) const {
   return e->slow;  // repli : flag systeme agrege
 }
 
+bool SysCache::widen(const SdFs &fs, const std::string &sys, bool anim) {
+  Entry *en = nullptr;
+  for (auto &x : e_)
+    if (x.name == sys) {
+      en = &x;
+      break;
+    }
+  if (!en || !((anim && en->type == 'p') || (!anim && en->type == 'g'))) return false;
+  std::vector<uint8_t> data;
+  if (!fs.readAll("/systems_cache.dat", data)) return false;
+  std::istringstream in(std::string(data.begin(), data.end()));
+  std::string line, out;
+  bool changed = false;
+  while (std::getline(in, line)) {
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    const size_t p = line.find_first_not_of(" \t");
+    if (!changed && p != std::string::npos && (line[p] == 'p' || line[p] == 'g') && p + 1 < line.size() && line[p + 1] == ' ') {
+      std::string rest = trim(line.substr(p + 2));
+      const size_t sp = rest.find(' ');
+      if ((sp == std::string::npos ? rest : rest.substr(0, sp)) == sys) {
+        line[p] = 'B';
+        changed = true;
+      }
+    }
+    out += line;
+    out += '\n';
+  }
+  if (!changed) return false;
+  const std::string path = fs.resolve("/systems_cache.dat"), tmp = path + ".tmp";
+  FILE *f = std::fopen(tmp.c_str(), "wb");
+  if (!f) return false;
+  const bool ok = std::fwrite(out.data(), 1, out.size(), f) == out.size();
+  std::fclose(f);
+  if (!ok || std::rename(tmp.c_str(), path.c_str()) != 0) {
+    std::remove(tmp.c_str());
+    return false;
+  }
+  en->type = 'B';
+  return true;
+}
+
 bool SysCache::load(const SdFs &fs) {
   std::vector<uint8_t> data;
   if (!fs.readAll("/systems_cache.dat", data)) return false;

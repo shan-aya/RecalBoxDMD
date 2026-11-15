@@ -8,7 +8,7 @@
 
 <p align="center">
   <img alt="Firmware: v4.16" src="https://img.shields.io/badge/firmware-v4.16-blueviolet.svg">
-  <img alt="PC tool: v15093" src="https://img.shields.io/badge/PC%20tool-v15093-blueviolet.svg">
+  <img alt="PC tool: v15994" src="https://img.shields.io/badge/PC%20tool-v15994-blueviolet.svg">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green.svg"></a>
   <img alt="Platforms: ESP32 and Raspberry Pi" src="https://img.shields.io/badge/platforms-ESP32%20%7C%20Raspberry%20Pi-blue.svg">
   <img alt="Panel: HUB75 128x32" src="https://img.shields.io/badge/panel-HUB75%20128x32-blue.svg">
@@ -145,7 +145,7 @@ Each widget: **off**, **instead of the clock** or **in addition**, with its own 
 👉 Every screen in detail: [Screens in detail](#-screens-in-detail).
 
 ### And also
-- 🔁 **Several Recalbox, one DMD** — up to 4 IPs; the DMD **switches by itself** to the one that is on.
+- 🔁 **Several Recalbox, one DMD** — up to 4 IPs; the DMD **switches by itself** to the one that is on. **And several DMDs on one Recalbox** (e.g. an ESP32 and a Raspberry Pi).
 - 🔘 **Physical button** (GPIO 21) — short / double / long / very long press, each with the action of your choice.
 - 📶 **Wi-Fi / Recalbox diagnostic** — signal, access point, loss, latency and jitter towards the Recalbox, on the panel (short press on BOOT, or a button action) and on a web page that explains how to read the values. [Details](#-wi-fi--recalbox-diagnostic).
 - 🌗 **Brightness scheduler** — 24 slots, one per hour.
@@ -372,7 +372,7 @@ The Pi software is **downloaded from GitHub** (`pi-v…` release, SHA-256 checke
 
 ## 🧰 The PC Toolkit — the heart of the installation
 
-The Windows application (FR / EN / ES, 9 visual skins) that **builds everything**: SD card, scripts, themes, GIFs, updates — for the ESP32 and the Raspberry Pi alike. Full manual: [`HELP.md`](tools/RecalBoxDMD_tool_v15093/HELP.md) (also in the *Help* tab).
+The Windows application (FR / EN / ES, 9 visual skins) that **builds everything**: SD card, scripts, themes, GIFs, updates — for the ESP32 and the Raspberry Pi alike. Full manual: [`HELP.md`](tools/RecalBoxDMD_tool_v15994/HELP.md) (also in the *Help* tab).
 
 | Main · SNES | Settings · Dreamcast |
 |---|---|
@@ -646,7 +646,7 @@ Shown between games (adjustable interval / duration) or continuously, with an **
 | 📅 **Date** | calendar card with the weekday; Sundays and public holidays in colour | time (NTP) |
 | 🌅 **Ephemeris** | sunrise, sunset, day length, **moon phase** | location |
 | ⏳ **Countdown** | days left to your events (10 max, yearly or one-off) | time |
-| 🌀 **Ambiance** | 8 animations: plasma, rain, stars, game of life, liquid, sand, **sand 2**, **lava lamp**; adjustable colours | — |
+| 🌀 **Ambiance** | 8 animations: plasma, rain, stars, game of life, liquid (an object floats in it), sand, **sand 2**, **lava lamp**; adjustable colours | — |
 | 🌦️ **Weather** | temperature, ▲▼ min/max, conditions; long place names scroll | location + Internet (open-meteo.com, every 30 min) |
 | 💬 **Quotes and quizzes** | quotes, jokes, riddles, **3-choice quizzes**, illustrated backgrounds | — |
 | 🏆 **Recalbox: challenge** | current challenge, days left, **top 3 with ▲▼**, your rank and GGs | Recalbox scripts |
@@ -689,6 +689,8 @@ Shown between games (adjustable interval / duration) or continuously, with an **
 **Recalbox widgets.** A small script on the Recalbox reads its own files (challenge, ranking, movements, `[Health]` journal lines, temperature, memory, disk) and sends a summary to the DMD over UDP (`CMD=rbw`) **every 2 minutes** (`dmd_rbwidgets[watch](permanent).sh` + `dmd_helpers/dmd_rbwidgets.py`, installed by Mode 9). Without received data, the widgets are skipped silently. Default durations: challenge 15 s, **rewards 30 s** (8 s minimum per reward, long texts scroll), health 15 s.
 
 **Several Recalbox, one DMD.** List up to **4 IPs** (Wi-Fi page, or `recalbox_ips=`) and choose **Target = Automatic** or a forced Recalbox. The DMD stays on the one that answers; when it goes off, it **probes the others and switches by itself**, with no reconfiguration or restart. Packets from the other listed Recalbox are ignored so two consoles never get mixed. The toolkit (Modes 1 and 9) accepts several IPs too.
+
+**Several DMDs on one Recalbox.** Every DMD that announces itself to a Recalbox is fed by it (marquee, scores, achievements, widgets): an ESP32 and a Raspberry Pi can show the same Recalbox at the same time, even with a single address. The choice stays in each DMD's own web page (its Recalbox address list and target): with 2 Recalbox and 2 DMDs, each follows its own. A DMD that has been silent for 2 minutes is no longer fed. Needs the version 10 Recalbox scripts (**Mode 9**).
 
 **Physical button.** A button between **GPIO 21 and GND** (internal pull-up). The **Button** page assigns an action to each gesture: **short**, **double**, **long** (~1.5 s), **very long** (~5 s) — next GIF, pause/resume, clock now, brightness, screen off, info screen, config URL, restart… (maintenance actions only on the very long press).
 

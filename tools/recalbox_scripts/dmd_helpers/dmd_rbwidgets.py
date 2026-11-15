@@ -2,7 +2,9 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v1
+# Version actuelle : v2
+#
+# v2 - 2026-11-09 - safe-modify - PLUSIEURS DMD : envoi a tous les afficheurs de /tmp/dmd_udp_ips (voir dmd_udp_resync.py v20), repli sur /tmp/dmd_udp_ip puis sur l'IP de secours.
 #
 # v1 - 2026-10-13 - safe-modify - Creation. Alimente les 3 widgets « Recalbox » du DMD
 #   (firmware v315 : Challenge en cours, Recompenses a gagner, Sante). Lit les fichiers
@@ -28,6 +30,7 @@ from datetime import datetime, timezone
 CH_DIR = "/recalbox/share/system/challenges/"
 FRONTEND_LOG = "/recalbox/share/system/logs/frontend.log"
 IP_CACHE = "/tmp/dmd_udp_ip"
+IPS_CACHE = "/tmp/dmd_udp_ips"   # v2 : tous les afficheurs annonces a cette Recalbox (un par ligne)
 IP_FALLBACK = "192.168.0.51"
 PORT = 5005
 
@@ -127,11 +130,17 @@ def health_msg():
 
 
 def main():
-    try:
-        with open(IP_CACHE) as f:
-            ip = f.read().strip() or IP_FALLBACK
-    except Exception:
-        ip = IP_FALLBACK
+    ips = []
+    for path in (IPS_CACHE, IP_CACHE):
+        try:
+            with open(path) as f:
+                ips = f.read().split()
+        except Exception:
+            ips = []
+        if ips:
+            break
+    if not ips:
+        ips = [IP_FALLBACK]
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     for fn in (challenge_msg, rewards_msg, health_msg):
         try:
@@ -139,7 +148,8 @@ def main():
             if "--print" in sys.argv:
                 print(msg)
             else:
-                s.sendto(msg.encode("ascii", "replace"), (ip, PORT))
+                for ip in ips:
+                    s.sendto(msg.encode("ascii", "replace"), (ip, PORT))
                 time.sleep(0.15)
         except Exception as e:
             print("erreur", fn.__name__, e, file=sys.stderr)

@@ -8,6 +8,16 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-15 — Firmware 4.20, demonio Pi 3.82, caja de herramientas 15994: varios DMD en una misma Recalbox
+
+- **Varios DMD en una misma Recalbox** (scripts Recalbox versión 10): todo DMD que se anuncia a una Recalbox es alimentado por sus scripts (marquesina, marcadores, logros, widgets), en lugar de solo el último en llegar — un ESP32 y una Raspberry Pi siguen ahora la misma Recalbox a la vez, incluso con una sola dirección. La elección sigue en la página web de cada DMD; 2 Recalbox + 2 DMD siguen siendo posibles. **Vuelve a ejecutar el Modo 9** para instalar los scripts.
+- **Widget Líquido**: un objeto flota en la cubeta — pato (cera), Benchy (almíbar), balón de playa (miel), Poké Ball (mercurio), tiburón (agua y aceite). Flotación propia de cada líquido, rumbo con inercia, balanceo. Ajuste «Objeto flotante» en la página Widgets («ninguno» = como antes); los sprites están en la tarjeta SD y se descargan al actualizar. ESP32 y Pi.
+- **Widget Recompensas de Recalbox**: un texto demasiado largo va y vuelve durante toda la página (nunca se corta a mitad de desplazamiento). **Relojes**: ya no anuncian el nombre del tema.
+- **Widgets sin datos**: la pantalla informativa dura 3 segundos en lugar de la duración programada del widget.
+- **Actualización por Wi-Fi más fiable (firmware 4.19)**: un archivo perdido al escribirse en la tarjeta SD se vuelve a pedir hasta 3 veces (0 fallos en 61 descargas, frente a cerca del 20 % antes).
+- **Demonio Pi 3.82**: los mismos widgets y relojes que el firmware 4.20 (objetos flotantes, ida y vuelta, pantalla de 3 s); también reproduce animaciones `.raw565pack` al navegar y expone una ruta de solo lectura `GET /games-snapshot`.
+- **Caja de herramientas 15994**: la pestaña **Diagnóstico** se rediseña (tarjetas de señal / latencia / pérdida, dos curvas legibles, historial en color); la ayuda integrada describe ahora las siete pestañas; el **Modo 1** copia también los sprites de los objetos flotantes a la tarjeta SD.
+
 ## 2026-11-08 — Firmware 4.16, demonio Pi 3.80, caja de herramientas 15093: widget Marcadores, flash liberada
 
 - **Widget Marcadores (ESP32 4.16 y Pi 3.80)**: los partidos **en directo** (marcador, minuto), **próximos** (el balón, el disco… gira en el centro) y **terminados** se alternan en pantalla, para **fútbol, baloncesto, hockey, fútbol americano, béisbol y rugby**. Hasta **3 competiciones** y **4 equipos favoritos** (página web «Marcadores»), siglas habituales (OM, PSG, OL…), fondo de campo propio de cada deporte, sin cuenta ni clave. Una pantalla «sin datos» sustituye a la pantalla negra cuando un widget depende de un dato no disponible.

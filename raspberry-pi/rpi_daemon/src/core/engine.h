@@ -86,6 +86,7 @@ class Engine {
   bool mainTaskPending();
   void loadBrightSched();                                  // BRIGHT_SCHED* relus (demarrage, rechargement de config.ini)
   void reloadConfig();                                    // config.ini vient d'etre modifie : relit et applique en direct
+  void widenSystemTypes(const std::vector<std::pair<std::string, bool>> &need);  // v3.82 : (systeme, animation?) -> type p/g elargi a B (voir SysCache::widen)
   void gameLogosChanged(const std::vector<std::string> &games);  // v3.75 : logos de jeux envoyes/supprimes par le toolkit (« systeme/jeu ») : redessine l'ecran si le jeu affiche en fait partie
   void reelsRefresh();                                 // v3.74 : logos reels envoyes par le toolkit : recharge les index et redessine le logo a l'ecran
   void webPause(const std::string &msg, uint16_t color);

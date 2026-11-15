@@ -304,6 +304,11 @@ void Engine::reloadConfig() {
   if (reloadHook_) reloadHook_();
 }
 
+void Engine::widenSystemTypes(const std::vector<std::pair<std::string, bool>> &need) {
+  for (const auto &n : need)
+    if (sys_.widen(fs_, n.first, n.second)) logf("WEB", "type du systeme %s elargi a B (%s)", n.first.c_str(), n.second ? "animation" : "image fixe");
+}
+
 void Engine::gameLogosChanged(const std::vector<std::string> &games) {
   if (lastGameArg_.empty()) return;
   const std::string cur = toLower(lastGameArg_);

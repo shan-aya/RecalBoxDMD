@@ -1,8 +1,8 @@
 // ============================================================================
-// GENERE par tools/port_widgets.py depuis RecalBox_DMD.ino (FW_VERSION_NUM 414).
+// GENERE par tools/port_widgets.py depuis RecalBox_DMD.ino (FW_VERSION_NUM 415).
 // NE PAS EDITER A LA MAIN : relancer le script. Widgets du decor (voir l'en-tete du script).
 // ============================================================================
-// ---- donnees des widgets Recalbox (CMD=rbw) et leur analyse (firmware, lignes 5412-5458) ----
+// ---- donnees des widgets Recalbox (CMD=rbw) et leur analyse (firmware, lignes 5417-5466) ----
 struct RbwData {
   bool ch, hl; uint8_t nTop, nRw;
   char chName[32]; int days, rank, ggs;
@@ -50,8 +50,11 @@ static void rbwParse(const String &arg)
     Serial.println("[RBW] sante : " + String(g_rbw.hs) + " temp=" + String(g_rbw.temp) + " mem=" + String(g_rbw.mem) + " disk=" + String(g_rbw.disk));
   }
 }
+int decoLiqObj = 1;     // v418 -- widget Liquide : 1 = avec objet flottant (defaut), 0 = sans objet (config.ini DECO_LIQ_OBJ)
+char decoLiqObjName[16] = "";   // v418 -- apercu seulement : nom du sprite impose (vide = celui du liquide)
+int decoLiqForce = -1;  // v418 -- -1 = type de liquide tire au hasard ; 0..5 = type force, UNIQUEMENT pendant un apercu de la page Widgets (suffixe ~<type> de l'argument w4:..., jamais enregistre)
 
-// ---- date + ephemeride (firmware, lignes 13769-13918) ----
+// ---- date + ephemeride (firmware, lignes 13745-13894) ----
 static int decoIsoWeek(const struct tm &t)
 {
   const int y = t.tm_year + 1900;
@@ -203,7 +206,7 @@ static bool decoDrawEphemeris()
   return true;
 }
 
-// ---- compte a rebours : calcul de l'evenement (firmware, lignes 13938-13970) ----
+// ---- compte a rebours : calcul de l'evenement (firmware, lignes 13914-13946) ----
 static long decoJdn(int y, int m, int d)   // jours depuis 1970-01-01 (Howard Hinnant)
 {
   y -= (m <= 2);
@@ -238,7 +241,7 @@ static bool decoPickEvent(int &idx, long &days, int &ey, int &em, int &ed)
 }
 
 
-// ---- ambiances (firmware, lignes 14054-14649) ----
+// ---- ambiances (firmware, lignes 14030-14772) ----
 // -- Ambiances : plasma, pluie, etoiles, vie (aucune allocation dynamique : tampons statiques) --
 static bool decoAmbPlasma(unsigned long durMs, bool preview)
 {
@@ -369,7 +372,7 @@ static bool decoAmbLiquid(unsigned long durMs, bool preview)
   float (&h)[NW] = lb->h; float (&hn)[NW] = lb->hn; float (&q)[NW - 1] = lb->q; float (&r)[NW] = lb->r; float (&rv)[NW] = lb->rv; float (&sf)[NW] = lb->sf;
   float (&dpx)[ND] = lb->dpx; float (&dpy)[ND] = lb->dpy; float (&dvx)[ND] = lb->dvx; float (&dvy)[ND] = lb->dvy; bool (&dal)[ND] = lb->dal;
   static int s_lastLq = -1;
-  int ti; do { ti = (int)random(0, 6); } while (ti == s_lastLq); s_lastLq = ti;
+  int ti; if (decoLiqForce >= 0 && decoLiqForce < 6) ti = decoLiqForce; else { do { ti = (int)random(0, 6); } while (ti == s_lastLq); } s_lastLq = ti;   // v418 : DECO_LIQ_FORCE = type force (essais)
   const LiquidType &L = LQT[ti];
   const float jit = random(85, 120) / 100.0f;
   const float hm = (float)random(L.dMin, L.dMax + 1);
@@ -385,11 +388,45 @@ static bool decoAmbLiquid(unsigned long durMs, bool preview)
   for (int i = 0; i < NW; i++) { h[i] = hm; r[i] = 0; rv[i] = 0; sf[i] = hm; }
   for (int i = 0; i < NW - 1; i++) q[i] = 0;
   for (int i = 0; i < ND; i++) dal[i] = false;
+  // v418 -- OBJET FLOTTANT (canard dans la cire fondue, Benchy dans le sirop ; les autres liquides : etapes suivantes). Table liquide -> sprite (nullptr = aucun) ; le sprite est charge ici, une seule fois.
+  static const char *const LQ_OBJ[6] = {"shark", "shark", "benchy", "beach", "duck", "poke"};   // EAU TEINTEE et HUILE = requin (liquides fluides : il peut nager), SIROP = Benchy, MIEL = ballon de plage, CIRE FONDUE = canard, MERCURE = Poke Ball
+  // v418 -- FLOTTAISON SELON LE LIQUIDE (retour utilisateur : « tiens compte de la flottaison en fonction du liquide pour les mouvements verticaux de montee / descente et l'enfournement »).
+  // (1) ARCHIMEDE : l'enfoncement stocke dans le .spr (draft%) est celui dans l'EAU ; dans un liquide de densite rho il devient draft / rho (mercure : presque pose dessus ; huile et cire : plus enfonce ; sirop, miel : plus haut).
+  // (2) REPONSE VERTICALE (heave) : la hauteur de l'objet suit la surface avec inertie (ressort kz, amortissement cz, par image) : liquide fluide = rebonds vifs, liquide epais = retard, l'objet est ENJAMBE quand la surface monte
+  // vite (enfournement) et reste un instant en hauteur quand elle redescend. Valeurs reglees en simulation (F:\RETROBOXLED_sim_flottants\heave_tune2.py : enfournement p95 1 a 2 px, maximum borne a 50 % de la hauteur).
+  static const float LQ_RHO[6] = {1.00f, 0.92f, 1.30f, 1.42f, 0.90f, 2.50f};      // eau teintee, huile, sirop, miel, cire fondue, mercure (densite relative a l'eau ; mercure 13,5 reel -> 2,5 STYLISE : a 13,5 la balle restait posee dessus sans s'enfoncer, « ca fait bizarre »)
+  static const float LQ_ADH[6] = {0.10f, 0.25f, 0.50f, 0.85f, 0.70f, 0.00f};      // ADHERENCE du liquide sur un ballon (opacite du film) : le miel colle, l'eau mouille peu, le mercure ne mouille pas
+  static const float LQ_DRN[6] = {0.08f, 0.04f, 0.012f, 0.003f, 0.006f, 0.00f};   // vitesse d'ecoulement du film (px / image) : l'eau s'egoutte vite, le miel tres lentement
+  static const float LQ_KZ[6]  = {0.075f, 0.08f, 0.03f, 0.018f, 0.035f, 0.22f};   // raideur de la reponse verticale (eau 0,09 -> 0,075 : plus de retard = plus d'enfournement ; cire : reglage d'origine, le canard y convenait)
+  static const float LQ_CZ[6]  = {0.11f, 0.20f, 0.30f, 0.35f, 0.28f, 0.16f};      // amortissement (eau 0,13 -> 0,11)
+  static const float LQ_PK[6]  = {1.00f, 0.85f, 0.20f, 0.15f, 0.60f, 0.35f};      // facteur de la borne d'enfournement du .spr (valeur DANS L'EAU) : l'objet enfourne le plus dans l'eau (demande utilisateur), tres peu dans le sirop / le miel (la coque du Benchy y etait noyee)
+  LqObj ob[2]; int nob = 0;   // v418 : JUSQU'A DEUX objets : l'objet du liquide (requin, Benchy, ballon...) + (avec le requin) 1 chance sur 2 d'un flottant tire au hasard dans la liste
+  auto lqLoadObj = [&](LqObj &o, const char *nm) -> bool {
+    if (!lqLoadSpr(nm, o.spr)) { Serial.println(String("[DECO] liquide : objet ") + nm + " absent de la SD (/widgets/liquid/) : widget sans cet objet"); return false; }
+    Serial.println(String("[DECO] liquide : objet ") + nm + " charge (" + String(o.spr.lw) + "x" + String(o.spr.lh) + " px, " + String((unsigned)o.spr.sw * o.spr.sh * 4) + " o, heap=" + String(ESP.getFreeHeap()) + ")");
+    return true; };
+  { String nmMain, nmFloat;
+    if (decoLiqObj) {
+      const char *cfg = decoLiqObjName[0] ? decoLiqObjName : LQ_OBJ[ti];   // l'apercu peut imposer « principal » ou « principal+flottant » (ex. shark+duck)
+      if (cfg) { String s = cfg; const int pl = s.indexOf('+'); nmMain = pl >= 0 ? s.substring(0, pl) : s; if (pl >= 0) nmFloat = s.substring(pl + 1); }
+      if (nmMain.length() && lqLoadObj(ob[0], nmMain.c_str())) nob = 1;
+      if (nob == 1) {
+        static const char *const LQ_FLOAT[4] = {"duck", "benchy", "beach", "poke"};   // la liste des flottants
+        if (!nmFloat.length() && ob[0].spr.swim && random(0, 2) == 0) nmFloat = LQ_FLOAT[random(0, 4)];   // TIRAGE : avec le requin, 1 chance sur 2 d'avoir AUSSI un flottant, un seul, tire au hasard dans la liste
+        if (nmFloat.length() && lqLoadObj(ob[1], nmFloat.c_str())) nob = 2;
+      }
+    } }
+  for (int io = 0; io < nob; io++) {   // etat initial de chaque objet
+    LqObj &o = ob[io]; const LqSpr &sp = o.spr;
+    o.oU = (float)random(30, 95); if (io == 1) o.oU = ob[0].oU < 64.0f ? (float)random(84, 100) : (float)random(24, 44);   // le flottant demarre loin du requin
+    o.oPsi = random(0, 2) ? 0.0f : (float)M_PI; o.oDir = (o.oPsi == 0.0f) ? 1.0f : -1.0f;   // cap initial = sens de nage
+    o.sS = (float)sp.sw / sp.lw; o.subF = sp.sub / 100.0f; o.draftF = fminf(0.9f, sp.draft / 100.0f / LQ_RHO[ti]); o.spx0 = sp.sw * 0.5f; o.spy0 = sp.sh * 0.5f;
+  }
   display->clearScreen();
   const float wR = 95, wG = 105, wB = 130, hR = 160, hG = 170, hB = 200;   // bac : couleur de base et liseré clair cote interieur
   const uint16_t triC = display->color565(70, 55, 40);
   const uint16_t dropC = display->color565(min(255, oc[0] + 110), min(255, oc[1] + 110), 255);
-  float th = 0, tgt = random(0, 2) ? amp : -amp, spd = random(4, 101) / 10000.0f; int cdL = 0, cdR = 0;
+  float th = 0, tgt = random(0, 2) ? amp : -amp, spd = random(4, 101) / 10000.0f; int cdL = 0, cdR = 0; float thPrev = 0.0f;   // v418 : thPrev = inclinaison de l'image precedente (vitesse d'inclinaison du bac, pour le lacet des objets flottants)
   unsigned long phT0 = millis();
   const unsigned long t0 = millis(); unsigned long last = 0;
   while (millis() - t0 < durMs) {
@@ -399,6 +436,7 @@ static bool decoAmbLiquid(unsigned long durMs, bool preview)
     // bascule : chaque phase dure EXACTEMENT phMs ; a chaque phase le sens s'inverse et la vitesse est tiree au hasard (tres lente = bascule interrompue avant le maximum,
     // rapide = maximum atteint puis pause jusqu'a la fin de la phase) ; la phase suivante repart de l'angle atteint
     if (millis() - phT0 >= phMs) { tgt = -tgt; spd = random(4, 101) / 10000.0f; phT0 = millis(); }
+    thPrev = th;   // v418
     if (fabsf(th - tgt) >= 0.0001f) {
       const float dd = tgt - th; float ma = fabsf(dd * 0.06f);
       if (ma > spd) ma = spd; else if (ma < 0.25f * spd) ma = 0.25f * spd;
@@ -474,6 +512,101 @@ static bool decoAmbLiquid(unsigned long durMs, bool preview)
         else { wetH[sd] -= 0.004f + 0.05f * (1.0f - adh); if (wetH[sd] < lv[sd]) wetH[sd] = lv[sd]; }
       }
     }
+    // v418 -- OBJET FLOTTANT : il suit l'ecoulement (derive), flotte a la hauteur moyenne de la surface sous lui, s'incline avec la pente de la surface A L'ECRAN et rebondit sur les parois
+    // (memes lois que la simulation Python validee ; cout : une dizaine de flottants par image, rien hors du rectangle englobant)
+    for (int io = 0; io < nob; io++) {   // PHYSIQUE de chaque objet (memes lois pour tous ; les noms d'etat sont des references vers l'objet courant)
+      LqObj &ob_ = ob[io]; LqSpr &spr = ob_.spr;
+      float &oU = ob_.oU, &oVel = ob_.oVel, &oAng = ob_.oAng, &oSuPrev = ob_.oSuPrev, &oFloorW = ob_.oFloorW, &oLagMax = ob_.oLagMax, &oLagSum = ob_.oLagSum, &oSpin = ob_.oSpin, &oWetTop = ob_.oWetTop;
+      float &oVo = ob_.oVo, &oVv = ob_.oVv, &oFlowF = ob_.oFlowF, &oPsi = ob_.oPsi, &oOm = ob_.oOm, &oDir = ob_.oDir, &ocx = ob_.ocx, &ocy = ob_.ocy, &sca = ob_.sca, &ssa = ob_.ssa;
+      int &oFace = ob_.oFace, &oFloorN = ob_.oFloorN, &oLagN = ob_.oLagN, &oCool = ob_.oCool, &sbx0 = ob_.sbx0, &sbx1 = ob_.sbx1, &sby0 = ob_.sby0, &sby1 = ob_.sby1; const float draftF = ob_.draftF;
+      const int oi = (int)oU < 0 ? 0 : ((int)oU > NW - 2 ? NW - 2 : (int)oU);
+      const float slope = (sf[oi + 2 > NW - 1 ? NW - 1 : oi + 2] - sf[oi - 2 < 0 ? 0 : oi - 2]) * 0.25f;
+      const float flowV = q[oi] / fmaxf(h[oi], 1.0f);   // vitesse de l'eau sous l'objet (px / image)
+      if (spr.swim) {   // NAGEUR (requin) : cap propre, demi-tour aux parois ; quand le liquide s'est retire il rejoint le cote profond ; sillage dans les ondelettes (comme valide en simulation)
+        if (sf[oi] < 6.0f) oDir = sf[oi + 14 > NW - 1 ? NW - 1 : oi + 14] > sf[oi - 14 < 0 ? 0 : oi - 14] ? 1.0f : -1.0f;
+        oVel = spr.swimV * oDir + 0.3f * flowV;
+        for (int kk = -2; kk <= 2; kk++) { const int j = oi + kk; if (j >= 0 && j < NW) rv[j] += ((kk & 1) ? -0.10f : 0.10f) * spr.swimV * 2.0f; }
+      } else {
+        oVel += 0.12f * (flowV - oVel) - 0.08f * g * slope;
+        oVel *= 0.995f;
+      }
+      oU += oVel;
+      const float bet0 = oAng - th;   // angle du sprite PAR RAPPORT AU BAC : un objet allonge incline occupe plus de largeur dans le repere du bac (paroi)
+      const float orad = (spr.roll ? spr.lw * 0.5f : 0.5f * (fabsf(cosf(bet0)) * spr.lw + fabsf(sinf(bet0)) * spr.lh)) + 1.0f;
+      if (oU < orad + 2.0f) { if (fabsf(oVel) > 0.05f) oOm += (random(0, 2) ? 1.0f : -1.0f) * (0.05f + 0.16f * fminf(fabsf(oVel), 1.0f)); oU = orad + 2.0f; oVel = fabsf(oVel) * 0.4f; if (spr.swim) oDir = 1.0f; }   // v418 : un choc contre la paroi donne un coup de lacet proportionnel a la vitesse d'impact
+      if (oU > NW - orad - 2.0f) { if (fabsf(oVel) > 0.05f) oOm += (random(0, 2) ? 1.0f : -1.0f) * (0.05f + 0.16f * fminf(fabsf(oVel), 1.0f)); oU = NW - orad - 2.0f; oVel = -fabsf(oVel) * 0.4f; if (spr.swim) oDir = -1.0f; }
+      int ia = (int)(oU - spr.lw * 0.35f), ib = (int)(oU + spr.lw * 0.35f); if (ia < 0) ia = 0; if (ib > NW - 1) ib = NW - 1;
+      float su = 0.0f, mxs = 0.0f; for (int k = ia; k <= ib; k++) { su += sf[k]; if (sf[k] > mxs) mxs = sf[k]; } su /= (float)(ib - ia + 1);
+      // ADHERENCE (retour utilisateur : « une adherence des liquides sur les parois des ballons selon leur viscosite ») : le liquide GRIMPE sur le ballon (menisque, +25 % de la hauteur x adherence) et laisse un FILM
+      // qui ne s'ecoule que lentement (miel : tres peu ; eau : vite ; mercure : ne mouille pas). oWetTop = hauteur du haut du film (repere du bac) ; le fondu est dans la boucle de dessin.
+      if (spr.wet) { const float top = mxs + LQ_ADH[ti] * 0.25f * spr.lh; oWetTop = oWetTop < 0.0f ? top : fmaxf(oWetTop - LQ_DRN[ti], top); }
+      // FLOTTAISON (heave) : l'objet suit la hauteur moyenne de la surface su avec inertie ; lag = su - oVo > 0 : la surface a depasse l'objet = ENFOURNEMENT (il est submerge, la fusion par pixel le montre tout seul)
+      if (oVo < 0.0f) oVo = su;
+      oVv += LQ_KZ[ti] * (su - oVo) - LQ_CZ[ti] * oVv; oVo += oVv;
+      { const float lag = su - oVo, hi = spr.plunge / 100.0f * LQ_PK[ti] * spr.lh, lo = spr.emerge / 100.0f * spr.lh;   // bornes PROPRES A L'OBJET (en-tete du .spr, valeur dans l'eau) x facteur du liquide : canard 80 % -> 48 % dans la cire ; Benchy 30 % -> 6 % dans le sirop (sa coque ne depasse la ligne d'eau que de ~1 px)
+        if (lag > hi) { oVo = su - hi; if (oVv < 0.0f) oVv = 0.0f; } else if (lag < -lo) { oVo = su + lo; if (oVv > 0.0f) oVv = 0.0f; }
+        if (oVo < 0.0f) { oVo = 0.0f; if (oVv < 0.0f) oVv = 0.0f; }
+        const float lg = su - oVo; if (lg > oLagMax) oLagMax = lg; oLagSum += lg > 0.0f ? lg : 0.0f; oLagN++;   // mesure : retard (enfournement) en px, journal serie toutes les ~10 s
+        if (oLagN >= 300) { Serial.println(String("[DECO] objet ") + String(io) + String(" : enfournement max ") + String(oLagMax, 1) + " px, moyen " + String(oLagSum / oLagN, 2) + " px sur " + String(oLagN) + " images, appui sur le fond " + String(oFloorN * 100 / oLagN) + " %"); oFloorN = 0; oLagMax = 0.0f; oLagSum = 0.0f; oLagN = 0; } }
+      // v418 -- LACET (cap de l'objet) : un vrai angle AVEC INERTIE, jamais un retournement. Couples : GIROUETTE vers le sens de l'eau (proportionnel a la vitesse de l'eau, nul quand elle est lente ; plus fort pour un profil
+      // de coque, voir "yaw" du .spr), CHOCS contre les parois (ci-dessus), PASSAGE D'UNE GROSSE VAGUE (variation brusque de la hauteur de la surface sous l'objet), petit bruit lie a l'agitation locale ; amortissement.
+      // L'objet est un VOLUME : le cap choisit une vue du plateau tournant (on voit tour a tour le dos, le profil, le visage), voir plus bas.
+      // Constantes reglees en simulation (F:\RETROBOXLED_sim_flottants\yaw_tune3.py, 6 graines x 4 liquides) : canard ~1 retournement / min (chocs, grosses vagues), coque toutes les 6 a 20 s (inversions du courant), traversee ~0,5 s.
+      oFlowF += 0.03f * (flowV - oFlowF);   // courant FILTRE (constante de temps ~1,3 s) : seul un courant soutenu oriente l'objet, pas les fluctuations d'une image a l'autre
+      if (oCool > 0) oCool--;
+      if (oSuPrev >= 0.0f && oCool == 0) { const float dsu = su - oSuPrev; if (fabsf(dsu) > 1.0f) { oOm += (dsu > 0.0f ? 1.0f : -1.0f) * 0.05f * fminf(fabsf(dsu), 2.0f); oCool = 50; } }   // grosse vague : un coup, puis ~2 s de repos
+      oSuPrev = su;
+      { const float flowDir = spr.swim ? (oDir >= 0.0f ? 0.0f : (float)M_PI) : (oFlowF >= 0.0f ? 0.0f : (float)M_PI);   // nageur : le cap suit SA direction de nage (couple 0,010) ; autres : le courant filtre
+        oOm += -(spr.swim ? 0.010f : spr.yaw * 0.001f * fminf(1.0f, fabsf(oFlowF) / 0.25f)) * sinf(oPsi - flowDir);
+        { const float sA = fminf(1.0f, fmaxf(0.0f, (fabsf(th) / amp - 0.55f) / 0.45f)), sV = fminf(1.0f, fabsf(th - thPrev) / 0.006f);   // DEMANDE UTILISATEUR : rotation quand la PENTE du bac ET sa VITESSE d'inclinaison sont proches du maximum (le deferlement) ; deux rampes multipliees, jamais un seuil
+          if (sA * sV > 0.0f) oOm += (th - thPrev > 0.0f ? 1.0f : -1.0f) * 0.006f * sA * sV; }   // couple progressif, dans le sens du deferlement (regle en simulation : canard 2 a 5 retournements / min en liquide fluide)
+        oOm += -0.0015f * sinf(2.0f * oPsi);   // profil allonge : deux caps STABLES (bout a droite / a gauche), le travers est instable -> pas de position de face prolongee (ks = 0,003)
+        oOm += (random(-1000, 1001) / 1000.0f) * (0.0003f + 0.002f * fminf(1.0f, fabsf(r[oi])));
+        oOm *= 0.94f; oPsi += oOm;
+        if (oPsi > (float)M_PI) oPsi -= 2.0f * (float)M_PI; else if (oPsi < -(float)M_PI) oPsi += 2.0f * (float)M_PI;
+      }
+      // v418 -- RENDU VOLUMIQUE : le cap choisit la VUE du plateau tournant (-90 a +90 degres) ; au-dela de 90 degres on prend le MIROIR HORIZONTAL de la vue symetrique (180 - cap). Une seule vue en RAM : relue sur la SD
+      // seulement quand le cap change de vue (quelques lectures de 2,5 Ko par retournement).
+      { float pd = oPsi * (180.0f / (float)M_PI); oFace = 1;
+        if (pd > 90.0f) { pd = 180.0f - pd; oFace = -1; } else if (pd < -90.0f) { pd = -180.0f - pd; oFace = -1; }
+        if (spr.roll) {   // BALLON : 24 vues de ROULIS a ECLAIRAGE FIXE (le motif tourne en volume, l'ombrage et le reflet restent en place : animation 3D) ; angle = distance parcourue / rayon (horaire vers la droite)
+          oFace = 1; oSpin += oVel / (spr.lw * 0.5f) * 0.9f;
+          float tn = oSpin / (2.0f * (float)M_PI); tn -= floorf(tn);
+          lqSetView(spr, (int)(tn * spr.nv + 0.5f) % spr.nv);
+        } else lqSetView(spr, (int)lroundf((pd + 90.0f) / (float)spr.step)); }
+      auto fwd = [&](float uu, float vv, float &ex, float &ey) { const float u0 = uu - NW * 0.5f; ex = PX + u0 * cs + vv * sn; ey = PY - (-u0 * sn + vv * cs); };   // repere du bac -> ecran
+      const int ua = (int)oU - 3 < 0 ? 0 : (int)oU - 3, ub = (int)oU + 3 > NW - 1 ? NW - 1 : (int)oU + 3;
+      float ax, ay, bx, by, cx, cy; fwd((float)ua, sf[ua], ax, ay); fwd((float)ub, sf[ub], bx, by);
+      float tgtA = atan2f(by - ay, bx - ax); if (tgtA > 0.55f) tgtA = 0.55f; else if (tgtA < -0.55f) tgtA = -0.55f;
+      { const float tf = fmaxf(-0.55f, fminf(0.55f, th)); tgtA = tgtA * (1.0f - oFloorW) + tf * oFloorW; }   // POSE SUR LE FOND : quand l'objet touche le sol il prend la pente du FOND du bac (angle th) au lieu de celle de la surface
+      oAng += 0.12f * (tgtA - oAng);   // v418 : inclinaison plus amortie (0,25 -> 0,12) : l'objet suit la houle sans a-coups
+      float draftNow = draftF;
+      if (spr.swim) {   // REQUIN : il regle lui-meme sa profondeur (pas d'Archimede) : aileron + bout de queue dehors (72 %), une remontee (dos visible) vers 30 % du cycle de 40 s, une plongee vers 78 %
+        const float ph = fmodf((float)(millis() - t0) / 40000.0f, 1.0f);
+        const float upc = fmaxf(0.0f, 1.0f - fabsf(ph - 0.30f) / 0.06f), dvc = fmaxf(0.0f, 1.0f - fabsf(ph - 0.78f) / 0.07f);
+        draftNow = spr.draft / 100.0f - 0.27f * upc + 0.30f * dvc;
+      }
+      const float off = (0.5f - draftNow) * spr.lh;   // le centre du sprite est au-dessus de la ligne d'eau de (0,5 - immersion) x hauteur, le long de la normale
+      // COLLISION AVEC LE FOND (retour utilisateur : « le requin deborde a l'exterieur au lieu de se poser sur le fond dur ») : dans le repere du bac le sol est la droite v = 0 ; le point le plus bas du sprite
+      // (rectangle tourne de l'angle bet par rapport au bac) ne descend jamais dessous : l'objet est releve et sa vitesse verticale descendante annulee ; en contact (ecart < 3 px) l'objet s'incline progressivement
+      // sur la pente du FOND (oFloorW : 0 = suit la surface, 1 = pose a plat sur le fond), plongee du requin comprise.
+      { const float bet = oAng - th, cb = cosf(bet), sb = sinf(bet);
+        const float hv = spr.roll ? spr.lh * 0.5f : 0.5f * (fabsf(sb) * spr.lw + fabsf(cb) * spr.lh);   // demi-hauteur du sprite dans le repere du bac (un ballon est un disque)
+        const float vc = oVo + off * cb;
+        float gap = vc - hv;
+        if (gap < 0.0f) { oVo = hv - off * cb; if (oVv < 0.0f) oVv = 0.0f; gap = 0.0f; }
+        oFloorW = fmaxf(0.0f, fminf(1.0f, 1.0f - gap / 3.0f)); if (gap < 0.3f) oFloorN++; }
+      fwd(oU, oVo, cx, cy);   // v418 : le centre suit la hauteur de l'OBJET (avec inertie, releve par le fond), plus la surface instantanee
+      ocx = cx + sinf(oAng) * off; ocy = cy - cosf(oAng) * off; { const float rotA = spr.roll ? 0.0f : oAng; sca = cosf(rotA); ssa = sinf(rotA); }   // un ballon ne s'incline pas avec la houle : son roulis est dans le CHOIX DE LA VUE (rendu 3D), pas dans une rotation de l'image
+      { const float cA = fabsf(sca), sA = fabsf(ssa);   // RECTANGLE ENGLOBANT SERRE (rectangle du sprite tourne) au lieu du disque circonscrit : ~3 x moins de pixels a echantillonner pour un objet allonge (requin : cadence 23,6 images / s avant)
+        const float hx = 0.5f * (cA * spr.lw + sA * spr.lh) + 1.5f, hy = 0.5f * (sA * spr.lw + cA * spr.lh) + 1.5f;
+        sbx0 = (int)floorf(ocx - hx); sbx1 = (int)ceilf(ocx + hx); sby0 = (int)floorf(ocy - hy); sby1 = (int)ceilf(ocy + hy); }
+    }
+    if (nob == 2) {   // le requin (sous l'eau) et le flottant ne se superposent pas : le flottant est POUSSE (et reçoit un coup de lacet) quand le requin le heurte
+      LqObj &A = ob[0], &B = ob[1];
+      const float dmin = 0.5f * (A.spr.lw + B.spr.lw) * 0.55f, dxo = B.oU - A.oU;
+      if (fabsf(dxo) < dmin) { const float sgn = dxo >= 0.0f ? 1.0f : -1.0f, pen = dmin - fabsf(dxo); B.oU += sgn * pen * 0.5f; B.oVel += sgn * 0.12f; B.oOm += (random(0, 2) ? 1.0f : -1.0f) * 0.02f; }
+    }
     // dessin complet : chaque pixel de l'ecran est converti dans le repere du bac (rotation inverse autour du pivot)
     for (int y = 0; y < H; y++) {
       const float dy = PY - (y + 0.5f);
@@ -487,10 +620,10 @@ static bool decoAmbLiquid(unsigned long durMs, bool preview)
         float cout = (fu + WT) < (NW + WT - fu) ? (fu + WT) : (NW + WT - fu); if (v + FL < cout) cout = v + FL; if (WH - v < cout) cout = WH - v;
         const float covIn = cin <= -0.5f ? 0.0f : (cin >= 0.5f ? 1.0f : cin + 0.5f);
         const float covOut = cout <= -0.5f ? 0.0f : (cout >= 0.5f ? 1.0f : cout + 0.5f);
-        float rr = 0, gg = 0, bb = 0;
+        float rr = 0, gg = 0, bb = 0, lcov = 0.0f, hsl = 0.0f;   // hsl = hauteur locale de la surface (repere du bac), pour le film de liquide   // v418 : lcov = couverture du pixel par le liquide (0..1), pour la part immergee de l'objet
         if (covIn > 0.0f) {
           float fi = fu - 0.5f; if (fi < 0) fi = 0; if (fi > NW - 1.001f) fi = NW - 1.001f;
-          const int i0 = (int)fi; const float tt = fi - i0, hs = sf[i0] + (sf[i0 + 1] - sf[i0]) * tt;
+          const int i0 = (int)fi; const float tt = fi - i0, hs = sf[i0] + (sf[i0 + 1] - sf[i0]) * tt; hsl = hs;
           const float d = hs - v;
           if (hs > 0.15f && d > -0.5f) {
             const float cov = d > 0.5f ? 1.0f : d + 0.5f;
@@ -498,7 +631,7 @@ static bool decoAmbLiquid(unsigned long durMs, bool preview)
             const float k = 1.0f - 0.35f * dep;
             rr = oc[0] * k; gg = oc[1] * k; bb = oc[2] * k;
             if (d < 1.0f) { rr = rr * 0.55f + 255 * 0.45f; gg = gg * 0.55f + 255 * 0.45f; bb = bb * 0.55f + 255 * 0.45f; }
-            rr *= cov; gg *= cov; bb *= cov;
+            rr *= cov; gg *= cov; bb *= cov; lcov = cov * covIn;
           }
           rr *= covIn; gg *= covIn; bb *= covIn;
         }
@@ -511,6 +644,23 @@ static bool decoAmbLiquid(unsigned long durMs, bool preview)
             if (v < wetH[sd]) { const float fa = adh * 0.75f * (1.0f - 0.5f * v / (wetH[sd] + 0.001f)); wr += (oc[0] - wr) * fa; wg += (oc[1] - wg) * fa; wb += (oc[2] - wb) * fa; }
           }
           rr += wr * wc; gg += wg * wc; bb += wb * wc;
+        }
+        for (int io = 0; io < nob; io++) {   // fondu de chaque objet sur le pixel (le 2e est dessine par-dessus le 1er)
+          const LqObj &ob_ = ob[io]; const LqSpr &spr = ob_.spr;
+          if (x < ob_.sbx0 || x > ob_.sbx1 || y < ob_.sby0 || y > ob_.sby1) continue;
+          const float ocx = ob_.ocx, ocy = ob_.ocy, sca = ob_.sca, ssa = ob_.ssa, sS = ob_.sS, subF = ob_.subF, spx0 = ob_.spx0, spy0 = ob_.spy0, oWetTop = ob_.oWetTop; const int oFace = ob_.oFace;
+          {   // v418 : objet flottant, fondu sur le pixel (la part sous la surface n'est visible qu'a "sub" %)
+          const float ox = (x + 0.5f) - ocx, oy = (y + 0.5f) - ocy;
+          float t4[4]; lqSample(spr, spx0 + oFace * (ox * sca + oy * ssa) * sS, spy0 + (-ox * ssa + oy * sca) * sS, t4);
+          if (t4[3] > 0.5f) {
+            const float fk = (1.0f - lcov * (1.0f - subF)) * covIn, aa = (t4[3] / 255.0f) * fk;   // x covIn : le sprite est ROGNE a l'interieur du bac (parois, sol : retour utilisateur « le requin sort du cadre physique du bac »)
+            rr = rr * (1.0f - aa) + t4[0] * fk; gg = gg * (1.0f - aa) + t4[1] * fk; bb = bb * (1.0f - aa) + t4[2] * fk;
+            if (spr.wet && lcov < 0.999f && v < oWetTop && v > hsl - 0.5f && LQ_ADH[ti] > 0.0f) {   // FILM de liquide au-dessus de la surface : teinte du liquide, plus dense en bas qu'en haut du film
+              const float tf = (v - hsl) / fmaxf(oWetTop - hsl, 0.5f), wa = LQ_ADH[ti] * (1.0f - 0.55f * (tf < 0.0f ? 0.0f : (tf > 1.0f ? 1.0f : tf))) * (t4[3] / 255.0f) * (1.0f - lcov) * covIn;
+              rr = rr * (1.0f - wa) + oc[0] * wa; gg = gg * (1.0f - wa) + oc[1] * wa; bb = bb * (1.0f - wa) + oc[2] * wa;
+            }
+          }
+        }
         }
         if (rr > 255) rr = 255;
         if (gg > 255) gg = 255;
@@ -836,7 +986,7 @@ static bool decoRunAmbiance(bool preview)
 }
 
 
-// ---- meteo : donnees, requete Open-Meteo, classes (firmware, lignes 14653-14716) ----
+// ---- meteo : donnees, requete Open-Meteo, classes (firmware, lignes 14776-14839) ----
 struct DecoWx { bool valid; float temp, tmax, tmin; int code; bool day; unsigned long fetchedMs; float lat, lon; };   // v353 : lat/lon = lieu des valeurs gardees
 static DecoWx s_wx = {false, 0, 0, 0, 0, true, 0, 0, 0};
 static unsigned long s_wxLastTry = 0; static bool s_wxTried = false;
@@ -902,7 +1052,7 @@ static int decoWxClass(int code)
 }
 
 
-// ---- ciel anime : degrades, astres, nuages, pluie (firmware, lignes 15314-15415) ----
+// ---- ciel anime : degrades, astres, nuages, pluie (firmware, lignes 15437-15538) ----
 struct SkyKey { float h; uint8_t t[3], b[3]; };
 static const SkyKey SKYK[9] = {{0.0f, {5, 8, 30}, {14, 20, 50}}, {4.5f, {5, 8, 30}, {14, 20, 50}}, {6.5f, {40, 50, 110}, {230, 120, 70}}, {9.0f, {50, 120, 220}, {140, 200, 250}},
   {14.0f, {30, 110, 230}, {120, 190, 245}}, {18.0f, {30, 110, 230}, {120, 190, 245}}, {19.8f, {50, 40, 110}, {240, 110, 60}}, {21.5f, {5, 8, 30}, {14, 20, 50}}, {24.0f, {5, 8, 30}, {14, 20, 50}}};
@@ -1006,7 +1156,7 @@ static void skyTextWin(Adafruit_GFX &g, int x0, int x1, int off, int y, uint16_t
 // de 8 Ko d'avant echouait -> retour a l'ancien affichage sans ciel (constate par l'utilisateur). Une bande de 2 Ko suffit. L'avant-plan est redessine une fois par bande :
 // tout etat qui avance (particules...) ne doit evoluer que pendant la bande 0 (g_skyPass == 0).
 
-// ---- avant-plans : meteo, date, compte a rebours, ephemeride (firmware, lignes 15474-15643) ----
+// ---- avant-plans : meteo, date, compte a rebours, ephemeride (firmware, lignes 15597-15766) ----
 static int decoSkyClass() { return (s_wx.valid && (millis() - s_wx.fetchedMs) <= 3UL * 3600UL * 1000UL) ? decoWxClass(s_wx.code) : 0; }
 
 // ---- widget METEO sur le ciel ----
@@ -1178,7 +1328,7 @@ static void skyEphFg(Adafruit_GFX &g, int f, void *ctx)
   }
 }
 
-// ---- avant-plans des widgets Recalbox : challenge, recompenses, sante (firmware, lignes 15677-16223) ----
+// ---- avant-plans des widgets Recalbox : challenge, recompenses, sante (firmware, lignes 15800-16354) ----
 // ---- v315 : widgets RECALBOX (8 challenge, 9 recompenses, 10 sante) sur le ciel ----
 // decalage (px) d'un texte trop long dans une fenetre : pause, defilement, pause, retour
 static int rbwPing(int f, int over)
@@ -1221,12 +1371,18 @@ static void skyRbwChFg(Adafruit_GFX &g, int f, void *ctx)
 }
 // v324 -- recompenses : chaque page dure au moins 8 s (2 s de pause, defilement du texte trop long a 25 px/s, 3 s de pause finale) au lieu de 3 s ; la duree du widget couvre toutes les pages
 static int rbwRwOver(int i) { const int a = (int)strlen(g_rbw.rn[i]) * 6 - 93, c = (int)strlen(g_rbw.rc[i]) * 6 - 93; const int o = a > c ? a : c; return o > 0 ? o : 0; }
-static int rbwRwPageFrames(int i) { const int pf = 40 + rbwRwOver(i) + 60; return pf < 160 ? 160 : pf; }   // v329 : defilement 1 px / image (50 px/s) au lieu de 25 px/s
+static int rbwRwPageFrames(int i) { const int ov = rbwRwOver(i); const int share = g_rbw.nRw > 0 ? (int)decoDur[9] * 20 / g_rbw.nRw : 0; if (ov > 0) { const int cyc = 2 * ov + 60; int n = (share + cyc - 1) / cyc; if (n < 1) n = 1; return n * cyc; } return share > 160 ? share : 160; }   // v418 : la page dure un NOMBRE ENTIER d'aller-retours complets du texte le plus long (jamais coupee en plein defilement)   // v417 : une page dure (duree du widget / nb de recompenses), au moins un aller-retour complet : le ping-pong boucle pendant toute la page   // v329 : defilement 1 px / image (50 px/s) au lieu de 25 px/s
 static int rbwRwTotalFrames() { int t = 0; for (int i = 0; i < g_rbw.nRw; i++) t += rbwRwPageFrames(i); return t < 1 ? 1 : t; }
 static void rbwFitLocal(Adafruit_GFX &g, int x0, int x1, int fl, int y, uint16_t col, const char *t)
 {
   const int over = (int)strlen(t) * 6 - (x1 - x0); int off = 0;
-  if (over > 0) { off = fl - 40; if (off < 0) off = 0; if (off > over) off = over; }
+  if (over > 0) {   // v417 : PING-PONG EN BOUCLE (pause 30 images a chaque bout, aller, retour) pendant toute la page
+    const int pause = 30; const int cyc = 2 * (over + pause); const int tt = fl % cyc;
+    if (tt < pause) off = 0;
+    else if (tt < pause + over) off = tt - pause;
+    else if (tt < 2 * pause + over) off = over;
+    else off = over - (tt - 2 * pause - over);
+  }
   skyTextWin(g, x0, x1, off, y, col, t);
 }
 static void skyRbwRwFg(Adafruit_GFX &g, int f, void *ctx)
@@ -1720,15 +1876,17 @@ static bool decoNoData(int id, const char *m1, const char *m2, bool preview, uin
   const int ix = (id >= 0 && id < 12) ? id : 0;
   SpNoData c; c.t = SPL3(TF[ix], TE[ix], TS[ix]); c.m1 = m1; c.m2 = m2; c.sp = sp;
   Serial.println(String("[DECO] widget ") + String(id) + " : pas de donnees (" + (m1 ? m1 : "") + "), ecran d'information");
-  unsigned long ms = (id == 7) ? 8000UL : (unsigned long)decoDur[id] * 1000UL; if (ms < 4000UL) ms = 4000UL;
+  const unsigned long ms = 3000UL;   // v420 : widget SANS DONNEES = ecran d'information de 3 s, quel que soit la duree programmee (avant : duree du widget, 8 s pour les citations, 4 s minimum)
+  const unsigned long ndT0 = millis();
   const int r = decoSkyRun(ms, preview, decoSkyClass(), skyNoDataFg, &c);
   display->clearScreen(); display->show();   // Pi : canevas valide par show()
   if (r < 0) return true;
+  Serial.println(String("[DECO] widget ") + String(id) + " : ecran d'information termine apres " + String(millis() - ndT0) + " ms");   // v420 : mesure de la duree reelle
   return r == 1;
 }
 
 
-// ---- citations : themes d'origine embarques (firmware, lignes 14834-14897) ----
+// ---- citations : themes d'origine embarques (firmware, lignes 14957-15020) ----
 // Themes d'origine embarques (copies sur la SD par decoQuotesRestore()). Contenu d'ESSAI : le jeu complet suit apres relecture.
 static const char QT_FR_BISCUIT[] PROGMEM =
   "Un petit pas aujourd'hui vaut mieux qu'un grand projet demain.\n"
@@ -1794,7 +1952,7 @@ static const char QT_ES_CELEBRES[] PROGMEM =
   "La libertad, Sancho, es uno de los mas preciosos dones que a los hombres dieron los cielos; con ella no pueden igualarse los tesoros que encierra la tierra ni el mar encubre. | Miguel de Cervantes, Don Quijote\n"
   "Que toda la vida es sueno, y los suenos, suenos son. | Calderon de la Barca, La vida es sueno\n";
 
-// ---- citations : etat, table des themes (firmware, lignes 14898-14911) ----
+// ---- citations : etat, table des themes (firmware, lignes 15021-15034) ----
 char g_quoteThemeName[26] = "";   // v304 -- theme de citations tire (choix du fond d'image)
 const uint16_t *g_qBg = nullptr;   // fond de la citation en cours (nullptr = noir)
 uint16_t g_qCq = 0, g_qCa = 0xFFFF, g_qShCol = 0; bool g_qShadow = true, g_qOutline = false; uint8_t g_qDim = 55; int g_qX0 = 0, g_qX1 = 128, g_qY0 = 0, g_qY1 = 32;   // v312 : + fenetre verticale (evite les bordures claires du fond)   // v308 : fenetre de texte propre au fond (ex. devinettes : seulement la partie jaune)   // v306d : ombre (couleur) et luminosite du fond (% ; 55 par defaut : les fonds clairs nuisaient a la lisibilite)   // v305 -- couleurs du texte (question / reponse) et ombre portee, propres au fond (fichier <fond>.col)
@@ -1810,7 +1968,7 @@ static const DecoQuoteSet DECO_QUOTE_SETS[] = {
 static bool decoQuoteLangOk(const String &l) { return l == "fr" || l == "en" || l == "es"; }
 
 
-// ---- citations : UTF-8 -> ASCII (firmware, lignes 14961-14979) ----
+// ---- citations : UTF-8 -> ASCII (firmware, lignes 15084-15102) ----
 // UTF-8 -> ASCII (la police n'a pas d'accents) : sur place.
 static void decoAscii(char *s)
 {
@@ -1831,14 +1989,14 @@ static void decoAscii(char *s)
 }
 
 
-// ---- citations : vitesse de defilement (firmware, lignes 15021-15025) ----
+// ---- citations : vitesse de defilement (firmware, lignes 15144-15148) ----
 // Affichage : defilement vertical d'un texte (+ suite). POLICE ET STYLE DE L'ECRAN DESCRIPTION DES JEUX (drawScoreScreen) :
 // TomThumb 3x5, tout en MAJUSCULES, or (255,200,0), lignes CENTREES (avances reelles tomThumbCharAdvance()), pas de ligne de 8 px
 // (4 lignes dans 32 px). Le texte est dessine UNE fois dans un GFXcanvas1 (1 bit) puis une fenetre de 32 lignes est recopiee point a
 // point a chaque image (voir v282). La suite (auteur / reponse) est en blanc.
 #define QUOTE_STEP_MS 100   // 1 pixel toutes les 100 ms (~10 px/s, ~1 s par ligne) : a ajuster apres essai sur la dalle
 
-// ---- QCM : decoupe de texte TomThumb (firmware, lignes 15026-15054) ----
+// ---- QCM : decoupe de texte TomThumb (firmware, lignes 15149-15177) ----
 // ============ v287 -- QCM (quiz a choix multiples) ============
 // Decoupe un texte en <= maxLines lignes de <= maxPx pixels (avances TomThumb), retourne le nombre de lignes, ou -1 si ca ne tient pas.
 static int decoWrapTT(const char *t, char (*lines)[40], uint8_t *widths, int maxLines, int maxPx)
@@ -1869,7 +2027,7 @@ static int decoTTWidth(const char *s) { int w = 0; for (; *s; s++) w += tomThumb
 // Aucun fichier = fond noir comme avant. Le fond est lu UNE fois par citation dans le tampon raw565FullBuf (8 Ko, deja alloue par drawRaw565) ; texte avec ombre portee.
 // ==================================================================
 
-// ---- citations : fond, texte, QCM, defilement (firmware, lignes 15083-15296) ----
+// ---- citations : fond, texte, QCM, defilement (firmware, lignes 15206-15419) ----
 static void decoQuoteBgLoadImpl();
 static void decoQuoteBgLoad() { decoQuoteBgLoadImpl(); Serial.println(String("[DECO] fond citation : theme=") + g_quoteThemeName + (g_qBg ? " -> fond charge" : " -> aucun fond (noir)") + ", heap=" + String(ESP.getMaxAllocHeap())); }
 static void decoQuoteBgLoadImpl()
