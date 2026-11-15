@@ -60,7 +60,17 @@
   "wbg_rb-health.raw565_sha256": "831494321bdd016c03552187f130a511e26b310c6c8e05a597b9e9d42856cf69",
   "wbg_rb-rewards.raw565_size": 8192,
   "wbg_rb-rewards.raw565_sha256": "4281e51b759d06eb09532d53b8454e4c2515a25e69f1c4dec28adf8dd954913b",
-  "webpack_hash": "68548673",
-  "webpack_size": 171607,
-  "webpack_sha256": "68548673b487c531f28534f4655d5636fc7d9291c38c3edfe1b66dc5735b9958"
+  "wspr_beach.spr_size": 98320,
+  "wspr_beach.spr_sha256": "5ddbf3dad8ca1ea1e74f7e10f1b40b62e3a62fca7abc35d4674a76bb3dd5a2f4",
+  "wspr_benchy.spr_size": 58256,
+  "wspr_benchy.spr_sha256": "4128d76ff5d13da7c98d033c2e8c28a520901d2978313055a07885e2dd5472e0",
+  "wspr_duck.spr_size": 48688,
+  "wspr_duck.spr_sha256": "b36772cee9bd8f59d2545443a8070a72f96770e44364748b6ade813b562c7e3d",
+  "wspr_poke.spr_size": 98320,
+  "wspr_poke.spr_sha256": "1cf8faf2dd8deeed72b2019295859e91d8e29b2ebc605ec7d0bc4856f2324a3a",
+  "wspr_shark.spr_size": 119824,
+  "wspr_shark.spr_sha256": "a468e6bdd2d278bc8bdf723bbfeda01bba351a21d8ad2d6ba97094bb4fe88a3a",
+  "webpack_hash": "74ae3c0f",
+  "webpack_size": 171798,
+  "webpack_sha256": "74ae3c0f97686ace7ae3d99cf04379c60502dc8715af1a4212cd641825622bd4"
 }
