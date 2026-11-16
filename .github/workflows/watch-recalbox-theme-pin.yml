@@ -1,0 +1,45 @@
+name: Watch Recalbox theme pin
+
+# Le theme par defaut de Recalbox (recalbox-next) vient d'un depot PRIVE : ce workflow ne peut pas le lire, mais le fichier public recalbox-themes.mk de
+# recalbox/recalbox indique la version privee utilisee par chaque branche. Si elle change, il ouvre une Issue (une seule par version) pour rappeler
+# au mainteneur de reconstruire le paquet depuis sa Recalbox alpha (tools/theme_package/check_recalbox_system_theme.py).
+# Une panne reseau ne fait pas echouer le workflow (le script rend toujours 0).
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "43 5 * * 1"    # chaque lundi 05:43 UTC
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Lire les versions
+        id: watch
+        run: |
+          python tools/theme_package/watch_recalbox_theme_pin.py --report "$RUNNER_TEMP/report.md" | tee "$RUNNER_TEMP/out.txt"
+          if grep -q '^CHANGED' "$RUNNER_TEMP/out.txt"; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "tag=$(grep '^CHANGED' "$RUNNER_TEMP/out.txt" | sed 's/^CHANGED //')" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Ouvrir une Issue (si pas deja ouverte pour cette version)
+        if: steps.watch.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.watch.outputs.tag }}
+        run: |
+          TITLE="Thème par défaut Recalbox : nouvelle version ($TAG)"
+          N=$(gh issue list --state all --search "\"$TAG\" in:title" --json number --jq 'length')
+          if [ "$N" = "0" ]; then
+            gh issue create --title "$TITLE" --body-file "$RUNNER_TEMP/report.md"
+          else
+            echo "Issue deja existante pour $TAG"
+          fi

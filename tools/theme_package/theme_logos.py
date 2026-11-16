@@ -1527,6 +1527,20 @@ def embedded_logos_download(cache_dir=None, log=print):
 def load_embedded_logos(cache_dir=None, log=print):
     """-> (base {id: octets SVG}, variantes {langue: {id: octets SVG}}) depuis l'archive des logos embarques."""
     base, var = {}, {}
+    local = os.environ.get("RBDMD_EMBEDDED_LOGOS_DIR")      # copie lue sur une Recalbox ALPHA (check_recalbox_system_theme.py) : plus recente que l'archive publique
+    if local and os.path.isdir(local):
+        for f in sorted(os.listdir(local)):
+            name, ext = os.path.splitext(f)
+            if ext.lower() != ".svg":
+                continue
+            mm = re.fullmatch(r"(.+)-(" + "|".join(EMBEDDED_LANGS) + ")", name, re.I)
+            data = open(os.path.join(local, f), "rb").read()
+            if mm:
+                var.setdefault(mm.group(2).lower(), {})[mm.group(1)] = data
+            else:
+                base[name] = data
+        log(f"logos embarques lus depuis {local} : {len(base)} en base")
+        return base, var
     with zipfile.ZipFile(embedded_logos_download(cache_dir, log)) as z:
         for n in z.namelist():
             m = re.search(r"/logos/([^/]+)\.svg$", n, re.I)
@@ -1568,10 +1582,12 @@ def load_extra_embedded():
     """v20 : logos presents dans /recalbox/system/resources/logos d'une Recalbox 11.0-patron-1.1 mais ABSENTS de l'archive 11.0-patron-1 (recalboxtv.png, online.png, wheel*.svg) ;
     dossier extra_embedded_logos/ a cote de ce module (outil du mainteneur : absent de l'exe, ignore sans erreur). -> (svg_base, svg_variantes, png_base)."""
     base, var, png = {}, {}, {}
-    if os.path.isdir(EXTRA_EMBEDDED_DIR):
-        for f in sorted(os.listdir(EXTRA_EMBEDDED_DIR)):
+    src = os.environ.get("RBDMD_EMBEDDED_LOGOS_DIR")      # dossier lu sur la Recalbox : contient deja tout (svg + png) -> remplace le dossier « extra »
+    src = src if (src and os.path.isdir(src)) else EXTRA_EMBEDDED_DIR
+    if os.path.isdir(src):
+        for f in sorted(os.listdir(src)):
             name, ext = os.path.splitext(f)
-            data = open(os.path.join(EXTRA_EMBEDDED_DIR, f), "rb").read()
+            data = open(os.path.join(src, f), "rb").read()
             if ext.lower() == ".png":
                 png[name] = data
             elif ext.lower() == ".svg":
