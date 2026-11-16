@@ -170,7 +170,9 @@ def build(out_root, known_dir, only=None, rb_root=None, log=print, incremental=F
             hv = _rb_version(os.path.join(rb_root, folder)) or hv      # v9 : version de la copie Recalbox
         elif reuse and hv is not None:
             o_rb = old_themes.get(name)
-            if o_rb and o_rb.get("packaged_from") == "rb" and os.path.isdir(os.path.join(out_root, name)) and not tl.version_newer(hv, o_rb.get("version")):
+            # v11 : theme SYSTEME (recalbox-next) fait depuis une Recalbox alpha : le depot public est fige et plus ANCIEN que l'alpha (version « 1.0 » du theme.xml contre une
+            # date-hash : version_newer rendait « vrai » et le workflow reconstruisait depuis l'archive publique, defaisant la mise a jour). On le conserve toujours.
+            if o_rb and o_rb.get("packaged_from") == "rb" and os.path.isdir(os.path.join(out_root, name)) and (folder in tl.SYSTEM_THEMES or not tl.version_newer(hv, o_rb.get("version"))):
                 manifest["themes"][name] = o_rb          # v9 : paquet fait depuis la Recalbox ; hub en retard ou egal : on conserve
                 log(f"[{folder}] copie Recalbox v{o_rb.get('version')} conservee (hub v{hv} pas plus recent)")
                 continue
@@ -249,7 +251,9 @@ def build(out_root, known_dir, only=None, rb_root=None, log=print, incremental=F
         for name, o in old_themes.items():
             if name in manifest["themes"] or name in EXTRA_THEMES:
                 continue
-            if name in hub_names or any(tl.theme_dir_name(f) == name for f in rb_names):
+            if name in hub_names or any(tl.theme_dir_name(f) == name for f in rb_names) or o.get("packaged_from") == "rb":
+                # v11 : un theme fait depuis une Recalbox (packaged_from == "rb", ex. beudbeud-astro, bounitos-artnpop) n'a jamais ete « au hub » : son absence du hub
+                # (ou de --rb, que le workflow GitHub n'a pas) ne veut PAS dire « retire ». Avant, le lundi supprimait ces themes (PR #8, 975 fichiers).
                 manifest["themes"][name] = o
             else:
                 shutil.rmtree(os.path.join(out_root, name), ignore_errors=True)

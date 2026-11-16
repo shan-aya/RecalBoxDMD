@@ -1,7 +1,13 @@
-﻿{
+{
   "_comment": "Versions du theme par defaut (depot prive recalbox-themes-prime) lues dans package/recalbox-themes/recalbox-themes.mk de recalbox/recalbox, par branche, au 2026-11-16. Mises a jour par watch_recalbox_theme_pin.py --update une fois le theme traite (reconstruit depuis la Recalbox alpha).",
   "branches": {
-    "master": {"private": "73f22c5651fa7f4430342c651a6f640585521258", "public": "febce03c483cca4fdcd873938e974e0a52930418"},
-    "feat/v11_theme_update": {"private": "78998d08fffd7b87440797329a0c2e17374b2866", "public": "febce03c483cca4fdcd873938e974e0a52930418"}
+    "master": {
+      "private": "73f22c5651fa7f4430342c651a6f640585521258",
+      "public": "febce03c483cca4fdcd873938e974e0a52930418"
+    },
+    "feat/v11_theme_update": {
+      "private": "78998d08fffd7b87440797329a0c2e17374b2866",
+      "public": "febce03c483cca4fdcd873938e974e0a52930418"
+    }
   }
 }
