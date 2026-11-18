@@ -27,6 +27,8 @@ permissions:
 
 jobs:
   sync:
+    # Canaux : `main` = STABLE. Une pre-release (canal alpha : pi-vX, toolkit alpha) ne doit JAMAIS ecrire ses numeros dans le manifeste stable.
+    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
