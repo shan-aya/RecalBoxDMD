@@ -139,6 +139,15 @@ int main(int argc, char **argv) {
           }
           std::fclose(pv);
         }
+        // v3.93 : build ALPHA = mention « ALPHA » sur le titre affiche sur la dalle (fichier PI_CHANNEL de la charge utile, verrouille par le build ; « Pi ALPHA v3.93 », en rouge)
+        std::FILE *pc = std::fopen((exePath.substr(0, cut2) + "/PI_CHANNEL").c_str(), "r");
+        if (pc) {
+          char cb[16] = {0};
+          const bool got = std::fgets(cb, sizeof(cb), pc) != nullptr;
+          std::fclose(pc);
+          if (got && std::strncmp(cb, "alpha", 5) == 0) edition.replace(0, 10, "Pi ALPHA");         // « Pi Edition » -> « Pi ALPHA » (14 car. x 6 px = 84 px < 128)
+          else if (got && std::strncmp(cb, "stable", 6) == 0) edition.replace(0, 10, "Pi STABLE");   // « Pi STABLE v3.93 » (16 car. x 6 px = 96 px)
+        }
       }
     }
     display.setBrightness8(cfg.brightness8());

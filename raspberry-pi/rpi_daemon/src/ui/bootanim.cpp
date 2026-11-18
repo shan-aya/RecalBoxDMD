@@ -41,7 +41,7 @@ void drawTitle(Display &cv, const std::string &edition) {
   cv.setTextColor(Display::color565(50, 220, 80));
   cv.print("DMD");
   cv.setCursor(x2, y2);
-  cv.setTextColor(Display::color565(235, 235, 235));
+  cv.setTextColor(edition.find("ALPHA") != std::string::npos ? Display::color565(255, 70, 70) : Display::color565(235, 235, 235));   // build alpha : titre en rouge
   cv.print(edition);
 }
 }  // namespace

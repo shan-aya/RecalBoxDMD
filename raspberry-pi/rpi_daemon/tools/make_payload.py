@@ -68,7 +68,7 @@ else:
     print("ATTENTION : charge utile SANS animations de demarrage (--boot-anim)")
 for f in ("install.sh", "firstrun.sh", "check_media.sh", "dmd_update.py", "recalboxdmd.service", "config.ini.seed"):
     shutil.copy2(rpi / "deploy" / f, out / f)
-for f in ("LICENSE", "LICENSE.md", "PI_VERSION"):
+for f in ("LICENSE", "LICENSE.md", "PI_VERSION", "PI_CHANNEL"):   # PI_CHANNEL : canal du build, verrouille (stable | alpha)
     shutil.copy2(rpi / f, out / f)
 try:
     commit = subprocess.run(["git", "-C", str(rpi), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()

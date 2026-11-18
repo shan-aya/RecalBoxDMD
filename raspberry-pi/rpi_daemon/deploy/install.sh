@@ -87,6 +87,8 @@ install -m 0644 "$HERE/recalboxdmd.service" /etc/systemd/system/recalboxdmd.serv
 [ -f "$HERE/dmd_update.py" ] && install -m 0755 "$HERE/dmd_update.py" "$PREFIX/bin/dmd_update.py"
 PIV="$HERE/PI_VERSION"; [ -f "$PIV" ] || PIV="$HERE/../PI_VERSION"     # charge utile : a cote d'install.sh ; sources (--build) : a la racine de rpi_daemon
 [ -f "$PIV" ] && install -m 0644 "$PIV" "$PREFIX/PI_VERSION"
+PIC="$HERE/PI_CHANNEL"; [ -f "$PIC" ] || PIC="$HERE/../PI_CHANNEL"     # canal du build (stable | alpha), verrouille : lu par dmd_update.py et la page web
+[ -f "$PIC" ] && install -m 0644 "$PIC" "$PREFIX/PI_CHANNEL"
 [ -f /etc/default/recalboxdmd ] || cat > /etc/default/recalboxdmd <<EOF
 # Reglages du service recalboxdmd (voir l'unite systemd)
 DMD_SD=$SD

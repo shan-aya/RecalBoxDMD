@@ -57,14 +57,30 @@ def restart_service() -> None:
         subprocess.run(["systemctl", "restart", "recalboxdmd"], timeout=60)
 
 
-def latest_release():
+def channel() -> str:
+    """Canal de CE build (fichier PI_CHANNEL ecrit par la charge utile : « stable » | « alpha »), verrouille ; absent ou inconnu = stable."""
+    return "alpha" if read(os.path.join(PREFIX, "PI_CHANNEL"), "stable") == "alpha" else "stable"
+
+
+def target_channel():
+    """Canal CIBLE de cette mise a jour : l'argument « --channel alpha|stable » (CHANGEMENT DE CANAL demande par la web config) sinon le canal du build."""
+    if "--channel" in sys.argv:
+        i = sys.argv.index("--channel")
+        if i + 1 < len(sys.argv) and sys.argv[i + 1] in ("alpha", "stable"):
+            return sys.argv[i + 1]
+    return channel()
+
+
+def latest_release(alpha=None):
     req = urllib.request.Request(API, headers={**UA, "Accept": "application/vnd.github+json"})
     with urllib.request.urlopen(req, timeout=20) as r:
         rels = json.load(r)
     best = None
+    if alpha is None:
+        alpha = channel() == "alpha"   # canal alpha : releases ET pre-releases (la plus recente) ; canal stable : jamais une pre-release
     for rel in rels:
         m = re.fullmatch(r"pi-v(\d+\.\d+)", str(rel.get("tag_name", "")))
-        if not m or rel.get("draft") or rel.get("prerelease"):
+        if not m or rel.get("draft") or (rel.get("prerelease") and not alpha):
             continue
         assets = {a.get("name"): a.get("browser_download_url") for a in rel.get("assets", [])}
         if ASSET not in assets or ASSET + ".sha256" not in assets:
@@ -138,9 +154,11 @@ def main() -> int:
     cur = read(os.path.join(PREFIX, "PI_VERSION"), "0.0")
     work = tempfile.mkdtemp(prefix="recalboxdmd-update-", dir=os.environ.get("DMD_UPDATE_TMP", "/var/tmp"))
     restarted = False
+    target = target_channel()
+    chg = target != channel()   # CHANGEMENT DE CANAL : installe la derniere release du canal cible meme si son numero est plus ancien
     try:
         try:
-            rel = latest_release()
+            rel = latest_release(target == "alpha")
         except Exception as e:   # noqa: BLE001
             state(f"echec:github|{type(e).__name__}")
             return 1
@@ -148,7 +166,7 @@ def main() -> int:
             state("echec:norelease")
             return 1
         ver, url_zip, url_sha = rel
-        if vtuple(ver) <= vtuple(cur):
+        if vtuple(ver) <= vtuple(cur) and not chg:
             state(f"ok:deja {cur}")
             return 0
         try:
@@ -189,6 +207,12 @@ def main() -> int:
             restart_service()
             state(f"echec:install|{tail[0][:80]}")
             return 1
+        if chg:   # la charge utile d'une release anterieure aux canaux ne porte pas PI_CHANNEL : le canal installe est celui demande
+            try:
+                with open(os.path.join(PREFIX, "PI_CHANNEL"), "w", encoding="ascii") as f:
+                    f.write(target + "\n")
+            except OSError:
+                pass
         state(f"ok:{ver}")
         return 0
     except Exception as e:   # noqa: BLE001

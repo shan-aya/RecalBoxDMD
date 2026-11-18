@@ -310,6 +310,15 @@ WebReply WebConfig::load() {
   // version du demon (fichier PI_VERSION de l'installation, meme format M.mm que le firmware) : la page la compare a la cle « pi » du manifeste GitHub.
   // Vide (lancement a la main, installation sans ce fichier) : pas d'avis de mise a jour.
   add("fw_version", installPrefix().empty() ? "" : readSmall(installPrefix() + "/PI_VERSION"));
+  {  // v3.93 : CANAL DU BUILD (fichier PI_CHANNEL de l'installation, ecrit par la charge utile : « stable » ou « alpha », verrouille, jamais un reglage utilisateur ;
+     // absent / inconnu = stable). La page web (meme code que celle de l'ESP32) lit ici les adresses du canal : manifeste, installateur USB, releases.
+    const std::string ch = installPrefix().empty() ? std::string() : readSmall(installPrefix() + "/PI_CHANNEL");
+    const bool alpha = (ch == "alpha");
+    add("fw_channel", alpha ? "alpha" : "stable");
+    add("fw_mu", alpha ? "https://raw.githubusercontent.com/shan-aya/RecalBoxDMD/alpha/docs/install/manifest.json" : "https://shan-aya.github.io/RecalBoxDMD/install/manifest.json");
+    add("fw_iu", alpha ? "https://shan-aya.github.io/RecalBoxDMD/install-alpha/" : "https://shan-aya.github.io/RecalBoxDMD/install/");
+    add("fw_ru", alpha ? "https://github.com/shan-aya/RecalBoxDMD/releases?q=prerelease%3Atrue" : "https://github.com/shan-aya/RecalBoxDMD/releases/latest");
+  }
   add("platform", "rpi");  // materiel annonce au toolkit (l'ESP32 annonce "esp32") : compare la bonne version publiee (cle pi / version du manifeste)
   {
     std::lock_guard<std::mutex> lk(eng_.themeControl().m);
@@ -972,8 +981,11 @@ void WebConfig::registerRoutes() {
   web_.any("/handshake", [this](const WebRequest &r) { return handshake(r); });
   // reseau et mise a jour : geres par le systeme du Pi, sans objet ici
   // mise a jour du demon depuis la derniere release GitHub « pi-v... » : dmd_update.py tourne DETACHE du service (systemd-run) car le service est redemarre
-  web_.post("/ota/start", [this](const WebRequest &) {
+  web_.post("/ota/start", [this](const WebRequest &req) {
     WebReply r;
+    // v3.93 : chan=alpha|stable = CHANGEMENT DE CANAL (dmd_update.py --channel ...) ; toute autre valeur est ignoree (mise a jour du canal du build)
+    const std::string chan = req.arg("chan");
+    const bool chg = (chan == "alpha" || chan == "stable");
     const std::string prefix = installPrefix();
     const std::string script = prefix + "/bin/dmd_update.py";
     if (prefix.empty() || access(script.c_str(), X_OK) != 0) {
@@ -986,7 +998,8 @@ void WebConfig::registerRoutes() {
       st << "en-cours\n";
     }
     int rc = -1;
-    runArgs({"systemd-run", "--no-block", "--collect", "--unit=recalboxdmd-update", script}, 15000, &rc);
+    if (chg) runArgs({"systemd-run", "--no-block", "--collect", "--unit=recalboxdmd-update", script, "--channel", chan}, 15000, &rc);
+    else runArgs({"systemd-run", "--no-block", "--collect", "--unit=recalboxdmd-update", script}, 15000, &rc);
     if (rc != 0) {  // deja en cours (unite existante) ou systemd-run indisponible
       std::ofstream st(prefix + "/ota_last", std::ios::trunc);
       st << "echec:busy\n";
