@@ -11,6 +11,12 @@ Le script LIT la Recalbox en SSH (lecture seule : un tar du dossier du theme, ri
      puis note l'etat dans system_theme_state.json. Les logos embarques (/recalbox/system/resources/logos : favorites, allgames, lastplayed, nouveaux systemes)
      sont lus sur la Recalbox aussi (variable RBDMD_EMBEDDED_LOGOS_DIR vue par theme_logos.py), pas dans l'archive publique 11.0-patron-1.
 
+  4. SET PAR DEFAUT (systems/_defaults, --known) : les logos embarques de la Recalbox servent aussi aux images par defaut (base + fr/es). Le script les convertit (meme moteur) et les
+     compare au dossier --known : identiques / proches (< 2 %, rien a faire) / DIFFERENTS / NOUVEAUX (systemes ajoutes). Avec --update-defaults (ou --build), les images differentes ou nouvelles
+     sont copiees dans --known (base) et dans <known>/<langue>/ quand la Recalbox fournit la variante de langue ; les traductions DEJA presentes dont le logo de base a change mais que la
+     Recalbox ne fournit pas (ex. favoris / tous les jeux / dernier joue en espagnol) sont listees « A RETRADUIRE » : a refaire a la main.
+     Sans SSH : --defaults-only --embedded-dir <dossier logos deja lu> (ex. un dossier deja lu par une execution precedente).
+
 Mot de passe SSH : variable d'environnement RB_SSH_PASSWORD, sinon saisie masquee. Jamais ecrit sur disque. Necessite : pip install paramiko.
 
 Usage : python check_recalbox_system_theme.py --host 192.168.0.35 [--build <dossier _themes> --known <dossier _defaults>]"""
@@ -66,14 +72,112 @@ def tree_fingerprint(h: dict) -> str:
     return hashlib.sha256("\n".join(f"{k} {v}" for k, v in sorted(h.items())).encode()).hexdigest()[:16]
 
 
+DEFAULTS_NEAR = 0.02          # ecart moyen (0..1) en dessous duquel une image est « la meme » (arrondis de conversion)
+DEFAULTS_LANGS = ("fr", "es")  # langues qui ont un dossier <known>/<langue>/ (le DMD n'en lit pas d'autres)
+
+
+def _img_diff(a: bytes, b: bytes) -> float:
+    """Ecart moyen normalise (0..1) entre deux images raw565 128x32."""
+    n = 0
+    for i in range(0, 8192, 2):
+        va, vb = a[i] | (a[i + 1] << 8), b[i] | (b[i + 1] << 8)
+        n += abs(((va >> 11) & 31) - ((vb >> 11) & 31)) + abs(((va >> 5) & 63) // 2 - ((vb >> 5) & 63) // 2) + abs((va & 31) - (vb & 31))
+    return n / (4096 * 3 * 31)
+
+
+def compare_defaults(embedded_dir: Path, known: Path, apply: bool = False) -> dict:
+    """Compare les logos embarques de la Recalbox (convertis par theme_logos) au set par defaut `known` (= systems/_defaults). -> {"changed", "new", "lang_changed", "retranslate", "applied"}."""
+    sys.path.insert(0, str(HERE))
+    import shutil
+    import theme_logos as tl
+    os.environ["RBDMD_EMBEDDED_LOGOS_DIR"] = str(embedded_dir)
+    out = Path(tempfile.mkdtemp(prefix="rbdef_"))
+    tl.apply_embedded_logos(str(out), log=lambda *a: None)
+    res = {"changed": [], "new": [], "lang_changed": {}, "lang_new": {}, "retranslate": {}, "applied": 0, "same": 0}
+    changed_names = set()
+    for f in sorted(out.glob("*.raw565")):
+        old = known / f.name
+        new = f.read_bytes()
+        if not old.exists():
+            res["new"].append(f.stem)
+        else:
+            d = _img_diff(old.read_bytes(), new)
+            if d >= DEFAULTS_NEAR:
+                res["changed"].append((f.stem, round(d, 3)))
+                changed_names.add(f.stem)
+            else:
+                res["same"] += 1
+    updated_lang = {}
+    for lg in DEFAULTS_LANGS:
+        src, dst = out / f"l_{lg}", known / lg
+        res["lang_changed"][lg], res["lang_new"][lg], updated_lang[lg] = [], [], set()
+        if not dst.is_dir():
+            continue
+        for f in sorted(src.glob("*.raw565")) if src.is_dir() else []:
+            old = dst / f.name
+            if not old.exists():
+                res["lang_new"][lg].append(f.stem)      # variante fournie mais pas dans notre serie traduite : signalee, non ajoutee
+            elif _img_diff(old.read_bytes(), f.read_bytes()) >= DEFAULTS_NEAR:
+                res["lang_changed"][lg].append(f.stem)
+                updated_lang[lg].add(f.stem)
+    for lg in DEFAULTS_LANGS:
+        dst = known / lg
+        if dst.is_dir():
+            res["retranslate"][lg] = sorted(n for n in changed_names if (dst / f"{n}.raw565").exists() and n not in updated_lang[lg])
+    if apply:
+        for n in [x[0] for x in res["changed"]] + res["new"]:
+            shutil.copyfile(out / f"{n}.raw565", known / f"{n}.raw565")
+            res["applied"] += 1
+        for lg in DEFAULTS_LANGS:
+            for n in res["lang_changed"].get(lg, []):
+                shutil.copyfile(out / f"l_{lg}" / f"{n}.raw565", known / lg / f"{n}.raw565")
+                res["applied"] += 1
+    shutil.rmtree(out, ignore_errors=True)
+    return res
+
+
+def print_defaults_report(r: dict, applied: bool) -> None:
+    print(f"== SET PAR DEFAUT (_defaults) : {r['same']} images identiques ou proches ; {len(r['changed'])} DIFFERENTES ; {len(r['new'])} NOUVELLES")
+    if r["changed"]:
+        print("   differentes :", ", ".join(f"{n} ({d})" for n, d in r["changed"]))
+    if r["new"]:
+        print("   nouvelles   :", ", ".join(r["new"]))
+    for lg in DEFAULTS_LANGS:
+        if r["lang_changed"].get(lg) is not None:
+            print(f"   {lg} fournies par la Recalbox et differentes : {', '.join(r['lang_changed'][lg]) or '-'}" + (f" | variantes non reprises (absentes de notre serie) : {', '.join(r['lang_new'][lg])}" if r["lang_new"].get(lg) else ""))
+    for lg, names in r["retranslate"].items():
+        if names:
+            print(f"   A RETRADUIRE ({lg}) : {', '.join(names)}  -- le logo de base a change et la Recalbox n'en fournit pas la traduction")
+    print(f"   -> {r['applied']} fichier(s) copie(s) dans le dossier par defaut." if applied else "   (rien modifie : ajouter --update-defaults ou --build pour copier les images differentes / nouvelles)")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--host", required=True)
+    ap.add_argument("--host", default=None, help="adresse de la Recalbox alpha (SSH) ; inutile avec --defaults-only --embedded-dir")
     ap.add_argument("--user", default="root")
     ap.add_argument("--build", default=None, metavar="DOSSIER_THEMES", help="reconstruit recalbox-next dans ce dossier _themes si le theme a change")
     ap.add_argument("--known", default=os.path.join("sd_card", "systems", "_defaults"))
     ap.add_argument("--force", action="store_true", help="reconstruit meme si l'empreinte est celle deja traitee")
+    ap.add_argument("--update-defaults", action="store_true", help="copie dans --known les images par defaut differentes / nouvelles (voir 4. ci-dessus)")
+    ap.add_argument("--defaults-only", action="store_true", help="ne controle que le set par defaut (pas le theme)")
+    ap.add_argument("--embedded-dir", default=None, metavar="DOSSIER_LOGOS", help="dossier de logos embarques DEJA lus (evite le SSH) ; avec --defaults-only")
     a = ap.parse_args()
+    if a.defaults_only:
+        emb = a.embedded_dir
+        if not emb:
+            if not a.host:
+                sys.exit("--defaults-only demande --embedded-dir ou --host")
+            pwd = os.environ.get("RB_SSH_PASSWORD") or getpass.getpass(f"Mot de passe SSH {a.user}@{a.host} : ")
+            tmp0 = Path(tempfile.mkdtemp(prefix="rbtheme_"))
+            print(f"Recalbox {pull(a.host, a.user, pwd, tmp0)} lue en SSH")
+            emb = str(tmp0 / "_embedded" / "logos")
+        known = Path(a.known)
+        if not known.is_dir():
+            sys.exit(f"dossier par defaut introuvable : {known}")
+        print_defaults_report(compare_defaults(Path(emb), known, apply=a.update_defaults), a.update_defaults)
+        return 0
+    if not a.host:
+        sys.exit("--host est obligatoire (sauf avec --defaults-only --embedded-dir)")
     pw = os.environ.get("RB_SSH_PASSWORD") or getpass.getpass(f"Mot de passe SSH {a.user}@{a.host} : ")
     tmp = Path(tempfile.mkdtemp(prefix="rbtheme_"))
     version = pull(a.host, a.user, pw, tmp)
@@ -87,6 +191,10 @@ def main():
         print(f"Dernier etat traite : Recalbox {state.get('recalbox_version')} le {state.get('date')}, empreinte {state.get('fingerprint')}, {state.get('files')} fichiers")
     changed = fp != state.get("fingerprint")
     print("-> theme CHANGE depuis le dernier traitement" if changed else "-> theme identique au dernier traitement")
+    known_dir = Path(a.known)
+    if known_dir.is_dir():          # set par defaut : toujours compare (les logos embarques changent avec la Recalbox, pas seulement le theme)
+        apply_def = bool(a.update_defaults or a.build is not None)
+        print_defaults_report(compare_defaults(tmp / "_embedded" / "logos", known_dir, apply=apply_def), apply_def)
     if a.build is None:
         print("(ajouter --build <dossier _themes> --known <dossier _defaults> pour reconstruire le paquet)")
         return 0
