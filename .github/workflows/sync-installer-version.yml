@@ -193,11 +193,19 @@ jobs:
       - name: Record the latest PC toolkit build in the manifest (notice shown by the DMD web pages)
         shell: python
         run: |
-          import json, re, sys, urllib.request
-          req = urllib.request.Request("https://api.github.com/repos/${{ github.repository }}/releases/latest",
+          import json, os, re, sys, urllib.request
+          alpha = os.environ.get("BRANCH") == "alpha"
+          # stable : derniere release NORMALE (releases/latest exclut les pre-releases) ; alpha : boite a outils au plus grand numero parmi TOUTES les releases (pre-releases comprises)
+          req = urllib.request.Request("https://api.github.com/repos/${{ github.repository }}/releases" + ("?per_page=30" if alpha else "/latest"),
                                        headers={"Accept": "application/vnd.github+json", "Authorization": "Bearer ${{ secrets.GITHUB_TOKEN }}", "User-Agent": "sync-installer-version"})
           try:
-              tag = str(json.load(urllib.request.urlopen(req, timeout=30)).get("tag_name", ""))
+              data = json.load(urllib.request.urlopen(req, timeout=30))
+              if alpha:
+                  builds = [int(m.group(1)) for r in data if not r.get("draft")
+                            for m in [re.fullmatch(r"RecalBoxDMD_tool_v(\d+)", str(r.get("tag_name", "")))] if m]
+                  tag = ("RecalBoxDMD_tool_v%d" % max(builds)) if builds else ""
+              else:
+                  tag = str(data.get("tag_name", ""))
           except Exception as e:
               print(f"::warning::derniere release illisible ({e}) - cle toolkit inchangee")
               sys.exit(0)
