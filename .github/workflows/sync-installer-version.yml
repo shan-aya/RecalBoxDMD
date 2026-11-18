@@ -12,7 +12,7 @@ name: Sync firmware version
 
 on:
   push:
-    branches: [main]
+    branches: [alpha]   # BRANCHE ALPHA : meme workflow que `main` (stable), mais pour la branche alpha (manifeste docs/install/manifest.json PROPRE a l'alpha)
     paths:
       - "binaries/RecalBoxDMD_merged.bin"
       - "binaries/RecalBoxDMD_app.bin"
@@ -27,13 +27,14 @@ permissions:
 
 jobs:
   sync:
-    # Canaux : `main` = STABLE. Une pre-release (canal alpha : pi-vX, toolkit alpha) ne doit JAMAIS ecrire ses numeros dans le manifeste stable.
-    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
+    # Canaux : cette copie du workflow est celle de la branche ALPHA : seules les PRE-RELEASES (alpha) ecrivent leurs numeros ici
+    # (la branche `main`, stable, fait l'inverse : elle ignore les pre-releases).
+    if: ${{ github.event_name != 'release' || github.event.release.prerelease }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main   # evenement release : sans cela le checkout serait en tete detachee (sur le tag) et le push echouerait
+          ref: alpha   # evenement release : sans cela le checkout serait en tete detachee (sur le tag) et le push echouerait
 
       - name: Sync the scripts bundle number into the manifest
         shell: python
