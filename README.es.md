@@ -8,7 +8,7 @@
 
 <p align="center">
   <img alt="Firmware: v4.28" src="https://img.shields.io/badge/firmware-v4.28-blueviolet.svg">
-  <img alt="Herramienta PC: v16399" src="https://img.shields.io/badge/herramienta%20PC-v16399-blueviolet.svg">
+  <img alt="Herramienta PC: v164100" src="https://img.shields.io/badge/herramienta%20PC-v164100-blueviolet.svg">
   <a href="LICENSE"><img alt="Licencia: MIT" src="https://img.shields.io/badge/licencia-MIT-green.svg"></a>
   <img alt="Plataformas: ESP32 y Raspberry Pi" src="https://img.shields.io/badge/plataformas-ESP32%20%7C%20Raspberry%20Pi-blue.svg">
   <img alt="Panel: HUB75 128x32" src="https://img.shields.io/badge/panel-HUB75%20128x32-blue.svg">
@@ -375,7 +375,7 @@ El software del Pi se **descarga de GitHub** (release `pi-v…`, SHA-256 verific
 
 ## 🧰 La caja de herramientas PC — el centro de la instalación
 
-La aplicación Windows (FR / EN / ES, 9 aspectos visuales) que **lo construye todo**: tarjeta SD, scripts, temas, GIF, actualizaciones — tanto para el ESP32 como para la Raspberry Pi. Manual completo: [`HELP.es.md`](tools/RecalBoxDMD_tool_v16399/HELP.es.md) (también en la pestaña *Ayuda*).
+La aplicación Windows (FR / EN / ES, 9 aspectos visuales) que **lo construye todo**: tarjeta SD, scripts, temas, GIF, actualizaciones — tanto para el ESP32 como para la Raspberry Pi. Manual completo: [`HELP.es.md`](tools/RecalBoxDMD_tool_v164100/HELP.es.md) (también en la pestaña *Ayuda*).
 
 | Main · SNES | Ajustes · Dreamcast |
 |---|---|

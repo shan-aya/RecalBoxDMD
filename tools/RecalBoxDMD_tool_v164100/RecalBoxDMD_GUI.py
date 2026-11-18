@@ -4,6 +4,7 @@
 # ============================================
 # Version actuelle : v162
 #
+# v164 - 2026-11-18 - safe-modify - CANAUX STABLE / ALPHA : le canal du build est verrouille (BUILD_CHANNEL de l'outil, reecrit par le workflow sync-installer-version) ; le titre de la fenetre porte « ALPHA » dans un build alpha ; alerte d'ecart de canal firmware / toolkit (le DMD annonce fw_channel dans /load) avec telechargement de la boite a outils du canal du DMD ; Mode 14 (mise a jour Wi-Fi) desactive seulement si les canaux different. TOOLKIT_RELEASE_VERSION 16399 -> 164100.
 # v163 - 2026-11-18 - safe-modify - BASCULE DE CIBLE ESP32 / RASPBERRY PI : pastille coloree sur la ligne des onglets (ambre = ESP32, vert = Pi ; « Dossier de travail » = simple affichage de l'onglet Main), aide des modes filtree par cible, presélection automatique (carte RECALBOXDMD / RBPIDMD inseree prioritaire, sinon Pi joignable) avec confirmation / alerte au changement manuel, modes 14 / 16 / 17 grises, detrompeur au Demarrer (modes 2 / 3 / 11 / 13 / 18 / 20), popup de choix ESP32 / Pi du Mode 1 ; ONGLET PLAYLIST sur la cible (ecriture directe sur la carte, ou PAR WI-FI sur un Pi sans carte : pi_playlist.py + demon 3.92), bouton « Envoyer au Pi » retire, dossier _boot masque, cache grise pour le Pi, playlists saisonnieres par Wi-Fi ; ONGLET PERSONNALISATION : selection multiple (carte texte / Annuler de groupe), menu Outils (Remettre en etat adaptatif, sauvegarde / restauration en zip), ouverture sur « Tous les systemes », source calee sur la cible (carte du Pi prioritaire) ; aide du Mode 11 (cache + playlist ALL) et HELP*.md mis a jour ; FIN DES ENVOIS WI-FI AU PI (Modes 2 / 11 / 13 / 18 / 20) : confirmation de reussite, plus de panneau de copie sur une carte absente, noms refuses par le demon ignores. Voir DECISIONS.md (2026-11-18).
 # v162 - 2026-11-16 - safe-modify - FUSION DE dev/toolkit-game-gifs DANS master (apres dev/toolkit-pi-wifi v160 et dev/toolkit-theme-notice v161, deja fusionnes) : GIFS DU JEU = page « Gestion des GIFs des jeux » de l'onglet Personnalisation (menu a 2 entrees, Mode 21 SUPPRIME), sources Carte SD / Pi Wi-Fi, dossier /gifs_jeux, importer / ajout auto / exclusions / « Tous » les systemes, apercu LED, theme et langue suivis, decoupage de l'image du theme rejoue au premier affichage. NUMEROTATION : les v160 et v161 plus bas, datees du 15/11 (Mode 21 puis exclusions), sont celles de la branche dev/toolkit-game-gifs ; elles precedent les v160 / v161 du 16/11 (Wi-Fi Pi, theme par defaut) malgre le meme numero.
 #
@@ -1474,7 +1475,7 @@ from tkinter import ttk, messagebox, filedialog, font as tkfont
 # mais CETTE constante reste a mettre a jour a la main ici (pas d'ecriture
 # automatique dans le .py au moment du build, pour garder le pipeline
 # simple) -- build_release.ps1 avertit si elle diverge du calcul.
-TOOLKIT_RELEASE_VERSION = "16399"      # build local du 2026-11-17 (GUI v162 + outil v96 ; 16297 = systemes du Pi sans dossier ROMs + progression) : NON publie, a renumeroter a la publication
+TOOLKIT_RELEASE_VERSION = "164100"      # build du 2026-11-18 : PRE-RELEASE ALPHA (GUI v164 + outil v100)
 CUSTOM_LOGOS_TAB = True    # v145 : onglet « Personnalisation » (logos de jeux personnalises) NON publie : mis a True pour l'afficher (le code et les modules restent) ; _LOGS_TAB_INDEX en depend
 
 # v71, safe-modify -- voir le remplacement du verrou v68 dans __init__ pour
@@ -12180,7 +12181,7 @@ class RetroBoxLEDGui:
         try:
             import RecalBoxDMD_pi_gui as _pig
             k = "target_" + self._display_key()
-            self.root.title(f"RecalBoxDMD Toolkit - GUI  (build {TOOLKIT_RELEASE_VERSION})  -  [{_pig.target_text(self, k)}]")
+            self.root.title(f"RecalBoxDMD Toolkit - GUI  (build {TOOLKIT_RELEASE_VERSION}{' ALPHA' if self.tkmod.ACTIVE_CHANNEL == 'alpha' else ''})  -  [{_pig.target_text(self, k)}]")   # canal du build : la mention ALPHA doit survivre a la mise a jour du titre (cible ESP32 / Pi)
         except Exception:
             pass
 
