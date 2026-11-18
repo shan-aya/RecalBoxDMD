@@ -12,8 +12,10 @@ name: Sync firmware version
 
 on:
   push:
-    branches: [alpha]   # BRANCHE ALPHA : meme workflow que `main` (stable), mais pour la branche alpha (manifeste docs/install/manifest.json PROPRE a l'alpha)
+    branches: [main, alpha]   # CANAUX : ce fichier est IDENTIQUE sur main (stable) et alpha ; tout se deduit du nom de la branche (survit aux fusions)
     paths:
+      - "docs/install/manifest.json"           # apres une fusion alpha -> main : le chemin du binaire et le canal sont remis a ceux de la branche
+      - "tools/RecalBoxDMD_tool_v*/RecalBoxDMD_tool.py"   # constante BUILD_CHANNEL de la boite a outils
       - "binaries/RecalBoxDMD_merged.bin"
       - "binaries/RecalBoxDMD_app.bin"
       - "binaries/RecalBoxDMD_v2.0_app.bin"   # copie HISTORIQUE (meme contenu) : adresse codee en dur dans les firmwares 2.44 a 2.64
@@ -27,14 +29,50 @@ permissions:
 
 jobs:
   sync:
-    # Canaux : cette copie du workflow est celle de la branche ALPHA : seules les PRE-RELEASES (alpha) ecrivent leurs numeros ici
-    # (la branche `main`, stable, fait l'inverse : elle ignore les pre-releases).
-    if: ${{ github.event_name != 'release' || github.event.release.prerelease }}
+    # CANAUX : `main` = STABLE, `alpha` = alpha. Branche cible = la branche poussee ; pour une release : pre-release -> alpha, release -> main
+    # (une release alpha n'ecrit donc JAMAIS ses numeros dans le manifeste stable).
     runs-on: ubuntu-latest
+    env:
+      BRANCH: ${{ github.event_name == 'release' && (github.event.release.prerelease && 'alpha' || 'main') || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: alpha   # evenement release : sans cela le checkout serait en tete detachee (sur le tag) et le push echouerait
+          ref: ${{ github.event_name == 'release' && (github.event.release.prerelease && 'alpha' || 'main') || github.ref_name }}   # evenement release : sans cela le checkout serait en tete detachee (sur le tag) et le push echouerait
+
+      - name: Lock the channel to the branch (stable on main, alpha on alpha)
+        shell: python
+        run: |
+          import glob, os, re, sys
+          br = os.environ["BRANCH"]
+          if br not in ("main", "alpha"):
+              print("::warning::branche", br, "- ni main ni alpha : canal inchange")
+              sys.exit(0)
+          chan = "stable" if br == "main" else "alpha"
+          # 1) binaire du manifeste : toujours celui de la branche (apres une fusion alpha -> main il pointerait sur /alpha/)
+          p = "docs/install/manifest.json"
+          raw = open(p, "rb").read()
+          new = re.sub(rb"(RecalBoxDMD/)(?:main|alpha)(/binaries/)", rb"\g<1>" + br.encode() + rb"\g<2>", raw)
+          if new != raw:
+              open(p, "wb").write(new)
+              print("manifeste : binaire remis sur la branche", br)
+          # 2) canal verrouille de la boite a outils (constante BUILD_CHANNEL du build le plus recent)
+          tools = sorted(glob.glob("tools/RecalBoxDMD_tool_v*/RecalBoxDMD_tool.py"),
+                         key=lambda f: int(re.search(r"_tool_v(\d+)", f).group(1)))
+          if not tools:
+              print("::warning::aucune boite a outils trouvee - canal non verrouille")
+              sys.exit(0)
+          f = tools[-1]
+          src = open(f, "rb").read()
+          out, n = re.subn(rb'^(BUILD_CHANNEL\s*=\s*)"[a-z]+"', rb'\g<1>"' + chan.encode() + rb'"', src, flags=re.M)
+          if n == 0:
+              print("::warning::", f, ": pas de BUILD_CHANNEL (boite a outils anterieure aux canaux) - rien a verrouiller")
+              sys.exit(0)
+          if n != 1:
+              print("::error::", f, ":", n, "occurrences de BUILD_CHANNEL (1 attendue)")
+              sys.exit(1)
+          if out != src:
+              open(f, "wb").write(out)
+              print("BUILD_CHANNEL =", chan, "dans", f)
 
       - name: Sync the scripts bundle number into the manifest
         shell: python
@@ -184,6 +222,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/install/manifest.json README.md README.fr.md README.es.md
+          git add docs/install/manifest.json README.md README.fr.md README.es.md tools/RecalBoxDMD_tool_v*/RecalBoxDMD_tool.py
           git commit -m "Web Installer et badges - version du firmware ${{ steps.ver.outputs.version }} (lue dans le binaire)"
           git push
