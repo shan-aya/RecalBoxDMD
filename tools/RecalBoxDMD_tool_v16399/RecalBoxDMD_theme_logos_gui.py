@@ -768,6 +768,17 @@ class ThemeLogosWindow:
             if m and r["state"] in ("MAJ", "INCONNU") and m["state"] in ("A JOUR", "DIFFERENT", "SANS LOGOS", "NOUVEAU", None):
                 m["state"], m["detail"] = "MAJ", (r["detail"] if r.get("default") else "paquet GitHub : " + r["detail"])
 
+    def _is_alpha_default(self, folder) -> bool:
+        """Theme par defaut (recalbox-next) dont le paquet GitHub est issu d'une Recalbox ALPHA (packaged_from « rb ») : plus recent que l'archive publique figee du hub, donc a TELECHARGER
+        (SD / Pi), jamais a reconvertir depuis le hub (ancien design)."""
+        try:
+            if folder != getattr(self.tkmod, "DEFAULT_THEME", "recalbox-next") or not self.on_sd:
+                return False
+            ent = ((getattr(self, "pkg_manifest", None) or {}).get("themes") or {}).get(self.tl.theme_dir_name(folder)) or {}
+            return ent.get("packaged_from") == "rb"
+        except Exception:
+            return False
+
     def _mark_package_equivalents(self, merged):
         """v26 : un theme a (re)installer dont le paquet GitHub est EQUIVALENT (meme version que la copie de la Recalbox, ou du hub / de Recalbox pour les themes sans copie ; rendu du paquet
         >= rendu du toolkit) se met a jour par TELECHARGEMENT (secondes) au lieu d'une conversion (minutes). m["pkg"] = True. Le reste (version differente, logos modifies sur la Recalbox,
@@ -888,7 +899,7 @@ class ThemeLogosWindow:
         self._asked.update(new)
         if self._ask_exclusive(self.tr["propose_new"].format(n=len(new), names=", ".join(new))):
             self._post("busy", True)
-            pkg = [f for f in new if self.rows[f].get("pkg")] if self.on_sd else []      # v26 : equivalents du paquet GitHub = telecharges, les autres convertis
+            pkg = [f for f in new if self.rows[f].get("pkg") or self._is_alpha_default(f)] if self.on_sd else []      # v26 : equivalents du paquet GitHub = telecharges, les autres convertis ; v-: + theme par defaut issu d'une Recalbox alpha
             conv = [f for f in new if f not in pkg]
             threading.Thread(target=self._update_worker, args=(pkg, conv, self.rb_var.get().strip(), self._prefer(), self._pkg_lang()), daemon=True).start()
         else:
@@ -924,7 +935,7 @@ class ThemeLogosWindow:
         if not todo:
             messagebox.showinfo(self.tr["title"], self.tr["all_uptodate"], parent=self.win)
             return
-        pkg = [f for f in todo if str(self.rows[f]["detail"]).startswith("paquet GitHub") or self.rows[f].get("pkg")] if self.on_sd else []
+        pkg = [f for f in todo if str(self.rows[f]["detail"]).startswith("paquet GitHub") or self.rows[f].get("pkg") or self._is_alpha_default(f)] if self.on_sd else []
         conv = [f for f in todo if f not in pkg]
         self._post("busy", True)
         threading.Thread(target=self._update_worker, args=(pkg, conv, self.rb_var.get().strip(), self._prefer(), self._pkg_lang()), daemon=True).start()
@@ -1024,6 +1035,11 @@ class ThemeLogosWindow:
         if not sel:
             return
         self._post("busy", True)
+        pkg = [f for f in sel if self._is_alpha_default(f)]
+        if pkg:      # theme par defaut issu d'une Recalbox alpha : telecharge depuis le paquet GitHub (une reconversion depuis le hub public redonnerait l'ancien design) ; les autres sont convertis
+            self._log("recalbox-next : paquet GitHub issu d'une Recalbox alpha -> téléchargement (pas de reconversion depuis le hub public)")
+            threading.Thread(target=self._update_worker, args=(pkg, [f for f in sel if f not in pkg], self.rb_var.get().strip(), self._prefer(), self._pkg_lang()), daemon=True).start()
+            return
         threading.Thread(target=self._convert_worker, args=(sel, self.rb_var.get().strip(), self._prefer(), True), daemon=True).start()
 
     def _convert_worker(self, folders, rb, prefer, use_hub=True, show_preview=True):

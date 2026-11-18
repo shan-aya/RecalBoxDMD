@@ -4,7 +4,7 @@
 # ============================================
 # Version actuelle : v162
 #
-# v163 - 2026-11-18 - safe-modify - BASCULE DE CIBLE ESP32 / RASPBERRY PI : pastille coloree sur la ligne des onglets (ambre = ESP32, vert = Pi ; « Dossier de travail » = simple affichage de l'onglet Main), aide des modes filtree par cible, presélection automatique (carte RECALBOXDMD / RBPIDMD inseree prioritaire, sinon Pi joignable) avec confirmation / alerte au changement manuel, modes 14 / 16 / 17 grises, detrompeur au Demarrer (modes 2 / 3 / 11 / 13 / 18 / 20), popup de choix ESP32 / Pi du Mode 1 ; ONGLET PLAYLIST sur la cible (ecriture directe sur la carte, ou PAR WI-FI sur un Pi sans carte : pi_playlist.py + demon 3.92), bouton « Envoyer au Pi » retire, dossier _boot masque, cache grise pour le Pi, playlists saisonnieres par Wi-Fi ; ONGLET PERSONNALISATION : selection multiple (carte texte / Annuler de groupe), menu Outils (Remettre en etat adaptatif, sauvegarde / restauration en zip), ouverture sur « Tous les systemes », source calee sur la cible (carte du Pi prioritaire) ; aide du Mode 11 (cache + playlist ALL) et HELP*.md mis a jour. Voir DECISIONS.md (2026-11-18).
+# v163 - 2026-11-18 - safe-modify - BASCULE DE CIBLE ESP32 / RASPBERRY PI : pastille coloree sur la ligne des onglets (ambre = ESP32, vert = Pi ; « Dossier de travail » = simple affichage de l'onglet Main), aide des modes filtree par cible, presélection automatique (carte RECALBOXDMD / RBPIDMD inseree prioritaire, sinon Pi joignable) avec confirmation / alerte au changement manuel, modes 14 / 16 / 17 grises, detrompeur au Demarrer (modes 2 / 3 / 11 / 13 / 18 / 20), popup de choix ESP32 / Pi du Mode 1 ; ONGLET PLAYLIST sur la cible (ecriture directe sur la carte, ou PAR WI-FI sur un Pi sans carte : pi_playlist.py + demon 3.92), bouton « Envoyer au Pi » retire, dossier _boot masque, cache grise pour le Pi, playlists saisonnieres par Wi-Fi ; ONGLET PERSONNALISATION : selection multiple (carte texte / Annuler de groupe), menu Outils (Remettre en etat adaptatif, sauvegarde / restauration en zip), ouverture sur « Tous les systemes », source calee sur la cible (carte du Pi prioritaire) ; aide du Mode 11 (cache + playlist ALL) et HELP*.md mis a jour ; FIN DES ENVOIS WI-FI AU PI (Modes 2 / 11 / 13 / 18 / 20) : confirmation de reussite, plus de panneau de copie sur une carte absente, noms refuses par le demon ignores. Voir DECISIONS.md (2026-11-18).
 # v162 - 2026-11-16 - safe-modify - FUSION DE dev/toolkit-game-gifs DANS master (apres dev/toolkit-pi-wifi v160 et dev/toolkit-theme-notice v161, deja fusionnes) : GIFS DU JEU = page « Gestion des GIFs des jeux » de l'onglet Personnalisation (menu a 2 entrees, Mode 21 SUPPRIME), sources Carte SD / Pi Wi-Fi, dossier /gifs_jeux, importer / ajout auto / exclusions / « Tous » les systemes, apercu LED, theme et langue suivis, decoupage de l'image du theme rejoue au premier affichage. NUMEROTATION : les v160 et v161 plus bas, datees du 15/11 (Mode 21 puis exclusions), sont celles de la branche dev/toolkit-game-gifs ; elles precedent les v160 / v161 du 16/11 (Wi-Fi Pi, theme par defaut) malgre le meme numero.
 #
 # v161 - 2026-11-16 - safe-modify - THEME PAR DEFAUT MIS A JOUR (branche dev/toolkit-theme-notice, NON publie ; demande utilisateur : le paquet GitHub de recalbox-next est reconstruit depuis la Recalbox alpha, les utilisateurs doivent le retelecharger). MODE 12 : bandeau orange au-dessus du tableau, phrase d'avertissement dans la proposition de mise a jour de la SD, detail « thème par défaut mis à jour : à retélécharger depuis GitHub » ; MODE 1 : mention dans le selecteur de themes. Detection dans RecalBoxDMD_tool.compare_sd_with_theme_package (outil v96).
@@ -1474,7 +1474,7 @@ from tkinter import ttk, messagebox, filedialog, font as tkfont
 # mais CETTE constante reste a mettre a jour a la main ici (pas d'ecriture
 # automatique dans le .py au moment du build, pour garder le pipeline
 # simple) -- build_release.ps1 avertit si elle diverge du calcul.
-TOOLKIT_RELEASE_VERSION = "16396"      # build local du 2026-11-17 (GUI v162 + outil v96 ; 16297 = systemes du Pi sans dossier ROMs + progression) : NON publie, a renumeroter a la publication
+TOOLKIT_RELEASE_VERSION = "16399"      # build local du 2026-11-17 (GUI v162 + outil v96 ; 16297 = systemes du Pi sans dossier ROMs + progression) : NON publie, a renumeroter a la publication
 CUSTOM_LOGOS_TAB = True    # v145 : onglet « Personnalisation » (logos de jeux personnalises) NON publie : mis a True pour l'afficher (le code et les modules restent) ; _LOGS_TAB_INDEX en depend
 
 # v71, safe-modify -- voir le remplacement du verrou v68 dans __init__ pour
@@ -12866,6 +12866,7 @@ class RetroBoxLEDGui:
         self.progress.configure(maximum=100, value=0)
         self.text.delete("1.0", "end")
         self._pi_card, self._pi_final_msg = None, None
+        self._pi_sends = []          # envois Wi-Fi vers un Raspberry Pi faits pendant ce traitement (voir _pi_send_note / _on_pipeline_finished)
         if self.mode_var.get() == "1" and self._target_is_pi():
             import RecalBoxDMD_pi_gui as _pig
             _pig.start_card_build(self)   # ecriture de la carte en arriere-plan, pendant la preparation du contenu
@@ -13406,6 +13407,7 @@ class RetroBoxLEDGui:
         print(f"[GUI] Envoi Wi-Fi des logos reels au Raspberry Pi {pi['ip']} : {r['state']} ({r['sent']}/{r['total']}) {r['detail']}".rstrip())
         for name, detail in r["failed"][:20]:
             print(f"[GUI]   echec {name} : {detail}")
+        self._pi_send_note(pi["ip"], "logos-reels", r["sent"], r["total"], r["state"] in ("ok", "empty"))
 
     def _pi_wifi_probe(self, toolkit, need: str = "defaults"):
         """v160 : cible « Raspberry Pi » + un Pi joignable en Wi-Fi dont le demon sait recevoir ce qu'on veut lui envoyer (need = "defaults" : systems/_defaults, themes ; "gifs") -> sa sonde, sinon None
@@ -13433,6 +13435,25 @@ class RetroBoxLEDGui:
             pass
         return pi
 
+    _PI_SEND_MSG = {
+        "fr": {"skipped": "\n\n{n} fichier(s) ignoré(s) : leur nom (espace ou caractère spécial) n'est pas accepté par le Pi ; le détail est dans le journal.",
+               "ok": "Envoi par Wi-Fi terminé vers le Raspberry Pi {ip} : {sent}/{total} fichier(s).\n\nRien à copier sur une carte SD.",
+               "partial": "L'envoi par Wi-Fi vers le Raspberry Pi {ip} est INCOMPLET ({sent}/{total} fichier(s)).\n\nRelancez le mode, ou copiez le résultat sur la carte du Pi avec le panneau de copie (la carte du Pi doit être insérée dans le PC)."},
+        "en": {"skipped": "\n\n{n} file(s) skipped: their name (space or special character) is not accepted by the Pi; details are in the log.",
+               "ok": "Wi-Fi transfer finished to the Raspberry Pi {ip}: {sent}/{total} file(s).\n\nNothing to copy to an SD card.",
+               "partial": "The Wi-Fi transfer to the Raspberry Pi {ip} is INCOMPLETE ({sent}/{total} file(s)).\n\nRun the mode again, or copy the result to the Pi's card with the copy panel (the Pi's card must be inserted in the PC)."},
+        "es": {"skipped": "\n\n{n} archivo(s) omitido(s): su nombre (espacio o carácter especial) no lo acepta la Pi; el detalle está en el registro.",
+               "ok": "Envío por Wi-Fi terminado a la Raspberry Pi {ip}: {sent}/{total} archivo(s).\n\nNada que copiar a una tarjeta SD.",
+               "partial": "El envío por Wi-Fi a la Raspberry Pi {ip} está INCOMPLETO ({sent}/{total} archivo(s)).\n\nVuelve a lanzar el modo, o copia el resultado a la tarjeta de la Pi con el panel de copia (la tarjeta de la Pi debe estar insertada en el PC)."},
+    }
+
+    def _pi_send_note(self, ip: str, label: str, sent: int, total: int, ok: bool, skipped: int = 0) -> None:
+        """Memorise le resultat d'un envoi Wi-Fi au Pi : _on_pipeline_finished confirme la reussite (et ne propose plus la copie sur une carte SD absente) ou signale l'echec."""
+        try:
+            self._pi_sends.append({"ip": ip, "label": label, "sent": int(sent), "total": int(total), "ok": bool(ok), "skipped": int(skipped)})
+        except Exception:
+            pass
+
     def _send_dir_to_pi(self, toolkit, pi: dict, src: Path, dest_rel: str, label: str, markers: bool = False, skip_top=()) -> bool:
         """v160 : envoie <src> dans systems/_defaults/<dest_rel> du Pi (envoi Wi-Fi), avec progression et resume dans le journal. markers=True : retire d'abord les anciens marqueurs de theme
         (_source.json / _package.json) du Pi -- ils repartent EN DERNIER avec l'envoi : un envoi interrompu laisse un theme « a mettre a jour », jamais un theme a moitie ecrit declare a jour."""
@@ -13447,6 +13468,9 @@ class RetroBoxLEDGui:
         print(f"[GUI] Envoi Wi-Fi « {label} » au Raspberry Pi {pi['ip']} : {r['state']} ({r['sent']}/{r['total']}) {r['detail']}".rstrip())
         for name, detail in r["failed"][:20]:
             print(f"[GUI]   echec {name} : {detail}")
+        for name in r.get("skipped", [])[:20]:
+            print(f"[GUI]   ignore (nom non accepte par le Pi : espace ou caractere special) : {name}")
+        self._pi_send_note(pi["ip"], label, r["sent"], r["total"], r["state"] in ("ok", "empty"), len(r.get("skipped", [])))
         return r["state"] in ("ok", "empty")
 
     def _send_themes_to_pi_if_any(self, toolkit, sd_dir: Path, names) -> None:
@@ -13531,6 +13555,7 @@ class RetroBoxLEDGui:
         print(f"[GUI] Envoi Wi-Fi des cartes texte au Raspberry Pi {pi['ip']} : {sent}/{len(files)} envoyee(s).")
         for name, detail in failed[:20]:
             print(f"[GUI]   echec {name} : {detail}")
+        self._pi_send_note(pi["ip"], "cartes", sent, len(files), sent == len(files))
 
     def _send_gifs_to_pi_if_any(self, toolkit, sd_dir: Path) -> None:
         """v160 : Mode 11 -- le pack de GIF (dossiers de <dossier de travail>/gifs) part par Wi-Fi vers un Raspberry Pi (meme envoi que l'onglet Playlist)."""
@@ -13553,6 +13578,7 @@ class RetroBoxLEDGui:
         for r in results:
             if r["state"] != "ok":
                 print(f"[GUI]   {r['name']} : {r['state']} ({r['sent']}/{r['total']}) {r['detail']}".rstrip())
+        self._pi_send_note(pi["ip"], "gifs", sum(r["sent"] for r in results), sum(r["total"] for r in results), ok == len(results))
 
     def _pipeline_mode_11(self, toolkit, cfg: GuiConfig) -> None:
         # Pack GitHub (~600 GIFs) -- unifie sur le meme fonctionnement que
@@ -15866,6 +15892,18 @@ class RetroBoxLEDGui:
                 except Exception:
                     pass
             return
+        # Cible Raspberry Pi : si les fichiers sont partis PAR WI-FI, on le confirme et on ne propose PAS la copie sur une carte SD (la carte du Pi n'est pas dans le PC) ;
+        # envoi incomplet -> avertissement, et le panneau de copie reste la voie de repli
+        sends = list(getattr(self, "_pi_sends", None) or [])
+        self._pi_sends = []
+        if sends and current_mode in ("2", "11", "13", "18", "20") and self._target_is_pi():
+            msgs = self._PI_SEND_MSG.get(self.lang_var.get(), self._PI_SEND_MSG["fr"])
+            info = dict(ip=sends[0]["ip"], sent=sum(x["sent"] for x in sends), total=sum(x["total"] for x in sends))
+            n_skip = sum(x.get("skipped", 0) for x in sends)
+            if all(x["ok"] for x in sends):
+                self._themed_info("Raspberry Pi", msgs["ok"].format(**info) + (msgs["skipped"].format(n=n_skip) if n_skip else ""))
+                return
+            self._themed_info("Raspberry Pi", msgs["partial"].format(**info))
         # v80 -- modes 2/3/11 : ouvrir le dossier temporaire a la fin
         # (demande utilisateur) -- les fichiers produits y sont (systems/,
         # gifs/). Pas appele apres un Stop (_worker_main ne planifie

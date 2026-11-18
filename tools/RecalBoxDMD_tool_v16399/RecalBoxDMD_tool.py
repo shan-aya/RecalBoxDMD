@@ -3,6 +3,9 @@
 # ============================================
 # Version actuelle : v96
 #
+# v99 - 2026-11-18 - safe-modify - download_theme_logos() : apres un telechargement COMPLET d'un theme, les fichiers perimes du dossier (reste d'une reconversion depuis le hub, logo retire du paquet) sont supprimes -- ils pouvaient partir vers le Pi / la SD. Voir DECISIONS.md (2026-11-18).
+# v98 - 2026-11-18 - safe-modify - MODE 12 (fenetre des themes, RecalBoxDMD_theme_logos_gui.py) : meme defaut que le Mode 13 sur un autre chemin -- les boutons « Mettre a jour » et « Convertir » et la proposition « nouveau theme » envoyaient recalbox-next vers la CONVERSION (hub public fige, ancien design) parce que la ligne du theme par defaut ne portait pas la mention « paquet GitHub ». Nouveau `_is_alpha_default()` : le theme par defaut dont le paquet GitHub est issu d'une Recalbox alpha (packaged_from « rb ») est TOUJOURS telecharge depuis le paquet (SD / Pi), jamais reconverti depuis le hub. (La proposition affichee a l'ouverture de la fenetre passait deja par le telechargement.) Voir DECISIONS.md (2026-11-18).
+# v97 - 2026-11-18 - safe-modify - BUG REEL (retour utilisateur : « Mode 13 sur le Pi et sur l'ESP32, Favoris garde son coeur ; Derniers jeux joues au lieu de Last played ») : le Mode 13 (et le Mode 1) telechargeaient le paquet GitHub de recalbox-next (issu de la Recalbox ALPHA : etoile, variantes l_fr a jour) puis `convert_system_themes()` le RECONVERTISSAIT depuis l'archive PUBLIQUE du hub (figee a fevrier 2026, ancien design a coeur) + les logos embarques de l'archive publique 11.0-patron-1, ECRASANT le paquet (_source.json source « hub », 194 logos). Correctif : `convert_system_themes()` saute un theme systeme que le paquet GitHub fournit avec packaged_from « rb » quand la copie du dossier est celle du paquet (_source.json source « package ») ; `download_theme_logos()` ne considere plus une copie « a jour » si son _source.json n'est pas de source « package » (une copie convertie depuis le hub la remplace donc au lancement suivant). Voir DECISIONS.md (2026-11-18).
 # v96 - 2026-11-16 - safe-modify - THEME PAR DEFAUT MIS A JOUR (branche dev/toolkit-theme-notice, NON publie) : compare_sd_with_theme_package() marque le theme par defaut (DEFAULT_THEME = recalbox-next ; champ row["default"]) et lui donne le message « thème par défaut mis à jour : à retélécharger depuis GitHub » ; une copie convertie localement depuis le hub (source "hub") n'est plus ignorée (LOCAL) quand le paquet vient d'une Recalbox alpha (packaged_from "rb") : elle est perimee (MAJ).
 # v95 - 2026-11-16 - safe-modify - ENVOI WI-FI VERS UN RASPBERRY PI (branche dev/toolkit-pi-wifi, demon Pi 3.84, NON publie) : pi_defaults_supported / pi_defaults_send_file / pi_defaults_list / pi_defaults_get / pi_defaults_delete / defaults_tree_files / send_defaults_tree_to_pi / pi_theme_shadow -- ecriture et lecture de systems/_defaults du Pi par HTTP (POST /upload?kind=defaults, GET /defaults-list, /defaults-file, POST /defaults-delete). Support teste par la ROUTE elle-meme (pas par le numero de version : un demon de developpement a un numero plus eleve sans cette route). Sert les Modes 2, 12 et 13.
 #
@@ -4607,9 +4610,10 @@ def download_theme_logos(
         key = {"rev": entry.get("rev") or gen, "n": len(entry.get("files", [])) + sum(len(v) for v in (entry.get("overlays") or {}).values())}
         if not force and marker.exists() and (tdir / "_index.bin").exists():
             try:
-                if json.loads(marker.read_text(encoding="utf-8")) == key:
+                _src_kind = json.loads((tdir / "_source.json").read_text(encoding="utf-8")).get("source") if (tdir / "_source.json").exists() else "package"
+                if json.loads(marker.read_text(encoding="utf-8")) == key and _src_kind == "package":
                     uptodate_names.append(name)
-                    continue            # deja a jour, meme langue
+                    continue            # deja a jour, meme langue (v97 : et fichiers vraiment ceux du paquet, pas une reconversion depuis le hub)
             except Exception:
                 pass
         plan = {f: f"{GITHUB_THEMES_RAW_BASE}/{q(name)}/{q(f)}" for f in entry.get("files", []) + ["_index.bin"]}
@@ -4646,6 +4650,13 @@ def download_theme_logos(
     for name, tdir, key, entry in planned:
         if name in bad_themes:
             continue                    # pas de marqueur : sera retente au prochain lancement
+        try:        # v99 -- fichiers perimes (reste d'une reconversion depuis le hub, logo retire du paquet) : retires APRES un telechargement complet, jamais avant (un echec ne vide pas le dossier)
+            _wanted = {str(Path(t[1]).relative_to(tdir)).replace("\\", "/") for t in tasks if t[2].startswith(name + "/")}
+            for _f in list(tdir.rglob("*")):
+                if _f.is_file() and not _f.name.startswith("_package") and _f.name != "_source.json" and str(_f.relative_to(tdir)).replace("\\", "/") not in _wanted:
+                    _f.unlink()
+        except Exception:
+            pass
         try:
             (tdir / "_package.json").write_text(json.dumps(key), encoding="utf-8")
             (tdir / "_source.json").write_text(json.dumps({
@@ -6467,19 +6478,35 @@ def defaults_tree_files(src, skip_top=()) -> list:
     return out
 
 
+def pi_defaults_name_ok(name: str) -> bool:
+    """Meme regle que defaultsNameOk() du demon Pi (webmedia.cpp) : 1 a 96 caracteres [A-Za-z0-9_.@+-], jamais « . » / « .. » ni un nom commencant par un point. Un nom avec une ESPACE
+    (ex. « arcade-manufacturer-data east.raw565 ») est refuse par le demon : inutile de l'envoyer (il serait compte en echec a tort)."""
+    return 0 < len(name) <= 96 and name not in (".", "..") and not name.startswith(".") and all(ch.isascii() and (ch.isalnum() or ch in "_-.@+") for ch in name)
+
+
+def pi_defaults_path_ok(sub: str, name: str) -> bool:
+    segs = [x for x in (sub or ".").split("/") if x not in ("", ".")]
+    return pi_defaults_name_ok(name) and len(segs) <= 4 and all(pi_defaults_name_ok(x) and len(x) <= 64 for x in segs)
+
+
 def send_defaults_tree_to_pi(ip: str, src_dir, dest_rel: str = ".", progress_cb=None, probe=None, refresh: bool = True, skip_top=()) -> dict:
     """v95 : envoie un dossier du PC (ex. systems/_defaults/_themes/<theme>) dans systems/_defaults/<dest_rel>/ d'un DMD **Raspberry Pi** par Wi-Fi, sans sortir sa carte SD.
     dest_rel : destination relative a systems/_defaults (« . » = la racine ; « _themes/midnight » pour un theme). Les sous-dossiers (l_fr, r_us...) sont recrees.
     Refuse ("unsupported") si l'appareil n'est pas un Pi ou si le demon est < 3.84. Un fichier qui echoue n'arrete pas les suivants (sauf si le Pi ne repond plus) ;
     en fin d'envoi POST /reels-refresh (best effort : le demon recharge ses index et redessine). progress_cb(idx, total, "<dossier>/<fichier>") facultatif.
     -> {"state": "ok"|"partial"|"fail"|"unsupported"|"empty", "sent", "total", "failed": [(fichier, detail)], "detail"}."""
-    res = {"state": "fail", "sent": 0, "total": 0, "failed": [], "detail": ""}
+    res = {"state": "fail", "sent": 0, "total": 0, "failed": [], "detail": "", "skipped": []}
     probe = probe or _dmd_probe(ip, 8.0)
     ok, why = pi_defaults_supported(probe)
     if not ok:
         res.update(state="unsupported" if probe else "fail", detail=why)
         return res
-    files = defaults_tree_files(src_dir, skip_top)
+    files = []
+    for sub, fp in defaults_tree_files(src_dir, skip_top):
+        if pi_defaults_path_ok(sub, fp.name):
+            files.append((sub, fp))
+        else:
+            res["skipped"].append((f"{sub}/{fp.name}" if sub not in (".", "") else fp.name))      # nom que le demon refuse : ignore, pas un echec d'envoi
     res["total"] = len(files)
     if not files:
         res.update(state="empty", detail="aucun fichier a envoyer (dossier absent ou vide)")
@@ -6691,6 +6718,7 @@ def convert_system_themes(sd_dir: Path, names: list, log=print) -> int:
         log(f"[THEMES] catalogue des themes systeme injoignable : {e}")
         return 0
     known = tl.known_systems_from_dir(str(sd_dir / "systems" / "_defaults"))
+    pkg = None
     for name in wanted:
         h = cat.get(name)
         if not h:
@@ -6701,6 +6729,14 @@ def convert_system_themes(sd_dir: Path, names: list, log=print) -> int:
             src_json = json.loads((out / "_source.json").read_text(encoding="utf-8"))
         except Exception:
             src_json = {}
+        if src_json.get("source") == "package":
+            # v97 : le paquet GitHub peut venir d'une Recalbox ALPHA (packaged_from « rb » : theme par defaut, plus recent que l'archive publique figee) : le reconvertir depuis le hub l'ECRASERAIT par l'ancien design
+            if pkg is None:
+                pkg = fetch_theme_package_manifest() or {}
+            ent = (pkg.get("themes") or {}).get(name) or (pkg.get("themes") or {}).get(tl.theme_dir_name(name)) or {}
+            if ent.get("packaged_from") == "rb":
+                log(f"[THEMES] {name} : fourni par le paquet GitHub (issu d'une Recalbox alpha, plus recent que l'archive publique) : conversion locale IGNOREE")
+                continue
         if src_json.get("pipeline", 0) >= tl.PIPELINE_VERSION and str(src_json.get("hub_version")) == str(h["version"]) and (out / "_index.bin").exists():
             log(f"[THEMES] {name} : deja converti et a jour ({h['version']})")
             continue
