@@ -3771,7 +3771,7 @@ class RetroBoxLEDGui:
 
         self.root = tk.Tk()
 
-        self.root.title(f"RecalBoxDMD Toolkit - GUI  (build {TOOLKIT_RELEASE_VERSION})")
+        self.root.title(f"RecalBoxDMD Toolkit - GUI  (build {TOOLKIT_RELEASE_VERSION}" + (" ALPHA" if toolkit_module.ACTIVE_CHANNEL == "alpha" else "") + ")")   # canal du build verrouille : un build alpha est identifiable dans la barre de titre et les captures
         self.root.configure(bg="#F3F3F3")
 
         self.style = ttk.Style(self.root)
