@@ -315,6 +315,17 @@ def main():
     if game is None:
         return 1
 
+    # v11 -- « --name » : titre du jeu seul (balise <name> de la gamelist), pour l'appariement des GIFs du jeu par le DMD
+    # (panneau « gifs » de dmd_score v55). Accents CONSERVES (le firmware les replie lui-meme, comme pour les noms de GIF),
+    # espaces normalises, « | » retire (separateur du protocole). Aucun effet sur la sortie normale ci-dessous.
+    if len(sys.argv) > 3 and sys.argv[3] == "--name":
+        el = game.find('name')
+        title = re.sub(r'\s+', ' ', el.text).strip().replace('|', ' ') if (el is not None and el.text) else ''
+        if not title:
+            return 1
+        print(title[:60])
+        return 0
+
     payload = build_payload(game)
     if not payload:
         return 1
