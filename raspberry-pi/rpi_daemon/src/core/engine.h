@@ -22,7 +22,9 @@
 #include "diag.h"
 #include "netutil.h"
 #include "display.h"
+#include "gamegifcontrol.h"
 #include "gamescache.h"
+#include "gifmatch.h"
 #include "pack.h"
 #include "paths.h"
 #include "playlist.h"
@@ -35,7 +37,7 @@
 #include "zedcontrol.h"
 #include "zedmd.h"
 
-enum class Mode { PLAYLIST, GIF, PNG, BLACK, CONFIG, SCORE, CLOCK, ZEDMD };
+enum class Mode { PLAYLIST, GIF, PNG, BLACK, CONFIG, SCORE, CLOCK, ZEDMD, GAMEGIF };   // GAMEGIF : GIF du jeu intercale dans la rotation (v3.83)
 const char *modeName(Mode m);
 
 class Engine {
@@ -73,6 +75,8 @@ class Engine {
   const Deco &deco() const { return deco_; }
   ThemeControl &themeControl() { return tctl_; }       // theme / langue / region annonces par la Recalbox (thread reseau -> boucle)
   ZedControl &zedControl() { return zctl_; }           // drapeaux poses a la reception par le thread reseau
+  GameGifControl &gameGifControl() { return ggctl_; }  // CMD=gamegif : demandes de GIFs du jeu, posees a la reception par le thread reseau
+  void setGameGifDoneHook(std::function<void()> fn) { ggDoneHook_ = std::move(fn); }  // fin d'un bloc de GIFs du jeu : « GGDONE » vers la Recalbox
   ZeDmd &zedmd() { return zed_; }                      // flux ZeDMD-WiFi (port 3333) : Pinball, mode natif, fenetre RA
   // pendant un widget (bloquant) : commande en attente (= interrompre) et entretien du reseau (HELLO / PING)
   void setWidgetHooks(std::function<bool()> commandPending, std::function<void()> service) { widgets_.setHooks(std::move(commandPending), std::move(service)); }
@@ -86,6 +90,7 @@ class Engine {
   bool mainTaskPending();
   void loadBrightSched();                                  // BRIGHT_SCHED* relus (demarrage, rechargement de config.ini)
   void reloadConfig();                                    // config.ini vient d'etre modifie : relit et applique en direct
+  void ggInvalidateIndex() { ggIndexMs_ = 0; ggIndex_.clear(); ggAutoIndexMs_ = 0; ggAutoIndex_.clear(); ggNoneKey_.clear(); }  // v3.87 : /gifs ou /gifs_jeux viennent de changer (Mode 21 en Wi-Fi) : l'index des GIFs du jeu est refait a la prochaine demande
   void widenSystemTypes(const std::vector<std::pair<std::string, bool>> &need);  // v3.82 : (systeme, animation?) -> type p/g elargi a B (voir SysCache::widen)
   void gameLogosChanged(const std::vector<std::string> &games);  // v3.75 : logos de jeux envoyes/supprimes par le toolkit (« systeme/jeu ») : redessine l'ecran si le jeu affiche en fait partie
   void reelsRefresh();                                 // v3.74 : logos reels envoyes par le toolkit : recharge les index et redessine le logo a l'ecran
@@ -158,6 +163,18 @@ class Engine {
   void startClockPreview(const std::string &arg);  // outil de test (jamais appele par le reseau)
   void applyThemeControl();                         // CMD=theme / themeopt recus : applique, memorise dans config.ini, redessine le logo a l'ecran
 
+  // --- GIFs du jeu (portage du firmware v421) : n GIFs dont le nom correspond au TITRE du jeu, enchaines a la demande de la rotation de la Recalbox ---
+  void tickGameGif(uint64_t now);
+  int ggStartOne();             // 0 = rien a jouer (rien touche), 1 = en lecture, 2 = ouverture ratee
+  void ggFinish();              // fin d'un GIF : suivant s'il en reste, sinon retour au logo du jeu
+  void ggRestore();             // retour au logo du jeu (fin normale, score, echec)
+  void ggStopNoRestore();       // fin de partie / annulation : plus de GIF, plus de retour au logo (la navigation qui suit prend la main)
+  bool ggPick(std::string &out);
+  const std::string &ggKey() const { return ggTitle_.empty() ? ggArg_ : ggTitle_; }
+  struct GgEntry { std::string path, key; std::vector<uint8_t> wb; };   // wb : debuts de mots de la cle (regle des mots entiers, v3.84)
+  const std::vector<GgEntry> &ggAutoIndex();   // v3.90 : index de /gifs SEUL (repli du mode mixte quand le dossier /gifs_jeux est actif)
+  const std::vector<GgEntry> &ggIndex();   // GIFs de /gifs/<dossier>/*.gif avec leur cle normalisee (reconstruit toutes les 2 min)
+
   // --- commandes ---
   void cmdStop();
   void cmdScore(const std::string &arg);
@@ -175,6 +192,19 @@ class Engine {
 
   Mode mode_ = Mode::BLACK;
   Mode modeBeforeScore_ = Mode::BLACK;
+  // GIFs du jeu
+  GameGifControl ggctl_;
+  std::function<void()> ggDoneHook_;
+  std::string ggArg_, ggTitle_, ggNoneKey_, ggPath_;   // dernier « systeme/jeu » (CMD_GAME), titre de la demande, cle sans resultat, dernier GIF joue
+  std::vector<std::string> ggPlayed_;                  // GIFs deja joues dans le bloc en cours : jamais rejoues dans le meme bloc
+  int ggRemaining_ = 0;
+  bool ggPlaying_ = false, ggEnded_ = false, ggPrevIn_ = false, ggReplay_ = false;
+  Mode ggModeBefore_ = Mode::BLACK;
+  uint64_t ggDeadlineMs_ = 0, ggIndexMs_ = 0;
+  bool ggFolder_ = false;  // v3.86 : le dossier dedie /gifs_jeux existe -> on ne lit QUE lui (regle large) ; sinon mode auto strict sur /gifs
+  std::vector<GgEntry> ggIndex_;
+  std::vector<GgEntry> ggAutoIndex_;
+  uint64_t ggAutoIndexMs_ = 0;
   uint64_t scoreUntilMs_ = 0;
 
   Deco deco_;

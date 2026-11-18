@@ -150,6 +150,7 @@ LOG_PATH = "/recalbox/share/system/logs/dmd_udp_resync.log"
 # ET dmd_achievement.sh sans aucun changement de leur cote.
 FEATURES_CACHE_PATH = "/tmp/dmd_features_cache"
 FEATURES_PREFIX = "FEATURES:"
+GAMEGIF_DONE_PATH = "/tmp/dmd_gamegif_done"   # v21 -- pose a la reception de « GGDONE » (voir main()), lu/efface par dmd_score.sh
 # v5 -- IP source reelle du DMD, apprise de chaque paquet recu sur ce port
 # (hello/PING/FEATURES, peu importe le type) -- lue par marquee.sh/
 # dmd_score.sh/dmd_achievement.sh au lieu de leur ancienne IP codee en dur.
@@ -265,7 +266,7 @@ def update_dmd_ip_cache(ip):
         log(f"ERREUR ecriture {DMD_IP_CACHE_PATH}: {e}")
 
 
-SCRIPTS_BUNDLE = 10   # v20 -- plusieurs afficheurs par Recalbox (/tmp/dmd_udp_ips) : dmd_udp_resync v20, marquee v57, dmd_score, dmd_achievement, dmd_rbwidgets v2 (9 -> 10) ; v19 -- marquee v56 : le pont survit au bouton d'alimentation du Pi 5 en jeu (Recalbox 11 : ES termine tout son arbre de processus) -- detache d'ES (setsid), reconnexion de mosquitto_sub, DMD remis en navigation (8 -> 9) ; v18 -- nouveau script manuel « DMD Diagnostic » (CMD=diag : mode diagnostic Wi-Fi / Recalbox du DMD ; firmware 4.00, demon Pi 3.76) (7 -> 8) ; v17 -- marquee v44 : logos de jeu daphne/Singe en navigation (6 -> 7) ; v16 -- nouveaux scripts dmd_rbwidgets (widgets Recalbox challenge / recompenses / sante, UDP CMD=rbw ; firmware 3.50) (5 -> 6) ; v15 -- dmd_vpx_config v3 : ecrit l'adresse ZeDMD WiFi de Recalbox (dmd.zedmd.wifi) dans la config Visual Pinball (4 -> 5) ; v14 -- fusion mode natif / fenetre RA : dmd_achievement v9 (3 -> 4) ; a incrementer a chaque modification d'un script publie
+SCRIPTS_BUNDLE = 11   # v21 -- GIFs du jeu : dmd_score v55 (panneau « gifs » de la rotation, CMD=gamegif) (10 -> 11) ; v20 -- plusieurs afficheurs par Recalbox (/tmp/dmd_udp_ips) : dmd_udp_resync v20, marquee v57, dmd_score, dmd_achievement, dmd_rbwidgets v2 (9 -> 10) ; v19 -- marquee v56 : le pont survit au bouton d'alimentation du Pi 5 en jeu (Recalbox 11 : ES termine tout son arbre de processus) -- detache d'ES (setsid), reconnexion de mosquitto_sub, DMD remis en navigation (8 -> 9) ; v18 -- nouveau script manuel « DMD Diagnostic » (CMD=diag : mode diagnostic Wi-Fi / Recalbox du DMD ; firmware 4.00, demon Pi 3.76) (7 -> 8) ; v17 -- marquee v44 : logos de jeu daphne/Singe en navigation (6 -> 7) ; v16 -- nouveaux scripts dmd_rbwidgets (widgets Recalbox challenge / recompenses / sante, UDP CMD=rbw ; firmware 3.50) (5 -> 6) ; v15 -- dmd_vpx_config v3 : ecrit l'adresse ZeDMD WiFi de Recalbox (dmd.zedmd.wifi) dans la config Visual Pinball (4 -> 5) ; v14 -- fusion mode natif / fenetre RA : dmd_achievement v9 (3 -> 4) ; a incrementer a chaque modification d'un script publie
 THEME_PACKET_GAP_S = 0.5   # v9 -- ecart entre CMD=themeopt et CMD=theme
 DEFAULT_THEME_FOLDER = "recalbox-next"   # valeur par defaut de emulationstation.theme.folder dans Recalbox 9/10/11
 
@@ -354,7 +355,7 @@ def main():
 
     while True:
         try:
-            data, addr = listen_sock.recvfrom(256)
+            data, addr = listen_sock.recvfrom(1024)   # v21 : 256 -> 1024 (le message FEATURES fait ~275 octets depuis game_gifs / game_gif_count : a 256 il etait tronque, queue perdue)
         except socket.timeout:
             prune_dmd_targets()   # v20 -- retrait des afficheurs muets
             continue
@@ -385,6 +386,13 @@ def main():
             if addr[0] not in _scriptver_announced:   # v13 -- 1er PING apres le demarrage de ce script : le DMD n'a peut-etre jamais recu le numero (voir l'en-tete)
                 send_udp(send_sock, addr[0], "scriptver", str(SCRIPTS_BUNDLE))
                 _scriptver_announced.add(addr[0])
+            continue
+        if text == "GGDONE":   # v21 -- le DMD a fini de jouer les GIFs du jeu demandes (CMD=gamegif) : leve le drapeau attendu par le panneau « gifs » de dmd_score
+            try:
+                with open(GAMEGIF_DONE_PATH, "w") as f:
+                    f.write("1\n")
+            except Exception as e:
+                log(f"ERREUR ecriture {GAMEGIF_DONE_PATH}: {e}")
             continue
         if text.startswith(FEATURES_PREFIX):
             payload = text[len(FEATURES_PREFIX):]

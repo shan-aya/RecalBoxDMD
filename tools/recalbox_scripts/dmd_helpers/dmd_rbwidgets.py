@@ -2,7 +2,8 @@
 # ============================================
 # safe-modify — Historique des modifications
 # ============================================
-# Version actuelle : v2
+# Version actuelle : v3
+# v3 - 2026-11-15 - safe-modify - Recompenses : nom 20 -> 23 et condition 44 -> 62 caracteres (la condition « ... (sans continue) » etait coupee apres SANS) ; suit rn[24] / rc[64] du firmware.
 #
 # v2 - 2026-11-09 - safe-modify - PLUSIEURS DMD : envoi a tous les afficheurs de /tmp/dmd_udp_ips (voir dmd_udp_resync.py v20), repli sur /tmp/dmd_udp_ip puis sur l'IP de secours.
 #
@@ -76,7 +77,7 @@ def rewards_msg():
     cur = load("current.json") or {}
     out = []
     for r in (cur.get("rewards") or [])[:4]:
-        out.append("%s:%s:%s" % (clean(r.get("kind"), 6), clean(r.get("name"), 20), clean(r.get("condition"), 44)))
+        out.append("%s:%s:%s" % (clean(r.get("kind"), 6), clean(r.get("name"), 23), clean(r.get("condition"), 62)))   # v3 : 20/44 -> 23/62 (tailles des tampons firmware rn[24] / rc[64])
     return "R|" + "|".join(out)
 
 

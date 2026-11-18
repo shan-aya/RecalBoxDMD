@@ -153,7 +153,8 @@ int main(int argc, char **argv) {
   queue.configure(cfg.getBool("nav_paced", true), cfg.getInt("nav_dwell_ms", 60), cfg.getInt("nav_backlog", 5));
   logf("BOOT", "navigation : %s (nav_dwell_ms=%d nav_backlog=%d)", queue.paced() ? "cadencee, aucun logo saute sauf gros retard" : "comme le firmware (dernier paquet gagne)",
        cfg.getInt("nav_dwell_ms", 60), cfg.getInt("nav_backlog", 5));
-  UdpServer udp(queue, cfg, engine.inGameFlag(), engine.zedControl(), engine.themeControl());
+  UdpServer udp(queue, cfg, engine.inGameFlag(), engine.zedControl(), engine.themeControl(), engine.gameGifControl());
+  engine.setGameGifDoneHook([&udp] { udp.sendGameGifDone(); });  // GIFs du jeu : fin du bloc -> « GGDONE » vers la Recalbox
   // un widget (bloquant) s'arrete des qu'une commande attend ; pendant ce temps la presence UDP (HELLO / PING) est entretenue
   // (SIGTERM / SIGINT arretent aussi le widget en cours : sans cela l'arret attend la fin de toute la sequence)
   engine.setWidgetHooks([&queue, &engine] { return queue.pending() || g_stop || engine.mainTaskPending(); }, [&udp, &engine] {

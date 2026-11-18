@@ -852,6 +852,13 @@ FEATURES_FILE="/tmp/dmd_features_cache"
 # round-robin -- sert aussi d'unite d'approximation pour "un affichage
 # marquee" (aucune notion firmware de "marquee affiche N fois" n'existe).
 SLIDESHOW_GAP_S=7
+# v55 -- GIFS DU JEU (panneau « gifs » de la rotation, voir enabled_panel_types()/publish_one_panel()) : le firmware joue
+# les n GIFs demandes, puis envoie « GGDONE » ; dmd_udp_resync.py (v21) pose ce drapeau, que le panneau attend avant de
+# rendre la main a la rotation (aucune duree estimee). Efface avant chaque demande.
+GAMEGIF_DONE_FILE="/tmp/dmd_gamegif_done"
+_GT_KEY=""; _GT_VAL=""   # cache du titre du jeu (un appel python par jeu et par processus round_robin)
+# 1 = la rotation « ingame » courante est une DEMO (rundemo) : un seul GIF par passage, sans reglage.
+RR_IS_DEMO=0
 # v6 -- durees d'affichage PAR PAGE, DIFFERENCIEES par type de contenu
 # (voir en-tete changelog point 4) -- VALEURS DE DEPART a AJUSTER ICI selon
 # retour utilisateur ("on teste ma vitesse de lecture et on reajuste"), pas
@@ -966,12 +973,20 @@ feat_value() {
 # ce contexte ("ingame" ou "browse"), dans l'ordre fixe hiscore/description/
 # infos -- recalculee a CHAQUE appel de round_robin() pour suivre tout
 # changement de reglage en direct.
+# v56 -- GIFs du jeu : reglage selon le contexte. DEMO de jeux (rundemo, RR_IS_DEMO=1) : « demo_gifs » (case de la section Veille Recalbox, 1 GIF
+# par passage, independante de la case des parties) ; PARTIE (rungame) : « game_gifs » (nombre = game_gif_count). Jamais en navigation.
+gifs_feature_on() {
+    if [ "$RR_IS_DEMO" = "1" ]; then feat_enabled "demo_gifs"; else feat_enabled "game_gifs"; fi
+}
+
 enabled_panel_types() {
     ctx="$1"
     types=""
     feat_enabled "hiscore_${ctx}" && types="${types}hiscore "
     feat_enabled "description_${ctx}" && types="${types}description "
     feat_enabled "info_${ctx}" && types="${types}info "
+    # v55 -- GIFs du jeu : un panneau de plus, EN JEU / DEMO uniquement (jamais en navigation), dernier de la rotation.
+    [ "$ctx" = "ingame" ] && gifs_feature_on && types="${types}gifs "
     echo "$types"
 }
 
@@ -1307,11 +1322,18 @@ round_robin() {
     hiscore_ok=1
     while true; do
         ratio=$(feat_value "$ratio_key")
-        [ "$ratio" -le 0 ] && return
+        # v55 -- « repetition en jeu » a 0 = plus de rotation des panneaux (hi-score / infos...), MAIS les GIFs du jeu
+        # (reglage « GIFs du jeu », 1 a 5 par passage, donc au moins 1) restent une rotation a eux seuls : intervalle
+        # de base SLIDESHOW_GAP_S, panneaux = « gifs » uniquement. Sans GIFs du jeu : comportement inchange (on sort).
+        only_gifs=0
+        if [ "$ratio" -le 0 ]; then
+            if [ "$ctx" = "ingame" ] && gifs_feature_on; then ratio=1; only_gifs=1; else return; fi
+        fi
         sleep $((ratio * SLIDESHOW_GAP_S))
         current=$(cat "$state_file" 2>/dev/null)
         [ "$current" = "$expected" ] || return
         types=$(enabled_panel_types "$ctx")
+        [ "$only_gifs" -eq 1 ] && types="gifs "
         # v38 -- retour utilisateur explicite : "si hi-score n'existe pas il
         # ne faut pas le compter dans les temps de rotation et passer au
         # panneau suivant" -- jusqu'ici, un rom sans hi-score gardait quand
@@ -1754,6 +1776,37 @@ publish_one_panel() {
             send_paginated_lines "$title" "$content" "$HISCORE_INFO_PAGE_DURATION_MS" "$HISCORE_INFO_PAGE_DURATION_S" "$sf" "$exp"
             return 0
             ;;
+        gifs)
+            # v55 -- GIFs du jeu (reglage « GIFs du jeu » de la page Affichage du DMD) : « CMD=gamegif ARG=<n> » demande
+            # au firmware de jouer <n> GIFs lies au jeu courant (liste /playlists/game_gifs.txt, sinon nom du jeu), puis de
+            # revenir au logo. n = reglage game_gif_count (1 a 5) ; en DEMO toujours 1 (pas de reglage). Aucun GIF trouve
+            # pour ce jeu : le firmware ne fait rien, le logo reste affiche.
+            n=$(feat_value "game_gif_count")
+            [ "$n" -ge 1 ] 2>/dev/null || n=1
+            [ "$n" -gt 5 ] && n=5
+            [ "$RR_IS_DEMO" = "1" ] && n=1
+            # Titre du jeu (gamelist) : le DMD apparie les GIFs de /gifs sur ce titre (recherche automatique, aucune liste) ; vide = il se rabat sur la rom.
+            if [ "$sys|$gpath" = "$_GT_KEY" ]; then
+                gg_title="$_GT_VAL"
+            else
+                gg_title=$(python3 "${PYHELP_DIR}/dmd_game_info.py" "$sys" "$gpath" --name 2>>"$LOG")
+                _GT_KEY="$sys|$gpath"; _GT_VAL="$gg_title"
+            fi
+            rm -f "$GAMEGIF_DONE_FILE" 2>/dev/null   # AVANT l'envoi : un « GGDONE » d'une demande precedente ne doit pas terminer celle-ci
+            if [ -n "$gg_title" ]; then send_udp "CMD=gamegif ARG=${n}|${gg_title}"; else send_udp "CMD=gamegif ARG=${n}"; fi
+            echo "$(date '+%H:%M:%S') [$(precise_ts)] SEND gamegif n=${n} sys=${sys} rom=${rom}" >> "$LOG"
+            # Attente de la FIN REELLE du dernier GIF : le DMD envoie « GGDONE » (dmd_udp_resync.py pose le drapeau).
+            # Delai de garde seulement (DMD eteint / paquet perdu) : n x 70 s + 10 s, par pas de 0,5 s.
+            gg_t=0; gg_max=$((n * 140 + 20))
+            while [ ! -f "$GAMEGIF_DONE_FILE" ] && [ "$gg_t" -lt "$gg_max" ]; do
+                sleep 0.5; gg_t=$((gg_t + 1))
+                # Fin de jeu / retour en navigation / veille / nouveau jeu (etat de session change) : ordre d'ANNULATION au DMD
+                # (« CMD=gamegif ARG=0 »), il coupe le GIF en cours et abandonne les suivants. Le firmware coupe aussi de lui-meme
+                # sur ingame 1 -> 0 et sur toute commande game / system / default.
+                state_still_valid "$sf" "$exp" || { send_udp "CMD=gamegif ARG=0"; return 0; }
+            done
+            return 0
+            ;;
         challenge)
             # v17 -- classement communautaire du Challenge Recalbox du
             # mois -- voir changelog v17/v23 + dmd_challenge.py.
@@ -1778,7 +1831,7 @@ publish_one_panel() {
     return 1
 }
 
-echo "$(date) - DMD score bridge started (v54, UDP seul vers le DMD)" >> "$LOG"
+echo "$(date) - DMD score bridge started (v56, UDP seul vers le DMD ; v55 = panneau « gifs » : GIFs du jeu dans la rotation ; v56 = case « GIFs du jeu en demo », 1 GIF)" >> "$LOG"
 # Efface une session/etat perime d'un lancement precedent.
 : > "$GAME_SESSION_FILE"
 : > "$BROWSE_STATE_FILE"
@@ -1902,6 +1955,7 @@ while IFS= read -r event; do
                 # v49 -- tue l'ancienne instance round_robin("ingame") AVANT
                 # d'en lancer une nouvelle, voir kill_previous_round_robin().
                 kill_previous_round_robin "$ROUNDROBIN_PID_FILE_INGAME"
+                RR_IS_DEMO=0; [ "$event" = "rundemo" ] && RR_IS_DEMO=1   # v55 : lu par le panneau « gifs » (1 seul GIF en demo)
                 round_robin "ingame" "$system" "$game_path" "$rom" "$GAME_SESSION_FILE" "$session" "repeat_cycles" &
                 echo $! > "$ROUNDROBIN_PID_FILE_INGAME"
             fi

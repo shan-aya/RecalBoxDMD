@@ -83,6 +83,39 @@ bool logoAnimNameOk(const std::string &n, bool *meta) {
   if (meta) *meta = m;
   return logoNameOk(n.substr(0, n.size() - ext) + ".raw565");
 }
+// v3.84 : contenu de /systems/_defaults/ envoye par le toolkit (Wi-Fi) : themes de logos (_themes/<theme>/[l_xx|r_xx/]<systeme>.raw565, _index.bin, _source.json, _package.json), images par defaut, caches.
+// rel = chemin RELATIF sous /systems/_defaults ("." = la racine) : 1 a 4 composants de [A-Za-z0-9._@-] (64 max), jamais « .. » ni composant cache. Les noms de fichiers suivent les memes regles.
+bool defaultsNameOk(const std::string &n) {
+  if (n.empty() || n.size() > 96 || n == "." || n == ".." || n[0] == '.') return false;
+  for (char c : n)
+    if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.' || c == '@' || c == '+')) return false;   // « + » : msx2+.raw565
+  return true;
+}
+bool defaultsRelOk(const std::string &rel, std::string *norm) {
+  std::string out;
+  if (rel != ".") {
+    size_t start = 0;
+    int depth = 0;
+    while (start <= rel.size()) {
+      const size_t sl = rel.find('/', start);
+      const std::string seg = sl == std::string::npos ? rel.substr(start) : rel.substr(start, sl - start);
+      if (!defaultsNameOk(seg) || seg.size() > 64 || ++depth > 4) return false;
+      out += "/" + seg;
+      if (sl == std::string::npos) break;
+      start = sl + 1;
+    }
+  }
+  if (norm) *norm = out;
+  return true;
+}
+// extensions admises dans _defaults et plafond de taille de chacune (octets)
+bool endsWithNoCase(const std::string &s, const std::string &suf);
+size_t defaultsLimit(const std::string &n) {
+  if (endsWithNoCase(n, ".raw565")) return 16384;
+  if (endsWithNoCase(n, ".raw565pack")) return 600u * 8192u;
+  if (endsWithNoCase(n, ".bin") || endsWithNoCase(n, ".dat") || endsWithNoCase(n, ".json") || endsWithNoCase(n, ".txt")) return 262144;
+  return 0;
+}
 std::string slug(const std::string &in) {  // minuscules, [a-z0-9_-], espaces -> '-', 24 car. max
   std::string o;
   for (size_t i = 0; i < in.size() && o.size() < 24; i++) {
@@ -104,6 +137,19 @@ std::vector<std::string> splitCsv(const std::string &s) {
     start = c + 1;
   }
   return v;
+}
+// v3.92 : liste de noms de fichiers d'une requete. sep=nl : UN NOM PAR LIGNE (accepte les virgules) ; sinon liste CSV comme avant.
+std::vector<std::string> splitFileList(const WebRequest &r, const char *key) {
+  const std::string v = r.arg(key);
+  if (r.arg("sep") != "nl") return splitCsv(v);
+  std::vector<std::string> out;
+  std::istringstream in(v);
+  std::string line;
+  while (std::getline(in, line)) {
+    while (!line.empty() && (line.back() == '\r')) line.pop_back();
+    if (!line.empty()) out.push_back(line);
+  }
+  return out;
 }
 bool endsWithNoCase(const std::string &s, const std::string &suf) {
   if (s.size() < suf.size()) return false;
@@ -315,7 +361,7 @@ void WebConfig::registerMediaRoutes() {
     const std::string folder = trim(r.arg("dir"));
     if (!safeName(folder)) return text(200, "OK:0");
     std::vector<std::string> cands;
-    for (const std::string &f : splitCsv(r.arg("files")))
+    for (const std::string &f : splitFileList(r, "files"))
       if (safeName(f) && cands.size() < 64) cands.push_back("/gifs/" + folder + "/" + f);
     if (cands.empty()) return text(200, "OK:0");
     int appended = 0;
@@ -376,7 +422,7 @@ void WebConfig::registerMediaRoutes() {
       std::string name = baseName(wf.filename), dir = trim(r.arg("dir"));
       std::string err, path, dirPath;
       const std::string kind = r.arg("kind");
-      bool isBg = kind == "qbg", isQuote = kind == "quote", isDef = kind == "defimg", isReels = kind == "reels", isLogo = kind == "logo";
+      bool isBg = kind == "qbg", isQuote = kind == "quote", isDef = kind == "defimg", isReels = kind == "reels", isLogo = kind == "logo", isDefaults = kind == "defaults";
       const bool reelsRaw = isReels && name.size() > 7 && name.compare(name.size() - 7, 7, ".raw565") == 0;
       size_t limit = 0;
       bool animMeta = false;
@@ -396,6 +442,11 @@ void WebConfig::registerMediaRoutes() {
           dirPath = "/systems/_defaults/_themes/logos-reels" + (dir == "base" ? std::string() : "/" + dir);
           limit = reelsRaw ? 8192 : 16384;
         }
+      } else if (isDefaults) {   // v3.84 : contenu de systems/_defaults envoye par le toolkit (themes de logos...) ; dir = chemin relatif ("." = racine)
+        std::string norm;
+        if (!defaultsRelOk(dir, &norm) || !defaultsNameOk(name)) err = "ERR: chemin _defaults invalide";
+        else if (!(limit = defaultsLimit(name))) err = "ERR: type de fichier non admis";
+        else dirPath = "/systems/_defaults" + norm;
       } else if (isLogo) {   // v3.75 : logo d'un jeu envoye par le toolkit. dir = systeme (doit deja exister) ; ecrit la ou le logo du jeu est deja (plat ou sous-dossier de lettre), sinon dans <lettre|#>/
         if (!logoSysOk(dir) || !fs_.isDir("/systems/" + dir)) err = "ERR: systeme inconnu";
         else if (!animFile && !logoNameOk(name)) err = "ERR: nom de logo invalide";
@@ -452,7 +503,9 @@ void WebConfig::registerMediaRoutes() {
           err = animMeta ? "ERR: delais invalides (2 octets par image, 2 images au moins)" : "ERR: une animation fait 2 a 600 images de 8192 octets";
         } else if (isLogo && !animFile && sent != 8192) {
           err = "ERR: un logo doit faire 8192 octets (128x32 raw565)";
-        } else if (isReels || isLogo) {   // temporaire puis renommage : un envoi interrompu ne laisse jamais un logo tronque
+        } else if (isDefaults && sent > limit) {
+          err = "ERR: fichier trop gros pour ce type";
+        } else if (isReels || isLogo || isDefaults) {   // temporaire puis renommage : un envoi interrompu ne laisse jamais un logo tronque
           const std::string tmp = real(path) + ".tmp";
           {
             std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
@@ -487,6 +540,52 @@ void WebConfig::registerMediaRoutes() {
     }
     if (results.empty()) return text(400, "ERR: aucun fichier recu");
     return json("{\"ok\":" + std::to_string(okCount) + ",\"files\":[" + results + "]}");
+  });
+
+  // v3.84 : lecture / suppression dans systems/_defaults pour le toolkit (Mode 12 : etat des themes d'un Pi en Wi-Fi). Memes regles de chemin que l'envoi (kind=defaults).
+  // GET /defaults-list?dir=<rel|.>  -> {"dirs":["a","b"],"files":[{"n":"x.raw565","s":8192}]} (5000 entrees au plus ; dossier absent : listes vides)
+  // GET /defaults-file?dir=&name=   -> les octets (404 si absent, 413 au-dela de 256 Ko : jamais de gros fichier lu en memoire)
+  // POST /defaults-delete?dir=&name= -> supprime CE fichier (jamais un dossier)
+  web_.get("/defaults-list", [this](const WebRequest &r) {
+    std::string norm;
+    if (!defaultsRelOk(trim(r.arg("dir")), &norm)) return text(400, "ERR: chemin _defaults invalide");
+    const std::string base = "/systems/_defaults" + norm;
+    std::string dirs, files;
+    int n = 0;
+    std::vector<std::string> names = fs_.list(base);
+    std::sort(names.begin(), names.end());
+    for (const std::string &e : names) {
+      if (++n > 5000) break;
+      if (fs_.isDir(base + "/" + e)) dirs += (dirs.empty() ? "" : ",") + std::string("\"") + jsonEsc(e) + "\"";
+      else files += (files.empty() ? "" : ",") + std::string("{\"n\":\"") + jsonEsc(e) + "\",\"s\":" + std::to_string((long long)fs_.fileSize(base + "/" + e)) + "}";
+    }
+    return json("{\"dirs\":[" + dirs + "],\"files\":[" + files + "]}");
+  });
+  web_.get("/defaults-file", [this](const WebRequest &r) {
+    std::string norm;
+    const std::string name = baseName(r.arg("name"));
+    if (!defaultsRelOk(trim(r.arg("dir")), &norm) || !defaultsNameOk(name)) return text(400, "ERR: chemin _defaults invalide");
+    const std::string path = "/systems/_defaults" + norm + "/" + name;
+    const int64_t sz = fs_.fileSize(path);
+    if (sz < 0) return text(404, "ERR: fichier absent");
+    if (sz > 262144) return text(413, "ERR: fichier trop gros");
+    std::vector<uint8_t> data;
+    if (!fs_.readAll(path, data)) return text(404, "ERR: fichier illisible");
+    WebReply rep;
+    rep.contentType = "application/octet-stream";
+    rep.body.assign(reinterpret_cast<const char *>(data.data()), data.size());
+    return rep;
+  });
+  web_.post("/defaults-delete", [this, real](const WebRequest &r) {
+    std::string norm;
+    const std::string name = baseName(r.arg("name"));
+    if (!defaultsRelOk(trim(r.arg("dir")), &norm) || !defaultsNameOk(name) || !defaultsLimit(name)) return text(400, "ERR: chemin _defaults invalide");
+    if (gen_->active) return text(409, "ERR: generation de playlist en cours");
+    const std::string path = "/systems/_defaults" + norm + "/" + name;
+    if (!fs_.exists(path) || fs_.isDir(path)) return text(404, "ERR: fichier absent");
+    if (std::remove(real(path).c_str()) != 0) return text(500, "ERR: suppression impossible");
+    logf("WEB", "defaults supprime : %s", path.c_str());
+    return json("{\"deleted\":true}");
   });
 
   // v3.75 : lecture du logo d'un jeu (onglet Personnalisation du toolkit). Memes regles de nom que l'envoi (kind=logo) ; le logo est cherche dans le sous-dossier de sa lettre, puis a plat.
@@ -525,6 +624,43 @@ void WebConfig::registerMediaRoutes() {
     rep.contentType = "application/octet-stream";
     rep.body.assign(reinterpret_cast<const char *>(data.data()), data.size());
     return rep;
+  });
+
+  // v3.91 (non publiee) : GET /logos-list?dir=<systeme> -> {"sys":true,"static":["jeu1",...],"anim":["jeu2",...]} : les jeux du systeme qui ont un logo (.raw565) ou une animation (.raw565pack) SUR LE PI,
+  // a plat ou dans un sous-dossier de lettre (« A », « # »). {"sys":false,...} si le dossier du systeme n'existe pas (le Pi ne le possede pas : /upload?kind=logo le refuserait aussi). Un seul aller-retour
+  // a la place d'un /logo-info par jeu : le toolkit (onglet Personnalisation) lisait jusqu'a 12 000 jeux un par un pour savoir lesquels avaient un logo. Lecture SEULE, 200 000 noms au plus.
+  web_.get("/logos-list", [this](const WebRequest &r) {
+    const std::string dir = trim(r.arg("dir"));
+    if (!logoSysOk(dir)) return text(400, "ERR: systeme invalide");
+    const std::string base = "/systems/" + dir;
+    if (!fs_.isDir(base)) return json("{\"sys\":false,\"static\":[],\"anim\":[]}");
+    std::string st, an;
+    size_t count = 0;
+    auto add = [&](const std::string &name) {
+      std::string *dst = nullptr;
+      size_t cut = 0;
+      if (endsWithNoCase(name, ".raw565pack")) {
+        dst = &an;
+        cut = 11;
+      } else if (endsWithNoCase(name, ".raw565")) {
+        dst = &st;
+        cut = 7;
+      } else {
+        return;
+      }
+      if (count++ >= 200000) return;
+      if (!dst->empty()) *dst += ",";
+      *dst += "\"" + jsonEsc(name.substr(0, name.size() - cut)) + "\"";
+    };
+    for (const std::string &e : fs_.list(base)) {
+      if (fs_.isDir(base + "/" + e)) {
+        if (e.size() <= 2)
+          for (const std::string &f : fs_.list(base + "/" + e)) add(f);
+      } else {
+        add(e);
+      }
+    }
+    return json("{\"sys\":true,\"static\":[" + st + "],\"anim\":[" + an + "]}");
   });
 
   // v3.81 (non publiee) : GET /games-snapshot -> les octets de /custom/games.json, la liste des jeux du dernier scrape (Mode 1) avec le drapeau « c » des cartes texte ; 404 si absent.
@@ -711,6 +847,155 @@ void WebConfig::registerMediaRoutes() {
     return json("{\"ok\":1,\"n\":" + std::to_string(n) + ",\"warn\":" + std::to_string(warn) + "}");
   });
 
+  // v3.85 -- EXCLUSIONS DE GIFS (meme contrat que le firmware ESP32 v423) : GET /game-gifs-exclude = /playlists/game_gifs_exclude.txt ; POST (corps texte brut ou champ « rules », 8 000 octets au plus)
+  // remplace tout le fichier (temporaire puis renommage ; corps vide = fichier supprime). Cree et gere par le toolkit (Mode 21) ; relu par le moteur a chaque recherche, prise en compte immediate.
+  web_.get("/game-gifs-exclude", [this, real](const WebRequest &) {
+    std::ifstream in(real("/playlists/game_gifs_exclude.txt"), std::ios::binary);
+    std::string body((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    return text(200, body);
+  });
+  web_.post("/game-gifs-exclude", [this, real, ensureDir](const WebRequest &r) {
+    if (gen_->active) return text(409, "ERR: generation de playlist en cours");
+    const std::string body = r.has("rules") ? r.arg("rules") : r.body;
+    if (body.size() > 8000) return text(413, "ERR: fichier trop gros (8 000 octets au plus)");
+    ensureDir("/playlists");
+    const std::string path = real("/playlists/game_gifs_exclude.txt"), tmp = path + ".tmp";
+    std::error_code ec;
+    if (body.empty()) {
+      fs::remove(path, ec);
+      return json("{\"ok\":1,\"n\":0}");
+    }
+    {
+      std::ofstream o(tmp, std::ios::binary | std::ios::trunc);
+      if (!o) return text(500, "ERR: ecriture impossible");
+      o << body;
+    }
+    fs::rename(tmp, path, ec);
+    if (ec) return text(500, "ERR: renommage impossible");
+    logf("GAMEGIF", "/game-gifs-exclude enregistre : %zu octets", body.size());
+    return json("{\"ok\":1,\"bytes\":" + std::to_string(body.size()) + "}");
+  });
+  // v3.87 -- MODE 21 (GIFs du jeu) EN WI-FI : petite API de FICHIERS, limitee aux GIFs, pour que le toolkit gere /gifs_jeux sans retirer la carte. Lecture dans /gifs (hors _boot) et /gifs_jeux ;
+  // ECRITURE seulement dans /gifs_jeux (jamais dans /gifs : les originaux ne sont pas touches) + /custom/game_gifs_state.json (memoire des nouveautes du toolkit). Chemins ASCII, sans « .. ».
+  //   GET  /gg-ls?path=/gifs/Arcade   -> {"exists":true,"items":[["nom",0|1 (dossier),taille],...]}     GET /gg-get?path=...  -> octets du fichier (32 Mo au plus)
+  //   POST /gg-put?path=/gifs_jeux/A/x.gif (corps = octets)    POST /gg-cp?src=/gifs/A/x.gif&dst=/gifs_jeux/A/y.gif    POST /gg-mv?src=...&dst=...    POST /gg-rm?path=...    GET /gg-info -> {"free":octets}
+  // Chaque modification invalide l'index des GIFs du jeu (prise en compte a la demande suivante).
+  auto ggPathOk = [](const std::string &p, bool write) -> bool {
+    if (p.empty() || p.size() > 220 || p[0] != '/') return false;
+    for (unsigned char c : p)
+      if (c < 0x20 || c >= 0x7f || c == '\\') return false;
+    if (p.find("..") != std::string::npos || p.find("//") != std::string::npos) return false;
+    if (p == "/custom/game_gifs_state.json") return true;
+    const bool inJeux = p == "/gifs_jeux" || p.compare(0, 11, "/gifs_jeux/") == 0;
+    if (write) return inJeux;
+    const std::string lp = toLower(p);
+    if (lp == "/gifs/_boot" || lp.compare(0, 12, "/gifs/_boot/") == 0) return false;  // animations de demarrage : protegees
+    return inJeux || p == "/gifs" || p.compare(0, 6, "/gifs/") == 0;
+  };
+  auto ggNameOk = [](const std::string &p) {  // fichier ecrit dans /gifs_jeux : un .gif, l'index ou la memoire du toolkit
+    const std::string b = baseName(p);
+    return endsWithNoCase(b, ".gif") || b == "_index.dat" || b == "game_gifs_state.json";
+  };
+  auto ggDrop = [this] { eng_.runOnMain([this] { eng_.ggInvalidateIndex(); }); };
+  auto ggPrune = [real](const std::string &sdFile) {  // supprime le sous-dossier de lettre devenu vide (jamais /gifs_jeux lui-meme)
+    const size_t sl = sdFile.find_last_of('/');
+    const std::string dir = sdFile.substr(0, sl);
+    if (dir.size() > 11 && dir.compare(0, 11, "/gifs_jeux/") == 0) {
+      std::error_code ec;
+      if (fs::is_directory(real(dir), ec) && fs::is_empty(real(dir), ec)) fs::remove(real(dir), ec);
+    }
+  };
+  web_.get("/gg-ls", [this, real, ggPathOk](const WebRequest &r) {
+    const std::string p = r.arg("path");
+    if (!ggPathOk(p, false)) return text(400, "ERR: chemin refuse");
+    if (!fs_.isDir(p)) return json("{\"exists\":false,\"items\":[]}");
+    std::string out = "{\"exists\":true,\"items\":[";
+    bool first = true;
+    for (const std::string &n : fs_.list(p)) {
+      if (n.empty() || n[0] == '.' || (p == "/gifs" && bootDirProtected(n))) continue;
+      const std::string q = p + "/" + n;
+      const bool d = fs_.isDir(q);
+      std::error_code ec;
+      const uintmax_t sz = d ? 0 : fs::file_size(real(q), ec);
+      out += std::string(first ? "" : ",") + "[\"" + jsonEsc(n) + "\"," + (d ? "1" : "0") + "," + std::to_string(ec ? 0 : (unsigned long long)sz) + "]";
+      first = false;
+    }
+    return json(out + "]}");
+  });
+  web_.get("/gg-get", [this, ggPathOk](const WebRequest &r) {
+    const std::string p = r.arg("path");
+    if (!ggPathOk(p, false) || fs_.isDir(p)) return text(400, "ERR: chemin refuse");
+    std::vector<uint8_t> data;
+    if (!fs_.readAll(p, data, 32u * 1024u * 1024u)) return text(404, "ERR: fichier absent");
+    WebReply rep;
+    rep.contentType = "application/octet-stream";
+    rep.body.assign(reinterpret_cast<const char *>(data.data()), data.size());
+    return rep;
+  });
+  web_.get("/gg-info", [this](const WebRequest &) {
+    std::error_code ec;
+    const auto sp = fs::space(fs_.root(), ec);
+    return json("{\"free\":" + std::to_string(ec ? 0ULL : (unsigned long long)sp.available) + "}");
+  });
+  web_.post("/gg-put", [this, real, ensureDir, ggPathOk, ggNameOk, ggDrop](const WebRequest &r) {
+    if (gen_->active) return text(409, "ERR: generation de playlist en cours");
+    const std::string p = r.arg("path");
+    if (!ggPathOk(p, true) || !ggNameOk(p)) return text(400, "ERR: chemin refuse");
+    if (r.body.size() > 32u * 1024u * 1024u) return text(413, "ERR: fichier trop gros");
+    ensureDir(p.substr(0, p.find_last_of('/')));
+    const std::string path = real(p), tmp = path + ".tmp";
+    {
+      std::ofstream o(tmp, std::ios::binary | std::ios::trunc);
+      if (!o) return text(500, "ERR: ecriture impossible");
+      o.write(r.body.data(), (std::streamsize)r.body.size());
+    }
+    std::error_code ec;
+    fs::rename(tmp, path, ec);
+    if (ec) return text(500, "ERR: renommage impossible");
+    ggDrop();
+    return json("{\"ok\":1,\"bytes\":" + std::to_string(r.body.size()) + "}");
+  });
+  web_.post("/gg-cp", [this, real, ensureDir, ggPathOk, ggNameOk, ggDrop](const WebRequest &r) {
+    if (gen_->active) return text(409, "ERR: generation de playlist en cours");
+    const std::string s = r.arg("src"), d = r.arg("dst");
+    if (!ggPathOk(s, false) || !ggPathOk(d, true) || !ggNameOk(d) || fs_.isDir(s)) return text(400, "ERR: chemin refuse");
+    if (!fs_.exists(s)) return text(404, "ERR: source absente");
+    if (fs_.exists(d)) return text(409, "ERR: la destination existe deja");
+    ensureDir(d.substr(0, d.find_last_of('/')));
+    const std::string dst = real(d), tmp = dst + ".tmp";
+    std::error_code ec;
+    fs::copy_file(real(s), tmp, fs::copy_options::overwrite_existing, ec);
+    if (!ec) fs::rename(tmp, dst, ec);
+    if (ec) { std::error_code e2; fs::remove(tmp, e2); return text(500, "ERR: copie impossible"); }
+    ggDrop();
+    return json("{\"ok\":1}");
+  });
+  web_.post("/gg-mv", [this, real, ensureDir, ggPathOk, ggNameOk, ggDrop, ggPrune](const WebRequest &r) {
+    if (gen_->active) return text(409, "ERR: generation de playlist en cours");
+    const std::string s = r.arg("src"), d = r.arg("dst");
+    if (!ggPathOk(s, true) || !ggPathOk(d, true) || !ggNameOk(d) || !ggNameOk(s) || fs_.isDir(s)) return text(400, "ERR: chemin refuse");
+    if (!fs_.exists(s)) return text(404, "ERR: source absente");
+    if (fs_.exists(d) && toLower(s) != toLower(d)) return text(409, "ERR: la destination existe deja");  // meme nom a la casse pres (FAT) : autorise
+    ensureDir(d.substr(0, d.find_last_of('/')));
+    std::error_code ec;
+    fs::rename(real(s), real(d), ec);
+    if (ec) return text(500, "ERR: renommage impossible");
+    if (toLower(s.substr(0, s.find_last_of('/'))) != toLower(d.substr(0, d.find_last_of('/')))) ggPrune(s);
+    ggDrop();
+    return json("{\"ok\":1}");
+  });
+  web_.post("/gg-rm", [this, real, ggPathOk, ggNameOk, ggDrop, ggPrune](const WebRequest &r) {
+    if (gen_->active) return text(409, "ERR: generation de playlist en cours");
+    const std::string p = r.arg("path");
+    if (!ggPathOk(p, true) || !ggNameOk(p) || fs_.isDir(p)) return text(400, "ERR: chemin refuse");
+    if (!fs_.exists(p)) return text(404, "ERR: fichier absent");
+    std::error_code ec;
+    fs::remove(real(p), ec);
+    if (ec) return text(500, "ERR: suppression impossible");
+    ggPrune(p);
+    ggDrop();
+    return json("{\"ok\":1}");
+  });
   // suppression de dossiers de GIF, puis nettoyage des playlists qui les referencaient
   web_.post("/delete-folders", [this, real](const WebRequest &r) {
     if (gen_->active) return text(409, "ERR: generation de playlist en cours");
@@ -764,6 +1049,112 @@ void WebConfig::registerMediaRoutes() {
     if (plModified > 0)
       msg += ", " + std::to_string(plModified) + " playlist(s) mise(s) a jour (" + std::to_string(linesRemoved) + " ligne(s) retiree(s)), redemarrage necessaire";
     return text(200, msg);
+  });
+
+  // --- v3.92 : onglet Playlist du toolkit par Wi-Fi (meme comportement que sur une carte : lecture / ecriture de playlists composees de fichiers individuels, suppression de GIF)
+  // GET /playlist-get?name=<nom> : contenu brut de /playlists/<nom>.txt (pre-cochage des fichiers quand on modifie une playlist).
+  web_.get("/playlist-get", [this](const WebRequest &r) {
+    std::string name = baseName(r.arg("name"));
+    const size_t dot = name.find_last_of('.');
+    if (dot != std::string::npos && dot > 0) name = name.substr(0, dot);
+    if (!safeName(name)) return text(400, "ERR: nom invalide");
+    std::vector<uint8_t> data;
+    if (!fs_.readAll("/playlists/" + name + ".txt", data, 4u * 1024u * 1024u)) return text(404, "ERR: playlist absente");
+    WebReply rep;
+    rep.contentType = "text/plain; charset=utf-8";
+    rep.body.assign(reinterpret_cast<const char *>(data.data()), data.size());
+    return rep;
+  });
+  // POST /playlist-write?name=<nom>[&full=<dossier,dossier>] : le CORPS est la liste, une entree /gifs/<dossier>/<fichier>.gif par ligne. Ecrit /playlists/<nom>.txt
+  // (precede de « # FULL:<dossiers> » si full est donne) et supprime les fichiers .cache/.sig/.idx de cette playlist. Entrees invalides ignorees (comptees).
+  web_.post("/playlist-write", [this, real, ensureDir](const WebRequest &r) {
+    if (gen_->active) return text(409, "ERR: generation de playlist en cours");
+    const std::string name = trim(r.arg("name"));
+    if (!safeName(name) || name.size() > 80) return text(400, "ERR: nom de playlist invalide");
+    if (r.body.size() > 4u * 1024u * 1024u) return text(413, "ERR: liste trop grosse");
+    std::string full;
+    for (const std::string &d : splitCsv(r.arg("full")))
+      if (safeName(d) && !bootDirProtected(d)) full += (full.empty() ? "" : ",") + d;
+    std::istringstream in(r.body);
+    std::string line, out;
+    int kept = 0, bad = 0;
+    while (std::getline(in, line)) {
+      const std::string t = trim(line);
+      if (t.empty()) continue;
+      bool ok = t.size() <= 220 && t.compare(0, 6, "/gifs/") == 0 && t.find("..") == std::string::npos && t.find('\\') == std::string::npos && t.find("//") == std::string::npos;
+      for (unsigned char c : t)
+        if (c < 0x20) ok = false;
+      if (ok) {
+        const size_t s2 = t.find('/', 6);
+        ok = s2 != std::string::npos && s2 > 6 && !bootDirProtected(t.substr(6, s2 - 6)) && endsWithNoCase(t, ".gif");
+      }
+      if (!ok) { bad++; continue; }
+      out += t + "\n";
+      kept++;
+    }
+    ensureDir("/playlists");
+    const std::string path = real("/playlists/" + name + ".txt"), tmp = path + ".tmp";
+    {
+      std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
+      if (!f) return text(500, "ERR: ecriture impossible");
+      if (!full.empty()) f << "# FULL:" << full << "\n";
+      f << out;
+    }
+    std::error_code ec;
+    fs::rename(tmp, path, ec);
+    if (ec) return text(500, "ERR: renommage impossible");
+    for (const char *ext : {".cache", ".sig", ".idx"}) {
+      const std::string sd = "/playlists/" + name + ext;
+      if (fs_.exists(sd)) { std::error_code e2; fs::remove(real(sd), e2); }
+    }
+    return text(200, "OK: " + std::to_string(kept) + " entree(s)" + (bad ? ", " + std::to_string(bad) + " ignoree(s)" : ""));
+  });
+  // POST /delete-files  dir=<dossier>  files=<f1,f2,...> : supprime des .gif de /gifs/<dossier>/ puis retire leurs lignes des playlists (comme /delete-folders).
+  web_.post("/delete-files", [this, real](const WebRequest &r) {
+    if (gen_->active) return text(409, "ERR: generation de playlist en cours");
+    const std::string dir = trim(r.arg("dir"));
+    if (!safeName(dir) || bootDirProtected(dir) || !r.has("files")) return text(400, "ERR: parametres invalides");
+    std::set<std::string> gone;
+    int count = 0, fail = 0;
+    for (const std::string &f : splitFileList(r, "files")) {
+      if (!safeName(f) || !endsWithNoCase(f, ".gif")) { fail++; continue; }
+      const std::string p = "/gifs/" + dir + "/" + f;
+      if (!fs_.exists(p) || fs_.isDir(p)) continue;
+      std::error_code ec;
+      fs::remove(real(p), ec);
+      if (!ec && !fs_.exists(p)) { count++; gone.insert(p); }
+      else fail++;
+    }
+    int plModified = 0, linesRemoved = 0;
+    if (!gone.empty()) {
+      for (const std::string &n : fs_.list("/playlists")) {
+        if (n.size() <= 4 || n.compare(n.size() - 4, 4, ".txt") != 0) continue;
+        const std::string sd = "/playlists/" + n;
+        std::vector<uint8_t> data;
+        if (!fs_.readAll(sd, data)) continue;
+        std::istringstream in(std::string(data.begin(), data.end()));
+        std::string line, out;
+        int removed = 0;
+        while (std::getline(in, line)) {
+          if (gone.count(trim(line))) removed++;
+          else out += line + "\n";
+        }
+        if (!removed) continue;
+        {
+          std::ofstream f(real(sd), std::ios::binary | std::ios::trunc);
+          f << out;
+        }
+        const std::string stem = "/playlists/" + n.substr(0, n.size() - 4);
+        for (const char *ext : {".cache", ".sig", ".idx"}) {
+          std::error_code ec;
+          if (fs_.exists(stem + ext)) fs::remove(real(stem + ext), ec);
+        }
+        plModified++;
+        linesRemoved += removed;
+      }
+    }
+    return text(200, "OK: " + std::to_string(count) + " supprime(s)" + (fail > 0 ? ", " + std::to_string(fail) + " echec(s)" : "") +
+                         (plModified > 0 ? ", " + std::to_string(plModified) + " playlist(s) mise(s) a jour (" + std::to_string(linesRemoved) + " ligne(s) retiree(s))" : ""));
   });
 
   // --- citations : /widgets/quotes/<langue>/<theme>.txt

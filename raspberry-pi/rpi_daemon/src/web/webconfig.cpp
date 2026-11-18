@@ -285,6 +285,10 @@ WebReply WebConfig::load() {
   add("recalbox_native_mode", fb("recalbox_native_mode", false));
   add("feat_ra_window", fb("feat_ra_window", true));
   add("feat_hiscore_ingame", fb("feat_hiscore_ingame", true));
+  add("feat_game_gifs", fb("feat_game_gifs", false));
+  add("feat_game_gifs_mixed", fb("feat_game_gifs_mixed", false));                              // v3.90 : mode mixte (dossier + auto)                                          // GIFs du jeu (v3.83)
+  add("game_gif_count", std::to_string(clampi(cfg_.getInt("game_gif_count", 1), 1, 5)));
+  add("feat_demo_gifs", fb("feat_demo_gifs", true));                                          // GIFs du jeu en veille demo de jeux (1 GIF)
   add("feat_hiscore_browse", fb("feat_hiscore_browse", false));
   add("feat_info_ingame", fb("feat_info_ingame", false));
   add("feat_info_browse", fb("feat_info_browse", true));
@@ -539,11 +543,12 @@ WebReply WebConfig::save(const WebRequest &r) {
   if (has("info")) kv["info"] = b01(arg("info") == "1");
   for (const char *k : {"feat_hiscore_ingame", "feat_hiscore_browse", "feat_info_ingame", "feat_info_browse", "feat_description_ingame", "feat_description_browse",
                         "feat_ra_ingame", "feat_ra_browse", "feat_vpinball_dmd", "recalbox_native_mode", "feat_ra_window", "feat_demo_follow", "feat_clip_follow",
-                        "feat_theme_follow", "feat_lang_priority"})
+                        "feat_theme_follow", "feat_lang_priority", "feat_game_gifs", "feat_game_gifs_mixed", "feat_demo_gifs"})
     if (has(k)) kv[k] = b01(arg(k) == "1");
   if (has("feat_reels_mode")) kv["feat_reels_mode"] = std::to_string(clampi(toInt(arg("feat_reels_mode")), 0, 2));  // v398
   if (has("reels_auto_new")) kv["reels_auto_new"] = b01(arg("reels_auto_new") == "1");
   if (has("reels_themes")) kv["reels_themes"] = reelsSanitizeList(arg("reels_themes"));
+  if (has("game_gif_count")) kv["game_gif_count"] = std::to_string(clampi(toInt(arg("game_gif_count")), 1, 5));
   if (has("feat_repeat_cycles")) kv["feat_repeat_cycles"] = std::to_string(clampi(toInt(arg("feat_repeat_cycles")), 0, 20));
   if (has("feat_repeat_browse_cycles")) kv["feat_repeat_browse_cycles"] = std::to_string(clampi(toInt(arg("feat_repeat_browse_cycles")), 0, 20));
   if (has("feat_dwell_seconds")) kv["feat_dwell_seconds"] = std::to_string(clampi(toInt(arg("feat_dwell_seconds")), 3, 30));

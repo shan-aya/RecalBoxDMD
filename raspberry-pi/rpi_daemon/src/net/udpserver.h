@@ -16,13 +16,14 @@
 
 #include "commandqueue.h"
 #include "config.h"
+#include "gamegifcontrol.h"
 #include "themecontrol.h"
 #include "zedcontrol.h"
 
 class UdpServer {
  public:
-  UdpServer(CommandQueue &q, const Config &cfg, std::atomic<bool> &inGame, ZedControl &zed, ThemeControl &theme)
-      : q_(q), cfg_(cfg), inGame_(inGame), zed_(zed), theme_(theme) {}
+  UdpServer(CommandQueue &q, const Config &cfg, std::atomic<bool> &inGame, ZedControl &zed, ThemeControl &theme, GameGifControl &gg)
+      : q_(q), cfg_(cfg), inGame_(inGame), zed_(zed), theme_(theme), gg_(gg) {}
   ~UdpServer() { stop(); }
 
   bool start(int cmdPort = 5005, int helloPort = 5006);
@@ -50,6 +51,7 @@ class UdpServer {
   void sendHello();
   void sendPing();
   void sendFeatures();
+  void sendGameGifDone();  // « GGDONE » : fin d'un bloc de GIFs du jeu (la Recalbox reprend sa rotation)
 
  private:
   void run();
@@ -68,6 +70,7 @@ class UdpServer {
   std::atomic<bool> &inGame_;
   ZedControl &zed_;
   ThemeControl &theme_;
+  GameGifControl &gg_;
   int fd_ = -1;
   int helloPort_ = 5006;
   std::thread th_;
