@@ -38,3 +38,19 @@ Quand l'alpha devient la stable, les mentions ALPHA doivent devenir STABLE. Rien
 ## À ne jamais faire
 - Publier une pre-release sur `main`, ou un binaire/outil de test sur `main`.
 - Modifier à la main `BUILD_CHANNEL`, `PI_CHANNEL` ou le chemin `…/main|alpha/binaries/…` du manifeste (réécrits par le workflow).
+
+## Changement de canal par l'utilisateur (page Réglages du DMD / du Pi)
+
+- Le canal du **build** reste verrouillé (titre `STABLE` / `ALPHA`, alertes, manifeste). Les **alertes de mise à jour** (firmware, démon Pi, toolkit) ne portent que sur le canal du build.
+- La page Réglages propose en plus **« Passer au canal ALPHA / STABLE »** : le DMD télécharge et installe **le firmware de l'autre canal** (mise à jour forcée, la version cible peut être plus ancienne), puis redémarre. Après la bascule, le DMD *est* un build de l'autre canal.
+  - Firmware : `POST /ota/start?chan=alpha|stable` → `config.ini ota_chan=` (consommé au démarrage) ; deux jeux d'adresses **fixes** codés dans le firmware, aucune adresse n'est fournie par le client.
+  - Démon Pi : `dmd_update.py --channel alpha|stable` ; le fichier `PI_CHANNEL` est réécrit après l'installation.
+- La **boîte à outils** lit le canal du firmware (`fw_channel` de `/load`). En cas d'écart (firmware stable / toolkit alpha, ou l'inverse) elle le signale, propose de télécharger la boîte à outils **du canal du DMD**, supprime l'avis de mise à jour du firmware et désactive le Mode 14 (mise à jour Wi-Fi).
+
+## Contenu des releases GitHub par canal
+
+| | Release **stable** | **Pre-release alpha** |
+|---|---|---|
+| Boîte à outils PC | `Setup.exe`, `Portable.exe`, `Source.zip` | **`Portable.exe` UNIQUEMENT** (`gh release create … --prerelease`, jamais `--latest`) |
+| Démon Pi | `RecalBoxDMD_pi_payload.zip` + `.sha256` (`PI_CHANNEL` = stable) | idem, `PI_CHANNEL` = alpha, **marquée pre-release** |
+| Firmware | binaires sur `main` | binaires sur la branche `alpha` |
