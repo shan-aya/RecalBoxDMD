@@ -2105,7 +2105,7 @@ UI_TRANSLATIONS = {
         "mode14_checking": "Recherche du DMD sur le réseau et de la dernière version publiée…",
         "mode14_not_found": "DMD introuvable sur le réseau. Vérifiez qu'il est allumé et connecté au même réseau que ce PC, puis relancez ce mode.",
         "mode14_offline": "DMD {ip} trouvé (firmware {cur}), mais la dernière version publiée est introuvable (PC hors ligne ?).",
-        "mode14_alpha_no_ota": "DMD {ip} : firmware {cur}. Version ALPHA de la boîte à outils : la mise à jour par Wi-Fi télécharge la version stable, elle est donc désactivée. Installez la version alpha avec le Web Installer alpha (USB).",
+        "mode14_alpha_no_ota": "DMD {ip} : firmware {cur}. Le canal de ce DMD (stable / alpha) diffère de celui de cette boîte à outils : la mise à jour par Wi-Fi est désactivée. Utilisez la boîte à outils du canal du DMD, ou changez de canal depuis la page Réglages du DMD.",
         "mode14_too_old": "DMD {ip} : firmware {cur}. Cette version ne peut pas se mettre à jour par Wi-Fi (sa mémoire n'a pas d'emplacement de mise à jour). Il faut une réinstallation par USB, une seule fois, avec le Web Installer ; ensuite les mises à jour se feront par Wi-Fi.",
         "mode14_uptodate": "DMD {ip} : firmware {cur}. Aucune version plus récente n'est publiée (dernière : {new}) : rien à faire.",
         "mode14_available": "DMD {ip} : firmware {cur}. La version {new} est publiée.\n\nLa mise à jour dure environ 2 minutes ; l'écran du DMD s'éteint un moment et il redémarre plusieurs fois. Ne coupez pas son alimentation.",
@@ -2788,7 +2788,7 @@ UI_TRANSLATIONS = {
         "mode14_checking": "Looking for the DMD on the network and for the latest published version…",
         "mode14_not_found": "DMD not found on the network. Check that it is on and connected to the same network as this PC, then run this mode again.",
         "mode14_offline": "DMD {ip} found (firmware {cur}), but the latest published version cannot be reached (PC offline?).",
-        "mode14_alpha_no_ota": "DMD {ip}: firmware {cur}. ALPHA toolkit build: Wi-Fi update downloads the stable version, so it is disabled. Install the alpha version with the alpha Web Installer (USB).",
+        "mode14_alpha_no_ota": "DMD {ip}: firmware {cur}. This DMD's channel (stable / alpha) differs from this toolkit's: Wi-Fi update is disabled. Use the toolkit of the DMD's channel, or change channel from the DMD Settings page.",
         "mode14_too_old": "DMD {ip}: firmware {cur}. This version cannot update over Wi-Fi (its flash has no update slot). A one-time USB reinstall with the Web Installer is needed; after that, updates will go over Wi-Fi.",
         "mode14_uptodate": "DMD {ip}: firmware {cur}. No newer version is published (latest: {new}): nothing to do.",
         "mode14_available": "DMD {ip}: firmware {cur}. Version {new} is published.\n\nThe update takes about 2 minutes; the DMD screen goes dark for a while and it restarts several times. Do not unplug its power.",
@@ -3482,7 +3482,7 @@ UI_TRANSLATIONS = {
         "mode14_checking": "Buscando el DMD en la red y la última versión publicada…",
         "mode14_not_found": "DMD no encontrado en la red. Compruebe que está encendido y conectado a la misma red que este PC, y vuelva a lanzar este modo.",
         "mode14_offline": "DMD {ip} encontrado (firmware {cur}), pero no se alcanza la última versión publicada (¿PC sin conexión?).",
-        "mode14_alpha_no_ota": "DMD {ip}: firmware {cur}. Versión ALFA de la caja de herramientas: la actualización por Wi-Fi descarga la versión estable, por eso está desactivada. Instale la versión alfa con el Web Installer alfa (USB).",
+        "mode14_alpha_no_ota": "DMD {ip}: firmware {cur}. El canal de este DMD (estable / alfa) difiere del de esta caja de herramientas: la actualización por Wi-Fi está desactivada. Use la caja de herramientas del canal del DMD, o cambie de canal desde la página Ajustes del DMD.",
         "mode14_too_old": "DMD {ip}: firmware {cur}. Esta versión no puede actualizarse por Wi-Fi (su memoria no tiene espacio de actualización). Hace falta una reinstalación por USB, una sola vez, con el Web Installer; después las actualizaciones serán por Wi-Fi.",
         "mode14_uptodate": "DMD {ip}: firmware {cur}. No hay ninguna versión más reciente publicada (última: {new}): nada que hacer.",
         "mode14_available": "DMD {ip}: firmware {cur}. La versión {new} está publicada.\n\nLa actualización dura unos 2 minutos; la pantalla del DMD se apaga un rato y se reinicia varias veces. No corte su alimentación.",
@@ -7992,7 +7992,7 @@ class RetroBoxLEDGui:
             cur = f"v{dmd['version']}" if dmd.get("version") else "< v2.37"
             latest = res.get("firmware_latest")
             state["latest"] = latest
-            if tkmod.ACTIVE_CHANNEL == "alpha":   # build ALPHA : l'OTA du DMD telecharge TOUJOURS le binaire stable (adresse codee en dur dans le firmware) : desactivee
+            if tkmod.ACTIVE_CHANNEL != (dmd.get("channel") or "stable"):   # canal du DMD != canal de cette boite a outils : la version publiee annoncee n'est pas celle que le DMD installerait
                 _post(_apply_check, ui["mode14_alpha_no_ota"].format(ip=dmd["ip"], cur=cur), False, True)
             elif not tkmod.dmd_supports_ota(dmd.get("version")):
                 _post(_apply_check, ui["mode14_too_old"].format(ip=dmd["ip"], cur=cur), False, True)
@@ -14570,7 +14570,14 @@ class RetroBoxLEDGui:
             want_c = bool(c_latest) and int(c_latest) > int(prefs.get("quotes_comm_rev_seen") or 0)
         except (TypeError, ValueError):
             want_c = False
-        if not (want_tk or want_fw or want_sc or want_q or want_c):
+        # CANAUX : le DMD annonce le canal de son firmware (fw_channel). Un ecart avec le canal de CETTE boite a outils (stable <-> alpha) est signale, avec le telechargement de la boite
+        # a outils du canal du DMD ; l'avis de mise a jour du firmware (compare au manifeste du canal de la boite a outils) est alors supprime : il proposerait l'autre canal.
+        dch = (dmd.get("channel") if dmd else None) or ""
+        mine = self.tkmod.ACTIVE_CHANNEL
+        want_ch = bool(dch) and dch != mine
+        if want_ch:
+            want_fw = False
+        if not (want_tk or want_fw or want_sc or want_q or want_c or want_ch):
             return
         lang = self.lang_var.get() if self.lang_var.get() in ("fr", "en", "es") else "en"
         S = {
@@ -14643,7 +14650,17 @@ class RetroBoxLEDGui:
               "es": ("Hay temas de citas nuevos propuestos por la comunidad de Discord: el Modo 15 los instala (tarjeta SD o Wi-Fi).", "Instalar los temas de la comunidad (Modo 15)")}[lang]
         if want_c:
             lines.append(SC[0])
+        CHX = {"fr": ("Ce DMD ({ip}) fonctionne avec un firmware {dch} mais cette boîte à outils est {mine} : utilisez la boîte à outils du même canal ({dch}). Pour changer de canal, utilisez la page Réglages du DMD.",
+                      "Télécharger la boîte à outils {dch}"),
+               "en": ("This DMD ({ip}) runs a {dch} firmware but this toolkit is {mine}: use the toolkit of the same channel ({dch}). To change channel, use the DMD Settings page.",
+                      "Download the {dch} toolkit"),
+               "es": ("Este DMD ({ip}) funciona con un firmware {dch} pero esta caja de herramientas es {mine}: use la del mismo canal ({dch}). Para cambiar de canal, use la página Ajustes del DMD.",
+                      "Descargar la caja de herramientas {dch}")}[lang]
+        if want_ch:
+            lines.append(CHX[0].format(ip=dmd.get("ip") or "?", dch=dch.upper(), mine=mine.upper()))
         actions = []            # (libelle, action) : v106 - quand plusieurs actions sont possibles, l'utilisateur choisit
+        if want_ch:     # boite a outils du canal DU DMD (stable : derniere release ; alpha : liste des releases, pre-releases comprises)
+            actions.append((CHX[1].format(dch=dch.upper()), lambda: webbrowser.open(self.tkmod.channel_cfg(dch)["releases_page"])))
         if want_tk:
             actions.append((S[15], lambda: webbrowser.open(res.get("toolkit_url"))))
         if want_fw and ota_ok:

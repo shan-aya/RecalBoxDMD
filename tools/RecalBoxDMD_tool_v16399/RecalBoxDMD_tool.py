@@ -5670,7 +5670,10 @@ def _dmd_probe(ip: str, timeout: float = 8.0):
                 age = 0
             # v82 : champ « platform » ("rpi" / "esp32", annonce par le firmware 3.97+ et le demon Pi 3.72+) ; sinon « boot_reason » vaut « raspberry-pi » sur un Pi (un ESP32 y met sa cause de reset) : meme requete
             plat = str(d.get("platform") or "").strip().lower()
+            # v100 : canal du firmware (champ « fw_channel », firmware >= 4.28 / demon Pi >= 3.93) ; absent = firmware anterieur aux canaux = STABLE
+            fch = str(d.get("fw_channel") or "").strip().lower()
             return {"ip": ip, "version": v or None, "scripts": str(d.get("scripts_bundle") or "").strip(), "rb_age": age,
+                    "channel": "alpha" if fch == "alpha" else "stable",
                     "platform": plat or None,
                     "is_pi": plat == "rpi" if plat else str(d.get("boot_reason") or "").strip() == "raspberry-pi"}
     except Exception:
