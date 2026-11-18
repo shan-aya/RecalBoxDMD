@@ -2105,6 +2105,7 @@ UI_TRANSLATIONS = {
         "mode14_checking": "Recherche du DMD sur le réseau et de la dernière version publiée…",
         "mode14_not_found": "DMD introuvable sur le réseau. Vérifiez qu'il est allumé et connecté au même réseau que ce PC, puis relancez ce mode.",
         "mode14_offline": "DMD {ip} trouvé (firmware {cur}), mais la dernière version publiée est introuvable (PC hors ligne ?).",
+        "mode14_alpha_no_ota": "DMD {ip} : firmware {cur}. Version ALPHA de la boîte à outils : la mise à jour par Wi-Fi télécharge la version stable, elle est donc désactivée. Installez la version alpha avec le Web Installer alpha (USB).",
         "mode14_too_old": "DMD {ip} : firmware {cur}. Cette version ne peut pas se mettre à jour par Wi-Fi (sa mémoire n'a pas d'emplacement de mise à jour). Il faut une réinstallation par USB, une seule fois, avec le Web Installer ; ensuite les mises à jour se feront par Wi-Fi.",
         "mode14_uptodate": "DMD {ip} : firmware {cur}. Aucune version plus récente n'est publiée (dernière : {new}) : rien à faire.",
         "mode14_available": "DMD {ip} : firmware {cur}. La version {new} est publiée.\n\nLa mise à jour dure environ 2 minutes ; l'écran du DMD s'éteint un moment et il redémarre plusieurs fois. Ne coupez pas son alimentation.",
@@ -2787,6 +2788,7 @@ UI_TRANSLATIONS = {
         "mode14_checking": "Looking for the DMD on the network and for the latest published version…",
         "mode14_not_found": "DMD not found on the network. Check that it is on and connected to the same network as this PC, then run this mode again.",
         "mode14_offline": "DMD {ip} found (firmware {cur}), but the latest published version cannot be reached (PC offline?).",
+        "mode14_alpha_no_ota": "DMD {ip}: firmware {cur}. ALPHA toolkit build: Wi-Fi update downloads the stable version, so it is disabled. Install the alpha version with the alpha Web Installer (USB).",
         "mode14_too_old": "DMD {ip}: firmware {cur}. This version cannot update over Wi-Fi (its flash has no update slot). A one-time USB reinstall with the Web Installer is needed; after that, updates will go over Wi-Fi.",
         "mode14_uptodate": "DMD {ip}: firmware {cur}. No newer version is published (latest: {new}): nothing to do.",
         "mode14_available": "DMD {ip}: firmware {cur}. Version {new} is published.\n\nThe update takes about 2 minutes; the DMD screen goes dark for a while and it restarts several times. Do not unplug its power.",
@@ -3480,6 +3482,7 @@ UI_TRANSLATIONS = {
         "mode14_checking": "Buscando el DMD en la red y la última versión publicada…",
         "mode14_not_found": "DMD no encontrado en la red. Compruebe que está encendido y conectado a la misma red que este PC, y vuelva a lanzar este modo.",
         "mode14_offline": "DMD {ip} encontrado (firmware {cur}), pero no se alcanza la última versión publicada (¿PC sin conexión?).",
+        "mode14_alpha_no_ota": "DMD {ip}: firmware {cur}. Versión ALFA de la caja de herramientas: la actualización por Wi-Fi descarga la versión estable, por eso está desactivada. Instale la versión alfa con el Web Installer alfa (USB).",
         "mode14_too_old": "DMD {ip}: firmware {cur}. Esta versión no puede actualizarse por Wi-Fi (su memoria no tiene espacio de actualización). Hace falta una reinstalación por USB, una sola vez, con el Web Installer; después las actualizaciones serán por Wi-Fi.",
         "mode14_uptodate": "DMD {ip}: firmware {cur}. No hay ninguna versión más reciente publicada (última: {new}): nada que hacer.",
         "mode14_available": "DMD {ip}: firmware {cur}. La versión {new} está publicada.\n\nLa actualización dura unos 2 minutos; la pantalla del DMD se apaga un rato y se reinicia varias veces. No corte su alimentación.",
@@ -7939,7 +7942,7 @@ class RetroBoxLEDGui:
                                padx=10, pady=6, font=("TkDefaultFont", 10, "bold"), state="disabled")
         btn_usb = tk.Button(body, text=ui["mode14_btn_usb"], bg=bg_normal, fg=fg, bd=2, relief="solid",
                             padx=10, pady=6, font=("TkDefaultFont", 10, "bold"),
-                            command=lambda: webbrowser.open(tkmod.UPDATE_INSTALLER_URL))
+                            command=lambda: webbrowser.open(tkmod.channel_cfg()["installer"]))
         btn_close = tk.Button(body, text=ui["btn_close"], bg=bg_normal, fg=fg, bd=2, relief="solid",
                               padx=10, pady=6, font=("TkDefaultFont", 10, "bold"), command=win.destroy)
         btn_update.pack(fill="x", pady=(0, 6))
@@ -7989,7 +7992,9 @@ class RetroBoxLEDGui:
             cur = f"v{dmd['version']}" if dmd.get("version") else "< v2.37"
             latest = res.get("firmware_latest")
             state["latest"] = latest
-            if not tkmod.dmd_supports_ota(dmd.get("version")):
+            if tkmod.ACTIVE_CHANNEL == "alpha":   # build ALPHA : l'OTA du DMD telecharge TOUJOURS le binaire stable (adresse codee en dur dans le firmware) : desactivee
+                _post(_apply_check, ui["mode14_alpha_no_ota"].format(ip=dmd["ip"], cur=cur), False, True)
+            elif not tkmod.dmd_supports_ota(dmd.get("version")):
                 _post(_apply_check, ui["mode14_too_old"].format(ip=dmd["ip"], cur=cur), False, True)
             elif not latest:
                 _post(_apply_check, ui["mode14_offline"].format(ip=dmd["ip"], cur=cur), False, False)

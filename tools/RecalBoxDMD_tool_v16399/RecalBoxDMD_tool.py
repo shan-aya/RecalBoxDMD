@@ -5406,13 +5406,40 @@ UPDATE_RELEASES_PAGE = "https://github.com/shan-aya/RecalBoxDMD/releases/latest"
 # Le manifeste publie porte wbg_<fichier>_size / _sha256 et webpack_hash / _size / _sha256 (voir tools/gen_widget_assets_manifest.py).
 WIDGET_ASSETS_RAW_BASE = "https://raw.githubusercontent.com/shan-aya/RecalBoxDMD/main/widget_assets"
 
+# CANAUX DE MISE A JOUR (stable / alpha) : le canal choisi par l'utilisateur (preference « update_channel », jamais « alpha » par defaut)
+# decide QUELLES versions sont annoncees (manifeste, releases, fonds d'image, CHANGELOG). stable = branche `main` ; alpha = branche `alpha`
+# (son manifeste docs/install/manifest.json est lu en direct sur raw.githubusercontent.com : GitHub Pages ne sert que `main`).
+UPDATE_CHANNELS = {
+    "stable": {"branch": "main", "manifest": UPDATE_MANIFEST_URL, "releases_api": UPDATE_RELEASES_API,
+               "installer": UPDATE_INSTALLER_URL, "releases_page": UPDATE_RELEASES_PAGE, "prerelease": False},
+    "alpha": {"branch": "alpha",
+              "manifest": "https://raw.githubusercontent.com/shan-aya/RecalBoxDMD/alpha/docs/install/manifest.json",
+              "releases_api": "https://api.github.com/repos/shan-aya/RecalBoxDMD/releases?per_page=30",
+              "installer": "https://shan-aya.github.io/RecalBoxDMD/install-alpha/",
+              "releases_page": "https://github.com/shan-aya/RecalBoxDMD/releases", "prerelease": True},
+}
+# CANAL DU BUILD : verrouille, PAS un choix de l'utilisateur. Cette ligne est reecrite automatiquement apres chaque push par le workflow
+# .github/workflows/sync-installer-version.yml (etape « Lock the channel ») : "stable" sur la branche main, "alpha" sur la branche alpha.
+# Une fusion alpha -> main se corrige donc toute seule ; ne pas la modifier a la main. Valeur inconnue = stable.
+BUILD_CHANNEL = "alpha"
+ACTIVE_CHANNEL = BUILD_CHANNEL if BUILD_CHANNEL in UPDATE_CHANNELS else "stable"
 
-def fetch_update_manifest(timeout: int = 20, url: str = None):
-    """Manifeste d'installation publie (dict) ou None (hors ligne / illisible) -- ne leve jamais."""
+
+def channel_cfg(channel=None) -> dict:
+    """Adresses du canal (celui passe, sinon le canal actif)."""
+    return UPDATE_CHANNELS.get(channel if channel in UPDATE_CHANNELS else ACTIVE_CHANNEL, UPDATE_CHANNELS["stable"])
+
+
+def widget_assets_base(channel=None) -> str:
+    return "https://raw.githubusercontent.com/shan-aya/RecalBoxDMD/%s/widget_assets" % channel_cfg(channel)["branch"]
+
+
+def fetch_update_manifest(timeout: int = 20, url: str = None, channel: str = None):
+    """Manifeste d'installation publie (dict) ou None (hors ligne / illisible) -- ne leve jamais. Canal : voir UPDATE_CHANNELS."""
     import json
     import urllib.request
     try:
-        req = urllib.request.Request(url or UPDATE_MANIFEST_URL, headers={"User-Agent": "recalbox-toolkit", "Cache-Control": "no-cache"})
+        req = urllib.request.Request(url or channel_cfg(channel)["manifest"], headers={"User-Agent": "recalbox-toolkit", "Cache-Control": "no-cache"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             man = json.loads(resp.read().decode("utf-8"))
         return man if isinstance(man, dict) else None
@@ -5464,7 +5491,7 @@ def install_widget_assets(sd_dir, manifest=None, base: str = None, timeout: int 
     sd_dir = Path(sd_dir)
     man = manifest if manifest is not None else fetch_update_manifest(timeout=timeout)
     plan = widget_assets_plan(man)
-    base = (base or WIDGET_ASSETS_RAW_BASE).rstrip("/")
+    base = (base or widget_assets_base()).rstrip("/")
     done, skipped, failed = [], [], []
     for i, it in enumerate(plan, 1):
         dest = sd_dir / it["rel"].replace("/", os.sep)
@@ -5504,8 +5531,9 @@ def check_for_updates(current_build, timeout: int = 6) -> dict:
     import json
     import re
     import urllib.request
-    out = {"toolkit_latest": None, "toolkit_newer": False, "toolkit_url": UPDATE_RELEASES_PAGE,
-           "firmware_latest": None, "pi_latest": None, "scripts_latest": None, "quotes_latest": None, "community_latest": None, "installer_url": UPDATE_INSTALLER_URL}
+    cfg = channel_cfg()          # canal actif : stable (par defaut) ou alpha -> manifeste, releases et pages differents
+    out = {"toolkit_latest": None, "toolkit_newer": False, "toolkit_url": cfg["releases_page"], "channel": ACTIVE_CHANNEL,
+           "firmware_latest": None, "pi_latest": None, "scripts_latest": None, "quotes_latest": None, "community_latest": None, "installer_url": cfg["installer"]}
 
     def _get(url):
         req = urllib.request.Request(url, headers={"User-Agent": "recalbox-toolkit", "Cache-Control": "no-cache"})
@@ -5513,7 +5541,7 @@ def check_for_updates(current_build, timeout: int = 6) -> dict:
             return json.loads(resp.read().decode("utf-8"))
 
     try:
-        man = _get(UPDATE_MANIFEST_URL)
+        man = _get(cfg["manifest"])
         v = str(man.get("version", "")).strip()
         if re.fullmatch(r"\d+\.\d{2}", v):
             out["firmware_latest"] = v
@@ -5538,11 +5566,20 @@ def check_for_updates(current_build, timeout: int = 6) -> dict:
     except Exception:
         pass
     try:
-        rel = _get(UPDATE_RELEASES_API)
+        rel = _get(cfg["releases_api"])
+        if isinstance(rel, list):        # canal alpha : liste des releases (pre-releases comprises) -> la boite a outils au plus grand numero de build
+            best = None
+            for r in rel:
+                if r.get("draft"):
+                    continue
+                mm = re.search(r"^RecalBoxDMD_tool_v(\d+)$", str(r.get("tag_name", "")))
+                if mm and (best is None or int(mm.group(1)) > best[0]):
+                    best = (int(mm.group(1)), r)
+            rel = best[1] if best else {}
         m = re.search(r"_v(\d+)$", str(rel.get("tag_name", "")))
         if m:
             out["toolkit_latest"] = m.group(1)
-            out["toolkit_url"] = rel.get("html_url") or UPDATE_RELEASES_PAGE
+            out["toolkit_url"] = rel.get("html_url") or cfg["releases_page"]
             try:
                 out["toolkit_newer"] = int(m.group(1)) > int(str(current_build))
             except ValueError:
@@ -5554,14 +5591,14 @@ def check_for_updates(current_build, timeout: int = 6) -> dict:
 
 def changelog_url(lang: str = "en") -> str:
     """v74 : page GitHub du CHANGELOG dans la langue (fr / es ; anglais sinon)."""
-    return "https://github.com/shan-aya/RecalBoxDMD/blob/main/CHANGELOG" + {"fr": ".fr", "es": ".es"}.get(lang, "") + ".md"
+    return "https://github.com/shan-aya/RecalBoxDMD/blob/%s/CHANGELOG" % channel_cfg()["branch"] + {"fr": ".fr", "es": ".es"}.get(lang, "") + ".md"
 
 
 def fetch_changelog_text(lang: str = "en", timeout: int = 6, max_chars: int = 1500) -> str:
     """v74 : texte des DERNIERES entrees du CHANGELOG (mise en forme Markdown retiree, ~1 500 caracteres) pour la bulle de survol des avis de mise a jour ; "" hors ligne."""
     import re
     import urllib.request
-    url = "https://raw.githubusercontent.com/shan-aya/RecalBoxDMD/main/CHANGELOG" + {"fr": ".fr", "es": ".es"}.get(lang, "") + ".md"
+    url = "https://raw.githubusercontent.com/shan-aya/RecalBoxDMD/%s/CHANGELOG" % channel_cfg()["branch"] + {"fr": ".fr", "es": ".es"}.get(lang, "") + ".md"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "recalbox-toolkit", "Cache-Control": "no-cache"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
