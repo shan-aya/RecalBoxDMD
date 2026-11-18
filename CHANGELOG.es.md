@@ -8,6 +8,15 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-18 — Firmware 4.27, demonio Pi 3.92, caja de herramientas 16396: GIFs del juego y personalización de logos
+
+- **GIFs del juego en partida** (firmware 4.21 a 4.27, demonio Pi 3.83 a 3.90): nueva opción «GIFs del juego en partida» (página web *Basic*, desactivada por defecto). Tras las demás pantallas, el DMD reproduce de 1 a 5 GIFs del juego en curso y vuelve al logo; en el reposo demo de los juegos, 1 GIF por pasada sin ajustes. Solo se reproducen las coincidencias seguras (palabras enteras del título), carpeta dedicada `/gifs_jeux` (exclusiva si contiene un GIF, vacía = modo auto), modo mixto opcional y exclusiones por juego. **Vuelve a ejecutar una vez el Modo 9** de la caja de herramientas (scripts Recalbox).
+- **Personalización de logos** (caja de herramientas 16396, pestaña *Personalización*): sustituye el logo de cualquier juego — imagen, GIF animado (o un solo fotograma) o tarjeta de texto con el nombre del juego — en la tarjeta SD o en la Raspberry Pi por Wi-Fi. Selección múltiple (una tarjeta de texto o un «Cancelar» para todo un grupo), cancelación a la versión anterior y luego al logo original, *Herramientas › Restaurar mis logos* tras un nuevo scrape o el Modo 1, copia y restauración completas en zip.
+- **Destino ESP32 / Raspberry Pi** (caja de herramientas): una pastilla de color en la fila de pestañas indica el dispositivo elegido, preseleccionado automáticamente (una tarjeta insertada tiene prioridad, si no una Pi accesible en la red), con confirmación si cambias en contra de lo conectado; los modos que no corresponden al dispositivo quedan atenuados; el Modo 1 pide el dispositivo al pulsar INICIAR; la ayuda de los modos sigue el destino.
+- **Pestaña Playlist**: escritura directa en la tarjeta del ESP32 o de la Pi; **por Wi-Fi para una Pi sin tarjeta** (demonio Pi 3.92: `/playlist-get`, `/playlist-write`, `/delete-files`), listas de temporada incluidas. Desaparece el botón «Enviar a la Pi» y se oculta la carpeta técnica `_boot`.
+- **Firmware 4.27**: protección contra un `config.ini` reescrito demasiado corto (una vez se perdieron todos los ajustes tras un prepare-upload).
+- **Demonio Pi 3.92**: los GIFs del juego del firmware (3.83 a 3.90), `GET /logos-list` (3.91) y las rutas de playlist anteriores (3.92).
+
 ## 2026-11-15 — Firmware 4.20, demonio Pi 3.82, caja de herramientas 15994: varios DMD en una misma Recalbox
 
 - **Varios DMD en una misma Recalbox** (scripts Recalbox versión 10): todo DMD que se anuncia a una Recalbox es alimentado por sus scripts (marquesina, marcadores, logros, widgets), en lugar de solo el último en llegar — un ESP32 y una Raspberry Pi siguen ahora la misma Recalbox a la vez, incluso con una sola dirección. La elección sigue en la página web de cada DMD; 2 Recalbox + 2 DMD siguen siendo posibles. **Vuelve a ejecutar el Modo 9** para instalar los scripts.

@@ -7,8 +7,8 @@
 </p>
 
 <p align="center">
-  <img alt="Firmware: v4.20" src="https://img.shields.io/badge/firmware-v4.20-blueviolet.svg">
-  <img alt="PC tool: v15994" src="https://img.shields.io/badge/PC%20tool-v15994-blueviolet.svg">
+  <img alt="Firmware: v4.27" src="https://img.shields.io/badge/firmware-v4.27-blueviolet.svg">
+  <img alt="PC tool: v16396" src="https://img.shields.io/badge/PC%20tool-v16396-blueviolet.svg">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green.svg"></a>
   <img alt="Platforms: ESP32 and Raspberry Pi" src="https://img.shields.io/badge/platforms-ESP32%20%7C%20Raspberry%20Pi-blue.svg">
   <img alt="Panel: HUB75 128x32" src="https://img.shields.io/badge/panel-HUB75%20128x32-blue.svg">
@@ -146,6 +146,8 @@ Each widget: **off**, **instead of the clock** or **in addition**, with its own 
 
 ### And also
 - 🔁 **Several Recalbox, one DMD** — up to 4 IPs; the DMD **switches by itself** to the one that is on. **And several DMDs on one Recalbox** (e.g. an ESP32 and a Raspberry Pi).
+- 🎞️ **Game GIFs while playing** — the DMD also plays the GIFs named after the current game (SD card or Pi), in the logo / scores rotation; web page *Basic*, “Game GIFs while playing” box (off by default).
+- 🖼️ **Logo customization** — replace the logo of any game (picture, animated GIF, text card) from the toolkit's *Customize* tab, on the SD card or the Raspberry Pi; cancel, restore, zip backup.
 - 🔘 **Physical button** (GPIO 21) — short / double / long / very long press, each with the action of your choice.
 - 📶 **Wi-Fi / Recalbox diagnostic** — signal, access point, loss, latency and jitter towards the Recalbox, on the panel (short press on BOOT, or a button action) and on a web page that explains how to read the values. [Details](#-wi-fi--recalbox-diagnostic).
 - 🌗 **Brightness scheduler** — 24 slots, one per hour.
@@ -372,7 +374,7 @@ The Pi software is **downloaded from GitHub** (`pi-v…` release, SHA-256 checke
 
 ## 🧰 The PC Toolkit — the heart of the installation
 
-The Windows application (FR / EN / ES, 9 visual skins) that **builds everything**: SD card, scripts, themes, GIFs, updates — for the ESP32 and the Raspberry Pi alike. Full manual: [`HELP.md`](tools/RecalBoxDMD_tool_v15994/HELP.md) (also in the *Help* tab).
+The Windows application (FR / EN / ES, 9 visual skins) that **builds everything**: SD card, scripts, themes, GIFs, updates — for the ESP32 and the Raspberry Pi alike. Full manual: [`HELP.md`](tools/RecalBoxDMD_tool_v16396/HELP.md) (also in the *Help* tab).
 
 | Main · SNES | Settings · Dreamcast |
 |---|---|

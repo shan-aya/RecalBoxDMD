@@ -65,6 +65,7 @@ const char *modeName(Mode m) {
     case Mode::SCORE: return "SCORE";
     case Mode::CLOCK: return "CLOCK";
     case Mode::ZEDMD: return "ZEDMD";
+    case Mode::GAMEGIF: return "GAMEGIF";
   }
   return "?";
 }
@@ -1463,6 +1464,15 @@ void Engine::cmdSystem(const std::string &sys) {
 }
 
 void Engine::cmdGame(const std::string &arg) {
+  // GIFs du jeu : memorise le jeu courant (sauf si c'est notre propre rejeu apres un GIF)
+  if (ggReplay_) {
+    ggReplay_ = false;
+  } else {
+    ggArg_ = arg;
+    ggNoneKey_.clear();
+    ggTitle_.clear();
+    ggEnded_ = false;
+  }
   if (arg == "!SHUFFLE") {  // coupe-circuit anti-rafale : animation dediee en boucle
     if (openGif(SHUFFLE_GIF_PATH, true, true)) {
       pngDrawn_ = false;
@@ -1752,7 +1762,27 @@ void Engine::tick() {
     d_.show();
   }
   const uint64_t now = nowMs();
+  tickGameGif(now);  // GIFs du jeu (sans effet si l'option est desactivee)
   switch (mode_) {
+    case Mode::GAMEGIF: {  // GIF du jeu joue UNE fois en entier (plafond 60 s), puis le suivant du bloc ou le retour au logo
+      if (!gifOpened_ || now >= ggDeadlineMs_) {
+        ggFinish();
+        d_.show();
+        break;
+      }
+      if (now < frameDueMs_) break;
+      int fd = 0;
+      const bool frameOk = playFrame(false, &fd);
+      d_.show();
+      if (!frameOk) {
+        ggFinish();
+        d_.show();
+        break;
+      }
+      if (fd <= 0) fd = 10;
+      frameDueMs_ = now + (uint64_t)fd;
+      break;
+    }
     case Mode::PLAYLIST: {
       if (!gifOpened_) {
         d_.clearScreen();
@@ -1827,6 +1857,12 @@ void Engine::tick() {
       break;
     case Mode::SCORE:
       if (now >= scoreUntilMs_) {
+        if (modeBeforeScore_ == Mode::GAMEGIF) {  // un score a interrompu un GIF du jeu : retour au logo du jeu, GIFs restants abandonnes
+          ggRemaining_ = 0;
+          ggRestore();
+          d_.show();
+          break;
+        }
         mode_ = modeBeforeScore_;
         // MODE_PNG saute son dessin si pngDrawn_ : sans ce reset l'ecran resterait fige sur le score
         if (mode_ == Mode::PNG) pngDrawn_ = false;
@@ -1868,6 +1904,255 @@ void Engine::tick() {
   }
 }
 
+// ------------------------------------------------------------------ GIFs du jeu (portage du firmware ESP32 v421)
+// Le script de la Recalbox (dmd_score v55, panneau « gifs » de sa rotation) envoie « CMD=gamegif ARG=<n>|<titre> » : n GIFs de /gifs dont le nom correspond au titre du
+// jeu (gifmatch.h, meme regle que le firmware) sont joues a la suite, chacun UNE fois, jamais deux fois le meme dans le bloc ; puis retour au logo du jeu et « GGDONE » vers la
+// Recalbox, qui reprend sa rotation. Interrompu par : fin de partie (ingame 1 -> 0), « ARG=0 » du script, toute commande game / system / default / stop, un score (retour a sa fin).
+
+// v3.90 : index de /gifs seul (mode mixte : repli pour un jeu absent du dossier /gifs_jeux). Meme contenu que la fin de ggIndex() en mode auto.
+const std::vector<Engine::GgEntry> &Engine::ggAutoIndex() {
+  const uint64_t now = nowMs();
+  if (!ggAutoIndex_.empty() && now - ggAutoIndexMs_ < 120000ULL) return ggAutoIndex_;
+  ggAutoIndex_.clear();
+  for (const std::string &dir : fs_.list("/gifs")) {
+    if (toLower(dir) == "_boot" || !fs_.isDir("/gifs/" + dir)) continue;
+    for (const std::string &n : fs_.list("/gifs/" + dir)) {
+      std::string key;
+      std::vector<uint8_t> wb;
+      if (!ggGifInfo(n, key, wb)) continue;
+      ggAutoIndex_.push_back({"/gifs/" + dir + "/" + n, key, wb});
+    }
+  }
+  ggAutoIndexMs_ = now;
+  return ggAutoIndex_;
+}
+
+const std::vector<Engine::GgEntry> &Engine::ggIndex() {
+  const uint64_t now = nowMs();
+  if (!ggIndex_.empty() && now - ggIndexMs_ < 120000ULL) return ggIndex_;
+  ggIndex_.clear();
+  // v3.86 : dossier DEDIE /gifs_jeux (hors /gifs : ni playlists ni cache maitre ne le voient). S'il existe, on ne lit que lui ; sinon /gifs.
+  // Meme regle STRICTE dans les deux cas (ggStrictMatch : nom identique au titre, hors prefixes XXX_ et numero de serie 01).
+  ggFolder_ = false;
+  if (fs_.isDir("/gifs_jeux")) {
+    // sous-dossiers par PREMIERE LETTRE du nom (A-Z, « # » : comme les logos) ; les GIFs a plat dans /gifs_jeux sont lus aussi
+    for (const std::string &n : fs_.list("/gifs_jeux")) {
+      const std::string p = "/gifs_jeux/" + n;
+      if (fs_.isDir(p)) {
+        for (const std::string &m : fs_.list(p)) {
+          std::string key;
+          std::vector<uint8_t> wb;
+          if (ggGifInfo(m, key, wb)) ggIndex_.push_back({p + "/" + m, key, wb});
+        }
+        continue;
+      }
+      std::string key;
+      std::vector<uint8_t> wb;
+      if (!ggGifInfo(n, key, wb)) continue;
+      ggIndex_.push_back({p, key, wb});
+    }
+    if (!ggIndex_.empty()) {  // v3.88 : un dossier SANS aucun .gif (ou vide) = mode AUTO sur /gifs
+      ggFolder_ = true;
+      ggIndexMs_ = now;
+      logf("GAMEGIF", "index du dossier /gifs_jeux : %zu fichiers", ggIndex_.size());
+      return ggIndex_;
+    }
+  }
+  for (const std::string &dir : fs_.list("/gifs")) {
+    if (toLower(dir) == "_boot" || !fs_.isDir("/gifs/" + dir)) continue;  // /gifs/_boot = animations de demarrage (protegees)
+    for (const std::string &n : fs_.list("/gifs/" + dir)) {
+      std::string key;
+      std::vector<uint8_t> wb;
+      if (!ggGifInfo(n, key, wb)) continue;
+      ggIndex_.push_back({"/gifs/" + dir + "/" + n, key, wb});
+    }
+  }
+  ggIndexMs_ = now;
+  logf("GAMEGIF", "index des GIFs : %zu fichiers", ggIndex_.size());
+  return ggIndex_;
+}
+
+// Choisit le GIF a jouer pour le jeu courant : meilleur rang, tirage uniforme, jamais un GIF deja joue dans le bloc (debut de bloc : on evite aussi le dernier du bloc precedent).
+bool Engine::ggPick(std::string &out) {
+  if (ggArg_.empty() || ggArg_[0] == '!') return false;
+  std::string raw = ggKey();
+  if (ggTitle_.empty()) {  // pas de titre : la rom seule (« systeme/rom »)
+    const size_t sl = raw.find('/');
+    if (sl != std::string::npos) raw = raw.substr(sl + 1);
+  }
+  const std::string t = ggNorm(raw);
+  if (t.size() < 3) return false;  // nom trop court : correspondances arbitraires
+  // exclusions (v3.85) : /playlists/game_gifs_exclude.txt, cree par le toolkit (Mode 21) ; relu a chaque recherche (petit fichier)
+  GgExcl ex;
+  {
+    std::vector<uint8_t> raw_ex;
+    if (fs_.readAll("/playlists/game_gifs_exclude.txt", raw_ex, 65536) && !raw_ex.empty()) ex = ggParseExclusions(std::string(raw_ex.begin(), raw_ex.end()), raw);
+  }
+  if (ex.all) return false;  // « titre;* » : aucun GIF pour ce titre
+  const std::vector<GgEntry> &idx = ggIndex();
+  const GgEntry *last = nullptr;
+  std::vector<const GgEntry *> cands;
+  int best = 0;
+  bool anyMatch = false;  // v3.90 : le dossier /gifs_jeux A des GIFs pour ce titre (apres exclusions, AVANT « deja joue » / « dernier du bloc »)
+  // v3.90 MODE MIXTE : passe sur l'index du dossier (ou de /gifs), puis, si le dossier est actif, qu'il n'a AUCUN GIF pour ce titre et que feat_game_gifs_mixed est coche,
+  // seconde passe sur /gifs seul pour CE jeu. Sinon comportement inchange (dossier = exclusif, sans dossier = auto).
+  auto scan = [&](const std::vector<GgEntry> &list) {
+  for (const GgEntry &e : list) {
+    if (!ex.names.empty()) {  // GIF exclu pour ce titre : ecarte AVANT le choix du rang
+      std::string base = e.path.substr(e.path.find_last_of('/') + 1);
+      for (char &c : base) if (c >= 'A' && c <= 'Z') c = (char)(c + 32);
+      if (ex.has(base)) continue;
+    }
+    int r = 0;
+    {  // v3.86 : regle STRICTE dans les deux modes (auto sur /gifs, dossier dedie) : nom identique au titre
+      const size_t sl = e.path.find_last_of('/');
+      const std::string fn = e.path.substr(sl == std::string::npos ? 0 : sl + 1);
+      if (fn.size() > 4 && ggStrictMatch(fn.substr(0, fn.size() - 4), t)) r = 3;
+    }
+    if (r == 3) anyMatch = true;
+    if (r == 0 || r < best) continue;
+    if (std::find(ggPlayed_.begin(), ggPlayed_.end(), e.path) != ggPlayed_.end()) continue;  // deja joue dans ce bloc
+    if (ggPlayed_.empty() && e.path == ggPath_) { last = &e; continue; }
+    if (r > best) { best = r; cands.clear(); }
+    cands.push_back(&e);
+  }
+  };
+  scan(idx);
+  if (ggFolder_ && !anyMatch && cfg_.getBool("feat_game_gifs_mixed", false)) {
+    last = nullptr;
+    cands.clear();
+    best = 0;
+    scan(ggAutoIndex());
+  }
+  if (cands.empty()) {
+    if (last && ggPlayed_.empty()) { out = last->path; return true; }  // debut de bloc, un seul GIF possible : on le rejoue
+    return false;
+  }
+  static std::mt19937 rng{std::random_device{}()};
+  out = cands[std::uniform_int_distribution<size_t>(0, cands.size() - 1)(rng)]->path;
+  return true;
+}
+
+int Engine::ggStartOne() {
+  if (ggNoneKey_ == ggKey()) return 0;  // deja balaye sans resultat pour ce jeu
+  std::string path;
+  if (!ggPick(path)) {
+    if (ggPlayed_.empty()) {
+      ggNoneKey_ = ggKey();
+      logf("GAMEGIF", "aucun GIF pour %s", ggKey().c_str());
+    } else {
+      logf("GAMEGIF", "plus de GIF distinct pour %s : %zu joue(s), %d demande(s) restant(s) -> fin du bloc", ggKey().c_str(), ggPlayed_.size(), ggRemaining_);
+    }
+    return 0;
+  }
+  ggPath_ = path;
+  logf("GAMEGIF", "%s -> %s (restant=%d)", ggArg_.c_str(), path.c_str(), ggRemaining_);
+  if (!openGif(path, true, true, true)) {
+    logf("GAMEGIF", "ouverture impossible : %s", path.c_str());
+    return 2;
+  }
+  ggPlayed_.push_back(path);
+  ggPlaying_ = true;
+  ggDeadlineMs_ = nowMs() + 60000ULL;
+  mode_ = Mode::GAMEGIF;
+  return 1;
+}
+
+void Engine::ggFinish() {
+  ggPlaying_ = false;
+  if (ggRemaining_ > 0) ggRemaining_--;
+  closeGifAll();
+  gifOpened_ = false;
+  if (ggRemaining_ > 0 && ggStartOne() == 1) return;  // enchaine le GIF suivant sans repasser par le logo
+  ggRemaining_ = 0;
+  ggRestore();
+}
+
+void Engine::ggRestore() {
+  ggPlaying_ = false;
+  closeGifAll();
+  gifOpened_ = false;
+  if (ggModeBefore_ == Mode::PNG) {
+    mode_ = Mode::PNG;  // meme principe que le retour d'un score : MODE_PNG redessine si pngDrawn_ est faux
+    pngDrawn_ = false;
+  } else {
+    mode_ = Mode::BLACK;
+    if (!ggEnded_ && !ggArg_.empty()) {  // rouvre le marquee du jeu par le chemin normal de CMD_GAME ; partie finie : la commande de navigation qui suit prend la main
+      ggReplay_ = true;
+      cmdGame(ggArg_);
+    }
+  }
+  logf("GAMEGIF", "fin -> retour au logo du jeu (mode=%s)", modeName(mode_));
+  if (ggDoneHook_) ggDoneHook_();
+}
+
+void Engine::ggStopNoRestore() {
+  const bool was = ggPlaying_ || mode_ == Mode::GAMEGIF || ggctl_.req.load() > 0;
+  ggctl_.req = 0;
+  ggRemaining_ = 0;
+  ggPlaying_ = false;
+  if (mode_ == Mode::GAMEGIF) {
+    closeGifAll();
+    gifOpened_ = false;
+    d_.clearScreen();
+    d_.show();
+    mode_ = Mode::BLACK;
+  }
+  if (was) {
+    logf("GAMEGIF", "interrompu (fin de partie)");
+    if (ggDoneHook_) ggDoneHook_();
+  }
+}
+
+void Engine::tickGameGif(uint64_t now) {
+  // ordres du script : fin de partie (ingame 1 -> 0) ou « ARG=0 » ; les commandes game / system / default interrompent deja le GIF en changeant de mode
+  const bool in = inGame_.load();
+  if (ggPrevIn_ && !in) {
+    ggEnded_ = true;
+    ggStopNoRestore();
+  }
+  ggPrevIn_ = in;
+  if (ggctl_.abort.exchange(false)) {
+    if (ggPlaying_ || mode_ == Mode::GAMEGIF) {
+      ggRemaining_ = 0;
+      if (ggEnded_) ggStopNoRestore();
+      else ggRestore();
+    } else {
+      ggctl_.req = 0;
+    }
+  }
+  if (ggPlaying_ && mode_ != Mode::GAMEGIF) {  // preempte par une commande : la Recalbox peut reprendre sa rotation
+    ggPlaying_ = false;
+    if (mode_ != Mode::SCORE) {  // score : ggRestore() s'en charge a la fin du score
+      ggRemaining_ = 0;
+      if (ggDoneHook_) ggDoneHook_();
+    }
+  }
+  int req = ggctl_.req.load();
+  if (req <= 0) return;
+  auto drop = [&]() {  // toute demande qui n'aboutit pas est rendue a la Recalbox (GGDONE) pour qu'elle ne l'attende pas
+    ggctl_.req = 0;
+    ggctl_.takeTitle();
+    if (ggDoneHook_) ggDoneHook_();
+  };
+  if (!(cfg_.getBool("feat_game_gifs", false) || cfg_.getBool("feat_demo_gifs", true)) || ggArg_.empty() || ggPlaying_ || ggEnded_) { drop(); return; }
+  if (mode_ != Mode::GIF && mode_ != Mode::PNG) { drop(); return; }  // pas sur le logo du jeu (playlist, score, config...)
+  if (mode_ == Mode::PNG && !pngDrawn_) {                            // logo encore en cours de dessin : on attend un peu
+    if (now - ggctl_.reqMs.load() > 3000ULL) drop();
+    return;
+  }
+  if (configActive_ || (webBusy_ && webBusy_())) { drop(); return; }
+  ggctl_.req = 0;
+  ggTitle_ = ggctl_.takeTitle();
+  ggPlayed_.clear();
+  ggRemaining_ = req > 5 ? 5 : req;
+  ggModeBefore_ = mode_;
+  const int r = ggStartOne();
+  if (r == 1) return;
+  ggRemaining_ = 0;
+  if (r == 2) ggRestore();  // openGif() a pu fermer le marquee du jeu : on le remet (et previent la Recalbox)
+  else if (ggDoneHook_) ggDoneHook_();  // aucun GIF pour ce jeu : rien n'a ete touche, la Recalbox reprend tout de suite
+}
 // ------------------------------------------------------------------ mode diagnostic Wi-Fi / liaison Recalbox (portage du firmware v391-v393)
 // Une mesure par seconde : signal (iw) + 1 PING vers la Recalbox active ; le PONG est consomme par le thread UDP (UdpServer::pongCount()).
 // Affichage : 4 pages de 4 s sur l'ecran de configuration (ligne 1 jaune, ligne 2 coloree selon l'etat). Journal des evenements : seulement

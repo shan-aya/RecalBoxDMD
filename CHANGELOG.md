@@ -8,6 +8,15 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-18 — Firmware 4.27, Pi daemon 3.92, toolkit 16396: game GIFs and logo customization
+
+- **Game GIFs while playing** (firmware 4.21 to 4.27, Pi daemon 3.83 to 3.90): new “Game GIFs while playing” option (web page *Basic*, off by default). After the other screens, the DMD plays 1 to 5 GIFs of the current game, then returns to the logo; in the games' demo sleep, 1 GIF per pass with nothing to set. Only sure matches are played (whole words of the title), a dedicated `/gifs_jeux` folder (exclusive when it holds a GIF, empty = auto mode), an optional mixed mode and per-game exclusions. **Re-run the toolkit's Mode 9** (Recalbox scripts) once.
+- **Logo customization** (toolkit 16396, *Customize* tab): replace the logo of any game — picture, animated GIF (or a single frame of it) or a text card with the game's name — on the SD card or on the Raspberry Pi over Wi-Fi. Multiple selection (one text card or one “Cancel” for a whole group), cancel back to the previous version then to the original logo, *Tools › Restore my logos* after a new scrape or Mode 1, and a complete zip backup / restore.
+- **ESP32 / Raspberry Pi target** (toolkit): a coloured badge on the tab row shows the device aimed at, preselected automatically (an inserted card has priority, otherwise a Pi reachable on the network) with confirmations when you switch against what is plugged in; modes that do not apply are greyed out; Mode 1 asks for the device when you press START; the mode help follows the target.
+- **Playlist tab**: writes straight to the card of the ESP32 or of the Pi; **over Wi-Fi for a Pi without a card** (Pi daemon 3.92: `/playlist-get`, `/playlist-write`, `/delete-files`), including seasonal playlists. The “Send to Pi” button is gone, the technical `_boot` folder is hidden.
+- **Firmware 4.27**: safeguard against a `config.ini` rewritten too short (all settings were lost once after a prepare-upload).
+- **Pi daemon 3.92**: the game GIFs of the firmware (3.83 to 3.90), `GET /logos-list` (3.91) and the playlist routes above (3.92).
+
 ## 2026-11-15 — Firmware 4.20, Pi daemon 3.82, toolkit 15994: several DMDs on one Recalbox
 
 - **Several DMDs on one Recalbox** (Recalbox scripts version 10): every DMD that announces itself to a Recalbox is fed by its scripts (marquee, scores, achievements, widgets), instead of only the last one to arrive — an ESP32 and a Raspberry Pi now follow the same Recalbox together, even with a single address. The choice stays in each DMD's web page; 2 Recalbox + 2 DMDs remain possible. **Re-run Mode 9** to install the scripts.

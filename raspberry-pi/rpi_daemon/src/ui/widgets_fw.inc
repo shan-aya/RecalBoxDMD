@@ -2,12 +2,12 @@
 // GENERE par tools/port_widgets.py depuis RecalBox_DMD.ino (FW_VERSION_NUM 415).
 // NE PAS EDITER A LA MAIN : relancer le script. Widgets du decor (voir l'en-tete du script).
 // ============================================================================
-// ---- donnees des widgets Recalbox (CMD=rbw) et leur analyse (firmware, lignes 5417-5466) ----
+// ---- donnees des widgets Recalbox (CMD=rbw) et leur analyse (firmware, lignes 5426-5475) ----
 struct RbwData {
   bool ch, hl; uint8_t nTop, nRw;
   char chName[32]; int days, rank, ggs;
   char tn[3][12]; uint32_t ts[3]; int8_t tm[3];
-  char rk[4][8], rn[4][24], rc[4][48];
+  char rk[4][8], rn[4][24], rc[4][64];   // v421 : rc 48 -> 64 (condition « Marquer 1 000 000 points en une partie (sans continue) » coupee apres SANS)
   char hs[8]; int temp, mem, disk;
 };
 RbwData g_rbw;
@@ -54,7 +54,7 @@ int decoLiqObj = 1;     // v418 -- widget Liquide : 1 = avec objet flottant (def
 char decoLiqObjName[16] = "";   // v418 -- apercu seulement : nom du sprite impose (vide = celui du liquide)
 int decoLiqForce = -1;  // v418 -- -1 = type de liquide tire au hasard ; 0..5 = type force, UNIQUEMENT pendant un apercu de la page Widgets (suffixe ~<type> de l'argument w4:..., jamais enregistre)
 
-// ---- date + ephemeride (firmware, lignes 13745-13894) ----
+// ---- date + ephemeride (firmware, lignes 13797-13946) ----
 static int decoIsoWeek(const struct tm &t)
 {
   const int y = t.tm_year + 1900;
@@ -206,7 +206,7 @@ static bool decoDrawEphemeris()
   return true;
 }
 
-// ---- compte a rebours : calcul de l'evenement (firmware, lignes 13914-13946) ----
+// ---- compte a rebours : calcul de l'evenement (firmware, lignes 13966-13998) ----
 static long decoJdn(int y, int m, int d)   // jours depuis 1970-01-01 (Howard Hinnant)
 {
   y -= (m <= 2);
@@ -241,7 +241,7 @@ static bool decoPickEvent(int &idx, long &days, int &ey, int &em, int &ed)
 }
 
 
-// ---- ambiances (firmware, lignes 14030-14772) ----
+// ---- ambiances (firmware, lignes 14082-14824) ----
 // -- Ambiances : plasma, pluie, etoiles, vie (aucune allocation dynamique : tampons statiques) --
 static bool decoAmbPlasma(unsigned long durMs, bool preview)
 {
@@ -986,7 +986,7 @@ static bool decoRunAmbiance(bool preview)
 }
 
 
-// ---- meteo : donnees, requete Open-Meteo, classes (firmware, lignes 14776-14839) ----
+// ---- meteo : donnees, requete Open-Meteo, classes (firmware, lignes 14828-14891) ----
 struct DecoWx { bool valid; float temp, tmax, tmin; int code; bool day; unsigned long fetchedMs; float lat, lon; };   // v353 : lat/lon = lieu des valeurs gardees
 static DecoWx s_wx = {false, 0, 0, 0, 0, true, 0, 0, 0};
 static unsigned long s_wxLastTry = 0; static bool s_wxTried = false;
@@ -1052,7 +1052,7 @@ static int decoWxClass(int code)
 }
 
 
-// ---- ciel anime : degrades, astres, nuages, pluie (firmware, lignes 15437-15538) ----
+// ---- ciel anime : degrades, astres, nuages, pluie (firmware, lignes 15489-15590) ----
 struct SkyKey { float h; uint8_t t[3], b[3]; };
 static const SkyKey SKYK[9] = {{0.0f, {5, 8, 30}, {14, 20, 50}}, {4.5f, {5, 8, 30}, {14, 20, 50}}, {6.5f, {40, 50, 110}, {230, 120, 70}}, {9.0f, {50, 120, 220}, {140, 200, 250}},
   {14.0f, {30, 110, 230}, {120, 190, 245}}, {18.0f, {30, 110, 230}, {120, 190, 245}}, {19.8f, {50, 40, 110}, {240, 110, 60}}, {21.5f, {5, 8, 30}, {14, 20, 50}}, {24.0f, {5, 8, 30}, {14, 20, 50}}};
@@ -1156,7 +1156,7 @@ static void skyTextWin(Adafruit_GFX &g, int x0, int x1, int off, int y, uint16_t
 // de 8 Ko d'avant echouait -> retour a l'ancien affichage sans ciel (constate par l'utilisateur). Une bande de 2 Ko suffit. L'avant-plan est redessine une fois par bande :
 // tout etat qui avance (particules...) ne doit evoluer que pendant la bande 0 (g_skyPass == 0).
 
-// ---- avant-plans : meteo, date, compte a rebours, ephemeride (firmware, lignes 15597-15766) ----
+// ---- avant-plans : meteo, date, compte a rebours, ephemeride (firmware, lignes 15649-15818) ----
 static int decoSkyClass() { return (s_wx.valid && (millis() - s_wx.fetchedMs) <= 3UL * 3600UL * 1000UL) ? decoWxClass(s_wx.code) : 0; }
 
 // ---- widget METEO sur le ciel ----
@@ -1328,7 +1328,7 @@ static void skyEphFg(Adafruit_GFX &g, int f, void *ctx)
   }
 }
 
-// ---- avant-plans des widgets Recalbox : challenge, recompenses, sante (firmware, lignes 15800-16354) ----
+// ---- avant-plans des widgets Recalbox : challenge, recompenses, sante (firmware, lignes 15852-16409) ----
 // ---- v315 : widgets RECALBOX (8 challenge, 9 recompenses, 10 sante) sur le ciel ----
 // decalage (px) d'un texte trop long dans une fenetre : pause, defilement, pause, retour
 static int rbwPing(int f, int over)
@@ -1534,7 +1534,10 @@ static void spClubAlias(const char *nm, char *out)
   static const char *const A[][2] = { {"MARSEILLE", "OM"}, {"OLYMPIQUE DE MARSEILLE", "OM"}, {"PARIS SAINT-GERMAIN", "PSG"}, {"PARIS SG", "PSG"}, {"LYON", "OL"}, {"OLYMPIQUE LYONNAIS", "OL"},
     {"MONACO", "ASM"}, {"AS MONACO", "ASM"}, {"LILLE", "LOSC"}, {"LENS", "RCL"}, {"RC LENS", "RCL"}, {"SAINT-ETIENNE", "ASSE"}, {"ST-ETIENNE", "ASSE"}, {"NICE", "OGCN"}, {"OGC NICE", "OGCN"},
     {"RENNES", "SRFC"}, {"STADE RENNAIS", "SRFC"}, {"NANTES", "FCN"}, {"STRASBOURG", "RCSA"}, {"TOULOUSE", "TFC"}, {"MONTPELLIER", "MHSC"}, {"REIMS", "SDR"}, {"STADE DE REIMS", "SDR"},
-    {"ANGERS", "SCO"}, {"LE HAVRE", "HAC"}, {"LORIENT", "FCL"}, {"METZ", "FCM"}, {"AUXERRE", "AJA"}, {"AJ AUXERRE", "AJA"}, {"PARIS FC", "PFC"}, {"TROYES", "ESTAC"}, {"BREST", "SB29"} };
+    {"ANGERS", "SCO"}, {"LE HAVRE", "HAC"}, {"LE HAVRE AC", "HAC"}, {"LORIENT", "FCL"}, {"METZ", "FCM"}, {"AUXERRE", "AJA"}, {"AJ AUXERRE", "AJA"}, {"PARIS FC", "PFC"}, {"TROYES", "ESTAC"}, {"BREST", "SB29"},
+    // codes ESPN qui s'ecartent de l'usage (releves sur fra.1 eng.1 esp.1 ita.1 ger.1 por.1 ned.1 bel.1 uefa.champions) : MUN = Bayern et MAN = Man Utd chez ESPN, MNC = Man City, DOR, BAR, ROMA
+    {"MAN UTD", "MUN"}, {"MANCHESTER UNITED", "MUN"}, {"MAN CITY", "MCI"}, {"MANCHESTER CITY", "MCI"}, {"BAYERN", "BAY"}, {"BAYERN MUNICH", "BAY"}, {"BAYERN MUNCHEN", "BAY"}, {"DORTMUND", "BVB"}, {"BORUSSIA DORTMUND", "BVB"},
+    {"BARCELONA", "FCB"}, {"FC BARCELONA", "FCB"}, {"AS ROMA", "ASR"}, {"ROMA", "ASR"} };
   for (size_t i = 0; i < sizeof(A) / sizeof(A[0]); i++) if (!strcmp(nm, A[i][0])) { strncpy(out, A[i][1], 5); out[5] = 0; return; }
 }static bool spNationalPath(const char *path) { return strstr(path, "fifa.") || strstr(path, "uefa.nations") || strstr(path, "uefa.euro") || strstr(path, "rugby/"); }   // equipes nationales : on garde les codes FRA / ESP
 static uint8_t spSportKind(const char *path)
@@ -1886,7 +1889,7 @@ static bool decoNoData(int id, const char *m1, const char *m2, bool preview, uin
 }
 
 
-// ---- citations : themes d'origine embarques (firmware, lignes 14957-15020) ----
+// ---- citations : themes d'origine embarques (firmware, lignes 15009-15072) ----
 // Themes d'origine embarques (copies sur la SD par decoQuotesRestore()). Contenu d'ESSAI : le jeu complet suit apres relecture.
 static const char QT_FR_BISCUIT[] PROGMEM =
   "Un petit pas aujourd'hui vaut mieux qu'un grand projet demain.\n"
@@ -1952,7 +1955,7 @@ static const char QT_ES_CELEBRES[] PROGMEM =
   "La libertad, Sancho, es uno de los mas preciosos dones que a los hombres dieron los cielos; con ella no pueden igualarse los tesoros que encierra la tierra ni el mar encubre. | Miguel de Cervantes, Don Quijote\n"
   "Que toda la vida es sueno, y los suenos, suenos son. | Calderon de la Barca, La vida es sueno\n";
 
-// ---- citations : etat, table des themes (firmware, lignes 15021-15034) ----
+// ---- citations : etat, table des themes (firmware, lignes 15073-15086) ----
 char g_quoteThemeName[26] = "";   // v304 -- theme de citations tire (choix du fond d'image)
 const uint16_t *g_qBg = nullptr;   // fond de la citation en cours (nullptr = noir)
 uint16_t g_qCq = 0, g_qCa = 0xFFFF, g_qShCol = 0; bool g_qShadow = true, g_qOutline = false; uint8_t g_qDim = 55; int g_qX0 = 0, g_qX1 = 128, g_qY0 = 0, g_qY1 = 32;   // v312 : + fenetre verticale (evite les bordures claires du fond)   // v308 : fenetre de texte propre au fond (ex. devinettes : seulement la partie jaune)   // v306d : ombre (couleur) et luminosite du fond (% ; 55 par defaut : les fonds clairs nuisaient a la lisibilite)   // v305 -- couleurs du texte (question / reponse) et ombre portee, propres au fond (fichier <fond>.col)
@@ -1968,7 +1971,7 @@ static const DecoQuoteSet DECO_QUOTE_SETS[] = {
 static bool decoQuoteLangOk(const String &l) { return l == "fr" || l == "en" || l == "es"; }
 
 
-// ---- citations : UTF-8 -> ASCII (firmware, lignes 15084-15102) ----
+// ---- citations : UTF-8 -> ASCII (firmware, lignes 15136-15154) ----
 // UTF-8 -> ASCII (la police n'a pas d'accents) : sur place.
 static void decoAscii(char *s)
 {
@@ -1989,14 +1992,14 @@ static void decoAscii(char *s)
 }
 
 
-// ---- citations : vitesse de defilement (firmware, lignes 15144-15148) ----
+// ---- citations : vitesse de defilement (firmware, lignes 15196-15200) ----
 // Affichage : defilement vertical d'un texte (+ suite). POLICE ET STYLE DE L'ECRAN DESCRIPTION DES JEUX (drawScoreScreen) :
 // TomThumb 3x5, tout en MAJUSCULES, or (255,200,0), lignes CENTREES (avances reelles tomThumbCharAdvance()), pas de ligne de 8 px
 // (4 lignes dans 32 px). Le texte est dessine UNE fois dans un GFXcanvas1 (1 bit) puis une fenetre de 32 lignes est recopiee point a
 // point a chaque image (voir v282). La suite (auteur / reponse) est en blanc.
 #define QUOTE_STEP_MS 100   // 1 pixel toutes les 100 ms (~10 px/s, ~1 s par ligne) : a ajuster apres essai sur la dalle
 
-// ---- QCM : decoupe de texte TomThumb (firmware, lignes 15149-15177) ----
+// ---- QCM : decoupe de texte TomThumb (firmware, lignes 15201-15229) ----
 // ============ v287 -- QCM (quiz a choix multiples) ============
 // Decoupe un texte en <= maxLines lignes de <= maxPx pixels (avances TomThumb), retourne le nombre de lignes, ou -1 si ca ne tient pas.
 static int decoWrapTT(const char *t, char (*lines)[40], uint8_t *widths, int maxLines, int maxPx)
@@ -2027,7 +2030,7 @@ static int decoTTWidth(const char *s) { int w = 0; for (; *s; s++) w += tomThumb
 // Aucun fichier = fond noir comme avant. Le fond est lu UNE fois par citation dans le tampon raw565FullBuf (8 Ko, deja alloue par drawRaw565) ; texte avec ombre portee.
 // ==================================================================
 
-// ---- citations : fond, texte, QCM, defilement (firmware, lignes 15206-15419) ----
+// ---- citations : fond, texte, QCM, defilement (firmware, lignes 15258-15471) ----
 static void decoQuoteBgLoadImpl();
 static void decoQuoteBgLoad() { decoQuoteBgLoadImpl(); Serial.println(String("[DECO] fond citation : theme=") + g_quoteThemeName + (g_qBg ? " -> fond charge" : " -> aucun fond (noir)") + ", heap=" + String(ESP.getMaxAllocHeap())); }
 static void decoQuoteBgLoadImpl()

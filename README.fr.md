@@ -7,8 +7,8 @@
 </p>
 
 <p align="center">
-  <img alt="Firmware : v4.20" src="https://img.shields.io/badge/firmware-v4.20-blueviolet.svg">
-  <img alt="Outil PC : v15994" src="https://img.shields.io/badge/outil%20PC-v15994-blueviolet.svg">
+  <img alt="Firmware : v4.27" src="https://img.shields.io/badge/firmware-v4.27-blueviolet.svg">
+  <img alt="Outil PC : v16396" src="https://img.shields.io/badge/outil%20PC-v16396-blueviolet.svg">
   <a href="LICENSE"><img alt="Licence : MIT" src="https://img.shields.io/badge/licence-MIT-green.svg"></a>
   <img alt="Plateformes : ESP32 et Raspberry Pi" src="https://img.shields.io/badge/plateformes-ESP32%20%7C%20Raspberry%20Pi-blue.svg">
   <img alt="Panneau : HUB75 128x32" src="https://img.shields.io/badge/panneau-HUB75%20128x32-blue.svg">
@@ -146,6 +146,8 @@ Chaque widget : **désactivé**, **à la place de l'horloge** ou **en plus**, av
 
 ### Et aussi
 - 🔁 **Plusieurs Recalbox, un seul DMD** — jusqu'à 4 IP ; le DMD **bascule seul** sur celle qui est allumée. **Et plusieurs DMD sur une même Recalbox** (ex. un ESP32 et un Raspberry Pi).
+- 🎞️ **GIFs du jeu pendant la partie** — le DMD lit aussi les GIFs nommés comme le jeu en cours (carte SD ou Pi), dans la rotation logo / scores ; page web *Basic*, case « GIFs du jeu en partie » (désactivée par défaut).
+- 🖼️ **Personnalisation des logos** — remplacez le logo de n'importe quel jeu (image, GIF animé, carte texte) depuis l'onglet *Personnalisation* de la boîte à outils, sur la carte SD ou le Raspberry Pi ; annuler, remettre en état, sauvegarder en zip.
 - 🔘 **Bouton physique** (GPIO 21) — appui court / double / long / très long, chacun avec l'action de votre choix.
 - 📶 **Diagnostic Wi-Fi / Recalbox** — signal, point d'accès, perte, latence et gigue vers la Recalbox, sur la dalle (appui court sur BOOT, ou une action du bouton) et sur une page web qui explique comment lire les valeurs. [Détails](#-diagnostic-wi-fi--recalbox).
 - 🌗 **Planificateur de luminosité** — 24 plages, une par heure.
@@ -372,7 +374,7 @@ Le logiciel du Pi est **téléchargé depuis GitHub** (release `pi-v…`, SHA-25
 
 ## 🧰 La boîte à outils PC — le centre de l'installation
 
-C'est l'application Windows (FR / EN / ES, 9 habillages visuels) qui **construit tout** : carte SD, scripts, thèmes, GIF, mises à jour — pour l'ESP32 comme pour le Raspberry Pi. Manuel complet : [`HELP.fr.md`](tools/RecalBoxDMD_tool_v15994/HELP.fr.md) (aussi dans l'onglet *Aide*).
+C'est l'application Windows (FR / EN / ES, 9 habillages visuels) qui **construit tout** : carte SD, scripts, thèmes, GIF, mises à jour — pour l'ESP32 comme pour le Raspberry Pi. Manuel complet : [`HELP.fr.md`](tools/RecalBoxDMD_tool_v16396/HELP.fr.md) (aussi dans l'onglet *Aide*).
 
 | Main · SNES | Paramètres · Dreamcast |
 |---|---|

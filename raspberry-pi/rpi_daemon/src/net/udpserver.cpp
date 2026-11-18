@@ -26,12 +26,12 @@ bool startsWithStr(const std::string &s, const char *p) { return s.compare(0, st
 std::string featuresPayload(const Config &c) {
   auto clampInt = [](int v, int lo, int hi) { return std::max(lo, std::min(hi, v)); };
   const bool native = c.getBool("recalbox_native_mode", false);
-  char buf[256];
+  char buf[320];  // v3.83 : le message complet fait ~266 caracteres avec game_gifs / game_gif_count (256 le tronquait)
   std::snprintf(buf, sizeof(buf),
                 "hiscore_ingame=%d;hiscore_browse=%d;info_ingame=%d;info_browse=%d;"
                 "description_ingame=%d;description_browse=%d;ra_ingame=%d;ra_browse=%d;"
                 "repeat_cycles=%d;repeat_browse_cycles=%d;dwell_seconds=%d;"
-                "demo_follow=%d;clip_follow=%d;vpinball_dmd=%d;ra_window=%d",
+                "demo_follow=%d;clip_follow=%d;vpinball_dmd=%d;ra_window=%d;game_gifs=%d;game_gif_count=%d;demo_gifs=%d",
                 c.getBool("feat_hiscore_ingame", true), c.getBool("feat_hiscore_browse", false),
                 c.getBool("feat_info_ingame", false), c.getBool("feat_info_browse", true),
                 c.getBool("feat_description_ingame", false), c.getBool("feat_description_browse", true),
@@ -40,7 +40,8 @@ std::string featuresPayload(const Config &c) {
                 clampInt(c.getInt("feat_repeat_browse_cycles", 3), 0, 20),
                 clampInt(c.getInt("feat_dwell_seconds", 5), 3, 30), c.getBool("feat_demo_follow", true),
                 c.getBool("feat_clip_follow", true), (c.getBool("feat_vpinball_dmd", true) && !native) ? 1 : 0,
-                (c.getBool("feat_ra_window", true) && !native) ? 1 : 0);
+                (c.getBool("feat_ra_window", true) && !native) ? 1 : 0, c.getBool("feat_game_gifs", false) ? 1 : 0,
+                clampInt(c.getInt("game_gif_count", 1), 1, 5), c.getBool("feat_demo_gifs", true) ? 1 : 0);
   return buf;
 }
 
@@ -245,6 +246,16 @@ void UdpServer::dispatch(const std::string &msg) {
     inGame_ = (arg == "1");  // appliquee tout de suite, hors file (comme g_recalboxInGame)
     return;
   }
+  if (cmd == "gamegif") {  // GIFs du jeu : « <n>|<titre> » (n = 1..5) ou « 0 » (annulation) ; pose a la reception, hors file (jamais ecrasee par un score)
+    const int n = std::atoi(arg.c_str());
+    if (n >= 1) {
+      const size_t bar = arg.find('|');
+      gg_.post(n, bar == std::string::npos ? std::string() : arg.substr(bar + 1), nowMs());
+    } else if (arg == "0") {
+      gg_.abort = true;
+    }
+    return;
+  }
   // commandes SANS argument : l'ARG eventuel est ignore (comme le firmware, qui n'en recopie pas)
   const bool noArg = cmd == "stop" || cmd == "default" || cmd == "show_config" || cmd == "wifi_recovery" ||
                      cmd == "mem_probe" || cmd == "reboot" || cmd == "brightness_up" || cmd == "brightness_down";
@@ -288,6 +299,8 @@ void UdpServer::sendHello() {
 }
 
 void UdpServer::sendPing() { sendToRecalbox("PING", "ping"); }
+
+void UdpServer::sendGameGifDone() { sendToRecalbox("GGDONE", "ggdone"); }
 
 void UdpServer::sendFeatures() {
   const std::string f = featuresPayload(cfg_);

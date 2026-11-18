@@ -8,6 +8,15 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-18 — Firmware 4.27, démon Pi 3.92, boîte à outils 16396 : GIFs du jeu et personnalisation des logos
+
+- **GIFs du jeu pendant la partie** (firmware 4.21 à 4.27, démon Pi 3.83 à 3.90) : nouvelle option « GIFs du jeu en partie » (page web *Basic*, désactivée par défaut). Après les autres écrans, le DMD lit 1 à 5 GIFs du jeu en cours puis revient au logo ; en veille démo des jeux, 1 GIF à chaque passage sans aucun réglage. Seules les correspondances sûres sont lues (mots entiers du titre), dossier dédié `/gifs_jeux` (exclusif s'il contient un GIF, vide = mode auto), mode mixte facultatif et exclusions par jeu. **Relancez une fois le Mode 9** de la boîte à outils (scripts Recalbox).
+- **Personnalisation des logos** (boîte à outils 16396, onglet *Personnalisation*) : remplacez le logo de n'importe quel jeu — image, GIF animé (ou une seule image du GIF) ou carte texte avec le nom du jeu — sur la carte SD ou sur le Raspberry Pi en Wi-Fi. Sélection multiple (une carte texte ou un « Annuler » pour tout un groupe), annulation vers la version précédente puis le logo d'origine, *Outils › Remettre en état mes logos* après un nouveau scrape ou le Mode 1, sauvegarde et restauration complètes en zip.
+- **Cible ESP32 / Raspberry Pi** (boîte à outils) : une pastille colorée sur la ligne des onglets indique l'appareil visé, présélectionné automatiquement (une carte insérée est prioritaire, sinon un Pi joignable sur le réseau), avec confirmation si vous changez à l'encontre de ce qui est branché ; les modes qui ne concernent pas l'appareil sont grisés ; le Mode 1 demande l'appareil quand vous appuyez sur DÉMARRER ; l'aide des modes suit la cible.
+- **Onglet Playlist** : écriture directe sur la carte de l'ESP32 ou du Pi ; **par Wi-Fi pour un Pi sans carte** (démon Pi 3.92 : `/playlist-get`, `/playlist-write`, `/delete-files`), playlists saisonnières comprises. Le bouton « Envoyer au Pi » disparaît, le dossier technique `_boot` est masqué.
+- **Firmware 4.27** : garde-fou contre un `config.ini` réécrit trop court (tous les réglages avaient été perdus une fois après un prepare-upload).
+- **Démon Pi 3.92** : les GIFs du jeu du firmware (3.83 à 3.90), `GET /logos-list` (3.91) et les routes de playlist ci-dessus (3.92).
+
 ## 2026-11-15 — Firmware 4.20, démon Pi 3.82, boîte à outils 15994 : plusieurs DMD sur une même Recalbox
 
 - **Plusieurs DMD sur une même Recalbox** (scripts Recalbox version 10) : tout DMD qui s'annonce à une Recalbox est alimenté par ses scripts (marquee, scores, succès, widgets), et non plus seulement le dernier arrivé — un ESP32 et un Raspberry Pi suivent désormais la même Recalbox ensemble, même avec une seule adresse. Le choix reste dans la page web de chaque DMD ; 2 Recalbox + 2 DMD restent possibles. **Relancez le Mode 9** pour installer les scripts.
