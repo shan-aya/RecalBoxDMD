@@ -82,6 +82,28 @@ jobs:
               open(f, "wb").write(out)
               print("BUILD_CHANNEL =", chan, "dans", f)
 
+      - name: Refuse a firmware binary built for the OTHER channel
+        shell: python
+        run: |
+          import os, re, sys
+          br = os.environ["BRANCH"]
+          if br not in ("main", "alpha"):
+              sys.exit(0)
+          chan = "stable" if br == "main" else "alpha"
+          bad = False
+          for p in ("binaries/RecalBoxDMD_app.bin", "binaries/RecalBoxDMD_merged.bin"):
+              found = set(re.findall(rb"RBDMD_CHAN=(stable|alpha);", open(p, "rb").read()))
+              if not found:
+                  print(f"::warning::{p} : pas de marqueur de canal (firmware anterieur aux canaux) - non verifie")
+              elif found != {chan.encode()}:
+                  print(f"::error::{p} : binaire du canal {sorted(x.decode() for x in found)} publie sur la branche {br} (canal {chan} attendu). "
+                        f"Recompiler : compile.ps1 {'-Channel alpha' if chan == 'alpha' else '(sans -Channel)'}")
+                  bad = True
+              else:
+                  print(f"{p} : canal {chan} conforme a la branche {br}")
+          if bad:
+              sys.exit(1)
+
       - name: Sync the scripts bundle number into the manifest
         shell: python
         run: |
