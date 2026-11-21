@@ -195,13 +195,13 @@ jobs:
         run: |
           import json, os, re, sys, urllib.request
           alpha = os.environ.get("BRANCH") == "alpha"
-          # stable : derniere release NORMALE (releases/latest exclut les pre-releases) ; alpha : boite a outils au plus grand numero parmi TOUTES les releases (pre-releases comprises)
+          # stable : derniere release NORMALE (releases/latest exclut les pre-releases) ; alpha : boite a outils au plus grand numero parmi les PRE-RELEASES seulement (jamais une release stable : sinon les testeurs alpha seraient invites a telecharger un toolkit stable)
           req = urllib.request.Request("https://api.github.com/repos/${{ github.repository }}/releases" + ("?per_page=30" if alpha else "/latest"),
                                        headers={"Accept": "application/vnd.github+json", "Authorization": "Bearer ${{ secrets.GITHUB_TOKEN }}", "User-Agent": "sync-installer-version"})
           try:
               data = json.load(urllib.request.urlopen(req, timeout=30))
               if alpha:
-                  builds = [int(m.group(1)) for r in data if not r.get("draft")
+                  builds = [int(m.group(1)) for r in data if not r.get("draft") and r.get("prerelease")
                             for m in [re.fullmatch(r"RecalBoxDMD_tool_v(\d+)", str(r.get("tag_name", "")))] if m]
                   tag = ("RecalBoxDMD_tool_v%d" % max(builds)) if builds else ""
               else:
