@@ -98,89 +98,122 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
     };
     if (document.body) show(); else document.addEventListener('DOMContentLoaded', show);
   }
-  /* v428 : CHANGEMENT DE CANAL stable <-> alpha, sur la page Reglages (bloc sous l'avis de mise a jour du firmware) : telecharge et installe le firmware de l'AUTRE canal
-     (le DMD choisit entre deux jeux d'adresses FIXES : /ota/start?chan=alpha|stable, mise a jour forcee), puis redemarre. Le build installe est alors celui du nouveau canal (titre, ruban, alertes). */
-  var CHT = {
-    fr: { cur: 'Canal du firmware : ', sw: 'Passer au canal ', c: 'Le DMD va télécharger et installer le firmware du canal {c}{v}, puis redémarrer (environ 1 minute). La version du canal choisi peut être plus ancienne que celle installée. Continuer ?', run: 'Mise à jour en cours… ne débranchez pas le DMD.', ok: 'Terminé : firmware v{v} installé.', ko: 'Échec : {e}', to: 'Délai dépassé : vérifiez le DMD.' },
-    en: { cur: 'Firmware channel: ', sw: 'Switch to channel ', c: 'The DMD will download and install the {c} channel firmware{v}, then restart (about 1 minute). The chosen channel may be older than the installed version. Continue?', run: 'Updating… do not unplug the DMD.', ok: 'Done: firmware v{v} installed.', ko: 'Failed: {e}', to: 'Timed out: check the DMD.' },
-    es: { cur: 'Canal del firmware: ', sw: 'Cambiar al canal ', c: 'El DMD descargará e instalará el firmware del canal {c}{v} y se reiniciará (aprox. 1 minuto). La versión del canal elegido puede ser más antigua que la instalada. ¿Continuar?', run: 'Actualizando… no desconecte el DMD.', ok: 'Listo: firmware v{v} instalado.', ko: 'Error: {e}', to: 'Tiempo agotado: compruebe el DMD.' }
+  /* v429b : MISE EN PAGE DE LA PAGE REGLAGES (demande utilisateur : memes cadres et meme charte que les autres sections). Construite ICI apres le chargement de /load, a partir de la page
+     existante (la page elle-meme est au plafond de poids gzip) :
+       - section « Affichage » : luminosite + planificateur + ORDRE DES COULEURS de la dalle (reglages de l'ecran, regroupes) ;
+       - nouvelle section « Demarrage et modes » : demarrage silencieux, mode Pinball (VPX), alertes RetroAchievements (lignes DEPLACEES, memes ids : la sauvegarde de la page ne change pas) ;
+       - nouvelle section « Canal du firmware » sous le bloc de version : canal du build + CHANGEMENT DE CANAL stable <-> alpha (POST /ota/start?chan=, mise a jour forcee depuis un jeu d'adresses FIXE).
+     Ordre des couleurs : six ordres RGB / RBG / GRB / GBR / BRG / BGR ; « GRB » : l'entree R de la dalle recoit le canal G (meme sens que « led-rgb-sequence » de hzeller) ; le DMD enregistre (NVS + config.ini) puis redemarre. */
+  var SLT = {
+    fr: { chanH: '🔄 Canal du firmware', chanCur: 'Canal actuel', chanSw: 'Passer au canal ', chanHint: 'Télécharge et installe le firmware de l’autre canal, puis redémarre (la version du canal choisi peut être plus ancienne que celle installée).',
+          chanC: 'Le DMD va télécharger et installer le firmware du canal {c}{v}, puis redémarrer (environ 1 minute). La version du canal choisi peut être plus ancienne que celle installée. Continuer ?', chanRun: 'Mise à jour en cours… ne débranchez pas le DMD.', chanOk: 'Terminé : firmware v{v} installé.', chanTo: 'Délai dépassé : vérifiez le DMD.',
+          bootH: '🚀 Démarrage et modes', rgbL: 'Ordre des couleurs', rgbB: 'Appliquer et redémarrer', rgbH: 'Si les couleurs sont inversées (par exemple le rouge s’affiche en bleu ou en vert), essayez un autre ordre : le DMD redémarre à chaque changement.',
+          rgbC: 'Appliquer l’ordre {o} ? Le DMD va redémarrer.', rgbRun: 'Redémarrage du DMD…', rgbOk: 'Ordre {o} appliqué.', ko: 'Échec : {e}' },
+    en: { chanH: '🔄 Firmware channel', chanCur: 'Current channel', chanSw: 'Switch to channel ', chanHint: 'Downloads and installs the firmware of the other channel, then restarts (the chosen channel may be older than the installed version).',
+          chanC: 'The DMD will download and install the {c} channel firmware{v}, then restart (about 1 minute). The chosen channel may be older than the installed version. Continue?', chanRun: 'Updating… do not unplug the DMD.', chanOk: 'Done: firmware v{v} installed.', chanTo: 'Timed out: check the DMD.',
+          bootH: '🚀 Startup and modes', rgbL: 'Colour order', rgbB: 'Apply and restart', rgbH: 'If the colours are swapped (for example red shows as blue or green), try another order: the DMD restarts on every change.',
+          rgbC: 'Apply order {o}? The DMD will restart.', rgbRun: 'Restarting the DMD…', rgbOk: 'Order {o} applied.', ko: 'Failed: {e}' },
+    es: { chanH: '🔄 Canal del firmware', chanCur: 'Canal actual', chanSw: 'Cambiar al canal ', chanHint: 'Descarga e instala el firmware del otro canal y reinicia (la versión del canal elegido puede ser más antigua que la instalada).',
+          chanC: 'El DMD descargará e instalará el firmware del canal {c}{v} y se reiniciará (aprox. 1 minuto). La versión del canal elegido puede ser más antigua que la instalada. ¿Continuar?', chanRun: 'Actualizando… no desconecte el DMD.', chanOk: 'Listo: firmware v{v} instalado.', chanTo: 'Tiempo agotado: compruebe el DMD.',
+          bootH: '🚀 Arranque y modos', rgbL: 'Orden de colores', rgbB: 'Aplicar y reiniciar', rgbH: 'Si los colores están invertidos (por ejemplo el rojo se ve azul o verde), pruebe otro orden: el DMD se reinicia con cada cambio.',
+          rgbC: '¿Aplicar el orden {o}? El DMD se reiniciará.', rgbRun: 'Reiniciando el DMD…', rgbOk: 'Orden {o} aplicado.', ko: 'Error: {e}' }
   };
   var M_STABLE = 'https://shan-aya.github.io/RecalBoxDMD/install/manifest.json', M_ALPHA = 'https://raw.githubusercontent.com/shan-aya/RecalBoxDMD/alpha/docs/install/manifest.json';
-  function chanPanel(d) {
-    var nw = document.getElementById('fwNew');
-    if (!nw || !d.fw_channel || document.getElementById('rbChan')) return;       /* page Reglages seulement (#fwNew), une seule fois */
-    var lg = clLang(), T = CHT[lg], cur = d.fw_channel === 'alpha' ? 'alpha' : 'stable', other = cur === 'alpha' ? 'stable' : 'alpha';
-    var isPi = d.platform === 'rpi';
-    var box = document.createElement('div'); box.id = 'rbChan'; box.style.cssText = 'margin:8px 0;padding:8px 10px;border:1px solid #888;border-radius:6px;font-size:13px';
-    var line = document.createElement('div'); line.textContent = T.cur + cur.toUpperCase() + (d.fw_version ? ' (v' + d.fw_version + ')' : '');
-    var btn = document.createElement('button'); btn.type = 'button'; btn.textContent = T.sw + other.toUpperCase() + '…'; btn.style.marginTop = '6px';
-    var st = document.createElement('div'); st.style.marginTop = '6px';
-    box.appendChild(line); box.appendChild(btn); box.appendChild(st);
-    nw.parentNode.insertBefore(box, nw.nextSibling);
-    function run() {
-      btn.disabled = true; st.textContent = T.run;
-      window.fetch('/ota/start?lang=' + lg + '&chan=' + other, { method: 'POST' }).catch(function () {});
+  function settingsLayout(d) {
+    if (document.getElementById('rbChan') || !d.fw_channel) return;
+    var br = document.getElementById('brightness'), fwbox = document.querySelector('.fwbox');
+    if (!br || !fwbox) return;                                                 /* page Reglages seulement, une seule fois */
+    var disp = br.closest('.section'); if (!disp) return;
+    var refs = [], isPi = d.platform === 'rpi';
+    function T(k) { return (SLT[clLang()] || SLT.fr)[k]; }
+    function txt(el, k, suffix) { refs.push([el, k, suffix || '']); el.textContent = T(k) + (suffix || ''); return el; }
+    function mk(tag, cls, st) { var e = document.createElement(tag); if (cls) e.className = cls; if (st) e.style.cssText = st; return e; }
+    var HB = 'background:#0f3460;color:#eee;margin-left:14px';                 /* meme style que le bouton « Configurer » du planificateur */
+    /* 1) section « Demarrage et modes » : lignes deplacees (memes ids) */
+    var moved = ['silent_boot', 'feat_vpinball_dmd', 'feat_ra_window'].map(function (id) { var e = document.getElementById(id); return e && e.closest('.row'); }).filter(Boolean);
+    if (moved.length) {
+      var sb = mk('div', 'section'); sb.id = 'rbBoot'; sb.appendChild(txt(mk('h2'), 'bootH'));
+      moved.forEach(function (r) { sb.appendChild(r); });
+      disp.parentNode.insertBefore(sb, disp.nextSibling);
+    }
+    /* 2) ordre des couleurs : ligne de la section « Affichage », juste apres le planificateur */
+    if (d.rgb_order) {
+      var cur = String(d.rgb_order), first = br.closest('.row') || disp.querySelector('.row');                /* ordre des couleurs AU-DESSUS de la luminosite */
+      var row = mk('div', 'row'); row.id = 'rbRgb';
+      var sel = mk('select'); ['RGB', 'RBG', 'GRB', 'GBR', 'BRG', 'BGR'].forEach(function (o) { var op = mk('option'); op.value = o; op.textContent = o; if (o === cur) op.selected = true; sel.appendChild(op); });
+      var btn = mk('button', 'hbtn', HB); btn.type = 'button';
+      row.appendChild(txt(mk('label'), 'rgbL')); row.appendChild(sel); row.appendChild(txt(btn, 'rgbB'));
+      var hint = txt(mk('div', 'hint'), 'rgbH'), st = mk('div', 'hint', 'color:#ffd146');
+      first.parentNode.insertBefore(row, first); first.parentNode.insertBefore(hint, first); first.parentNode.insertBefore(st, first);
+      btn.onclick = function () {
+        var v = sel.value; if (v === cur) return;
+        if (!window.confirm(T('rgbC').replace('{o}', v))) return;
+        btn.disabled = true; sel.disabled = true; st.textContent = T('rgbRun');
+        window.fetch('/rgb-order?v=' + v, { method: 'POST' }).catch(function () {});
+        var t0 = Date.now();
+        (function poll() {
+          setTimeout(function () {
+            if (Date.now() - t0 > 90000) { st.textContent = T('ko').replace('{e}', 'timeout'); btn.disabled = false; sel.disabled = false; return; }
+            of('/load?_=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (x) {
+              if (String(x.rgb_order) === v) { st.textContent = T('rgbOk').replace('{o}', v); setTimeout(function () { location.reload(); }, 2500); } else poll();
+            }).catch(poll);
+          }, 3000);
+        })();
+      };
+    }
+    /* 3) section « Canal du firmware » sous le bloc de version */
+    var ch = d.fw_channel === 'alpha' ? 'alpha' : 'stable', other = ch === 'alpha' ? 'stable' : 'alpha';
+    var cs = mk('div', 'section'); cs.id = 'rbChan'; cs.appendChild(txt(mk('h2'), 'chanH'));
+    var r1 = mk('div', 'row'); r1.appendChild(txt(mk('label'), 'chanCur'));
+    var cv = mk('b', null, 'color:#ffd146'); cv.textContent = ch.toUpperCase() + (d.fw_version ? ' (v' + d.fw_version + ')' : ''); r1.appendChild(cv);
+    var cb = mk('button', 'hbtn', HB); cb.type = 'button';   /* bouton sur la MEME ligne que le canal actuel */
+    r1.appendChild(cb); refs.push([cb, 'chanSw', other.toUpperCase() + '…']); cb.textContent = T('chanSw') + other.toUpperCase() + '…';
+    var ch1 = txt(mk('div', 'hint'), 'chanHint'), cst = mk('div', 'hint', 'color:#ffd146');
+    cs.appendChild(r1); cs.appendChild(ch1); cs.appendChild(cst);
+    fwbox.parentNode.insertBefore(cs, fwbox.nextSibling);
+    /* boutons « Passer au canal », « Appliquer et redemarrer » et « Configurer » : meme taille, alignes sur la meme colonne */
+    function alignBtns() {
+      var cf = document.querySelector('#bright_sched_on ~ a.hbtn'); if (!cf || !cf.offsetParent || !sel || !sel.parentNode) return;
+      var W = 190, all = [cb, btn, cf];
+      all.forEach(function (b) { b.style.cssText += ';width:' + W + 'px;box-sizing:border-box;text-align:center;padding:9px 0;line-height:1.2;flex:0 0 ' + W + 'px;margin-left:0'; });
+      sel.style.width = '130px'; sel.style.flex = '0 0 130px'; cv.style.cssText += ';display:inline-block;width:130px;flex:0 0 130px';
+      var rr = sel.parentNode.getBoundingClientRect(), sl = sel.getBoundingClientRect().left;
+      var bl = ((sl + 130) + (rr.right - 8)) / 2 - W / 2;                              /* bouton « Appliquer » CENTRE entre le selecteur RGB et le bord droit du cadre */
+      
+      btn.style.marginLeft = Math.max(0, bl - sl - 130) + 'px'; cb.style.marginLeft = btn.style.marginLeft;
+      var cl = cf.getBoundingClientRect().left; cf.style.marginLeft = (bl - cl) + 'px';
+      var cl2 = cf.getBoundingClientRect().left; if (Math.abs(cl2 - bl) > 1) cf.style.marginLeft = (bl - cl + (bl - cl2)) + 'px';   /* 2e passe : corrige l'ecart residuel */   /* « Configurer » aligne sur le meme x */
+    }
+    alignBtns(); window.addEventListener('resize', alignBtns); setTimeout(alignBtns, 400);
+    function runSwitch() {
+      cb.disabled = true; cst.textContent = T('chanRun');
+      window.fetch('/ota/start?lang=' + clLang() + '&chan=' + other, { method: 'POST' }).catch(function () {});
       var t0 = Date.now();
       (function poll() {
         setTimeout(function () {
-          if (Date.now() - t0 > 360000) { st.textContent = T.to; btn.disabled = false; return; }
+          if (Date.now() - t0 > 360000) { cst.textContent = T('chanTo'); cb.disabled = false; return; }
           of('/load?_=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (x) {
             var o = String(x.ota_last || '');
             if (o === '' || o === 'en-cours') { poll(); return; }
-            if (o.indexOf('ok:') === 0) { st.textContent = T.ok.replace('{v}', o.replace(/^ok:(deja-a-jour\()?/, '').replace(/\)$/, '')); setTimeout(function () { location.reload(); }, 4000); return; }
-            st.textContent = T.ko.replace('{e}', o.replace(/^echec:/, '')); btn.disabled = false;
+            if (o.indexOf('ok:') === 0) { cst.textContent = T('chanOk').replace('{v}', o.replace(/^ok:(deja-a-jour\()?/, '').replace(/\)$/, '')); setTimeout(function () { location.reload(); }, 4000); return; }
+            cst.textContent = T('ko').replace('{e}', o.replace(/^echec:/, '')); cb.disabled = false;
           }).catch(poll);
         }, 3000);
       })();
     }
-    btn.onclick = function () {
-      var ask = function (v) { if (window.confirm(T.c.replace('{c}', other.toUpperCase()).replace('{v}', v ? ' (v' + v + ')' : ''))) run(); };
+    cb.onclick = function () {
+      var ask = function (v) { if (window.confirm(T('chanC').replace('{c}', other.toUpperCase()).replace('{v}', v ? ' (v' + v + ')' : ''))) runSwitch(); };
       var c = new AbortController(), to = setTimeout(function () { c.abort(); }, 6000);
       of(other === 'alpha' ? M_ALPHA : M_STABLE, { cache: 'no-store', signal: c.signal }).then(function (r) { return r.json(); }).then(function (m) {
         clearTimeout(to); ask(String((m && (isPi && m.pi ? m.pi : m.version)) || ''));
       }).catch(function () { clearTimeout(to); ask(''); });
     };
-  }
-  /* v429 : ORDRE DES COULEURS DE LA DALLE (page Reglages, sous le bloc du canal) : certaines dalles HUB75 ont les canaux R/G/B inverses (rouge qui s'affiche en bleu...). Six ordres ; le DMD enregistre le choix
-     (NVS + config.ini) puis redemarre (la dalle est creee au demarrage). « GRB » : l'entree R de la dalle recoit le canal G (meme sens que le demon Pi, option led-rgb-sequence). */
-  var RGBT = {
-    fr: { t: 'Ordre des couleurs de la dalle : ', h: 'Si les couleurs sont inversées (par exemple le rouge s’affiche en bleu ou en vert), essayez un autre ordre : le DMD redémarre à chaque changement.', b: 'Appliquer et redémarrer', c: 'Appliquer l’ordre {o} ? Le DMD va redémarrer.', run: 'Redémarrage du DMD…', ok: 'Ordre {o} appliqué.', ko: 'Échec : {e}' },
-    en: { t: 'Panel colour order: ', h: 'If the colours are swapped (for example red shows as blue or green), try another order: the DMD restarts on every change.', b: 'Apply and restart', c: 'Apply order {o}? The DMD will restart.', run: 'Restarting the DMD…', ok: 'Order {o} applied.', ko: 'Failed: {e}' },
-    es: { t: 'Orden de colores del panel: ', h: 'Si los colores están invertidos (por ejemplo el rojo se ve azul o verde), pruebe otro orden: el DMD se reinicia con cada cambio.', b: 'Aplicar y reiniciar', c: '¿Aplicar el orden {o}? El DMD se reiniciará.', run: 'Reiniciando el DMD…', ok: 'Orden {o} aplicado.', ko: 'Error: {e}' }
-  };
-  function rgbPanel(d) {
-    var anchor = document.getElementById('rbChan') || document.getElementById('fwNew');
-    if (!anchor || !d.rgb_order || document.getElementById('rbRgb')) return;       /* page Reglages seulement, une seule fois */
-    var lg = clLang(), T = RGBT[lg], cur = String(d.rgb_order);
-    var box = document.createElement('div'); box.id = 'rbRgb'; box.style.cssText = 'margin:8px 0;padding:8px 10px;border:1px solid #888;border-radius:6px;font-size:13px';
-    var line = document.createElement('div'); line.appendChild(document.createTextNode(T.t));
-    var sel = document.createElement('select'); ['RGB', 'RBG', 'GRB', 'GBR', 'BRG', 'BGR'].forEach(function (o) { var op = document.createElement('option'); op.value = o; op.textContent = o + (o === 'RGB' ? ' (défaut)' : ''); if (o === cur) op.selected = true; sel.appendChild(op); });
-    line.appendChild(sel);
-    var btn = document.createElement('button'); btn.type = 'button'; btn.textContent = T.b; btn.style.cssText = 'margin-left:8px';
-    var hint = document.createElement('div'); hint.textContent = T.h; hint.style.cssText = 'margin-top:4px;opacity:.8;font-size:12px';
-    var st = document.createElement('div'); st.style.marginTop = '4px';
-    box.appendChild(line); line.appendChild(btn); box.appendChild(hint); box.appendChild(st);
-    anchor.parentNode.insertBefore(box, anchor.nextSibling);
-    btn.onclick = function () {
-      var v = sel.value; if (v === cur) return;
-      if (!window.confirm(T.c.replace('{o}', v))) return;
-      btn.disabled = true; sel.disabled = true; st.textContent = T.run;
-      window.fetch('/rgb-order?v=' + v, { method: 'POST' }).catch(function () {});
-      var t0 = Date.now();
-      (function poll() {
-        setTimeout(function () {
-          if (Date.now() - t0 > 90000) { st.textContent = T.ko.replace('{e}', 'timeout'); btn.disabled = false; sel.disabled = false; return; }
-          of('/load?_=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (x) {
-            if (String(x.rgb_order) === v) { st.textContent = T.ok.replace('{o}', v); setTimeout(function () { location.reload(); }, 2500); } else poll();
-          }).catch(poll);
-        }, 3000);
-      })();
-    };
+    /* langue : les textes ajoutes suivent le selecteur de langue de la page */
+    try { new MutationObserver(function () { refs.forEach(function (r) { r[0].textContent = T(r[1]) + r[2]; }); }).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] }); } catch (e) {}
   }
   function fwCheck(d) {
     if (!d || !d.fw_version) return;
-    try { chanPanel(d); } catch (e) {}
-    try { rgbPanel(d); } catch (e) {}
+    try { settingsLayout(d); } catch (e) {}
     if (d.fw_ru) UR.ru = d.fw_ru;
     UR.br = d.fw_channel === 'alpha' ? 'alpha' : 'main';
     if (UR.br === 'alpha' && !document.getElementById('rbAlpha')) {   /* ruban ALPHA sur toutes les pages : build de test identifiable d'un coup d'oeil (captures du support) */
@@ -192,11 +225,13 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
     var isPi = window._cfgPi = d.platform === 'rpi' || (!d.platform && d.boot_reason === 'raspberry-pi');
     var now = Date.now(), t = 0, latest = '', scr = '', tk = '';
     try { t = parseInt(localStorage.getItem(FWT) || '0', 10) || 0; latest = localStorage.getItem(FWK) || ''; scr = localStorage.getItem(SCK) || ''; tk = localStorage.getItem(TKK) || ''; } catch (e) {}
+    /* v429b : le manifeste mis en cache est CELUI D'UN CANAL : apres un changement de canal (stable <-> alpha) on ne reutilise jamais l'annonce de l'autre canal (elle restait affichee jusqu'a 5 min) */
+    try { if ((localStorage.getItem('dmd_fw_manifest_c') || '') !== String(d.fw_channel || '')) { latest = ''; scr = ''; tk = ''; } } catch (e) {}
     if (latest && now - t < 5 * 60 * 1000) { updBar(d, latest, scr, tk); return; }
     var c = new AbortController(), to = setTimeout(function () { c.abort(); }, 6000);
     of(d.fw_mu || 'https://shan-aya.github.io/RecalBoxDMD/install/manifest.json', { cache: 'no-store', signal: c.signal }).then(function (r) { return r.json(); }).then(function (m) {
       latest =String((m && (isPi && m.pi ? m.pi : m.version)) || ''); scr = String((m && m.scripts) || ''); tk = String((m && m.toolkit) || '');
-      try { localStorage.setItem(FWK, latest); localStorage.setItem(SCK, scr); localStorage.setItem(TKK, tk); localStorage.setItem(FWT, String(now)); } catch (e) {}
+      try { localStorage.setItem(FWK, latest); localStorage.setItem(SCK, scr); localStorage.setItem(TKK, tk); localStorage.setItem(FWT, String(now)); localStorage.setItem('dmd_fw_manifest_c', String(d.fw_channel || '')); } catch (e) {}
       updBar(d, latest, scr, tk);
     }).catch(function () { if (latest) updBar(d, latest, scr, tk); }).then(function () { clearTimeout(to); });
   }

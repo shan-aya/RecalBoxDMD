@@ -8,6 +8,13 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-21 — Firmware 4.23 et démon Pi 3.84 (stable) : page Réglages harmonisée, config.ini plus sûr
+
+- **Page Réglages** (ESP32 et Raspberry Pi, même page) : les cadres *Canal du firmware* et *Ordre des couleurs* ont désormais le même aspect que les autres sections ; **Ordre des couleurs** est au-dessus de *Luminosité* ; une nouvelle section **Démarrage et modes** regroupe *Démarrage silencieux*, *Mode Pinball* et *Alertes RetroAchievements* ; les boutons *Passer au canal*, *Appliquer et redémarrer* et *Configurer* ont la même taille et sont alignés.
+- **`config.ini` plus sûr** (firmware du DMD) : le fichier de réglages est protég contre un effacement par une écriture ratée (Wi-Fi perdu, DMD bloqué en mode AP), avec une copie de secours (`config.bak`) et une restauration automatique au démarrage si le fichier manque ou est tronqué.
+- **Bandeau de mise à jour** : l'information « nouvelle version » mise en cache est désormais mémorisée par canal : changer de canal n'affiche plus la version de l'autre canal.
+- Rien d'autre ne change (petite version de correction sur la base base 4.21 / 3.83).
+
 ## 2026-11-21 — Firmware 4.21 et démon Pi 3.83 (correctif stable) : ordre des couleurs de la dalle
 
 - **Ordre des couleurs de la dalle** : certaines dalles ont leurs canaux R/V/B inversés (le rouge s'affiche en bleu ou en vert), ce que le firmware ne pouvait pas corriger. La page Réglages propose désormais **Ordre des couleurs de la dalle** avec six ordres (RGB, RBG, GRB, GBR, BRG, BGR) ; le DMD redémarre pour l'appliquer. Choisissez l'ordre qui affiche les bonnes couleurs. Défaut RGB = comportement inchangé.
