@@ -319,6 +319,11 @@ WebReply WebConfig::load() {
     add("fw_iu", alpha ? "https://shan-aya.github.io/RecalBoxDMD/install-alpha/" : "https://shan-aya.github.io/RecalBoxDMD/install/");
     add("fw_ru", alpha ? "https://github.com/shan-aya/RecalBoxDMD/releases?q=prerelease%3Atrue" : "https://github.com/shan-aya/RecalBoxDMD/releases/latest");
   }
+  {  // v3.94 : ordre des couleurs de la dalle (config.ini rgb_order=, defaut RGB) : lu par la page Reglages (panneau de cfg.js)
+    const std::string ro = cfg_.get("rgb_order", "RGB");
+    const bool okRo = ro == "RGB" || ro == "RBG" || ro == "GRB" || ro == "GBR" || ro == "BRG" || ro == "BGR";
+    add("rgb_order", okRo ? ro : std::string("RGB"));
+  }
   add("platform", "rpi");  // materiel annonce au toolkit (l'ESP32 annonce "esp32") : compare la bonne version publiee (cle pi / version du manifeste)
   {
     std::lock_guard<std::mutex> lk(eng_.themeControl().m);
@@ -981,6 +986,35 @@ void WebConfig::registerRoutes() {
   web_.any("/handshake", [this](const WebRequest &r) { return handshake(r); });
   // reseau et mise a jour : geres par le systeme du Pi, sans objet ici
   // mise a jour du demon depuis la derniere release GitHub « pi-v... » : dmd_update.py tourne DETACHE du service (systemd-run) car le service est redemarre
+  // v3.94 : ORDRE DES COULEURS DE LA DALLE : POST /rgb-order?v=RGB|RBG|GRB|GBR|BRG|BGR -> config.ini (rgb_order=) puis redemarrage du service (la matrice est initialisee au demarrage).
+  // Valeur inconnue = 400 ; valeur deja en vigueur = rien a redemarrer. Le redemarrage passe par systemd-run (detache) apres 1 s : la reponse HTTP a le temps de partir.
+  web_.post("/rgb-order", [this](const WebRequest &req) {
+    WebReply r;
+    const std::string v = req.arg("v");
+    static const char *const kOrders[6] = {"RGB", "RBG", "GRB", "GBR", "BRG", "BGR"};
+    bool valid = false;
+    for (const char *o : kOrders) if (v == o) valid = true;
+    if (!valid) {
+      r.status = 400;
+      r.body = "ERR: ordre invalide";
+      return r;
+    }
+    std::string cur = cfg_.get("rgb_order", "RGB");
+    if (cur == v) {
+      r.body = "OK";
+      return r;
+    }
+    if (!cfg_.writeKeys(fs_, {{"rgb_order", v}})) {
+      r.status = 500;
+      r.body = "ERR: ecriture impossible";
+      return r;
+    }
+    int rc = -1;
+    runArgs({"systemd-run", "--no-block", "--collect", "--unit=recalboxdmd-rgb", "/bin/sh", "-c", "sleep 1; systemctl restart recalboxdmd"}, 15000, &rc);
+    logf("WEB", "ordre des couleurs %s -> %s (redemarrage du service)", cur.c_str(), v.c_str());
+    r.body = "OK";
+    return r;
+  });
   web_.post("/ota/start", [this](const WebRequest &req) {
     WebReply r;
     // v3.93 : chan=alpha|stable = CHANGEMENT DE CANAL (dmd_update.py --channel ...) ; toute autre valeur est ignoree (mise a jour du canal du build)

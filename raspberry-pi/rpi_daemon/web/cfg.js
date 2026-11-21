@@ -141,9 +141,46 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
       }).catch(function () { clearTimeout(to); ask(''); });
     };
   }
+  /* v429 : ORDRE DES COULEURS DE LA DALLE (page Reglages, sous le bloc du canal) : certaines dalles HUB75 ont les canaux R/G/B inverses (rouge qui s'affiche en bleu...). Six ordres ; le DMD enregistre le choix
+     (NVS + config.ini) puis redemarre (la dalle est creee au demarrage). « GRB » : l'entree R de la dalle recoit le canal G (meme sens que le demon Pi, option led-rgb-sequence). */
+  var RGBT = {
+    fr: { t: 'Ordre des couleurs de la dalle : ', h: 'Si les couleurs sont inversées (par exemple le rouge s’affiche en bleu ou en vert), essayez un autre ordre : le DMD redémarre à chaque changement.', b: 'Appliquer et redémarrer', c: 'Appliquer l’ordre {o} ? Le DMD va redémarrer.', run: 'Redémarrage du DMD…', ok: 'Ordre {o} appliqué.', ko: 'Échec : {e}' },
+    en: { t: 'Panel colour order: ', h: 'If the colours are swapped (for example red shows as blue or green), try another order: the DMD restarts on every change.', b: 'Apply and restart', c: 'Apply order {o}? The DMD will restart.', run: 'Restarting the DMD…', ok: 'Order {o} applied.', ko: 'Failed: {e}' },
+    es: { t: 'Orden de colores del panel: ', h: 'Si los colores están invertidos (por ejemplo el rojo se ve azul o verde), pruebe otro orden: el DMD se reinicia con cada cambio.', b: 'Aplicar y reiniciar', c: '¿Aplicar el orden {o}? El DMD se reiniciará.', run: 'Reiniciando el DMD…', ok: 'Orden {o} aplicado.', ko: 'Error: {e}' }
+  };
+  function rgbPanel(d) {
+    var anchor = document.getElementById('rbChan') || document.getElementById('fwNew');
+    if (!anchor || !d.rgb_order || document.getElementById('rbRgb')) return;       /* page Reglages seulement, une seule fois */
+    var lg = clLang(), T = RGBT[lg], cur = String(d.rgb_order);
+    var box = document.createElement('div'); box.id = 'rbRgb'; box.style.cssText = 'margin:8px 0;padding:8px 10px;border:1px solid #888;border-radius:6px;font-size:13px';
+    var line = document.createElement('div'); line.appendChild(document.createTextNode(T.t));
+    var sel = document.createElement('select'); ['RGB', 'RBG', 'GRB', 'GBR', 'BRG', 'BGR'].forEach(function (o) { var op = document.createElement('option'); op.value = o; op.textContent = o + (o === 'RGB' ? ' (défaut)' : ''); if (o === cur) op.selected = true; sel.appendChild(op); });
+    line.appendChild(sel);
+    var btn = document.createElement('button'); btn.type = 'button'; btn.textContent = T.b; btn.style.cssText = 'margin-left:8px';
+    var hint = document.createElement('div'); hint.textContent = T.h; hint.style.cssText = 'margin-top:4px;opacity:.8;font-size:12px';
+    var st = document.createElement('div'); st.style.marginTop = '4px';
+    box.appendChild(line); line.appendChild(btn); box.appendChild(hint); box.appendChild(st);
+    anchor.parentNode.insertBefore(box, anchor.nextSibling);
+    btn.onclick = function () {
+      var v = sel.value; if (v === cur) return;
+      if (!window.confirm(T.c.replace('{o}', v))) return;
+      btn.disabled = true; sel.disabled = true; st.textContent = T.run;
+      window.fetch('/rgb-order?v=' + v, { method: 'POST' }).catch(function () {});
+      var t0 = Date.now();
+      (function poll() {
+        setTimeout(function () {
+          if (Date.now() - t0 > 90000) { st.textContent = T.ko.replace('{e}', 'timeout'); btn.disabled = false; sel.disabled = false; return; }
+          of('/load?_=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (x) {
+            if (String(x.rgb_order) === v) { st.textContent = T.ok.replace('{o}', v); setTimeout(function () { location.reload(); }, 2500); } else poll();
+          }).catch(poll);
+        }, 3000);
+      })();
+    };
+  }
   function fwCheck(d) {
     if (!d || !d.fw_version) return;
     try { chanPanel(d); } catch (e) {}
+    try { rgbPanel(d); } catch (e) {}
     if (d.fw_ru) UR.ru = d.fw_ru;
     UR.br = d.fw_channel === 'alpha' ? 'alpha' : 'main';
     if (UR.br === 'alpha' && !document.getElementById('rbAlpha')) {   /* ruban ALPHA sur toutes les pages : build de test identifiable d'un coup d'oeil (captures du support) */
