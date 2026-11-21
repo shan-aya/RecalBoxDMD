@@ -252,6 +252,43 @@ jobs:
               open("docs/install/manifest.json", "wb").write(new)
           print("derniere version du demon Pi publiee :", m.group(1))
 
+      - name: Warn if an alpha build number is not above the stable one (toolkit builds and Pi daemon versions)
+        shell: python
+        run: |
+          # GARDE-FOU DE NUMEROTATION (jamais bloquant) : les annonces d'un canal ne lisent que ses propres releases (alpha = pre-releases, stable = releases normales),
+          # mais les anciens clients (boite a outils alpha 164100, demon Pi 3.94 / 3.95) prennent le plus grand numero de TOUTES les releases : un build alpha au numero
+          # inferieur ou egal au dernier stable leur serait invisible, et un stable plus haut leur serait propose. Regle : alpha > stable (voir CHANNELS.md).
+          import json, os, re, urllib.request
+          req = urllib.request.Request("https://api.github.com/repos/${{ github.repository }}/releases?per_page=100",
+                                       headers={"Accept": "application/vnd.github+json", "Authorization": "Bearer ${{ secrets.GITHUB_TOKEN }}", "User-Agent": "sync-installer-version"})
+          try:
+              data = json.load(urllib.request.urlopen(req, timeout=30))
+          except Exception as e:
+              print(f"::warning::liste des releases illisible ({e}) - garde-fou de numerotation saute")
+              raise SystemExit(0)
+          def best(pattern, pre, key):
+              vals = [key(m) for r in data if not r.get("draft") and bool(r.get("prerelease")) == pre
+                      for m in [re.fullmatch(pattern, str(r.get("tag_name", "")))] if m]
+              return max(vals) if vals else None
+          def fmt(v):
+              return "%d.%02d" % v if isinstance(v, tuple) else str(v)
+          lines = []
+          for label, pattern, key in (("Toolkit build", r"RecalBoxDMD_tool_v(\d+)", lambda m: int(m.group(1))),
+                                      ("Pi daemon", r"pi-v(\d+)\.(\d+)", lambda m: (int(m.group(1)), int(m.group(2))))):
+              a, st = best(pattern, True, key), best(pattern, False, key)
+              if a is None or st is None:
+                  continue
+              if a <= st:
+                  msg = f"{label} : la derniere PRE-RELEASE alpha ({fmt(a)}) n'est pas au-dessus de la derniere release stable ({fmt(st)}). Les anciens clients alpha (boite a outils 164100, demon Pi 3.94 / 3.95) la prendraient pour plus ancienne : publier l'alpha avec un numero superieur (CHANNELS.md)."
+                  print("::warning::" + msg)
+                  lines.append("- " + msg)
+              else:
+                  print(f"{label} : alpha {fmt(a)} > stable {fmt(st)} - ok")
+          summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary and lines:
+              with open(summary, "a", encoding="utf-8") as f:
+                  f.write("### Numerotation alpha / stable\n" + "\n".join(lines) + "\n")
+
       - name: Commit if changed
         run: |
           if git diff --quiet; then

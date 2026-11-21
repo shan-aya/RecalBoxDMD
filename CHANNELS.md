@@ -12,6 +12,8 @@ Deux branches publiques, **deux canaux verrouillés par le build** (jamais un r�
 
 Le **numéro** de version ne change jamais de format (`M.mm`, `pi-vM.mm`, build du toolkit) : seul l'affichage porte la mention du canal.
 
+**Règle de numérotation : alpha > stable.** Les annonces d'un canal ne lisent que ses propres releases (alpha = pré-releases, stable = releases normales), mais les anciens clients (boîte à outils alpha 164100, démon Pi 3.94 / 3.95) prennent le plus grand numéro de toutes les releases. Un build alpha (boîte à outils, démon Pi) doit donc toujours porter un numéro **supérieur** au dernier stable ; le workflow `sync-installer-version` émet un avertissement (visible dans Actions, non bloquant) quand ce n'est pas le cas.
+
 ## Où vit le canal (tout est déduit de la branche)
 
 | Élément | Marqueur | Verrouillé par |
