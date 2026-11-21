@@ -8,11 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
-## 2026-11-21 — Firmware 4.21 (corrección estable): orden de colores del panel
+## 2026-11-21 — Firmware 4.21 y demonio Pi 3.83 (corrección estable): orden de colores del panel
 
 - **Orden de colores del panel**: algunos paneles tienen los canales R/G/B intercambiados (el rojo se ve azul o verde), algo que el firmware no podía corregir. La página Ajustes ofrece ahora **Orden de colores del panel** con seis órdenes (RGB, RBG, GRB, GBR, BRG, BGR); el DMD se reinicia para aplicarlo. Elija el orden que muestra los colores correctos. Por defecto RGB = comportamiento sin cambios.
 - **Canal estable / alfa**: el título del panel pasa a `STABLE v4.21`. La página Ajustes permite **cambiar de canal** al canal de pruebas alfa (descarga e instala el firmware alfa y reinicia) y volver. Nada cambia si se queda en estable.
-- Nada más cambia: es una pequeña versión de corrección sobre la 4.20.
+- **Demonio Raspberry Pi 3.83**: misma corrección (orden de colores: `rgb_order` en `config.ini`, mismo sentido que `--led-rgb-sequence`; el servicio se reinicia para aplicarlo), título `Pi STABLE v3.83` y cambio de canal.
+- Nada más cambia: es una pequeña versión de corrección sobre la 4.20 / 3.82.
 
 ## 2026-11-15 — Firmware 4.20, demonio Pi 3.82, caja de herramientas 15994: varios DMD en una misma Recalbox
 

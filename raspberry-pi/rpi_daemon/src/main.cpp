@@ -63,9 +63,11 @@ int main(int argc, char **argv) {
 #ifdef WITH_HZELLER
   rgb_matrix::RGBMatrix::Options opt = HzellerBackend::defaultOptions();
   rgb_matrix::RuntimeOptions rt = HzellerBackend::defaultRuntime();
-  bool cliSlowdown = false;
-  for (int i = 1; i < argc; i++)
+  bool cliSlowdown = false, cliRgbSeq = false;
+  for (int i = 1; i < argc; i++) {
     if (!std::strncmp(argv[i], "--led-slowdown-gpio", 19)) cliSlowdown = true;
+    if (!std::strncmp(argv[i], "--led-rgb-sequence", 18)) cliRgbSeq = true;
+  }
   if (!rgb_matrix::ParseOptionsFromFlags(&argc, &argv, &opt, &rt)) return 2;
 #endif
   for (int i = 1; i < argc; i++) {
@@ -105,6 +107,18 @@ int main(int argc, char **argv) {
 #ifdef WITH_HZELLER
   if (!noPanel) {
     // gpio_slowdown : option de ligne de commande (--led-slowdown-gpio) > config.ini (gpio_slowdown=1..4) > defaut du modele
+    // v3.94 : ordre des couleurs de la dalle (certaines dalles ont R/G/B inverses) : option de ligne de commande (--led-rgb-sequence) > config.ini (rgb_order=RGB|RBG|GRB|GBR|BRG|BGR) > RGB.
+    // Meme sens que le firmware ESP32 (S[i] = canal logique envoye a l'entree i de la dalle). Applique a l'initialisation : tout changement redemarre le service.
+    static std::string rgbSeq;
+    {
+      const std::string ro = cfg.get("rgb_order", "");
+      static const char *const kOrders[6] = {"RGB", "RBG", "GRB", "GBR", "BRG", "BGR"};
+      bool valid = false;
+      for (const char *o : kOrders) if (ro == o) valid = true;
+      if (!cliRgbSeq && valid) { rgbSeq = ro; opt.led_rgb_sequence = rgbSeq.c_str(); }
+      std::fprintf(stderr, "[HZ] ordre des couleurs : %s (%s)\n", opt.led_rgb_sequence ? opt.led_rgb_sequence : "RGB",
+                   cliRgbSeq ? "ligne de commande" : valid ? "config.ini" : "defaut");
+    }
     int cfgSlow = cfg.getInt("gpio_slowdown", 0);
     if (cfgSlow >= 1 && cfgSlow <= 4 && !cliSlowdown) rt.gpio_slowdown = cfgSlow;
     std::fprintf(stderr, "[HZ] carte : %s ; gpio_slowdown=%d (%s)\n", HzellerBackend::boardModel().c_str(), rt.gpio_slowdown,
@@ -138,6 +152,15 @@ int main(int argc, char **argv) {
             if (!v.empty()) edition += " v" + v;
           }
           std::fclose(pv);
+        }
+        // v3.93 : build ALPHA = mention « ALPHA » sur le titre affiche sur la dalle (fichier PI_CHANNEL de la charge utile, verrouille par le build ; « Pi ALPHA v3.93 », en rouge)
+        std::FILE *pc = std::fopen((exePath.substr(0, cut2) + "/PI_CHANNEL").c_str(), "r");
+        if (pc) {
+          char cb[16] = {0};
+          const bool got = std::fgets(cb, sizeof(cb), pc) != nullptr;
+          std::fclose(pc);
+          if (got && std::strncmp(cb, "alpha", 5) == 0) edition.replace(0, 10, "Pi ALPHA");         // « Pi Edition » -> « Pi ALPHA » (14 car. x 6 px = 84 px < 128)
+          else if (got && std::strncmp(cb, "stable", 6) == 0) edition.replace(0, 10, "Pi STABLE");   // « Pi STABLE v3.93 » (16 car. x 6 px = 96 px)
         }
       }
     }

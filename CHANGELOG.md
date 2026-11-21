@@ -8,11 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
-## 2026-11-21 — Firmware 4.21 (stable fix): panel colour order
+## 2026-11-21 — Firmware 4.21 and Pi daemon 3.83 (stable fix): panel colour order
 
 - **Panel colour order**: some panels have their R/G/B channels swapped (red shows as blue or green), which the firmware could not fix. The Settings page now has **Panel colour order** with six orders (RGB, RBG, GRB, GBR, BRG, BGR); the DMD restarts to apply it. Pick the order that shows the right colours. Default RGB = unchanged behaviour.
 - **Stable / alpha channel**: the title shown on the panel now reads `STABLE v4.21`. The Settings page can **switch channel** to the alpha test channel (it downloads and installs the alpha firmware, then restarts) and back. Nothing changes for you if you stay on stable.
-- Nothing else changes: this is a small fix release on top of 4.20.
+- **Raspberry Pi daemon 3.83**: same fix (colour order: `rgb_order` in `config.ini`, same meaning as `--led-rgb-sequence`; the service restarts to apply it), the `STABLE` title (`Pi STABLE v3.83`) and the channel switch.
+- Nothing else changes: this is a small fix release on top of 4.20 / 3.82.
 
 ## 2026-11-15 — Firmware 4.20, Pi daemon 3.82, toolkit 15994: several DMDs on one Recalbox
 
