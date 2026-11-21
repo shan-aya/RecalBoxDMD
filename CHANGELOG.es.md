@@ -8,6 +8,13 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-21 — Firmware 4.31 y demonio Pi 3.95 (alpha): página Ajustes armonizada, config.ini más seguro
+
+- **Página Ajustes** (ESP32 y Raspberry Pi, la misma página): los cuadros *Canal del firmware* y *Orden de colores* tienen ahora el mismo aspecto que las demás secciones; **Orden de colores** está sobre *Brillo*; una nueva sección **Arranque y modos** agrupa *Arranque silencioso*, *Modo Pinball* y *Alertas de RetroAchievements*; los botones *Cambiar al canal*, *Aplicar y reiniciar* y *Configurar* tienen el mismo tamaño y están alineados.
+- **`config.ini` más seguro** (firmware del DMD): el archivo de ajustes está protegido contra el borrado por una escritura fallida (Wi-Fi perdido, DMD atascado en modo AP), con copia de seguridad (`config.bak`) y restauración automática al arrancar si falta o está truncado.
+- **Banner de actualización**: la información «nueva versión» en caché se guarda ahora por canal: cambiar de canal ya no muestra la versión del otro canal.
+- Nada más cambia (pequeña versión de corrección sobre la base alpha 4.29 / 3.94).
+
 ## 2026-11-18 — ALPHA — Firmware 4.29, demonio Pi 3.94, caja de herramientas 164100: GIFs del juego y personalización de logos
 
 - **Orden de colores del panel** (firmware 4.29, demonio Pi 3.94): algunos paneles tienen los canales R/G/B intercambiados (el rojo se ve azul o verde). La página Ajustes ofrece ahora **Orden de colores del panel** con seis órdenes (RGB, RBG, GRB, GBR, BRG, BGR); el DMD se reinicia para aplicarlo. Elija el orden que muestra los colores correctos (el título de arranque muestra letras roja / azul / verde). Por defecto RGB = comportamiento sin cambios.

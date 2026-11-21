@@ -8,6 +8,13 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-21 — Firmware 4.31 and Pi daemon 3.95 (alpha): Settings page tidied up, safer config.ini
+
+- **Settings page** (ESP32 and Raspberry Pi, same page): the *Firmware channel* and *Panel colour order* boxes now use the same look as the other sections; **Panel colour order** sits above *Brightness*; a new **Startup and modes** section groups *Silent startup*, *Pinball mode* and *RetroAchievements alerts*; the *Switch channel*, *Apply and restart* and *Configure* buttons share the same size and alignment.
+- **Safer `config.ini`** (DMD firmware): the settings file now has a safeguard against being emptied by a failed write (Wi-Fi lost, DMD stuck in AP mode), a backup copy (`config.bak`) and automatic restoration at startup if the file is missing or truncated.
+- **Update banner**: the cached «new version» information is now kept per channel, so switching channel no longer shows the other channel's version.
+- Nothing else changes (small fix on top of alpha 4.29 / 3.94).
+
 ## 2026-11-18 — ALPHA — Firmware 4.29, Pi daemon 3.94, toolkit 164100: game GIFs and logo customization
 
 - **Panel colour order** (firmware 4.29, Pi daemon 3.94): some panels have their R/G/B channels swapped (red shows as blue or green). The Settings page now has **Panel colour order** with six orders (RGB, RBG, GRB, GBR, BRG, BGR); the DMD restarts to apply it. Pick the order that shows the right colours (the boot title shows red / blue / green letters). Default RGB = unchanged behaviour.
