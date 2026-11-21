@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-21 — Firmware 4.21 (correctif stable) : ordre des couleurs de la dalle
+
+- **Ordre des couleurs de la dalle** : certaines dalles ont leurs canaux R/V/B inversés (le rouge s'affiche en bleu ou en vert), ce que le firmware ne pouvait pas corriger. La page Réglages propose désormais **Ordre des couleurs de la dalle** avec six ordres (RGB, RBG, GRB, GBR, BRG, BGR) ; le DMD redémarre pour l'appliquer. Choisissez l'ordre qui affiche les bonnes couleurs. Défaut RGB = comportement inchangé.
+- **Canal stable / alpha** : le titre affiché sur la dalle devient `STABLE v4.21`. La page Réglages permet de **changer de canal** vers le canal de test alpha (elle télécharge et installe le firmware alpha, puis redémarre) et de revenir. Rien ne change pour vous si vous restez en stable.
+- Rien d'autre ne change : c'est une petite version de correction sur la base de la 4.20.
+
 ## 2026-11-15 — Firmware 4.20, démon Pi 3.82, boîte à outils 15994 : plusieurs DMD sur une même Recalbox
 
 - **Plusieurs DMD sur une même Recalbox** (scripts Recalbox version 10) : tout DMD qui s'annonce à une Recalbox est alimenté par ses scripts (marquee, scores, succès, widgets), et non plus seulement le dernier arrivé — un ESP32 et un Raspberry Pi suivent désormais la même Recalbox ensemble, même avec une seule adresse. Le choix reste dans la page web de chaque DMD ; 2 Recalbox + 2 DMD restent possibles. **Relancez le Mode 9** pour installer les scripts.

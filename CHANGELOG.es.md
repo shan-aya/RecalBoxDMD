@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-21 — Firmware 4.21 (corrección estable): orden de colores del panel
+
+- **Orden de colores del panel**: algunos paneles tienen los canales R/G/B intercambiados (el rojo se ve azul o verde), algo que el firmware no podía corregir. La página Ajustes ofrece ahora **Orden de colores del panel** con seis órdenes (RGB, RBG, GRB, GBR, BRG, BGR); el DMD se reinicia para aplicarlo. Elija el orden que muestra los colores correctos. Por defecto RGB = comportamiento sin cambios.
+- **Canal estable / alfa**: el título del panel pasa a `STABLE v4.21`. La página Ajustes permite **cambiar de canal** al canal de pruebas alfa (descarga e instala el firmware alfa y reinicia) y volver. Nada cambia si se queda en estable.
+- Nada más cambia: es una pequeña versión de corrección sobre la 4.20.
+
 ## 2026-11-15 — Firmware 4.20, demonio Pi 3.82, caja de herramientas 15994: varios DMD en una misma Recalbox
 
 - **Varios DMD en una misma Recalbox** (scripts Recalbox versión 10): todo DMD que se anuncia a una Recalbox es alimentado por sus scripts (marquesina, marcadores, logros, widgets), en lugar de solo el último en llegar — un ESP32 y una Raspberry Pi siguen ahora la misma Recalbox a la vez, incluso con una sola dirección. La elección sigue en la página web de cada DMD; 2 Recalbox + 2 DMD siguen siendo posibles. **Vuelve a ejecutar el Modo 9** para instalar los scripts.
