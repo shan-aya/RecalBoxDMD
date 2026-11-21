@@ -8,6 +8,13 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-22 — Boîte à outils 174102 : nouvel onglet Installation, canaux stable / alpha
+
+- **Onglet Installation** (l'ancien onglet *Main*), maintenant en deux pages : **Sans Recalbox** et **Avec une Recalbox**. La page *Avec une Recalbox* est allégée (*Démarrer* / *Suivant* / *Continuer*) : dossier ROMs d'abord, puis version de la Recalbox ; *Suivant* et *Continuer* exigent un dossier ROMs valide.
+- **Contrôles avant la copie** : la boîte à outils prévient maintenant de la version de la Recalbox et des médias scrapés (Mode 1) par une fenêtre d'information avant de continuer.
+- **Canaux stable / alpha** : ce build est verrouillé sur le canal stable. Il lit le canal du firmware de votre DMD et, s'ils diffèrent, vous prévient et propose la boîte à outils du canal du DMD. Les alertes de mise à jour suivent le canal du build.
+- La pastille de cible est masquée sur l'onglet Installation (l'appareil se choisit après *Démarrer*) et ne recouvre plus les onglets Aide / Diagnostic.
+
 ## 2026-11-21 — Firmware 4.23 et démon Pi 3.84 (stable) : page Réglages harmonisée, config.ini plus sûr
 
 - **Page Réglages** (ESP32 et Raspberry Pi, même page) : les cadres *Canal du firmware* et *Ordre des couleurs* ont désormais le même aspect que les autres sections ; **Ordre des couleurs** est au-dessus de *Luminosité* ; une nouvelle section **Démarrage et modes** regroupe *Démarrage silencieux*, *Mode Pinball* et *Alertes RetroAchievements* ; les boutons *Passer au canal*, *Appliquer et redémarrer* et *Configurer* ont la même taille et sont alignés.

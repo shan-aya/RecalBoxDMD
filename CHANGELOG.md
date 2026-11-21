@@ -8,6 +8,13 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-22 — Toolkit 174102: new Installation tab, stable/alpha channels
+
+- **Installation tab** (the former *Main* tab), now in two pages: **Without a Recalbox** and **With a Recalbox**. The *With a Recalbox* page is lighter (*Start* / *Next* / *Continue*): ROMs folder first, then the Recalbox version; *Next* and *Continue* require a valid ROMs folder.
+- **Checks before copying**: the toolkit now warns about the Recalbox version and about scraped media (Mode 1) with an information window before it continues.
+- **Stable / alpha channels**: this build is locked to the stable channel. It reads the channel of your DMD firmware and, if they differ, tells you and offers the toolkit of the DMD's channel. Update alerts follow the build's channel.
+- The target badge is hidden on the Installation tab (the device is chosen after *Start*) and no longer covers the Help / Diagnostic tabs.
+
 ## 2026-11-21 — Firmware 4.23 and Pi daemon 3.84 (stable): Settings page tidied up, safer config.ini
 
 - **Settings page** (ESP32 and Raspberry Pi, same page): the *Firmware channel* and *Panel colour order* boxes now use the same look as the other sections; **Panel colour order** sits above *Brightness*; a new **Startup and modes** section groups *Silent startup*, *Pinball mode* and *RetroAchievements alerts*; the *Switch channel*, *Apply and restart* and *Configure* buttons share the same size and alignment.
