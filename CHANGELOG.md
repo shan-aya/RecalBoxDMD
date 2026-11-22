@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-22 — Pi daemon 3.96 (alpha): each channel only sees its own releases
+
+- **Update button / `dmd_update.py`**: a Pi on the alpha channel now only considers alpha pre-releases, and a Pi on the stable channel only normal releases — whatever the version numbers. Before, an alpha Pi could have picked a higher-numbered stable release and silently switched channel.
+- The *Switch channel* button of the Settings page still works in both directions. Nothing else changes.
+
 ## 2026-11-22 — Toolkit 177102 (alpha pre-release): FAT32 formatting, each channel sees only its own releases
 
 - **SD card pop-up (Mode 1)**: new **Format as FAT32** button for cards of any size (administrator process, safeguards: removable drives only, never the system disk, double confirmation).

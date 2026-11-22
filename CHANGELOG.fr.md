@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-22 — Démon Pi 3.96 (alpha) : chaque canal ne voit que ses releases
+
+- **Bouton de mise à jour / `dmd_update.py`** : un Pi sur le canal alpha ne retient plus que les pré-releases alpha, et un Pi stable que les releases normales, quels que soient les numéros. Avant, un Pi alpha pouvait choisir une release stable de numéro plus élevé et changer de canal sans prévenir.
+- Le bouton *Passer au canal…* de la page Réglages fonctionne toujours dans les deux sens. Rien d'autre ne change.
+
 ## 2026-11-22 — Boîte à outils 177102 (pré-release alpha) : formatage FAT32, chaque canal ne voit que ses releases
 
 - **Popup Carte SD (Mode 1)** : nouveau bouton **Formater en FAT32** pour les cartes de toute taille (processus administrateur, garde-fous : lecteurs amovibles seulement, jamais le disque système, double confirmation).

@@ -8,6 +8,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-22 — Demonio Pi 3.96 (alpha): cada canal ve solo sus releases
+
+- **Botón de actualización / `dmd_update.py`**: una Pi en el canal alfa solo considera las pre-releases alfa, y una Pi estable solo las releases normales, sea cual sea el número. Antes, una Pi alfa podía elegir una release estable de número mayor y cambiar de canal sin avisar.
+- El botón *Cambiar al canal…* de la página Ajustes sigue funcionando en ambos sentidos. Nada más cambia.
+
 ## 2026-11-22 — Caja de herramientas 177102 (pre-release alfa): formateo FAT32, cada canal ve solo sus releases
 
 - **Ventana Tarjeta SD (Modo 1)**: nuevo botón **Formatear en FAT32** para tarjetas de cualquier tamaño (proceso de administrador, salvaguardas: solo unidades extraíbles, nunca el disco del sistema, doble confirmación).
