@@ -8,8 +8,9 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
-## 2026-11-22 — Caja de herramientas 174102: nueva pestaña Instalación, canales estable / alfa
+## 2026-11-22 — Caja de herramientas 176102: nueva pestaña Instalación, canales estable / alfa
 
+- **Formateo de la tarjeta SD**: la ventana *Tarjeta SD* del Modo 1 (las dos páginas de Instalación, destino ESP32) tiene ahora un botón **Formatear en FAT32…**, para tarjetas de cualquier tamaño (Windows rechaza el FAT32 por encima de 32 GB: las tarjetas de 64 GB vienen en exFAT). Se pide permiso de administrador, solo se aceptan tarjetas extraíbles y dos confirmaciones nombran la unidad antes de borrar todo.
 - **Pestaña Instalación** (la antigua *Main*), ahora en dos páginas: **Sin Recalbox** y **Con una Recalbox**. La página *Con una Recalbox* es más ligera (*Iniciar* / *Siguiente* / *Continuar*): primero la carpeta de ROMs y luego la versión de Recalbox; *Siguiente* y *Continuar* exigen una carpeta de ROMs válida.
 - **Controles antes de copiar**: la caja de herramientas avisa ahora de la versión de Recalbox y de los medios scrapeados (Modo 1) con una ventana informativa antes de continuar.
 - **Canales estable / alfa**: esta versión está fijada al canal estable. Lee el canal del firmware de su DMD y, si difieren, se lo indica y ofrece la caja de herramientas del canal del DMD. Las alertas de actualización siguen el canal de la versión.

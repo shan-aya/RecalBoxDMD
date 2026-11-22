@@ -8,8 +8,9 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
-## 2026-11-22 — Boîte à outils 174102 : nouvel onglet Installation, canaux stable / alpha
+## 2026-11-22 — Boîte à outils 176102 : nouvel onglet Installation, canaux stable / alpha
 
+- **Formatage de la carte SD** : la fenêtre *Carte SD* du Mode 1 (les deux pages Installation, cible ESP32) a maintenant un bouton **Formater en FAT32…**, pour les cartes de toute taille (Windows refuse le FAT32 au-delà de 32 Go : les cartes de 64 Go sont livrées en exFAT). L'autorisation administrateur est demandée, seules les cartes amovibles sont acceptées et deux confirmations nomment le lecteur avant tout effacement.
 - **Onglet Installation** (l'ancien onglet *Main*), maintenant en deux pages : **Sans Recalbox** et **Avec une Recalbox**. La page *Avec une Recalbox* est allégée (*Démarrer* / *Suivant* / *Continuer*) : dossier ROMs d'abord, puis version de la Recalbox ; *Suivant* et *Continuer* exigent un dossier ROMs valide.
 - **Contrôles avant la copie** : la boîte à outils prévient maintenant de la version de la Recalbox et des médias scrapés (Mode 1) par une fenêtre d'information avant de continuer.
 - **Canaux stable / alpha** : ce build est verrouillé sur le canal stable. Il lit le canal du firmware de votre DMD et, s'ils diffèrent, vous prévient et propose la boîte à outils du canal du DMD. Les alertes de mise à jour suivent le canal du build.

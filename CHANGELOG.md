@@ -8,8 +8,9 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
-## 2026-11-22 — Toolkit 174102: new Installation tab, stable/alpha channels
+## 2026-11-22 — Toolkit 176102: new Installation tab, stable/alpha channels
 
+- **SD card formatting**: the *SD card* window of Mode 1 (both Installation pages, ESP32 target) now has a **Format as FAT32…** button, for cards of any size (Windows refuses FAT32 above 32 GB, so 64 GB cards come as exFAT). Administrator permission is requested, only removable cards are accepted, and two confirmations name the drive before everything is erased.
 - **Installation tab** (the former *Main* tab), now in two pages: **Without a Recalbox** and **With a Recalbox**. The *With a Recalbox* page is lighter (*Start* / *Next* / *Continue*): ROMs folder first, then the Recalbox version; *Next* and *Continue* require a valid ROMs folder.
 - **Checks before copying**: the toolkit now warns about the Recalbox version and about scraped media (Mode 1) with an information window before it continues.
 - **Stable / alpha channels**: this build is locked to the stable channel. It reads the channel of your DMD firmware and, if they differ, tells you and offers the toolkit of the DMD's channel. Update alerts follow the build's channel.
