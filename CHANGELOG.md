@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-22 — Firmware 4.32 (alpha): more reliable page-package installation
+
+- **Wi-Fi update and page package**: a brief network failure while the DMD downloads its web pages (connection lost mid-transfer, TLS handshake failure, server error, altered bytes) no longer aborts the session: the file, the package index and the manifest are requested again up to 3 times (2 s then 4 s pause) instead of waiting for the next start. A package that is not published (404) or an invalid manifest still fails at once.
+- Measured on a healthy network: 15 out of 15 isolated downloads and 6 out of 6 full updates — this fix does not change anything when the network is fine; it only helps with micro-outages. Nothing else changes.
+
 ## 2026-11-22 — Pi daemon 3.96 (alpha): each channel only sees its own releases
 
 - **Update button / `dmd_update.py`**: a Pi on the alpha channel now only considers alpha pre-releases, and a Pi on the stable channel only normal releases — whatever the version numbers. Before, an alpha Pi could have picked a higher-numbered stable release and silently switched channel.

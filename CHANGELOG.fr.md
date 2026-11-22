@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-22 — Firmware 4.32 (alpha) : installation du paquet de pages plus fiable
+
+- **Mise à jour Wi-Fi et paquet de pages** : une brève panne réseau pendant que le DMD télécharge ses pages web (liaison coupée en cours de transfert, handshake TLS raté, erreur serveur, octets altérés) n'interrompt plus la session : le fichier, l'index du paquet et le manifeste sont redemandés jusqu'à 3 fois (pause de 2 s puis 4 s) au lieu d'attendre le démarrage suivant. Un paquet non publié (404) ou un manifeste invalide échoue toujours immédiatement.
+- Mesuré sur un réseau sain : 15 téléchargements isolés sur 15 et 6 mises à jour complètes sur 6 — ce correctif ne change rien quand le réseau va bien ; il ne sert qu'aux micro-coupures. Rien d'autre ne change.
+
 ## 2026-11-22 — Démon Pi 3.96 (alpha) : chaque canal ne voit que ses releases
 
 - **Bouton de mise à jour / `dmd_update.py`** : un Pi sur le canal alpha ne retient plus que les pré-releases alpha, et un Pi stable que les releases normales, quels que soient les numéros. Avant, un Pi alpha pouvait choisir une release stable de numéro plus élevé et changer de canal sans prévenir.
