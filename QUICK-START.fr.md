@@ -22,7 +22,7 @@ Scrapez vos jeux dans Recalbox, pointez l'outil vers votre dossier ROMs, cliquez
 <td align="center"><h2>2️⃣</h2></td>
 <td>
 
-**[Assemblez le DMD](README.fr.md#matériel)**
+**[Assemblez le DMD](https://github.com/shan-aya/RecalBoxDMD/blob/main/README.fr.md#matériel)**
 Assemblez les deux panneaux, montez la carte DMDos, câblez — **~5 minutes, sans soudure**.
 
 </td>
@@ -31,7 +31,7 @@ Assemblez les deux panneaux, montez la carte DMDos, câblez — **~5 minutes, sa
 <td align="center"><h2>3️⃣</h2></td>
 <td>
 
-**[Flashez le firmware](README.fr.md#firmware--compiler-et-flasher)**
+**[Flashez le firmware](https://github.com/shan-aya/RecalBoxDMD/blob/main/README.fr.md#firmware--compiler-et-flasher)**
 Installateur web en un clic — **pas besoin d'Arduino IDE**.
 
 </td>
@@ -41,7 +41,7 @@ Installateur web en un clic — **pas besoin d'Arduino IDE**.
 <td>
 
 **Insérez la carte SD, allumez**
-Le premier démarrage vous guide pour le Wi-Fi, puis la **[page de configuration web](README.fr.md#configuration-web--en-direct-dans-le-navigateur)** prend le relais pour tout le reste (luminosité, playlists, thèmes horloge...).
+Le premier démarrage vous guide pour le Wi-Fi, puis la **[page de configuration web](https://github.com/shan-aya/RecalBoxDMD/blob/main/README.fr.md#configuration-web--en-direct-dans-le-navigateur)** prend le relais pour tout le reste (luminosité, playlists, thèmes horloge...).
 
 </td>
 </tr>
@@ -94,9 +94,9 @@ Se télécharge sous 4 formes — prenez celle que vous préférez sur la **[pag
 6. Insérez la carte SD → le bouton clignotant propose de la copier pour vous
 ```
 
-Ensuite : [assemblez le matériel](README.fr.md#matériel) et [flashez le firmware](README.fr.md#firmware--compiler-et-flasher) — puis insérez cette carte SD et allumez.
+Ensuite : [assemblez le matériel](https://github.com/shan-aya/RecalBoxDMD/blob/main/README.fr.md#matériel) et [flashez le firmware](https://github.com/shan-aya/RecalBoxDMD/blob/main/README.fr.md#firmware--compiler-et-flasher) — puis insérez cette carte SD et allumez.
 
-**Une fois le DMD allumé** : un **appui court sur le bouton BOOT** (ou la page web *Diagnostic*) vérifie le Wi-Fi et la liaison avec la Recalbox — voir [Diagnostic Wi-Fi / Recalbox](README.fr.md#-diagnostic-wi-fi--recalbox). Pour ajouter beaucoup de GIF : [tutoriels pas à pas](README.fr.md#-tutoriels-pas-à-pas).
+**Une fois le DMD allumé** : un **appui court sur le bouton BOOT** (ou la page web *Diagnostic*) vérifie le Wi-Fi et la liaison avec la Recalbox — voir [Diagnostic Wi-Fi / Recalbox](https://github.com/shan-aya/RecalBoxDMD/blob/main/README.fr.md#-diagnostic-wi-fi--recalbox). Pour ajouter beaucoup de GIF : [tutoriels pas à pas](https://github.com/shan-aya/RecalBoxDMD/blob/main/README.fr.md#-tutoriels-pas-à-pas).
 
 ---
 
