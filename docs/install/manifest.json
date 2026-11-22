@@ -5,7 +5,7 @@
   "app_sha256": "22ae9eee64e6803efcabb939a94cd47cee420692bc5a7a235737c0d30ea9df19",
   "app_size": 1742304,
   "toolkit": 176102,
-  "pi": "3.84",
+  "pi": "3.85",
   "boot_anim_ver": 1,
   "boot_anim_size": 819200,
   "boot_anim_sha256": "0297477442a0fc5edb52df31ec738f8631691b543f3d4a223d9de29a484801c1",
