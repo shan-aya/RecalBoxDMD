@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-22 — Caja de herramientas 177102 (pre-release alfa): formateo FAT32, cada canal ve solo sus releases
+
+- **Ventana Tarjeta SD (Modo 1)**: nuevo botón **Formatear en FAT32** para tarjetas de cualquier tamaño (proceso de administrador, salvaguardas: solo unidades extraíbles, nunca el disco del sistema, doble confirmación).
+- **Cada canal ve solo sus releases**: el aviso de actualización de la caja de herramientas alfa solo considera las pre-releases (nunca una release estable, aunque tenga un número mayor), y la carga útil de la Raspberry Pi que instala sigue el canal de la versión (alfa = pre-releases, estable = releases normales).
+- Regla de numeración: una versión alfa siempre lleva un número superior al último estable (esta: 177102 > 176102).
+
 ## 2026-11-21 — Firmware 4.31 y demonio Pi 3.95 (alpha): página Ajustes armonizada, config.ini más seguro
 
 - **Página Ajustes** (ESP32 y Raspberry Pi, la misma página): los cuadros *Canal del firmware* y *Orden de colores* tienen ahora el mismo aspecto que las demás secciones; **Orden de colores** está sobre *Brillo*; una nueva sección **Arranque y modos** agrupa *Arranque silencioso*, *Modo Pinball* y *Alertas de RetroAchievements*; los botones *Cambiar al canal*, *Aplicar y reiniciar* y *Configurar* tienen el mismo tamaño y están alineados.

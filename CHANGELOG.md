@@ -8,6 +8,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-22 — Toolkit 177102 (alpha pre-release): FAT32 formatting, each channel sees only its own releases
+
+- **SD card pop-up (Mode 1)**: new **Format as FAT32** button for cards of any size (administrator process, safeguards: removable drives only, never the system disk, double confirmation).
+- **Each channel sees only its own releases**: the alpha toolkit's update notice only considers pre-releases (never a stable release, even with a higher number), and the Raspberry Pi payload it installs follows the build's channel (alpha = pre-releases, stable = normal releases).
+- Build number rule: an alpha build always has a number above the latest stable one (this one: 177102 > 176102).
+
 ## 2026-11-21 — Firmware 4.31 and Pi daemon 3.95 (alpha): Settings page tidied up, safer config.ini
 
 - **Settings page** (ESP32 and Raspberry Pi, same page): the *Firmware channel* and *Panel colour order* boxes now use the same look as the other sections; **Panel colour order** sits above *Brightness*; a new **Startup and modes** section groups *Silent startup*, *Pinball mode* and *RetroAchievements alerts*; the *Switch channel*, *Apply and restart* and *Configure* buttons share the same size and alignment.

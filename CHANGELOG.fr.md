@@ -8,6 +8,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-22 — Boîte à outils 177102 (pré-release alpha) : formatage FAT32, chaque canal ne voit que ses releases
+
+- **Popup Carte SD (Mode 1)** : nouveau bouton **Formater en FAT32** pour les cartes de toute taille (processus administrateur, garde-fous : lecteurs amovibles seulement, jamais le disque système, double confirmation).
+- **Chaque canal ne voit que ses releases** : l'annonce de mise à jour de la boîte à outils alpha ne retient que les pré-releases (jamais une release stable, même de numéro plus élevé), et la charge utile du Raspberry Pi qu'elle installe suit le canal du build (alpha = pré-releases, stable = releases normales).
+- Règle de numérotation : un build alpha porte toujours un numéro supérieur au dernier stable (celui-ci : 177102 > 176102).
+
 ## 2026-11-21 — Firmware 4.31 et démon Pi 3.95 (alpha) : page Réglages harmonisée, config.ini plus sûr
 
 - **Page Réglages** (ESP32 et Raspberry Pi, même page) : les cadres *Canal du firmware* et *Ordre des couleurs* ont désormais le même aspect que les autres sections ; **Ordre des couleurs** est au-dessus de *Luminosité* ; une nouvelle section **Démarrage et modes** regroupe *Démarrage silencieux*, *Mode Pinball* et *Alertes RetroAchievements* ; les boutons *Passer au canal*, *Appliquer et redémarrer* et *Configurer* ont la même taille et sont alignés.
