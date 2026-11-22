@@ -1,5 +1,7 @@
 # FAQ y solución de problemas
 
+> 🧪 **Rama alfa** — esta página se comparte con la documentación estable y puede describir funciones aún en prueba. El plan de pruebas alfa está en el [README](README.es.md).
+
 [🇬🇧 English](FAQ.md) · [🇫🇷 Français](FAQ.fr.md) · **🇪🇸 Español**
 
 ## ⚠️ Alimentación — léelo si tu DMD se congela o se corrompe

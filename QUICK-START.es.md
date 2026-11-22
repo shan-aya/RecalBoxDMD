@@ -1,5 +1,7 @@
 # Inicio rápido — RecalBoxDMD RawEdition
 
+> 🧪 **Rama alfa** — esta página se comparte con la documentación estable y puede describir funciones aún en prueba. El plan de pruebas alfa está en el [README](README.es.md).
+
 [🇬🇧 English](QUICK-START.md) · [🇫🇷 Français](QUICK-START.fr.md) · 🇪🇸 **Español**
 
 > Esta página recoge solo la sección «Inicio rápido» del **[README.md](README.es.md)** completo — práctica para compartir o imprimir. Para funciones, hardware, configuración y todo lo demás, consulta el README completo.

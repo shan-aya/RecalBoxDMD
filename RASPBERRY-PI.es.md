@@ -1,5 +1,7 @@
 # RecalBoxDMD en Raspberry Pi
 
+> 🧪 **Rama alfa** — esta página se comparte con la documentación estable y puede describir funciones aún en prueba. El plan de pruebas alfa está en el [README](README.es.md).
+
 [🇬🇧 English](RASPBERRY-PI.md) · [🇫🇷 Français](RASPBERRY-PI.fr.md) · 🇪🇸 **Español**
 
 El mismo DMD, con una **Raspberry Pi** en lugar del ESP32: mismos scripts de Recalbox, mismo contenido de la tarjeta SD, mismas páginas de configuración web, widgets y temas. La Pi maneja dos paneles P5 de 64×32 (128×32 en total) mediante una placa de interfaz HUB75.

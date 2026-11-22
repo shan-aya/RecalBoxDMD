@@ -1,5 +1,7 @@
 # Changelog
 
+> 🧪 **Rama alfa** — esta página se comparte con la documentación estable y puede describir funciones aún en prueba. El plan de pruebas alfa está en el [README](README.es.md).
+
 Historial de **RecalBoxDMD — RawEdition v3.x**, cubriendo tanto el **firmware ESP32** (incluida su página de configuración web) como la **caja de herramientas de PC**, desde el primer commit hasta hoy. Las entradas se agrupan por fecha; cada punto está etiquetado con la parte del proyecto a la que afecta.
 
 [🇬🇧 English](CHANGELOG.md) · [🇫🇷 Français](CHANGELOG.fr.md) · 🇪🇸 **Español**

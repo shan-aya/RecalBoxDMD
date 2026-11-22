@@ -1,5 +1,7 @@
 # FAQ & Troubleshooting
 
+> 🧪 **Alpha branch** — this page is shared with the stable documentation and may describe features that are still being tested. The alpha test plan is in the [README](README.md).
+
 🇬🇧 **English** · [🇫🇷 Français](FAQ.fr.md) · [🇪🇸 Español](FAQ.es.md)
 
 ## ⚠️ Power supply — please read if your DMD freezes or glitches

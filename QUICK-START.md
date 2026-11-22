@@ -1,5 +1,7 @@
 # Quick Start — RecalBoxDMD RawEdition
 
+> 🧪 **Alpha branch** — this page is shared with the stable documentation and may describe features that are still being tested. The alpha test plan is in the [README](README.md).
+
 🇬🇧 **English** · [🇫🇷 Français](QUICK-START.fr.md) · [🇪🇸 Español](QUICK-START.es.md)
 
 > This page pulls out the "Quick start" section of the full **[README.md](README.md)** on its own — handy to link or print. For features, hardware details, configuration and everything else, see the full README.

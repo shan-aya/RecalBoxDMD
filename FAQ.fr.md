@@ -1,5 +1,7 @@
 # FAQ & Dépannage
 
+> 🧪 **Branche alpha** — cette page est partagée avec la documentation stable et peut décrire des fonctions encore en test. Le plan de test alpha est dans le [README](README.fr.md).
+
 [🇬🇧 English](FAQ.md) · **🇫🇷 Français** · [🇪🇸 Español](FAQ.es.md)
 
 ## ⚠️ Alimentation — à lire si ton DMD gèle ou se corrompt

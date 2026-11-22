@@ -1,5 +1,7 @@
 # Démarrage rapide — RecalBoxDMD RawEdition
 
+> 🧪 **Branche alpha** — cette page est partagée avec la documentation stable et peut décrire des fonctions encore en test. Le plan de test alpha est dans le [README](README.fr.md).
+
 [🇬🇧 English](QUICK-START.md) · 🇫🇷 **Français** · [🇪🇸 Español](QUICK-START.es.md)
 
 > Cette page reprend seule la section « Démarrage rapide » du **[README.md](README.fr.md)** complet — pratique à partager ou imprimer. Pour les fonctionnalités, le matériel, la configuration et tout le reste, voir le README complet.

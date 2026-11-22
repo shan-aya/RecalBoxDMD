@@ -1,5 +1,7 @@
 # Actualizar desde una versión anterior (v13 → v3.x)
 
+> 🧪 **Rama alfa** — esta página se comparte con la documentación estable y puede describir funciones aún en prueba. El plan de pruebas alfa está en el [README](README.es.md).
+
 [🇬🇧 English](UPGRADING.md) · [🇫🇷 Français](UPGRADING.fr.md) · 🇪🇸 **Español**
 
 ¿Ya usas RecalBoxDMD (firmware v13 "Raw565 Edition", cualquier versión de la caja de herramientas de PC)? Esto es lo que realmente cambia y lo que hay que hacer — la mayor parte es opcional, y nada de tu tarjeta SD ni de tu configuración de Recalbox necesita cambiar.

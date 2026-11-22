@@ -1,5 +1,7 @@
 # Changelog
 
+> 🧪 **Branche alpha** — cette page est partagée avec la documentation stable et peut décrire des fonctions encore en test. Le plan de test alpha est dans le [README](README.fr.md).
+
 Historique de **RecalBoxDMD — RawEdition v3.x**, couvrant à la fois le **firmware ESP32** (y compris sa page de configuration web) et la **boîte à outils PC**, depuis le tout premier commit jusqu'à aujourd'hui. Les entrées sont groupées par date ; chaque puce est étiquetée avec la partie du projet qu'elle concerne.
 
 [🇬🇧 English](CHANGELOG.md) · 🇫🇷 **Français** · [🇪🇸 Español](CHANGELOG.es.md)
