@@ -8,6 +8,10 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-22 — Firmware 4.33 (alpha) : un changement de Wi-Fi relance le téléchargement des pages
+
+- **Réglages Wi-Fi** : enregistrer un nouveau réglage Wi-Fi (page Réseau ou page d'accueil en mode point d'accès) remet à zéro le compteur d'essais quotidiens du téléchargement des pages web (2 essais par jour). Un téléchargement qui avait échoué à cause d'un mauvais Wi-Fi n'est plus bloqué jusqu'au lendemain une fois le réseau corrigé. Rien d'autre ne change.
+
 ## 2026-11-22 — Firmware 4.32 (alpha) : installation du paquet de pages plus fiable
 
 - **Mise à jour Wi-Fi et paquet de pages** : une brève panne réseau pendant que le DMD télécharge ses pages web (liaison coupée en cours de transfert, handshake TLS raté, erreur serveur, octets altérés) n'interrompt plus la session : le fichier, l'index du paquet et le manifeste sont redemandés jusqu'à 3 fois (pause de 2 s puis 4 s) au lieu d'attendre le démarrage suivant. Un paquet non publié (404) ou un manifeste invalide échoue toujours immédiatement.

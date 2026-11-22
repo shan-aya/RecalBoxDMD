@@ -8,6 +8,10 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-22 — Firmware 4.33 (alpha): un cambio de Wi-Fi reinicia la descarga de las páginas
+
+- **Ajustes Wi-Fi**: guardar un nuevo ajuste Wi-Fi (página Red o página de bienvenida en modo punto de acceso) pone a cero el contador diario de intentos de descarga de las páginas web (2 intentos por día). Una descarga que había fallado por un Wi-Fi erróneo ya no queda bloqueada hasta el día siguiente al corregir la red. Nada más cambia.
+
 ## 2026-11-22 — Firmware 4.32 (alpha): instalación del paquete de páginas más fiable
 
 - **Actualización Wi-Fi y paquete de páginas**: un corte breve de la red mientras el DMD descarga sus páginas web (conexión perdida a mitad de la transferencia, fallo del handshake TLS, error del servidor, bytes alterados) ya no interrumpe la sesión: el archivo, el índice del paquete y el manifiesto se piden de nuevo hasta 3 veces (pausa de 2 s y luego 4 s) en lugar de esperar al siguiente arranque. Un paquete no publicado (404) o un manifiesto inválido siguen fallando de inmediato.

@@ -8,6 +8,10 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-22 — Firmware 4.33 (alpha): Wi-Fi change gives the page download a fresh start
+
+- **Wi-Fi settings**: saving a new Wi-Fi setting (Network page or the first-start access-point page) now resets the daily attempt counter of the web-page download (2 attempts per day). A download that had failed because of a wrong Wi-Fi is no longer stuck until the next day once you fix the network. Nothing else changes.
+
 ## 2026-11-22 — Firmware 4.32 (alpha): more reliable page-package installation
 
 - **Wi-Fi update and page package**: a brief network failure while the DMD downloads its web pages (connection lost mid-transfer, TLS handshake failure, server error, altered bytes) no longer aborts the session: the file, the package index and the manifest are requested again up to 3 times (2 s then 4 s pause) instead of waiting for the next start. A package that is not published (404) or an invalid manifest still fails at once.
