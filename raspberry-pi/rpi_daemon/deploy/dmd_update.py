@@ -77,10 +77,10 @@ def latest_release(alpha=None):
         rels = json.load(r)
     best = None
     if alpha is None:
-        alpha = channel() == "alpha"   # canal alpha : releases ET pre-releases (la plus recente) ; canal stable : jamais une pre-release
+        alpha = channel() == "alpha"   # canal alpha : PRE-RELEASES seulement ; canal stable : releases normales seulement (jamais celles de l'autre canal)
     for rel in rels:
         m = re.fullmatch(r"pi-v(\d+\.\d+)", str(rel.get("tag_name", "")))
-        if not m or rel.get("draft") or (rel.get("prerelease") and not alpha):
+        if not m or rel.get("draft") or bool(rel.get("prerelease")) != bool(alpha):   # v3.95/3.84 : CHAQUE canal ne voit que SES releases (alpha = pre-releases, stable = releases normales), quel que soit le numero
             continue
         assets = {a.get("name"): a.get("browser_download_url") for a in rel.get("assets", [])}
         if ASSET not in assets or ASSET + ".sha256" not in assets:

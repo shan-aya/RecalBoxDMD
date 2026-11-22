@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-22 — Pi daemon 3.85 (stable): each channel only sees its own releases
+
+- **Update button / `dmd_update.py`**: a Pi on the alpha channel now only considers alpha pre-releases, and a Pi on the stable channel only normal releases — whatever the version numbers. Before, an alpha Pi could have picked a higher-numbered stable release and silently switched channel.
+- The *Switch channel* button of the Settings page still works in both directions. Nothing else changes.
+
 ## 2026-11-22 — Toolkit 176102: new Installation tab, stable/alpha channels
 
 - **SD card formatting**: the *SD card* window of Mode 1 (both Installation pages, ESP32 target) now has a **Format as FAT32…** button, for cards of any size (Windows refuses FAT32 above 32 GB, so 64 GB cards come as exFAT). Administrator permission is requested, only removable cards are accepted, and two confirmations name the drive before everything is erased.

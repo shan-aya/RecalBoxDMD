@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-22 — Démon Pi 3.85 (stable) : chaque canal ne voit que ses releases
+
+- **Bouton de mise à jour / `dmd_update.py`** : un Pi sur le canal alpha ne retient plus que les pré-releases alpha, et un Pi stable que les releases normales, quels que soient les numéros. Avant, un Pi alpha pouvait choisir une release stable de numéro plus élevé et changer de canal sans prévenir.
+- Le bouton *Passer au canal…* de la page Réglages fonctionne toujours dans les deux sens. Rien d'autre ne change.
+
 ## 2026-11-22 — Boîte à outils 176102 : nouvel onglet Installation, canaux stable / alpha
 
 - **Formatage de la carte SD** : la fenêtre *Carte SD* du Mode 1 (les deux pages Installation, cible ESP32) a maintenant un bouton **Formater en FAT32…**, pour les cartes de toute taille (Windows refuse le FAT32 au-delà de 32 Go : les cartes de 64 Go sont livrées en exFAT). L'autorisation administrateur est demandée, seules les cartes amovibles sont acceptées et deux confirmations nomment le lecteur avant tout effacement.
