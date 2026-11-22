@@ -289,6 +289,43 @@ jobs:
               with open(summary, "a", encoding="utf-8") as f:
                   f.write("### Numerotation alpha / stable\n" + "\n".join(lines) + "\n")
 
+      - name: Normalize the title of the PC toolkit releases (rule - tool vN using with recalboxDMD v4.xx)
+        shell: python
+        run: |
+          # REGLE DE NOMMAGE (demande utilisateur 2026-11-22 : « v2.0 » -> « v4.xx », automatique) : toute release du toolkit (tag RecalBoxDMD_tool_v<N>) porte le titre
+          #   release stable  : tool v<N> using with recalboxDMD v4.xx
+          #   pre-release     : tool v<N> ALPHA pre-release (portable) using with recalboxDMD v4.xx
+          # Le titre est remis a la regle a CHAQUE execution (push ou release) : une release creee a la main avec un autre titre (ex. « ... recalboxDMD v2.0 ») est corrigee.
+          # Les autres tags (pi-v..., *_TEST, archives) ne sont pas touches. Jamais bloquant.
+          import json, re, urllib.request
+          H = {"Accept": "application/vnd.github+json", "Authorization": "Bearer ${{ secrets.GITHUB_TOKEN }}", "User-Agent": "sync-installer-version", "Content-Type": "application/json"}
+          API = "https://api.github.com/repos/${{ github.repository }}/releases"
+          def wanted(tag, pre):
+              m = re.fullmatch(r"RecalBoxDMD_tool_v(\d+)", tag)
+              if not m:
+                  return None
+              return ("tool v%s ALPHA pre-release (portable) using with recalboxDMD v4.xx" if pre else "tool v%s using with recalboxDMD v4.xx") % m.group(1)
+          try:
+              rels = json.load(urllib.request.urlopen(urllib.request.Request(API + "?per_page=100", headers=H), timeout=30))
+          except Exception as e:
+              print(f"::warning::liste des releases illisible ({e}) - titres non normalises")
+              raise SystemExit(0)
+          n = 0
+          for r in rels:
+              if r.get("draft"):
+                  continue
+              want = wanted(str(r.get("tag_name", "")), bool(r.get("prerelease")))
+              if want is None or r.get("name") == want:
+                  continue
+              try:
+                  req = urllib.request.Request(API + "/" + str(r["id"]), data=json.dumps({"name": want}).encode(), headers=H, method="PATCH")
+                  urllib.request.urlopen(req, timeout=30).read()
+                  print(f"titre : {r.get('tag_name')} : '{r.get('name')}' -> '{want}'")
+                  n += 1
+              except Exception as e:
+                  print(f"::warning::titre de {r.get('tag_name')} non modifie ({e})")
+          print(f"{n} titre(s) normalise(s)")
+
       - name: Commit if changed
         run: |
           if git diff --quiet; then

@@ -14,6 +14,8 @@ Le **numéro** de version ne change jamais de format (`M.mm`, `pi-vM.mm`, build 
 
 **Règle de numérotation : alpha > stable.** Les annonces d'un canal ne lisent que ses propres releases (alpha = pré-releases, stable = releases normales), mais les anciens clients (boîte à outils alpha 164100, démon Pi 3.94 / 3.95) prennent le plus grand numéro de toutes les releases. Un build alpha (boîte à outils, démon Pi) doit donc toujours porter un numéro **supérieur** au dernier stable ; le workflow `sync-installer-version` émet un avertissement (visible dans Actions, non bloquant) quand ce n'est pas le cas.
 
+**Règle de nommage des releases du toolkit** (automatique, workflow `sync-installer-version`, étape « Normalize the title ») : release stable = `tool v<N> using with recalboxDMD v4.xx` ; pré-release = `tool v<N> ALPHA pre-release (portable) using with recalboxDMD v4.xx`. Le titre est remis à cette règle à chaque exécution du workflow (un ancien « v2.0 » est corrigé tout seul) ; les releases `pi-v…`, les tags `*_TEST` et les archives ne sont pas touchés.
+
 ## Où vit le canal (tout est déduit de la branche)
 
 | Élément | Marqueur | Verrouillé par |
