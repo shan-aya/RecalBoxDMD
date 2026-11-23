@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-24 — Firmware 4.28 (stable): colour-order preview on the DMD, precise release notes in the web pages
+
+- **Colour-order preview**: in the *Display* section of the Settings page, choosing an order in the *Colour order* menu now shows **R**, **G** and **B** in large letters on the DMD, each in its own colour as that order would give it (red, green, blue). If a letter shows the wrong colour on your panel, that order is not the right one. The preview lasts 30 seconds at most and stops when you pick another order or close the page; *Apply and restart* works as before.
+- **Also included (versions 4.26 / 4.27, never published)**: each update notice opens its own release-notes entry, the toolkit link points to the exact release, and the scripts notice names the Recalbox it concerns.
+
 ## 2026-11-24 — Toolkit 199111: smarter compatibility notices, safer Raspberry Pi card writing, accented file names
 
 - **Notices name their target**: with several DMDs or several Recalbox, every notice says which DMD (ESP32 / Pi, IP) and which Recalbox it is about; each problem is followed by its own **→ Solution** line and button.

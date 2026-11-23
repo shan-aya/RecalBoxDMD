@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-24 — Firmware 4.28 (stable) : aperçu de l'ordre des couleurs sur le DMD, notes de version précises dans les pages web
+
+- **Aperçu de l'ordre des couleurs** : dans la section *Affichage* de la page Réglages, choisir un ordre dans le menu *Ordre des couleurs* affiche maintenant les lettres **R**, **G** et **B** en gros sur le DMD, chacune dans sa couleur telle que la donnerait cet ordre (rouge, vert, bleu). Si une lettre s'affiche dans la mauvaise couleur sur votre dalle, cet ordre n'est pas le bon. L'aperçu dure 30 secondes au plus et s'arrête quand vous choisissez un autre ordre ou fermez la page ; *Appliquer et redémarrer* fonctionne comme avant.
+- **Également inclus (versions 4.26 / 4.27, jamais publiées)** : chaque avis de mise à jour ouvre sa propre entrée de notes de version, le lien du toolkit pointe vers la release exacte, et l'avis des scripts nomme la Recalbox concernée.
+
 ## 2026-11-24 — Boîte à outils 199111 : avis de compatibilité plus intelligents, écriture de carte Raspberry Pi plus sûre, noms de fichiers accentués
 
 - **Les avis annoncent leur cible** : avec plusieurs DMD ou plusieurs Recalbox, chaque avis dit de quel DMD (ESP32 / Pi, IP) et de quelle Recalbox il s'agit ; chaque problème est suivi de sa ligne **→ Solution** et de son bouton.
