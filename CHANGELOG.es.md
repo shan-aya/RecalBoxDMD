@@ -10,6 +10,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-24 — Firmware 4.36 (alfa): vista previa del orden de colores en el DMD, notas de versión precisas en las páginas web
+
+- **Vista previa del orden de colores**: en la sección *Pantalla* de la página Ajustes, al elegir un orden en el menú *Orden de colores* el DMD muestra ahora las letras **R**, **G** y **B** en grande, cada una en su color tal como lo daría ese orden (rojo, verde, azul). Si una letra aparece con un color equivocado en su panel, ese orden no es el correcto. La vista previa dura 30 segundos como máximo y se detiene al elegir otro orden o cerrar la página; *Aplicar y reiniciar* funciona como antes.
+- **También incluido (versiones 4.34 / 4.35, nunca publicadas)**: cada aviso de actualización abre su propia entrada de notas de versión, el enlace de la caja de herramientas apunta a la versión exacta y el aviso de los scripts nombra la Recalbox afectada.
+
 ## 2026-11-24 — Caja de herramientas 199112 (pre-release alfa): cambio automático a nombres con acentos en la Raspberry Pi, escritura de tarjeta más segura
 
 - **El Modo 17 pasa solo la partición de medios de la Pi a UTF-8**: cuando está montada en modo ASCII, la instalación la pasa a UTF-8 y lo indica en su registro (el DMD se apaga unos diez segundos; se hace copia de `/etc/fstab`, no se modifica ni borra ningún archivo). El éxito solo se anuncia tras releer el estado: se acabó el falso éxito.
