@@ -10,6 +10,13 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-23 — Caja de herramientas 198112 (pre-release alfa): botón [ALPHA] pulsable, nombres de archivo con acentos para la Raspberry Pi (lado caja de herramientas)
+
+- **Página Gestión de GIFs**: el botón atenuado **[ALPHA]** pasa a ser un botón normal. Púlselo para saber por qué la función no está disponible en su destino (requiere un firmware alfa); ya no hay texto rojo permanente, que quedaba cortado en la barra.
+- **Nombres de archivo con acentos en la Raspberry Pi (lado caja de herramientas)**: la partición de medios de la Pi está montada en modo ASCII, por lo que los logos cuyo nombre contiene un acento o un espacio de no separación (por ejemplo algunos pinballs de vpinball) no se mostraban. La caja de herramientas ahora envía esos nombres a una Pi cuyo demonio anuncia el soporte de UTF-8, y el **Modo 17 propone** (nunca por defecto) pasar la partición de medios de la Pi a UTF-8 (el DMD se apaga unos diez segundos; se hace copia de `/etc/fstab`, no se modifica ni borra ningún archivo).
+- **Importante**: el demonio de la Pi correspondiente **aún no está publicado** (una próxima pre-release alfa). Hasta entonces la caja de herramientas no cambia nada para una Pi con el demonio actual: el Modo 17 no propone nada y los nombres siguen en ASCII. Verificado en una Pi de banco con el nuevo demonio; **no probado**: una tarjeta nueva preparada con el Modo 16, la pregunta del Modo 17 en la ventana real, tarjetas exFAT, una actualización OTA real.
+- Número de versión: esta alfa es la **198112**; el mismo código se publicará más adelante como versión estable con un número inferior.
+
 ## 2026-11-23 — Caja de herramientas 197112 (pre-release alfa): avisos de compatibilidad más inteligentes, un solo código para estable y alfa
 
 - **Los avisos indican su destino**: con varios DMD o varias Recalbox, cada aviso dice de qué DMD (ESP32 / Pi, IP) y de qué Recalbox trata. Cada problema va seguido de su línea **→ Solución** y de su botón.

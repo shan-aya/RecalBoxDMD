@@ -10,6 +10,13 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-23 — Toolkit 198112 (alpha pre-release): clickable [ALPHA] button, accented file names for the Raspberry Pi (toolkit side)
+
+- **Game GIFs page**: the greyed-out **[ALPHA]** button is now a normal button. Click it to see why the function is unavailable on your target (it needs an alpha firmware); no more permanent red text, which was cut off in the banner.
+- **Accented file names on the Raspberry Pi (toolkit side)**: the Pi's media partition is mounted in ASCII mode, so logos whose name has an accent or a non-breaking space (for example some vpinball tables) were not displayed. The toolkit now sends such names to a Pi whose daemon announces UTF-8 support, and **Mode 17 offers** (never by default) to switch the Pi's media partition to UTF-8 (the DMD goes dark for about ten seconds; `/etc/fstab` is backed up, no file is modified or deleted).
+- **Heads-up**: the matching Pi daemon is **not published yet** (a later alpha pre-release). Until then the toolkit changes nothing for a Pi on the current daemon: Mode 17 offers nothing and file names stay ASCII-only. Checked on a bench Pi with the new daemon; **not tested**: a brand-new card prepared by Mode 16, the Mode 17 question in the real window, exFAT cards, a real OTA update.
+- Build number: this alpha is **198112**; the same code will be published later as a stable build with a lower number.
+
 ## 2026-11-23 — Toolkit 197112 (alpha pre-release): smarter compatibility notices, one code for stable and alpha
 
 - **Notices name their target**: with several DMDs or several Recalbox, every notice says which DMD (ESP32 / Pi, IP) and which Recalbox it is about. Each problem is followed by its own **→ Solution** line and button.

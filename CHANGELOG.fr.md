@@ -10,6 +10,13 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-23 — Boîte à outils 198112 (pré-release alpha) : bouton [ALPHA] cliquable, noms de fichiers accentués pour le Raspberry Pi (côté boîte à outils)
+
+- **Page Gestion des GIFs** : le bouton grisé **[ALPHA]** devient un bouton normal. Cliquez dessus pour savoir pourquoi la fonction n'est pas disponible sur votre cible (elle demande un firmware alpha) ; plus de texte rouge permanent, qui était coupé dans le bandeau.
+- **Noms de fichiers accentués sur le Raspberry Pi (côté boîte à outils)** : la partition média du Pi est montée en mode ASCII, donc les logos dont le nom contient un accent ou un espace insécable (par exemple certains flippers vpinball) ne s'affichaient pas. La boîte à outils envoie désormais ces noms à un Pi dont le démon annonce la prise en charge de l'UTF-8, et le **Mode 17 propose** (jamais d'office) de passer la partition média du Pi en UTF-8 (le DMD s'éteint une dizaine de secondes ; `/etc/fstab` est sauvegardé, aucun fichier n'est modifié ni supprimé).
+- **À savoir** : le démon du Pi correspondant n'est **pas encore publié** (une prochaine pré-release alpha). D'ici là, la boîte à outils ne change rien pour un Pi sur le démon actuel : le Mode 17 ne propose rien et les noms restent en ASCII. Vérifié sur un Pi de banc avec le nouveau démon ; **non testé** : une carte neuve préparée par le Mode 16, la question du Mode 17 dans la vraie fenêtre, les cartes exFAT, une vraie mise à jour OTA.
+- Numéro de build : cette alpha porte le **198112** ; le même code sera publié plus tard en version stable avec un numéro inférieur.
+
 ## 2026-11-23 — Boîte à outils 197112 (pré-release alpha) : avis de compatibilité plus intelligents, un seul code pour stable et alpha
 
 - **Les avis annoncent leur cible** : avec plusieurs DMD ou plusieurs Recalbox, chaque avis dit de quel DMD (ESP32 / Pi, IP) et de quelle Recalbox il s'agit. Chaque problème est suivi de sa ligne **→ Solution** et de son bouton.
