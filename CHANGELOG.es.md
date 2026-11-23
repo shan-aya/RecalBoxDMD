@@ -10,6 +10,19 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-23 — Caja de herramientas 197112 (pre-release alfa): avisos de compatibilidad más inteligentes, un solo código para estable y alfa
+
+- **Los avisos indican su destino**: con varios DMD o varias Recalbox, cada aviso dice de qué DMD (ESP32 / Pi, IP) y de qué Recalbox trata. Cada problema va seguido de su línea **→ Solución** y de su botón.
+- **Discreto por defecto**: ya no hay ventana al arrancar. Aparece una insignia **⚠ n** en la barra del destino solo cuando existe una incompatibilidad real; un clic abre el detalle.
+- **La compatibilidad sigue la versión mayor de la Recalbox** (10 = línea estable, 11 = línea alfa), no las palabras «patron / alpha». Los avisos de actualización comparan cada DMD con la versión publicada de **su propio canal**.
+- **Los datos siguen al destino**: el Modo 9 lee la versión de la Recalbox por SSH antes de instalar, toma los scripts de la rama del canal **de esa Recalbox** y avisa antes de cualquier retroceso; el Modo 1 copia las imágenes y el paquete de páginas web del canal **del DMD elegido**.
+- **Las funciones que su DMD no puede ejecutar aparecen atenuadas** con el motivo y la mención **[ALPHA]** (página Gestión de GIFs, listas de reproducción por Wi-Fi de un Pi); la capacidad se sondea en el aparato, no se deduce de un número de versión.
+- **Madurez por función**: la pestaña *Personalización* es visible en las versiones alfa y está oculta en las estables (desaparece la antigua casilla «experimental»).
+- **Correcciones**: los scripts del Modo 9 se tomaban siempre de la rama estable; el Modo 14 ofrecía a un Pi la versión del firmware ESP32; a un Raspberry Pi al día se le podía decir que estaba desactualizado; a una Recalbox estable se le decía que sus scripts iban retrasados (10 frente a 11); un usuario sin DMD en la red veía una insignia de aviso permanente.
+- **Un enlace «Notas de versión» por componente** (caja de herramientas, firmware, demonio Pi, scripts): cada uno abre su propia entrada de este registro.
+- **Numeración**: el mismo código se publica dos veces, **197112** (alfa, esta pre-release) y **197111** (estable); una versión alfa mantiene siempre un número superior al estable.
+- Verificado con 1 258 comprobaciones automáticas y un banco real (ESP32 estable, Raspberry Pi alfa, Recalbox 10.1.1 y 11.0-patron-3.2).
+
 ## 2026-11-22 — Firmware 4.33 (alpha): un cambio de Wi-Fi reinicia la descarga de las páginas
 
 - **Ajustes Wi-Fi**: guardar un nuevo ajuste Wi-Fi (página Red o página de bienvenida en modo punto de acceso) pone a cero el contador diario de intentos de descarga de las páginas web (2 intentos por día). Una descarga que había fallado por un Wi-Fi erróneo ya no queda bloqueada hasta el día siguiente al corregir la red. Nada más cambia.

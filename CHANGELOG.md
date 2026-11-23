@@ -10,6 +10,19 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-23 — Toolkit 197112 (alpha pre-release): smarter compatibility notices, one code for stable and alpha
+
+- **Notices name their target**: with several DMDs or several Recalbox, every notice says which DMD (ESP32 / Pi, IP) and which Recalbox it is about. Each problem is followed by its own **→ Solution** line and button.
+- **Quiet by default**: no pop-up at start-up any more. A **⚠ n** badge appears in the target banner only when a real mismatch exists; click it for the details.
+- **Compatibility follows the Recalbox major version** (10 = stable line, 11 = alpha line), not the words "patron / alpha". Update notices compare each DMD with the published version of **its own channel**.
+- **The data follows the target**: Mode 9 reads the Recalbox version over SSH before installing, takes the scripts from the branch of **that Recalbox's** channel and warns before any downgrade; Mode 1 copies the images and the web-page package of the **targeted DMD's** channel.
+- **Features your DMD cannot run are greyed out** with the reason and an **[ALPHA]** mention (Game GIFs page, Wi-Fi playlists on a Pi); the capability is probed on the device, not guessed from a version number.
+- **Maturity per function**: the *Customization* tab is visible in alpha builds and hidden in stable builds (the old "experimental" checkbox is gone).
+- **Fixes**: the scripts of Mode 9 were always taken from the stable branch; Mode 14 offered a Pi the ESP32 firmware version; a Raspberry Pi on the latest daemon could be told it was outdated; a stable Recalbox was told its scripts were late (10 vs 11); a user with no DMD on the network got a permanent warning badge.
+- **Release notes link per component** (toolkit, firmware, Pi daemon, scripts): each opens its own entry of this changelog.
+- **Numbering**: the same code is published twice, **197112** (alpha, this pre-release) and **197111** (stable); an alpha build always keeps a number above the stable one.
+- Checked with 1,258 automated checks and a real bench (ESP32 stable, Raspberry Pi alpha, Recalbox 10.1.1 and 11.0-patron-3.2).
+
 ## 2026-11-22 — Firmware 4.33 (alpha): Wi-Fi change gives the page download a fresh start
 
 - **Wi-Fi settings**: saving a new Wi-Fi setting (Network page or the first-start access-point page) now resets the daily attempt counter of the web-page download (2 attempts per day). A download that had failed because of a wrong Wi-Fi is no longer stuck until the next day once you fix the network. Nothing else changes.

@@ -10,6 +10,19 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-23 — Boîte à outils 197112 (pré-release alpha) : avis de compatibilité plus intelligents, un seul code pour stable et alpha
+
+- **Les avis annoncent leur cible** : avec plusieurs DMD ou plusieurs Recalbox, chaque avis dit de quel DMD (ESP32 / Pi, IP) et de quelle Recalbox il s'agit. Chaque problème est suivi de sa ligne **→ Solution** et de son bouton.
+- **Discret par défaut** : plus de fenêtre au démarrage. Un badge **⚠ n** apparaît dans le bandeau de cible seulement quand un vrai décalage existe ; un clic ouvre le détail.
+- **La compatibilité suit la version majeure de la Recalbox** (10 = ligne stable, 11 = ligne alpha), pas les mots « patron / alpha ». Les avis de mise à jour comparent chaque DMD à la version publiée de **son propre canal**.
+- **Les données suivent la cible** : le Mode 9 lit la version de la Recalbox en SSH avant d'installer, prend les scripts sur la branche du canal **de cette Recalbox** et prévient avant tout retour en arrière ; le Mode 1 copie les images et le paquet de pages web du canal **du DMD visé**.
+- **Les fonctions que votre DMD ne sait pas faire sont grisées** avec la raison et la mention **[ALPHA]** (page Gestion des GIFs, playlists par Wi-Fi d'un Pi) ; la capacité est sondée sur l'appareil, pas déduite d'un numéro de version.
+- **Maturité par fonction** : l'onglet *Personnalisation* est visible dans les builds alpha et masqué dans les builds stables (l'ancienne case « expérimental » disparaît).
+- **Corrections** : les scripts du Mode 9 étaient toujours pris sur la branche stable ; le Mode 14 proposait à un Pi la version du firmware ESP32 ; un Raspberry Pi à jour pouvait se voir dire qu'il était en retard ; une Recalbox stable se voyait dire que ses scripts étaient en retard (10 contre 11) ; un utilisateur sans DMD sur le réseau avait un badge d'alerte permanent.
+- **Un lien « Notes de version » par composant** (boîte à outils, firmware, démon Pi, scripts) : chacun ouvre sa propre entrée de ce journal.
+- **Numérotation** : le même code est publié deux fois, **197112** (alpha, cette pré-release) et **197111** (stable) ; un build alpha garde toujours un numéro supérieur au stable.
+- Vérifié par 1 258 contrôles automatiques et un banc réel (ESP32 stable, Raspberry Pi alpha, Recalbox 10.1.1 et 11.0-patron-3.2).
+
 ## 2026-11-22 — Firmware 4.33 (alpha) : un changement de Wi-Fi relance le téléchargement des pages
 
 - **Réglages Wi-Fi** : enregistrer un nouveau réglage Wi-Fi (page Réseau ou page d'accueil en mode point d'accès) remet à zéro le compteur d'essais quotidiens du téléchargement des pages web (2 essais par jour). Un téléchargement qui avait échoué à cause d'un mauvais Wi-Fi n'est plus bloqué jusqu'au lendemain une fois le réseau corrigé. Rien d'autre ne change.
