@@ -7,21 +7,21 @@ Report each result with **`/alphatest`** on Discord (see the [README](README.md)
 **Steps**
 
 1. DMD web page → **Settings** → *Colour order*.
-2. Pick another order (e.g. GRB) → *Apply and restart*.
-3. Watch the boot title / a logo: do the colours match the order?
-4. Go back to the order that shows the right colours; restart once more.
+2. Pick an order in the menu: **the DMD shows R, G, B in large letters, each in its own colour** (30 seconds at most, no restart). With the right order for your panel, R is red, G is green and B is blue; try another order and watch the letters change colour.
+3. Choose the order where each letter has its own colour → *Apply and restart*.
+4. Watch the boot title / a logo: the colours must be right. Restart once more.
 
-**Expected** : The DMD restarts, colours change with the order, the chosen order is kept after another restart.
+**Expected** : The preview appears at every pick without restarting the DMD and stops after 30 seconds, at the next pick or when you close the page; after applying, the DMD restarts, the colours are right and the chosen order is kept after another restart.
 
 ## T02 · Panel colour order (Raspberry Pi)  —  *Raspberry Pi*
 
 **Steps**
 
 1. Pi web page → **Settings** → *Colour order*.
-2. Pick another order → apply (the service restarts).
-3. Check the colours on the panel, then restore the right order.
+2. Pick an order in the menu: **the DMD shows R, G, B in large letters, each in its own colour** (30 seconds at most, no restart of the service). The right order is the one where R is red, G green and B blue.
+3. Choose it → apply (the service restarts), then check the colours on the panel.
 
-**Expected** : The panel comes back with the new colour order; the setting survives a Pi reboot.
+**Expected** : The preview appears at every pick; after applying, the panel comes back with the right colours; the setting survives a Pi reboot.
 
 ## T03 · Settings page layout  —  *ESP32 / Pi / Toolkit*
 
@@ -158,8 +158,9 @@ Report each result with **`/alphatest`** on Discord (see the [README](README.md)
 
 1. Put one DMD on the STABLE channel (T04).
 2. Open the alpha toolkit with that DMD reachable.
+3. Look at the target banner: a **⚠ badge** appears (no pop-up at start-up). Click it.
 
-**Expected** : The toolkit warns about the difference and offers the toolkit of the DMD's channel.
+**Expected** : The badge only appears for a real mismatch. The details name the DMD and the Recalbox concerned; each problem is followed by its own **→ Solution** and button.
 
 ## T16 · Pi update button stays on alpha  —  *Raspberry Pi*
 
@@ -179,3 +180,24 @@ Report each result with **`/alphatest`** on Discord (see the [README](README.md)
 3. Re-download a theme: stale files should disappear.
 
 **Expected** : The default theme stays up to date with the Recalbox alpha; no stale leftovers.
+
+## T18 · Accented file names (UTF-8 media partition)  —  *Raspberry Pi*
+
+**Steps**
+
+1. On a Pi whose media partition is still mounted in ASCII mode (a card made before daemon 3.88), open **Settings**: an announcement with an **OK** button appears.
+2. Press **OK**: the DMD goes dark for about ten seconds, then comes back.
+3. Put a logo whose file name has an accent or a non-breaking space (for example a Visual Pinball table) in the Pi's logos and check that the DMD displays it.
+4. ⚠️ Alternatively let the toolkit's **Mode 17** do it: it switches the partition by itself and says so in its log.
+
+**Expected** : After the switch accented names are found; `/etc/fstab` is backed up and no file is modified or deleted. A brand-new card is already mounted in UTF-8 (nothing to switch).
+
+## T19 · Mode 17 and Mode 1 on a Raspberry Pi card  —  *Toolkit*
+
+**Steps**
+
+1. ⚠️ Use a spare card. Mode 1 (target Raspberry Pi) on a card that was **already used**: the write must complete and the verification pass (no « Bad file descriptor »).
+2. On a Pi in ASCII mode, run **Mode 17**: the log announces the switch to UTF-8 and ends with a success message.
+3. Re-run Mode 17: nothing more to do, no error.
+
+**Expected** : The card is written and verified; the media partition ends up in UTF-8 and stays so; the toolkit never announces a success that did not happen.

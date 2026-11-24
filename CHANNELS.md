@@ -58,3 +58,16 @@ Quand l'alpha devient la stable, les mentions ALPHA doivent devenir STABLE. Rien
 | Boîte à outils PC | `Setup.exe`, `Portable.exe`, `Source.zip` | **`Portable.exe` UNIQUEMENT** (`gh release create … --prerelease`, jamais `--latest`) |
 | Démon Pi | `RecalBoxDMD_pi_payload.zip` + `.sha256` (`PI_CHANNEL` = stable) | idem, `PI_CHANNEL` = alpha, **marquée pre-release** |
 | Firmware | binaires sur `main` | binaires sur la branche `alpha` |
+
+## Boîte à outils PC : un seul code, deux pistes (2026-11-24)
+
+Le toolkit est **un seul code** : il s'adapte à sa cible (profil selon la **version majeure de la Recalbox** : 10 = ligne stable, 11 = ligne alpha ; canal du firmware du DMD). Seul change le **flux de mises à jour** qu'il suit, verrouillé à la construction par `BUILD_CHANNEL` : deux exécutables, construits par `build_release.ps1 -Channel stable|alpha`.
+
+| | Piste **stable** | Piste **alpha** |
+|---|---|---|
+| Branche / release | `main`, release normale `--latest` | `alpha`, **pre-release** |
+| Fichiers publiés | Setup + Portable + Source | **Portable + Source** (pas de Setup : il écraserait le toolkit stable installé) |
+| Numéro | explicite, **strictement inférieur** (ex. 199111) | auto = version GUI + outil (ex. 199112) |
+| Fonctions expérimentales | masquées (étiquette de maturité par fonction) | visibles |
+
+Règles : l'alpha reste **>= stable** (les anciens clients prennent le plus grand numéro de toutes les releases) ; ordre de publication **toolkit, puis firmware (ressources avant binaires), puis démon Pi**, **alpha avant stable** ; la release du démon Pi stable se crée avec `--latest=false` pour que le toolkit reste la release « Latest ». Les liens des firmwares vers le toolkit lisent la clé `toolkit` du manifeste de leur canal (`releases/tag/RecalBoxDMD_tool_v<N>`) : rien à changer à chaque release.

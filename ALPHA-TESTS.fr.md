@@ -7,21 +7,21 @@ Signalez chaque résultat avec **`/alphatest`** sur Discord (voir le [README](RE
 **Étapes**
 
 1. Page web du DMD → **Réglages** → *Ordre des couleurs*.
-2. Choisir un autre ordre (ex. GRB) → *Appliquer et redémarrer*.
-3. Regarder le titre au démarrage / un logo : les couleurs suivent-elles l'ordre choisi ?
-4. Revenir à l'ordre qui donne les bonnes couleurs ; redémarrer encore une fois.
+2. Choisir un ordre dans le menu : **le DMD affiche R, G, B en gros, chacune dans sa couleur** (30 secondes au plus, sans redémarrage). Avec le bon ordre pour votre dalle, R est rouge, G vert et B bleu ; essayez un autre ordre et regardez les lettres changer de couleur.
+3. Choisir l'ordre où chaque lettre a sa couleur → *Appliquer et redémarrer*.
+4. Regarder le titre au démarrage / un logo : les couleurs doivent être justes. Redémarrer encore une fois.
 
-**Attendu** : Le DMD redémarre, les couleurs changent avec l'ordre, l'ordre choisi est conservé après un nouveau redémarrage.
+**Attendu** : L'aperçu apparaît à chaque choix sans redémarrer le DMD et s'arrête après 30 secondes, au choix suivant ou à la fermeture de la page ; après application, le DMD redémarre, les couleurs sont justes et l'ordre choisi est conservé après un nouveau redémarrage.
 
 ## T02 · Ordre des couleurs de la dalle (Raspberry Pi)  —  *Raspberry Pi*
 
 **Étapes**
 
 1. Page web du Pi → **Réglages** → *Ordre des couleurs*.
-2. Choisir un autre ordre → appliquer (le service redémarre).
-3. Vérifier les couleurs sur la dalle, puis remettre le bon ordre.
+2. Choisir un ordre dans le menu : **le DMD affiche R, G, B en gros, chacune dans sa couleur** (30 secondes au plus, sans redémarrer le service). Le bon ordre est celui où R est rouge, G vert et B bleu.
+3. Le choisir → appliquer (le service redémarre), puis vérifier les couleurs sur la dalle.
 
-**Attendu** : La dalle revient avec le nouvel ordre ; le réglage survit à un redémarrage du Pi.
+**Attendu** : L'aperçu apparaît à chaque choix ; après application, la dalle revient avec les bonnes couleurs ; le réglage survit à un redémarrage du Pi.
 
 ## T03 · Mise en page de la page Réglages  —  *ESP32 / Pi / Toolkit*
 
@@ -158,8 +158,9 @@ Signalez chaque résultat avec **`/alphatest`** sur Discord (voir le [README](RE
 
 1. Mettre un DMD en canal STABLE (T04).
 2. Ouvrir le toolkit alpha avec ce DMD joignable.
+3. Regarder le bandeau de cible : une **pastille ⚠** apparaît (pas de fenêtre au démarrage). Cliquer dessus.
 
-**Attendu** : Le toolkit signale l'écart et propose la boîte à outils du canal du DMD.
+**Attendu** : La pastille n'apparaît que pour un vrai décalage. Le détail nomme le DMD et la Recalbox concernés ; chaque problème est suivi de sa propre ligne **→ Solution** et de son bouton.
 
 ## T16 · Le bouton de mise à jour du Pi reste en alpha  —  *Raspberry Pi*
 
@@ -179,3 +180,24 @@ Signalez chaque résultat avec **`/alphatest`** sur Discord (voir le [README](RE
 3. Retélécharger un thème : les fichiers périmés doivent disparaître.
 
 **Attendu** : Le thème par défaut reste à jour avec la Recalbox alpha ; aucun reste périmé.
+
+## T18 · Noms de fichiers accentués (partition média en UTF-8)  —  *Raspberry Pi*
+
+**Étapes**
+
+1. Sur un Pi dont la partition média est encore montée en ASCII (carte faite avant le démon 3.88), ouvrir **Réglages** : une annonce avec un bouton **OK** apparaît.
+2. Appuyer sur **OK** : le DMD s'éteint une dizaine de secondes, puis revient.
+3. Mettre dans les logos du Pi un logo dont le nom de fichier a un accent ou un espace insécable (par exemple un flipper Visual Pinball) et vérifier que le DMD l'affiche.
+4. ⚠️ Autre possibilité : laisser le **Mode 17** du toolkit le faire : il passe la partition tout seul et l'indique dans son journal.
+
+**Attendu** : Après le passage, les noms accentués sont retrouvés ; `/etc/fstab` est sauvegardé et aucun fichier n'est modifié ni supprimé. Une carte neuve est déjà montée en UTF-8 (rien à changer).
+
+## T19 · Mode 17 et Mode 1 sur une carte Raspberry Pi  —  *Toolkit*
+
+**Étapes**
+
+1. ⚠️ Utiliser une carte de rechange. Mode 1 (cible Raspberry Pi) sur une carte **déjà utilisée** : l'écriture doit aller au bout et la vérification réussir (pas de « Bad file descriptor »).
+2. Sur un Pi en ASCII, lancer le **Mode 17** : le journal annonce le passage en UTF-8 et se termine par un message de réussite.
+3. Relancer le Mode 17 : plus rien à faire, aucune erreur.
+
+**Attendu** : La carte est écrite et vérifiée ; la partition média finit en UTF-8 et le reste ; le toolkit n'annonce jamais un succès qui n'a pas eu lieu.

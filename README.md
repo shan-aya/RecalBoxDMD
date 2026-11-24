@@ -28,17 +28,17 @@
 ## 🔭 What is new and needs testing
 
 - 📟 **ESP32 firmware**
-  - Panel **colour order** (6 orders) — T01, tidied **Settings page** — T03
+  - Panel **colour order** (6 orders) with a **live R, G, B preview** on the DMD — T01, tidied **Settings page** — T03
   - **Channel switch** alpha ↔ stable — T04, update notices limited to the alpha channel — T06
   - **Game GIFs while playing** (option *Basic*, `/gifs_jeux`, exclusions) — T10
   - Web pages that come back by themselves after an update — T07, **settings that survive restarts** (`config.ini` protected) — T08, **Wi-Fi change** — T09
 - 🍓 **Raspberry Pi daemon**
-  - Colour order — T02, Settings page — T03, channel switch — T05, update button staying on alpha — T16
+  - Colour order with live preview — T02, **accented file names** (UTF-8 media partition) — T18, Settings page — T03, channel switch — T05, update button staying on alpha — T16
   - Game GIFs and **Playlist over Wi-Fi** — T10, T12
 - 🧰 **PC Toolkit**
   - **Logo customization** — T11, **target badge** and Playlist over Wi-Fi — T12
   - **Installation** tab — T13, **Format as FAT32** — T14
-  - Channel mismatch alert — T15, Recalbox themes (Modes 12 / 13) — T17
+  - **Compatibility notices** (⚠ badge) — T15, Recalbox themes (Modes 12 / 13) — T17, **Mode 17 and Mode 1 on a Pi card** — T19
 
 ## 🙋 Take part in the alpha tests
 
@@ -59,8 +59,8 @@ Details of each test (steps and expected result): [ALPHA-TESTS.md](ALPHA-TESTS.m
 
 | Test | Area | What |
 |---|---|---|
-| **T01** | ESP32 | Panel colour order (ESP32) |
-| **T02** | Raspberry Pi | Panel colour order (Raspberry Pi) |
+| **T01** | ESP32 | Panel colour order and live preview (ESP32) |
+| **T02** | Raspberry Pi | Panel colour order and live preview (Raspberry Pi) |
 | **T03** | ESP32 / Pi / Toolkit | Settings page layout |
 | **T04** | ESP32 | Switch channel alpha ↔ stable (ESP32) |
 | **T05** | Raspberry Pi | Switch channel alpha ↔ stable (Raspberry Pi) |
@@ -73,9 +73,11 @@ Details of each test (steps and expected result): [ALPHA-TESTS.md](ALPHA-TESTS.m
 | **T12** | Toolkit | Target badge and Playlist over Wi-Fi |
 | **T13** | Toolkit | Installation tab (Mode 1) |
 | **T14** | Toolkit | Format an SD card as FAT32 |
-| **T15** | Toolkit | Channel mismatch alert in the toolkit |
+| **T15** | Toolkit | Compatibility notices (⚠ badge) in the toolkit |
 | **T16** | Raspberry Pi | Pi update button stays on alpha |
 | **T17** | Toolkit | Recalbox themes (Modes 12 / 13) |
+| **T18** | Raspberry Pi | Accented file names (UTF-8 media partition) |
+| **T19** | Toolkit | Mode 17 and Mode 1 on a Raspberry Pi card |
 
 ## ⚠️ Good to know
 

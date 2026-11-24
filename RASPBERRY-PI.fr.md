@@ -59,6 +59,16 @@ Le Pi a le même mode diagnostic que l'ESP32 : action 12 de la page **Bouton** (
 
 Le démon Pi (3.77 et plus) gère les **playlists saisonnières** comme l'ESP32 (page web *Playlist*, onglet Playlist de la boîte à outils, mêmes règles : exclusive ou mixée, alerte de chevauchement). Différence : le Pi **change de playlist à chaud** au changement de jour, sans redémarrer ; il lit la date de l'horloge système (réseau ou RTC).
 
+## Noms de fichiers accentués (UTF-8)
+
+La partition média du Pi était montée en mode ASCII : les logos dont le nom de fichier contient un accent ou un espace insécable (par exemple certains flippers Visual Pinball) n'étaient jamais retrouvés. Depuis le démon **3.88** (alpha 3.99) :
+
+- une **carte neuve** (Mode 1 / Mode 16) est montée en UTF-8 dès son premier démarrage ;
+- une **carte existante** garde son montage tant que vous ne la passez pas : la page **Réglages** affiche une annonce avec un bouton **OK** qui lance le passage, et le **Mode 17** du toolkit le fait automatiquement (toolkit 199111, alpha 199112 et suivants). Le DMD s'éteint une dizaine de secondes ; `/etc/fstab` est sauvegardé et aucun fichier n'est modifié ni supprimé ;
+- sur une carte **exFAT** (cartes de plus de 30 Go préparées par le Mode 1), il n'y a rien à changer.
+
+Le toolkit n'envoie les noms accentués qu'à un Pi dont le démon annonce la prise en charge de l'UTF-8.
+
 ## Limites connues
 
 - Quelques LED défectueuses des dalles restent visibles quel que soit le réglage (matériel).

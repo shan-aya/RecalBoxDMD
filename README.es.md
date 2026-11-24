@@ -28,17 +28,17 @@
 ## 🔭 Novedades que hay que probar
 
 - 📟 **Firmware ESP32**
-  - **Orden de colores** del panel (6 órdenes) — T01, **página Ajustes** reorganizada — T03
+  - **Orden de colores** del panel (6 órdenes) con una **vista previa R, G, B en directo** en el DMD — T01, **página Ajustes** reorganizada — T03
   - **Cambio de canal** alfa ↔ estable — T04, avisos de actualización limitados al canal alfa — T06
   - **GIF del juego durante la partida** (opción *Basic*, `/gifs_jeux`, exclusiones) — T10
   - Páginas web que vuelven solas tras una actualización — T07, **ajustes que sobreviven a los reinicios** (`config.ini` protegido) — T08, **cambio de Wi-Fi** — T09
 - 🍓 **Demonio Raspberry Pi**
-  - Orden de colores — T02, página Ajustes — T03, cambio de canal — T05, botón de actualización que se queda en alfa — T16
+  - Orden de colores con vista previa en directo — T02, **nombres de archivo con acentos** (partición de medios en UTF-8) — T18, página Ajustes — T03, cambio de canal — T05, botón de actualización que se queda en alfa — T16
   - GIF del juego y **Playlist por Wi-Fi** — T10, T12
 - 🧰 **Caja de herramientas PC**
   - **Personalización de logos** — T11, **etiqueta de destino** y Playlist por Wi-Fi — T12
   - Pestaña **Instalación** — T13, **Formatear en FAT32** — T14
-  - Aviso de canal distinto — T15, temas de Recalbox (Modos 12 / 13) — T17
+  - **Avisos de compatibilidad** (insignia ⚠) — T15, temas de Recalbox (Modos 12 / 13) — T17, **Modo 17 y Modo 1 en una tarjeta Pi** — T19
 
 ## 🙋 Participar en las pruebas alfa
 
@@ -59,8 +59,8 @@ Detalle de cada prueba (pasos y resultado esperado): [ALPHA-TESTS.es.md](ALPHA-T
 
 | Prueba | Zona | Qué |
 |---|---|---|
-| **T01** | ESP32 | Orden de colores del panel (ESP32) |
-| **T02** | Raspberry Pi | Orden de colores del panel (Raspberry Pi) |
+| **T01** | ESP32 | Orden de colores del panel y vista previa en directo (ESP32) |
+| **T02** | Raspberry Pi | Orden de colores del panel y vista previa en directo (Raspberry Pi) |
 | **T03** | ESP32 / Pi / Toolkit | Diseño de la página Ajustes |
 | **T04** | ESP32 | Cambio de canal alfa ↔ estable (ESP32) |
 | **T05** | Raspberry Pi | Cambio de canal alfa ↔ estable (Raspberry Pi) |
@@ -73,9 +73,11 @@ Detalle de cada prueba (pasos y resultado esperado): [ALPHA-TESTS.es.md](ALPHA-T
 | **T12** | Toolkit | Etiqueta de destino y Playlist por Wi-Fi |
 | **T13** | Toolkit | Pestaña Instalación (Modo 1) |
 | **T14** | Toolkit | Formatear una tarjeta SD en FAT32 |
-| **T15** | Toolkit | Aviso de canal distinto en el toolkit |
+| **T15** | Toolkit | Avisos de compatibilidad (insignia ⚠) en el toolkit |
 | **T16** | Raspberry Pi | El botón de actualización de la Pi se queda en alfa |
 | **T17** | Toolkit | Temas de Recalbox (Modos 12 / 13) |
+| **T18** | Raspberry Pi | Nombres de archivo con acentos (partición de medios en UTF-8) |
+| **T19** | Toolkit | Modo 17 y Modo 1 en una tarjeta Raspberry Pi |
 
 ## ⚠️ Conviene saber
 

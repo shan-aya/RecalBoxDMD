@@ -28,17 +28,17 @@
 ## 🔭 Les nouveautés à tester
 
 - 📟 **Firmware ESP32**
-  - **Ordre des couleurs** de la dalle (6 ordres) — T01, **page Réglages** remise en ordre — T03
+  - **Ordre des couleurs** de la dalle (6 ordres) avec un **aperçu R, G, B en direct** sur le DMD — T01, **page Réglages** remise en ordre — T03
   - **Changement de canal** alpha ↔ stable — T04, avis de mise à jour limités au canal alpha — T06
   - **GIF du jeu pendant la partie** (option *Basic*, `/gifs_jeux`, exclusions) — T10
   - Pages web qui reviennent toutes seules après une mise à jour — T07, **réglages qui survivent aux redémarrages** (`config.ini` protégé) — T08, **changement de Wi-Fi** — T09
 - 🍓 **Démon Raspberry Pi**
-  - Ordre des couleurs — T02, page Réglages — T03, changement de canal — T05, bouton de mise à jour qui reste en alpha — T16
+  - Ordre des couleurs avec aperçu en direct — T02, **noms de fichiers accentués** (partition média en UTF-8) — T18, page Réglages — T03, changement de canal — T05, bouton de mise à jour qui reste en alpha — T16
   - GIF du jeu et **Playlist en Wi-Fi** — T10, T12
 - 🧰 **Boîte à outils PC**
   - **Personnalisation des logos** — T11, **pastille de cible** et Playlist en Wi-Fi — T12
   - Onglet **Installation** — T13, **Formater en FAT32** — T14
-  - Alerte d'écart de canal — T15, thèmes Recalbox (Modes 12 / 13) — T17
+  - **Avis de compatibilité** (pastille ⚠) — T15, thèmes Recalbox (Modes 12 / 13) — T17, **Mode 17 et Mode 1 sur une carte Pi** — T19
 
 ## 🙋 Participer aux tests alpha
 
@@ -59,8 +59,8 @@ Détail de chaque test (étapes et résultat attendu) : [ALPHA-TESTS.fr.md](ALPH
 
 | Test | Zone | Quoi |
 |---|---|---|
-| **T01** | ESP32 | Ordre des couleurs de la dalle (ESP32) |
-| **T02** | Raspberry Pi | Ordre des couleurs de la dalle (Raspberry Pi) |
+| **T01** | ESP32 | Ordre des couleurs de la dalle et aperçu en direct (ESP32) |
+| **T02** | Raspberry Pi | Ordre des couleurs de la dalle et aperçu en direct (Raspberry Pi) |
 | **T03** | ESP32 / Pi / Toolkit | Mise en page de la page Réglages |
 | **T04** | ESP32 | Changement de canal alpha ↔ stable (ESP32) |
 | **T05** | Raspberry Pi | Changement de canal alpha ↔ stable (Raspberry Pi) |
@@ -73,9 +73,11 @@ Détail de chaque test (étapes et résultat attendu) : [ALPHA-TESTS.fr.md](ALPH
 | **T12** | Toolkit | Pastille de cible et Playlist en Wi-Fi |
 | **T13** | Toolkit | Onglet Installation (Mode 1) |
 | **T14** | Toolkit | Formater une carte SD en FAT32 |
-| **T15** | Toolkit | Alerte d'écart de canal dans le toolkit |
+| **T15** | Toolkit | Avis de compatibilité (pastille ⚠) dans le toolkit |
 | **T16** | Raspberry Pi | Le bouton de mise à jour du Pi reste en alpha |
 | **T17** | Toolkit | Thèmes Recalbox (Modes 12 / 13) |
+| **T18** | Raspberry Pi | Noms de fichiers accentués (partition média en UTF-8) |
+| **T19** | Toolkit | Mode 17 et Mode 1 sur une carte Raspberry Pi |
 
 ## ⚠️ À savoir
 
