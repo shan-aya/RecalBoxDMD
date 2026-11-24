@@ -2,7 +2,7 @@
 
 Signalez chaque résultat avec **`/alphatest`** sur Discord (voir le [README](README.fr.md)). ⚠️ = précaution.
 
-## T01 · Ordre des couleurs de la dalle (ESP32)  —  *ESP32*
+## T01 · Ordre des couleurs de la dalle et aperçu en direct (ESP32)  —  *ESP32*
 
 **Étapes**
 
@@ -13,7 +13,7 @@ Signalez chaque résultat avec **`/alphatest`** sur Discord (voir le [README](RE
 
 **Attendu** : L'aperçu apparaît à chaque choix sans redémarrer le DMD et s'arrête après 30 secondes, au choix suivant ou à la fermeture de la page ; après application, le DMD redémarre, les couleurs sont justes et l'ordre choisi est conservé après un nouveau redémarrage.
 
-## T02 · Ordre des couleurs de la dalle (Raspberry Pi)  —  *Raspberry Pi*
+## T02 · Ordre des couleurs de la dalle et aperçu en direct (Raspberry Pi)  —  *Raspberry Pi*
 
 **Étapes**
 
@@ -152,7 +152,7 @@ Signalez chaque résultat avec **`/alphatest`** sur Discord (voir le [README](RE
 
 **Attendu** : Seules les cartes amovibles sont proposées ; la carte est formatée en FAT32 et fonctionne dans le DMD.
 
-## T15 · Alerte d'écart de canal dans le toolkit  —  *Toolkit*
+## T15 · Avis de compatibilité (pastille ⚠) dans le toolkit  —  *Toolkit*
 
 **Étapes**
 
@@ -188,15 +188,17 @@ Signalez chaque résultat avec **`/alphatest`** sur Discord (voir le [README](RE
 1. Sur un Pi dont la partition média est encore montée en ASCII (carte faite avant le démon 3.88), ouvrir **Réglages** : une annonce avec un bouton **OK** apparaît.
 2. Appuyer sur **OK** : le DMD s'éteint une dizaine de secondes, puis revient.
 3. Mettre dans les logos du Pi un logo dont le nom de fichier a un accent ou un espace insécable (par exemple un flipper Visual Pinball) et vérifier que le DMD l'affiche.
-4. ⚠️ Autre possibilité : laisser le **Mode 17** du toolkit le faire : il passe la partition tout seul et l'indique dans son journal.
+4. Autre possibilité : laisser le **Mode 17** du toolkit le faire : il passe la partition tout seul et l'indique dans son journal.
 
 **Attendu** : Après le passage, les noms accentués sont retrouvés ; `/etc/fstab` est sauvegardé et aucun fichier n'est modifié ni supprimé. Une carte neuve est déjà montée en UTF-8 (rien à changer).
 
 ## T19 · Mode 17 et Mode 1 sur une carte Raspberry Pi  —  *Toolkit*
 
+**Utiliser une carte de rechange : le Mode 1 l'efface (sauf si vous conservez la partition média).**
+
 **Étapes**
 
-1. ⚠️ Utiliser une carte de rechange. Mode 1 (cible Raspberry Pi) sur une carte **déjà utilisée** : l'écriture doit aller au bout et la vérification réussir (pas de « Bad file descriptor »).
+1. Mode 1 (cible Raspberry Pi) sur une carte **déjà utilisée** : l'écriture doit aller au bout et la vérification réussir (pas de « Bad file descriptor »).
 2. Sur un Pi en ASCII, lancer le **Mode 17** : le journal annonce le passage en UTF-8 et se termine par un message de réussite.
 3. Relancer le Mode 17 : plus rien à faire, aucune erreur.
 

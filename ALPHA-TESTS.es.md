@@ -2,7 +2,7 @@
 
 Informe de cada resultado con **`/alphatest`** en Discord (véase el [README](README.es.md)). ⚠️ = precaución.
 
-## T01 · Orden de colores del panel (ESP32)  —  *ESP32*
+## T01 · Orden de colores del panel y vista previa en directo (ESP32)  —  *ESP32*
 
 **Pasos**
 
@@ -13,7 +13,7 @@ Informe de cada resultado con **`/alphatest`** en Discord (véase el [README](RE
 
 **Esperado** : La vista previa aparece en cada elección sin reiniciar el DMD y se detiene a los 30 segundos, en la siguiente elección o al cerrar la página; tras aplicar, el DMD se reinicia, los colores son correctos y el orden elegido se conserva tras otro reinicio.
 
-## T02 · Orden de colores del panel (Raspberry Pi)  —  *Raspberry Pi*
+## T02 · Orden de colores del panel y vista previa en directo (Raspberry Pi)  —  *Raspberry Pi*
 
 **Pasos**
 
@@ -152,7 +152,7 @@ Informe de cada resultado con **`/alphatest`** en Discord (véase el [README](RE
 
 **Esperado** : Solo se ofrecen tarjetas extraíbles; la tarjeta se formatea en FAT32 y funciona en el DMD.
 
-## T15 · Aviso de canal distinto en el toolkit  —  *Toolkit*
+## T15 · Avisos de compatibilidad (insignia ⚠) en el toolkit  —  *Toolkit*
 
 **Pasos**
 
@@ -188,15 +188,17 @@ Informe de cada resultado con **`/alphatest`** en Discord (véase el [README](RE
 1. En una Pi cuya partición de medios sigue montada en ASCII (tarjeta hecha antes del demonio 3.88), abrir **Ajustes**: aparece un anuncio con un botón **OK**.
 2. Pulsar **OK**: el DMD se apaga unos diez segundos y vuelve.
 3. Poner en los logos de la Pi un logo cuyo nombre de archivo tenga un acento o un espacio de no separación (por ejemplo un pinball de Visual Pinball) y comprobar que el DMD lo muestra.
-4. ⚠️ Otra posibilidad: dejar que lo haga el **Modo 17** de la caja de herramientas: cambia la partición solo y lo indica en su registro.
+4. Otra posibilidad: dejar que lo haga el **Modo 17** de la caja de herramientas: cambia la partición solo y lo indica en su registro.
 
 **Esperado** : Tras el cambio se encuentran los nombres con acentos; se hace copia de `/etc/fstab` y no se modifica ni borra ningún archivo. Una tarjeta nueva ya está montada en UTF-8 (nada que cambiar).
 
 ## T19 · Modo 17 y Modo 1 en una tarjeta Raspberry Pi  —  *Toolkit*
 
+**Use una tarjeta de repuesto: el Modo 1 la borra (salvo que conserve la partición de medios).**
+
 **Pasos**
 
-1. ⚠️ Usar una tarjeta de repuesto. Modo 1 (destino Raspberry Pi) en una tarjeta **ya usada**: la escritura debe terminar y la verificación pasar (sin « Bad file descriptor »).
+1. Modo 1 (destino Raspberry Pi) en una tarjeta **ya usada**: la escritura debe terminar y la verificación pasar (sin « Bad file descriptor »).
 2. En una Pi en ASCII, ejecutar el **Modo 17**: el registro anuncia el cambio a UTF-8 y termina con un mensaje de éxito.
 3. Volver a ejecutar el Modo 17: nada más que hacer, ningún error.
 
