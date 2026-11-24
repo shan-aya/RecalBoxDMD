@@ -103,6 +103,7 @@ void delay(unsigned long ms) {
   std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 
+#include <cstring>
 #include "clock_themes.h"    // (copie corrigee, voir CMakeLists.txt) : police des chiffres utilisee par clock_ambient.inc
 #include "clock_ambient.inc"   // plasma, lave... (deja utilises par les themes d'horloge ; static, donc sans conflit avec clock.cpp)
 
@@ -663,6 +664,33 @@ void Widgets::previewSpec(const std::string &specIn) {
   decoQuoteTheme = oldQ;
   decoAmbCol[pSt][0] = oldCa;
   decoAmbCol[pSt][1] = oldCb;
+}
+
+// v4.00 -- APERCU DE L'ORDRE DES COULEURS (meme principe que le firmware ESP32 4.36 : choisir un ordre dans le menu de la page Reglages affiche R, G, B en gros, chacune dans SA couleur
+// telle que la donnerait l'ordre choisi, pour voir si une couleur est inversee). L'ordre de la dalle est fixe a l'initialisation (--led-rgb-sequence, voir main.cpp) : l'apercu SIMULE l'ordre choisi en
+// permutant les canaux. Avec l'ordre ACTIF `cur`, la broche i recoit le canal logique cur[i] ; avec l'ordre CHOISI `sel` elle recevrait sel[i] : on met a 255 le canal logique cur[i] de chaque broche i
+// dont sel[i] est la couleur voulue de la lettre, 0 sinon. sel == cur : couleurs d'origine. 30 s au plus, interrompu par la commande suivante (choix suivant, fermeture de la page).
+void Widgets::previewRgbOrder(const std::string &selIn, const std::string &curIn) {
+  static const char *const kOrders[6] = {"RGB", "RBG", "GRB", "GBR", "BRG", "BGR"};
+  static const char kRGB[] = "RGB";
+  auto ok = [](const std::string &o) { for (const char *k : kOrders) if (o == k) return true; return false; };
+  if (!ok(selIn)) return;
+  const std::string cur = ok(curIn) ? curIn : std::string("RGB");
+  display->clearScreen();
+  display->setFont(nullptr);
+  display->setTextWrap(false);
+  display->setTextSize(4);   // police 5x7 x4 : lettres de 20 x 28 px sur la dalle 128 x 32
+  static const int kX[3] = {12, 54, 96};
+  for (int k = 0; k < 3; k++) {
+    uint8_t v[3] = {0, 0, 0};
+    for (int i = 0; i < 3; i++) v[std::strchr(kRGB, cur[i]) - kRGB] = (selIn[i] == kRGB[k]) ? 255 : 0;
+    display->setTextColor(Display::color565(v[0], v[1], v[2]));
+    display->setCursor(kX[k], 2);
+    char ch[2] = {kRGB[k], 0};
+    display->print(ch);
+  }
+  flushDisplay();
+  decoWait(30000UL, true);
 }
 
 std::string Widgets::cleanSportsList(const std::string &in, int maxItems, bool upper) { return std::string(sportsCleanList(String(in), maxItems, upper).c_str()); }   // v405 : sert a la page web (/save)

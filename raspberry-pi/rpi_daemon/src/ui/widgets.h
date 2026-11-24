@@ -36,6 +36,7 @@ class Widgets {
 
   // Apercu depuis la page web : « <id>[:<style>[:<duree>[:<themes>[:<couleur a>[:<couleur b>]]]]][@lat,lon] » ; reglages TEMPORAIRES (jamais gardes), bloquant.
   void previewSpec(const std::string &spec);
+  void previewRgbOrder(const std::string &selOrder, const std::string &activeOrder);   // v4.00 : apercu de l'ordre des couleurs (R, G, B en gros, 30 s au plus)
 
   // Joue le widget `id` (1..10). false = interrompu (la sequence doit s'arreter) ; true = termine, ou saute faute de donnees.
   bool run(int id, bool preview = false);

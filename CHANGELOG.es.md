@@ -10,6 +10,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-24 — Demonio Pi 4.00 (alfa): vista previa del orden de colores en el DMD
+
+- **Vista previa del orden de colores**: en la sección *Pantalla* de la página Ajustes, al elegir un orden en el menú *Orden de colores* el DMD muestra ahora **R**, **G** y **B** en grande, cada una en su color tal como lo daría ese orden (rojo, verde, azul). Si una letra aparece con un color equivocado en su panel, ese orden no es el correcto. La vista previa dura 30 segundos como máximo y se detiene al elegir otro orden o cerrar la página; *Aplicar* funciona como antes (el servicio se reinicia). Mismo comportamiento que el firmware ESP32 4.36.
+- **Probado**: las vistas previas se ejecutan en una Raspberry Pi 3B sin reiniciar el servicio. **Aún sin comprobar** en un panel cableado con otro orden de colores (prueba alfa T02).
+
 ## 2026-11-24 — Demonio Pi 3.99 (alfa): nombres de archivo con acentos, notas de versión y enlace de la caja de herramientas en las páginas web
 
 - **Nombres de archivo con acentos**: la partición de medios de la Pi estaba montada en modo ASCII, por lo que los logos cuyo nombre contiene un acento o un espacio de no separación (por ejemplo algunos pinballs de vpinball) nunca se encontraban. Una **tarjeta nueva** (Modo 1) se monta ahora en UTF-8. En una **tarjeta existente** nada cambia por sí solo: la página Ajustes muestra un anuncio con un botón **OK** que inicia el cambio, y el **Modo 17** de la caja de herramientas lo hace automáticamente indicándolo en su registro (el DMD se apaga unos diez segundos; se hace copia de `/etc/fstab`, no se modifica ni borra ningún archivo). La Pi anuncia `utf8_names` a la caja de herramientas, que entonces envía los nombres con acentos.

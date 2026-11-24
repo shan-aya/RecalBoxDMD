@@ -903,7 +903,7 @@ void WebConfig::registerRoutes() {
     WebReply out;
     if (!r.has("theme")) { out.status = 400; out.body = "ERR: missing theme"; return out; }
     const std::string th = r.arg("theme");
-    if (th.size() > 1 && th[0] == 'w') eng_.postMain([this, th] { eng_.clockPreview(th); });  // un widget dure plusieurs secondes : on repond tout de suite, un nouvel apercu interrompt celui-ci
+    if (th.size() > 1 && (th[0] == 'w' || th[0] == 'c')) eng_.postMain([this, th] { eng_.clockPreview(th); });  // un widget dure plusieurs secondes : on repond tout de suite, un nouvel apercu interrompt celui-ci
     else eng_.runOnMain([&] { eng_.clockPreview(th); });
     out.body = "OK";
     return out;
