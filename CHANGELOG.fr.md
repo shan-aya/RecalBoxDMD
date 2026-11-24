@@ -10,6 +10,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-24 — Boîte à outils 200112 (pré-release alpha) : aide intégrée mise à jour
+
+- **L'aide intégrée (onglet Aide) décrit maintenant** les avis de compatibilité (pastille ⚠ dans le bandeau de cible, chaque avis nommant son DMD et sa Recalbox, problème suivi de sa solution), les fonctions grisées avec la mention **[ALPHA]**, le **Mode 17** qui passe tout seul la partition média du Raspberry Pi en UTF-8 (noms de fichiers accentués) et le **Mode 1** qui écrit la table de partitions en dernier sur une carte déjà utilisée.
+- Aucun changement de comportement par rapport au build 199112.
+- Numéro de build : 200112 ; le même code est publié sur le canal stable sous le numéro 200111.
+
 ## 2026-11-24 — Démon Pi 4.00 (alpha) : aperçu de l'ordre des couleurs sur le DMD
 
 - **Aperçu de l'ordre des couleurs** : dans la section *Affichage* de la page Réglages, choisir un ordre dans le menu *Ordre des couleurs* affiche maintenant **R**, **G** et **B** en gros sur le DMD, chacune dans sa couleur telle que la donnerait cet ordre (rouge, vert, bleu). Si une lettre s'affiche dans la mauvaise couleur sur votre dalle, cet ordre n'est pas le bon. L'aperçu dure 30 secondes au plus et s'arrête quand vous choisissez un autre ordre ou fermez la page ; *Appliquer* fonctionne comme avant (le service redémarre). Même comportement que le firmware ESP32 4.36.

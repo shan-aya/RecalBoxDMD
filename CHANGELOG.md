@@ -10,6 +10,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-24 — Toolkit 200112 (alpha pre-release): built-in help brought up to date
+
+- **The built-in help (Help tab) now describes** the compatibility notices (⚠ badge in the target banner, each notice naming its DMD and Recalbox, problem followed by its solution), the functions greyed out with an **[ALPHA]** mention, **Mode 17** switching the Raspberry Pi's media partition to UTF-8 by itself (accented file names) and **Mode 1** writing the partition table last on a card that was already used.
+- No change in behaviour compared with build 199112.
+- Build number: 200112; the same code is published on the stable channel as 200111.
+
 ## 2026-11-24 — Pi daemon 4.00 (alpha): colour-order preview on the DMD
 
 - **Colour-order preview**: in the *Display* section of the Settings page, choosing an order in the *Colour order* menu now shows **R**, **G** and **B** in large letters on the DMD, each in its own colour as that order would give it (red, green, blue). If a letter shows the wrong colour on your panel, that order is not the right one. The preview lasts 30 seconds at most and stops when you pick another order or close the page; *Apply* works as before (the service restarts). Same behaviour as the ESP32 firmware 4.36.
