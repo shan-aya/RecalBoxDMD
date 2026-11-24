@@ -10,6 +10,14 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-24 — Caja de herramientas 199112 (pre-release alfa): cambio automático a nombres con acentos en la Raspberry Pi, escritura de tarjeta más segura
+
+- **El Modo 17 pasa solo la partición de medios de la Pi a UTF-8**: cuando está montada en modo ASCII, la instalación la pasa a UTF-8 y lo indica en su registro (el DMD se apaga unos diez segundos; se hace copia de `/etc/fstab`, no se modifica ni borra ningún archivo). El éxito solo se anuncia tras releer el estado: se acabó el falso éxito.
+- **Escritura de una tarjeta Raspberry Pi con el Modo 1 en una tarjeta ya usada**: la tabla de particiones se escribe ahora **al final**. Antes, Windows montaba los volúmenes de la tarjeta durante la escritura en bruto y la escritura fallaba (« Bad file descriptor », « verificación de bootfs fallida »). Los volúmenes que Windows vuelve a montar se bloquean, y una partición de medios que elija conservar no se toca.
+- **Nombres de archivo con acentos** (desde la 198112): se envían a una Pi cuyo demonio anuncia el soporte de UTF-8.
+- **Importante**: el demonio de la Pi correspondiente (3.99, alfa) **aún no está publicado**; hasta entonces el Modo 17 no cambia nada en una Pi con el demonio actual. **No probado**: la ventana del Modo 17 en sí, el aviso de actualización 3.98, conservar la partición de medios en una tarjeta cuya partición del sistema se ha ampliado, una actualización OTA real.
+- Número de versión: esta alfa es la **199112**; el mismo código se publicará como versión estable (199111).
+
 ## 2026-11-23 — Caja de herramientas 198112 (pre-release alfa): botón [ALPHA] pulsable, nombres de archivo con acentos para la Raspberry Pi (lado caja de herramientas)
 
 - **Página Gestión de GIFs**: el botón atenuado **[ALPHA]** pasa a ser un botón normal. Púlselo para saber por qué la función no está disponible en su destino (requiere un firmware alfa); ya no hay texto rojo permanente, que quedaba cortado en la barra.

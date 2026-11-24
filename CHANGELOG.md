@@ -10,6 +10,14 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-24 — Toolkit 199112 (alpha pre-release): automatic accented-name switch for the Raspberry Pi, safer card writing
+
+- **Mode 17 switches the Pi's media partition to UTF-8 by itself**: when it is mounted in ASCII mode, the installation now switches it to UTF-8 and says so in its log (the DMD goes dark for about ten seconds; `/etc/fstab` is backed up, no file is modified or deleted). Success is only announced after the state has been read back, so there is no more false success.
+- **Writing a Raspberry Pi card with Mode 1 on a card that was already used**: the partition table is now written **last**. Before, Windows mounted the card's volumes during the raw write and the write failed (« Bad file descriptor », « boot check failed »). The volumes Windows remounts are locked, and a media partition you chose to keep is left untouched.
+- **Accented file names** (since 198112): sent to a Pi whose daemon announces UTF-8 support.
+- **Heads-up**: the matching Pi daemon (3.99, alpha) is **not published yet**; until then Mode 17 changes nothing on a Pi with the current daemon. **Not tested**: the Mode 17 window itself, the 3.98 update notice, keeping the media partition on a card whose system partition was enlarged, a real OTA update.
+- Build number: this alpha is **199112**; the same code will be published as a stable build (199111).
+
 ## 2026-11-23 — Toolkit 198112 (alpha pre-release): clickable [ALPHA] button, accented file names for the Raspberry Pi (toolkit side)
 
 - **Game GIFs page**: the greyed-out **[ALPHA]** button is now a normal button. Click it to see why the function is unavailable on your target (it needs an alpha firmware); no more permanent red text, which was cut off in the banner.

@@ -10,6 +10,14 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-24 — Boîte à outils 199112 (pré-release alpha) : passage automatique aux noms accentués sur le Raspberry Pi, écriture de carte plus sûre
+
+- **Le Mode 17 passe tout seul la partition média du Pi en UTF-8** : quand elle est montée en mode ASCII, l'installation la passe en UTF-8 et l'indique dans son journal (le DMD s'éteint une dizaine de secondes ; `/etc/fstab` est sauvegardé, aucun fichier n'est modifié ni supprimé). Le succès n'est annoncé qu'après relecture de l'état : plus de faux succès.
+- **Écriture d'une carte Raspberry Pi avec le Mode 1 sur une carte déjà utilisée** : la table de partitions est maintenant écrite **en dernier**. Avant, Windows montait les volumes de la carte pendant l'écriture brute et l'écriture échouait (« Bad file descriptor », « vérification de bootfs échouée »). Les volumes que Windows remonte sont verrouillés, et une partition média que vous choisissez de conserver n'est pas touchée.
+- **Noms de fichiers accentués** (depuis la 198112) : envoyés à un Pi dont le démon annonce la prise en charge de l'UTF-8.
+- **À savoir** : le démon du Pi correspondant (3.99, alpha) n'est **pas encore publié** ; d'ici là, le Mode 17 ne change rien sur un Pi avec le démon actuel. **Non testé** : la fenêtre du Mode 17 elle-même, l'avis de mise à jour 3.98, la conservation de la partition média sur une carte dont la partition système a été agrandie, une vraie mise à jour OTA.
+- Numéro de build : cette alpha porte le **199112** ; le même code sera publié en version stable (199111).
+
 ## 2026-11-23 — Boîte à outils 198112 (pré-release alpha) : bouton [ALPHA] cliquable, noms de fichiers accentués pour le Raspberry Pi (côté boîte à outils)
 
 - **Page Gestion des GIFs** : le bouton grisé **[ALPHA]** devient un bouton normal. Cliquez dessus pour savoir pourquoi la fonction n'est pas disponible sur votre cible (elle demande un firmware alpha) ; plus de texte rouge permanent, qui était coupé dans le bandeau.
