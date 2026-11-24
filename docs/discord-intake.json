@@ -1,0 +1,7 @@
+{
+  "_doc": "Points d'entree Discord du toolkit (RecalBoxDMD_discord.py). enabled=false suspend l'envoi ; min_toolkit = numero de build minimal.",
+  "enabled": true,
+  "min_toolkit": 0,
+  "alpha_reports": "https://discord.com/api/webhooks/1574772628697251950/bd7jqh9QgC-SA-2wHxr0bn_sSbLNmc5teKeuR1m-itxgges8e46zFXdJI0I4IXhvjgf5",
+  "support": "https://discord.com/api/webhooks/1574778618796843070/k2bkH3XhSCGGiXARd_nbCVzCtk3KBrGBqaJADmEvnvBYluXXZODc0B9W2xKrG2m8Tio3"
+}
