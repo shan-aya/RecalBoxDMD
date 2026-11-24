@@ -91,6 +91,10 @@ Usa las **playlists de temporada** (firmware 4.01, demonio Pi 3.77): pestaña *P
 - **¿No cambia nada enseguida en el ESP32?** El cambio ocurre al cambiar de día (el DMD se reinicia entonces una vez) o en el siguiente reinicio. La Pi cambia de playlist sin reiniciar.
 - Una playlist de temporada **ausente de la tarjeta SD** se ignora: el DMD vuelve a la playlist por defecto.
 
+## Los colores están invertidos (el rojo se ve azul o verde)
+
+Algunos paneles cablean sus canales de color en otro orden. Abra la página web del DMD → **Ajustes → Pantalla → Orden de colores** (ESP32 y Raspberry Pi). **Al elegir un orden, el DMD muestra las letras R, G y B en grande**, cada una en su color, durante 30 segundos como máximo: el orden es el correcto cuando **R es rojo, G verde y B azul**. Luego pulse **Aplicar y reiniciar**: el DMD se reinicia una vez y la elección se conserva. El ajuste existe desde el firmware 4.21 / demonio Pi 3.83; la vista previa R-G-B en directo llega con el firmware 4.28 / demonio Pi 3.89 (alfa: 4.36 / 4.00).
+
 ## Solución de problemas general
 
 | Síntoma | Causa probable | Prueba esto |

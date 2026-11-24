@@ -345,7 +345,7 @@ The Pi software is **downloaded from GitHub** (`pi-v…` release, SHA-256 checke
 
 ### 4. Updating
 - **From the web page** (v3.59+): the **Settings** page warns about a new version and offers **Update now** — download, SHA-256 check, install, service restart and **automatic rollback** to the previous version if startup fails (~1 min).
-- **Mode 17**, or by hand: `RecalBoxDMD_pi_payload.zip` from the latest `pi-v…` release, then `sudo bash install.sh`.
+- **Mode 17** (it also switches the media partition to UTF-8 by itself when needed: accented file names), or by hand: `RecalBoxDMD_pi_payload.zip` from the latest `pi-v…` release, then `sudo bash install.sh`.
 
 📖 Details, building from source, license (GPL-2.0+) and known limits: **[RASPBERRY-PI.md](RASPBERRY-PI.md)**.
 
@@ -495,6 +495,7 @@ Type the DMD's IP (shown on the panel; or `rbpidmd.local` for a Pi) into the bro
 - 📅 **Seasonal playlists**: a section of the *Playlist* page (and a window of the toolkit's Playlist tab). The DMD follows the seasons by itself: at the day change the ESP32 restarts once if the day's playlist changes; the Pi switches playlist without restarting.
 - 🔔 **A banner at the top of every page** announces a newer firmware, Recalbox scripts (→ Mode 9) or toolkit. The check is done by **your browser**: the DMD needs no Internet access.
 - 👁️ **Live preview**: brightness, clock theme and widgets play right away on the physical panel.
+- 🎨 **Colour order with a live preview**: if the colours are swapped, *Settings → Display → Colour order* shows **R, G, B in large letters** on the DMD for each order you pick, so you can see at once which order is right (ESP32 and Raspberry Pi).
 - 🆘 **Wi-Fi rescue**: without a valid network the DMD opens its own access point (Pi: **RecalBox-DMD-Config**, 192.168.4.1); the manual *DMD WiFi Recovery* script relaunches it remotely.
 - 🛡️ **Power-cut-proof config**: atomic write (`config.tmp` then swap), save verified before answering *OK*, refusal to save empty Wi-Fi / playlist fields.
 - 🔗 **Direct pages**: `/config/widgets`, `/config/button`, `/config/clock`, `/config/network`, `/config/media`, `/config/quotes`…

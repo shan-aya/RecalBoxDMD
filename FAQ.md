@@ -91,6 +91,10 @@ Use **seasonal playlists** (firmware 4.01, Pi daemon 3.77): toolkit *Playlist* t
 - **Nothing changes right away on the ESP32?** The change happens at the day change (the DMD then restarts once) or at the next restart. The Pi switches playlist without restarting.
 - A seasonal playlist that is **missing from the SD card** is ignored: the DMD falls back to the default playlist.
 
+## Colours are swapped (red shows as blue or green)
+
+Some panels wire their colour channels in a different order. Open the DMD web page → **Settings → Display → Colour order** (ESP32 and Raspberry Pi). **Choosing an order shows the letters R, G and B in large characters on the DMD**, each in its own colour, for 30 seconds at most: the order is the right one when **R is red, G is green and B is blue**. Then press **Apply and restart**: the DMD restarts once and the choice is kept. The setting exists since firmware 4.21 / Pi daemon 3.83; the live R-G-B preview comes with firmware 4.28 / Pi daemon 3.89 (alpha: 4.36 / 4.00).
+
 ## General troubleshooting
 
 | Symptom | Likely cause | Try this |

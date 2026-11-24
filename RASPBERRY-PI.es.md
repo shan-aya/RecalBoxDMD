@@ -57,6 +57,16 @@ El Pi tiene el mismo modo diagnóstico que el ESP32: acción 12 de la página **
 
 El demonio de la Pi (3.77 y posteriores) gestiona las **playlists de temporada** como el ESP32 (página web *Playlist*, pestaña Playlist del toolkit, mismas reglas: exclusiva o mixta, aviso de solapamiento). Diferencia: la Pi **cambia de playlist en caliente** al cambiar de día, sin reiniciar; lee la fecha del reloj del sistema (red o RTC).
 
+## Nombres de archivo con acentos (UTF-8)
+
+La partición de medios de la Pi estaba montada en modo ASCII: los logos cuyo nombre de archivo contiene un acento o un espacio de no separación (por ejemplo algunos pinballs de Visual Pinball) nunca se encontraban. Desde el demonio **3.88** (alfa 3.99):
+
+- una **tarjeta nueva** (Modo 1 / Modo 16) se monta en UTF-8 desde su primer arranque;
+- una **tarjeta existente** conserva su montaje hasta que la cambie: la página **Ajustes** muestra un anuncio con un botón **OK** que inicia el cambio, y el **Modo 17** de la caja de herramientas lo hace automáticamente (caja de herramientas 199111, alfa 199112 y posteriores). El DMD se apaga unos diez segundos; se hace copia de `/etc/fstab` y no se modifica ni borra ningún archivo;
+- en una tarjeta **exFAT** (tarjetas de más de 30 GB preparadas por el Modo 1) no hay nada que cambiar.
+
+La caja de herramientas solo envía nombres con acentos a una Pi cuyo demonio anuncia el soporte de UTF-8.
+
 ## Límites conocidos
 
 - Algunos LED defectuosos de los paneles siguen visibles sea cual sea el ajuste (hardware).

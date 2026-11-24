@@ -346,7 +346,7 @@ El software del Pi se **descarga de GitHub** (release `pi-v…`, SHA-256 verific
 
 ### 4. Actualizar
 - **Desde la página web** (v3.59+): la página **Ajustes** avisa de una nueva versión y ofrece **Actualizar ahora** — descarga, verificación SHA-256, instalación, reinicio del servicio y **vuelta atrás automática** a la versión anterior si el arranque falla (~1 min).
-- **Modo 17**, o a mano: `RecalBoxDMD_pi_payload.zip` de la última release `pi-v…`, luego `sudo bash install.sh`.
+- **Modo 17** (también pasa solo la partición de medios a UTF-8 si hace falta: nombres de archivo con acentos), o a mano: `RecalBoxDMD_pi_payload.zip` de la última release `pi-v…`, luego `sudo bash install.sh`.
 
 📖 Detalles, compilación, licencia (GPL-2.0+) y límites conocidos: **[RASPBERRY-PI.es.md](RASPBERRY-PI.es.md)**.
 
@@ -496,6 +496,7 @@ Escribe la IP del DMD (se muestra en el panel; o `rbpidmd.local` para un Pi) en 
 - 📅 **Playlists de temporada**: sección de la página *Playlist* (y ventana de la pestaña Playlist del toolkit). El DMD sigue las estaciones solo: al cambiar de día, el ESP32 se reinicia una vez si cambia la playlist del día; la Pi cambia de playlist sin reiniciar.
 - 🔔 **Un banner arriba en cada página** anuncia un firmware, scripts de Recalbox (→ Modo 9) o una caja de herramientas más recientes. La comprobación la hace **tu navegador**: el DMD no necesita acceso a Internet.
 - 👁️ **Vista previa en vivo**: brillo, tema de reloj y widgets se reproducen enseguida en el panel físico.
+- 🎨 **Orden de colores con vista previa en directo**: si los colores están invertidos, *Ajustes → Pantalla → Orden de colores* muestra **R, G, B en grande** en el DMD para cada orden que elija, para ver enseguida cuál es el correcto (ESP32 y Raspberry Pi).
 - 🆘 **Rescate Wi-Fi**: sin red válida, el DMD abre su propio punto de acceso (Pi: **RecalBox-DMD-Config**, 192.168.4.1); el script manual *WiFi Recovery DMD* lo relanza a distancia.
 - 🛡️ **Config a prueba de cortes**: escritura atómica (`config.tmp` y luego intercambio), guardado verificado antes de responder *OK*, rechazo de campos Wi-Fi / playlist vacíos.
 - 🔗 **Páginas directas**: `/config/widgets`, `/config/button`, `/config/clock`, `/config/network`, `/config/media`, `/config/quotes`…

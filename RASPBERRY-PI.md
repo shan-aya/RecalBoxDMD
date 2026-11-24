@@ -57,6 +57,16 @@ The Pi has the same diagnostic mode as the ESP32: action 12 of the **Button** pa
 
 The Pi daemon (3.77 and later) handles **seasonal playlists** like the ESP32 (the *Playlist* web page, the toolkit's Playlist tab, same rules: exclusive or mixed, overlap alert). Difference: the Pi **switches playlist live** at the day change, without restarting; it reads the date from the system clock (network or RTC).
 
+## Accented file names (UTF-8)
+
+The Pi's media partition used to be mounted in ASCII mode, so logos whose file name contains an accent or a non-breaking space (for example some Visual Pinball tables) were never found. Since daemon **3.88** (alpha 3.99):
+
+- a **brand-new card** (Mode 1 / Mode 16) is mounted in UTF-8 from its first boot;
+- an **existing card** keeps its mount until you switch it: the **Settings** page shows an announcement with an **OK** button that starts the switch, and the toolkit's **Mode 17** does it automatically (toolkit 199111, alpha 199112 and later). The DMD goes dark for about ten seconds; `/etc/fstab` is backed up and no file is modified or deleted;
+- on an **exFAT** card (cards over 30 GB prepared by Mode 1) there is nothing to switch.
+
+The toolkit sends accented names only to a Pi whose daemon announces UTF-8 support.
+
 ## Known limits
 
 - A few defective panel LEDs stay visible whatever the setting (hardware).

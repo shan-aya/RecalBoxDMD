@@ -345,7 +345,7 @@ Le logiciel du Pi est **téléchargé depuis GitHub** (release `pi-v…`, SHA-25
 
 ### 4. Mettre à jour
 - **Depuis la page web** (v3.59+) : la page **Réglages** avertit d'une nouvelle version et propose **Mettre à jour maintenant** — téléchargement, vérification SHA-256, installation, redémarrage du service et **retour automatique à la version précédente** si le démarrage échoue (~1 min).
-- **Mode 17**, ou à la main : `RecalBoxDMD_pi_payload.zip` de la dernière release `pi-v…`, puis `sudo bash install.sh`.
+- **Mode 17** (il passe aussi tout seul la partition média en UTF-8 si besoin : noms de fichiers accentués), ou à la main : `RecalBoxDMD_pi_payload.zip` de la dernière release `pi-v…`, puis `sudo bash install.sh`.
 
 📖 Détails, compilation, licence (GPL-2.0+) et limites connues : **[RASPBERRY-PI.fr.md](RASPBERRY-PI.fr.md)**.
 
@@ -495,6 +495,7 @@ Tapez l'IP du DMD (affichée sur le panneau ; ou `rbpidmd.local` pour un Pi) dan
 - 📅 **Playlists saisonnières** : section de la page *Playlist* (et fenêtre de l'onglet Playlist de la boîte à outils). Le DMD suit les saisons tout seul : au changement de jour, l'ESP32 redémarre une fois si la playlist du jour change ; le Pi change de playlist sans redémarrer.
 - 🔔 **Un bandeau en haut de chaque page** annonce un firmware, des scripts Recalbox (→ Mode 9) ou une boîte à outils plus récents. La vérification est faite par **votre navigateur** : le DMD n'a besoin d'aucun accès Internet.
 - 👁️ **Aperçu en direct** : luminosité, thème d'horloge et widgets se jouent tout de suite sur le panneau physique.
+- 🎨 **Ordre des couleurs avec aperçu en direct** : si les couleurs sont inversées, *Réglages → Affichage → Ordre des couleurs* affiche **R, G, B en gros** sur le DMD pour chaque ordre choisi, pour voir tout de suite lequel est le bon (ESP32 et Raspberry Pi).
 - 🆘 **Secours Wi-Fi** : sans réseau valide, le DMD ouvre son propre point d'accès (Pi : **RecalBox-DMD-Config**, 192.168.4.1) ; le script manuel *WiFi Recovery DMD* le relance à distance.
 - 🛡️ **Config à l'épreuve des coupures** : écriture atomique (`config.tmp` puis échange), sauvegarde vérifiée avant de répondre *OK*, refus d'enregistrer des champs Wi-Fi / playlist vides.
 - 🔗 **Pages directes** : `/config/widgets`, `/config/button`, `/config/clock`, `/config/network`, `/config/media`, `/config/quotes`…
