@@ -24,6 +24,9 @@ class SdFs {
   bool readAll(const std::string &sdPath, std::vector<uint8_t> &out, size_t maxBytes = 0) const;
   // Lit exactement n octets a l'offset donne.
   bool readAt(const std::string &sdPath, uint64_t off, void *buf, size_t n) const;
+  // v3.93 : vrai si les noms de fichiers non ASCII (UTF-8) sont utilisables : la racine n'est PAS sur une FAT, ou la FAT est montee en iocharset=utf8.
+  // Une FAT en iocharset=ascii (defaut du noyau) rend ces noms introuvables (« ? » a l'affichage, EINVAL a la creation). Lit /proc/mounts : a appeler au demarrage.
+  bool utf8Names() const;
   // Noms reels des entrees d'un dossier (hors . et ..).
   std::vector<std::string> list(const std::string &sdDir) const;
 

@@ -15,7 +15,7 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
   function vnum(s) { var m = /^(\d+)\.(\d+)$/.exec(s || ''); return m ? parseInt(m[1], 10) * 100 + parseInt(m[2], 10) : 0; }
   var TXT = {
     fw: { fr: 'Mise à jour du firmware disponible : v{v} (v{c} installée) — ouvrir Réglages', en: 'Firmware update available: v{v} (v{c} installed) — open Settings', es: 'Actualización de firmware disponible: v{v} (v{c} instalada) — abrir Ajustes' },
-    sc: { fr: 'Mise à jour des scripts Recalbox disponible : lot {v} (lot {c} installé) — télécharger le toolkit puis lancer le Mode 9', en: 'Recalbox scripts update available: bundle {v} (bundle {c} installed) — download the toolkit, then run Mode 9', es: 'Actualización de los scripts de Recalbox disponible: lote {v} (lote {c} instalado) — descargar el toolkit y ejecutar el Modo 9' },
+    sc: { fr: 'Mise à jour des scripts Recalbox disponible : lot {v} (lot {c} installé{r}) — télécharger le toolkit puis lancer le Mode 9', en: 'Recalbox scripts update available: bundle {v} (bundle {c} installed{r}) — download the toolkit, then run Mode 9', es: 'Actualización de los scripts de Recalbox disponible: lote {v} (lote {c} instalado{r}) — descargar el toolkit y ejecutar el Modo 9' },
     tk: { fr: 'Dernier toolkit PC publié : build {v} — à télécharger si le vôtre est plus ancien', en: 'Latest PC toolkit published: build {v} — download it if yours is older', es: 'Última caja de herramientas del PC publicada: build {v} — descárguela si la suya es anterior' }   /* le DMD ne connait pas la version du toolkit installe sur le PC : avis une fois par build publie, a fermer */
   };
   /* v353 : lien vers les notes de version (CHANGELOG dans la langue de la page) a cote de chaque avis de mise a jour ; l'adresse s'affiche aussi au survol */
@@ -25,7 +25,46 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
   var UR = { ru: 'https://github.com/shan-aya/RecalBoxDMD/releases/latest', br: 'main' };
   function clUrl() { return 'https://github.com/shan-aya/RecalBoxDMD/blob/' + UR.br + '/CHANGELOG' + CL[clLang()][1] + '.md'; }
   var DL = { fr: 'Télécharger le toolkit', en: 'Download the toolkit', es: 'Descargar el toolkit' };   /* v387 : lien vers la derniere version du toolkit PC, a cote des notes de version (avis scripts / toolkit) */
-  window.cfgNotes = function () { return '<a class="cfgcl" href="' + clUrl() + '" target="_blank" rel="noopener">' + CL[clLang()][0] + '</a>'; };
+  /* v430 : NOTES DE VERSION PRECISES. cfgNotes(version) | cfgNotes('', lot_de_scripts, version_toolkit_de_repli) : lien vers l'ENTREE du CHANGELOG du composant (ancre GitHub) et bulle de survol limitee a cette entree ;
+     sans argument : CHANGELOG entier (ancien comportement). Le CHANGELOG est lu une fois par langue et par page ; hors ligne : le lien reste celui du CHANGELOG entier. */
+  var clMd = {};
+  function clGet(lg, cb) {
+    if (clMd[lg] !== undefined) { cb(clMd[lg]); return; }
+    fetch('https://raw.githubusercontent.com/shan-aya/RecalBoxDMD/' + UR.br + '/CHANGELOG' + CL[lg][1] + '.md').then(function (r) { return r.text(); }).then(function (m) { clMd[lg] = m; cb(m); }).catch(function () { cb(''); });
+  }
+  function clSlug(h) { var s = h.toLowerCase().replace(/[`*_\[\]]/g, ''); try { s = s.replace(/[^\p{L}\p{N}\s_-]/gu, ''); } catch (e) { s = s.replace(/[^\w\s-]/g, ''); } return s.replace(/\s/g, '-'); }
+  function clClean(p) { return p.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\*\*|`|\*/g, '').replace(/^- /gm, '• ').replace(/\n{3,}/g, '\n\n').trim(); }
+  function clFind(md, nt, ns, nf) {
+    var parts = md.replace(/\r/g, '').split(/^## /m).slice(1), i, re, pick = null;
+    function byTok(t) { var r = new RegExp('(^|[^\\d.])' + t.replace(/\./g, '\\.') + '(?![\\d])'); for (var j = 0; j < parts.length; j++) if (r.test(parts[j].split('\n')[0])) return parts[j]; return null; }
+    if (nt) pick = byTok(nt);
+    else if (ns) {   /* « lot de scripts n°9 », « scripts bundle 9 », « scripts Recalbox version 10 » ; jamais « script v11 » (version d'UN script) ; pas d'entree propre : repli sur celle du toolkit qui embarque le lot */
+      re = new RegExp('(?:bundle|lots?|lotes?|ensemble|conjunto)[^\\n\\d]{0,40}?' + ns + '(?![\\d.])|(?:scripts Recalbox|Recalbox scripts)\\s+(?:version|versi.n|n°|no\\.|n\\.º|nº)\\s*' + ns + '(?![\\d.])', 'i');
+      for (i = 0; i < parts.length && !pick; i++) if (re.test(parts[i])) pick = parts[i];
+      if (pick && !re.test(pick.split('\n')[0])) {   /* v431 : le lot n'est cite que DANS une ligne de l'entree (titre = firmware / demon / toolkit) : seules ces lignes comptent */
+        var hd = pick.split('\n')[0], bl = pick.substring(hd.length).split(/\n(?=- )/), sel = [];
+        for (var k = 0; k < bl.length; k++) if (re.test(bl[k])) sel.push(bl[k]);
+        var tt = clClean(hd.split(' \u2014 ')[0] + '\n\n' + sel.join('\n'));
+        return { head: hd, text: tt.length > 1500 ? tt.substring(0, 1500).replace(/\s+\S*$/, '') + ' \u2026' : tt };
+      }
+    }
+    if (!pick) return null;
+    var t = clClean(pick);
+    return { head: pick.split('\n')[0], text: t.length > 1500 ? t.substring(0, 1500).replace(/\s+\S*$/, '') + ' …' : t };
+  }
+  function clAnch(el, lg, e) { el.href = 'https://github.com/shan-aya/RecalBoxDMD/blob/' + UR.br + '/CHANGELOG' + CL[lg][1] + '.md#' + clSlug(e.head); }
+  function clResolve(el) {
+    var nt = el.getAttribute('data-nt') || '', ns = el.getAttribute('data-ns') || '', nf = el.getAttribute('data-nf') || '';
+    if (!nt && !ns) return;
+    var lg = clLang();
+    clGet(lg, function (md) { var e = md ? clFind(md, nt, ns, nf) : null; if (e) clAnch(el, lg, e); });
+  }
+  window.cfgNotes = function (nt, ns, nf) {
+    nt = String(nt || '').replace(/[^\d.]/g, ''); ns = String(ns || '').replace(/[^\d]/g, ''); nf = String(nf || '').replace(/[^\d.]/g, '');
+    var a = (nt ? ' data-nt="' + nt + '"' : '') + (ns ? ' data-ns="' + ns + '"' + (nf ? ' data-nf="' + nf + '"' : '') : '');
+    if (a) setTimeout(function () { var l = document.querySelectorAll('a.cfgcl[data-nt],a.cfgcl[data-ns]'); for (var i = 0; i < l.length; i++) clResolve(l[i]); }, 300);
+    return '<a class="cfgcl" href="' + clUrl() + '"' + a + ' target="_blank" rel="noopener">' + CL[clLang()][0] + '</a>';
+  };
   /* survol : le TEXTE du changelog (dernieres entrees, mise en forme retiree) s'affiche dans une bulle ; lu une fois sur GitHub (raw) par le navigateur, hors ligne : silence */
   var clTxt = {}, clTip = null;
   function clParse(md) {
@@ -45,6 +84,8 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
       clTip.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
       clTip.style.top = (r.bottom + h + 12 < window.innerHeight ? r.bottom + 6 : Math.max(8, r.top - h - 6)) + 'px';
     };
+    var nt = el.getAttribute('data-nt') || '', ns = el.getAttribute('data-ns') || '';
+    if (nt || ns) { put('\u2026'); clGet(lg, function (md) { var e = md ? clFind(md, nt, ns, el.getAttribute('data-nf') || '') : null; if (e) { clAnch(el, lg, e); if (clTip && clTip.style.display === 'block') put(e.text); } else if (clTip) clTip.style.display = 'none'; }); return; }   /* v430 : entree du composant seule */
     if (clTxt[lg]) { put(clTxt[lg]); return; }
     put('…');
     fetch('https://raw.githubusercontent.com/shan-aya/RecalBoxDMD/' + UR.br + '/CHANGELOG' + CL[lg][1] + '.md').then(function (r) { return r.text(); }).then(function (m) { clTxt[lg] = clParse(m); if (clTip && clTip.style.display === 'block') put(clTxt[lg]); }).catch(function () { if (clTip) clTip.style.display = 'none'; });
@@ -53,12 +94,14 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
   document.addEventListener('mouseout', function (e) { var t = e.target && e.target.closest ? e.target.closest('.cfgcl') : null; if (t && clTip) clTip.style.display = 'none'; });
   /* v428 : lien de telechargement du toolkit = la RELEASE EXACTE annoncee par le manifeste du canal (tag RecalBoxDMD_tool_v<build> : release stable ou pre-release alpha) ; sans numero : page des releases du canal (UR.ru) */
   function tkUrl(n) { n = parseInt(n, 10) || 0; return n > 0 ? 'https://github.com/shan-aya/RecalBoxDMD/releases/tag/RecalBoxDMD_tool_v' + n : UR.ru; }
+  window.cfgTk = function (n) { return tkUrl(n); };   /* v430 : lien de la release EXACTE du toolkit pour les pages (Reglages) */
+  function rbTxt(ip) { return ip ? ' \u00b7 Recalbox ' + ip : ''; }   /* v431 : l'avis des scripts nomme la Recalbox concernee (celle qui alimente ce DMD : recalbox_active) */
   function updBar(d, latest, scrLatest, tkLatest) {
     var onSet = location.pathname === '/config/settings';   /* la page Reglages a ses propres avis firmware / scripts : seul l'avis toolkit s'y ajoute */
     var lg = (localStorage.getItem('dmd_lang') || document.documentElement.lang || 'fr').substring(0, 2); if (!TXT.fw[lg]) lg = 'fr';
     var cur = String((d && d.fw_version) || ''), items = [];
     var fwNew = vnum(cur) > 0 && vnum(latest) > vnum(cur);
-    if (!onSet && fwNew) items.push({ k: 'fw', v: latest, c: cur, t: TXT.fw[lg].replace('{v}', latest).replace('{c}', cur), h: '/config/settings', b: false });
+    if (!onSet && fwNew) items.push({ k: 'fw', v: latest, c: cur, t: TXT.fw[lg].replace('{v}', latest).replace('{c}', cur), h: '/config/settings', b: false, nt: latest });
     var sl = parseInt(scrLatest, 10) || 0, sc = String((d && d.scripts_bundle) || ''), age = parseInt((d && d.rb_age) || '0', 10) || 0;
     var have = sc !== '' ? parseInt(sc, 10) : (age >= 90 ? 0 : -1);
     /* v356 : pastille « Mise a jour » sur chaque lien vers Reglages (bouton de l'accueil, menu des pages) : pseudo-element CSS (texte selon html[lang]) : survit au changement de langue (innerHTML reecrit) */
@@ -69,9 +112,9 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
       };
       if (document.body) badge(); else document.addEventListener('DOMContentLoaded', badge);
     }
-    if (!onSet && sl > 0 && have >= 0 && have < sl) items.push({ k: 'sc', v: sl, c: have, t: TXT.sc[lg].replace('{v}', sl).replace('{c}', have), h: tkUrl(tkLatest), b: true });
+    if (!onSet && sl > 0 && have >= 0 && have < sl) items.push({ k: 'sc', v: sl, c: have, r: String((d && d.recalbox_active) || ''), t: TXT.sc[lg].replace('{v}', sl).replace('{c}', have).replace('{r}', rbTxt(d && d.recalbox_active)), h: tkUrl(tkLatest), b: true, ns: String(sl), nf: String(parseInt(tkLatest, 10) || '') });
     var tkn = parseInt(tkLatest, 10) || 0, tks = 0; try { tks = parseInt(localStorage.getItem(TKS) || '0', 10) || 0; } catch (e) {}
-    if (tkn > 0 && tkn > tks) items.push({ k: 'tk', v: tkn, t: TXT.tk[lg].replace('{v}', tkn), h: tkUrl(tkn), b: true, tk: tkn });
+    if (tkn > 0 && tkn > tks) items.push({ k: 'tk', v: tkn, t: TXT.tk[lg].replace('{v}', tkn), h: tkUrl(tkn), b: true, tk: tkn, nt: String(tkn) });
     if (!items.length) return;
     var show = function () {
       if (document.getElementById('cfgFwBar') || !document.body) return;
@@ -79,7 +122,7 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
       items.forEach(function (it) {
         var r = document.createElement('div'), a = document.createElement('a'), n = document.createElement('a');
         a.href = it.h; if (it.b) { a.target = '_blank'; a.rel = 'noopener'; } a.textContent = it.t; a.style.cssText = 'color:inherit;text-decoration:none';
-        n.href = clUrl(); n.target = '_blank'; n.rel = 'noopener'; n.className = 'cfgcl'; n.textContent = CL[clLang()][0]; n.style.cssText = 'color:inherit;text-decoration:underline';
+        n.href = clUrl(); n.target = '_blank'; n.rel = 'noopener'; n.className = 'cfgcl'; n.textContent = CL[clLang()][0]; if (it.nt) n.setAttribute('data-nt', it.nt); if (it.ns) { n.setAttribute('data-ns', it.ns); if (it.nf) n.setAttribute('data-nf', it.nf); } clResolve(n); n.style.cssText = 'color:inherit;text-decoration:underline';
         var nr = document.createElement('div'); nr.style.cssText = 'margin-top:3px'; nr.appendChild(n);
         if (it.b) { var dl = document.createElement('a'); dl.href = it.h; dl.target = '_blank'; dl.rel = 'noopener'; dl.style.cssText = 'color:inherit;text-decoration:underline;margin-left:16px'; dl.textContent = DL[clLang()]; it.d = dl; nr.appendChild(dl); }
         r.style.cssText = 'text-align:center;background:#7a4a12;color:#ffcf8a;font:700 13px "Segoe UI",Tahoma,sans-serif;padding:8px 10px;margin:0 0 4px;border-radius:8px';
@@ -91,7 +134,7 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
       /* v384 : le bandeau etait construit UNE fois dans la langue du chargement (souvent le francais avant que la page applique la langue du DMD) et ne suivait pas le selecteur de langue : il est retraduit a chaque changement de l'attribut lang de la page */
       var retr = function () {
         var l2 = 'fr'; try { l2 = (localStorage.getItem('dmd_lang') || document.documentElement.lang || 'fr').substring(0, 2); } catch (e) { l2 = (document.documentElement.lang || 'fr').substring(0, 2); } if (!TXT.fw[l2]) l2 = 'fr';
-        items.forEach(function (it) { if (!it.a) return; it.a.textContent = TXT[it.k][l2].replace('{v}', it.v).replace('{c}', it.c === undefined ? '' : it.c); it.n.textContent = CL[clLang()][0]; it.n.href = clUrl(); if (it.d) it.d.textContent = DL[clLang()]; });
+        items.forEach(function (it) { if (!it.a) return; it.a.textContent = TXT[it.k][l2].replace('{v}', it.v).replace('{c}', it.c === undefined ? '' : it.c).replace('{r}', rbTxt(it.r)); it.n.textContent = CL[clLang()][0]; it.n.href = clUrl(); clResolve(it.n); if (it.d) it.d.textContent = DL[clLang()]; });
       };
       retr();
       try { new MutationObserver(retr).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] }); } catch (e) {}

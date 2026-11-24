@@ -23,6 +23,28 @@ SdFs::SdFs(std::string root) : root_(std::move(root)) {
   while (root_.size() > 1 && root_.back() == '/') root_.pop_back();
 }
 
+bool SdFs::utf8Names() const {
+  FILE *f = std::fopen("/proc/mounts", "r");
+  if (!f) return false;
+  char line[1024];
+  size_t bestLen = 0;
+  bool fat = false, utf8 = false, found = false;
+  while (std::fgets(line, sizeof line, f)) {
+    char dev[512], mp[512], type[64], opts[512];
+    if (std::sscanf(line, "%511s %511s %63s %511s", dev, mp, type, opts) != 4) continue;
+    const std::string m = mp;   // « \040 » (espace) non decode : sans importance pour /media/dmd
+    const bool prefix = m == "/" || (root_.compare(0, m.size(), m) == 0 && (root_.size() == m.size() || root_[m.size()] == '/'));
+    if (!prefix || m.size() < bestLen) continue;
+    bestLen = m.size();
+    found = true;
+    const std::string t = type, o = std::string(",") + opts + ",";
+    fat = t == "vfat" || t == "msdos";
+    utf8 = o.find(",iocharset=utf8,") != std::string::npos;
+  }
+  std::fclose(f);
+  return found && (!fat || utf8);
+}
+
 const SdFs::DirCache &SdFs::dirCache(const std::string &realDir, bool forceRefresh) const {
   auto now = std::chrono::steady_clock::now();
   auto it = dirs_.find(realDir);
