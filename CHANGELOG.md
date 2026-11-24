@@ -8,6 +8,19 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-24 — Toolkit 199111: smarter compatibility notices, safer Raspberry Pi card writing, accented file names
+
+- **Notices name their target**: with several DMDs or several Recalbox, every notice says which DMD (ESP32 / Pi, IP) and which Recalbox it is about; each problem is followed by its own **→ Solution** line and button.
+- **Quiet by default**: no pop-up at start-up. A **⚠ n** badge appears in the target banner only when a real mismatch exists; click it for the details.
+- **Compatibility follows the Recalbox major version** (10 = stable line, 11 = alpha line). Update notices compare each DMD with the published version of **its own channel**.
+- **The data follows the target**: Mode 9 reads the Recalbox version over SSH, takes the scripts from the branch of that Recalbox's channel and warns before any downgrade; Mode 1 copies the images and the web-page package of the targeted DMD's channel.
+- **Functions your DMD cannot run are greyed out** with the reason and an **[ALPHA]** mention (Game GIFs page, Wi-Fi playlists on a Pi); click the button to see why.
+- **Accented file names on the Raspberry Pi**: the toolkit sends them to a Pi whose daemon announces UTF-8 support, and **Mode 17 switches the Pi's media partition to UTF-8 by itself** when it is mounted in ASCII mode, saying so in its log (the DMD goes dark for about ten seconds; `/etc/fstab` is backed up, no file is modified or deleted). This needs the Pi daemon 3.88, published separately: until then Mode 17 changes nothing.
+- **Mode 1 on a Raspberry Pi card that was already used**: the partition table is written last (before, Windows mounted the volumes during the raw write and it failed), and a media partition you keep is left untouched.
+- **Fixes**: the scripts of Mode 9 were always taken from the stable branch; Mode 14 offered a Pi the ESP32 firmware version; a stable Recalbox was told its scripts were late; a user with no DMD on the network got a permanent warning badge.
+- **Not tested**: the Mode 17 window itself, the 3.98 update notice, keeping the media partition on a card whose system partition was enlarged, a real OTA update.
+- Build number: this stable build is **199111**; the same code is published on the alpha channel as 199112.
+
 ## 2026-11-22 — Firmware 4.25 (stable): Wi-Fi change gives the page download a fresh start
 
 - **Wi-Fi settings**: saving a new Wi-Fi setting (Network page or the first-start access-point page) now resets the daily attempt counter of the web-page download (2 attempts per day). A download that had failed because of a wrong Wi-Fi is no longer stuck until the next day once you fix the network. Nothing else changes.

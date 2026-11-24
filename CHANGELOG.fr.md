@@ -8,6 +8,19 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-24 — Boîte à outils 199111 : avis de compatibilité plus intelligents, écriture de carte Raspberry Pi plus sûre, noms de fichiers accentués
+
+- **Les avis annoncent leur cible** : avec plusieurs DMD ou plusieurs Recalbox, chaque avis dit de quel DMD (ESP32 / Pi, IP) et de quelle Recalbox il s'agit ; chaque problème est suivi de sa ligne **→ Solution** et de son bouton.
+- **Discret par défaut** : plus de fenêtre au démarrage. Un badge **⚠ n** apparaît dans le bandeau de cible seulement quand un vrai décalage existe ; un clic ouvre le détail.
+- **La compatibilité suit la version majeure de la Recalbox** (10 = ligne stable, 11 = ligne alpha). Les avis de mise à jour comparent chaque DMD à la version publiée de **son propre canal**.
+- **Les données suivent la cible** : le Mode 9 lit la version de la Recalbox en SSH, prend les scripts sur la branche du canal de cette Recalbox et prévient avant tout retour en arrière ; le Mode 1 copie les images et le paquet de pages web du canal du DMD visé.
+- **Les fonctions que votre DMD ne sait pas faire sont grisées** avec la raison et la mention **[ALPHA]** (page Gestion des GIFs, playlists par Wi-Fi d'un Pi) ; cliquez sur le bouton pour savoir pourquoi.
+- **Noms de fichiers accentués sur le Raspberry Pi** : la boîte à outils les envoie à un Pi dont le démon annonce la prise en charge de l'UTF-8, et le **Mode 17 passe tout seul la partition média du Pi en UTF-8** quand elle est montée en ASCII, en l'indiquant dans son journal (le DMD s'éteint une dizaine de secondes ; `/etc/fstab` est sauvegardé, aucun fichier n'est modifié ni supprimé). Cela demande le démon Pi 3.88, publié séparément : d'ici là, le Mode 17 ne change rien.
+- **Mode 1 sur une carte Raspberry Pi déjà utilisée** : la table de partitions est écrite en dernier (avant, Windows montait les volumes pendant l'écriture brute et elle échouait), et une partition média que vous conservez n'est pas touchée.
+- **Corrections** : les scripts du Mode 9 étaient toujours pris sur la branche stable ; le Mode 14 proposait à un Pi la version du firmware ESP32 ; une Recalbox stable se voyait dire que ses scripts étaient en retard ; un utilisateur sans DMD sur le réseau avait un badge d'alerte permanent.
+- **Non testé** : la fenêtre du Mode 17 elle-même, l'avis de mise à jour 3.98, la conservation de la partition média sur une carte dont la partition système a été agrandie, une vraie mise à jour OTA.
+- Numéro de build : cette version stable porte le **199111** ; le même code est publié sur le canal alpha sous le numéro 199112.
+
 ## 2026-11-22 — Firmware 4.25 (stable) : un changement de Wi-Fi relance le téléchargement des pages
 
 - **Réglages Wi-Fi** : enregistrer un nouveau réglage Wi-Fi (page Réseau ou page d'accueil en mode point d'accès) remet à zéro le compteur d'essais quotidiens du téléchargement des pages web (2 essais par jour). Un téléchargement qui avait échoué à cause d'un mauvais Wi-Fi n'est plus bloqué jusqu'au lendemain une fois le réseau corrigé. Rien d'autre ne change.
