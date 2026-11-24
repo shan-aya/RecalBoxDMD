@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-24 — Caja de herramientas 200111: ayuda integrada actualizada
+
+- **La ayuda integrada (pestaña Ayuda) describe ahora** los avisos de compatibilidad (insignia ⚠ en la barra del destino, cada aviso nombra su DMD y su Recalbox, problema seguido de su solución), las funciones atenuadas con la mención **[ALPHA]**, el **Modo 17** que pasa solo la partición de medios de la Raspberry Pi a UTF-8 (nombres de archivo con acentos) y el **Modo 1** que escribe la tabla de particiones al final en una tarjeta ya usada.
+- Ningún cambio de comportamiento respecto a la versión 199111.
+- Número de versión: 200111; el mismo código se publica en el canal alfa como 200112.
+
 ## 2026-11-24 — Demonio Pi 3.89: vista previa del orden de colores en el DMD
 
 - **Vista previa del orden de colores**: en la sección *Pantalla* de la página Ajustes, al elegir un orden en el menú *Orden de colores* el DMD muestra ahora **R**, **G** y **B** en grande, cada una en su color tal como lo daría ese orden (rojo, verde, azul). Si una letra aparece con un color equivocado en su panel, ese orden no es el correcto. La vista previa dura 30 segundos como máximo y se detiene al elegir otro orden o cerrar la página; *Aplicar* funciona como antes (el servicio se reinicia). Mismo comportamiento que el firmware ESP32 4.28.
