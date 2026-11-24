@@ -1,7 +1,7 @@
 {
  "format": 2,
  "pipeline": 21,
- "generated": "2026-11-16 16:55",
+ "generated": "2026-11-24 13:47",
  "themes": {
   "recalbox-next": {
    "version": "1.0",
@@ -348,11 +348,11 @@
     "n-gage.raw565",
     "n64.raw565",
     "namco.raw565",
-    "namco23.raw565",
     "namcos10.raw565",
     "namcos11.raw565",
     "namcos12.raw565",
     "namcos22.raw565",
+    "namcos23.raw565",
     "naomi.raw565",
     "naomi2.raw565",
     "naomigd.raw565",
@@ -516,7 +516,7 @@
     ]
    },
    "bytes": 3948544,
-   "rev": "fb0b145b7f5c"
+   "rev": "8cddec173e6f"
   },
   "logos-reels": {
    "version": "1",
