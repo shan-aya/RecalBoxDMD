@@ -324,6 +324,10 @@ WebReply WebConfig::load() {
     const bool okRo = ro == "RGB" || ro == "RBG" || ro == "GRB" || ro == "GBR" || ro == "BRG" || ro == "BGR";
     add("rgb_order", okRo ? ro : std::string("RGB"));
   }
+  add("utf8_names", b01(fs_.utf8Names()));  // v3.93 : 1 = partition media en iocharset=utf8 : le toolkit peut envoyer des noms de logos non ASCII (0/absent = regle ASCII)
+  // v3.93 : « utf8_fix » = 1 si la page web peut PROPOSER l'activation (script fat_utf8.sh installe ET partition en ascii) ; « utf8_last » = resultat de la derniere activation (en-cours / ok / ok:deja / echec:<raison>)
+  add("utf8_fix", b01(!fs_.utf8Names() && !installPrefix().empty() && access((installPrefix() + "/bin/fat_utf8.sh").c_str(), X_OK) == 0));
+  add("utf8_last", installPrefix().empty() ? "" : readSmall(installPrefix() + "/fat_utf8_last"));
   add("platform", "rpi");  // materiel annonce au toolkit (l'ESP32 annonce "esp32") : compare la bonne version publiee (cle pi / version du manifeste)
   {
     std::lock_guard<std::mutex> lk(eng_.themeControl().m);
@@ -1043,6 +1047,37 @@ void WebConfig::registerRoutes() {
     }
     logf("WEB", "mise a jour du demon lancee (dmd_update.py)");
     eng_.runOnMain([&] { eng_.webPause(L3(cfg_.uiLanguage, "Mise a jour...", "Updating...", "Actualizando..."), 0xFFE0); });
+    r.body = "OK";
+    return r;
+  });
+  // v3.93 : activation des noms de fichiers accentues (partition media en iocharset=utf8), apres confirmation dans la page : fat_utf8.sh tourne DETACHE du service (il l'arrete le temps du remontage)
+  web_.post("/fat-utf8/start", [this](const WebRequest &) {
+    WebReply r;
+    const std::string prefix = installPrefix();
+    const std::string script = prefix + "/bin/fat_utf8.sh";
+    if (prefix.empty() || access(script.c_str(), X_OK) != 0) {
+      r.status = 501;
+      r.body = "ERR: indisponible (fat_utf8.sh absent de l'installation)";
+      return r;
+    }
+    if (fs_.utf8Names()) {
+      r.body = "OK";   // deja actif
+      return r;
+    }
+    {
+      std::ofstream st(prefix + "/fat_utf8_last", std::ios::trunc);
+      st << "en-cours\n";
+    }
+    int rc = -1;
+    runArgs({"systemd-run", "--no-block", "--collect", "--unit=recalboxdmd-fatutf8", script}, 15000, &rc);
+    if (rc != 0) {
+      std::ofstream st(prefix + "/fat_utf8_last", std::ios::trunc);
+      st << "echec:busy\n";
+      r.status = 500;
+      r.body = "ERR: lancement impossible";
+      return r;
+    }
+    logf("WEB", "activation des noms accentues lancee (fat_utf8.sh)");
     r.body = "OK";
     return r;
   });

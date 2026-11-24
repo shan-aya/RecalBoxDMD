@@ -65,12 +65,31 @@ bool logoSysOk(const std::string &s) {
     if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-')) return false;
   return true;
 }
+// v3.93 : noms non ASCII (accents, espace insecable U+00A0 des ROM vpinball) acceptes SEULEMENT si la partition est montee en iocharset=utf8 (positionne au demarrage, voir registerMediaRoutes) ;
+// sinon la regle ASCII d'origine reste en vigueur (un nom non ASCII y serait ecrit en erreur ou introuvable). UTF-8 strict : pas de sequence tronquee/surlongue, pas de substitut, pas de C1 (U+0080-009F), 127 octets max.
+bool g_fatUtf8 = false;
+bool validUtf8(const std::string &s) {
+  for (size_t i = 0; i < s.size();) {
+    const unsigned char c = s[i];
+    size_t len = c < 0x80 ? 1 : (c >= 0xC2 && c <= 0xDF) ? 2 : (c >= 0xE0 && c <= 0xEF) ? 3 : (c >= 0xF0 && c <= 0xF4) ? 4 : 0;
+    if (!len || i + len > s.size()) return false;
+    uint32_t cp = len == 1 ? c : len == 2 ? (c & 0x1F) : len == 3 ? (c & 0x0F) : (c & 0x07);
+    for (size_t k = 1; k < len; k++) {
+      const unsigned char d = s[i + k];
+      if ((d & 0xC0) != 0x80) return false;
+      cp = (cp << 6) | (d & 0x3F);
+    }
+    if ((len == 3 && cp < 0x800) || (len == 4 && (cp < 0x10000 || cp > 0x10FFFF)) || (cp >= 0xD800 && cp <= 0xDFFF) || (cp >= 0x80 && cp <= 0x9F)) return false;
+    i += len;
+  }
+  return true;
+}
 bool logoNameOk(const std::string &n) {
   if (n.size() <= 7 || n.size() > 127 || n.compare(n.size() - 7, 7, ".raw565") != 0) return false;
   if (n[0] == '.' || n[0] == '_') return false;
   for (unsigned char c : n)
-    if (c <= 32 || c >= 127 || std::strchr("\\/:*?\"<>|", c)) return false;
-  return true;
+    if (c <= 32 || c == 127 || (c >= 128 && !g_fatUtf8) || (c < 128 && std::strchr("\\/:*?\"<>|", c))) return false;
+  return !g_fatUtf8 || validUtf8(n);
 }
 // v3.82 (non publiee) : ANIMATION de navigation d'un jeu = <jeu>.raw565pack (2 a 600 images de 8192 octets) + <jeu>.meta (2 octets par image : delai en ms), memes regles de nom que le logo fixe ;
 // le meta (si non nul) renseigne *meta. Ces deux fichiers passent par kind=logo comme le .raw565.
@@ -185,6 +204,7 @@ struct WebConfig::PlGen {
 
 void WebConfig::registerMediaRoutes() {
   gen_ = std::make_shared<PlGen>();
+  g_fatUtf8 = fs_.utf8Names();   // v3.93 : fixe pour la vie du processus (un changement de montage passe par un redemarrage du service)
   eng_.setWebBusyHook([gen = gen_] { return gen->active.load(); });  // generation de playlist en cours : le DMD ne reprend pas tout seul (Engine::tickWebWatchdog)
 
   // chemin reel (insensible a la casse pour ce qui existe, tel quel pour ce qu'on cree)

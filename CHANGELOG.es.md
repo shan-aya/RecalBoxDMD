@@ -10,6 +10,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-24 — Demonio Pi 3.99 (alfa): nombres de archivo con acentos, notas de versión y enlace de la caja de herramientas en las páginas web
+
+- **Nombres de archivo con acentos**: la partición de medios de la Pi estaba montada en modo ASCII, por lo que los logos cuyo nombre contiene un acento o un espacio de no separación (por ejemplo algunos pinballs de vpinball) nunca se encontraban. Una **tarjeta nueva** (Modo 1) se monta ahora en UTF-8. En una **tarjeta existente** nada cambia por sí solo: la página Ajustes muestra un anuncio con un botón **OK** que inicia el cambio, y el **Modo 17** de la caja de herramientas lo hace automáticamente indicándolo en su registro (el DMD se apaga unos diez segundos; se hace copia de `/etc/fstab`, no se modifica ni borra ningún archivo). La Pi anuncia `utf8_names` a la caja de herramientas, que entonces envía los nombres con acentos.
+- **Páginas web (desde la 3.97)**: cada aviso de actualización abre su propia entrada de notas de versión, el enlace de la caja de herramientas apunta a la versión exacta y el aviso nombra la Recalbox activa.
+- **Probado**: primer arranque de una tarjeta nueva preparada con el Modo 1 (partición de medios en UTF-8, logos con acentos enviados y leídos de vuelta), la página Ajustes en un navegador (anuncio, OK, cambio realizado). **No probado**: la ventana del Modo 17 en sí (solo su código con una respuesta simulada), una actualización OTA real a esta versión. Requiere una caja de herramientas más reciente que la 198112 para el Modo 17 y las correcciones de escritura de tarjeta del Modo 1.
+
 ## 2026-11-24 — Firmware 4.36 (alfa): vista previa del orden de colores en el DMD, notas de versión precisas en las páginas web
 
 - **Vista previa del orden de colores**: en la sección *Pantalla* de la página Ajustes, al elegir un orden en el menú *Orden de colores* el DMD muestra ahora las letras **R**, **G** y **B** en grande, cada una en su color tal como lo daría ese orden (rojo, verde, azul). Si una letra aparece con un color equivocado en su panel, ese orden no es el correcto. La vista previa dura 30 segundos como máximo y se detiene al elegir otro orden o cerrar la página; *Aplicar y reiniciar* funciona como antes.

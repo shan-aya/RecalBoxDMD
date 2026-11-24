@@ -85,6 +85,8 @@ install -m 0644 "$HERE/recalboxdmd.service" /etc/systemd/system/recalboxdmd.serv
 [ -f "$HERE/README.md" ] && install -m 0644 "$HERE/README.md" "$PREFIX/README.md"
 # mise a jour depuis la page web (bouton « Mettre a jour ») : script + numero de version installee (compare a la derniere release pi-v...)
 [ -f "$HERE/dmd_update.py" ] && install -m 0755 "$HERE/dmd_update.py" "$PREFIX/bin/dmd_update.py"
+# v3.93 : montage de la partition media en iocharset=utf8 (lance par le Mode 17 du toolkit ou par la page web du demon, avec l'accord de l'utilisateur)
+[ -f "$HERE/fat_utf8.sh" ] && install -m 0755 "$HERE/fat_utf8.sh" "$PREFIX/bin/fat_utf8.sh"
 PIV="$HERE/PI_VERSION"; [ -f "$PIV" ] || PIV="$HERE/../PI_VERSION"     # charge utile : a cote d'install.sh ; sources (--build) : a la racine de rpi_daemon
 [ -f "$PIV" ] && install -m 0644 "$PIV" "$PREFIX/PI_VERSION"
 PIC="$HERE/PI_CHANNEL"; [ -f "$PIC" ] || PIC="$HERE/../PI_CHANNEL"     # canal du build (stable | alpha), verrouille : lu par dmd_update.py et la page web
@@ -102,8 +104,13 @@ if [ -n "$MEDIA" ]; then   # partition media du Pi (preparee par le toolkit), mo
   # identifiee par son PARTUUID, PAS par son nom : un renommage (Windows...) ne doit jamais casser le montage ; check_media.sh restaure l'etiquette a chaque demarrage
   DEVM="$(blkid -L "$MEDIA" 2>/dev/null || blkid -L RECALBOXDMD 2>/dev/null || true)"
   if [ -n "$DEVM" ]; then SRCM="PARTUUID=$(blkid -s PARTUUID -o value "$DEVM")"; else SRCM="LABEL=$MEDIA"; fi
+  # v3.93 : noms non ASCII (accents, espace insecable U+00A0) = iocharset=utf8. Nouvelle carte : toujours. Carte DEJA installee : le choix existant est CONSERVE (jamais de changement de montage a l'insu de l'utilisateur ;
+  # l'activation passe par fat_utf8.sh, propose par le Mode 17 du toolkit et par la page web du demon), sauf DMD_FAT_UTF8=1 (consentement donne).
+  OLDOPT="$(awk -v sd="$SD" '$1 !~ /^#/ && $2 == sd { print $4; exit }' /etc/fstab)"
+  if [ -z "$OLDOPT" ]; then CS=utf8; else CS="$(printf '%s' "$OLDOPT" | tr ',' '\n' | sed -n 's/^iocharset=//p' | head -n1)"; fi
+  [ "${DMD_FAT_UTF8:-}" = 1 ] && CS=utf8
   sed -i "\|[[:space:]]$SD[[:space:]]|d" /etc/fstab
-  printf '%s  %s  auto  defaults,noatime,nofail,umask=000,x-systemd.device-timeout=10  0  0\n' "$SRCM" "$SD" >> /etc/fstab   # vfat (FAT32) ou exfat : detecte
+  printf '%s  %s  auto  defaults,noatime%s,nofail,umask=000,x-systemd.device-timeout=10  0  0\n' "$SRCM" "$SD" "${CS:+,iocharset=$CS}" >> /etc/fstab   # vfat (FAT32) ou exfat : detecte
   systemctl daemon-reload 2>/dev/null || true
   mountpoint -q "$SD" || mount "$SD" 2>/dev/null || echo "(partition media pas encore montable : montee au prochain demarrage)"
   install -d /etc/systemd/system/recalboxdmd.service.d
