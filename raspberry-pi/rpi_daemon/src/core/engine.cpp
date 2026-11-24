@@ -592,6 +592,21 @@ void Engine::clockPreview(const std::string &theme) {
     }
     return;
   }
+  if (theme.size() == 4 && theme[0] == 'c') {  // v3.89 : apercu de l'ORDRE DES COULEURS (« c<ORDRE> » : RGB, RBG, GRB, GBR, BRG, BGR) ; un « c... » ne retombe JAMAIS sur un theme d'horloge
+    abortDeco();
+    clock_.stop();
+    closeGifAll();
+    gifOpened_ = false;
+    currentPngPath_.clear();
+    pngDrawn_ = false;
+    mode_ = Mode::BLACK;
+    d_.clearScreen();
+    logf("RGB", "apercu ordre %s", theme.c_str() + 1);
+    widgets_.previewRgbOrder(theme.substr(1), cfg_.get("rgb_order", ""));   // ordre ACTIF = config.ini au demarrage (tout changement redemarre le service)
+    mode_ = Mode::CONFIG;
+    drawConfigScreen();
+    return;
+  }
   if (theme.size() > 1 && theme[0] == 'w') {  // apercu d'un widget du decor : une duree, puis retour a l'ecran de configuration
     abortDeco();
     clock_.stop();

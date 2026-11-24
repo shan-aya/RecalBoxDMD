@@ -150,15 +150,15 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
   var SLT = {
     fr: { chanH: '🔄 Canal du firmware', chanCur: 'Canal actuel', chanSw: 'Passer au canal ', chanHint: 'Télécharge et installe le firmware de l’autre canal, puis redémarre (la version du canal choisi peut être plus ancienne que celle installée).',
           chanC: 'Le DMD va télécharger et installer le firmware du canal {c}{v}, puis redémarrer (environ 1 minute). La version du canal choisi peut être plus ancienne que celle installée. Continuer ?', chanRun: 'Mise à jour en cours… ne débranchez pas le DMD.', chanOk: 'Terminé : firmware v{v} installé.', chanTo: 'Délai dépassé : vérifiez le DMD.',
-          bootH: '🚀 Démarrage et modes', rgbL: 'Ordre des couleurs', rgbB: 'Appliquer et redémarrer', rgbH: 'Si les couleurs sont inversées (par exemple le rouge s’affiche en bleu ou en vert), essayez un autre ordre : le DMD redémarre à chaque changement.',
+          bootH: '🚀 Démarrage et modes', rgbL: 'Ordre des couleurs', rgbB: 'Appliquer et redémarrer', rgbH: 'Si les couleurs sont inversées (par exemple le rouge s’affiche en bleu ou en vert), essayez un autre ordre : choisir un ordre affiche R, G, B en gros sur le DMD pendant 30 s (chaque lettre doit avoir sa couleur) ; le DMD ne redémarre qu’en appuyant sur Appliquer.',
           rgbC: 'Appliquer l’ordre {o} ? Le DMD va redémarrer.', rgbRun: 'Redémarrage du DMD…', rgbOk: 'Ordre {o} appliqué.', ko: 'Échec : {e}' },
     en: { chanH: '🔄 Firmware channel', chanCur: 'Current channel', chanSw: 'Switch to channel ', chanHint: 'Downloads and installs the firmware of the other channel, then restarts (the chosen channel may be older than the installed version).',
           chanC: 'The DMD will download and install the {c} channel firmware{v}, then restart (about 1 minute). The chosen channel may be older than the installed version. Continue?', chanRun: 'Updating… do not unplug the DMD.', chanOk: 'Done: firmware v{v} installed.', chanTo: 'Timed out: check the DMD.',
-          bootH: '🚀 Startup and modes', rgbL: 'Colour order', rgbB: 'Apply and restart', rgbH: 'If the colours are swapped (for example red shows as blue or green), try another order: the DMD restarts on every change.',
+          bootH: '🚀 Startup and modes', rgbL: 'Colour order', rgbB: 'Apply and restart', rgbH: 'If the colours are swapped (for example red shows as blue or green), try another order: choosing one shows R, G, B in large letters on the DMD for 30 s (each letter must have its own colour); the DMD only restarts when you press Apply.',
           rgbC: 'Apply order {o}? The DMD will restart.', rgbRun: 'Restarting the DMD…', rgbOk: 'Order {o} applied.', ko: 'Failed: {e}' },
     es: { chanH: '🔄 Canal del firmware', chanCur: 'Canal actual', chanSw: 'Cambiar al canal ', chanHint: 'Descarga e instala el firmware del otro canal y reinicia (la versión del canal elegido puede ser más antigua que la instalada).',
           chanC: 'El DMD descargará e instalará el firmware del canal {c}{v} y se reiniciará (aprox. 1 minuto). La versión del canal elegido puede ser más antigua que la instalada. ¿Continuar?', chanRun: 'Actualizando… no desconecte el DMD.', chanOk: 'Listo: firmware v{v} instalado.', chanTo: 'Tiempo agotado: compruebe el DMD.',
-          bootH: '🚀 Arranque y modos', rgbL: 'Orden de colores', rgbB: 'Aplicar y reiniciar', rgbH: 'Si los colores están invertidos (por ejemplo el rojo se ve azul o verde), pruebe otro orden: el DMD se reinicia con cada cambio.',
+          bootH: '🚀 Arranque y modos', rgbL: 'Orden de colores', rgbB: 'Aplicar y reiniciar', rgbH: 'Si los colores están invertidos (por ejemplo el rojo se ve azul o verde), pruebe otro orden: al elegir uno, el DMD muestra R, G, B en letras grandes durante 30 s (cada letra debe tener su color); el DMD solo se reinicia al pulsar Aplicar.',
           rgbC: '¿Aplicar el orden {o}? El DMD se reiniciará.', rgbRun: 'Reiniciando el DMD…', rgbOk: 'Orden {o} aplicado.', ko: 'Error: {e}' }
   };
   var M_STABLE = 'https://shan-aya.github.io/RecalBoxDMD/install/manifest.json', M_ALPHA = 'https://raw.githubusercontent.com/shan-aya/RecalBoxDMD/alpha/docs/install/manifest.json';
@@ -188,6 +188,9 @@ try { sessionStorage.removeItem('cfgR'); } catch (e) {}   // cfg.js bien arrive 
       row.appendChild(txt(mk('label'), 'rgbL')); row.appendChild(sel); row.appendChild(txt(btn, 'rgbB'));
       var hint = txt(mk('div', 'hint'), 'rgbH'), st = mk('div', 'hint', 'color:#ffd146');
       first.parentNode.insertBefore(row, first); first.parentNode.insertBefore(hint, first); first.parentNode.insertBefore(st, first);
+      /* v3.89 : APERCU sur le DMD : choisir un ordre affiche R, G, B en gros (chaque lettre dans sa couleur, 30 s) ; la fermeture de la page rend l'ecran */
+      sel.onchange = function () { window.fetch('/clock-preview', { method: 'POST', body: 'theme=c' + sel.value, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }).catch(function () {}); };
+      window.addEventListener('pagehide', function () { try { navigator.sendBeacon('/clock-preview', new Blob(['theme=stop'], { type: 'application/x-www-form-urlencoded' })); } catch (e) {} });
       btn.onclick = function () {
         var v = sel.value; if (v === cur) return;
         if (!window.confirm(T('rgbC').replace('{o}', v))) return;

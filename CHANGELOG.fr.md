@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-24 — Démon Pi 3.89 : aperçu de l'ordre des couleurs sur le DMD
+
+- **Aperçu de l'ordre des couleurs** : dans la section *Affichage* de la page Réglages, choisir un ordre dans le menu *Ordre des couleurs* affiche maintenant **R**, **G** et **B** en gros sur le DMD, chacune dans sa couleur telle que la donnerait cet ordre (rouge, vert, bleu). Si une lettre s'affiche dans la mauvaise couleur sur votre dalle, cet ordre n'est pas le bon. L'aperçu dure 30 secondes au plus et s'arrête quand vous choisissez un autre ordre ou fermez la page ; *Appliquer* fonctionne comme avant (le service redémarre). Même comportement que le firmware ESP32 4.28.
+- **Testé** : le même code a tourné sur un Raspberry Pi 3B sur la ligne alpha (4.00) sans redémarrer le service ; la version stable elle-même n'a été que compilée. **Pas encore vérifié** sur une dalle câblée avec un autre ordre de couleurs.
+
 ## 2026-11-24 — Démon Pi 3.88 : noms de fichiers accentués, notes de version et lien du toolkit dans les pages web
 
 - **Noms de fichiers accentués** : la partition média du Pi était montée en mode ASCII, donc les logos dont le nom contient un accent ou un espace insécable (par exemple certains flippers vpinball) n'étaient jamais retrouvés. Une **carte neuve** (Mode 1) est maintenant montée en UTF-8. Sur une **carte existante**, rien ne change tout seul : la page Réglages affiche une annonce avec un bouton **OK** qui lance le passage, et le **Mode 17** du toolkit le fait automatiquement en l'indiquant dans son journal (le DMD s'éteint une dizaine de secondes ; `/etc/fstab` est sauvegardé, aucun fichier n'est modifié ni supprimé). Le Pi annonce `utf8_names` au toolkit, qui envoie alors les noms accentués.

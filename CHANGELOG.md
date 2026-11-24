@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-24 — Pi daemon 3.89: colour-order preview on the DMD
+
+- **Colour-order preview**: in the *Display* section of the Settings page, choosing an order in the *Colour order* menu now shows **R**, **G** and **B** in large letters on the DMD, each in its own colour as that order would give it (red, green, blue). If a letter shows the wrong colour on your panel, that order is not the right one. The preview lasts 30 seconds at most and stops when you pick another order or close the page; *Apply* works as before (the service restarts). Same behaviour as the ESP32 firmware 4.28.
+- **Tested**: the same code ran on a Raspberry Pi 3B on the alpha line (4.00) without restarting the service; the stable build itself was only compiled. **Not yet checked** on a panel wired with another colour order.
+
 ## 2026-11-24 — Pi daemon 3.88: accented file names, release notes and toolkit link in the web pages
 
 - **Accented file names**: the Pi's media partition was mounted in ASCII mode, so logos whose name has an accent or a non-breaking space (for example some vpinball tables) were never found. A **brand-new card** (Mode 1) is now mounted in UTF-8. On an **existing card** nothing changes by itself: the Settings page shows an announcement with an **OK** button that starts the switch, and the toolkit's **Mode 17** does it automatically and says so in its log (the DMD goes dark for about ten seconds; `/etc/fstab` is backed up, no file is modified or deleted). The Pi announces `utf8_names` to the toolkit, which then sends accented names.
