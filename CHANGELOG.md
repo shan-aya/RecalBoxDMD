@@ -10,6 +10,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-25 — Toolkit 210115 (alpha pre-release): Alpha tests window improved
+
+- **"Alpha tests" window (alpha toolkit only), improved:** wider window with readable test titles, list grouped by area (ESP32 / Raspberry Pi / Toolkit / General) with sorting (area, number, title), the result buttons are no longer pre-ticked when the window opens (bug fixed), and the window stays open after sending so you can chain the tests.
+- Build number: 210115; the same code is published on the stable channel as 210114.
+
 ## 2026-11-25 — Toolkit 209115 (alpha pre-release): the alpha test plan inside the toolkit
 
 - **New — "Alpha tests" window (alpha toolkit only).** In the Diagnostic tab, Discord block, the new **Alpha tests…** button opens the alpha test plan from the Discord server: steps and expected result in your language, then OK / KO / partial and a comment (required for KO or partial). The result is sent with the versions the toolkit really detected, so the test counts toward "Ready for stable". You need your pairing code (`/dmdlink` on the Discord server).

@@ -10,6 +10,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-25 — Caja de herramientas 210115 (pre-release alfa): ventana Pruebas alfa mejorada
+
+- **Ventana «Pruebas alfa» (solo el toolkit alfa), mejorada:** ventana más ancha con títulos legibles, lista agrupada por zona (ESP32 / Raspberry Pi / Toolkit / General) con orden (zona, número, título), los botones de resultado ya no aparecen marcados al abrir (error corregido) y la ventana sigue abierta tras el envío para encadenar las pruebas.
+- Número de versión: 210115; el mismo código se publica en el canal estable como 210114.
+
 ## 2026-11-25 — Caja de herramientas 209115 (pre-release alfa): el plan de pruebas alfa dentro del toolkit
 
 - **Novedad — ventana «Pruebas alfa» (solo el toolkit alfa).** En la pestaña Diagnóstico, bloque Discord, el nuevo botón **Pruebas alfa…** abre el plan de pruebas alfa del servidor de Discord: pasos y resultado esperado en su idioma, y después OK / KO / parcial y un comentario (obligatorio si KO o parcial). El resultado se envía con las versiones que el toolkit detectó realmente, así que la prueba cuenta para «Listo para estable». Necesita su código de emparejamiento (`/dmdlink` en el servidor de Discord).

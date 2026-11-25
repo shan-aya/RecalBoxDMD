@@ -10,6 +10,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-25 — Boîte à outils 210115 (pré-release alpha) : fenêtre Tests alpha améliorée
+
+- **Fenêtre « Tests alpha » (toolkit alpha seulement), améliorée :** fenêtre plus large aux titres lisibles, liste groupée par zone (ESP32 / Raspberry Pi / Toolkit / Général) avec tri (zone, numéro, titre), boutons de résultat qui ne sont plus précochés à l'ouverture (bug corrigé), et fenêtre qui reste ouverte après l'envoi pour enchaîner les tests.
+- Numéro de build : 210115 ; le même code est publié sur le canal stable sous le numéro 210114.
+
 ## 2026-11-25 — Boîte à outils 209115 (pré-release alpha) : le plan de tests alpha dans le toolkit
 
 - **Nouveau — fenêtre « Tests alpha » (toolkit alpha seulement).** Dans l'onglet Diagnostic, bloc Discord, le nouveau bouton **Tests alpha…** ouvre le plan de tests alpha du serveur Discord : étapes et résultat attendu dans votre langue, puis OK / KO / partiel et un commentaire (obligatoire si KO ou partiel). Le résultat part avec les versions réellement détectées par le toolkit : le test compte donc pour « Prêt stable ». Il faut votre code d'appairage (`/dmdlink` sur le serveur Discord).
