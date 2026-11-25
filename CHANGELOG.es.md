@@ -8,6 +8,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-25 — Caja de herramientas 212114: mismo código que la versión alfa (sin cambios visibles)
+
+- Sin cambios visibles en el toolkit estable: la ventana «Pruebas alfa» solo existe en el toolkit alfa.
+- Número de versión: 212114; el mismo código se publica en el canal alfa como 212115.
+
 ## 2026-11-25 — Caja de herramientas 211114: mismo código que la versión alfa (sin cambios visibles)
 
 - Sin cambios visibles en el toolkit estable: la ventana «Pruebas alfa» solo existe en el toolkit alfa.

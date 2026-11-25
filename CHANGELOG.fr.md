@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-25 — Boîte à outils 212114 : même code que le build alpha (aucun changement visible)
+
+- Aucun changement visible dans le toolkit stable : la fenêtre « Tests alpha » n'existe que dans le toolkit alpha.
+- Numéro de build : 212114 ; le même code est publié sur le canal alpha sous le numéro 212115.
+
 ## 2026-11-25 — Boîte à outils 211114 : même code que le build alpha (aucun changement visible)
 
 - Aucun changement visible dans le toolkit stable : la fenêtre « Tests alpha » n'existe que dans le toolkit alpha.
