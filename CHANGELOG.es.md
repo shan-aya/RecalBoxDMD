@@ -10,6 +10,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-25 — Caja de herramientas 212115 (pre-release alfa): la ventana Pruebas alfa muestra lo hecho y lo pendiente
+
+- **Ventana «Pruebas alfa» (solo el toolkit alfa): ve lo que ya hizo y lo que queda.** Un icono por prueba (✅ ❌ 🟠 ➖ hecha, ⚪ por hacer, ⚠ hecha con versiones anteriores: rehacer), un contador («12/19 hechas»), un filtro (Todas / Por hacer / Hechas) y un botón **Anular mi resultado**. Reenviar el mismo resultado para las mismas versiones se rechaza; en Discord, un resultado reenviado actualiza la tarjeta anterior en lugar de añadir otra.
+- La nota de detección indica ahora «Recalbox inaccesible (¿apagada?)» en lugar de «versión ilegible» cuando la Recalbox no responde en la red.
+- Número de versión: 212115; el mismo código se publica en el canal estable como 212114.
+
 ## 2026-11-25 — Caja de herramientas 211115 (pre-release alfa): ventana Pruebas alfa con la vista previa integrada
 
 - **Ventana «Pruebas alfa» (solo el toolkit alfa): la vista previa de lo que se enviará está ahora dentro de la ventana.** Las versiones se detectan al abrirla, ve el mensaje exacto (prueba, resultado, comentario, versiones detectadas) actualizarse mientras lo rellena, y **Enviar** vale como consentimiento: un clic y una ventana menos. El código de emparejamiento se introduce en la misma ventana y el resultado del envío se muestra allí.

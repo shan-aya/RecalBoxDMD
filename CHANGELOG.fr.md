@@ -10,6 +10,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-25 — Boîte à outils 212115 (pré-release alpha) : la fenêtre Tests alpha montre ce qui est fait et ce qui reste
+
+- **Fenêtre « Tests alpha » (toolkit alpha seulement) : vous voyez ce que vous avez déjà fait et ce qu'il reste à faire.** Une icône par test (✅ ❌ 🟠 ➖ fait, ⚪ à faire, ⚠ fait sur d'anciennes versions : à refaire), un compteur (« 12/19 faits »), un filtre (Tous / Reste à faire / Faits) et un bouton **Annuler mon résultat**. Renvoyer le même résultat pour les mêmes versions est refusé ; côté Discord, un résultat renvoyé met à jour la carte précédente au lieu d'en ajouter une nouvelle.
+- La note de détection indique maintenant « Recalbox injoignable (éteinte ?) » au lieu de « version illisible » quand la Recalbox ne répond pas sur le réseau.
+- Numéro de build : 212115 ; le même code est publié sur le canal stable sous le numéro 212114.
+
 ## 2026-11-25 — Boîte à outils 211115 (pré-release alpha) : fenêtre Tests alpha avec l'aperçu intégré
 
 - **Fenêtre « Tests alpha » (toolkit alpha seulement) : l'aperçu de ce qui sera envoyé est maintenant dans la fenêtre.** Les versions sont détectées à l'ouverture, vous voyez le message exact (test, résultat, commentaire, versions détectées) se mettre à jour pendant que vous remplissez, et **Envoyer** vaut consentement : un clic et une fenêtre en moins. Le code d'appairage se saisit dans la même fenêtre et le résultat de l'envoi s'y affiche.
