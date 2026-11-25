@@ -10,6 +10,12 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-25 — Boîte à outils 208115 (pré-release alpha) : le thème par défaut suit la Recalbox visée
+
+- **Correctif : le thème par défaut (recalbox-next) vient de la Recalbox que vous visez, et non plus d'un réglage unique.** Le Mode 1, la page Thèmes et l'avis de démarrage « thème mis à jour » lisent la version de chaque Recalbox visée et utilisent son jeu de logos (Recalbox 10 ou 11). Avant, une carte destinée à une Recalbox 10 pouvait recevoir le thème par défaut de la Recalbox 11 (mauvais logo des favoris) quand une autre Recalbox était mémorisée dans les réglages. Si deux Recalbox de versions différentes partagent un DMD, le toolkit pose la question « Recalbox 10.x ou Recalbox 11 » et mémorise votre choix.
+- Aussi : le bouton « Gestion des GIFs » suit la langue.
+- Numéro de build : 208115 ; le même code est publié sur le canal stable sous le numéro 208114.
+
 ## 2026-11-25 — Boîte à outils 207115 (pré-release alpha) : page Thèmes, envoi vers Discord, logos de thèmes par profil Recalbox
 
 - **Nouveau — bloc « Discord » de l'onglet Diagnostic.** Deux boutons : **Détection des versions…** (tests alpha : les versions que vous utilisez réellement — toolkit, firmware du DMD ou démon du Pi, canal, scripts et version de Recalbox — pré-remplissent les formulaires de test et prouvent ce qui a été testé) et **Demande d'aide…** (rapport + journal série analysés par le bot de support). Un aperçu montre exactement ce qui quitte votre PC ; adresses IP, adresses MAC et nom du Wi-Fi sont retirés ; rien ne part sans votre clic. Votre code d'appairage s'obtient avec `/dmdlink` sur le serveur Discord.

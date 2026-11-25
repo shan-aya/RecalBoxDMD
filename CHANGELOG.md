@@ -10,6 +10,12 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-25 — Toolkit 208115 (alpha pre-release): the default theme follows the targeted Recalbox
+
+- **Fix: the default theme (recalbox-next) now comes from the Recalbox you target, not from a single setting.** Mode 1, the Themes page and the start-up "theme updated" notice read the version of each targeted Recalbox and use its logo set (Recalbox 10 or 11). Before, a card meant for a Recalbox 10 could receive the Recalbox 11 default theme (wrong favourites logo) when another Recalbox was saved in the settings. If two Recalbox of different versions share one DMD, the toolkit asks "Recalbox 10.x or Recalbox 11" and remembers your choice.
+- Also: the "Game GIFs" button now follows the language.
+- Build number: 208115; the same code is published on the stable channel as 208114.
+
 ## 2026-11-25 — Toolkit 207115 (alpha pre-release): Themes page, Discord reports, theme logos per Recalbox profile
 
 - **New — "Discord" block in the Diagnostic tab.** Two buttons: **Detect versions…** (alpha tests: the versions you really run — toolkit, DMD firmware or Pi daemon, channel, Recalbox scripts and version — pre-fill the test forms and prove what was tested) and **Help request…** (report + serial log analysed by the support bot). A preview shows exactly what leaves your PC; IP addresses, MAC addresses and your Wi-Fi name are removed; nothing is sent without your click. Get your pairing code with `/dmdlink` on the Discord server.
