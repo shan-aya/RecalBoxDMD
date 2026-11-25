@@ -10,6 +10,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-25 — Toolkit 213115 (alpha pre-release): Alpha tests window, slow sending made clear
+
+- **"Alpha tests" window (alpha toolkit only): when sending is slow, it is now obvious.** While a result is being sent the Send and Withdraw buttons are greyed out, the test is marked ⏳, a timer shows "Sending… n s", and a second click on the same test is refused (no more double sends). If the sending fails, everything is released and the test stays to do.
+- Build number: 213115; the same code is published on the stable channel as 213114.
+
 ## 2026-11-25 — Toolkit 212115 (alpha pre-release): Alpha tests window shows what is done and what remains
 
 - **"Alpha tests" window (alpha toolkit only): you see what you already did and what remains.** One icon per test (✅ ❌ 🟠 ➖ done, ⚪ to do, ⚠ done on older versions: redo it), a counter ("12/19 done"), a filter (All / To do / Done), and a **Withdraw my result** button. Sending the same result again for the same versions is refused; on the Discord side a re-sent result now updates the previous card instead of adding a new one.

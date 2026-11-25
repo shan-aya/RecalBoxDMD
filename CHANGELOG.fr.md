@@ -10,6 +10,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-25 — Boîte à outils 213115 (pré-release alpha) : fenêtre Tests alpha, envoi lent rendu clair
+
+- **Fenêtre « Tests alpha » (toolkit alpha seulement) : quand l'envoi est lent, c'est maintenant clair.** Pendant l'envoi d'un résultat, les boutons Envoyer et Annuler sont grisés, le test est marqué ⏳, un chrono affiche « Envoi en cours… n s » et un second clic sur le même test est refusé (plus de double envoi). Si l'envoi échoue, tout est libéré et le test reste à faire.
+- Numéro de build : 213115 ; le même code est publié sur le canal stable sous le numéro 213114.
+
 ## 2026-11-25 — Boîte à outils 212115 (pré-release alpha) : la fenêtre Tests alpha montre ce qui est fait et ce qui reste
 
 - **Fenêtre « Tests alpha » (toolkit alpha seulement) : vous voyez ce que vous avez déjà fait et ce qu'il reste à faire.** Une icône par test (✅ ❌ 🟠 ➖ fait, ⚪ à faire, ⚠ fait sur d'anciennes versions : à refaire), un compteur (« 12/19 faits »), un filtre (Tous / Reste à faire / Faits) et un bouton **Annuler mon résultat**. Renvoyer le même résultat pour les mêmes versions est refusé ; côté Discord, un résultat renvoyé met à jour la carte précédente au lieu d'en ajouter une nouvelle.

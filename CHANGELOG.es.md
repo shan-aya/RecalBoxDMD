@@ -10,6 +10,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-25 — Caja de herramientas 213115 (pre-release alfa): ventana Pruebas alfa, envío lento más claro
+
+- **Ventana «Pruebas alfa» (solo el toolkit alfa): cuando el envío es lento, ahora se ve claramente.** Mientras se envía un resultado, los botones Enviar y Anular están desactivados, la prueba se marca con ⏳, un cronómetro muestra «Enviando… n s» y se rechaza un segundo clic en la misma prueba (sin dobles envíos). Si el envío falla, todo se libera y la prueba sigue pendiente.
+- Número de versión: 213115; el mismo código se publica en el canal estable como 213114.
+
 ## 2026-11-25 — Caja de herramientas 212115 (pre-release alfa): la ventana Pruebas alfa muestra lo hecho y lo pendiente
 
 - **Ventana «Pruebas alfa» (solo el toolkit alfa): ve lo que ya hizo y lo que queda.** Un icono por prueba (✅ ❌ 🟠 ➖ hecha, ⚪ por hacer, ⚠ hecha con versiones anteriores: rehacer), un contador («12/19 hechas»), un filtro (Todas / Por hacer / Hechas) y un botón **Anular mi resultado**. Reenviar el mismo resultado para las mismas versiones se rechaza; en Discord, un resultado reenviado actualiza la tarjeta anterior en lugar de añadir otra.
