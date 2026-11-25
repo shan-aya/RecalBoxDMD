@@ -10,6 +10,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-25 — Caja de herramientas 209115 (pre-release alfa): el plan de pruebas alfa dentro del toolkit
+
+- **Novedad — ventana «Pruebas alfa» (solo el toolkit alfa).** En la pestaña Diagnóstico, bloque Discord, el nuevo botón **Pruebas alfa…** abre el plan de pruebas alfa del servidor de Discord: pasos y resultado esperado en su idioma, y después OK / KO / parcial y un comentario (obligatorio si KO o parcial). El resultado se envía con las versiones que el toolkit detectó realmente, así que la prueba cuenta para «Listo para estable». Necesita su código de emparejamiento (`/dmdlink` en el servidor de Discord).
+- Número de versión: 209115; el mismo código se publica en el canal estable como 209114.
+
 ## 2026-11-25 — Caja de herramientas 208115 (pre-release alfa): el tema por defecto sigue la Recalbox elegida
 
 - **Corrección: el tema por defecto (recalbox-next) procede de la Recalbox que usted elige, y ya no de un ajuste único.** El Modo 1, la página Temas y el aviso de arranque «tema actualizado» leen la versión de cada Recalbox elegida y usan su juego de logotipos (Recalbox 10 u 11). Antes, una tarjeta destinada a una Recalbox 10 podía recibir el tema por defecto de la Recalbox 11 (logotipo de favoritos incorrecto) si había otra Recalbox guardada en los ajustes. Si dos Recalbox de versiones distintas comparten un DMD, el toolkit pregunta «Recalbox 10.x o Recalbox 11» y recuerda su elección.
