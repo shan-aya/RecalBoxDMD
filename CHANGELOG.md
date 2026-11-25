@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-25 — Toolkit 211114: same code as the alpha build (no visible change)
+
+- No visible change in the stable toolkit: the "Alpha tests" window only exists in the alpha toolkit.
+- Build number: 211114; the same code is published on the alpha channel as 211115.
+
 ## 2026-11-25 — Toolkit 210114: same code as the alpha build (no visible change)
 
 - No visible change in the stable toolkit: the "Alpha tests" window only exists in the alpha toolkit.
