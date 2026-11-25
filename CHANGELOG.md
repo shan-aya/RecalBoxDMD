@@ -8,6 +8,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-25 — Toolkit 209114: same code as the alpha build (no visible change)
+
+- No visible change in the stable toolkit: the new "Alpha tests" window only exists in the alpha toolkit.
+- Build number: 209114; the same code is published on the alpha channel as 209115.
+
 ## 2026-11-25 — Toolkit 208114: the default theme follows the targeted Recalbox
 
 - **Fix: the default theme (recalbox-next) now comes from the Recalbox you target, not from a single setting.** Mode 1, the Themes page and the start-up "theme updated" notice read the version of each targeted Recalbox and use its logo set (Recalbox 10 or 11). Before, a card meant for a Recalbox 10 could receive the Recalbox 11 default theme (wrong favourites logo) when another Recalbox was saved in the settings. If two Recalbox of different versions share one DMD, the toolkit asks "Recalbox 10.x or Recalbox 11" and remembers your choice.

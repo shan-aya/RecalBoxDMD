@@ -8,6 +8,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-25 — Caja de herramientas 209114: mismo código que la versión alfa (sin cambios visibles)
+
+- Sin cambios visibles en el toolkit estable: la nueva ventana «Pruebas alfa» solo existe en el toolkit alfa.
+- Número de versión: 209114; el mismo código se publica en el canal alfa como 209115.
+
 ## 2026-11-25 — Caja de herramientas 208114: el tema por defecto sigue la Recalbox elegida
 
 - **Corrección: el tema por defecto (recalbox-next) procede de la Recalbox que usted elige, y ya no de un ajuste único.** El Modo 1, la página Temas y el aviso de arranque «tema actualizado» leen la versión de cada Recalbox elegida y usan su juego de logotipos (Recalbox 10 u 11). Antes, una tarjeta destinada a una Recalbox 10 podía recibir el tema por defecto de la Recalbox 11 (logotipo de favoritos incorrecto) si había otra Recalbox guardada en los ajustes. Si dos Recalbox de versiones distintas comparten un DMD, el toolkit pregunta «Recalbox 10.x o Recalbox 11» y recuerda su elección.

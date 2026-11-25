@@ -8,6 +8,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-25 — Boîte à outils 209114 : même code que le build alpha (aucun changement visible)
+
+- Aucun changement visible dans le toolkit stable : la nouvelle fenêtre « Tests alpha » n'existe que dans le toolkit alpha.
+- Numéro de build : 209114 ; le même code est publié sur le canal alpha sous le numéro 209115.
+
 ## 2026-11-25 — Boîte à outils 208114 : le thème par défaut suit la Recalbox visée
 
 - **Correctif : le thème par défaut (recalbox-next) vient de la Recalbox que vous visez, et non plus d'un réglage unique.** Le Mode 1, la page Thèmes et l'avis de démarrage « thème mis à jour » lisent la version de chaque Recalbox visée et utilisent son jeu de logos (Recalbox 10 ou 11). Avant, une carte destinée à une Recalbox 10 pouvait recevoir le thème par défaut de la Recalbox 11 (mauvais logo des favoris) quand une autre Recalbox était mémorisée dans les réglages. Si deux Recalbox de versions différentes partagent un DMD, le toolkit pose la question « Recalbox 10.x ou Recalbox 11 » et mémorise votre choix.
