@@ -10,6 +10,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-25 — Caja de herramientas 211115 (pre-release alfa): ventana Pruebas alfa con la vista previa integrada
+
+- **Ventana «Pruebas alfa» (solo el toolkit alfa): la vista previa de lo que se enviará está ahora dentro de la ventana.** Las versiones se detectan al abrirla, ve el mensaje exacto (prueba, resultado, comentario, versiones detectadas) actualizarse mientras lo rellena, y **Enviar** vale como consentimiento: un clic y una ventana menos. El código de emparejamiento se introduce en la misma ventana y el resultado del envío se muestra allí.
+- Número de versión: 211115; el mismo código se publica en el canal estable como 211114.
+
 ## 2026-11-25 — Caja de herramientas 210115 (pre-release alfa): ventana Pruebas alfa mejorada
 
 - **Ventana «Pruebas alfa» (solo el toolkit alfa), mejorada:** ventana más ancha con títulos legibles, lista agrupada por zona (ESP32 / Raspberry Pi / Toolkit / General) con orden (zona, número, título), los botones de resultado ya no aparecen marcados al abrir (error corregido) y la ventana sigue abierta tras el envío para encadenar las pruebas.

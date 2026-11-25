@@ -10,6 +10,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-25 — Toolkit 211115 (alpha pre-release): Alpha tests window with the preview built in
+
+- **"Alpha tests" window (alpha toolkit only): the preview of what will be sent is now inside the window.** The versions are detected when it opens, you see the exact message (test, result, comment, detected versions) update as you fill it in, and **Send** counts as your consent: one click and one window fewer. The pairing code is entered in the same window and the result of the sending is shown there.
+- Build number: 211115; the same code is published on the stable channel as 211114.
+
 ## 2026-11-25 — Toolkit 210115 (alpha pre-release): Alpha tests window improved
 
 - **"Alpha tests" window (alpha toolkit only), improved:** wider window with readable test titles, list grouped by area (ESP32 / Raspberry Pi / Toolkit / General) with sorting (area, number, title), the result buttons are no longer pre-ticked when the window opens (bug fixed), and the window stays open after sending so you can chain the tests.

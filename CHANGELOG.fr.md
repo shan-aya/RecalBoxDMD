@@ -10,6 +10,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-25 — Boîte à outils 211115 (pré-release alpha) : fenêtre Tests alpha avec l'aperçu intégré
+
+- **Fenêtre « Tests alpha » (toolkit alpha seulement) : l'aperçu de ce qui sera envoyé est maintenant dans la fenêtre.** Les versions sont détectées à l'ouverture, vous voyez le message exact (test, résultat, commentaire, versions détectées) se mettre à jour pendant que vous remplissez, et **Envoyer** vaut consentement : un clic et une fenêtre en moins. Le code d'appairage se saisit dans la même fenêtre et le résultat de l'envoi s'y affiche.
+- Numéro de build : 211115 ; le même code est publié sur le canal stable sous le numéro 211114.
+
 ## 2026-11-25 — Boîte à outils 210115 (pré-release alpha) : fenêtre Tests alpha améliorée
 
 - **Fenêtre « Tests alpha » (toolkit alpha seulement), améliorée :** fenêtre plus large aux titres lisibles, liste groupée par zone (ESP32 / Raspberry Pi / Toolkit / Général) avec tri (zone, numéro, titre), boutons de résultat qui ne sont plus précochés à l'ouverture (bug corrigé), et fenêtre qui reste ouverte après l'envoi pour enchaîner les tests.
