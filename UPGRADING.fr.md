@@ -38,9 +38,9 @@ Le support MQTT a été entièrement retiré du firmware depuis la v209 (2026-09
 Depuis le firmware **2.33**, le DMD peut afficher les logos de tes consoles dans le style du thème actif dans Recalbox (Midnight, CRT Color, Neoretro…). Rien ne se passe tant que ces trois étapes ne sont pas faites — flasher le firmware seul **ne suffit pas** :
 
 1. **Réinstalle les scripts Recalbox avec le Mode 9** (ou un Mode 1 complet) : le `dmd_udp_resync.py` mis à jour (**v6**) est celui qui indique au DMD le thème utilisé par Recalbox. Avec l'ancien script, le DMD ne connaît jamais le thème et garde ses logos par défaut.
-2. **Mets les logos de thème sur la carte SD avec le Mode 12 ou le Mode 13** de la boîte à outils PC — les logos vivent dans `systems/_defaults/_themes/<thème>/` sur la carte SD et n'y sont pas après une simple mise à jour du firmware :
-   - **Mode 13** télécharge le paquet de thèmes prêt à l'emploi depuis GitHub (11 thèmes, dont le thème par défaut de Recalbox et recalbox-240p) et copie sur la carte SD ceux que tu coches — le plus rapide ;
-   - **Mode 12** (« Gestion des thèmes Recalbox ») liste les thèmes de ta Recalbox, convertit ceux qui manquent ou sont périmés et garde la carte SD à jour.
+2. **Mets les logos de thème sur la carte SD avec la page Thèmes** de la boîte à outils PC (onglet Personnalisation ; elle remplace les anciens Modes 12 et 13) — les logos vivent dans `systems/_defaults/_themes/<thème>/` sur la carte SD et n'y sont pas après une simple mise à jour du firmware :
+   - elle télécharge le paquet de thèmes prêt à l'emploi depuis GitHub (11 thèmes, dont le thème par défaut de Recalbox et recalbox-240p) et installe ceux que tu coches — le plus rapide ;
+   - elle liste aussi les thèmes de ta Recalbox, convertit ceux qui manquent ou sont périmés et garde la carte SD à jour.
 
    Le Mode 1 pose aussi la question des thèmes (il propose ceux trouvés sur ta Recalbox) : un Mode 1 complet couvre donc aussi cette étape. Les thèmes déjà à jour sur la carte SD ne sont pas réécrits.
 3. **Vérifie la case** : section *Thème Recalbox* (page Affichage) de la page de config web du DMD (`feat_theme_follow`, cochée par défaut). Décoche-la pour garder les logos par défaut.

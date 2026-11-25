@@ -10,6 +10,15 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-25 — Toolkit 207115 (alpha pre-release): Themes page, Discord reports, theme logos per Recalbox profile
+
+- **New — "Discord" block in the Diagnostic tab.** Two buttons: **Detect versions…** (alpha tests: the versions you really run — toolkit, DMD firmware or Pi daemon, channel, Recalbox scripts and version — pre-fill the test forms and prove what was tested) and **Help request…** (report + serial log analysed by the support bot). A preview shows exactly what leaves your PC; IP addresses, MAC addresses and your Wi-Fi name are removed; nothing is sent without your click. Get your pairing code with `/dmdlink` on the Discord server.
+- **New "Themes" page (Customisation tab, visible in stable too)** replaces Modes 12 and 13 of the Advanced menu: for the target DMD (SD card or Raspberry Pi) it lists every theme with its state (on the DMD and the Recalbox, only on one of them, outdated, never converted, target absent) and its size, installs or updates them, and can **delete a theme from the DMD** (after confirmation) to free space. Several Recalbox for one DMD are handled in a single operation, and Mode 1 offers the same themes when preparing a card.
+- **Theme logo pack per Recalbox profile**: Recalbox 10 and Recalbox 11 (patron / alpha / 11.0 stable) each get their own logos for the themes that differ.
+- A notice (⚠ badge next to the target selector, blinking until read) tells you when a theme installed on your Recalbox is newer than the one on the DMD.
+- Fixes: Advanced tab found by its reference instead of its rank (stable regression); the "Game GIFs" button now follows the language.
+- Build number: 207115; the same code is published on the stable channel as 207114.
+
 ## 2026-11-24 — Toolkit 200112 (alpha pre-release): built-in help brought up to date
 
 - **The built-in help (Help tab) now describes** the compatibility notices (⚠ badge in the target banner, each notice naming its DMD and Recalbox, problem followed by its solution), the functions greyed out with an **[ALPHA]** mention, **Mode 17** switching the Raspberry Pi's media partition to UTF-8 by itself (accented file names) and **Mode 1** writing the partition table last on a card that was already used.
