@@ -41,6 +41,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import theme_logos as tl   # noqa: E402
+import dgc_mark            # noqa: E402  (filigrane invisible DGC : OBLIGATOIRE, pas de repli silencieux sur des logos non marques)
 
 LANGS = {"en": "en_US", "fr": "fr_FR", "es": "es_ES"}
 REGIONS = {"en": "us", "fr": "eu", "es": "eu"}   # region d origine des consoles associee a chaque langue (fr/es -> logos de consoles europeens)
@@ -77,6 +78,24 @@ def _open_source(folder, hub, rb_root, prefer_rb=False):
 def _alias_name(sid, base_ids):
     """'auto-X' -> 'X' (SystemId envoye par ES) quand X n'est pas un vrai logo de base (meme regle que convert_theme)."""
     return sid[5:] if sid.startswith("auto-") and len(sid) > 5 and sid[5:] not in base_ids else None
+
+
+def mark_theme_dir(theme_dir):
+    """Filigrane DGC sur tous les .raw565 d'un theme (idempotent ; le moteur du toolkit marque chaque logo en fin de conversion, la copie du moteur
+    de ce dossier est plus ancienne et ne le fait pas : on applique ici EXACTEMENT le meme marquage sur les octets produits). Retourne le nombre de fichiers modifies."""
+    n = 0
+    for root, _dirs, files in os.walk(theme_dir):
+        for name in sorted(files):
+            if name.endswith(".raw565"):
+                path = os.path.join(root, name)
+                with open(path, "rb") as f:
+                    data = f.read()
+                marked = dgc_mark.mark_raw565(data)
+                if marked != data:
+                    with open(path, "wb") as f:
+                        f.write(marked)
+                    n += 1
+    return n
 
 
 def theme_rev(theme_dir):
@@ -213,6 +232,7 @@ def build(out_root, known_dir, only=None, rb_root=None, log=print, incremental=F
         # v10 : themes SYSTEME de Recalbox (recalbox-next, recalbox-240p) -> + logos EMBARQUES de la Recalbox (${system.logo}) : la Recalbox les affiche en priorite
         conv = tl.convert_theme(src, out, known, log=lambda s, f=folder: log(f"[{f}] {s}"), hub_info=hub_info,
                                 source_label="package", variants=True, embedded=(folder in tl.SYSTEM_THEMES))
+        mark_theme_dir(out)             # filigrane DGC AVANT le calcul de la rev (la rev porte sur les octets publies)
         base_files = sorted(f for f in os.listdir(out) if f.endswith(".raw565"))
         overlays = {}
         for code in sorted(d for d in os.listdir(out) if re.fullmatch(r"[lr]_[a-z]{2}", d) and os.path.isdir(os.path.join(out, d))):

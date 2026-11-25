@@ -24,6 +24,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import theme_logos as tl   # noqa: E402
+import dgc_mark            # noqa: E402  (le paquet est filigrane DGC : l'attendu doit l'etre aussi pour rester comparable octet pour octet)
 
 LANGS = (("en", "US"), ("fr", "FR"), ("es", "ES"), ("de", "DE"), ("it", "IT"), ("pt", "PT"))
 REGIONS = ("us", "eu", "jp")
@@ -126,8 +127,8 @@ def check_theme(name, src, theme_dir, log):
         key = (rel, sid)
         if key not in cache:
             try:
-                cache[key] = tl.convert_bytes(src.read(rel), rel.lower().endswith(".svg"),
-                                              tl._widen_for(sid), tl._cut_for(sid), tl._lighten_for(sid))
+                cache[key] = dgc_mark.mark_raw565(tl.convert_bytes(src.read(rel), rel.lower().endswith(".svg"),
+                                                                   tl._widen_for(sid), tl._cut_for(sid), tl._lighten_for(sid)))
             except Exception:
                 cache[key] = None
         return cache[key]

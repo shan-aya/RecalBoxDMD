@@ -14,6 +14,20 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_theme_package as b   # noqa: E402
+import dgc_mark   # noqa: E402
+
+
+def unmarked_files(published):
+    """Logos .raw565 du paquet PUBLIE qui devraient porter le filigrane DGC et ne l'ont pas (mark_raw565 les modifierait encore)."""
+    out = []
+    for root, _d, files in os.walk(published):
+        for name in sorted(files):
+            if name.endswith(".raw565"):
+                with open(os.path.join(root, name), "rb") as f:
+                    data = f.read()
+                if dgc_mark.mark_raw565(data) != data:
+                    out.append(os.path.relpath(os.path.join(root, name), published))
+    return out
 
 
 def main():
@@ -41,8 +55,11 @@ def main():
     for name in pub.get("themes", {}):
         if name not in m["themes"]:
             print(f"{name:36s} retire du hub (serait supprime)")
-    print("\nRESULTAT :", "reproductible" if not bad else f"{bad} theme(s) non reproductible(s)")
-    return 1 if bad else 0
+    um = unmarked_files(a.published)
+    if um:
+        print(f"\nFILIGRANE DGC ABSENT sur {len(um)} logo(s) du paquet publie (ex. {um[0]}) : lancer mark_package.py --apply")
+    print("\nRESULTAT :", "reproductible" if not bad else f"{bad} theme(s) non reproductible(s)", "; filigrane DGC " + ("incomplet" if um else "present sur tous les logos"))
+    return 1 if (bad or um) else 0
 
 
 if __name__ == "__main__":
