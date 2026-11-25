@@ -8,6 +8,15 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-25 — Boîte à outils 207114 : page Thèmes, demande d'aide Discord, logos de thèmes par profil Recalbox
+
+- **Nouveau — bouton « Demande d'aide… » de l'onglet Diagnostic (bloc Discord).** Après un aperçu de ce qui quitte exactement votre PC, il envoie votre rapport et votre journal série au serveur Discord du projet (salon réservé à l'équipe de support), où le bot de support les analyse. Adresses IP, adresses MAC et nom du Wi-Fi sont retirés ; rien ne part sans votre clic. Votre code d'appairage s'obtient avec `/dmdlink` sur le serveur Discord.
+- **Nouvelle page « Thèmes » (onglet Personnalisation, visible aussi en stable)** : elle remplace les Modes 12 et 13 du menu Avancé. Pour le DMD cible (carte SD ou Raspberry Pi), elle liste chaque thème avec son état (sur le DMD et la Recalbox, seulement sur l'un des deux, périmé, jamais converti, cible absente) et sa taille, les installe ou les met à jour, et permet de **supprimer un thème du DMD** (après confirmation) pour libérer de la place. Plusieurs Recalbox pour un même DMD se traitent en une seule opération, et le Mode 1 propose les mêmes thèmes pour préparer une carte.
+- **Paquet de logos de thèmes par profil Recalbox** : Recalbox 10 et Recalbox 11 (patron / alpha / 11.0 stable) ont chacune leurs logos pour les thèmes qui diffèrent.
+- Un avis (badge ⚠ à côté du sélecteur de cible, clignotant tant qu'il n'est pas lu) signale qu'un thème installé sur votre Recalbox est plus récent que celui du DMD.
+- Corrections : onglet Avancé repéré par sa référence et non par son rang (régression en stable) ; le bouton « Gestion des GIFs » suit maintenant la langue.
+- Numéro de build : 207114 ; le même code est publié sur le canal alpha sous le numéro 207115.
+
 ## 2026-11-24 — Boîte à outils 200111 : aide intégrée mise à jour
 
 - **L'aide intégrée (onglet Aide) décrit maintenant** les avis de compatibilité (pastille ⚠ dans le bandeau de cible, chaque avis nommant son DMD et sa Recalbox, problème suivi de sa solution), les fonctions grisées avec la mention **[ALPHA]**, le **Mode 17** qui passe tout seul la partition média du Raspberry Pi en UTF-8 (noms de fichiers accentués) et le **Mode 1** qui écrit la table de partitions en dernier sur une carte déjà utilisée.

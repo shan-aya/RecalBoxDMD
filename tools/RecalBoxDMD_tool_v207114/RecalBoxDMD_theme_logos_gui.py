@@ -1,0 +1,1892 @@
+"""Fenetre "Logos de theme Recalbox" du toolkit RecalBoxDMD (v17, 2026-10-03).
+Historique : v28 (2026-10-09) : colonnes centrees sauf Theme et Detail ; (1) colonne « Langues | zones » : toutes les langues et zones presentes, base EN / US comprise ; (2) tout theme est PREPARE dans le dossier de travail (conversion ou telechargement) puis copie sur la carte SD avec REPRISE (journal _pending, marqueurs de version copies EN DERNIER, ancien marqueur retire avant la copie : une carte debranchee en cours de route laisse un theme « a mettre a jour », jamais un theme a moitie ecrit declare a jour) ; bouton « Copier vers la SD (n) » = themes en attente de copie, grise s'il n'y en a pas. v27 (2026-10-08) : le tableau est mis a jour theme par theme pendant la conversion / le telechargement (statut « A JOUR » des qu'un theme est termine et copie), plus seulement a la fin. v26 (2026-10-08) : mise a jour / installation par TELECHARGEMENT du paquet GitHub quand la version du theme installe sur la Recalbox (ou du hub) est celle du paquet et que son rendu est au moins celui du toolkit (secondes au lieu de minutes de conversion). v25 (2026-10-08) : barre de progression (animation pendant les attentes, pourcentage pendant la conversion d'un ou plusieurs themes). v24 (2026-10-08) : message de verification de la carte SD clarifie (les themes installes sur la Recalbox sont compares a la Recalbox, pas au paquet : l'ancien « 0 theme du paquet present » faisait croire que la carte etait vide). v23 (2026-10-07) : themes SYSTEME de Recalbox (recalbox-next, recalbox-240p) convertis avec embedded=True : ajoute les logos embarques de la Recalbox (voir theme_logos EMBEDDED_LOGOS) ; ET proposes a la conversion quand ils ne sont pas sur la SD (jusqu'ici seuls les themes installes sur share/themes l'etaient : recalbox-next / recalbox-240p manquaient sur la SD). v22 (2026-10-06) : la verification a l'ouverture (jusqu'a ~40 s : lecture des themes sur le partage reseau de la Recalbox) ressemblait a un plantage : themes analyses en parallele (theme_logos v5, liste de fichiers memorisee) et avancement « Verification en cours… n/N — theme » dans la barre d'etat. v21 (2026-10-06) : les propositions de mise a jour (carte SD / themes nouveaux / MAJ depuis la Recalbox) s'ouvraient EN MEME TEMPS (boite modale = boucle Tk active, les rappels after() des autres propositions se declenchaient) : une seule boite a la fois (_ask_exclusive, _dlg_open), ordre SD puis nouveaux puis MAJ Recalbox. v20 (2026-10-06) : la proposition « mettre la carte SD a jour depuis la Recalbox » n etait faite que sur le papier : SANS carte SD detectee la fenetre compare la Recalbox au DOSSIER DE TRAVAIL du toolkit (%LOCALAPPDATA%\\Temp\\RecalBoxDMD, copies du paquet GitHub du 04/10) et parlait de « carte SD » (constate par l utilisateur : « comment il peut savoir ce qu il y a sur la SD vu qu elle est dans le DMD ? »). Elle n est plus proposee que si la carte SD du DMD est detectee ; sinon un message du journal l explique. v19 (2026-10-06) : le JOURNAL du bas etait ecrase (2 lignes visibles sur 8 a la taille d ouverture 940x640, constate par l utilisateur) : il est maintenant empile EN BAS AVANT le tableau (il garde sa hauteur, c est le tableau qui se reduit), 10 lignes + barre de defilement, fenetre ouverte en 940x760 avec taille minimale 820x620. v18 (2026-10-05) : LA RECALBOX EST LA REFERENCE (le hub et le paquet GitHub peuvent etre en retard : Dashboard-X 1.4 publie, 1.5 installee, avec des logos francais renommes en @fr) : un theme installe sur la Recalbox est converti DEPUIS SA COPIE (le hub ne sert que de repli, theme absent de la Recalbox) ; son etat vient de la Recalbox (empreinte des logos), jamais du paquet GitHub ; la comparaison SD <-> paquet GitHub ne s applique plus qu aux themes non installes sur la Recalbox ; a l ouverture, proposition de mettre a jour depuis la Recalbox les themes dont la copie de la SD differe. v17 : PLUS DE CHOIX DE LANGUE NI DE REGION (variantes installees en bloc, choisies par le DMD selon la Recalbox -- firmware v238 / script v8) : les deux listes et le bouton ? disparaissent, conversions locales avec variantes (theme_logos v3). v16 : colonne « SD » a cote de « Recalbox » (le theme est-il present sur la carte SD du DMD ? ✓ / — ; « ? » si la carte n'est pas detectee). v15 : themes SYSTEME de Recalbox (recalbox-next, le theme par defaut, absent du hub) proposes dans la liste comme les themes du hub, convertis en local depuis l'archive GitLab (licence CC BY-NC-ND : rappel dans le journal, jamais dans le paquet GitHub). v2 langue des variantes = langue de l'interface (liste deroulante, en direct) ; v3 region associee (en_US->us, fr_FR/es_ES->eu), ni langue ni region de la Recalbox detectee ne remplacent plus ce choix ; v4 mise en page (langue/region/hub sur des lignes separees, explications), case hub respectee aussi a la conversion ; v5 region renommee 'Region d origine des consoles' + bouton ? d aide (langue = textes, region = consoles) ; v6 colonne 'Variantes (langues | consoles)' (conversion locale, sinon manifeste du paquet GitHub, sinon calcul sur la copie Recalbox) ; v7 case hub : coche invisible en theme sombre (fond de case blanc + coche de la couleur du texte) -> fond de case = fond du theme. v8 : a l'ouverture la fenetre interroge le hub et la Recalbox toute seule (plus de case hub) ; bouton Actualiser ; colonnes Hub / Recalbox ; bouton 'Mettre a jour les perimes' (themes plus anciens que le hub ou langue/region modifiee) ; proposition de convertir les themes installes sur la Recalbox jamais convertis. v9 : a l'ouverture, d'abord comparaison de la carte SD du DMD avec le paquet GitHub (revision par theme stockee dans <theme>/_source.json) et proposition de mise a jour de la SD. v10 : la reference des etats est la CARTE SD du DMD (le dossier de travail du toolkit est vide par Windows : transit seulement) ; conversions recopiees sur la SD ; cible affichee. v11 : les ecarts carte SD / paquet GitHub (revision par theme) remontent aussi dans le tableau (etat MAJ). v12 : 'Mettre a jour les perimes' telecharge le paquet GitHub pour les themes en retard sur le paquet (SD), convertit les autres. v13 : theme sans logo de systeme exploitable (ex. helmicretro-haigenco : illustrations 640x480) = SANS LOGOS (liste 'skipped' du manifeste + echecs de la session) au lieu de rester 'jamais converti'. v14 : titre de la fenetre aligne sur le Mode 12 « Gestion des themes Recalbox ». safe-modify, sauvegardes dans _backups/.
+
+
+Verifie les themes (theme-hub + themes installes sur la Recalbox), convertit leurs logos de systeme en .raw565 pour la
+SD du DMD (staging : <sd_card>/systems/_defaults/_themes/<theme>/), affiche une planche de controle, copie vers la SD.
+Moteur : theme_logos.py (aucune logique ici, seulement l'interface). Ouverte par RetroBoxLEDGui._open_theme_logos_window().
+
+Dependances (en plus du toolkit) : resvg-py, numpy, pillow. Si absentes : message explicite, rien d'autre ne casse.
+"""
+import os
+import shutil
+import time
+import queue
+import re
+import threading
+import tkinter as tk
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
+
+T = {
+    "fr": {
+        "title": "Gestion des thèmes Recalbox",
+        "intro": "Récupère les logos des thèmes Recalbox (thèmes du hub, sans les installer sur la Recalbox, ou thèmes déjà installés), "
+                 "les convertit pour le DMD et les copie sur la SD. Le DMD les affiche à la place des logos par défaut quand ce thème est actif dans Recalbox.",
+        "rb_path": "Thèmes installés sur la Recalbox :",
+        "browse": "Parcourir…",
+        "lang": "Langue des logos (variantes) :",
+        "use_hub": "Interroger le theme-hub (catalogue en ligne)",
+        "region": "Région d'origine des consoles :",
+        "region_help": "Région d'origine des consoles\n\nCertains thèmes dessinent le logo d'une même console différemment selon sa région de commercialisation : États-Unis (us), Europe (eu) ou Japon (jp). Exemples : Genesis (us) / Mega Drive (eu et jp), Super Nintendo / Super Famicom (jp), Saturn (jp).\n\nCe choix ne concerne QUE les logos des consoles. Il ne change pas la langue des textes des logos (Favoris, Dernier joué, collections...) : c'est le rôle de la liste « Langue ».\n\nPar défaut la région suit la langue (fr_FR et es_ES → eu, en_US → us), mais tu peux la changer. Exemple : fr_FR + jp = textes en français, consoles japonaises. Un thème qui n'a pas de variante pour un système utilise son logo de base.",
+        "lang_hint": "Langue et région : plus rien à choisir. Toutes les variantes (langues des textes, régions des consoles) sont installées sur la carte SD et le DMD prend celles de la Recalbox (réglages Langue et Région du thème), même si vous les changez plus tard.",
+        "hub_hint": "Coché : la liste vient du catalogue officiel en ligne (nouveaux thèmes, mises à jour) et les logos sont téléchargés depuis le hub. Décoché : seuls les thèmes installés sur la Recalbox sont listés.",
+        "check": "Vérifier les thèmes",
+        "refresh": "Actualiser",
+        "target_sd": "Cible : carte SD {drive}",
+"target_pi": "Cible : Raspberry Pi {ip} (Wi-Fi) — envoi direct, sans carte SD",
+"pi_label": "Raspberry Pi {ip} (Wi-Fi)",
+"copy_confirm_pi": "Envoyer {n} thème(s) ({size} Mo) par Wi-Fi vers le Raspberry Pi {ip} ?",
+        "target_work": "Cible : dossier de travail du toolkit (aucune carte SD du DMD détectée)",
+        "sd_update_prompt": "La carte SD ({drive}) contient {n} thème(s) à mettre à jour d'après le paquet du projet sur GitHub :\n{lines}\n\nMettre à jour la carte SD maintenant ?",
+        "sd_updating": "Mise à jour de la carte SD ({drive})…",
+        "sd_updated": "Carte SD mise à jour : {n} fichier(s) téléchargé(s).",
+        "default_updated": "⚠ Le thème par défaut de Recalbox (Recalbox NEXT 2025, « recalbox-next ») a été mis à jour : nouveaux logos (favoris, tous les jeux, derniers jeux…) et nouveaux systèmes. Retéléchargez-le depuis GitHub : « Mettre à jour les périmés ».",
+        "default_updated_note": "⚠ Le thème PAR DÉFAUT de Recalbox a été mis à jour (nouveaux logos et nouveaux systèmes) : il faut le retélécharger depuis GitHub.\n\n",
+        "sd_none": "Carte SD du DMD non détectée : comparaison avec le paquet GitHub ignorée.",
+        "sd_nopkg": "Paquet de logos GitHub injoignable : comparaison avec la carte SD ignorée.",
+        "sd_log": "Carte SD {drive} : {n} thème(s) du paquet présent(s), {m} à mettre à jour.",
+        "sd_log_rb": "Carte SD {drive} : {t} thème(s) présent(s) ; {r} sont comparés à la Recalbox (référence, résultat dans la liste ci-dessous), {n} au paquet GitHub ({m} à mettre à jour).",
+        "update": "Mettre à jour les périmés",
+        "col_hub": "Hub", "col_rb": "Recalbox", "col_sd": "SD",
+        "propose_new": "{n} thème(s) installé(s) sur la Recalbox ou fourni(s) avec elle n'ont pas encore été convertis pour le DMD :\n{names}\n\nLes convertir maintenant ?",
+        "propose_maj": "{n} thème(s) installé(s) sur la Recalbox diffèrent de la carte SD du DMD (la Recalbox sert de référence) :\n{lines}\n\nMettre la carte SD à jour depuis la Recalbox ?",
+        "maj_no_sd": "{n} thème(s) installé(s) sur la Recalbox diffèrent du dossier de travail du toolkit. Aucune carte SD du DMD n'est détectée : la mise à jour de la carte SD n'est proposée que lorsqu'elle est dans le PC (insérez-la, puis cliquez sur Actualiser).",
+        "all_uptodate": "Aucun thème à mettre à jour.",
+        "detecting": "Recherche de la Recalbox et du hub…",
+        "convert": "Convertir la sélection",
+        "preview": "Aperçu",
+        "copy": "Copier vers la SD",
+        "open_out": "Ouvrir le dossier",
+        "col_theme": "Thème", "col_source": "Source", "col_state": "État", "col_variants": "Langues | zones", "col_detail": "Détail",
+        "src_rb": "Recalbox", "src_hub": "hub", "src_both": "Recalbox + hub",
+        "deps_missing": "Dépendances manquantes pour la conversion des logos de thème :\n{err}\n\nInstallez-les avec :\npip install resvg-py numpy pillow",
+        "no_sel": "Sélectionnez au moins un thème dans la liste.",
+        "checking": "Vérification en cours…",
+        "check_done": "{n} thème(s) listé(s).",
+        "converting": "Conversion de {name}…",
+        "convert_done": "Terminé : {ok} converti(s), {ko} en échec.",
+        "no_conv": "Ce thème n'a pas encore été converti : utilisez « Convertir la sélection ».",
+        "no_drive": "Aucun lecteur amovible détecté. Insérez la carte SD du DMD.",
+        "pick_drive": "Lecteur de la carte SD :",
+        "refresh": "Actualiser",
+        "copy_confirm": "Copier {n} thème(s) ({size} Mo) vers {drive}\\systems\\_defaults\\_themes\\ ?",
+        "copying": "Copie de {name} vers {drive}…",
+        "copy_done": "Copie terminée ({n} thème(s)). Éjectez la carte avant de la retirer.",
+        "pending_log": "{n} thème(s) préparé(s) en attente de copie vers la SD : {names}. Insérez la carte puis utilisez « Copier vers la SD » (la copie reprend là où elle s'est arrêtée).",
+        "copy_resume": "Copie vers la SD interrompue pour {name} : elle reprendra au prochain « Copier vers la SD ».",
+        "check_hint": "La liste réunit le hub (catalogue officiel en ligne), les thèmes installés sur la Recalbox et ce que contient la carte SD du DMD (versions lues dans chaque dossier de thème). Les conversions sont écrites sur la carte SD ; sans carte détectée, le dossier de travail du toolkit sert de transit (il peut être vidé par Windows). Orange = plus ancien que le hub ou le paquet, version inconnue, ou langue/région modifiée (à mettre à jour) ; bleu = jamais converti.",
+        "ok": "OK", "close": "Fermer", "sample": "Planche de contrôle — {name}",
+        "simple_hint": "Les thèmes installés sur votre Recalbox. Sélectionnez-en puis « Envoyer la sélection au DMD », ou mettez à jour ceux qui sont périmés.",
+        "send_sel": "Envoyer la sélection au DMD",
+        "send_skip": "Ces thèmes ne sont installés sur aucune des Recalbox traitées : il n'y a rien à envoyer, ils sont déjà sur le DMD ({names}).",
+        "other_rb_detail": "installé sur la Recalbox {host} (non sélectionnée)",
+        "del_note_unsure": "⚠ {hosts} ne répond(ent) pas : ces thèmes pourraient y être installés. Vérifiez avant de supprimer.",
+        "dmd_only_unsure": "attention : {hosts} injoignable(s), vérifiez avant de supprimer",
+        "del_btn": "Supprimer du DMD",
+        "del_none": "Sélectionnez un ou plusieurs thèmes présents sur le DMD.",
+        "del_confirm": "Supprimer {n} thème(s) du DMD ({target}) ?\n{names}\n\nPlace libérée : {size}.\n{notes}",
+        "del_note_rb": "Les thèmes encore installés sur la Recalbox pourront être renvoyés plus tard.",
+        "del_note_default": "⚠ Le thème par défaut de Recalbox fait partie de la sélection : sans lui le DMD retombe sur ses images par défaut.",
+        "del_note_only": "⚠ {names} n'est (ne sont) plus installé(s) sur la Recalbox : la suppression est définitive (il faudra le réinstaller sur la Recalbox pour le retrouver).",
+        "del_done": "{n} thème(s) supprimé(s) du DMD.",
+        "del_fail": "ÉCHEC de la suppression de {name} : {err}",
+        "dmd_only_detail": "absent de la Recalbox — peut être supprimé pour libérer de la place",
+        "size_mb": "{mb} Mo",
+        "no_target_esp": "Aucune carte SD du DMD ESP32 détectée : insérez-la dans le PC, puis cliquez sur Actualiser. Sans carte, l'état des thèmes sur le DMD est inconnu.",
+        "no_target_pi": "Le Raspberry Pi ne répond pas ({why}). Vérifiez qu'il est allumé et en Wi-Fi, puis cliquez sur Actualiser.",
+        "st_no_target": "Cible absente",
+        "rb_host_label": "Recalbox :",
+        "tech": "Détails techniques",
+        "rb_chip_ok": "Recalbox : {path}", "rb_chip_none": "Recalbox introuvable : allumez-la puis cliquez sur Actualiser",
+        "simple_states": {"on_dmd": "Sur le DMD et la Recalbox", "to_send": "À envoyer", "update": "Mise à jour disponible", "rb_update": "À mettre à jour sur la Recalbox", "no_logos": "Pas de logos", "error": "Erreur", "no_target": "Cible absente", "dmd_only": "Sur le DMD seulement", "other_rb": "Sur le DMD · autre Recalbox"},
+        "plan": {"default": "thème par défaut (GitHub)", "download": "téléchargement rapide", "convert": "conversion sur votre PC (≈ 30 s)", "none": ""},
+        "rb_old": "v{inst} → v{lat} : via le gestionnaire de thèmes de la Recalbox",
+        "states": {"NOUVEAU": "NOUVEAU", "MAJ": "MISE À JOUR", "A JOUR": "À JOUR", "SANS LOGOS": "SANS LOGOS",
+                   "DIFFERENT": "DIFFÉRENT", "ERREUR": "ERREUR"},
+    },
+    "en": {
+        "title": "Recalbox themes management",
+        "intro": "Fetches the logos of Recalbox themes (hub themes without installing them on the Recalbox, or already installed themes), "
+                 "converts them for the DMD and copies them to the SD card. The DMD shows them instead of the default logos when that theme is active in Recalbox.",
+        "rb_path": "Themes installed on the Recalbox:",
+        "browse": "Browse…",
+        "lang": "Logo language (variants):",
+        "use_hub": "Query the theme-hub (online catalogue)",
+        "region": "Console origin region:",
+        "region_help": "Console origin region\n\nSome themes draw the same console's logo differently depending on the region it was sold in: United States (us), Europe (eu) or Japan (jp). Examples: Genesis (us) / Mega Drive (eu and jp), Super Nintendo / Super Famicom (jp), Saturn (jp).\n\nThis only affects CONSOLE logos. It does not change the language of the logo texts (Favorites, Last played, collections...): that is the job of the Language list.\n\nBy default the region follows the language (fr_FR and es_ES → eu, en_US → us), but you can change it. Example: fr_FR + jp = French texts, Japanese consoles. A theme with no variant for a system uses its base logo.",
+        "lang_hint": "Language and region: nothing to choose. All variants (text languages, console regions) are installed on the SD card and the DMD uses those of the Recalbox (Language and the theme's Region settings), even if you change them later.",
+        "hub_hint": "Ticked: the list comes from the official online catalogue (new themes, updates) and logos are downloaded from the hub. Unticked: only themes installed on the Recalbox are listed.",
+        "check": "Check themes",
+        "refresh": "Refresh",
+        "target_sd": "Target: SD card {drive}",
+"target_pi": "Target: Raspberry Pi {ip} (Wi-Fi) — sent directly, no SD card",
+"pi_label": "Raspberry Pi {ip} (Wi-Fi)",
+"copy_confirm_pi": "Send {n} theme(s) ({size} MB) over Wi-Fi to the Raspberry Pi {ip}?",
+        "target_work": "Target: toolkit working folder (no DMD SD card detected)",
+        "sd_update_prompt": "The SD card ({drive}) has {n} theme(s) to update according to the project package on GitHub:\n{lines}\n\nUpdate the SD card now?",
+        "sd_updating": "Updating the SD card ({drive})…",
+        "sd_updated": "SD card updated: {n} file(s) downloaded.",
+        "default_updated": "⚠ The Recalbox default theme (Recalbox NEXT 2025, \"recalbox-next\") has been updated: new logos (favorites, all games, last played…) and new systems. Download it again from GitHub: \"Update outdated\".",
+        "default_updated_note": "⚠ The Recalbox DEFAULT theme has been updated (new logos and new systems): it must be downloaded again from GitHub.\n\n",
+        "sd_none": "DMD SD card not detected: comparison with the GitHub package skipped.",
+        "sd_nopkg": "GitHub logo package unreachable: comparison with the SD card skipped.",
+        "sd_log": "SD card {drive}: {n} package theme(s) present, {m} to update.",
+        "sd_log_rb": "SD card {drive}: {t} theme(s) present; {r} are compared with the Recalbox (the reference, result in the list below), {n} with the GitHub package ({m} to update).",
+        "update": "Update outdated",
+        "col_hub": "Hub", "col_rb": "Recalbox", "col_sd": "SD",
+        "propose_new": "{n} theme(s) installed on the Recalbox or shipped with it have not been converted for the DMD yet:\n{names}\n\nConvert them now?",
+        "propose_maj": "{n} theme(s) installed on the Recalbox differ from the DMD SD card (the Recalbox is the reference):\n{lines}\n\nUpdate the SD card from the Recalbox?",
+        "maj_no_sd": "{n} theme(s) installed on the Recalbox differ from the toolkit working folder. No DMD SD card detected: the SD card update is only offered when the card is in the PC (insert it, then click Refresh).",
+        "all_uptodate": "No theme to update.",
+        "detecting": "Looking for the Recalbox and the hub…",
+        "convert": "Convert selection",
+        "preview": "Preview",
+        "copy": "Copy to SD",
+        "open_out": "Open folder",
+        "col_theme": "Theme", "col_source": "Source", "col_state": "Status", "col_variants": "Languages | regions", "col_detail": "Details",
+        "src_rb": "Recalbox", "src_hub": "hub", "src_both": "Recalbox + hub",
+        "deps_missing": "Missing dependencies for theme logo conversion:\n{err}\n\nInstall them with:\npip install resvg-py numpy pillow",
+        "no_sel": "Select at least one theme in the list.",
+        "checking": "Checking…",
+        "check_done": "{n} theme(s) listed.",
+        "converting": "Converting {name}…",
+        "convert_done": "Done: {ok} converted, {ko} failed.",
+        "no_conv": "This theme has not been converted yet: use “Convert selection”.",
+        "no_drive": "No removable drive detected. Insert the DMD SD card.",
+        "pick_drive": "SD card drive:",
+        "refresh": "Refresh",
+        "copy_confirm": "Copy {n} theme(s) ({size} MB) to {drive}\\systems\\_defaults\\_themes\\ ?",
+        "copying": "Copying {name} to {drive}…",
+        "copy_done": "Copy finished ({n} theme(s)). Eject the card before removing it.",
+        "pending_log": "{n} prepared theme(s) waiting to be copied to the SD card: {names}. Insert the card, then use \"Copy to SD\" (the copy resumes where it stopped).",
+        "copy_resume": "Copy to the SD card interrupted for {name}: it will resume at the next \"Copy to SD\".",
+        "check_hint": "The list combines the hub (official online catalogue), the themes installed on the Recalbox and what the DMD SD card contains (versions read from each theme folder). Conversions are written to the SD card; with no card detected, the toolkit working folder is used as a staging area (Windows may clear it). Orange = older than the hub or the package, unknown version, or language/region changed (to update); blue = never converted.",
+        "ok": "OK", "close": "Close", "sample": "Check sheet — {name}",
+        "simple_hint": "The themes installed on your Recalbox. Select some, then “Send selection to the DMD”, or update the outdated ones.",
+        "send_sel": "Send selection to the DMD",
+        "send_skip": "These themes are not installed on any of the processed Recalbox: nothing to send, they are already on the DMD ({names}).",
+        "other_rb_detail": "installed on the Recalbox {host} (not selected)",
+        "del_note_unsure": "⚠ {hosts} does(do) not answer: these themes may be installed there. Check before deleting.",
+        "dmd_only_unsure": "warning: {hosts} unreachable, check before deleting",
+        "del_btn": "Delete from the DMD",
+        "del_none": "Select one or more themes present on the DMD.",
+        "del_confirm": "Delete {n} theme(s) from the DMD ({target})?\n{names}\n\nSpace freed: {size}.\n{notes}",
+        "del_note_rb": "Themes still installed on the Recalbox can be sent again later.",
+        "del_note_default": "⚠ The Recalbox default theme is part of the selection: without it the DMD falls back to its default images.",
+        "del_note_only": "⚠ {names} is (are) no longer installed on the Recalbox: deletion is final (reinstall it on the Recalbox to get it back).",
+        "del_done": "{n} theme(s) deleted from the DMD.",
+        "del_fail": "FAILED to delete {name}: {err}",
+        "dmd_only_detail": "not on the Recalbox — can be deleted to free space",
+        "size_mb": "{mb} MB",
+        "no_target_esp": "No SD card of the ESP32 DMD detected: insert it in the PC, then click Refresh. Without it, the state of the themes on the DMD is unknown.",
+        "no_target_pi": "The Raspberry Pi does not answer ({why}). Check that it is on and on Wi-Fi, then click Refresh.",
+        "st_no_target": "No target",
+        "rb_host_label": "Recalbox:",
+        "tech": "Technical details",
+        "rb_chip_ok": "Recalbox: {path}", "rb_chip_none": "Recalbox not found: switch it on, then click Refresh",
+        "simple_states": {"on_dmd": "On the DMD and the Recalbox", "to_send": "To send", "update": "Update available", "rb_update": "Update on the Recalbox first", "no_logos": "No logos", "error": "Error", "no_target": "No target", "dmd_only": "On the DMD only", "other_rb": "On the DMD · other Recalbox"},
+        "plan": {"default": "default theme (GitHub)", "download": "quick download", "convert": "converted on your PC (≈ 30 s)", "none": ""},
+        "rb_old": "v{inst} → v{lat}: use the Recalbox theme manager",
+        "states": {"NOUVEAU": "NEW", "MAJ": "UPDATE", "A JOUR": "UP TO DATE", "SANS LOGOS": "NO LOGOS",
+                   "DIFFERENT": "DIFFERENT", "ERREUR": "ERROR"},
+    },
+    "es": {
+        "title": "Gestión de temas Recalbox",
+        "intro": "Obtiene los logos de los temas de Recalbox (temas del hub sin instalarlos en la Recalbox, o temas ya instalados), "
+                 "los convierte para el DMD y los copia en la SD. El DMD los muestra en lugar de los logos por defecto cuando ese tema está activo en Recalbox.",
+        "rb_path": "Temas instalados en la Recalbox:",
+        "browse": "Examinar…",
+        "lang": "Idioma de los logos (variantes):",
+        "use_hub": "Consultar el theme-hub (catálogo en línea)",
+        "region": "Región de origen de las consolas:",
+        "region_help": "Región de origen de las consolas\n\nAlgunos temas dibujan el logo de una misma consola de forma distinta según la región donde se vendió: Estados Unidos (us), Europa (eu) o Japón (jp). Ejemplos: Genesis (us) / Mega Drive (eu y jp), Super Nintendo / Super Famicom (jp), Saturn (jp).\n\nEsto solo afecta a los logos de las CONSOLAS. No cambia el idioma de los textos de los logos (Favoritos, Último jugado, colecciones...): eso lo decide la lista Idioma.\n\nPor defecto la región sigue al idioma (fr_FR y es_ES → eu, en_US → us), pero puedes cambiarla. Ejemplo: fr_FR + jp = textos en francés, consolas japonesas. Si un tema no tiene variante para un sistema, se usa su logo base.",
+        "lang_hint": "Idioma y región: nada que elegir. Todas las variantes (idiomas de los textos, regiones de las consolas) se instalan en la tarjeta SD y el DMD usa las de la Recalbox (ajustes Idioma y Región del tema), aunque las cambies después.",
+        "hub_hint": "Marcado: la lista viene del catálogo oficial en línea (temas nuevos, actualizaciones) y los logos se descargan del hub. Desmarcado: solo se listan los temas instalados en la Recalbox.",
+        "check": "Comprobar temas",
+        "refresh": "Actualizar",
+        "target_sd": "Destino: tarjeta SD {drive}",
+"target_pi": "Destino: Raspberry Pi {ip} (Wi-Fi) — envío directo, sin tarjeta SD",
+"pi_label": "Raspberry Pi {ip} (Wi-Fi)",
+"copy_confirm_pi": "¿Enviar {n} tema(s) ({size} MB) por Wi-Fi a la Raspberry Pi {ip}?",
+        "target_work": "Destino: carpeta de trabajo del toolkit (ninguna tarjeta SD del DMD detectada)",
+        "sd_update_prompt": "La tarjeta SD ({drive}) tiene {n} tema(s) por actualizar según el paquete del proyecto en GitHub:\n{lines}\n\n¿Actualizar la tarjeta SD ahora?",
+        "sd_updating": "Actualizando la tarjeta SD ({drive})…",
+        "sd_updated": "Tarjeta SD actualizada: {n} archivo(s) descargado(s).",
+        "default_updated": "⚠ El tema por defecto de Recalbox (Recalbox NEXT 2025, « recalbox-next ») se ha actualizado: logos nuevos (favoritos, todos los juegos, últimos juegos…) y sistemas nuevos. Vuelva a descargarlo de GitHub: « Actualizar los obsoletos ».",
+        "default_updated_note": "⚠ El tema POR DEFECTO de Recalbox se ha actualizado (logos y sistemas nuevos): hay que volver a descargarlo de GitHub.\n\n",
+        "sd_none": "Tarjeta SD del DMD no detectada: comparación con el paquete de GitHub omitida.",
+        "sd_nopkg": "Paquete de logos de GitHub inaccesible: comparación con la tarjeta SD omitida.",
+        "sd_log": "Tarjeta SD {drive}: {n} tema(s) del paquete presente(s), {m} por actualizar.",
+        "sd_log_rb": "Tarjeta SD {drive}: {t} tema(s) presente(s); {r} se comparan con la Recalbox (la referencia, resultado en la lista de abajo), {n} con el paquete de GitHub ({m} por actualizar).",
+        "update": "Actualizar los obsoletos",
+        "col_hub": "Hub", "col_rb": "Recalbox", "col_sd": "SD",
+        "propose_new": "{n} tema(s) instalado(s) en la Recalbox o incluido(s) con ella aún no se han convertido para el DMD:\n{names}\n\n¿Convertirlos ahora?",
+        "propose_maj": "{n} tema(s) instalado(s) en la Recalbox difieren de la tarjeta SD del DMD (la Recalbox es la referencia):\n{lines}\n\n¿Actualizar la tarjeta SD desde la Recalbox?",
+        "maj_no_sd": "{n} tema(s) instalado(s) en la Recalbox difieren de la carpeta de trabajo del toolkit. No se detecta ninguna tarjeta SD del DMD: la actualización de la tarjeta SD solo se ofrece cuando está en el PC (insértela y pulse Actualizar).",
+        "all_uptodate": "Ningún tema que actualizar.",
+        "detecting": "Buscando la Recalbox y el hub…",
+        "convert": "Convertir selección",
+        "preview": "Vista previa",
+        "copy": "Copiar a la SD",
+        "open_out": "Abrir carpeta",
+        "col_theme": "Tema", "col_source": "Origen", "col_state": "Estado", "col_variants": "Idiomas | zonas", "col_detail": "Detalle",
+        "src_rb": "Recalbox", "src_hub": "hub", "src_both": "Recalbox + hub",
+        "deps_missing": "Faltan dependencias para convertir los logos de tema:\n{err}\n\nInstálelas con:\npip install resvg-py numpy pillow",
+        "no_sel": "Seleccione al menos un tema de la lista.",
+        "checking": "Comprobando…",
+        "check_done": "{n} tema(s) listado(s).",
+        "converting": "Convirtiendo {name}…",
+        "convert_done": "Terminado: {ok} convertido(s), {ko} con error.",
+        "no_conv": "Este tema aún no se ha convertido: use «Convertir selección».",
+        "no_drive": "No se detecta ninguna unidad extraíble. Inserte la tarjeta SD del DMD.",
+        "pick_drive": "Unidad de la tarjeta SD:",
+        "refresh": "Actualizar",
+        "copy_confirm": "¿Copiar {n} tema(s) ({size} MB) a {drive}\\systems\\_defaults\\_themes\\ ?",
+        "copying": "Copiando {name} a {drive}…",
+        "copy_done": "Copia terminada ({n} tema(s)). Expulse la tarjeta antes de retirarla.",
+        "pending_log": "{n} tema(s) preparado(s) pendiente(s) de copiar a la SD: {names}. Inserta la tarjeta y usa \"Copiar a la SD\" (la copia continúa donde se detuvo).",
+        "copy_resume": "Copia a la SD interrumpida para {name}: continuará en el próximo \"Copiar a la SD\".",
+        "check_hint": "La lista reúne el hub (catálogo oficial en línea), los temas instalados en la Recalbox y lo que contiene la tarjeta SD del DMD (versiones leídas en cada carpeta de tema). Las conversiones se escriben en la tarjeta SD; sin tarjeta detectada, la carpeta de trabajo del toolkit sirve de tránsito (Windows puede vaciarla). Naranja = más antiguo que el hub o el paquete, versión desconocida, o idioma/región modificados (a actualizar); azul = nunca convertido.",
+        "ok": "OK", "close": "Cerrar", "sample": "Hoja de control — {name}",
+        "simple_hint": "Los temas instalados en su Recalbox. Seleccione algunos y pulse «Enviar la selección al DMD», o actualice los obsoletos.",
+        "send_sel": "Enviar la selección al DMD",
+        "send_skip": "Estos temas no están instalados en ninguna de las Recalbox tratadas: no hay nada que enviar, ya están en el DMD ({names}).",
+        "other_rb_detail": "instalado en la Recalbox {host} (no seleccionada)",
+        "del_note_unsure": "⚠ {hosts} no responde(n): estos temas podrían estar instalados allí. Compruebe antes de eliminar.",
+        "dmd_only_unsure": "atención: {hosts} no accesible(s), compruebe antes de eliminar",
+        "del_btn": "Eliminar del DMD",
+        "del_none": "Seleccione uno o varios temas presentes en el DMD.",
+        "del_confirm": "¿Eliminar {n} tema(s) del DMD ({target})?\n{names}\n\nEspacio liberado: {size}.\n{notes}",
+        "del_note_rb": "Los temas aún instalados en la Recalbox se podrán volver a enviar.",
+        "del_note_default": "⚠ El tema por defecto de Recalbox forma parte de la selección: sin él el DMD vuelve a sus imágenes por defecto.",
+        "del_note_only": "⚠ {names} ya no está(n) instalado(s) en la Recalbox: la eliminación es definitiva (hay que reinstalarlo en la Recalbox para recuperarlo).",
+        "del_done": "{n} tema(s) eliminado(s) del DMD.",
+        "del_fail": "ERROR al eliminar {name}: {err}",
+        "dmd_only_detail": "ausente de la Recalbox — se puede eliminar para liberar espacio",
+        "size_mb": "{mb} MB",
+        "no_target_esp": "No se detecta la tarjeta SD del DMD ESP32: insértela en el PC y pulse Actualizar. Sin ella, se desconoce el estado de los temas en el DMD.",
+        "no_target_pi": "El Raspberry Pi no responde ({why}). Compruebe que está encendido y en Wi-Fi, y pulse Actualizar.",
+        "st_no_target": "Sin destino",
+        "rb_host_label": "Recalbox:",
+        "tech": "Detalles técnicos",
+        "rb_chip_ok": "Recalbox: {path}", "rb_chip_none": "Recalbox no encontrada: enciéndala y pulse Actualizar",
+        "simple_states": {"on_dmd": "En el DMD y la Recalbox", "to_send": "Por enviar", "update": "Actualización disponible", "rb_update": "Actualizar primero en la Recalbox", "no_logos": "Sin logos", "error": "Error", "no_target": "Sin destino", "dmd_only": "Solo en el DMD", "other_rb": "En el DMD · otra Recalbox"},
+        "plan": {"default": "tema por defecto (GitHub)", "download": "descarga rápida", "convert": "convertido en su PC (≈ 30 s)", "none": ""},
+        "rb_old": "v{inst} → v{lat}: con el gestor de temas de la Recalbox",
+        "states": {"NOUVEAU": "NUEVO", "MAJ": "ACTUALIZAR", "A JOUR": "AL DÍA", "SANS LOGOS": "SIN LOGOS",
+                   "DIFFERENT": "DISTINTO", "ERREUR": "ERROR"},
+    },
+}
+
+
+def open_window(gui):
+    """Point d'entree appele par le GUI principal. Verifie les dependances avant d'ouvrir la fenetre."""
+    lang = "fr"
+    try:
+        lang = gui.lang_var.get()
+    except Exception:
+        pass
+    tr = T.get(lang, T["fr"])
+    try:
+        import theme_logos as tl   # noqa: F401  (meme dossier que le GUI)
+        import numpy  # noqa: F401
+        import PIL  # noqa: F401
+        import resvg_py  # noqa: F401
+    except Exception as e:
+        messagebox.showerror(tr["title"], tr["deps_missing"].format(err=f"{type(e).__name__}: {e}"), parent=gui.root)
+        return
+    return ThemeLogosWindow(gui, tr)
+
+
+def open_embedded(gui, parent):
+    """Page « Themes » de l'onglet Personnalisation : meme moteur que la fenetre du Mode 12, presentation simple, construite dans `parent` (un cadre). Retourne l'objet ou None."""
+    lang = "fr"
+    try:
+        lang = gui.lang_var.get()
+    except Exception:
+        pass
+    tr = T.get(lang, T["fr"])
+    try:
+        import theme_logos as tl   # noqa: F401
+        import numpy  # noqa: F401
+        import PIL  # noqa: F401
+        import resvg_py  # noqa: F401
+    except Exception as e:
+        tk.Label(parent, text=tr["deps_missing"].format(err=f"{type(e).__name__}: {e}"), bg="#F3F3F3", fg="#C62828", justify="left", wraplength=880).pack(anchor="w", padx=12, pady=12)
+        return None
+    return ThemeLogosWindow(gui, tr, parent=parent, simple=True)
+
+
+class ThemeLogosWindow:
+    def __init__(self, gui, tr, parent=None, simple=False):
+        self.simple = bool(simple)
+        import theme_logos as tl
+        self.tl, self.gui, self.tr = tl, gui, tr
+        self.tkmod = gui.tkmod
+        self.sd_dir = Path(gui.sd_dir)
+        self.work_root = self.sd_dir / "systems" / "_defaults" / "_themes"   # dossier de travail du toolkit : transit seulement (Windows peut le vider)
+        self.out_root = self.work_root                                       # reference reelle des etats : carte SD du DMD (voir _resolve_target)
+        self.work_default = self.sd_dir / "systems" / "_defaults"
+        self.sd_root = None
+        self.on_sd = False
+        self.pi, self.pi_why = None, ""    # v29 : DMD Raspberry Pi joignable en Wi-Fi (voir _find_pi_target)
+        self._no_logos = {}      # themes dont la conversion a echoue faute de logo de systeme (cette session)
+        self.default_dir = self.sd_dir / "systems" / "_defaults"
+        self.known = tl.known_systems_from_dir(str(self.default_dir))
+        self.q: "queue.Queue" = queue.Queue()
+        self.rows = {}          # dossier du theme -> dict (etat fusionne)
+        self.hub = {}           # dossier -> ligne du catalogue du hub
+        self.busy = False
+        colors = {}
+        try:
+            colors = gui._theme_colors()
+        except Exception:
+            pass
+        self.bg = colors.get("bg_main", "#F3F3F3")
+        self.fg = colors.get("fg_text", "#000000")
+        self.bg_action = colors.get("bg_button_action", "#00D084")
+
+        if parent is not None:          # page integree (onglet Personnalisation) : pas de fenetre a part
+            w = self.win = parent
+        else:
+            w = self.win = tk.Toplevel(gui.root)
+            w.title(tr["title"])
+            w.configure(bg=self.bg)
+            w.geometry("940x760")
+            w.minsize(820, 620)
+            w.transient(gui.root)
+
+        if self.simple:
+            self._build_simple(w, tr)
+        else:
+            tk.Label(w, text=tr["intro"], bg=self.bg, fg=self.fg, wraplength=900, justify="left").pack(anchor="w", padx=12, pady=(10, 4))
+
+            top = tk.Frame(w, bg=self.bg)
+            top.pack(fill="x", padx=12, pady=4)
+            tk.Label(top, text=tr["rb_path"], bg=self.bg, fg=self.fg).grid(row=0, column=0, sticky="w")
+            self.rb_var = tk.StringVar(value=tl.DEFAULT_RB_THEMES)
+            tk.Entry(top, textvariable=self.rb_var, width=52).grid(row=0, column=1, padx=6, sticky="we")
+            tk.Button(top, text=tr["browse"], command=self._browse_rb).grid(row=0, column=2)
+            self.lang_var = tk.StringVar(value="en_US")      # v17 : variables conservees (anciennes detections) mais plus affichees ni utilisees
+            self.region_var = tk.StringVar(value="us")
+            self._gui_lang_trace = None
+            tk.Label(top, text=tr["lang_hint"], bg=self.bg, fg="#555555", wraplength=880, justify="left").grid(row=1, column=0, columnspan=3, sticky="w", pady=(6, 0))
+            top.columnconfigure(1, weight=1)
+
+            bar = tk.Frame(w, bg=self.bg)
+            bar.pack(fill="x", padx=12, pady=(6, 4))
+            self.btn_check = self._btn(bar, tr["refresh"], self._on_check, action=True)
+            self.btn_update = self._btn(bar, tr["update"], self._on_update_outdated, action=True)
+            self.btn_convert = self._btn(bar, tr["convert"], self._on_convert, action=True)
+            self.btn_preview = self._btn(bar, tr["preview"], self._on_preview)
+            self.btn_copy = self._btn(bar, tr["copy"], self._on_copy)
+            self._refresh_copy_button()
+            self._btn(bar, tr["open_out"], self._on_open_out)
+
+            tk.Label(w, text=tr["check_hint"], bg=self.bg, fg="#555555", wraplength=900, justify="left").pack(anchor="w", padx=12)
+            self.default_banner = tk.Label(w, text=tr["default_updated"], bg="#FFF1CC", fg="#7A4B00", wraplength=900, justify="left", anchor="w", padx=8, pady=4, bd=1, relief="solid")   # v161 : theme par defaut mis a jour
+
+            # v19 : le journal et la ligne d'etat sont empiles EN BAS d'abord (side="bottom") : ils gardent leur hauteur, c'est le tableau (expand) qui se reduit
+            logbox = tk.Frame(w, bg=self.bg)
+            logbox.pack(side="bottom", fill="x", padx=12, pady=(2, 10))
+            self.log = tk.Text(logbox, height=10, state="disabled", bg="#101010", fg="#d0d0d0")
+            lsb = ttk.Scrollbar(logbox, orient="vertical", command=self.log.yview)
+            self.log.configure(yscrollcommand=lsb.set)
+            self.log.pack(side="left", fill="x", expand=True)
+            lsb.pack(side="left", fill="y")
+            self.status = tk.StringVar(value=f"{self.out_root}")
+            tk.Label(w, textvariable=self.status, bg=self.bg, fg=self.fg, anchor="w").pack(side="bottom", fill="x", padx=12)
+            self.pbar = ttk.Progressbar(w, orient="horizontal", mode="determinate", maximum=100)      # v25 : animation (attente) / pourcentage (conversion)
+            self.pbar.pack(side="bottom", fill="x", padx=12, pady=(0, 2))
+            self._pbar_anim = False
+
+            frame = tk.Frame(w, bg=self.bg)
+            frame.pack(fill="both", expand=True, padx=12, pady=6)
+            cols = ("theme", "hub", "rb", "sd", "state", "variants", "detail")
+            self.tree = ttk.Treeview(frame, columns=cols, show="headings", selectmode="extended", height=6)
+            for c, key, wd in (("theme", "col_theme", 190), ("hub", "col_hub", 60), ("rb", "col_rb", 80), ("sd", "col_sd", 50), ("state", "col_state", 100), ("variants", "col_variants", 190), ("detail", "col_detail", 240)):
+                al = "w" if c in ("theme", "detail") else "center"      # v28 : colonnes centrees (en-tete et contenu) sauf Theme et Detail
+                self.tree.heading(c, text=tr[key], anchor=al)
+                self.tree.column(c, width=wd, anchor=al)
+            self.tree.tag_configure("maj", foreground="#E08A00")   # plus ancien que le hub / langue-region modifiee
+            self.tree.tag_configure("new", foreground="#3A8DFF")   # jamais converti
+            sb = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
+            self.tree.configure(yscrollcommand=sb.set)
+            self.tree.pack(side="left", fill="both", expand=True)
+            sb.pack(side="left", fill="y")
+
+        if parent is None:
+            w.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.win.after(100, self._drain)
+        self._rb_manual = False                          # False : les Recalbox traitees sont celles du DMD cible (automatique) ; True : choisies a la main
+        self._elsewhere, self._rb_unreachable = {}, []    # themes presents sur une AUTRE Recalbox du DMD (dossier -> hote) ; Recalbox du DMD injoignables
+        self._rb_root_of = {}                            # theme -> racine (\\\\hote\\share\\themes) de la Recalbox dont la copie est utilisee (plusieurs Recalbox possibles)
+        self._last_check = time.time()                   # la construction compte comme une verification (la detection de la Recalbox lance la premiere) : pas d'actualisation d'ouverture dans les 3 s
+        self._last_target_key = self._target_key()       # cible au moment de l'ouverture : un changement ulterieur declenche une actualisation (voir refresh_on_context_change)
+        self._asked = set()      # themes Recalbox deja proposes a la conversion (pas de relance a chaque actualisation)
+        self._dlg_open = False   # v21 : une boite de proposition de MAJ est affichee (les autres attendent sa reponse)
+        self._post("busy", True)
+        self._post("status", tr["detecting"])
+        threading.Thread(target=self._detect_rb, args=(self._pkg_lang(),), daemon=True).start()
+
+    # ------------------------------------------------------------------ presentation simple (page « Themes »)
+    def _build_simple(self, w, tr):
+        """Page « Themes » : une liste d'etats en clair (Sur le DMD / A envoyer / Mise a jour disponible / A mettre a jour sur la Recalbox), deux boutons d'action, le reste dans
+        « Details techniques » (chemin de la Recalbox, copie vers la SD, journal). Meme moteur que la fenetre du Mode 12."""
+        tl = self.tl
+        self.rb_var = tk.StringVar(value=tl.DEFAULT_RB_THEMES)
+        self.lang_var = tk.StringVar(value="en_US")
+        self.region_var = tk.StringVar(value="us")
+        self._gui_lang_trace = None
+        head = tk.Frame(w, bg=self.bg)
+        head.pack(fill="x", padx=10, pady=(6, 0))
+        tk.Label(head, text=tr["rb_host_label"], bg=self.bg, fg=self.fg, font=("TkDefaultFont", 9, "bold")).pack(side="left")
+        self.rb_host_var = tk.StringVar(value="")
+        self.rb_combo = ttk.Combobox(head, textvariable=self.rb_host_var, width=22, values=self._rb_hosts())      # Recalbox connues (reglages, DMD detectes) ; saisie libre (IP ou nom)
+        self.rb_combo.pack(side="left", padx=(6, 8))
+        self.rb_combo.bind("<<ComboboxSelected>>", lambda e: self._on_rb_chosen())
+        self.rb_combo.bind("<Return>", lambda e: self._on_rb_chosen())
+        self.rb_chip = tk.Label(head, text=tr["detecting"], bg=self.bg, fg=self.fg, anchor="w", font=("TkDefaultFont", 9, "bold"))
+        self.rb_chip.pack(side="left")
+        bar = tk.Frame(w, bg=self.bg)
+        bar.pack(fill="x", padx=10, pady=(4, 2))
+        self.btn_update = self._btn(bar, tr["update"], self._on_update_outdated, action=True)
+        self.btn_convert = self._btn(bar, tr["send_sel"], self._on_convert, action=True)
+        self.btn_check = self._btn(bar, tr["refresh"], self._on_check)
+        self.btn_preview = self._btn(bar, tr["preview"], self._on_preview)
+        self.btn_delete = self._btn(bar, tr["del_btn"], self._on_delete)
+        self.btn_tech = self._btn(bar, tr["tech"] + " ▸", self._toggle_tech)
+        hint = tk.Label(w, text=tr["simple_hint"], bg=self.bg, fg="#555555", wraplength=860, justify="left")
+        hint._theme_hint = True
+        hint.pack(anchor="w", padx=10)
+        self.default_banner = tk.Label(w, text=tr["default_updated"], bg="#FFF1CC", fg="#7A4B00", wraplength=860, justify="left", anchor="w", padx=8, pady=4, bd=1, relief="solid")
+        self.default_banner._theme_exempt = True        # bandeaux d'avertissement : couleurs fixes
+        self.target_banner = tk.Label(w, text="", bg="#FDE8E8", fg="#8A1C1C", wraplength=860, justify="left", anchor="w", padx=8, pady=4, bd=1, relief="solid")      # aucune cible (SD / Pi)
+        self.target_banner._theme_exempt = True
+        # pied : ligne d'etat + barre (empiles en bas d'abord : c'est la liste qui se reduit)
+        self.status = tk.StringVar(value=f"{self.out_root}")
+        tk.Label(w, textvariable=self.status, bg=self.bg, fg=self.fg, anchor="w").pack(side="bottom", fill="x", padx=10)
+        self.pbar = ttk.Progressbar(w, orient="horizontal", mode="determinate", maximum=100)
+        self.pbar.pack(side="bottom", fill="x", padx=10, pady=(0, 2))
+        self._pbar_anim = False
+        # details techniques (replies par defaut)
+        self.tech = tk.Frame(w, bg=self.bg)
+        row = tk.Frame(self.tech, bg=self.bg)
+        row.pack(fill="x")
+        tk.Label(row, text=tr["rb_path"], bg=self.bg, fg=self.fg).pack(side="left")
+        _ent = tk.Entry(row, textvariable=self.rb_var, width=44)
+        _ent.pack(side="left", padx=6)
+        _ent.bind("<KeyRelease>", lambda e: setattr(self, "_rb_manual", True))       # chemin modifie a la main : plus d'automatisme
+        self._btn(row, tr["browse"], self._browse_rb)
+        row2 = tk.Frame(self.tech, bg=self.bg)
+        row2.pack(fill="x", pady=(4, 2))
+        self.btn_copy = self._btn(row2, tr["copy"], self._on_copy)
+        self._refresh_copy_button()
+        self._btn(row2, tr["open_out"], self._on_open_out)
+        lb = tk.Frame(self.tech, bg=self.bg)
+        lb.pack(fill="x")
+        self.log = tk.Text(lb, height=6, state="disabled", bg="#101010", fg="#d0d0d0")
+        lsb = ttk.Scrollbar(lb, orient="vertical", command=self.log.yview)
+        self.log.configure(yscrollcommand=lsb.set)
+        self.log.pack(side="left", fill="x", expand=True)
+        lsb.pack(side="left", fill="y")
+        # liste
+        self._tree_frame = tk.Frame(w, bg=self.bg)
+        self._tree_frame.pack(fill="both", expand=True, padx=10, pady=4)
+        self.tree = ttk.Treeview(self._tree_frame, columns=("theme", "state", "detail"), show="headings", selectmode="extended", height=6)
+        for c, key, wd in (("theme", "col_theme", 200), ("state", "col_state", 260), ("detail", "col_detail", 380)):
+            self.tree.heading(c, text=tr[key], anchor="w")
+            self.tree.column(c, width=wd, anchor="w", stretch=(c == "detail"))
+        self.tree.tag_configure("maj", foreground="#E08A00")       # mise a jour disponible
+        self.tree.tag_configure("new", foreground="#3A8DFF")       # a envoyer
+        self.tree.tag_configure("ok", foreground="#1B7F3B")        # sur le DMD
+        self.tree.tag_configure("rbold", foreground="#B26A00")     # a mettre a jour d'abord sur la Recalbox
+        self.tree.tag_configure("nologo", foreground="#8A6D3B")
+        self.tree.tag_configure("dmdonly", foreground="#9C27B0")   # sur le DMD seulement (plus sur aucune Recalbox)
+        self.tree.tag_configure("otherrb", foreground="#00838F")   # sur le DMD ; installe sur une autre Recalbox du DMD
+        sb = ttk.Scrollbar(self._tree_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=sb.set)
+        self.tree.pack(side="left", fill="both", expand=True)
+        sb.pack(side="left", fill="y")
+
+    @staticmethod
+    def _rb_host_of(path):
+        """Nom / IP de la Recalbox d'un chemin \\\\hote\\share\\themes (sinon le texte tel quel)."""
+        p = str(path or "").strip()
+        return p.lstrip("\\").split("\\")[0] if p.startswith("\\\\") else p
+
+    def _rb_hosts_text(self, value):
+        """« hote1 + hote2 » d'une valeur de chemin(s) (separes par « ; »)."""
+        return " + ".join(self._rb_host_of(p) for p in str(value or "").split(";") if p.strip())
+
+    def _target_dmd_probe(self):
+        """Sonde du DMD CIBLE : le Raspberry Pi joint (self.pi) ou, pour un ESP32, le DMD ESP32 trouve par le toolkit (cache de detection) ; None si inconnu."""
+        if self.pi:
+            return self.pi
+        try:
+            want_pi = self.tkmod.get_sd_target() == "pi"
+        except Exception:
+            want_pi = False
+        for d in (getattr(self.gui, "_dmds_cache", None) or []):
+            if bool(d.get("is_pi")) == want_pi:
+                return d
+        return None
+
+    def _rb_dmd_hosts(self):
+        """Recalbox rattachees au DMD CIBLE : celles qu'il annonce lui-meme (rb_ips), puis le reglage recalbox_ip (Mode 1 / Mode 9). Toutes sont traitees en UNE operation."""
+        hosts = []
+        probe = self._target_dmd_probe()
+        if probe:
+            hosts += list(probe.get("rb_ips", []) or [])
+        try:
+            import RecalBoxDMD_prefs as _p
+            hosts += list(self.tkmod.split_recalbox_ips(_p.get("recalbox_ip") or ""))
+        except Exception:
+            pass
+        out = []
+        for h in hosts:
+            h = str(h).strip()
+            if h and h not in out:
+                out.append(h)
+        return out
+
+    def _rb_configured(self):
+        return self._rb_dmd_hosts()
+
+    def _root_of_host(self, host):
+        return rf"\\{host}\share\themes"
+
+    def _scan_other_rbs(self, roots, ok_roots):
+        """Recalbox du DMD cible NON traitees (non selectionnees, ou injoignables) : liste seulement les NOMS de leurs themes (rapide, sans analyse) -> self._elsewhere {dossier: hote} ;
+        celles qui ne repondent pas -> self._rb_unreachable. Un theme du DMD installe sur l'une d'elles n'est jamais presente comme « sans Recalbox »."""
+        tl = self.tl
+        ok_hosts = {self._rb_host_of(r).lower() for r in ok_roots}
+        down_hosts = {self._rb_host_of(r).lower() for r in roots if r not in ok_roots}          # deja constatees injoignables : pas de 2e attente reseau
+        for h in self._rb_dmd_hosts():
+            if h.lower() in ok_hosts:
+                continue
+            if h.lower() in down_hosts:
+                if h not in self._rb_unreachable:
+                    self._rb_unreachable.append(h)
+                continue
+            other = self._root_of_host(h)
+            if os.path.isdir(other):
+                try:
+                    for n in os.listdir(other):
+                        if os.path.isfile(os.path.join(other, n, "theme.xml")):
+                            self._elsewhere.setdefault(tl.theme_dir_name(n), h)
+                except OSError:
+                    self._rb_unreachable.append(h)
+            else:
+                self._rb_unreachable.append(h)
+        for r in roots:
+            if r not in ok_roots and self._rb_host_of(r) not in self._rb_unreachable:
+                self._rb_unreachable.append(self._rb_host_of(r))
+
+    def _rb_default_roots(self, detected_host=None):
+        """Racines des themes a traiter par defaut : TOUTES les Recalbox du DMD cible (une seule operation), sinon la Recalbox detectee."""
+        conf = self._rb_dmd_hosts()
+        if conf:
+            return [self._root_of_host(h) for h in conf]
+        return [self._root_of_host(detected_host)] if detected_host else []
+
+    def _rb_hosts(self):
+        """Valeurs de la liste : « hote1 + hote2 » (toutes les Recalbox du DMD) si plusieurs sont renseignees, puis chaque Recalbox : en cours, reglages (recalbox_ip), annoncees par les DMD trouves, « RECALBOX »."""
+        hosts = []
+        try:
+            cur = [self._rb_host_of(p) for p in str(self.rb_var.get()).split(";") if p.strip()]
+            hosts += cur
+        except Exception:
+            pass
+        conf = self._rb_configured()
+        hosts += conf
+        for d in (getattr(self.gui, "_dmds_cache", None) or []):
+            hosts += list(d.get("rb_ips", []) or [])
+        hosts.append("RECALBOX")
+        singles = []
+        for h in hosts:
+            h = str(h).strip()
+            if h and h not in singles:
+                singles.append(h)
+        return ([" + ".join(conf)] if len(conf) >= 2 else []) + singles
+
+    def _on_rb_chosen(self):
+        """Une autre Recalbox est choisie (liste ou saisie) : le chemin de ses themes est mis a jour et la page ACTUALISEE."""
+        host = self.rb_host_var.get().strip()
+        if not host:
+            return
+        parts = [p.strip() for p in re.split(r"[+,;]", host) if p.strip()]         # « a + b » : plusieurs Recalbox traitees en une seule operation
+        chosen = ";".join(p if p.startswith("\\\\") else rf"\\{p}\share\themes" for p in parts)
+        self.rb_var.set(chosen)
+        self._rb_manual = chosen.lower() != ";".join(self._rb_default_roots()).lower()      # choisir « toutes les Recalbox du DMD » = retour au mode automatique
+        self._on_check()
+
+    def _target_key(self):
+        try:
+            return self.tkmod.get_sd_target()
+        except Exception:
+            return None
+
+    def refresh_on_context_change(self, reason="open"):
+        """Actualisation automatique. reason="target" : la cible du toolkit (carte SD / Raspberry Pi) vient de changer -> actualise SEULEMENT si elle differe de celle de la derniere verification
+        (differee si un traitement tourne) ; reason="open" : onglet / page reouverts -> actualise si la derniere verification a plus de 3 s (jamais pendant un traitement)."""
+        changed = self._target_key() != getattr(self, "_last_target_key", None)
+        if reason == "target":
+            if not changed:
+                return
+            if self.busy:
+                self._recheck_pending = True
+                return
+            self._on_check()
+            return
+        if self.busy or time.time() - getattr(self, "_last_check", 0) < 3:
+            return
+        self._on_check()
+
+    def _target_ok(self):
+        return (not self.simple) or bool(self.on_sd)
+
+    def _apply_target_gating(self):
+        """Sans cible (ni carte SD du DMD ni Pi) : message clair, boutons d'envoi desactives (aucune instruction de conversion pour des themes qui n'iraient nulle part)."""
+        if not self.simple:
+            return
+        ok = bool(self.on_sd)
+        try:
+            if ok:
+                if self.target_banner.winfo_manager():
+                    self.target_banner.pack_forget()
+            else:
+                pi = False
+                try:
+                    pi = self.tkmod.get_sd_target() == "pi"
+                except Exception:
+                    pass
+                self.target_banner.config(text=self.tr["no_target_pi"].format(why=self.pi_why or "?") if pi else self.tr["no_target_esp"])
+                if not self.target_banner.winfo_manager():
+                    self.target_banner.pack(fill="x", padx=10, pady=(4, 0), before=self._tree_frame)
+            if not self.busy:
+                for b in (self.btn_update, self.btn_convert, getattr(self, "btn_delete", None)):
+                    if b is not None:
+                        b.config(state="normal" if ok else "disabled")
+        except tk.TclError:
+            pass
+
+    # ------------------------------------------------------------------ themes sur le DMD (page « Themes ») : seulement-DMD, tailles, suppression
+    def _dmd_theme_dirs(self):
+        """Dossiers de themes presents sur le DMD (carte SD ou image legere du Pi) qui ont des logos ; ni « logos-reels » (option du DMD) ni les dossiers « _... » (journaux, marqueurs)."""
+        out = []
+        if not self.on_sd:
+            return out                   # sans carte SD ni Pi, out_root est le dossier de travail du toolkit (transit) : ce n'est pas le DMD
+        try:
+            for n in sorted(os.listdir(str(self.out_root))):
+                if n.startswith("_") or n.startswith(".") or n == "logos-reels" or not os.path.isdir(os.path.join(str(self.out_root), n)):
+                    continue
+                if self.tl._has_converted_logos(str(self.out_root), n):
+                    out.append(n)
+        except OSError:
+            pass
+        return out
+
+    def _dir_mb(self, name):
+        """Taille (Mo) d'un theme sur la CARTE SD ; None pour un Pi (image legere : la taille reelle n'est pas connue)."""
+        if self.pi:
+            return None
+        try:
+            tot = sum(f.stat().st_size for f in Path(str(self.out_root), name).rglob("*") if f.is_file())
+            return tot / 1e6
+        except OSError:
+            return None
+
+    def _size_txt(self, r):
+        mb = r.get("size_mb")
+        return self.tr["size_mb"].format(mb=f"{mb:.1f}") if mb else ""
+
+    def _add_dmd_rows(self, merged):
+        """Page « Themes » : (1) un theme present sur le DMD mais installe sur AUCUNE Recalbox devient une ligne « Sur le DMD seulement » (a garder ou a supprimer pour faire de la place) ;
+        (2) un theme du hub ni installe sur la Recalbox ni present sur le DMD n'est pas liste (la page ne travaille que sur les themes installes) ; les themes systeme de Recalbox
+        (theme par defaut, 240p) ne sont jamais « seulement sur le DMD »."""
+        tl = self.tl
+        default = getattr(self.tkmod, "DEFAULT_THEME", "recalbox-next")
+        dirs = self._dmd_theme_dirs()
+        by_dir = {tl.theme_dir_name(f): f for f in merged}
+        for f in list(merged):
+            m = merged[f]
+            d = tl.theme_dir_name(f)
+            if d in dirs:
+                m["size_mb"] = self._dir_mb(d)
+            if m.get("rb") or f in tl.SYSTEM_THEMES:
+                if f in tl.SYSTEM_THEMES and f != default and d not in dirs and not m.get("rb"):
+                    del merged[f]                         # theme systeme sans copie sur le DMD ni Recalbox : rien a montrer
+                continue
+            if d in dirs:
+                if d in self._elsewhere:
+                    m["other_rb"] = self._elsewhere[d]    # installe sur une autre Recalbox du DMD : jamais « sans Recalbox »
+                else:
+                    m["dmd_only"] = True                  # connu du hub mais plus installe sur aucune Recalbox du DMD ; encore sur le DMD
+            else:
+                del merged[f]
+        for d in dirs:
+            if d in by_dir:
+                continue
+            merged[d] = {"state": "A JOUR", "detail": "", "rb": False, "hub": False, "hub_version": None, "source": "dmd", "sd": True,
+                         "size_mb": self._dir_mb(d), "pkg": False, "variants_txt": ""}
+            if d in self._elsewhere:
+                merged[d]["other_rb"] = self._elsewhere[d]
+            else:
+                merged[d]["dmd_only"] = True
+
+    def _on_delete(self):
+        """Supprime du DMD les themes selectionnes (place liberee sur la carte SD / le Pi). Confirmation obligatoire ; aucune suppression d'un theme de la Recalbox."""
+        if self.busy:
+            return
+        sel = [f for f in self.tree.selection() if self.rows.get(f, {}).get("sd")]
+        if not sel:
+            messagebox.showinfo(self.tr["title"], self.tr["del_none"], parent=self.win)
+            return
+        notes = []
+        only = [f for f in sel if self.rows[f].get("dmd_only")]
+        if any(f == getattr(self.tkmod, "DEFAULT_THEME", "recalbox-next") for f in sel):
+            notes.append(self.tr["del_note_default"])
+        if len(only) < len(sel):
+            notes.append(self.tr["del_note_rb"])
+        if only:
+            notes.append(self.tr["del_note_only"].format(names=", ".join(only)))
+            if getattr(self, "_rb_unreachable", None):
+                notes.append(self.tr["del_note_unsure"].format(hosts=", ".join(self._rb_unreachable)))
+        mb = sum((self.rows[f].get("size_mb") or 0) for f in sel)
+        size = self.tr["size_mb"].format(mb=f"{mb:.1f}") if mb else "?"
+        msg = self.tr["del_confirm"].format(n=len(sel), target=self._drive_label(), names="\n".join("• " + f for f in sel), size=size, notes="\n".join(notes))
+        if not messagebox.askyesno(self.tr["title"], msg, parent=self.win, default="no"):
+            return
+        self._post("busy", True)
+        threading.Thread(target=self._delete_worker, args=(sel,), daemon=True).start()
+
+    _NAME_OK = re.compile(r"^[A-Za-z0-9._@+-]{1,96}$")
+
+    def _delete_worker(self, folders):
+        ok = 0
+        for k, f in enumerate(folders):
+            d = self.tl.theme_dir_name(f)
+            self._post("status", f"{self.tr['del_btn']} — {f} ({k + 1}/{len(folders)})")
+            self._post("pct", 100.0 * k / len(folders))
+            try:
+                if not self._NAME_OK.match(d) or d in (".", ".."):
+                    raise RuntimeError("nom de thème invalide")
+                if self.pi:
+                    self._delete_pi(d)
+                else:
+                    self._delete_sd(d)
+                shutil.rmtree(self.work_root / d, ignore_errors=True)               # copie de travail / journal de copie eventuels
+                try:
+                    (self._pending_dir() / (d + ".json")).unlink()
+                except OSError:
+                    pass
+                shutil.rmtree(self._pending_dir() / (d + "_markers"), ignore_errors=True)
+                self._log(f"{f} : supprimé du DMD")
+                ok += 1
+            except Exception as e:
+                self._log(self.tr["del_fail"].format(name=f, err=f"{type(e).__name__}: {e}"))
+        self._log(self.tr["del_done"].format(n=ok))
+        self._post("busy", False)
+        self._post("recheck")
+
+    def _delete_sd(self, d):
+        """Carte SD : supprime <racine>/systems/_defaults/_themes/<d> (le dossier doit etre un enfant DIRECT de _themes)."""
+        base = (Path(self.sd_root) / "systems" / "_defaults" / "_themes").resolve()
+        target = (base / d).resolve()
+        if target.parent != base or not target.is_dir():
+            raise RuntimeError("dossier du thème introuvable sur la carte")
+        shutil.rmtree(str(target))
+
+    def _delete_pi(self, d):
+        """Raspberry Pi (Wi-Fi) : le demon ne supprime que des FICHIERS : marqueurs d'abord (un theme a moitie supprime n'est jamais declare a jour), puis l'index, puis les logos ; l'image
+        legere du Pi est mise a jour."""
+        tk_, ip, base = self.tkmod, self.pi["ip"], f"_themes/{d}"
+        top = tk_.pi_defaults_list(ip, base)
+        if top is None:
+            raise RuntimeError("le Raspberry Pi ne répond pas")
+        plan = [(base, n.get("n")) for n in top.get("files", [])]
+        for sub in top.get("dirs", []):
+            plan += [(f"{base}/{sub}", n.get("n")) for n in (tk_.pi_defaults_list(ip, f"{base}/{sub}") or {}).get("files", [])]
+        plan.sort(key=lambda t: 0 if t[1] in self.MARKERS else (1 if t[1] == "_index.bin" else 2))
+        failed = [f"{r}/{n}" for r, n in plan if not tk_.pi_defaults_delete(ip, r, n)]
+        try:
+            tk_._dmd_http(ip, "/reels-refresh", "POST", 20.0)
+        except Exception:
+            pass
+        shutil.rmtree(str(Path(self.sd_root) / "systems" / "_defaults" / "_themes" / d), ignore_errors=True)
+        if failed:
+            raise RuntimeError(f"{len(failed)} fichier(s) non supprimé(s) sur le Pi (ex. {failed[0]})")
+
+    def _toggle_tech(self):
+        if self.tech.winfo_manager():
+            self.tech.pack_forget()
+            self.btn_tech.config(text=self.tr["tech"] + " ▸")
+        else:
+            self.tech.pack(side="bottom", fill="x", padx=10, pady=(2, 2), before=self._tree_frame)
+            self.btn_tech.config(text=self.tr["tech"] + " ▾")
+
+    def _set_rb_chip(self, path):
+        try:
+            self.rb_chip.config(text=self.tr["rb_chip_ok"].format(path=path) if path else self.tr["rb_chip_none"], fg=self.fg if path else "#C62828")
+        except tk.TclError:
+            pass
+
+    def _tag_for(self, r):
+        if not self.simple:
+            return {"MAJ": "maj", "NOUVEAU": "new"}.get(r["state"])
+        import theme_sync as ts
+        return {ts.UPDATE: "maj", ts.TO_SEND: "new", ts.ON_DMD: "ok", ts.RB_UPDATE: "rbold", ts.NO_LOGOS: "nologo", ts.NO_TARGET: "nologo", ts.DMD_ONLY: "dmdonly", ts.OTHER_RB: "otherrb"}.get(ts.user_state(r, self._target_ok()))
+
+    def _row_values_simple(self, folder, r):
+        import theme_sync as ts
+        st = ts.user_state(r, self._target_ok())
+        plan = ts.plan_for(r, folder == getattr(self.tkmod, "DEFAULT_THEME", "recalbox-next"), self._target_ok())
+        size = self._size_txt(r)
+        if st == ts.NO_TARGET:
+            det = ""
+        elif st == ts.DMD_ONLY:
+            det = (self.tr["dmd_only_detail"] + (f" ({size})" if size else ""))
+            if getattr(self, "_rb_unreachable", None):       # une Recalbox du DMD ne repond pas : ce theme pourrait y etre installe
+                det += " — " + self.tr["dmd_only_unsure"].format(hosts=", ".join(self._rb_unreachable))
+        elif st == ts.OTHER_RB:
+            det = self.tr["other_rb_detail"].format(host=r.get("other_rb")) + (f" · {size}" if size else "")
+        elif st in (ts.TO_SEND, ts.UPDATE):
+            det = self.tr["plan"].get(plan, "")
+        elif st == ts.RB_UPDATE:
+            m = re.search(r"v([\w.\-]+) -> v([\w.\-]+)", str(r.get("detail", "")))
+            det = self.tr["rb_old"].format(inst=m.group(1), lat=m.group(2)) if m else str(r.get("detail", ""))
+        elif st == ts.ON_DMD:
+            v = r.get("rb_version") if r.get("rb") else r.get("hub_version")
+            det = " · ".join(x for x in ((f"v{v}" if v else ""), size) if x)
+        else:
+            det = str(r.get("detail", ""))
+        return (folder, self.tr["simple_states"].get(st, st), det)
+
+    # ------------------------------------------------------------------ utilitaires
+    @staticmethod
+    def _contrast_fg(bg):
+        """Texte noir ou blanc selon la luminosite du fond (lisible sur tous les themes, clairs ou sombres)."""
+        try:
+            h = str(bg).lstrip("#")
+            r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+            return "#000000" if (0.299 * r + 0.587 * g + 0.114 * b) > 140 else "#FFFFFF"
+        except Exception:
+            return "#000000"
+
+    def _btn_colors(self, action):
+        """(fond, texte) d'un bouton d'apres le theme ACTIF du toolkit : « action » = couleur d'action du theme, sinon couleur de bouton normal."""
+        c = {}
+        try:
+            c = self.gui._theme_colors()
+        except Exception:
+            pass
+        bg = c.get("bg_button_action", "#FFD400") if action else c.get("bg_button_normal", "#FFFFFF")
+        return bg, self._contrast_fg(bg)
+
+    def _btn(self, parent, text, cmd, action=False, side="left"):
+        bg, fg = self._btn_colors(action)
+        b = tk.Button(parent, text=text, command=cmd, bd=2, relief="solid", padx=10, pady=4, bg=bg, fg=fg, activebackground=bg, activeforeground=fg,
+                      font=("TkDefaultFont", 10, "bold"))
+        b._theme_action = bool(action)
+        b.pack(side=side, padx=(0, 8))
+        return b
+
+    def apply_theme(self):
+        """Suit le theme du toolkit (au changement de theme et apres la construction de la page) : fonds / textes des cadres et libelles, boutons (normal / action), bandeaux conserves.
+        Le theme general recolore tous les boutons « generiques » avec la couleur d'action : on reapplique donc les couleurs de chaque bouton selon son role."""
+        c = {}
+        try:
+            c = self.gui._theme_colors()
+        except Exception:
+            pass
+        self.bg = c.get("bg_main", self.bg)
+        self.fg = c.get("fg_text", self.fg)
+        semantic = {"#C62828", "#8A1C1C", "#7A4B00", "#1B7F3B", "#B26A00"}
+
+        def walk(w):
+            for ch in w.winfo_children():
+                if getattr(ch, "_no_bg_slice", False) or getattr(ch, "_theme_exempt", False):
+                    continue
+                try:
+                    cls = ch.winfo_class()
+                    if cls == "Frame":
+                        ch.configure(bg=self.bg)
+                    elif cls == "Button":
+                        bg, fg = self._btn_colors(getattr(ch, "_theme_action", False))
+                        ch.configure(bg=bg, fg=fg, activebackground=bg, activeforeground=fg)
+                    elif cls == "Label":
+                        fg = c.get("fg_text_light", self.fg) if getattr(ch, "_theme_hint", False) else (ch.cget("fg") if str(ch.cget("fg")).upper() in semantic else self.fg)
+                        ch.configure(bg=self.bg, fg=fg)
+                except tk.TclError:
+                    pass
+                walk(ch)
+        try:
+            self.win.configure(bg=self.bg)
+        except tk.TclError:
+            pass
+        walk(self.win)
+
+    def _post(self, kind, *a):
+        self.q.put((kind, a))
+
+    def _drain(self):
+        try:
+            while True:
+                kind, a = self.q.get_nowait()
+                if kind == "log":
+                    self.log.config(state="normal")
+                    self.log.insert("end", a[0] + "\n")
+                    self.log.see("end")
+                    self.log.config(state="disabled")
+                elif kind == "status":
+                    self.status.set(a[0])
+                elif kind == "pct":
+                    self._set_pct(a[0])
+                elif kind == "rowdone":
+                    self._row_done(a[0], a[1])
+                elif kind == "rowcopyfail":
+                    self._row_copyfail(a[0])
+                elif kind == "sd_updates":
+                    if not self.simple:         # page « Themes » : pas de fenetres surprises, tout passe par les boutons
+                        self.win.after(300, self._propose_sd_update)
+                elif kind == "rows":
+                    self._fill_rows()
+                    if not self.simple:
+                        self.win.after(300, self._propose_new_rb)
+                elif kind == "rbchip":
+                    self._set_rb_chip(a[0])
+                elif kind == "rb":
+                    self.rb_var.set(a[0])
+                    if self.simple:
+                        self.rb_host_var.set(self._rb_hosts_text(a[0]))
+                        self.rb_combo.config(values=self._rb_hosts())
+                elif kind == "lang":
+                    self.lang_var.set(a[0])
+                elif kind == "region":
+                    self.region_var.set(a[0] if a[0] in ("us", "eu", "jp") else "us")
+                elif kind == "busy":
+                    self._set_busy(a[0])
+                elif kind == "info":
+                    messagebox.showinfo(self.tr["title"], a[0], parent=self.win)
+                elif kind == "error":
+                    messagebox.showerror(self.tr["title"], a[0], parent=self.win)
+                elif kind == "preview":
+                    self._show_preview(a[0])
+                elif kind == "recheck":
+                    self._on_check()
+        except queue.Empty:
+            pass
+        if self.win.winfo_exists():
+            self.win.after(100, self._drain)
+
+    def _set_busy(self, on):
+        self.busy = on
+        for b in (self.btn_check, self.btn_update, self.btn_convert, getattr(self, "btn_delete", None)):
+            if b is not None:
+                b.config(state="disabled" if on else "normal")
+        self._apply_target_gating()
+        self._refresh_copy_button()
+        if not on and getattr(self, "_recheck_pending", False):
+            self._recheck_pending = False
+            self.win.after(300, self._on_check)
+        try:
+            if on:
+                if not self._pbar_anim:       # attente sans avancement connu : barre qui defile
+                    self.pbar.config(mode="indeterminate")
+                    self.pbar.start(14)
+                    self._pbar_anim = True
+            else:
+                self.pbar.stop()
+                self.pbar.config(mode="determinate", value=0)
+                self._pbar_anim = False
+        except tk.TclError:
+            pass
+
+    def _set_pct(self, pct):
+        """Pourcentage connu (conversion) : la barre passe de l'animation au mode determine."""
+        try:
+            if self._pbar_anim:
+                self.pbar.stop()
+                self.pbar.config(mode="determinate")
+                self._pbar_anim = False
+            self.pbar.config(value=max(0.0, min(100.0, float(pct))))
+        except tk.TclError:
+            pass
+
+    def _log(self, s):
+        self._post("log", str(s))
+
+    # ------------------------------------------------------------------ v28 : preparation puis copie avec reprise
+    # Un theme est TOUJOURS prepare dans le dossier de travail (conversion ou telechargement du paquet), puis copie sur la carte SD.
+    # _pending/<theme>.json = « prepare, pas encore (entierement) copie » ; _pending/<theme>_markers/ = _source.json / _package.json mis de cote : ils sont copies EN DERNIER
+    # (et l'ancien marqueur de la carte est retire AVANT) -> une copie interrompue (carte retiree, plantage, erreur) laisse un theme « version inconnue » donc a mettre a jour,
+    # jamais un theme a moitie ecrit declare a jour. La copie sait reprendre : fichiers ecrits de facon atomique, deja copies = sautes (meme taille).
+    MARKERS = ("_source.json", "_package.json")
+
+    def _pending_dir(self):
+        return self.work_root / "_pending"
+
+    def _pending_names(self):
+        d = self._pending_dir()
+        try:
+            return sorted(f[:-5] for f in os.listdir(d) if f.endswith(".json") and (self.work_root / f[:-5]).is_dir())
+        except OSError:
+            return []
+
+    def _refresh_copy_button(self):
+        try:
+            n = len(self._pending_names())
+            self.btn_copy.config(text=f"{self.tr['copy']} ({n})", state="normal" if (n and not self.busy) else "disabled")
+        except (tk.TclError, AttributeError):
+            pass
+
+    def _stage_done(self, name):
+        """Theme pret dans le dossier de travail : marqueurs mis de cote, journal « en attente de copie » ecrit."""
+        import json
+        theme = self.work_root / name
+        mk = self._pending_dir() / (name + "_markers")
+        shutil.rmtree(mk, ignore_errors=True)
+        mk.mkdir(parents=True, exist_ok=True)
+        for m in self.MARKERS:
+            if (theme / m).exists():
+                shutil.move(str(theme / m), str(mk / m))
+        (self._pending_dir() / (name + ".json")).write_text(json.dumps({"theme": name, "staged": time.strftime("%Y-%m-%d %H:%M:%S")}), encoding="utf-8")
+
+    def _publish_to_sd(self, name, root, progress=None):
+        """Copie le theme prepare vers <root>/systems/_defaults/_themes/<name> (reprise possible), marqueurs en dernier, puis efface le journal. Leve RuntimeError si incomplet.
+        v29 : cible Raspberry Pi = envoi par Wi-Fi (_publish_to_pi) ; <root> est alors l'image legere du Pi, mise a jour avec les marqueurs une fois l'envoi complet."""
+        if self.pi:
+            return self._publish_to_pi(name, root, progress)
+        dst = Path(root) / "systems" / "_defaults" / "_themes" / name
+        dst.mkdir(parents=True, exist_ok=True)
+        for m in self.MARKERS:                     # ancien marqueur retire : tant que la copie n'est pas finie, la carte ne pretend pas etre a jour
+            try:
+                (dst / m).unlink()
+            except FileNotFoundError:
+                pass
+        copied, failed, interrupted = self.tkmod._copy_to_drive(self.work_root / name, str(dst), True, progress_cb=progress)
+        if failed or interrupted:
+            raise RuntimeError(f"copie incomplète ({copied} fichier(s) copié(s), {len(failed)} échec(s)" + (", carte inaccessible" if interrupted else "") + ")")
+        mk = self._pending_dir() / (name + "_markers")
+        for m in self.MARKERS:
+            if (mk / m).exists():
+                tmp = dst / (m + ".part")
+                shutil.copyfile(str(mk / m), str(tmp))
+                os.replace(str(tmp), str(dst / m))
+        try:
+            (self._pending_dir() / (name + ".json")).unlink()
+        except FileNotFoundError:
+            pass
+        shutil.rmtree(mk, ignore_errors=True)
+        return copied
+
+    def _publish_to_pi(self, name, root, progress=None):
+        """v29 : meme contrat que la copie vers une carte SD, mais par Wi-Fi vers systems/_defaults/_themes/<name> du Pi : ancien marqueur retire AVANT, logos puis index, marqueurs EN DERNIER
+        (un envoi interrompu laisse un theme « a mettre a jour », jamais un theme a moitie ecrit declare a jour). Met a jour l'image legere (<root>) une fois l'envoi complet."""
+        ip, tk_ = self.pi["ip"], self.tkmod
+        rel = f"_themes/{name}"
+        for m in self.MARKERS:
+            tk_.pi_defaults_delete(ip, rel, m)
+
+        def cb(i, n, label):
+            if progress:
+                progress("copy", i, n, label)
+
+        r = tk_.send_defaults_tree_to_pi(ip, self.work_root / name, rel, progress_cb=cb, probe=self.pi, refresh=False)
+        if r["state"] != "ok":
+            raise RuntimeError(f"envoi Wi-Fi incomplet ({r['sent']}/{r['total']} fichier(s) envoyé(s)" + (f", {r['detail']}" if r["detail"] else "")
+                               + (f", premier échec : {r['failed'][0][0]} — {r['failed'][0][1]}" if r["failed"] else "") + ")")
+        mk = self._pending_dir() / (name + "_markers")
+        for m in self.MARKERS:
+            if (mk / m).exists():
+                good, detail = tk_.pi_defaults_send_file(ip, rel, mk / m)
+                if not good:
+                    raise RuntimeError(f"marqueur {m} non envoyé : {detail}")
+        try:
+            tk_._dmd_http(ip, "/reels-refresh", "POST", 20.0)
+        except Exception:
+            pass
+        shadow = Path(root) / "systems" / "_defaults" / "_themes" / name     # image legere : le theme est desormais « present » avec ses marqueurs
+        shadow.mkdir(parents=True, exist_ok=True)
+        (shadow / "_pi.raw565").write_bytes(b"")
+        for m in self.MARKERS:
+            if (mk / m).exists():
+                shutil.copyfile(str(mk / m), str(shadow / m))
+        try:
+            (self._pending_dir() / (name + ".json")).unlink()
+        except FileNotFoundError:
+            pass
+        shutil.rmtree(mk, ignore_errors=True)
+        return r["sent"]
+
+    def _publish_progress(self, label, i, n):
+        def cb(_kind, done, total, _name, _i=i, _n=n):
+            frac = (done / total) if total else 1.0
+            self._post("pct", 100.0 * (_i + frac) / _n)
+        return cb
+
+    def _on_close(self):
+        try:
+            if getattr(self, "_gui_lang_trace", None):
+                self.gui.lang_var.trace_remove("write", self._gui_lang_trace)
+        except Exception:
+            pass
+        self.win.destroy()
+
+    def _browse_rb(self):
+        d = filedialog.askdirectory(parent=self.win, title=self.tr["rb_path"])
+        if d:
+            self.rb_var.set(d)
+
+    def _on_open_out(self):
+        os.makedirs(self.out_root, exist_ok=True)
+        try:
+            os.startfile(str(self.out_root))   # Windows
+        except Exception:
+            pass
+
+    def _detect_rb(self, lang="en"):
+        """Detecte le partage de la Recalbox (hors thread principal : la resolution reseau peut etre lente)."""
+        try:
+            host = self.tkmod.detect_recalbox_share()
+        except Exception:
+            host = None
+        roots = self._rb_default_roots(host) if self.simple else ([rf"\\{host}\share\themes"] if host else [])
+        if roots:
+            path = ";".join(roots)           # plusieurs Recalbox renseignees pour ce DMD : toutes, en une seule operation
+            self._rb_path_detected = path
+            self._post("rb", path)
+            self._log(("Recalbox détectées : " if len(roots) > 1 else "Recalbox détectée : ") + path)
+        self._resolve_target()
+        pend = self._pending_names()
+        if pend:      # v28 : themes prepares lors d'une session precedente (plantage, carte retiree...) : pas perdus, a copier
+            self._log(self.tr["pending_log"].format(n=len(pend), names=", ".join(pend)))
+        self._sd_check(lang)       # 1) carte SD <-> paquet GitHub (propose la MAJ de la SD)
+        self._post("busy", False)
+        self._post("recheck")      # 2) actualisation automatique a l'ouverture (hub + Recalbox + etat des conversions)
+
+    def _find_sd_root(self):
+        """Racine ('I:\\') de la carte SD du DMD : lecteur amovible contenant systems/_defaults, sinon None."""
+        try:
+            drives = self.tkmod._list_removable_drives_ex()
+        except Exception:
+            drives = []
+        for d in drives:
+            letter = d[0].rstrip("\\") + "\\"
+            if os.path.isdir(os.path.join(letter, "systems", "_defaults")):
+                return letter
+        return None
+
+    def _find_pi_target(self):
+        """v29 : DMD Raspberry Pi joignable en Wi-Fi (demon >= 3.84) quand la cible du toolkit est « Raspberry Pi » ; None sinon. L'etat des themes du Pi est reconstitue dans
+        une image legere (pi_theme_shadow : marqueurs + un fichier vide par theme) : tout le reste de la fenetre la lit comme une carte SD. Les copies partent par Wi-Fi (_publish_to_pi)."""
+        self.pi, self.pi_why = None, ""
+        try:
+            if self.tkmod.get_sd_target() != "pi":
+                return None
+            try:
+                import RecalBoxDMD_prefs as _p
+                known = _p.get("dmd_ip")
+            except Exception:
+                known = None
+            probe = self.tkmod.find_pi_dmd(known)
+            if not probe:
+                self.pi_why = "aucun Raspberry Pi ne répond sur le réseau"
+                return None
+            ok, why = self.tkmod.pi_defaults_supported(probe)
+            if not ok:
+                self.pi_why = why
+                self._log(f"Raspberry Pi {probe['ip']} : {why}")
+                return None
+            try:
+                import RecalBoxDMD_prefs as _p
+                _p.set("dmd_ip", probe["ip"])
+            except Exception:
+                pass
+            shadow = self.work_root.parent.parent.parent / "_pi_shadow"
+            n = self.tkmod.pi_theme_shadow(probe["ip"], shadow)
+            if n < 0:
+                self.pi_why = "lecture des thèmes du Pi impossible"
+                return None
+            self._log(f"Raspberry Pi {probe['ip']} (démon {probe.get('version')}) : {n} thème(s) présent(s).")
+            self.pi = probe
+            return str(shadow) + "\\"
+        except Exception as e:
+            self.pi_why = f"{type(e).__name__}: {e}"
+            return None
+
+    def _resolve_target(self):
+        """Fixe la reference des etats et la cible des conversions : DMD Raspberry Pi en Wi-Fi (cible « Raspberry Pi »), sinon carte SD du DMD si detectee, sinon dossier de travail. Appele a chaque actualisation."""
+        root = self._find_pi_target() or self._find_sd_root()
+        self.sd_root, self.on_sd = root, bool(root)
+        if root:
+            self.default_dir = Path(root) / "systems" / "_defaults"
+            self.out_root = self.default_dir / "_themes"
+        else:
+            self.default_dir = self.work_default
+            self.out_root = self.work_root
+        self.known = self.tl.known_systems_from_dir(str(self.work_default if self.pi else self.default_dir))   # l'image legere du Pi n'a pas les logos de systemes
+
+    def _target_text(self):
+        if self.on_sd and self.pi:
+            return self.tr["target_pi"].format(ip=self.pi["ip"])
+        return self.tr["target_sd"].format(drive=self.sd_root.rstrip("\\")) if self.on_sd else self.tr["target_work"]
+
+    def _drive_label(self):
+        """Libelle de la destination dans les messages : « Raspberry Pi 192.168.x.y (Wi-Fi) » ou la lettre de la carte SD."""
+        return self.tr["pi_label"].format(ip=self.pi["ip"]) if (self.on_sd and self.pi) else (self.sd_root or "").rstrip("\\")
+
+    def _pkg_lang(self):
+        """v17 : plus de langue a choisir (toutes les variantes sont installees) -- valeur conservee pour les appels existants."""
+        return "en"
+
+    def _sd_check(self, lang):
+        """Compare les themes de la carte SD du DMD (si detectee) au paquet GitHub ; prepare la proposition de MAJ (fenetre dans le thread principal)."""
+        tr = self.tr
+        root = self.sd_root
+        if not root:
+            self._log(tr["sd_none"])
+            return
+        manifest = self.tkmod.fetch_theme_package_manifest()
+        if manifest is None:
+            self._log(tr["sd_nopkg"])
+            return
+        rows = self.tkmod.compare_sd_with_theme_package(root, manifest, lang)
+        rb_dirs = set()                 # v18 : themes installes sur la Recalbox = reference = jamais compares au paquet GitHub
+        rb = getattr(self, "_rb_path_detected", "") or self.rb_var.get().strip()
+        try:
+            if rb and os.path.isdir(rb):
+                rb_dirs = {self.tl.theme_dir_name(n) for n in os.listdir(rb) if os.path.exists(os.path.join(rb, n, "theme.xml"))}
+        except OSError:
+            rb_dirs = set()
+        total = len(rows)
+        rows = [r for r in rows if r["theme"] not in rb_dirs]
+        todo = [r for r in rows if r["state"] in ("MAJ", "INCONNU")]
+        drv = self._drive_label()
+        if total > len(rows):      # v24 : une partie de la carte est jugee par la Recalbox (reference) : le dire, sinon « 0 present » laisse croire que la carte est vide
+            self._log(tr["sd_log_rb"].format(drive=drv, t=total, r=total - len(rows), n=len(rows), m=len(todo)))
+        else:
+            self._log(tr["sd_log"].format(drive=drv, n=len(rows), m=len(todo)))
+        if todo:
+            self._sd_todo = (root, todo)
+            self._post("sd_updates")
+
+    def _ask_exclusive(self, text):
+        """v21 : pose UNE question oui/non a la fois. messagebox.askyesno est modale mais fait tourner la boucle Tk : pendant qu'elle est ouverte les rappels after() des
+        autres propositions (SD / themes nouveaux / MAJ depuis la Recalbox) se declenchaient et ouvraient leur propre boite en meme temps (constate au test du 06/10)."""
+        self._dlg_open = True
+        try:
+            return messagebox.askyesno(self.tr["title"], text, parent=self.win)
+        finally:
+            self._dlg_open = False
+
+    def _propose_sd_update(self):
+        if self.busy or self._dlg_open:
+            self.win.after(500, self._propose_sd_update)
+            return
+        todo = getattr(self, "_sd_todo", None)
+        if not todo:
+            return
+        root, rows = todo
+        self._sd_todo = None
+        lines = "\n".join(f"• {r['theme']} — {r['detail']}" for r in rows)
+        note = self.tr["default_updated_note"] if any(r.get("default") for r in rows) else ""
+        if self._ask_exclusive(note + self.tr["sd_update_prompt"].format(drive=self._drive_label(), n=len(rows), lines=lines)):
+            self._post("busy", True)
+            threading.Thread(target=self._sd_update_worker, args=(root, [r["theme"] for r in rows], self._pkg_lang()), daemon=True).start()
+
+    def _sd_update_worker(self, root, names, lang):
+        drive = self._drive_label()
+        self._post("status", self.tr["sd_updating"].format(drive=drive))
+        try:
+            if self.pi:      # v29 : Raspberry Pi en Wi-Fi : telechargement dans le dossier de travail, puis envoi theme par theme (<root> n'est que l'image legere du Pi)
+                n = 0
+                for i, name in enumerate(names):
+                    self._post("status", self.tr["sd_updating"].format(drive=drive) + f" — {name} ({i + 1}/{len(names)})")
+                    shutil.rmtree(self.work_root / name, ignore_errors=True)
+                    got = self.tkmod.download_theme_logos(Path(self.sd_dir), progress_cb=None, listen_keyboard=False, lang=lang, themes=[name], force=True)
+                    if got <= 0 or not (self.work_root / name / "_package.json").exists():
+                        self._log(f"ÉCHEC mise à jour de {name} depuis le paquet : téléchargement incomplet")
+                        continue
+                    self._stage_done(name)
+                    try:
+                        self._publish_to_sd(name, root, self._publish_progress("copy", i, len(names)))
+                        n += got
+                    except Exception as e:
+                        self._log(f"ÉCHEC envoi de {name} : {e}")
+                        self._log(self.tr["copy_resume"].format(name=name))
+            else:
+                n = self.tkmod.download_theme_logos(Path(root), progress_cb=None, listen_keyboard=False, lang=lang, themes=names, force=True)
+            self._post("status", self.tr["sd_updated"].format(n=n))
+            self._log(self.tr["sd_updated"].format(n=n))
+        except Exception as e:
+            self._post("error", f"{type(e).__name__}: {e}")
+        finally:
+            self._post("busy", False)
+            self._post("recheck")
+
+    def _lang_from_gui(self):
+        """Langue de l'interface du toolkit -> code de variante de logos (meme choix que les logos par defaut : en/fr/es)."""
+        try:
+            return {"fr": "fr_FR", "es": "es_ES"}.get(self.gui.lang_var.get(), "en_US")
+        except Exception:
+            return "en_US"
+
+    @staticmethod
+    def _region_from_lang(lang):
+        """Region de logos associee a la langue : anglais -> us, francais/espagnol -> eu (modifiable a la main)."""
+        return "us" if str(lang).lower().startswith("en") else "eu"
+
+    def _follow_gui_lang(self):
+        lang = self._lang_from_gui()
+        self.lang_var.set(lang)
+        self.region_var.set(self._region_from_lang(lang))
+
+    def _prefer(self):
+        return ()      # v17 : base US / anglais + variantes (theme_logos v3), plus de langue / region fixees a la conversion
+
+    @staticmethod
+    def _variants_text(v):
+        """{"lang": ["fr"], "region": ["eu", "jp"]} -> 'fr  |  eu, jp' ('?' = inconnu, '—' = aucune)."""
+        if not v:
+            return "?"
+        # v28 : TOUTES les langues et zones presentes, base comprise (la base d'un theme converti est EN / US : voir theme_logos prefer_keys)
+        langs = ["en"] + [x for x in v.get("lang", []) if x != "en"]
+        zones = ["us"] + [x for x in v.get("region", []) if x != "us"]
+        return ", ".join(langs) + "  |  " + ", ".join(zones)
+
+    def _apply_package_state(self, merged, lang, manifest=None):
+        """Themes de la carte SD plus anciens que le paquet GitHub (ou de version inconnue) : etat MAJ dans le tableau."""
+        self.pkg_manifest = manifest or self.tkmod.fetch_theme_package_manifest()
+        # themes sans logo de systeme exploitable (liste du paquet + echecs de conversion de cette session) : SANS LOGOS, pas "jamais converti"
+        skipped = dict((self.pkg_manifest or {}).get("skipped", {}))
+        skipped.update(getattr(self, "_no_logos", {}))
+        for folder, why in skipped.items():
+            m = merged.get(folder)
+            if m and m["state"] == "NOUVEAU":
+                m["state"], m["detail"] = "SANS LOGOS", why
+        if not self.on_sd or not self.pkg_manifest:
+            return
+        self._mark_package_equivalents(merged)
+        by_dir = {self.tl.theme_dir_name(f): f for f in merged}
+        for r in self.tkmod.compare_sd_with_theme_package(self.sd_root, self.pkg_manifest, lang):
+            folder = by_dir.get(r["theme"])
+            m = merged.get(folder) if folder else None
+            dec = self.tkmod.merge_package_state(m, r)      # v18 : la Recalbox reste la reference ; theme par defaut a la revision du paquet : plus de fausse MAJ « hub ... -> ... »
+            if dec:
+                m["state"], m["detail"] = dec
+
+    def _is_alpha_default(self, folder) -> bool:
+        """Theme par defaut (recalbox-next) dont le paquet GitHub est issu d'une Recalbox ALPHA (packaged_from « rb ») : plus recent que l'archive publique figee du hub, donc a TELECHARGER
+        (SD / Pi), jamais a reconvertir depuis le hub (ancien design)."""
+        import theme_sync as ts           # logique extraite dans theme_sync (testee hors interface)
+        try:
+            return bool(self.on_sd) and ts.is_alpha_default(folder, getattr(self, "pkg_manifest", None), self.tl.theme_dir_name,
+                                                            getattr(self.tkmod, "DEFAULT_THEME", "recalbox-next"))
+        except Exception:
+            return False
+
+    def _mark_package_equivalents(self, merged):
+        """v26 : un theme a (re)installer dont le paquet GitHub est EQUIVALENT (meme version que la copie de la Recalbox, ou du hub / de Recalbox pour les themes sans copie ; rendu du paquet
+        >= rendu du toolkit) se met a jour par TELECHARGEMENT (secondes) au lieu d'une conversion (minutes). m["pkg"] = True. Le reste (version differente, logos modifies sur la Recalbox,
+        theme absent du paquet) se convertit comme avant."""
+        import theme_sync as ts           # logique extraite dans theme_sync (testee hors interface)
+        ts.mark_package_equivalents(merged, self.pkg_manifest or {}, self.tl)
+
+    def _collect_variants(self, merged, rb, rb_ok):
+        """Variantes (langues/regions) de chaque theme : conversion locale (_source.json), sinon manifeste du paquet GitHub, sinon calcul sur la copie de la Recalbox."""
+        tl = self.tl
+        pkg = {}
+        try:
+            _man = self.tkmod.fetch_theme_package_manifest(timeout=15)       # profil de la cible : paquet rb10 + surcharge rb11
+            if _man is None:
+                raise OSError("injoignable")
+            pkg = _man.get("themes", {})
+        except Exception as e:
+            self._log(f"manifeste du paquet de logos indisponible ({type(e).__name__}) : variantes inconnues pour les thèmes non convertis.")
+        for folder, m in merged.items():
+            v = None
+            try:
+                loc = tl._read_source_json(str(self.out_root), folder)
+                v = (loc or {}).get("variants")
+                if v is None:
+                    v = (pkg.get(tl.theme_dir_name(folder)) or {}).get("variants")
+                if v is None and rb_ok and m.get("rb"):
+                    v = tl.detect_variants(tl.DirSource(os.path.join(self._rb_root_of.get(folder) or str(rb).split(";")[0], folder)), self.known)
+            except Exception:
+                v = None
+            m["variants_txt"] = self._variants_text(v)
+
+    def _fill_rows(self):
+        for i in self.tree.get_children():
+            self.tree.delete(i)
+        order = {"MAJ": 0, "NOUVEAU": 1}
+        for folder, r in sorted(self.rows.items(), key=lambda kv: (order.get(kv[1]["state"], 2), not kv[1]["rb"], kv[0])):
+            tag = self._tag_for(r)
+            self.tree.insert("", "end", iid=folder, tags=(tag,) if tag else (), values=self._row_values(folder, r))
+        self._refresh_update_count()
+        self._refresh_copy_button()
+        self._apply_target_gating()
+
+    def _row_values(self, folder, r):
+        if self.simple:
+            return self._row_values_simple(folder, r)
+        hubc = (f"v{r['hub_version']}" if re.fullmatch(r"[\d.]+", str(r["hub_version"])) else "✓") if r["hub"] and r["hub_version"] is not None else ("✓" if r["hub"] else "—")
+        return (folder, hubc, "✓" if r["rb"] else "—", "?" if r.get("sd") is None else ("✓" if r["sd"] else "—"), self.tr["states"].get(r["state"], r["state"]), r.get("variants_txt", "?"), r["detail"])
+
+    def _updatable(self, r):
+        """Ligne a « mettre a jour » : etat MAJ, hors theme a mettre a jour d'abord sur la Recalbox, hors theme present seulement sur le DMD ou sur une AUTRE Recalbox (rien a reconvertir :
+        sa source n'est pas parmi les Recalbox traitees ; le reinstaller depuis le hub l'ecraserait a l'insu de l'utilisateur)."""
+        import theme_sync as ts
+        return r["state"] == "MAJ" and not ts.is_rb_outdated(r) and not r.get("dmd_only") and not r.get("other_rb")
+
+    def _refresh_update_count(self):
+        n = sum(1 for r in self.rows.values() if self._updatable(r)) if self._target_ok() else 0      # un theme a mettre a jour d'abord SUR LA RECALBOX, ou present seulement sur le DMD / une autre Recalbox, n'est pas reconverti
+        self.btn_update.config(text=f"{self.tr['update']} ({n})")
+        dflt = self.rows.get(getattr(self.tkmod, "DEFAULT_THEME", "recalbox-next"))
+        show = bool(dflt and dflt["state"] == "MAJ" and str(dflt.get("detail", "")).find("par défaut") >= 0)
+        if show and not self.default_banner.winfo_manager():
+            self.default_banner.pack(fill="x", padx=12, pady=(4, 0), before=self.tree.master)      # au-dessus du tableau
+        elif not show and self.default_banner.winfo_manager():
+            self.default_banner.pack_forget()
+
+    def _row_copyfail(self, folder):
+        """v28 : theme prepare mais copie interrompue : la ligne le dit (il reste a mettre a jour) ; le bouton « Copier vers la SD (n) » reprend."""
+        r = self.rows.get(folder)
+        if r:
+            r["detail"] = "préparé, copie vers la SD à reprendre"
+            try:
+                if self.tree.exists(folder):
+                    self.tree.item(folder, values=self._row_values(folder, r))
+            except tk.TclError:
+                pass
+        self._refresh_copy_button()
+
+    def _row_done(self, folder, detail):
+        """v27 : theme termine (converti / telecharge, et copie sur la SD) : sa ligne passe tout de suite a « A JOUR » sans attendre la fin du lot."""
+        r = self.rows.get(folder)
+        if not r:
+            return
+        r["state"], r["detail"], r["pkg"] = "A JOUR", detail, False
+        if self.on_sd:
+            r["sd"] = True
+        try:
+            if self.tree.exists(folder):
+                self.tree.item(folder, values=self._row_values(folder, r), tags=())
+                self.tree.see(folder)
+        except tk.TclError:
+            pass
+        self._refresh_update_count()
+        self._refresh_copy_button()
+
+    def _propose_new_rb(self):
+        """Themes installes sur la Recalbox (par l'utilisateur) et jamais convertis : propose de les convertir (une seule fois par theme)."""
+        if self.busy or self._dlg_open or getattr(self, "_sd_todo", None):      # la proposition de MAJ de la SD passe en premier ; jamais 2 boites a la fois (v21)
+            self.win.after(500, self._propose_new_rb)
+            return
+        # v23 : + themes SYSTEME fournis avec toute Recalbox (recalbox-next = theme par defaut, recalbox-240p) : ils ne sont pas dans share/themes donc n'etaient jamais proposes,
+        # alors que le DMD en a besoin (sans eux : genres traduits au lieu des logos de la Recalbox, pas de suivi de region) -- constate le 07/10
+        sysf = {f for f, h in (getattr(self, "hub", None) or {}).items() if h.get("system")}
+        new = sorted(f for f, r in self.rows.items() if (r["rb"] or f in sysf) and r["state"] == "NOUVEAU" and f not in self._asked)
+        if not new:
+            self.win.after(300, self._propose_rb_maj)
+            return
+        self._asked.update(new)
+        if self._ask_exclusive(self.tr["propose_new"].format(n=len(new), names=", ".join(new))):
+            self._post("busy", True)
+            pkg = [f for f in new if self.rows[f].get("pkg") or self._is_alpha_default(f)] if self.on_sd else []      # v26 : equivalents du paquet GitHub = telecharges, les autres convertis ; v-: + theme par defaut issu d'une Recalbox alpha
+            conv = [f for f in new if f not in pkg]
+            threading.Thread(target=self._update_worker, args=(pkg, conv, self.rb_var.get().strip(), self._prefer(), self._pkg_lang()), daemon=True).start()
+        else:
+            self.win.after(300, self._propose_rb_maj)
+
+    def _propose_rb_maj(self):
+        """v18 : themes installes sur la Recalbox dont la copie de la SD differe (RECALBOX = REFERENCE) : propose de les mettre a jour depuis la Recalbox (une fois par theme et par ouverture)."""
+        if self.busy or self._dlg_open or getattr(self, "_sd_todo", None):      # v21 : apres la proposition de la SD, jamais en meme temps
+            self.win.after(500, self._propose_rb_maj)
+            return
+        asked = getattr(self, "_asked_maj", None)
+        if asked is None:
+            asked = self._asked_maj = set()
+        maj = sorted(f for f, r in self.rows.items() if r["rb"] and r["state"] == "MAJ" and f not in asked)
+        if not maj:
+            return
+        asked.update(maj)
+        if not self.on_sd:      # v20 : pas de carte SD detectee = on compare au dossier de travail du toolkit : rien a proposer, juste le dire
+            self._log(self.tr["maj_no_sd"].format(n=len(maj)))
+            return
+        lines = "\n".join(f"• {f} — {self.rows[f]['detail']}" for f in maj)
+        if self._ask_exclusive(self.tr["propose_maj"].format(n=len(maj), lines=lines)):
+            self._post("busy", True)
+            pkg = [f for f in maj if self.rows[f].get("pkg")]      # v26 : equivalents du paquet GitHub = telecharges, les autres convertis depuis la Recalbox
+            conv = [f for f in maj if f not in pkg]
+            threading.Thread(target=self._update_worker, args=(pkg, conv, self.rb_var.get().strip(), self._prefer(), self._pkg_lang()), daemon=True).start()
+
+    def _on_update_outdated(self):
+        """Met a jour (reconvertit) tous les themes perimes : plus anciens que le hub, ou langue/region modifiee."""
+        if self.busy:
+            return
+        todo = sorted(f for f, r in self.rows.items() if self._updatable(r))
+        if not todo:
+            messagebox.showinfo(self.tr["title"], self.tr["all_uptodate"], parent=self.win)
+            return
+        pkg = [f for f in todo if str(self.rows[f]["detail"]).startswith("paquet GitHub") or self.rows[f].get("pkg") or self._is_alpha_default(f)] if self.on_sd else []
+        conv = [f for f in todo if f not in pkg]
+        self._post("busy", True)
+        threading.Thread(target=self._update_worker, args=(pkg, conv, self.rb_var.get().strip(), self._prefer(), self._pkg_lang()), daemon=True).start()
+
+    def _update_worker(self, pkg, conv, rb, prefer, lang):
+        """1) themes en retard sur le paquet GitHub : telechargement du paquet directement sur la SD ; 2) les autres : conversion."""
+        if pkg:
+            total_n = len(pkg) + len(conv)
+            for i, f in enumerate(pkg):      # v27 : un theme a la fois -> sa ligne passe a « A JOUR » des qu'il est telecharge
+                name = self.tl.theme_dir_name(f)
+                self._post("status", self.tr["sd_updating"].format(drive=self._drive_label()) + f" — {f} ({i + 1}/{total_n})")
+                self._post("pct", 100.0 * i / total_n)
+                try:
+                    shutil.rmtree(self.work_root / name, ignore_errors=True)      # v28 : telechargement d'abord dans le dossier de travail (jamais directement sur la carte)
+                    n = self.tkmod.download_theme_logos(Path(self.sd_dir), progress_cb=None, listen_keyboard=False, lang=lang, themes=[name], force=True)
+                    if n <= 0 or not (self.work_root / name / "_package.json").exists():
+                        raise RuntimeError("téléchargement incomplet (relancez la mise à jour)")
+                    self._log(f"{f} : {self.tr['sd_updated'].format(n=n)}")
+                    self._stage_done(name)
+                    copied = self._publish_to_sd(name, self.sd_root, self._publish_progress("copy", i, total_n))
+                    self._log(f"→ {self._drive_label()} : {copied} fichier(s) copié(s)" if self.pi else f"→ carte SD {self._drive_label()} : {copied} fichier(s) copié(s)")
+                    self._post("rowdone", f, "téléchargé depuis le paquet GitHub et copié sur la carte SD")
+                except Exception as e:
+                    self._log(f"ÉCHEC mise à jour de {f} depuis le paquet : {type(e).__name__}: {e}")
+                    if (self._pending_dir() / (name + ".json")).exists():
+                        self._log(self.tr["copy_resume"].format(name=f))
+                        self._post("rowcopyfail", f)
+        if conv:
+            self._convert_worker(conv, rb, prefer, True, False)      # termine par busy False + actualisation
+        else:
+            self._post("busy", False)
+            self._post("recheck")
+
+    def _selected(self):
+        sel = list(self.tree.selection())
+        if not sel:
+            messagebox.showinfo(self.tr["title"], self.tr["no_sel"], parent=self.win)
+        return sel
+
+    # ------------------------------------------------------------------ verifier
+    def _on_check(self):
+        if self.busy:
+            return
+        self._last_check = time.time()
+        self._last_target_key = self._target_key()
+        self._post("busy", True)
+        self._post("status", self.tr["checking"])
+        threading.Thread(target=self._check_worker, args=(self.rb_var.get().strip(), True, self._prefer(), self._pkg_lang()), daemon=True).start()
+
+    def _check_worker(self, rb, use_hub, prefer, lang="en"):
+        tl = self.tl
+        try:
+            self._resolve_target()      # la carte SD a pu etre inseree / retiree depuis la derniere actualisation
+            rb_orig = str(rb or "")
+            if self.simple and not self._rb_manual:       # automatique : TOUTES les Recalbox du DMD cible (annoncees par le DMD), apres la resolution de la cible
+                auto = self._rb_default_roots(self._rb_host_of(str(rb).split(";")[0]) if rb else None)
+                if auto and ";".join(auto) != str(rb):
+                    rb = ";".join(auto)
+                    self._post("rb", rb)
+            roots = [r.strip() for r in str(rb or "").split(";") if r.strip()]       # plusieurs Recalbox pour un meme DMD : chemins separes par « ; »
+            ok_roots = [r for r in roots if os.path.isdir(r)]
+            if self.simple and not self._rb_manual and not ok_roots:       # secours : aucune Recalbox annoncee par le DMD ne repond -> la Recalbox detectee, si elle repond
+                fb = [r.strip() for r in rb_orig.split(";") if r.strip() and os.path.isdir(r.strip())]
+                if fb:
+                    self._log("Aucune Recalbox annoncée par le DMD ne répond : repli sur la Recalbox détectée.")
+                    roots, ok_roots = list(dict.fromkeys(roots + fb)), fb
+            rb_ok = bool(ok_roots)
+            if self.simple:
+                self._post("rbchip", " + ".join(self._rb_host_of(r) for r in ok_roots) if ok_roots else None)
+            for r in roots:
+                if r not in ok_roots:
+                    self._log(f"Thèmes de la Recalbox inaccessibles ({r}) : " + ("ignorée." if ok_roots else "seul le hub sera interrogé."))
+            if not roots:
+                self._log("Aucune Recalbox indiquée : seul le hub sera interrogé.")
+            # v22 : avancement visible (la lecture des themes sur le partage reseau dure plusieurs secondes : sans retour, la fenetre semblait plantee)
+            self._post("status", self.tr["checking"])
+            manifest = None
+            if use_hub:                       # paquet GitHub : un theme a la version du paquet n'est pas analyse logo par logo (verification rapide)
+                try:
+                    manifest = self.tkmod.fetch_theme_package_manifest()
+                except Exception:
+                    manifest = None
+            hub_lat = tl.hub_latest_versions(lambda *a: None) if (use_hub and ok_roots) else {}
+            per_root, failed, hub_done = [], [], False
+            for i, root in enumerate(ok_roots or [None]):
+                extra = dict(hub_lat)
+                if root and use_hub and root.startswith("\\\\"):       # themes PATRON installes : derniere version demandee A LA RECALBOX (SSH, sa propre cle ; le toolkit ne voit jamais la cle)
+                    try:
+                        extra.update(self.tkmod.rb_patron_latest_versions(self._rb_host_of(root), root, log=self._log))
+                    except Exception as e:
+                        self._log(f"Thèmes patron : version disponible non vérifiée ({type(e).__name__})")
+                tag = (self._rb_host_of(root) + " : ") if (root and len(ok_roots) > 1) else ""
+                try:
+                    rows_i = tl.check_status(str(self.out_root), root, use_hub and not hub_done, self.known, log=self._log, prefer=prefer, latest_extra=extra, package=manifest,
+                                             progress=lambda d, t, n, _tag=tag: self._post("status", f"{self.tr['checking']} {_tag}{d}/{t} — {n}"))
+                except Exception as e:
+                    if root is None:
+                        raise
+                    self._log(f"Recalbox {self._rb_host_of(root)} : lecture impossible ({type(e).__name__}) : ignorée.")     # une Recalbox qui tombe n'invalide pas les autres
+                    failed.append(root)
+                    continue
+                hub_done = hub_done or use_hub
+                per_root.append((root, rows_i))
+            if not per_root:                                    # aucune Recalbox lisible : seul le hub
+                per_root.append((None, tl.check_status(str(self.out_root), None, use_hub, self.known, log=self._log, prefer=prefer, latest_extra=dict(hub_lat), package=manifest)))
+            ok_roots = [r for r in ok_roots if r not in failed]
+            import theme_sync as ts
+            raw, self._rb_root_of, conflicts = ts.merge_rb_rows(per_root, tl.version_newer)
+            # Recalbox du DMD NON traitees (non selectionnees ou injoignables) : un theme du DMD installe sur l'une d'elles n'est jamais presente comme « sans Recalbox »
+            self._elsewhere, self._rb_unreachable = {}, []
+            if self.simple:
+                self._scan_other_rbs(roots, ok_roots)
+            for f, lst, chosen in conflicts:
+                self._log(f"{f} : versions différentes selon les Recalbox ({', '.join(f'v{v} sur {self._rb_host_of(r)}' for r, v in lst)}) -> la plus récente est utilisée ({self._rb_host_of(chosen)})")
+            prio = {"ERREUR": 5, "MAJ": 4, "NOUVEAU": 3, "DIFFERENT": 2, "A JOUR": 1, "SANS LOGOS": 0}
+            merged = {}
+            for folder, st, why, ver, src in raw:
+                m = merged.setdefault(folder, {"state": None, "detail": "", "rb": False, "hub": False, "hub_version": None})
+                m["rb" if src == "rb" else "hub"] = True
+                if src == "hub":
+                    m["hub_version"] = ver
+                elif src == "rb":
+                    m["rb_version"] = ver
+                # v18 : la RECALBOX est la reference : son etat prime sur celui du hub ; sans copie Recalbox, l'etat le plus urgent (hub)
+                if src == "rb":
+                    m["state"], m["detail"], m["_rbstate"] = st, why, True
+                elif not m.get("_rbstate") and (m["state"] is None or prio.get(st, 0) > prio.get(m["state"], 0)):
+                    m["state"], m["detail"] = st, why
+            for folder, m in merged.items():
+                m["source"] = "both" if (m["rb"] and m["hub"]) else "rb" if m["rb"] else "hub"
+            for folder, m in merged.items():      # v16 : present sur la carte SD du DMD ? (None = carte non detectee)
+                m["sd"] = bool(tl._has_converted_logos(str(self.out_root), folder)) if self.on_sd else None
+            if self.simple:
+                self._add_dmd_rows(merged)      # sans cible : seuls les themes de la Recalbox restent listes
+            self._apply_package_state(merged, lang, manifest)
+            self._collect_variants(merged, rb, rb_ok)
+            self.rows = merged
+            if use_hub:
+                try:
+                    self.hub = {h["folder"]: h for h in tl.hub_catalog()}
+                except Exception as e:
+                    self._log(f"theme-hub injoignable : {e}")
+            self._post("rows")
+            self._post("status", self.tr["check_done"].format(n=len(merged)) + "   " + self._target_text())
+        except Exception as e:
+            self._post("error", f"{type(e).__name__}: {e}")
+        finally:
+            self._post("busy", False)
+
+    # ------------------------------------------------------------------ convertir
+    def _on_convert(self):
+        if self.busy:
+            return
+        sel = self._selected()
+        if not sel:
+            return
+        skipped = [f for f in sel if self.rows.get(f, {}).get("dmd_only") or self.rows.get(f, {}).get("other_rb")]
+        if skipped:
+            sel = [f for f in sel if f not in skipped]
+            messagebox.showinfo(self.tr["title"], self.tr["send_skip"].format(names=", ".join(skipped)), parent=self.win)
+            if not sel:
+                return
+        self._post("busy", True)
+        pkg = [f for f in sel if self._is_alpha_default(f)]
+        if pkg:      # theme par defaut issu d'une Recalbox alpha : telecharge depuis le paquet GitHub (une reconversion depuis le hub public redonnerait l'ancien design) ; les autres sont convertis
+            self._log("recalbox-next : paquet GitHub issu d'une Recalbox alpha -> téléchargement (pas de reconversion depuis le hub public)")
+            threading.Thread(target=self._update_worker, args=(pkg, [f for f in sel if f not in pkg], self.rb_var.get().strip(), self._prefer(), self._pkg_lang()), daemon=True).start()
+            return
+        threading.Thread(target=self._convert_worker, args=(sel, self.rb_var.get().strip(), self._prefer(), True), daemon=True).start()
+
+    def _convert_worker(self, folders, rb, prefer, use_hub=True, show_preview=True):
+        tl = self.tl
+        ok = ko = 0
+        last_ok = None
+        for folder in folders:
+            idx = folders.index(folder)
+            self._post("status", self.tr["converting"].format(name=folder) + (f"  ({idx + 1}/{len(folders)})" if len(folders) > 1 else ""))
+            self._post("pct", 100.0 * idx / len(folders))
+            self._log(f"=== {folder}")
+            try:
+                out = str(self.work_root / tl.theme_dir_name(folder))
+                rb_dir = os.path.join(self._rb_root_of.get(folder) or str(rb).split(";")[0], folder) if rb else ""
+                hub_info, src, label, rf = None, None, "hub", None
+                # v18 : reference = copie INSTALLEE SUR LA RECALBOX (c'est ce que la Recalbox affiche) ; le hub ne sert que de repli (theme absent de la Recalbox)
+                if rb_dir and os.path.isdir(rb_dir) and os.path.exists(os.path.join(rb_dir, "theme.xml")):
+                    src, label = tl.DirSource(rb_dir), "rb"
+                    self._log("référence : copie installée sur la Recalbox")
+                else:
+                    h = self.hub.get(folder) if use_hub else None
+                    if not h and use_hub:
+                        try:
+                            h = {x["folder"]: x for x in tl.hub_catalog()}.get(folder)
+                        except Exception:
+                            h = None
+                    if h and h.get("zips"):
+                        if h.get("license"):
+                            self._log(f"licence {h['license']} : logos convertis pour votre usage personnel, ne les redistribuez pas")
+                        self._log("thème absent de la Recalbox : repli sur le hub")
+                        src, rf = tl.open_hub_source(h, log=self._log)
+                        hub_info = {"hub_version": h.get("version"), "zip": h["zips"][0]}
+                    else:
+                        raise RuntimeError("thème absent du hub et non installé sur la Recalbox")
+                def _prog(frac, phase, _idx=idx, _n=len(folders), _name=folder):
+                    pct = 100.0 * (_idx + frac) / _n
+                    self._post("pct", pct)
+                    self._post("status", self.tr["converting"].format(name=_name) + (f"  ({_idx + 1}/{_n})" if _n > 1 else "") + f" — {phase} {pct:.0f} %")
+                tl.convert_theme(src, out, self.known, log=self._log, hub_info=hub_info, source_label=label, prefer=prefer,
+                                 embedded=bool(label == "hub" and folder in tl.SYSTEM_THEMES), progress=_prog)     # v23 : themes systeme Recalbox -> + logos embarques (comme sur la Recalbox)
+                if rf is not None:
+                    self._log(f"téléchargé : {rf.fetched / 1e6:.1f} Mo sur {rf.size / 1e6:.0f} Mo")
+                tdir = tl.theme_dir_name(folder)
+                self._stage_done(tdir)       # v28 : prepare dans le dossier de travail ; la copie sur la carte (reprenable) vient ensuite
+                if self.on_sd:
+                    self._post("status", self.tr["copying"].format(name=folder, drive=self._drive_label()))
+                    try:
+                        copied = self._publish_to_sd(tdir, self.sd_root, self._publish_progress("copy", idx, len(folders)))
+                        self._log(f"→ {self._drive_label()} : {copied} fichier(s) copié(s)" if self.pi else f"→ carte SD {self._drive_label()} : {copied} fichier(s) copié(s)")
+                    except Exception as e:
+                        self._log(f"ÉCHEC copie {folder} : {e}")
+                        self._log(self.tr["copy_resume"].format(name=folder))
+                        ko += 1
+                        self._post("rowcopyfail", folder)
+                        continue
+                ok += 1
+                last_ok = folder
+                self._post("rowdone", folder, "converti à l'instant" + ((" (envoyé au Raspberry Pi)" if self.pi else " (copié sur la carte SD)") if self.on_sd else " (à copier sur la carte SD)"))
+            except Exception as e:
+                ko += 1
+                self._log(f"ÉCHEC {folder} : {e}")
+                if "aucun logo" in str(e):
+                    self._no_logos[folder] = "aucun logo de système exploitable"
+        self._post("pct", 100.0)
+        self._post("status", self.tr["convert_done"].format(ok=ok, ko=ko))
+        self._post("busy", False)
+        # planche de controle du dernier theme converti, puis rafraichit l'etat (les themes convertis passent en "A JOUR")
+        if last_ok and show_preview:
+            self._post("preview", last_ok)
+        self._post("recheck")
+
+    # ------------------------------------------------------------------ apercu
+    def _on_preview(self):
+        sel = self._selected()
+        if sel:
+            self._show_preview(sel[0])
+
+    def _show_preview(self, folder):
+        tl = self.tl
+        d = self.out_root / tl.theme_dir_name(folder)
+        if self.pi or not d.is_dir():
+            d = self.work_root / tl.theme_dir_name(folder)
+        if not d.is_dir() or not any(f.endswith(".raw565") for f in os.listdir(d)):
+            messagebox.showinfo(self.tr["title"], self.tr["no_conv"], parent=self.win)
+            return
+        try:
+            from PIL import ImageTk
+            sheet, _names = tl.preview_sheet(str(d), str(self.default_dir))
+        except Exception as e:
+            messagebox.showerror(self.tr["title"], f"{type(e).__name__}: {e}", parent=self.win)
+            return
+        pw = tk.Toplevel(self.win)
+        pw.title(self.tr["sample"].format(name=folder))
+        pw.configure(bg=self.bg)
+        canvas = tk.Canvas(pw, bg="#2d2d2d", width=min(sheet.width + 24, 900), height=min(sheet.height + 8, 700), highlightthickness=0)
+        vs = ttk.Scrollbar(pw, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vs.set, scrollregion=(0, 0, sheet.width, sheet.height))
+        photo = ImageTk.PhotoImage(sheet)
+        canvas.create_image(0, 0, anchor="nw", image=photo)
+        canvas.image = photo           # reference (evite le ramasse-miettes)
+        canvas.pack(side="left", fill="both", expand=True)
+        vs.pack(side="left", fill="y")
+
+    # ------------------------------------------------------------------ copier vers la SD
+    def _on_copy(self):
+        if self.busy:
+            return
+        names = self._pending_names()
+        if not names:
+            self._refresh_copy_button()
+            return
+        try:
+            drives = self.tkmod._list_removable_drives_ex()
+        except Exception:
+            drives = []
+        letter = self._pick_drive(drives) if not self.on_sd else self.sd_root
+        if not letter:
+            return
+        size = sum(f.stat().st_size for n in names for f in (self.work_root / n).rglob("*") if f.is_file()) / 1e6
+        ask = self.tr["copy_confirm_pi"].format(n=len(names), size=f"{size:.1f}", ip=self.pi["ip"]) if self.pi else self.tr["copy_confirm"].format(n=len(names), size=f"{size:.1f}", drive=letter.rstrip("\\"))
+        if not messagebox.askyesno(self.tr["title"], ask, parent=self.win):
+            return
+        self._post("busy", True)
+        threading.Thread(target=self._copy_worker, args=(names, letter), daemon=True).start()
+
+    def _pick_drive(self, drives):
+        if len(drives) == 1:
+            return drives[0][0]
+        dlg = tk.Toplevel(self.win)
+        dlg.title(self.tr["pick_drive"])
+        dlg.transient(self.win)
+        dlg.grab_set()
+        var = tk.StringVar(value=drives[0][0] if drives else "")
+        tk.Label(dlg, text=self.tr["pick_drive"]).pack(padx=14, pady=(12, 4))
+        box = tk.Frame(dlg)
+        box.pack(anchor="w", fill="x")
+        msg = tk.Label(dlg, text=self.tr["no_drive"], fg="#C62828", wraplength=340, justify="left")
+
+        def fill(ds):
+            for w in box.winfo_children():
+                w.destroy()
+            for d in ds:
+                tk.Radiobutton(box, text=f"{d[0]}  {d[1]}  ({d[2]}, {d[3] if len(d) > 3 else ''})", variable=var, value=d[0]).pack(anchor="w", padx=14)
+            var.set(ds[0][0] if ds else "")
+            if ds:
+                msg.pack_forget()
+            else:
+                msg.pack(padx=14, pady=4)
+
+        def rescan():
+            try:
+                ds = self.tkmod._list_removable_drives_ex()
+            except Exception:
+                ds = []
+            fill(ds)
+
+        fill(drives)
+        res = {"v": None}
+
+        def ok():
+            res["v"] = var.get() or None
+            dlg.destroy()
+
+        row = tk.Frame(dlg)
+        row.pack(pady=12)
+        tk.Button(row, text="\U0001F504 " + self.tr.get("refresh", "Refresh"), command=rescan, padx=10).pack(side="left", padx=6)
+        tk.Button(row, text=self.tr["ok"], command=ok, padx=14).pack(side="left", padx=6)
+        self.win.wait_window(dlg)
+        return res["v"]
+
+    def _copy_worker(self, names, letter):
+        n_ok = 0
+        for k, name in enumerate(names):
+            self._post("status", self.tr["copying"].format(name=name, drive=(self._drive_label() if self.pi else letter.rstrip("\\"))) + (f"  ({k + 1}/{len(names)})" if len(names) > 1 else ""))
+            self._post("pct", 100.0 * k / len(names))
+            try:
+                copied = self._publish_to_sd(name, letter, self._publish_progress("copy", k, len(names)))
+                self._log(f"{name} : {copied} fichier(s) copié(s)")
+                n_ok += 1
+                folder = next((f for f in self.rows if self.tl.theme_dir_name(f) == name), None)
+                if folder:
+                    self._post("rowdone", folder, "envoyé au Raspberry Pi" if self.pi else "copié sur la carte SD")
+            except Exception as e:
+                self._log(f"ÉCHEC copie {name} : {e}")
+                self._log(self.tr["copy_resume"].format(name=name))
+        self._post("pct", 100.0)
+        self._post("status", self.tr["copy_done"].format(n=n_ok))
+        self._post("busy", False)
+        self._post("recheck")

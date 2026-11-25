@@ -8,6 +8,15 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-25 — Caja de herramientas 207114: página Temas, petición de ayuda por Discord, logotipos de temas por perfil de Recalbox
+
+- **Novedad — botón «Petición de ayuda…» de la pestaña Diagnóstico (bloque Discord).** Tras una vista previa de lo que sale exactamente de su PC, envía su informe y su registro serie al servidor de Discord del proyecto (un canal reservado al equipo de soporte), donde el bot de soporte los analiza. Se eliminan las direcciones IP, las direcciones MAC y el nombre del Wi-Fi; no se envía nada sin su clic. Su código de emparejamiento se obtiene con `/dmdlink` en el servidor de Discord.
+- **Nueva página «Temas» (pestaña Personalización, visible también en estable)**: sustituye los Modos 12 y 13 del menú Avanzado. Para el DMD de destino (tarjeta SD o Raspberry Pi) lista cada tema con su estado (en el DMD y la Recalbox, solo en uno de los dos, desactualizado, nunca convertido, destino ausente) y su tamaño, los instala o actualiza y permite **borrar un tema del DMD** (tras confirmar) para liberar espacio. Varias Recalbox para un mismo DMD se tratan en una sola operación, y el Modo 1 ofrece los mismos temas al preparar una tarjeta.
+- **Paquete de logotipos de temas por perfil de Recalbox**: Recalbox 10 y Recalbox 11 (patron / alpha / 11.0 estable) tienen cada una sus logotipos para los temas que difieren.
+- Un aviso (insignia ⚠ junto al selector de destino, parpadeante hasta que se lee) indica que un tema instalado en su Recalbox es más reciente que el del DMD.
+- Correcciones: pestaña Avanzado localizada por su referencia y no por su posición (regresión en estable); el botón «Gestión de los GIFs» sigue ahora el idioma.
+- Número de versión: 207114; el mismo código se publica en el canal alfa como 207115.
+
 ## 2026-11-24 — Caja de herramientas 200111: ayuda integrada actualizada
 
 - **La ayuda integrada (pestaña Ayuda) describe ahora** los avisos de compatibilidad (insignia ⚠ en la barra del destino, cada aviso nombra su DMD y su Recalbox, problema seguido de su solución), las funciones atenuadas con la mención **[ALPHA]**, el **Modo 17** que pasa solo la partición de medios de la Raspberry Pi a UTF-8 (nombres de archivo con acentos) y el **Modo 1** que escribe la tabla de particiones al final en una tarjeta ya usada.
