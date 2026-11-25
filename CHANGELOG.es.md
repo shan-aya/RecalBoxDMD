@@ -8,6 +8,12 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-25 — Caja de herramientas 208114: el tema por defecto sigue la Recalbox elegida
+
+- **Corrección: el tema por defecto (recalbox-next) procede de la Recalbox que usted elige, y ya no de un ajuste único.** El Modo 1, la página Temas y el aviso de arranque «tema actualizado» leen la versión de cada Recalbox elegida y usan su juego de logotipos (Recalbox 10 u 11). Antes, una tarjeta destinada a una Recalbox 10 podía recibir el tema por defecto de la Recalbox 11 (logotipo de favoritos incorrecto) si había otra Recalbox guardada en los ajustes. Si dos Recalbox de versiones distintas comparten un DMD, el toolkit pregunta «Recalbox 10.x o Recalbox 11» y recuerda su elección.
+- También: el botón «Gestión de los GIFs» sigue el idioma.
+- Número de versión: 208114; el mismo código se publica en el canal alfa como 208115.
+
 ## 2026-11-25 — Caja de herramientas 207114: página Temas, petición de ayuda por Discord, logotipos de temas por perfil de Recalbox
 
 - **Novedad — botón «Petición de ayuda…» de la pestaña Diagnóstico (bloque Discord).** Tras una vista previa de lo que sale exactamente de su PC, envía su informe y su registro serie al servidor de Discord del proyecto (un canal reservado al equipo de soporte), donde el bot de soporte los analiza. Se eliminan las direcciones IP, las direcciones MAC y el nombre del Wi-Fi; no se envía nada sin su clic. Su código de emparejamiento se obtiene con `/dmdlink` en el servidor de Discord.
