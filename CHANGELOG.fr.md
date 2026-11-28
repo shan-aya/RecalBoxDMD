@@ -10,6 +10,11 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-28 — Démon Pi 4.01 (alpha) : le toolkit peut envoyer l'instantané du Mode 1 en Wi-Fi
+
+- **`/custom/games.json` peut maintenant être écrit en Wi-Fi** (`/gg-put`, 16 Mo au plus, vide refusé ; aucun autre nouveau chemin). Le toolkit 214115 s'en sert pour son bouton **« Recréer l'instantané »** (page GIFs de jeu) : quand l'instantané du dernier Mode 1 est absent du Pi, le toolkit le reconstruit depuis le dossier ROMs de la Recalbox et l'envoie, sans refaire de Mode 1.
+- **Testé** sur un Raspberry Pi 3B : écriture puis relecture identiques, un chemin non listé est refusé, et le parcours complet du bouton (instantané supprimé, recréé, envoyé, liste rechargée). **Non testé** : le refus d'un fichier vide sur le Pi ; le démon du canal stable est inchangé.
+
 ## 2026-11-28 — Boîte à outils 214115 (pré-release alpha) : GIFs de jeu — recréer l'instantané du Mode 1 sans refaire de Mode 1
 
 - **Bug corrigé (signalé par un testeur) : « instantané du Mode 1 absent » dans la page GIFs de jeu, même après un Mode 1 refait.** Quand la copie du Mode 6 vers la carte avait des fichiers en échec (ou passait par la reprise), la liste des jeux (`custom/games.json`) n'était jamais écrite sur la carte. Elle l'est maintenant même si des fichiers ont échoué.

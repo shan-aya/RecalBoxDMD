@@ -10,6 +10,11 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-28 — Demonio Pi 4.01 (alfa): el toolkit puede enviar la instantánea del Modo 1 por Wi-Fi
+
+- **`/custom/games.json` ahora se puede escribir por Wi-Fi** (`/gg-put`, 16 MB como máximo, vacío rechazado; ninguna otra ruta nueva). El toolkit 214115 lo usa en su botón **«Recrear la instantánea»** (página de GIFs de juego): cuando falta en la Pi la instantánea del último Modo 1, el toolkit la reconstruye desde la carpeta ROMs de Recalbox y la envía, sin repetir el Modo 1.
+- **Probado** en una Raspberry Pi 3B: escritura y lectura idénticas, una ruta no permitida se rechaza y el recorrido completo del botón (instantánea borrada, recreada, enviada, lista recargada). **No probado**: el rechazo de un archivo vacío en la Pi; el demonio del canal estable no cambia.
+
 ## 2026-11-28 — Caja de herramientas 214115 (pre-release alfa): GIFs de juego — recrear la instantánea del Modo 1 sin repetir el Modo 1
 
 - **Error corregido (avisado por un tester): «instantánea del Modo 1 ausente» en la página de GIFs de juego, incluso tras repetir el Modo 1.** Cuando la copia del Modo 6 a la tarjeta tenía archivos fallidos (o pasaba por la reanudación), la lista de juegos (`custom/games.json`) nunca se escribía en la tarjeta. Ahora se escribe aunque algunos archivos hayan fallado.

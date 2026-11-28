@@ -905,7 +905,7 @@ void WebConfig::registerMediaRoutes() {
     for (unsigned char c : p)
       if (c < 0x20 || c >= 0x7f || c == '\\') return false;
     if (p.find("..") != std::string::npos || p.find("//") != std::string::npos) return false;
-    if (p == "/custom/game_gifs_state.json") return true;
+    if (p == "/custom/game_gifs_state.json" || p == "/custom/games.json") return true;   // games.json : instantane recree par le toolkit sans Mode 1 (16 Mo au plus, voir /gg-put)
     const bool inJeux = p == "/gifs_jeux" || p.compare(0, 11, "/gifs_jeux/") == 0;
     if (write) return inJeux;
     const std::string lp = toLower(p);
@@ -914,7 +914,7 @@ void WebConfig::registerMediaRoutes() {
   };
   auto ggNameOk = [](const std::string &p) {  // fichier ecrit dans /gifs_jeux : un .gif, l'index ou la memoire du toolkit
     const std::string b = baseName(p);
-    return endsWithNoCase(b, ".gif") || b == "_index.dat" || b == "game_gifs_state.json";
+    return endsWithNoCase(b, ".gif") || b == "_index.dat" || b == "game_gifs_state.json" || b == "games.json";
   };
   auto ggDrop = [this] { eng_.runOnMain([this] { eng_.ggInvalidateIndex(); }); };
   auto ggPrune = [real](const std::string &sdFile) {  // supprime le sous-dossier de lettre devenu vide (jamais /gifs_jeux lui-meme)
@@ -962,6 +962,7 @@ void WebConfig::registerMediaRoutes() {
     const std::string p = r.arg("path");
     if (!ggPathOk(p, true) || !ggNameOk(p)) return text(400, "ERR: chemin refuse");
     if (r.body.size() > 32u * 1024u * 1024u) return text(413, "ERR: fichier trop gros");
+    if (p == "/custom/games.json" && (r.body.empty() || r.body.size() > 16u * 1024u * 1024u)) return text(413, "ERR: instantane vide ou trop gros");   // meme plafond que GET /games-snapshot
     ensureDir(p.substr(0, p.find_last_of('/')));
     const std::string path = real(p), tmp = path + ".tmp";
     {

@@ -10,6 +10,11 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-28 — Pi daemon 4.01 (alpha): the toolkit can send the Mode 1 snapshot over Wi-Fi
+
+- **`/custom/games.json` can now be written over Wi-Fi** (`/gg-put`, 16 MB at most, empty refused; no other new path). The toolkit 214115 uses it for its **"Rebuild snapshot"** button (game GIFs page): when the snapshot of the last Mode 1 is missing on the Pi, the toolkit rebuilds it from the Recalbox ROMs folder and sends it, without redoing Mode 1.
+- **Tested** on a Raspberry Pi 3B: write then read back identical, an unlisted path is refused, and the full button flow (snapshot deleted, rebuilt, sent, list reloaded). **Not tested**: the refusal of an empty file on the Pi; the stable channel daemon is unchanged.
+
 ## 2026-11-28 — Toolkit 214115 (alpha pre-release): game GIFs — rebuild the Mode 1 snapshot without redoing Mode 1
 
 - **Bug fixed (reported by a tester): "Mode 1 snapshot missing" in the game GIFs page, even after a fresh Mode 1.** When the Mode 6 copy to the card had failed files (or went through the resume), the game list (`custom/games.json`) was never written to the card. It is now written even if some files failed.
