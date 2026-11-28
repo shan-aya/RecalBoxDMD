@@ -10,6 +10,13 @@ This is a curated summary of the project's internal version history (185+ firmwa
 
 ---
 
+## 2026-11-28 — Toolkit 214115 (alpha pre-release): game GIFs — rebuild the Mode 1 snapshot without redoing Mode 1
+
+- **Bug fixed (reported by a tester): "Mode 1 snapshot missing" in the game GIFs page, even after a fresh Mode 1.** When the Mode 6 copy to the card had failed files (or went through the resume), the game list (`custom/games.json`) was never written to the card. It is now written even if some files failed.
+- **New "Rebuild snapshot" button** (game GIFs page): rebuilds the list from the `gamelist.xml` files of the Recalbox ROMs folder, **without redoing Mode 1**. The ROMs folder is always asked (or confirmed). It is written to the SD card, or sent over Wi-Fi to the Pi (Pi daemon 4.01 or later). It also starts **automatically, with an information message**, when the snapshot is missing. Text cards marked by a real Mode 1 cannot be recovered this way.
+- The game list view shows the date of the last Mode 1 in the "All" view, and the page buttons now follow the theme.
+- Build number: 214115. Not tested: card with text cards marked by a real Mode 1; the stable channel is unchanged.
+
 ## 2026-11-25 — Toolkit 213115 (alpha pre-release): Alpha tests window, slow sending made clear
 
 - **"Alpha tests" window (alpha toolkit only): when sending is slow, it is now obvious.** While a result is being sent the Send and Withdraw buttons are greyed out, the test is marked ⏳, a timer shows "Sending… n s", and a second click on the same test is refused (no more double sends). If the sending fails, everything is released and the test stays to do.

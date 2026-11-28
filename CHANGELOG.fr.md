@@ -10,6 +10,13 @@ Ceci est un résumé sélectionné de l'historique interne des versions du proje
 
 ---
 
+## 2026-11-28 — Boîte à outils 214115 (pré-release alpha) : GIFs de jeu — recréer l'instantané du Mode 1 sans refaire de Mode 1
+
+- **Bug corrigé (signalé par un testeur) : « instantané du Mode 1 absent » dans la page GIFs de jeu, même après un Mode 1 refait.** Quand la copie du Mode 6 vers la carte avait des fichiers en échec (ou passait par la reprise), la liste des jeux (`custom/games.json`) n'était jamais écrite sur la carte. Elle l'est maintenant même si des fichiers ont échoué.
+- **Nouveau bouton « Recréer l'instantané »** (page GIFs de jeu) : reconstruit la liste à partir des `gamelist.xml` du dossier ROMs de la Recalbox, **sans refaire de Mode 1**. Le dossier ROMs est toujours demandé (ou confirmé). Il est écrit sur la carte SD, ou envoyé au Pi en Wi-Fi (démon Pi 4.01 ou plus). Il se lance aussi **automatiquement, avec un message d'information**, quand l'instantané est absent. Les cartes texte marquées par un vrai Mode 1 ne peuvent pas être retrouvées ainsi.
+- La vue « Tous » affiche la date du dernier Mode 1, et les boutons de la page suivent maintenant le thème.
+- Numéro de build : 214115. Non testé : carte avec des cartes texte marquées par un vrai Mode 1 ; le canal stable est inchangé.
+
 ## 2026-11-25 — Boîte à outils 213115 (pré-release alpha) : fenêtre Tests alpha, envoi lent rendu clair
 
 - **Fenêtre « Tests alpha » (toolkit alpha seulement) : quand l'envoi est lent, c'est maintenant clair.** Pendant l'envoi d'un résultat, les boutons Envoyer et Annuler sont grisés, le test est marqué ⏳, un chrono affiche « Envoi en cours… n s » et un second clic sur le même test est refusé (plus de double envoi). Si l'envoi échoue, tout est libéré et le test reste à faire.

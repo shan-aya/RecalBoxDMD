@@ -10,6 +10,13 @@ Este es un resumen seleccionado del historial interno de versiones del proyecto 
 
 ---
 
+## 2026-11-28 — Caja de herramientas 214115 (pre-release alfa): GIFs de juego — recrear la instantánea del Modo 1 sin repetir el Modo 1
+
+- **Error corregido (avisado por un tester): «instantánea del Modo 1 ausente» en la página de GIFs de juego, incluso tras repetir el Modo 1.** Cuando la copia del Modo 6 a la tarjeta tenía archivos fallidos (o pasaba por la reanudación), la lista de juegos (`custom/games.json`) nunca se escribía en la tarjeta. Ahora se escribe aunque algunos archivos hayan fallado.
+- **Nuevo botón «Recrear la instantánea»** (página de GIFs de juego): reconstruye la lista a partir de los `gamelist.xml` de la carpeta ROMs de Recalbox, **sin repetir el Modo 1**. La carpeta ROMs siempre se pide (o se confirma). Se escribe en la tarjeta SD o se envía por Wi-Fi a la Pi (demonio Pi 4.01 o posterior). También se inicia **automáticamente, con un mensaje informativo**, cuando falta la instantánea. Las tarjetas de texto marcadas por un Modo 1 real no se pueden recuperar así.
+- La vista «Todos» muestra la fecha del último Modo 1 y los botones de la página ahora siguen el tema.
+- Número de versión: 214115. No probado: tarjeta con tarjetas de texto marcadas por un Modo 1 real; el canal estable no cambia.
+
 ## 2026-11-25 — Caja de herramientas 213115 (pre-release alfa): ventana Pruebas alfa, envío lento más claro
 
 - **Ventana «Pruebas alfa» (solo el toolkit alfa): cuando el envío es lento, ahora se ve claramente.** Mientras se envía un resultado, los botones Enviar y Anular están desactivados, la prueba se marca con ⏳, un cronómetro muestra «Enviando… n s» y se rechaza un segundo clic en la misma prueba (sin dobles envíos). Si el envío falla, todo se libera y la prueba sigue pendiente.
