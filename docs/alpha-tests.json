@@ -2,8 +2,8 @@
  "_doc": "Plan de tests alpha (source : bot Discord, alpha_tests.py). Lu par le toolkit alpha : fenetre « Tests alpha ».",
  "targets": {
   "esp32": "4.36",
-  "pi": "4.00",
-  "toolkit": "213115",
+  "pi": "4.01",
+  "toolkit": "214115",
   "channel": "alpha"
  },
  "tests": [
